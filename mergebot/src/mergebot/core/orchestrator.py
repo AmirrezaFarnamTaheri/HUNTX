@@ -31,9 +31,12 @@ class Orchestrator:
         self.registry = FormatRegistry.get_instance()
         register_all_formats(self.registry, self.raw_store)
 
+        # Map source configs for TransformPipeline
+        source_configs = {s.id: s for s in self.config.sources}
+
         # Init Pipelines
         self.ingest_pipeline = IngestionPipeline(self.raw_store, self.repo)
-        self.transform_pipeline = TransformPipeline(self.raw_store, self.repo, self.registry)
+        self.transform_pipeline = TransformPipeline(self.raw_store, self.repo, self.registry, source_configs)
         self.build_pipeline = BuildPipeline(self.repo, self.artifact_store, self.registry)
         self.publish_pipeline = PublishPipeline(self.repo)
 
@@ -62,14 +65,11 @@ class Orchestrator:
         # 3. Build & Publish
         for route in self.config.routes:
             try:
-                # Need convert PublishRoute to dict expected by BuildPipeline
-                # Actually BuildPipeline expects a simple dict?
-                # Let's adjust BuildPipeline or pass the object.
-                # BuildPipeline plan said "Dict[str, Any]".
-                # I'll pass a dict.
+                # Pass from_sources to BuildPipeline
                 route_dict = {
                     "name": route.name,
-                    "formats": route.formats
+                    "formats": route.formats,
+                    "from_sources": route.from_sources
                 }
 
                 result = self.build_pipeline.run(route_dict)
@@ -78,6 +78,7 @@ class Orchestrator:
                     dests = [
                         {
                             "chat_id": d.chat_id,
+                            "mode": d.mode,
                             "caption_template": d.caption_template,
                             "token": d.token
                         }

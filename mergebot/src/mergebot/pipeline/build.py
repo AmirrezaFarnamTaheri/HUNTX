@@ -18,15 +18,14 @@ class BuildPipeline:
         """
         route_name = route_config["name"]
         formats = route_config["formats"] # e.g. ["npvt"]
+        allowed_source_ids = route_config.get("from_sources", [])
 
         # 1. Fetch records
-        records = self.state_repo.get_all_records(formats)
+        records = self.state_repo.get_records_for_build(formats, allowed_source_ids)
         if not records:
             return None
 
         # 2. Build using the PRIMARY format handler
-        # Usually a route has one main format type or compatible types.
-        # We use the handler of the first format to build.
         primary_fmt = formats[0]
         handler = self.registry.get(primary_fmt)
 

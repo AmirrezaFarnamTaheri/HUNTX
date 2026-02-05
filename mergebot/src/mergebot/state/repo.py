@@ -54,6 +54,13 @@ class StateRepo:
                 (status, error_msg, raw_hash)
             )
 
+    def get_pending_files(self) -> List[Dict[str, Any]]:
+        with self.db.connect() as conn:
+            cursor = conn.execute(
+                "SELECT id, source_id, external_id, raw_hash, filename FROM seen_files WHERE status = 'pending'"
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
     def add_record(self, raw_hash: str, record_type: str, unique_hash: str, data: Dict[str, Any]):
         with self.db.connect() as conn:
             conn.execute(
@@ -64,17 +71,28 @@ class StateRepo:
                 (raw_hash, record_type, unique_hash, json.dumps(data))
             )
 
-    def get_all_records(self, record_types: List[str]) -> List[Dict[str, Any]]:
-        placeholders = ",".join("?" for _ in record_types)
+    def get_records_for_build(self, record_types: List[str], allowed_source_ids: List[str]) -> List[Dict[str, Any]]:
+        if not record_types or not allowed_source_ids:
+            return []
+
+        placeholders_types = ",".join("?" for _ in record_types)
+        placeholders_sources = ",".join("?" for _ in allowed_source_ids)
+
+        query = f"""
+            SELECT r.data_json
+            FROM records r
+            JOIN seen_files s ON r.source_file_hash = s.raw_hash
+            WHERE r.record_type IN ({placeholders_types})
+              AND s.source_id IN ({placeholders_sources})
+              AND r.is_active = 1
+            GROUP BY r.unique_hash
+            ORDER BY r.created_at ASC
+        """
+
+        args = record_types + allowed_source_ids
+
         with self.db.connect() as conn:
-            cursor = conn.execute(
-                f"""
-                SELECT data_json FROM records
-                WHERE record_type IN ({placeholders}) AND is_active = 1
-                ORDER BY created_at ASC
-                """,
-                record_types
-            )
+            cursor = conn.execute(query, args)
             return [json.loads(row["data_json"]) for row in cursor.fetchall()]
 
     def is_artifact_published(self, route_name: str, artifact_hash: str) -> bool:
