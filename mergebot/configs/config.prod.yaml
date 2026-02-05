@@ -1,0 +1,20 @@
+sources:
+  - id: demo_source
+    type: telegram
+    selector:
+      include_formats: ["npvt", "conf_lines"]
+    telegram:
+      token: "${TELEGRAM_TOKEN}"
+      # Replace with the ID of a channel your bot is Admin in
+      chat_id: "-1001234567890"
+
+publishing:
+  routes:
+    - name: demo_output
+      from_sources: ["demo_source"]
+      formats: ["npvt"]
+      destinations:
+        # Replace with where you want to post the result
+        - chat_id: "-1001234567890"
+          mode: post_on_change
+          caption_template: "Updated: {timestamp}\nSHA: {sha12}"

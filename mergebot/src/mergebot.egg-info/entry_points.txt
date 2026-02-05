@@ -1,0 +1,2 @@
+[console_scripts]
+mergebot = mergebot.cli.main:main

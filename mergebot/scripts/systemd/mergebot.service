@@ -1,0 +1,14 @@
+[Unit]
+Description=MergeBot Service
+After=network.target
+
+[Service]
+Type=simple
+User=mergebot
+WorkingDirectory=/opt/mergebot
+ExecStart=/opt/mergebot/.venv/bin/mergebot --config /opt/mergebot/configs/config.prod.yaml run
+Restart=always
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target
