@@ -12,4 +12,4 @@ def register_all_formats(registry: FormatRegistry, raw_store: RawStore):
     registry.register(OvpnHandler(raw_store))
     registry.register(Npv4Handler(raw_store))
     # Register generic opaque bundle for unknowns if needed
-    registry.register(OpaqueBundleHandler(raw_store, "opaque"))
+    registry.register(OpaqueBundleHandler(raw_store, "opaque_bundle"))

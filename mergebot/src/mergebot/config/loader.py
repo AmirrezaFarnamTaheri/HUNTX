@@ -13,37 +13,47 @@ def load_config(path: Path) -> AppConfig:
 
     # Parse sources
     sources = []
-    for s in data.get("sources", []):
+    for i, s in enumerate(data.get("sources", [])):
         tg_conf = None
-        if s.get("telegram"):
-            tg_conf = TelegramSourceConfig(
-                token=s["telegram"]["token"],
-                chat_id=s["telegram"]["chat_id"]
-            )
+        telegram_data = s.get("telegram")
+        if telegram_data:
+            tg_token = telegram_data.get("token")
+            tg_chat_id = telegram_data.get("chat_id")
+            if not tg_token or not tg_chat_id:
+                raise ValueError(f"Source at index {i} is of type 'telegram' but is missing 'token' or 'chat_id'.")
+            tg_conf = TelegramSourceConfig(token=tg_token, chat_id=tg_chat_id)
+
+        source_id = s.get("id")
+        source_type = s.get("type")
+        selector_data = s.get("selector", {})
+        include_formats = selector_data.get("include_formats")
+
+        if not all([source_id, source_type, include_formats is not None]):
+            raise ValueError(f"Source at index {i} is missing required fields: 'id', 'type', or 'selector.include_formats'.")
 
         sources.append(SourceConfig(
-            id=s["id"],
-            type=s["type"],
-            selector=SourceSelector(include_formats=s["selector"]["include_formats"]),
+            id=source_id,
+            type=source_type,
+            selector=SourceSelector(include_formats=include_formats),
             telegram=tg_conf
         ))
 
     # Parse routes
     routes = []
-    for r in data.get("publishing", {}).get("routes", []):
+    for i, r in enumerate(data.get("publishing", {}).get("routes", [])):
         dests = []
         for d in r.get("destinations", []):
             dests.append(DestinationConfig(
-                chat_id=d["chat_id"],
-                mode=d["mode"],
+                chat_id=d.get("chat_id"),
+                mode=d.get("mode"),
                 caption_template=d.get("caption_template", ""),
                 token=d.get("token")
             ))
 
         routes.append(PublishRoute(
-            name=r["name"],
-            from_sources=r["from_sources"],
-            formats=r["formats"],
+            name=r.get("name"),
+            from_sources=r.get("from_sources", []),
+            formats=r.get("formats", []),
             destinations=dests
         ))
 

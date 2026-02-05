@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-User=root
+User=mergebot
 WorkingDirectory=/opt/mergebot
 ExecStart=/opt/mergebot/.venv/bin/mergebot --config /opt/mergebot/configs/config.prod.yaml run
 Restart=always
