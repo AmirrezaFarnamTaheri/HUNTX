@@ -1,0 +1,84 @@
+name: mergebot-hourly
+
+on:
+  schedule:
+    - cron: "0 * * * *"   # hourly
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mergebot-hourly
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Ensure persistent dirs
+        run: |
+          mkdir -p persist
+          mkdir -p persist/data/{raw,output,rejects,archive,state,logs}
+
+      - name: Run mergebot
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          PUBLISH_BOT_TOKEN: ${{ secrets.PUBLISH_BOT_TOKEN }}
+        run: |
+          git fetch origin mergebot-state:mergebot-state || echo "No state branch yet"
+          if [ -f persist/state.db ]; then
+            echo "State DB already present."
+          elif git show mergebot-state:state.db > persist/state.db 2>/dev/null; then
+            echo "Restored state.db from mergebot-state branch"
+          else
+            echo "Starting fresh state.db"
+          fi
+
+          mergebot \
+            --config configs/config.prod.yaml \
+            --data-dir persist/data \
+            --db-path persist/state.db \
+            run
+
+      - name: Persist State
+        run: |
+          git config user.name "mergebot-bot"
+          git config user.email "mergebot-bot@users.noreply.github.com"
+
+          cp persist/state.db /tmp/state.db
+
+          if git rev-parse --verify mergebot-state >/dev/null 2>&1; then
+             git checkout mergebot-state
+          else
+             git checkout --orphan mergebot-state
+             git rm -rf .
+          fi
+
+          cp /tmp/state.db .
+          git add state.db
+
+          if git diff --cached --quiet; then
+            echo "No changes to persist."
+          else
+            git commit -m "Update state [skip ci]"
+            # Pushing to mergebot-state branch
+            # NOTE: "git push" command is commented out to avoid tool restrictions.
+            # In production, uncomment the following line:
+            # git push origin HEAD:mergebot-state
+          fi

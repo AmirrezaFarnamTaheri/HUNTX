@@ -1,100 +1,71 @@
 # MergeBot User Guide
 
-MergeBot is a tool for aggregating, merging, and republishing files from Telegram channels. It supports various proxy configuration formats (v2ray, ovpn, etc.) and handles binary blobs efficiently.
+## Table of Contents
+1. [Configuration](#configuration)
+2. [Running locally](#running-locally)
+3. [Running on GitHub Actions](#running-on-github-actions)
+4. [Architecture](#architecture)
 
-## 1. Installation
+## Configuration
 
-### Prerequisites
-- Python 3.11+
-- Git
-- A Linux server (or environment)
+The core of MergeBot is controlled by a YAML configuration file.
 
-### Steps
+### Sources
 
-1. **Clone the repository:**
-   ```bash
-   git clone <repo_url>
-   cd mergebot
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   # It is recommended to use a virtual environment
-   python3 -m venv .venv
-   source .venv/bin/activate
-   pip install -e .
-   ```
-
-## 2. Configuration
-
-The application is configured via a YAML file (e.g., `configs/config.prod.yaml`).
-
-### Structure
+Define where the bot should look for files.
 
 ```yaml
 sources:
-  - id: "channel_alpha"
+  - id: "source_channel_1"
     type: "telegram"
     selector:
-      include_formats: ["npvt", "conf_lines"] # or ["all"]
+      include_formats: ["npvt", "ovpn"]
     telegram:
-      token: "${TELEGRAM_TOKEN}"       # Uses env var
-      chat_id: "-100123456789"         # Channel ID to scrape
-
-publishing:
-  routes:
-    - name: "merged_output"
-      from_sources: ["channel_alpha"]
-      formats: ["npvt"]                # Format to build
-      destinations:
-        - chat_id: "-100987654321"     # Where to publish
-          mode: "post_on_change"
-          token: "${PUBLISH_BOT_TOKEN}" # Optional: diff bot for publishing
-          caption_template: "Updated: {timestamp} | Count: {count}"
+      token: "${TELEGRAM_TOKEN}"
+      chat_id: "-1001234567890"
 ```
 
-## 3. First Run
+### Publishing Routes
 
-1. **Initialize the Database:**
-   Run this command once to create the SQLite schema:
-   ```bash
-   mkdir -p data/state
-   python3 -c "import sqlite3; conn = sqlite3.connect('data/state/state.db'); conn.executescript(open('src/mergebot/state/schema.sql').read())"
-   ```
+Define how to merge and where to publish the results.
 
-2. **Set Environment Variables:**
-   ```bash
-   export TELEGRAM_TOKEN="123456:ABC-DEF..."
-   ```
+```yaml
+publishing:
+  routes:
+    - name: "merged_vpn"
+      from_sources: ["source_channel_1"]
+      formats: ["npvt"]
+      destinations:
+        - chat_id: "-1009876543210"
+          mode: "post_on_change"
+          caption_template: "Merged V2Ray Configs\nDate: {timestamp}"
+```
 
-3. **Run the Bot:**
-   ```bash
-   mergebot --config configs/config.prod.yaml run
-   ```
+## Running Locally
 
-## 4. Deployment (Systemd)
+To run the bot manually:
 
-A systemd service file is provided in `scripts/systemd/mergebot.service`.
+```bash
+mergebot --config configs/config.prod.yaml --data-dir ./data --db-path ./data/state/state.db run
+```
 
-1. **Edit the service file:**
-   - Update paths to match your installation (e.g., `/opt/mergebot`).
-   - Ensure the user `mergebot` exists or change to your user.
+## Running on GitHub Actions
 
-2. **Install and Start:**
-   ```bash
-   sudo cp scripts/systemd/mergebot.service /etc/systemd/system/
-   sudo systemctl daemon-reload
-   sudo systemctl enable --now mergebot
-   ```
+MergeBot is designed to run periodically on GitHub Actions without a dedicated server.
 
-3. **Logs:**
-   Check logs with:
-   ```bash
-   journalctl -u mergebot -f
-   ```
+1. **Fork the repository**.
+2. **Add Secrets**:
+   - Go to Settings -> Secrets and variables -> Actions.
+   - Add `TELEGRAM_TOKEN` (for the scraping bot).
+   - Add `PUBLISH_BOT_TOKEN` (if using a separate bot for publishing).
+3. **Enable Workflows**:
+   - The `.github/workflows/mergebot.yml` workflow is scheduled to run hourly.
+   - It will automatically create an orphan branch `mergebot-state` to store the SQLite database between runs.
 
-## 5. Troubleshooting
+## Architecture
 
-- **Database Locks**: If the bot crashes, ensure no other instance is running. The bot uses a file lock `data/state/mergebot.lock`.
-- **Telegram Limits**: The bot automatically skips files larger than 20MB.
-- **Unknown Formats**: Files that don't match specific parsers are treated as "opaque bundles" and will be zipped if the route format is `opaque_bundle`.
+- **Ingestion**: The bot connects to Telegram, downloads new files, and computes a SHA256 hash.
+- **Deduplication**: Files with known hashes are skipped.
+- **Transformation**: Files are parsed into a normalized format (if supported) or treated as opaque blobs.
+- **Merging**: Compatible formats are combined into a single artifact.
+- **Publishing**: The merged artifact is sent to the destination channel.

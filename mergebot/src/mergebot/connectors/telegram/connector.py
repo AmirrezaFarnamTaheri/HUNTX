@@ -2,6 +2,7 @@ import json
 import logging
 import urllib.request
 import urllib.error
+import time
 from typing import Iterator, Dict, Any, Optional
 from ...connectors.base import SourceConnector, SourceItem
 from dataclasses import dataclass
@@ -50,63 +51,74 @@ class TelegramConnector(SourceConnector):
         if state and "offset" in state:
             self.offset = state["offset"]
 
-        # Fetch updates
-        resp = self._make_request("getUpdates", {
-            "offset": self.offset + 1,
-            "timeout": 10,
-            "allowed_updates": ["channel_post", "message"]
-        })
+        has_more = True
 
-        if not resp.get("ok"):
-            return
+        while has_more:
+            # Fetch updates
+            resp = self._make_request("getUpdates", {
+                "offset": self.offset + 1,
+                "timeout": 2, # Short timeout for loop
+                "limit": 100,
+                "allowed_updates": ["channel_post", "message"]
+            })
 
-        updates = resp.get("result", [])
-        for update in updates:
-            update_id = update["update_id"]
-            self.offset = max(self.offset, update_id)
+            if not resp.get("ok"):
+                break
 
-            # Extract message
-            msg = update.get("channel_post") or update.get("message")
-            if not msg:
-                continue
+            updates = resp.get("result", [])
+            if not updates:
+                has_more = False
+                break
 
-            # Check chat_id
-            if str(msg.get("chat", {}).get("id")) != self.target_chat_id:
-                continue
+            for update in updates:
+                update_id = update["update_id"]
+                self.offset = max(self.offset, update_id)
 
-            # Check for document
-            doc = msg.get("document")
-            if not doc:
-                continue
+                # Extract message
+                msg = update.get("channel_post") or update.get("message")
+                if not msg:
+                    continue
 
-            # Check file size (20MB limit)
-            file_size = doc.get("file_size", 0)
-            if file_size > 20 * 1024 * 1024:
-                logger.warning(f"Skipping file {doc.get('file_name')} (Size: {file_size})")
-                continue
+                # Check chat_id
+                if str(msg.get("chat", {}).get("id")) != self.target_chat_id:
+                    continue
 
-            file_id = doc.get("file_id")
-            file_name = doc.get("file_name", "unknown")
+                # Check for document
+                doc = msg.get("document")
+                if not doc:
+                    continue
 
-            # Get File info
-            file_info_resp = self._make_request("getFile", {"file_id": file_id})
-            if not file_info_resp.get("ok"):
-                continue
+                # Check file size (20MB limit)
+                file_size = doc.get("file_size", 0)
+                if file_size > 20 * 1024 * 1024:
+                    logger.warning(f"Skipping file {doc.get('file_name')} (Size: {file_size})")
+                    continue
 
-            file_path = file_info_resp["result"]["file_path"]
+                file_id = doc.get("file_id")
+                file_name = doc.get("file_name", "unknown")
 
-            # Download
-            data = self._download_file(file_path)
-            if data:
-                yield TelegramItem(
-                    external_id=str(msg["message_id"]),
-                    data=data,
-                    metadata={
-                        "filename": file_name,
-                        "file_id": file_id,
-                        "timestamp": msg.get("date")
-                    }
-                )
+                # Get File info
+                file_info_resp = self._make_request("getFile", {"file_id": file_id})
+                if not file_info_resp.get("ok"):
+                    continue
+
+                file_path = file_info_resp["result"]["file_path"]
+
+                # Download
+                data = self._download_file(file_path)
+                if data:
+                    yield TelegramItem(
+                        external_id=str(msg["message_id"]),
+                        data=data,
+                        metadata={
+                            "filename": file_name,
+                            "file_id": file_id,
+                            "timestamp": msg.get("date")
+                        }
+                    )
+
+            # small sleep to be nice to API
+            time.sleep(0.5)
 
     def get_state(self) -> Dict[str, Any]:
         return {"offset": self.offset}

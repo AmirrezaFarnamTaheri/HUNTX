@@ -1,53 +1,56 @@
 # MergeBot
 
-Incremental multi-format file merger and Telegram publisher.
+MergeBot is a lightweight, zero-budget, incremental file merger and publisher for Telegram. It aggregates configuration files (like V2Ray, OpenVPN) from multiple Telegram channels, deduplicates them, merges them into unified subscriptions, and republishes them.
 
-## Features
+## Key Features
 
-- **Ingest**: Fetches files from Telegram channels.
-- **Transform**: Normalizes text configurations or handles binary blobs (ZIP bundling).
-- **Build**: Merges unique records, deduplicating by content across sources.
-- **Publish**: Sends updates to Telegram only when content changes (Atomic Publishing).
-- **Robustness**:
-  - Uses SHA256 content addressing.
-  - SQLite state management.
-  - Handles Telegram file size limits (20MB).
+- **Multi-Source Ingestion**: Scrapes files from Telegram channels.
+- **Incremental Processing**: Only processes new files since the last run.
+- **Format Support**:
+  - `npvt` (V2Ray/VLESS)
+  - `ovpn` (OpenVPN)
+  - `conf_lines` (Generic line-based configs)
+  - `opaque_bundle` (Zipped binary blobs)
+- **Zero-Budget Architecture**: Designed to run on ephemeral GitHub Actions runners with state persistence committed to a git branch.
+- **Privacy Focused**: No external databases required; state is kept in a local SQLite file.
 
-## Installation
+## Quick Start
+
+### 1. Installation
 
 ```bash
+git clone https://github.com/your-username/mergebot.git
 cd mergebot
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -e .
 ```
 
-## Configuration
+### 2. Configuration
 
-Edit `configs/config.prod.yaml` or create your own.
+Copy the example config and edit it:
 
-Key sections:
-- **sources**: Define Telegram channels to scrape.
-  - `include_formats`: Whitelist formats (e.g. `["npvt", "conf_lines"]` or `["all"]`).
-- **publishing**: Define output routes.
-  - `from_sources`: Which sources to aggregate.
-  - `destinations`: Where to post the result.
+```bash
+cp configs/config.prod.yaml my_config.yaml
+```
 
-## Usage
+Set your environment variables:
 
-1. **Initialize the Database** (Run once):
-   ```bash
-   mkdir -p data/state
-   python3 -c "import sqlite3; conn = sqlite3.connect('data/state/state.db'); conn.executescript(open('src/mergebot/state/schema.sql').read())"
-   ```
+```bash
+export TELEGRAM_TOKEN="your-bot-token"
+```
 
-2. **Run the Bot**:
-   ```bash
-   export TELEGRAM_TOKEN="your_token_here"
-   mergebot --config configs/config.prod.yaml run
-   ```
+### 3. Run
 
-## Architecture
+```bash
+mergebot --config my_config.yaml run
+```
 
-- **RawStore**: Stores original files by SHA256.
-- **StateRepo**: Tracks ingestion status and parsed records in SQLite.
-- **ArtifactStore**: Stores built outputs.
-- **Pipeline**: Ingest -> Transform -> Build -> Publish.
+## Documentation
+
+- [User Guide](docs/USER_GUIDE.md): Detailed configuration and usage instructions.
+- [Development Guide](DEVELOPMENT.md): How to contribute to the project.
+
+## License
+
+MIT
