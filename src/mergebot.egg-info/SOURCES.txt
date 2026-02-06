@@ -39,3 +39,13 @@ src/mergebot/store/artifact_store.py
 src/mergebot/store/paths.py
 src/mergebot/store/raw_store.py
 src/mergebot/store/rejects.py
+tests/test_build_pipeline.py
+tests/test_config_loader.py
+tests/test_format_registry.py
+tests/test_ingest_pipeline.py
+tests/test_publish_pipeline.py
+tests/test_state_repo.py
+tests/test_stores.py
+tests/test_telegram_concurrency.py
+tests/test_telegram_connector.py
+tests/test_transform_pipeline.py
