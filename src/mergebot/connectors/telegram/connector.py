@@ -9,6 +9,10 @@ from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
+# Constants for retries
+MAX_RETRIES = 3
+BACKOFF_FACTOR = 1
+
 @dataclass
 class TelegramItem:
     external_id: str
@@ -31,21 +35,36 @@ class TelegramConnector(SourceConnector):
         else:
             req = urllib.request.Request(url)
 
-        try:
-            with urllib.request.urlopen(req, timeout=30) as response:
-                return json.loads(response.read().decode("utf-8"))
-        except urllib.error.URLError as e:
-            logger.error(f"Telegram API error: {e}")
-            return {"ok": False}
+        for attempt in range(MAX_RETRIES + 1):
+            try:
+                with urllib.request.urlopen(req, timeout=30) as response:
+                    return json.loads(response.read().decode("utf-8"))
+            except urllib.error.URLError as e:
+                if attempt < MAX_RETRIES:
+                    sleep_time = BACKOFF_FACTOR * (2 ** attempt)
+                    logger.warning(f"Telegram API error (attempt {attempt + 1}/{MAX_RETRIES + 1}): {e}. Retrying in {sleep_time}s...")
+                    time.sleep(sleep_time)
+                else:
+                    logger.error(f"Telegram API error (final attempt): {e}")
+                    return {"ok": False}
+        return {"ok": False}
 
     def _download_file(self, file_path: str) -> Optional[bytes]:
         url = f"https://api.telegram.org/file/bot{self.token}/{file_path}"
-        try:
-            with urllib.request.urlopen(url, timeout=60) as response:
-                return response.read()
-        except Exception as e:
-            logger.error(f"Download failed: {e}")
-            return None
+
+        for attempt in range(MAX_RETRIES + 1):
+            try:
+                with urllib.request.urlopen(url, timeout=60) as response:
+                    return response.read()
+            except Exception as e:
+                if attempt < MAX_RETRIES:
+                    sleep_time = BACKOFF_FACTOR * (2 ** attempt)
+                    logger.warning(f"Download failed (attempt {attempt + 1}/{MAX_RETRIES + 1}): {e}. Retrying in {sleep_time}s...")
+                    time.sleep(sleep_time)
+                else:
+                    logger.error(f"Download failed (final attempt): {e}")
+                    return None
+        return None
 
     def list_new(self, state: Optional[Dict[str, Any]] = None) -> Iterator[SourceItem]:
         # Update offset if provided
