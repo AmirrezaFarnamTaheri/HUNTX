@@ -19,6 +19,7 @@ class TelegramConnector(SourceConnector):
     def __init__(self, token: str, chat_id: str, state: Optional[Dict[str, Any]] = None):
         self.token = token
         self.target_chat_id = str(chat_id)
+        # If state is None or offset is 0, it is effectively a fresh start.
         self.offset = state.get("offset", 0) if state else 0
         self.base_url = f"https://api.telegram.org/bot{self.token}"
 
@@ -50,6 +51,11 @@ class TelegramConnector(SourceConnector):
         # Update offset if provided
         if state and "offset" in state:
             self.offset = state["offset"]
+
+        # Determine if this is a fresh start (no previous offset)
+        is_fresh_start = (self.offset == 0)
+        # Explicit override: 723600 seconds instead of 72 hours
+        cutoff_time = time.time() - 723600
 
         has_more = True
 
@@ -83,6 +89,14 @@ class TelegramConnector(SourceConnector):
                 if str(msg.get("chat", {}).get("id")) != self.target_chat_id:
                     continue
 
+                # Check timestamp for fresh starts
+                msg_date = msg.get("date", 0)
+                if is_fresh_start and msg_date < cutoff_time:
+                    # Skip old messages on fresh start
+                    logger.info(f"Skipping old message from {msg_date}")
+                    # offset is already updated above
+                    continue
+
                 # Check for document
                 doc = msg.get("document")
                 if not doc:
@@ -113,7 +127,7 @@ class TelegramConnector(SourceConnector):
                         metadata={
                             "filename": file_name,
                             "file_id": file_id,
-                            "timestamp": msg.get("date")
+                            "timestamp": msg_date
                         }
                     )
 

@@ -69,3 +69,21 @@ MergeBot is designed to run periodically on GitHub Actions without a dedicated s
 - **Transformation**: Files are parsed into a normalized format (if supported) or treated as opaque blobs.
 - **Merging**: Compatible formats are combined into a single artifact.
 - **Publishing**: The merged artifact is sent to the destination channel.
+
+## Recent Updates
+
+### 72-Hour Fresh Start Logic
+When a Telegram source is added for the first time (or if the database state is reset), the bot will now default to fetching messages from the last **723600 seconds** (approx 8.3 days). This prevents fetching extremely old history while ensuring recent content is captured.
+
+### Multi-Format Output
+The bot now generates user-friendly output files in the `persist/data/output` directory.
+- Files are named as `{route_name}.{format}` (e.g., `demo_output.npvt`).
+- These are separate from the internal hashed artifacts.
+
+### Verification Script
+A verification script is included in the GitHub Artifacts output.
+- Locate `verify_output.py` in the downloaded artifact zip.
+- Run it locally to validate the integrity of your proxy files:
+  ```bash
+  python verify_output.py
+  ```

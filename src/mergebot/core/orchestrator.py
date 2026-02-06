@@ -72,8 +72,10 @@ class Orchestrator:
                     "from_sources": route.from_sources
                 }
 
-                result = self.build_pipeline.run(route_dict)
-                if result:
+                # Build returns a list of results (one per format)
+                results = self.build_pipeline.run(route_dict)
+
+                if results:
                     # Convert destination objects to dicts
                     dests = [
                         {
@@ -84,7 +86,11 @@ class Orchestrator:
                         }
                         for d in route.destinations
                     ]
-                    self.publish_pipeline.run(result, dests)
+
+                    # Publish each result
+                    for res in results:
+                        self.publish_pipeline.run(res, dests)
+
             except Exception:
                 logger.exception(f"Build/Publish failed for {route.name}")
 

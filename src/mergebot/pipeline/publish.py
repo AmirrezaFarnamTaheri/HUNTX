@@ -1,5 +1,6 @@
 import logging
 import datetime
+import os
 from typing import Dict, Any, List
 from ..state.repo import StateRepo
 from ..publishers.telegram.publisher import TelegramPublisher
@@ -14,36 +15,16 @@ class PublishPipeline:
     def run(self, build_result: Dict[str, Any], destinations: List[Dict[str, Any]]):
         route_name = build_result["route_name"]
         new_hash = build_result["artifact_hash"]
+        fmt = build_result.get("format", "unknown")
+        unique_id = build_result.get("unique_id", route_name)
 
-        # Check if changed
-        last_hash = self.state_repo.get_last_published_hash(route_name)
+        # Check if changed using unique_id (route + format)
+        last_hash = self.state_repo.get_last_published_hash(unique_id)
         if last_hash == new_hash:
-            logger.info(f"No change for {route_name}, skipping publish.")
+            logger.info(f"No change for {unique_id}, skipping publish.")
             return
 
-        # Publish to all destinations
-        # We need tokens. Assuming destination config has 'token' or we use global?
-        # The prompt config structure:
-        # destinations:
-        #   - chat_id: "..."
-        #     mode: post_on_change
-        #     caption_template: ...
-        # But where is the token?
-        # The source config has token.
-        # Usually publishers need a token.
-        # PROPOSAL: Add 'token' to destination config OR use env var.
-        # The PROMPT config example doesn't show token in destination.
-        # But it shows "sources ... telegram ... token".
-        # Maybe we reuse the source token? Or we need a default bot token?
-        # I'll assume we can pass a token in destination OR use a default one from env.
-        # Let's check config.prod.yaml again.
-        # It doesn't show token in publishing.
-        # I will assume there is a global or per-destination token.
-        # I will use os.getenv("TELEGRAM_TOKEN") as fallback.
-
-        import os
         default_token = os.getenv("TELEGRAM_TOKEN")
-
         published_any = False
 
         for dest in destinations:
@@ -64,22 +45,28 @@ class PublishPipeline:
             caption = template.format(
                 timestamp=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 sha12=new_hash[:12],
-                count=build_result.get("count", "?")
+                count=build_result.get("count", "?"),
+                format=fmt
             )
 
-            # Filename
-            # Heuristic extension
+            # Filename extension logic
             ext = ".txt"
-            # Try to guess from route formats?
-            # If route name implies extension...
-            filename = f"{route_name}_{new_hash[:8]}{ext}"
+            if fmt in ["ovpn"]:
+                ext = ".ovpn"
+            elif fmt in ["opaque_bundle"]:
+                ext = ".zip"
+            elif fmt in ["conf_lines"]:
+                ext = ".conf"
+
+            # Filename
+            filename = f"{route_name}_{fmt}_{new_hash[:8]}{ext}"
 
             try:
                 pub.publish(chat_id, build_result["data"], filename, caption)
                 published_any = True
-            except Exception:
-                logger.error(f"Failed to publish to {chat_id}")
+            except Exception as e:
+                logger.error(f"Failed to publish to {chat_id}: {e}")
 
         if published_any:
-            self.state_repo.mark_published(route_name, new_hash)
-            logger.info(f"Published {route_name} ({new_hash})")
+            self.state_repo.mark_published(unique_id, new_hash)
+            logger.info(f"Published {unique_id} ({new_hash})")
