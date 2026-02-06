@@ -38,7 +38,7 @@ jobs:
 
       - name: Run mergebot
         env:
-          TELEGRAM_TOKEN: ${{ secrets.Gatherex_API }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           PUBLISH_BOT_TOKEN: ${{ secrets.PUBLISH_BOT_TOKEN }}
         run: |
           git fetch origin mergebot-state:mergebot-state || echo "No state branch yet"
@@ -55,6 +55,18 @@ jobs:
             --data-dir persist/data \
             --db-path persist/state.db \
             run
+
+      - name: Verify & Prepare Artifacts
+        run: python scripts/verify_output.py
+        env:
+            MERGEBOT_DATA_DIR: persist/data
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+            name: mergebot-output
+            path: persist/data/dist/
+            retention-days: 5
 
       - name: Persist State
         run: |

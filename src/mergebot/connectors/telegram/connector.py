@@ -20,6 +20,7 @@ class TelegramConnector(SourceConnector):
         self.token = token
         self.target_chat_id = str(chat_id)
         self.offset = state.get("offset", 0) if state else 0
+        self.initialized = state.get("initialized", False) if state else False
         self.base_url = f"https://api.telegram.org/bot{self.token}"
 
     def _make_request(self, method: str, params: Dict[str, Any] = {}) -> Dict[str, Any]:
@@ -48,6 +49,10 @@ class TelegramConnector(SourceConnector):
 
     def list_new(self, state: Optional[Dict[str, Any]] = None) -> Iterator[SourceItem]:
         # Update offset if provided
+        if state and "initialized" in state:
+            self.initialized = state["initialized"]
+
+        cutoff_time = time.time() - (72 * 3600)
         if state and "offset" in state:
             self.offset = state["offset"]
 
@@ -79,6 +84,13 @@ class TelegramConnector(SourceConnector):
                 if not msg:
                     continue
 
+
+                # Check 72-hour rule for fresh sources
+                if not self.initialized:
+                    msg_date = msg.get("date", 0)
+                    if msg_date < cutoff_time:
+                        continue
+                    self.initialized = True
                 # Check chat_id
                 if str(msg.get("chat", {}).get("id")) != self.target_chat_id:
                     continue
@@ -121,4 +133,4 @@ class TelegramConnector(SourceConnector):
             time.sleep(0.5)
 
     def get_state(self) -> Dict[str, Any]:
-        return {"offset": self.offset}
+        return {"offset": self.offset, "initialized": self.initialized}
