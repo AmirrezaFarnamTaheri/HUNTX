@@ -38,7 +38,7 @@ jobs:
 
       - name: Run mergebot
         env:
-          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_TOKEN: ${{ secrets.Gatherex_API }}
           PUBLISH_BOT_TOKEN: ${{ secrets.PUBLISH_BOT_TOKEN }}
         run: |
           git fetch origin mergebot-state:mergebot-state || echo "No state branch yet"

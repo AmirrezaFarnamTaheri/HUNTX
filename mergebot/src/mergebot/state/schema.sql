@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS seen_files (
     ingested_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     file_size INTEGER,
     filename TEXT, -- Added
+    metadata_json TEXT,
     status TEXT DEFAULT 'pending',
     error_msg TEXT,
     UNIQUE(source_id, external_id)

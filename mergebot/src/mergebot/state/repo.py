@@ -37,14 +37,15 @@ class StateRepo:
             ).fetchone()
             return bool(row)
 
-    def record_file(self, source_id: str, external_id: str, raw_hash: str, file_size: int, filename: str, status: str = "pending"):
+    def record_file(self, source_id: str, external_id: str, raw_hash: str, file_size: int, filename: str, status: str = "pending", metadata: Dict[str, Any] = {}):
+        metadata_json = json.dumps(metadata)
         with self.db.connect() as conn:
             conn.execute(
                 """
-                INSERT OR IGNORE INTO seen_files (source_id, external_id, raw_hash, file_size, filename, status)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT OR IGNORE INTO seen_files (source_id, external_id, raw_hash, file_size, filename, status, metadata_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (source_id, str(external_id), raw_hash, file_size, filename, status)
+                (source_id, str(external_id), raw_hash, file_size, filename, status, metadata_json)
             )
 
     def update_file_status(self, raw_hash: str, status: str, error_msg: Optional[str] = None):
