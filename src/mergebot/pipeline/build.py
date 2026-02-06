@@ -12,35 +12,60 @@ class BuildPipeline:
         self.artifact_store = artifact_store
         self.registry = registry
 
-    def run(self, route_config: Dict[str, Any]) -> Dict[str, Any]:
+    def run(self, route_config: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
-        Builds artifact for a specific route.
+        Builds artifacts for a specific route across all requested formats.
+        Returns a list of build results (one per format).
         """
         route_name = route_config["name"]
-        formats = route_config["formats"] # e.g. ["npvt"]
+        formats = route_config["formats"] # e.g. ["npvt", "conf_lines"]
         allowed_source_ids = route_config.get("from_sources", [])
 
         # 1. Fetch records
+        # Note: We fetch records compatible with ANY of the formats.
+        # Typically the registry handlers know how to convert/filter.
+        # Ideally, we should fetch based on what the handlers need, but for now assuming
+        # handlers work on a common record structure or we fetch all relevant types.
+        # Since 'get_records_for_build' takes format IDs, we pass all of them.
         records = self.state_repo.get_records_for_build(formats, allowed_source_ids)
+
         if not records:
-            return None
+            return []
 
-        # 2. Build using the PRIMARY format handler
-        primary_fmt = formats[0]
-        handler = self.registry.get(primary_fmt)
+        results = []
 
-        try:
-            artifact_bytes = handler.build(records)
+        # 2. Build for EACH format
+        for fmt in formats:
+            try:
+                handler = self.registry.get(fmt)
+                if not handler:
+                    logger.error(f"No handler for format {fmt}, skipping.")
+                    continue
 
-            # 3. Save artifact
-            artifact_hash = self.artifact_store.save_artifact(route_name, artifact_bytes)
+                artifact_bytes = handler.build(records)
 
-            return {
-                "route_name": route_name,
-                "artifact_hash": artifact_hash,
-                "data": artifact_bytes,
-                "count": len(records)
-            }
-        except Exception as e:
-            logger.exception(f"Build failed for {route_name}")
-            return None
+                if not artifact_bytes:
+                     continue
+
+                # 3. Save artifact
+                # Save to history (hashed)
+                artifact_hash = self.artifact_store.save_artifact(route_name, artifact_bytes)
+
+                # Save to output (named)
+                self.artifact_store.save_output(route_name, fmt, artifact_bytes)
+
+                # Unique ID for state tracking combines route and format
+                unique_id = f"{route_name}:{fmt}"
+
+                results.append({
+                    "route_name": route_name,
+                    "format": fmt,
+                    "unique_id": unique_id,
+                    "artifact_hash": artifact_hash,
+                    "data": artifact_bytes,
+                    "count": len(records)
+                })
+            except Exception as e:
+                logger.exception(f"Build failed for {route_name} format {fmt}")
+
+        return results
