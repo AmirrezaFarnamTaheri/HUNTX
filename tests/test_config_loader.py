@@ -42,6 +42,68 @@ class TestConfigLoader(unittest.TestCase):
         self.assertEqual(len(config.routes), 1)
         self.assertEqual(config.routes[0].name, "test_route")
 
+    def test_load_telegram_user_config(self):
+        config_content = """
+        sources:
+          - id: user_source
+            type: telegram_user
+            telegram_user:
+              api_id: 12345
+              api_hash: "hash"
+              session: "session_str"
+              peer: "@channel"
+            selector:
+              include_formats: ["all"]
+        """
+        with open(self.config_path, "w") as f:
+            f.write(config_content)
+
+        config = load_config(self.config_path)
+        self.assertEqual(len(config.sources), 1)
+        src = config.sources[0]
+        self.assertEqual(src.type, "telegram_user")
+        self.assertIsNotNone(src.telegram_user)
+        self.assertEqual(src.telegram_user.api_id, 12345)
+        self.assertEqual(src.telegram_user.peer, "@channel")
+
+    def test_load_telegram_user_config_invalid_api_id(self):
+        config_content = """
+        sources:
+          - id: user_source
+            type: telegram_user
+            telegram_user:
+              api_id: "not_an_int"
+              api_hash: "hash"
+              session: "session_str"
+              peer: "@channel"
+            selector:
+              include_formats: ["all"]
+        """
+        with open(self.config_path, "w") as f:
+            f.write(config_content)
+
+        # Should skip the source logging a warning, so result is 0 sources
+        config = load_config(self.config_path)
+        self.assertEqual(len(config.sources), 0)
+
+    def test_load_telegram_user_config_missing_fields(self):
+        config_content = """
+        sources:
+          - id: user_source
+            type: telegram_user
+            telegram_user:
+              api_id: 12345
+              # Missing hash
+            selector:
+              include_formats: ["all"]
+        """
+        with open(self.config_path, "w") as f:
+            f.write(config_content)
+
+        # Should skip
+        config = load_config(self.config_path)
+        self.assertEqual(len(config.sources), 0)
+
     def test_load_invalid_yaml(self):
         with open(self.config_path, "w") as f:
             f.write("invalid: yaml: [")
