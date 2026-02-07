@@ -1,5 +1,6 @@
 import logging
 import json
+import threading
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, Iterator
 from telethon.sync import TelegramClient
@@ -16,7 +17,7 @@ class SourceItem:
     metadata: Dict[str, Any]
 
 class TelegramUserConnector:
-    _shared_clients = {}  # key by (api_id, session)
+    _local = threading.local()
 
     def __init__(self, api_id: int, api_hash: str, session: str, peer: str, state: Optional[Dict[str, Any]] = None):
         self.api_id = api_id
@@ -26,11 +27,14 @@ class TelegramUserConnector:
         self.offset = (state or {}).get("offset", 0)
 
     def _client(self) -> TelegramClient:
+        if not hasattr(self._local, "clients"):
+            self._local.clients = {}
+
         key = (self.api_id, self.session)
-        if key not in self._shared_clients:
+        if key not in self._local.clients:
             logger.info(f"Initializing new Telegram User Client for api_id={self.api_id}")
-            self._shared_clients[key] = TelegramClient(StringSession(self.session), self.api_id, self.api_hash)
-        return self._shared_clients[key]
+            self._local.clients[key] = TelegramClient(StringSession(self.session), self.api_id, self.api_hash)
+        return self._local.clients[key]
 
     def list_new(self, state: Optional[Dict[str, Any]] = None) -> Iterator[SourceItem]:
         # Update local offset from state if provided

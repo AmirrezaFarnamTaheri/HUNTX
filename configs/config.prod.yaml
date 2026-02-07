@@ -1,18 +1,4 @@
 sources:
-- id: demo_source
-  type: telegram_user
-  selector:
-    include_formats: &id001
-    - npvt
-    - ovpn
-    - conf_lines
-    - opaque_bundle
-    - npv4
-  telegram_user:
-    api_id: ${TELEGRAM_API_ID}
-    api_hash: ${TELEGRAM_API_HASH}
-    session: ${TELEGRAM_USER_SESSION}
-    peer: '-1001234567890'
 - id: src_1001018853394
   type: telegram_user
   selector:
@@ -231,7 +217,7 @@ sources:
     peer: '-1003744627358'
 publishing:
   routes:
-  - name: demo_output
+  - name: all_sources
     from_sources:
     - src_1001018853394
     - src_1001062709660
@@ -259,9 +245,3 @@ publishing:
     - src_1003744627358
     formats:
     - npvt
-    destinations:
-    - chat_id: '-1001234567890'
-      mode: post_on_change
-      caption_template: 'Updated: {timestamp}
-
-        SHA: {sha12}'
