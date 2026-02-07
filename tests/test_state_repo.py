@@ -14,11 +14,11 @@ class TestStateRepo(unittest.TestCase):
 
         # Apply schema manually since DBConnection usually does it from file
         self.conn.executescript("""
-        CREATE TABLE sources (
-            id TEXT PRIMARY KEY,
-            type TEXT NOT NULL,
+        CREATE TABLE source_state (
+            source_id TEXT PRIMARY KEY,
+            source_type TEXT NOT NULL,
             state_json TEXT,
-            last_check_ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            updated_at INTEGER
         );
         CREATE TABLE seen_files (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

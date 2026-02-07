@@ -1,11 +1,25 @@
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, MagicMock
 from mergebot.pipeline.ingest import IngestionPipeline
 
 class TestIngestPipeline(unittest.TestCase):
     def setUp(self):
         self.raw_store = Mock()
         self.state_repo = Mock()
+
+        # Mock the db.connect context manager
+        # When db.connect() is called, it returns a context manager.
+        # The context manager's __enter__ returns the connection object.
+        self.mock_conn = MagicMock()
+
+        # Create a mock for the context manager
+        self.mock_ctx_mgr = MagicMock()
+        self.mock_ctx_mgr.__enter__.return_value = self.mock_conn
+        self.mock_ctx_mgr.__exit__.return_value = None
+
+        # Assign it to db.connect return value
+        self.state_repo.db.connect.return_value = self.mock_ctx_mgr
+
         self.pipeline = IngestionPipeline(self.raw_store, self.state_repo)
         self.connector = Mock()
 
@@ -29,8 +43,16 @@ class TestIngestPipeline(unittest.TestCase):
 
         # Verify
         self.raw_store.save.assert_called_with(b"test data")
+
+        # record_file should be called with conn argument
         self.state_repo.record_file.assert_called_once()
+        args, kwargs = self.state_repo.record_file.call_args
+        self.assertEqual(kwargs['conn'], self.mock_conn)
+
+        # update_source_state called with conn
         self.state_repo.update_source_state.assert_called_once()
+        args, kwargs = self.state_repo.update_source_state.call_args
+        self.assertEqual(kwargs['conn'], self.mock_conn)
 
     def test_skip_seen_files(self):
         self.state_repo.get_source_state.return_value = {}

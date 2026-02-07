@@ -1,34 +1,38 @@
 import logging
 import time
-import json
-import urllib.request
-import urllib.parse
-import urllib.error
+import asyncio
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+
+from telethon import TelegramClient, events
+from telethon.sessions import StringSession
 
 from ..store.artifact_store import ArtifactStore
 from ..state.repo import StateRepo
 from ..state.db import open_db
 from ..store.paths import STATE_DB_PATH
-from ..config.loader import load_config
 
 logger = logging.getLogger(__name__)
 
 class InteractiveBot:
-    def __init__(self, token: str, config_path: str = "config.yaml"):
+    def __init__(self, token: str, api_id: int, api_hash: str):
         self.token = token
-        self.base_url = f"https://api.telegram.org/bot{self.token}"
+        self.api_id = api_id
+        self.api_hash = api_hash
+
         self.artifact_store = ArtifactStore()
-        # Ensure path for db
         self.db = open_db(STATE_DB_PATH)
         self.repo = StateRepo(self.db)
 
-        # Load config to know routes/formats if needed
-        # self.config = load_config(config_path)
-
-        # Ensure subscription table exists
         self._init_subs_table()
+
+        # Use a file-based session for the bot (or in-memory if transient)
+        # Since we run periodically, file session is better to persist cache/auth
+        # But we are in a container/ephemeral env.
+        # Ideally pass a session string, but bot tokens don't strictly need one for basic auth.
+        # We'll use 'bot.session' in data dir.
+        session_path = Path("persist/data/bot.session")
+        self.client = TelegramClient(str(session_path), self.api_id, self.api_hash)
 
     def _init_subs_table(self):
         with self.db.connect() as conn:
@@ -42,153 +46,93 @@ class InteractiveBot:
                     PRIMARY KEY (user_id, format_filter)
                 )
             """)
-            conn.execute("CREATE TABLE IF NOT EXISTS bot_state (key TEXT PRIMARY KEY, value TEXT)")
 
-    def _make_request(self, method: str, params: Dict[str, Any] = {}) -> Dict[str, Any]:
-        url = f"{self.base_url}/{method}"
+    async def start(self):
+        await self.client.start(bot_token=self.token)
+
+        # Register handlers
+        self.client.add_event_handler(self._handler_start, events.NewMessage(pattern='/start|/help'))
+        self.client.add_event_handler(self._handler_latest, events.NewMessage(pattern='/latest'))
+
+        # Run loop for a short period to fetch pending updates?
+        # Telethon's run_until_disconnected() blocks forever.
+        # We want to process *pending* updates and then exit (cron job style).
+        # OR we can just fetch history.
+        # Better: run for a fixed timeout (e.g., 30 seconds) to process any backlog commands.
+        logger.info("Bot started. Listening for updates for 30 seconds...")
+
+        # Also run subscription check once
+        await self._process_subscriptions()
+
         try:
-            if params:
-                data = json.dumps(params).encode("utf-8")
-                req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-            else:
-                req = urllib.request.Request(url)
+            # We assume the cron job handles the scheduling.
+            # We just want to react to any commands sent since last run?
+            # Actually, standard Bot API via Webhook or Long Polling is continuous.
+            # Running "every 3 hours" means users have to wait 3 hours for a response?
+            # That is terrible UX.
+            # But the requirement is "User can ask... User can customize...".
+            # If the architecture is strict "run periodically", then the bot is not truly interactive in real-time.
+            # However, for the purpose of this task within the constraints, we will process pending messages.
+            # Telethon 'catch_up' behavior usually fetches missed updates on start.
 
-            with urllib.request.urlopen(req, timeout=10) as response:
-                return json.loads(response.read().decode("utf-8"))
+            # We'll run until disconnected, but interrupt after 60s.
+            await asyncio.wait_for(self.client.run_until_disconnected(), timeout=30)
+        except asyncio.TimeoutError:
+            logger.info("Run finished (timeout).")
         except Exception as e:
-            logger.error(f"Bot API error {method}: {e}")
-            return {"ok": False}
+            logger.error(f"Bot error: {e}")
+        finally:
+            await self.client.disconnect()
 
-    def _send_message(self, chat_id: str, text: str):
-        logger.info(f"Sending message to {chat_id}: {text}")
-        self._make_request("sendMessage", {"chat_id": chat_id, "text": text})
+    async def _handler_start(self, event):
+        await event.respond(
+            "MergeBot Interactive:\n"
+            "/latest [format] [days] - Get latest merged files (default: all, last 4 days)\n"
+            "Note: This bot runs periodically. Responses may be delayed."
+        )
 
-    def _send_document(self, chat_id: str, file_path: Path, caption: str = ""):
-        # Simple multipart upload via requests (if available) or curl
-        # Since we want zero dependencies beyond what we have:
-        # We can use 'curl' via subprocess as a fallback if 'requests' is missing.
-        # But 'telethon' is installed. We can use telethon bot client?
-        # Actually, let's use 'curl' for simplicity as it's available in almost all linux envs including GH Actions.
-        import subprocess
+    async def _handler_latest(self, event):
+        args = event.text.split()[1:]
+        fmt = args[0] if args else None
+        days = int(args[1]) if len(args) > 1 and args[1].isdigit() else 4
 
-        cmd = [
-            "curl", "-s", "-X", "POST", f"{self.base_url}/sendDocument",
-            "-F", f"chat_id={chat_id}",
-            "-F", f"document=@{file_path}",
-            "-F", f"caption={caption}"
-        ]
-        try:
-            logger.info(f"Sending document {file_path.name} to {chat_id}")
-            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except Exception as e:
-            logger.error(f"Failed to send document via curl: {e}")
-            self._send_message(chat_id, f"Error sending file: {file_path.name}")
-
-    def run_once(self):
-        """
-        Since this runs in a cron job (every 3 hours), we:
-        1. Fetch updates since last run (we don't persist offset for bot commands heavily).
-        2. Process commands.
-        3. Check subscriptions and push files.
-        """
-        logger.info("Starting Interactive Bot run...")
-
-        # 1. Fetch Updates
-        last_update_id = self._get_last_update_id()
-        # Only process new updates, increment offset
-        updates = self._get_updates(offset=last_update_id + 1)
-
-        if updates:
-            logger.info(f"Processing {len(updates)} bot updates...")
-            for update in updates:
-                try:
-                    self._process_update(update)
-                    last_update_id = max(last_update_id, update["update_id"])
-                except Exception as e:
-                    logger.error(f"Error processing update {update}: {e}")
-
-            self._set_last_update_id(last_update_id)
-        else:
-            logger.info("No new bot updates.")
-
-        # 2. Process Subscriptions
-        # self._process_subscriptions() # Commented out for now as it needs more robust frequency logic
-
-    def _get_updates(self, offset: int) -> List[Dict[str, Any]]:
-        resp = self._make_request("getUpdates", {"offset": offset, "timeout": 5})
-        return resp.get("result", [])
-
-    def _process_update(self, update: Dict[str, Any]):
-        msg = update.get("message")
-        if not msg: return
-
-        chat_id = str(msg["chat"]["id"])
-        text = msg.get("text", "")
-        user_id = str(msg["from"]["id"])
-
-        if text.startswith("/"):
-            parts = text.split()
-            cmd = parts[0]
-            args = parts[1:]
-
-            if cmd == "/start" or cmd == "/help":
-                self._send_message(chat_id,
-                    "MergeBot Interactive:\n"
-                    "/latest [format] [days] - Get latest merged files (default: all formats, last 4 days)\n"
-                    "/subscribe [6h|12h|24h] [format] - Subscribe (Coming Soon)\n"
-                )
-
-            elif cmd == "/latest":
-                fmt = args[0] if args else None
-                days = int(args[1]) if len(args) > 1 and args[1].isdigit() else 4
-                self._handle_latest(chat_id, fmt, days)
-
-            # Subscribe logic deferred for simplicity/robustness first pass
-
-    def _handle_latest(self, chat_id: str, fmt_filter: Optional[str], days: int):
         files = self.artifact_store.list_archive(days=days)
         if not files:
-            self._send_message(chat_id, f"No artifacts found in the last {days} days.")
+            await event.respond(f"No artifacts found in the last {days} days.")
             return
 
         sent_count = 0
-        # Group by unique base name (route+format)? No, just send distinct latest files.
-        # Use a set to avoid spamming if multiple versions exist?
-        # The user said "all last 4 days output".
-        # We send ALL of them.
-
         for f in files:
             parts = f.name.split(".")
             ext = parts[-1]
-            if fmt_filter and ext != fmt_filter:
+            if fmt and ext != fmt:
                 continue
 
-            self._send_document(chat_id, f, caption=f"Archive: {f.name}")
+            await self.client.send_file(
+                event.chat_id,
+                f,
+                caption=f"Archive: {f.name}"
+            )
             sent_count += 1
-            # Rate limit slightly
-            time.sleep(0.5)
+            await asyncio.sleep(0.5)
 
         if sent_count == 0:
-             self._send_message(chat_id, f"No artifacts found matching filter '{fmt_filter}'.")
+             await event.respond(f"No artifacts found matching filter '{fmt}'.")
 
-    def _get_last_update_id(self) -> int:
-        try:
-            with self.db.connect() as conn:
-                row = conn.execute("SELECT value FROM bot_state WHERE key='offset'").fetchone()
-                return int(row["value"]) if row else 0
-        except:
-            return 0
-
-    def _set_last_update_id(self, val: int):
-        with self.db.connect() as conn:
-            conn.execute("INSERT OR REPLACE INTO bot_state (key, value) VALUES ('offset', ?)", (str(val),))
+    async def _process_subscriptions(self):
+        # Placeholder for subscription logic (send updates if due)
+        pass
 
 if __name__ == "__main__":
-    import os
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--token", required=True)
+    parser.add_argument("--api-id", type=int, required=True)
+    parser.add_argument("--api-hash", required=True)
     args = parser.parse_args()
 
-    bot = InteractiveBot(token=args.token)
-    bot.run_once()
+    # Configure logging
+    logging.basicConfig(level=logging.INFO)
+
+    bot = InteractiveBot(args.token, args.api_id, args.api_hash)
+    asyncio.run(bot.start())

@@ -1,8 +1,8 @@
-CREATE TABLE IF NOT EXISTS sources (
-    id TEXT PRIMARY KEY,
-    type TEXT NOT NULL,
-    last_check_ts DATETIME,
-    state_json TEXT
+CREATE TABLE IF NOT EXISTS source_state (
+    source_id TEXT PRIMARY KEY,
+    source_type TEXT NOT NULL,
+    state_json TEXT,
+    updated_at INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS seen_files (

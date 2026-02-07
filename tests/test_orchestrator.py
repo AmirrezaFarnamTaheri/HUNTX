@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock, patch
 from mergebot.core.orchestrator import Orchestrator
-from mergebot.config.schema import AppConfig, SourceConfig, TelegramSourceConfig, TelegramUserSourceConfig, PublishRoute, DestinationConfig, SourceSelector
+from mergebot.config.schema import AppConfig, SourceConfig, TelegramSourceConfig, TelegramUserSourceConfig, PublishRoute, DestinationConfig, SourceSelector, PublishingConfig
 
 class TestOrchestrator(unittest.TestCase):
     def setUp(self):
@@ -11,30 +11,28 @@ class TestOrchestrator(unittest.TestCase):
                     id="src_bot",
                     type="telegram",
                     selector=SourceSelector(include_formats=["fmt"]),
-                    telegram=TelegramSourceConfig(token="bot_token", chat_id="123")
+                    telegram=TelegramSourceConfig(token="123:bot_token", chat_id="123")
                 ),
                 SourceConfig(
                     id="src_user",
                     type="telegram_user",
                     selector=SourceSelector(include_formats=["fmt"]),
                     telegram_user=TelegramUserSourceConfig(api_id=1, api_hash="h", session="s", peer="@p")
-                ),
-                SourceConfig(
-                    id="src_skip",
-                    type="unknown",
-                    selector=SourceSelector(include_formats=["fmt"])
                 )
+                # Removed 'src_skip' because Pydantic would reject 'type="unknown"' due to validator
             ],
-            routes=[
-                PublishRoute(
-                    name="route1",
-                    from_sources=["src_bot"],
-                    formats=["fmt"],
-                    destinations=[
-                        DestinationConfig(chat_id="dest1", mode="telegram", caption_template="cap")
-                    ]
-                )
-            ]
+            publishing=PublishingConfig(
+                routes=[
+                    PublishRoute(
+                        name="route1",
+                        from_sources=["src_bot"],
+                        formats=["fmt"],
+                        destinations=[
+                            DestinationConfig(chat_id="dest1", mode="telegram", caption_template="cap")
+                        ]
+                    )
+                ]
+            )
         )
 
     @patch('mergebot.core.orchestrator.RawStore')

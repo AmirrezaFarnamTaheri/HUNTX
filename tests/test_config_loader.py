@@ -39,6 +39,7 @@ class TestConfigLoader(unittest.TestCase):
         self.assertIsInstance(config, AppConfig)
         self.assertEqual(len(config.sources), 1)
         self.assertEqual(config.sources[0].id, "test_source")
+        # routes is accessed via property
         self.assertEqual(len(config.routes), 1)
         self.assertEqual(config.routes[0].name, "test_route")
 
@@ -54,6 +55,8 @@ class TestConfigLoader(unittest.TestCase):
               peer: "@channel"
             selector:
               include_formats: ["all"]
+        publishing:
+          routes: []
         """
         with open(self.config_path, "w") as f:
             f.write(config_content)
@@ -78,13 +81,15 @@ class TestConfigLoader(unittest.TestCase):
               peer: "@channel"
             selector:
               include_formats: ["all"]
+        publishing:
+          routes: []
         """
         with open(self.config_path, "w") as f:
             f.write(config_content)
 
-        # Should skip the source logging a warning, so result is 0 sources
-        config = load_config(self.config_path)
-        self.assertEqual(len(config.sources), 0)
+        # Should fail validation now (Pydantic is strict)
+        with self.assertRaises(Exception):
+            load_config(self.config_path)
 
     def test_load_telegram_user_config_missing_fields(self):
         config_content = """
@@ -96,13 +101,15 @@ class TestConfigLoader(unittest.TestCase):
               # Missing hash
             selector:
               include_formats: ["all"]
+        publishing:
+          routes: []
         """
         with open(self.config_path, "w") as f:
             f.write(config_content)
 
-        # Should skip
-        config = load_config(self.config_path)
-        self.assertEqual(len(config.sources), 0)
+        # Should fail
+        with self.assertRaises(Exception):
+            load_config(self.config_path)
 
     def test_load_invalid_yaml(self):
         with open(self.config_path, "w") as f:

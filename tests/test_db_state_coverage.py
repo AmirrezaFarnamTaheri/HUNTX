@@ -21,7 +21,7 @@ class TestDBStateCoverage(unittest.TestCase):
 
     def test_open_db_creates_schema(self):
         with self.db.connect() as conn:
-            cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='sources';")
+            cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='source_state';")
             self.assertIsNotNone(cursor.fetchone())
             cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='seen_files';")
             self.assertIsNotNone(cursor.fetchone())
@@ -93,11 +93,20 @@ class TestDBStateCoverage(unittest.TestCase):
         self.assertEqual(self.repo.get_last_published_hash(route), h)
 
     def test_repo_exceptions(self):
+        # We need to mock connect() to raise exception when called
+        # DBConnection.connect() is a context manager.
         original_connect = self.db.connect
-        self.db.connect = MagicMock(side_effect=Exception("DB Error"))
+
+        mock_connect = MagicMock()
+        mock_connect.__enter__.side_effect = Exception("DB Error")
+        self.db.connect = MagicMock(return_value=mock_connect)
 
         self.assertIsNone(self.repo.get_source_state("id"))
-        self.repo.update_source_state("id", {})
+
+        # update_source_state raises exception
+        with self.assertRaises(Exception):
+             self.repo.update_source_state("id", {})
+
         self.assertFalse(self.repo.has_seen_file("id", "ext"))
         self.repo.record_file("id", "ext", "hash", 1, "f")
         self.repo.update_file_status("hash", "stat")

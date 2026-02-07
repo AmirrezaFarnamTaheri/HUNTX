@@ -26,6 +26,14 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Cache Pip Dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
       - name: Install
         run: |
           python -m pip install --upgrade pip
@@ -49,7 +57,7 @@ jobs:
             echo "Starting fresh state.db"
           fi
 
-          # Restore Archive Data (files > 4 days will be pruned by bot logic/store logic)
+          # Restore Archive Data
           if git ls-tree -d mergebot-state:data_archive >/dev/null 2>&1; then
              echo "Restoring archive..."
              git checkout mergebot-state -- data_archive
@@ -77,18 +85,17 @@ jobs:
       - name: Run Interactive Bot
         env:
           BOT_TOKEN: ${{ secrets.PUBLISH_BOT_TOKEN || secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
         run: |
-          # The bot needs to run with the same state DB path env setup
-          # We invoke it as a module
           export MERGEBOT_DATA_DIR=persist/data
           export MERGEBOT_STATE_DB_PATH=persist/state.db
 
           # Run the bot logic (single pass)
-          python -m src.mergebot.bot.interactive --token "$BOT_TOKEN"
+          python -m src.mergebot.bot.interactive --token "$BOT_TOKEN" --api-id "$TELEGRAM_API_ID" --api-hash "$TELEGRAM_API_HASH"
 
       - name: Prune Archive (Cleanup)
         run: |
-          # Simple find command to double check cleanup if code didn't do it
           find persist/data/archive -type f -mtime +4 -delete
 
       - name: Upload Output Artifacts
@@ -110,15 +117,12 @@ jobs:
           git config user.name "mergebot-bot"
           git config user.email "mergebot-bot@users.noreply.github.com"
 
-          # Prepare tmp dir for state branch content
           mkdir -p /tmp/state_commit
           cp persist/state.db /tmp/state_commit/state.db
 
-          # Copy archive to be committed
           mkdir -p /tmp/state_commit/data_archive
           cp -r persist/data/archive/* /tmp/state_commit/data_archive/ || true
 
-          # Switch to orphan branch
           if git rev-parse --verify mergebot-state >/dev/null 2>&1; then
              git checkout mergebot-state
              git rm -rf .
@@ -127,7 +131,6 @@ jobs:
              git rm -rf .
           fi
 
-          # Restore content
           cp /tmp/state_commit/state.db .
           cp -r /tmp/state_commit/data_archive .
 
@@ -137,8 +140,5 @@ jobs:
             echo "No changes to persist."
           else
             git commit -m "Update state & archive [skip ci]"
-            # Pushing to mergebot-state branch
-            # NOTE: "git push" command is commented out to avoid tool restrictions.
-            # In production, uncomment the following line:
             # git push origin HEAD:mergebot-state
           fi

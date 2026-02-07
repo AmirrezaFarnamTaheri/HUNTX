@@ -15,91 +15,95 @@ class IngestionPipeline:
     def run(self, source_id: str, connector: SourceConnector, source_type: str = "telegram"):
         connector_name = connector.__class__.__name__
         logger.info(f"[Ingest] Starting ingestion for source: {source_id} (Type: {source_type}, Connector: {connector_name})")
-        state = self.state_repo.get_source_state(source_id) or {}
-        logger.debug(f"[Ingest] Initial state for {source_id}: {state}")
 
-        # Initialize or retrieve existing stats
-        existing_stats = state.get("stats", {})
-        total_files = existing_stats.get("total_files", 0)
+        # Optimization: Open DB connection once for the entire pipeline run
+        with self.state_repo.db.connect() as conn:
+            state = self.state_repo.get_source_state(source_id, conn=conn) or {}
+            logger.debug(f"[Ingest] Initial state for {source_id}: {state}")
 
-        count = 0
-        new_bytes = 0
-        skipped_count = 0
+            # Initialize or retrieve existing stats
+            existing_stats = state.get("stats", {})
+            total_files = existing_stats.get("total_files", 0)
 
-        start_time = time.time()
+            count = 0
+            new_bytes = 0
+            skipped_count = 0
 
-        try:
-            logger.info(f"[Ingest] Requesting new items from connector for {source_id}...")
-            for item in connector.list_new(state):
-                logger.debug(f"[Ingest] Found item: {item.external_id} (Metadata: {item.metadata})")
+            start_time = time.time()
 
-                if self.state_repo.has_seen_file(source_id, item.external_id):
-                    logger.debug(f"[Ingest] Skipping already seen file: {item.external_id}")
-                    skipped_count += 1
-                    if skipped_count % 50 == 0:
-                        logger.info(f"[Ingest] Skipped {skipped_count} already-seen files so far from {source_id}...")
-                    continue
+            try:
+                logger.info(f"[Ingest] Requesting new items from connector for {source_id}...")
+                for item in connector.list_new(state):
+                    # logger.debug(f"[Ingest] Found item: {item.external_id} (Metadata: {item.metadata})")
 
-                filename = item.metadata.get("filename", "unknown")
-                file_size = len(item.data)
-                timestamp = item.metadata.get("timestamp", "unknown")
+                    if self.state_repo.has_seen_file(source_id, item.external_id, conn=conn):
+                        # logger.debug(f"[Ingest] Skipping already seen file: {item.external_id}")
+                        skipped_count += 1
+                        if skipped_count % 50 == 0:
+                            logger.info(f"[Ingest] Skipped {skipped_count} already-seen files so far from {source_id}...")
+                        continue
 
-                logger.info(f"[Ingest] Processing new file: {filename} (ID: {item.external_id}, Size: {file_size} bytes, Timestamp: {timestamp})")
+                    filename = item.metadata.get("filename", "unknown")
+                    file_size = len(item.data)
+                    timestamp = item.metadata.get("timestamp", "unknown")
 
-                raw_hash = self.raw_store.save(item.data)
-                logger.debug(f"[Ingest] Saved raw data with hash: {raw_hash}")
+                    logger.info(f"[Ingest] Processing new file: {filename} (ID: {item.external_id}, Size: {file_size} bytes, Timestamp: {timestamp})")
 
-                self.state_repo.record_file(
-                    source_id=source_id,
-                    external_id=item.external_id,
-                    raw_hash=raw_hash,
-                    file_size=file_size,
-                    filename=filename,
-                    status="pending",
-                    metadata=item.metadata  # Pass metadata
-                )
-                count += 1
-                new_bytes += file_size
+                    raw_hash = self.raw_store.save(item.data)
+                    logger.debug(f"[Ingest] Saved raw data with hash: {raw_hash}")
 
-                if count % 10 == 0:
-                    logger.info(f"[Ingest] Ingested {count} files so far from {source_id} (Total bytes: {new_bytes})...")
+                    self.state_repo.record_file(
+                        source_id=source_id,
+                        external_id=item.external_id,
+                        raw_hash=raw_hash,
+                        file_size=file_size,
+                        filename=filename,
+                        status="pending",
+                        metadata=item.metadata,  # Pass metadata
+                        conn=conn
+                    )
+                    count += 1
+                    new_bytes += file_size
 
-        except Exception as e:
-            logger.exception(f"[Ingest] Error during ingestion for source {source_id}: {e}")
-            raise
+                    if count % 10 == 0:
+                        logger.info(f"[Ingest] Ingested {count} files so far from {source_id} (Total bytes: {new_bytes})...")
 
-        duration = time.time() - start_time
-        avg_size = (new_bytes / count) if count > 0 else 0
+            except Exception as e:
+                logger.exception(f"[Ingest] Error during ingestion for source {source_id}: {e}")
+                raise
 
-        # Update stats
-        try:
-            new_state = connector.get_state()
-            logger.debug(f"[Ingest] New connector state for {source_id}: {new_state}")
+            duration = time.time() - start_time
+            avg_size = (new_bytes / count) if count > 0 else 0
 
-            # Merge stats into state
-            new_state["stats"] = {
-                "total_files": total_files + count,
-                "last_run": {
-                    "timestamp": time.time(),
-                    "files_ingested": count,
-                    "bytes_ingested": new_bytes,
-                    "duration_seconds": duration,
-                    "skipped_files": skipped_count
+            # Update stats
+            try:
+                new_state = connector.get_state()
+                logger.debug(f"[Ingest] New connector state for {source_id}: {new_state}")
+
+                # Merge stats into state
+                new_state["stats"] = {
+                    "total_files": total_files + count,
+                    "last_run": {
+                        "timestamp": time.time(),
+                        "files_ingested": count,
+                        "bytes_ingested": new_bytes,
+                        "duration_seconds": duration,
+                        "skipped_files": skipped_count
+                    }
                 }
-            }
 
-            self.state_repo.update_source_state(source_id, new_state, source_type=source_type)
+                self.state_repo.update_source_state(source_id, new_state, source_type=source_type, conn=conn)
 
-            logger.info(
-                f"[Ingest] Ingestion complete for {source_id}: "
-                f"{count} new files ({new_bytes} bytes, Avg: {avg_size:.0f} bytes), {skipped_count} skipped, "
-                f"took {duration:.2f}s."
-            )
+                logger.info(
+                    f"[Ingest] Ingestion complete for {source_id}: "
+                    f"{count} new files ({new_bytes} bytes, Avg: {avg_size:.0f} bytes), {skipped_count} skipped, "
+                    f"took {duration:.2f}s."
+                )
 
-            if count == 0 and skipped_count == 0:
-                logger.info(f"[Ingest] No items were ingested or skipped for {source_id}. "
-                            f"Check connector logs above for details on filtered/ignored updates.")
+                if count == 0 and skipped_count == 0:
+                    logger.info(f"[Ingest] No items were ingested or skipped for {source_id}. "
+                                f"Check connector logs above for details on filtered/ignored updates.")
 
-        except Exception as e:
-            logger.exception(f"[Ingest] Failed to update state for source {source_id}: {e}")
-            raise
+            except Exception as e:
+                logger.exception(f"[Ingest] Failed to update state for source {source_id}: {e}")
+                raise

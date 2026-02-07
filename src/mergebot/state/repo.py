@@ -1,68 +1,80 @@
-import json
 import logging
-from typing import Optional, Dict, Any, List
-from .db import DBConnection
+import json
+from typing import Dict, Any, List, Optional
+import sqlite3
 
 logger = logging.getLogger(__name__)
 
 class StateRepo:
-    def __init__(self, db: DBConnection):
-        self.db = db
+    def __init__(self, db_connection):
+        self.db = db_connection
 
-    def get_source_state(self, source_id: str) -> Optional[Dict[str, Any]]:
+    def get_source_state(self, source_id: str, conn: Optional[sqlite3.Connection] = None) -> Optional[Dict[str, Any]]:
         try:
-            with self.db.connect() as conn:
-                row = conn.execute(
-                    "SELECT state_json FROM sources WHERE id = ?", (source_id,)
-                ).fetchone()
-                if row and row["state_json"]:
-                    return json.loads(row["state_json"])
-            return None
+            if conn:
+                cursor = conn.execute(
+                    "SELECT state_json FROM source_state WHERE source_id = ?",
+                    (source_id,)
+                )
+                row = cursor.fetchone()
+                return json.loads(row["state_json"]) if row else None
+            else:
+                with self.db.connect() as c:
+                    return self.get_source_state(source_id, c)
         except Exception as e:
             logger.error(f"Failed to get source state for {source_id}: {e}")
             return None
 
-    def update_source_state(self, source_id: str, state: Dict[str, Any], source_type: str = "unknown"):
+    def update_source_state(self, source_id: str, state: Dict[str, Any], source_type: str = "telegram", conn: Optional[sqlite3.Connection] = None):
         try:
             state_json = json.dumps(state)
-            with self.db.connect() as conn:
+            if conn:
                 conn.execute(
                     """
-                    INSERT INTO sources (id, type, state_json, last_check_ts)
-                    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-                    ON CONFLICT(id) DO UPDATE SET
+                    INSERT INTO source_state (source_id, source_type, state_json, updated_at)
+                    VALUES (?, ?, ?, strftime('%s', 'now'))
+                    ON CONFLICT(source_id) DO UPDATE SET
                         state_json = excluded.state_json,
-                        last_check_ts = CURRENT_TIMESTAMP
+                        updated_at = excluded.updated_at
                     """,
                     (source_id, source_type, state_json)
                 )
-            # logger.debug(f"Updated source state for {source_id}")
+            else:
+                with self.db.connect() as c:
+                    self.update_source_state(source_id, state, source_type, c)
         except Exception as e:
-            logger.exception(f"Failed to update source state for {source_id}: {e}")
+            logger.error(f"Failed to update source state for {source_id}: {e}")
+            raise
 
-    def has_seen_file(self, source_id: str, external_id: str) -> bool:
+    def has_seen_file(self, source_id: str, external_id: str, conn: Optional[sqlite3.Connection] = None) -> bool:
         try:
-            with self.db.connect() as conn:
-                row = conn.execute(
-                    "SELECT 1 FROM seen_files WHERE source_id = ? AND external_id = ?",
-                    (source_id, str(external_id))
-                ).fetchone()
-                return bool(row)
+            query = "SELECT 1 FROM seen_files WHERE source_id = ? AND external_id = ?"
+            args = (source_id, str(external_id))
+
+            if conn:
+                return bool(conn.execute(query, args).fetchone())
+            else:
+                with self.db.connect() as c:
+                    return bool(c.execute(query, args).fetchone())
         except Exception as e:
             logger.error(f"Error checking seen file {external_id} from {source_id}: {e}")
             return False
 
-    def record_file(self, source_id: str, external_id: str, raw_hash: str, file_size: int, filename: str, status: str = "pending", metadata: Dict[str, Any] = {}):
+    def record_file(self, source_id: str, external_id: str, raw_hash: str, file_size: int, filename: str, status: str = "pending", metadata: Dict[str, Any] = {}, conn: Optional[sqlite3.Connection] = None):
         try:
             metadata_json = json.dumps(metadata)
-            with self.db.connect() as conn:
-                conn.execute(
-                    """
-                    INSERT OR IGNORE INTO seen_files (source_id, external_id, raw_hash, file_size, filename, status, metadata_json)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (source_id, str(external_id), raw_hash, file_size, filename, status, metadata_json)
-                )
+            sql = """
+                INSERT OR IGNORE INTO seen_files (source_id, external_id, raw_hash, file_size, filename, status, metadata_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """
+            args = (source_id, str(external_id), raw_hash, file_size, filename, status, metadata_json)
+
+            if conn:
+                conn.execute(sql, args)
+            else:
+                with self.db.connect() as c:
+                    c.execute(sql, args)
+
             logger.debug(f"Recorded file {filename} (ID: {external_id}) from {source_id}")
         except Exception as e:
             logger.exception(f"Failed to record file {filename}: {e}")
@@ -74,7 +86,6 @@ class StateRepo:
                     "UPDATE seen_files SET status = ?, error_msg = ? WHERE raw_hash = ?",
                     (status, error_msg, raw_hash)
                 )
-            # logger.debug(f"Updated status for {raw_hash} to {status}")
         except Exception as e:
             logger.error(f"Failed to update status for {raw_hash}: {e}")
 
@@ -82,7 +93,7 @@ class StateRepo:
         try:
             with self.db.connect() as conn:
                 cursor = conn.execute(
-                    "SELECT id, source_id, external_id, raw_hash, filename FROM seen_files WHERE status = 'pending'"
+                    "SELECT id, source_id, external_id, raw_hash, filename, file_size FROM seen_files WHERE status = 'pending'"
                 )
                 return [dict(row) for row in cursor.fetchall()]
         except Exception as e:
@@ -107,7 +118,6 @@ class StateRepo:
             return []
 
         try:
-            # Dynamically build query placeholders
             placeholders_types = ",".join("?" for _ in record_types)
             placeholders_sources = ",".join("?" for _ in allowed_source_ids)
 
