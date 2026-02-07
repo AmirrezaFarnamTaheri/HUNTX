@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import MagicMock, patch, ANY
 import datetime
 import logging
+import threading
 from mergebot.connectors.telegram_user.connector import TelegramUserConnector, SourceItem
 
 class TestTelegramUserConnector(unittest.TestCase):
@@ -16,14 +17,21 @@ class TestTelegramUserConnector(unittest.TestCase):
         self.logger = logging.getLogger('mergebot.connectors.telegram_user.connector')
         self.logger.setLevel(logging.DEBUG)
 
+    def _set_mock_client(self, mock_client):
+        """Helper to inject a mock client into the thread-local storage."""
+        if not hasattr(TelegramUserConnector._local, 'clients'):
+            TelegramUserConnector._local.clients = {}
+        TelegramUserConnector._local.clients[(self.api_id, self.session)] = mock_client
+
     @patch('mergebot.connectors.telegram_user.connector.StringSession')
     @patch('mergebot.connectors.telegram_user.connector.TelegramClient')
     def test_initialization(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
 
-        # Clear shared state to force initialization
-        TelegramUserConnector._shared_clients = {}
+        # Clear local state to force initialization
+        if hasattr(TelegramUserConnector._local, 'clients'):
+             TelegramUserConnector._local.clients = {}
 
         client = self.connector._client()
 
@@ -35,7 +43,7 @@ class TestTelegramUserConnector(unittest.TestCase):
     def test_list_new_text(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
-        self.connector._shared_clients[(self.api_id, self.session)] = mock_client
+        self._set_mock_client(mock_client)
         mock_client.is_connected.return_value = True
 
         msg1 = MagicMock()
@@ -59,7 +67,7 @@ class TestTelegramUserConnector(unittest.TestCase):
     def test_list_new_media(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
-        self.connector._shared_clients[(self.api_id, self.session)] = mock_client
+        self._set_mock_client(mock_client)
         mock_client.is_connected.return_value = True
 
         msg2 = MagicMock()
@@ -86,7 +94,7 @@ class TestTelegramUserConnector(unittest.TestCase):
     def test_list_new_skip_large_file(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
-        self.connector._shared_clients[(self.api_id, self.session)] = mock_client
+        self._set_mock_client(mock_client)
         mock_client.is_connected.return_value = True
 
         msg3 = MagicMock()
@@ -108,7 +116,7 @@ class TestTelegramUserConnector(unittest.TestCase):
         """Test a mix of text, media, skipped media, and download errors."""
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
-        self.connector._shared_clients[(self.api_id, self.session)] = mock_client
+        self._set_mock_client(mock_client)
         mock_client.is_connected.return_value = True
 
         # Msg 1: Text only
@@ -174,7 +182,7 @@ class TestTelegramUserConnector(unittest.TestCase):
         """Test that list_new updates internal offset from state if provided."""
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
-        self.connector._shared_clients[(self.api_id, self.session)] = mock_client
+        self._set_mock_client(mock_client)
         mock_client.is_connected.return_value = True
         mock_client.iter_messages.return_value = []
 
@@ -193,7 +201,7 @@ class TestTelegramUserConnector(unittest.TestCase):
     def test_connection_handling(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
-        self.connector._shared_clients[(self.api_id, self.session)] = mock_client
+        self._set_mock_client(mock_client)
 
         # Test connect call if not connected
         mock_client.is_connected.return_value = False
@@ -213,7 +221,7 @@ class TestTelegramUserConnector(unittest.TestCase):
     def test_list_new_exceptions(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
-        self.connector._shared_clients[(self.api_id, self.session)] = mock_client
+        self._set_mock_client(mock_client)
 
         mock_client.is_connected.side_effect = Exception("Connect fail")
         with self.assertRaises(Exception):
@@ -231,7 +239,7 @@ class TestTelegramUserConnector(unittest.TestCase):
     def test_resolve_peer_error_handled(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
-        self.connector._shared_clients[(self.api_id, self.session)] = mock_client
+        self._set_mock_client(mock_client)
         mock_client.is_connected.return_value = True
 
         self.connector.peer = "-10012345"

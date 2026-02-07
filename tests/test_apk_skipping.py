@@ -1,22 +1,29 @@
 import unittest
 import time
 from unittest.mock import MagicMock, patch
-from mergebot.connectors.telegram.connector import TelegramConnector, TelegramItem
-from mergebot.connectors.telegram_user.connector import TelegramUserConnector, SourceItem
+from mergebot.connectors.telegram.connector import TelegramConnector
+from mergebot.connectors.telegram_user.connector import TelegramUserConnector
 
 class TestApkSkipping(unittest.TestCase):
     def setUp(self):
         # Clear shared state to prevent test pollution
-        TelegramConnector._shared_state = {}
-        TelegramUserConnector._shared_clients = {}
+        if hasattr(TelegramConnector, '_shared_state'):
+            TelegramConnector._shared_state = {}
+        # Clear local state for TelegramUserConnector
+        if hasattr(TelegramUserConnector._local, 'clients'):
+            TelegramUserConnector._local.clients = {}
+
+    def _set_mock_client(self, connector, mock_client):
+        if not hasattr(connector._local, 'clients'):
+            connector._local.clients = {}
+        connector._local.clients[(connector.api_id, connector.session)] = mock_client
 
     def test_telegram_connector_skips_apk(self):
         connector = TelegramConnector("token", "123")
         now = time.time()
 
         # Mock _make_request to return updates with an APK file
-        with patch.object(connector, '_make_request') as mock_request, \
-             patch.object(connector, '_download_file') as mock_download:
+        with patch.object(connector, '_make_request') as mock_request,              patch.object(connector, '_download_file') as mock_download:
 
             mock_request.side_effect = [
                 {
@@ -40,11 +47,6 @@ class TestApkSkipping(unittest.TestCase):
             ]
             mock_download.return_value = b"apk_content"
 
-            # Check logic: The connector iterates updates.
-            # If APK logic works, it skips processing and does not call getFile.
-            # So mock_request will be called 2 times (getUpdates x2).
-            # If we provide 3 side effects, the 3rd one won't be used.
-
             items = list(connector.list_new())
 
             self.assertEqual(len(items), 0)
@@ -62,13 +64,8 @@ class TestApkSkipping(unittest.TestCase):
         now = time.time()
 
         # Mock update with text AND valid file
-        with patch.object(connector, '_make_request') as mock_request, \
-             patch.object(connector, '_download_file') as mock_download:
+        with patch.object(connector, '_make_request') as mock_request,              patch.object(connector, '_download_file') as mock_download:
 
-            # Correct sequence:
-            # 1. getUpdates -> returns update
-            # 2. getUpdates -> returns empty (end loop)
-            # 3. getFile -> returns info (called during processing)
             mock_request.side_effect = [
                 {
                     "ok": True,
@@ -111,7 +108,7 @@ class TestApkSkipping(unittest.TestCase):
         connector = TelegramUserConnector(1, "hash", "session", "peer")
 
         mock_client = MagicMock()
-        connector._shared_clients[(1, "session")] = mock_client
+        self._set_mock_client(connector, mock_client)
 
         # Mock message with APK
         msg_apk = MagicMock()
@@ -119,9 +116,12 @@ class TestApkSkipping(unittest.TestCase):
         msg_apk.date.timestamp.return_value = time.time()
         msg_apk.message = None
         msg_apk.media = True
-        msg_apk.file.name = "bad.apk"
-        msg_apk.file.ext = ".apk"
-        msg_apk.file.size = 1000
+
+        file_obj = MagicMock()
+        file_obj.name = "bad.apk"
+        file_obj.ext = ".apk"
+        file_obj.size = 1000
+        msg_apk.file = file_obj
 
         mock_client.iter_messages.return_value = [msg_apk]
         mock_client.is_connected.return_value = True
@@ -135,7 +135,7 @@ class TestApkSkipping(unittest.TestCase):
         connector = TelegramUserConnector(1, "hash", "session", "peer")
 
         mock_client = MagicMock()
-        connector._shared_clients[(1, "session")] = mock_client
+        self._set_mock_client(connector, mock_client)
 
         # Mock message with Text AND valid file
         msg_mixed = MagicMock()
@@ -143,8 +143,12 @@ class TestApkSkipping(unittest.TestCase):
         msg_mixed.date.timestamp.return_value = time.time()
         msg_mixed.message = "Config text"
         msg_mixed.media = True
-        msg_mixed.file.name = "good.ovpn"
-        msg_mixed.file.size = 1000
+
+        file_obj = MagicMock()
+        file_obj.name = "good.ovpn"
+        file_obj.size = 1000
+        file_obj.ext = ".ovpn"
+        msg_mixed.file = file_obj
 
         mock_client.iter_messages.return_value = [msg_mixed]
         mock_client.is_connected.return_value = True
