@@ -1,7 +1,0 @@
-Metadata-Version: 2.4
-Name: mergebot
-Version: 0.1.0
-Summary: Incremental multi-format file merger and Telegram publisher
-Requires-Python: >=3.11
-Requires-Dist: PyYAML>=6.0
-Requires-Dist: telethon<2,>=1.42

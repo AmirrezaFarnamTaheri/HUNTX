@@ -1,6 +1,6 @@
 sources:
 - id: demo_source
-  type: telegram
+  type: telegram_user
   selector:
     include_formats: &id001
     - npvt
@@ -8,177 +8,227 @@ sources:
     - conf_lines
     - opaque_bundle
     - npv4
-  telegram:
-    token: ${TELEGRAM_TOKEN}
-    chat_id: '-1001234567890'
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001234567890'
 - id: src_1001018853394
-  type: telegram
+  type: telegram_user
   selector:
     include_formats: *id001
-  telegram:
-    token: ${TELEGRAM_TOKEN}
-    chat_id: '-1001018853394'
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001018853394'
 - id: src_1001062709660
-  type: telegram
+  type: telegram_user
   selector:
     include_formats: *id001
-  telegram:
-    token: ${TELEGRAM_TOKEN}
-    chat_id: '-1001062709660'
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001062709660'
 - id: src_1001094646070
-  type: telegram
+  type: telegram_user
   selector:
     include_formats: *id001
-  telegram:
-    token: ${TELEGRAM_TOKEN}
-    chat_id: '-1001094646070'
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001094646070'
 - id: src_1001237997838
-  type: telegram
+  type: telegram_user
   selector:
     include_formats: *id001
-  telegram:
-    token: ${TELEGRAM_TOKEN}
-    chat_id: '-1001237997838'
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001237997838'
 - id: src_1001317239872
-  type: telegram
+  type: telegram_user
   selector:
     include_formats: *id001
-  telegram:
-    token: ${TELEGRAM_TOKEN}
-    chat_id: '-1001317239872'
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001317239872'
 - id: src_1001421308233
-  type: telegram
+  type: telegram_user
   selector:
     include_formats: *id001
-  telegram:
-    token: ${TELEGRAM_TOKEN}
-    chat_id: '-1001421308233'
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001421308233'
 - id: src_1001642221695
-  type: telegram
+  type: telegram_user
   selector:
     include_formats: *id001
-  telegram:
-    token: ${TELEGRAM_TOKEN}
-    chat_id: '-1001642221695'
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001642221695'
 - id: src_1001668090000
-  type: telegram
+  type: telegram_user
   selector:
     include_formats: *id001
-  telegram:
-    token: ${TELEGRAM_TOKEN}
-    chat_id: '-1001668090000'
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001668090000'
 - id: src_1001684639513
-  type: telegram
+  type: telegram_user
   selector:
     include_formats: *id001
-  telegram:
-    token: ${TELEGRAM_TOKEN}
-    chat_id: '-1001684639513'
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001684639513'
 - id: src_1001825199550
-  type: telegram
+  type: telegram_user
   selector:
     include_formats: *id001
-  telegram:
-    token: ${TELEGRAM_TOKEN}
-    chat_id: '-1001825199550'
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001825199550'
 - id: src_1002036382771
-  type: telegram
+  type: telegram_user
   selector:
     include_formats: *id001
-  telegram:
-    token: ${TELEGRAM_TOKEN}
-    chat_id: '-1002036382771'
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1002036382771'
 - id: src_1002086721598
-  type: telegram
+  type: telegram_user
   selector:
     include_formats: *id001
-  telegram:
-    token: ${TELEGRAM_TOKEN}
-    chat_id: '-1002086721598'
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1002086721598'
 - id: src_1002093246093
-  type: telegram
+  type: telegram_user
   selector:
     include_formats: *id001
-  telegram:
-    token: ${TELEGRAM_TOKEN}
-    chat_id: '-1002093246093'
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1002093246093'
 - id: src_1002245231279
-  type: telegram
+  type: telegram_user
   selector:
     include_formats: *id001
-  telegram:
-    token: ${TELEGRAM_TOKEN}
-    chat_id: '-1002245231279'
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1002245231279'
 - id: src_1002258272508
-  type: telegram
+  type: telegram_user
   selector:
     include_formats: *id001
-  telegram:
-    token: ${TELEGRAM_TOKEN}
-    chat_id: '-1002258272508'
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1002258272508'
 - id: src_1002272946873
-  type: telegram
+  type: telegram_user
   selector:
     include_formats: *id001
-  telegram:
-    token: ${TELEGRAM_TOKEN}
-    chat_id: '-1002272946873'
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1002272946873'
 - id: src_1002493879683
-  type: telegram
+  type: telegram_user
   selector:
     include_formats: *id001
-  telegram:
-    token: ${TELEGRAM_TOKEN}
-    chat_id: '-1002493879683'
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1002493879683'
 - id: src_1002743102065
-  type: telegram
+  type: telegram_user
   selector:
     include_formats: *id001
-  telegram:
-    token: ${TELEGRAM_TOKEN}
-    chat_id: '-1002743102065'
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1002743102065'
 - id: src_1002806337642
-  type: telegram
+  type: telegram_user
   selector:
     include_formats: *id001
-  telegram:
-    token: ${TELEGRAM_TOKEN}
-    chat_id: '-1002806337642'
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1002806337642'
 - id: src_1002806892134
-  type: telegram
+  type: telegram_user
   selector:
     include_formats: *id001
-  telegram:
-    token: ${TELEGRAM_TOKEN}
-    chat_id: '-1002806892134'
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1002806892134'
 - id: src_1002857691608
-  type: telegram
+  type: telegram_user
   selector:
     include_formats: *id001
-  telegram:
-    token: ${TELEGRAM_TOKEN}
-    chat_id: '-1002857691608'
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1002857691608'
 - id: src_1003209702364
-  type: telegram
+  type: telegram_user
   selector:
     include_formats: *id001
-  telegram:
-    token: ${TELEGRAM_TOKEN}
-    chat_id: '-1003209702364'
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1003209702364'
 - id: src_1003459192517
-  type: telegram
+  type: telegram_user
   selector:
     include_formats: *id001
-  telegram:
-    token: ${TELEGRAM_TOKEN}
-    chat_id: '-1003459192517'
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1003459192517'
 - id: src_1003744627358
-  type: telegram
+  type: telegram_user
   selector:
     include_formats: *id001
-  telegram:
-    token: ${TELEGRAM_TOKEN}
-    chat_id: '-1003744627358'
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1003744627358'
 publishing:
   routes:
   - name: demo_output

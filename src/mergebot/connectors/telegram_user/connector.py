@@ -35,7 +35,10 @@ class TelegramUserConnector:
     def list_new(self, state: Optional[Dict[str, Any]] = None) -> Iterator[SourceItem]:
         # Update local offset from state if provided
         if state:
-            self.offset = state.get("offset", 0)
+            new_offset = state.get("offset", 0)
+            if new_offset > self.offset:
+                logger.info(f"Updating offset from state: {self.offset} -> {new_offset}")
+                self.offset = new_offset
 
         last_id = self.offset
         client = self._client()
@@ -44,8 +47,12 @@ class TelegramUserConnector:
         # Connect if not connected
         if not client.is_connected():
              logger.info(f"Connecting to Telegram MTProto...")
-             client.connect()
-             logger.info(f"Connected.")
+             try:
+                 client.connect()
+                 logger.info(f"Connected to Telegram MTProto.")
+             except Exception as e:
+                 logger.error(f"Failed to connect to Telegram MTProto: {e}")
+                 raise
 
         try:
             # Resolve peer
@@ -64,6 +71,7 @@ class TelegramUserConnector:
                 "text_messages": 0,
                 "media_messages": 0,
                 "skipped_size_limit": 0,
+                "skipped_no_content": 0,
                 "download_errors": 0
             }
 
@@ -75,11 +83,14 @@ class TelegramUserConnector:
 
                 # logger.debug(f"Processing message {msg.id} (Date: {msg.date})")
 
+                content_found = False
+
                 # 1. Text content
                 text = msg.message or ""
                 if text:
                      logger.debug(f"Message {msg.id} has text content. Yielding.")
                      stats["text_messages"] += 1
+                     content_found = True
                      yield SourceItem(
                         external_id=str(msg.id),
                         data=text.encode("utf-8", errors="ignore"),
@@ -96,13 +107,15 @@ class TelegramUserConnector:
                         # Accessing msg.file returns a helper wrapper
                         f = msg.file
                         if f and f.size and f.size > 20 * 1024 * 1024:
-                             logger.warning(f"Skipping media in msg {msg.id} (Size: {f.size} > 20MB)")
+                             size_mb = f.size / (1024 * 1024)
+                             logger.warning(f"Skipping media in msg {msg.id} (Size: {size_mb:.2f}MB > 20MB)")
                              stats["skipped_size_limit"] += 1
                              continue
 
                         logger.debug(f"Downloading media for msg {msg.id}...")
                         data = client.download_media(msg, file=bytes)
                         if data:
+                             content_found = True
                              # Try to get filename
                              filename = "unknown"
                              if f and f.name:
@@ -113,7 +126,8 @@ class TelegramUserConnector:
                                      ext = f.ext
                                  filename = f"media_{msg.id}{ext}"
 
-                             logger.info(f"Downloaded media {filename} from msg {msg.id} (Size: {len(data)})")
+                             size_kb = len(data) / 1024
+                             logger.info(f"Downloaded media {filename} from msg {msg.id} (Size: {size_kb:.2f}KB)")
                              stats["media_messages"] += 1
 
                              yield SourceItem(
@@ -127,6 +141,10 @@ class TelegramUserConnector:
                     except Exception as e:
                         logger.error(f"Failed to download media for msg {msg.id}: {e}")
                         stats["download_errors"] += 1
+
+                if not content_found:
+                    logger.debug(f"Message {msg.id} has no text or valid media. Skipping.")
+                    stats["skipped_no_content"] += 1
 
             logger.info(f"Finished fetching messages from {self.peer}. Processed {count} messages. Stats: {json.dumps(stats)}")
 
