@@ -7,6 +7,13 @@ class TelegramSourceConfig:
     chat_id: str
 
 @dataclass
+class TelegramUserSourceConfig:
+    api_id: int
+    api_hash: str
+    session: str
+    peer: str
+
+@dataclass
 class SourceSelector:
     include_formats: List[str]
 
@@ -16,6 +23,7 @@ class SourceConfig:
     type: str
     selector: SourceSelector
     telegram: Optional[TelegramSourceConfig] = None
+    telegram_user: Optional[TelegramUserSourceConfig] = None
 
 @dataclass
 class DestinationConfig:

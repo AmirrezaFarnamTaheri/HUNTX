@@ -5,6 +5,8 @@ MergeBot is a lightweight, zero-budget, incremental file merger and publisher fo
 ## Key Features
 
 - **Multi-Source Ingestion**: Scrapes files from Telegram channels.
+  - Supports standard **Bot API** (documents/files).
+  - Supports **User Session (MTProto)** for reading history and public channels.
 - **Incremental Processing**: Only processes new files since the last run.
 - **Format Support**:
   - `npvt` (V2Ray/VLESS)
@@ -38,6 +40,12 @@ Set your environment variables:
 
 ```bash
 export TELEGRAM_TOKEN="your-bot-token"
+```
+
+For **User Session** (reading public channels/history):
+Generate a session string:
+```bash
+python scripts/make_telethon_session.py
 ```
 
 ### 3. Run

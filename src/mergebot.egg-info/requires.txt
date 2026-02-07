@@ -1,1 +1,2 @@
 PyYAML>=6.0
+telethon<2,>=1.42

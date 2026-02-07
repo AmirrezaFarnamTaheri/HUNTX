@@ -1,0 +1,140 @@
+import unittest
+from unittest.mock import MagicMock, patch, ANY
+import datetime
+from mergebot.connectors.telegram_user.connector import TelegramUserConnector, SourceItem
+
+class TestTelegramUserConnector(unittest.TestCase):
+    def setUp(self):
+        self.api_id = 12345
+        self.api_hash = "fake_hash"
+        self.session = "fake_session"
+        self.peer = "@test_channel"
+        self.connector = TelegramUserConnector(self.api_id, self.api_hash, self.session, self.peer)
+
+    @patch('mergebot.connectors.telegram_user.connector.StringSession')
+    @patch('mergebot.connectors.telegram_user.connector.TelegramClient')
+    def test_initialization(self, mock_client_cls, mock_session_cls):
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+
+        client = self.connector._client()
+
+        mock_client_cls.assert_called_with(mock_session_cls.return_value, self.api_id, self.api_hash)
+        self.assertEqual(client, mock_client)
+
+    @patch('mergebot.connectors.telegram_user.connector.StringSession')
+    @patch('mergebot.connectors.telegram_user.connector.TelegramClient')
+    def test_list_new_text(self, mock_client_cls, mock_session_cls):
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        self.connector._shared_clients[(self.api_id, self.session)] = mock_client
+        mock_client.is_connected.return_value = True
+
+        msg1 = MagicMock()
+        msg1.id = 100
+        msg1.message = "Hello World"
+        msg1.media = None
+        msg1.date = datetime.datetime.fromtimestamp(1600000000)
+
+        mock_client.iter_messages.return_value = [msg1]
+
+        items = list(self.connector.list_new())
+
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].external_id, "100")
+        self.assertEqual(items[0].data, b"Hello World")
+        self.assertEqual(items[0].metadata['filename'], "msg_100.txt")
+        self.assertEqual(self.connector.offset, 100)
+
+    @patch('mergebot.connectors.telegram_user.connector.StringSession')
+    @patch('mergebot.connectors.telegram_user.connector.TelegramClient')
+    def test_list_new_media(self, mock_client_cls, mock_session_cls):
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        self.connector._shared_clients[(self.api_id, self.session)] = mock_client
+        mock_client.is_connected.return_value = True
+
+        msg2 = MagicMock()
+        msg2.id = 101
+        msg2.message = None
+        msg2.media = True
+        msg2.file.size = 1024
+        msg2.file.name = "image.png"
+        msg2.date = datetime.datetime.fromtimestamp(1600000100)
+
+        mock_client.iter_messages.return_value = [msg2]
+        mock_client.download_media.return_value = b"fake_image_bytes"
+
+        items = list(self.connector.list_new())
+
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].external_id, "101_media")
+        self.assertEqual(items[0].data, b"fake_image_bytes")
+        self.assertEqual(items[0].metadata['filename'], "image.png")
+        self.assertEqual(self.connector.offset, 101)
+
+    @patch('mergebot.connectors.telegram_user.connector.StringSession')
+    @patch('mergebot.connectors.telegram_user.connector.TelegramClient')
+    def test_list_new_skip_large_file(self, mock_client_cls, mock_session_cls):
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        self.connector._shared_clients[(self.api_id, self.session)] = mock_client
+        mock_client.is_connected.return_value = True
+
+        msg3 = MagicMock()
+        msg3.id = 102
+        msg3.message = None
+        msg3.media = True
+        msg3.file.size = 30 * 1024 * 1024 # 30MB
+        msg3.date = datetime.datetime.fromtimestamp(1600000200)
+
+        mock_client.iter_messages.return_value = [msg3]
+
+        items = list(self.connector.list_new())
+        self.assertEqual(len(items), 0)
+        self.assertEqual(self.connector.offset, 102)
+
+    @patch('mergebot.connectors.telegram_user.connector.StringSession')
+    @patch('mergebot.connectors.telegram_user.connector.TelegramClient')
+    def test_get_state(self, mock_client_cls, mock_session_cls):
+        self.connector.offset = 500
+        state = self.connector.get_state()
+        self.assertEqual(state, {'offset': 500})
+
+    @patch('mergebot.connectors.telegram_user.connector.StringSession')
+    @patch('mergebot.connectors.telegram_user.connector.TelegramClient')
+    def test_list_new_exceptions(self, mock_client_cls, mock_session_cls):
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        self.connector._shared_clients[(self.api_id, self.session)] = mock_client
+
+        mock_client.is_connected.side_effect = Exception("Connect fail")
+        with self.assertRaises(Exception):
+            list(self.connector.list_new())
+
+        mock_client.is_connected.side_effect = None
+        mock_client.is_connected.return_value = True
+
+        mock_client.iter_messages.side_effect = Exception("Iter fail")
+        with self.assertRaises(Exception):
+            list(self.connector.list_new())
+
+    @patch('mergebot.connectors.telegram_user.connector.StringSession')
+    @patch('mergebot.connectors.telegram_user.connector.TelegramClient')
+    def test_resolve_peer_error_handled(self, mock_client_cls, mock_session_cls):
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        self.connector._shared_clients[(self.api_id, self.session)] = mock_client
+        mock_client.is_connected.return_value = True
+
+        self.connector.peer = "-10012345"
+
+        with patch('telethon.utils.resolve_id', side_effect=Exception("Resolve fail")):
+            mock_client.iter_messages.return_value = []
+            list(self.connector.list_new())
+
+            args, kwargs = mock_client.iter_messages.call_args
+            self.assertEqual(args[0], "-10012345")
+
+if __name__ == '__main__':
+    unittest.main()

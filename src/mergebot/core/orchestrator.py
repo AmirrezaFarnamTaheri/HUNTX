@@ -8,6 +8,7 @@ from ..state.repo import StateRepo
 from ..formats.registry import FormatRegistry
 from ..formats.register_builtin import register_all_formats
 from ..connectors.telegram.connector import TelegramConnector
+from ..connectors.telegram_user.connector import TelegramUserConnector
 from ..pipeline.ingest import IngestionPipeline
 from ..pipeline.transform import TransformPipeline
 from ..pipeline.build import BuildPipeline
@@ -60,7 +61,21 @@ class Orchestrator:
                     state=self.repo.get_source_state(src_conf.id)
                 )
                 try:
-                    self.ingest_pipeline.run(src_conf.id, conn)
+                    self.ingest_pipeline.run(src_conf.id, conn, source_type=src_conf.type)
+                    ingest_count += 1
+                except Exception as e:
+                    logger.exception(f"Ingest failed for source '{src_conf.id}': {e}")
+            elif src_conf.type == "telegram_user" and src_conf.telegram_user:
+                logger.info(f"Running ingestion for source: {src_conf.id} (Telegram User)")
+                conn = TelegramUserConnector(
+                    api_id=src_conf.telegram_user.api_id,
+                    api_hash=src_conf.telegram_user.api_hash,
+                    session=src_conf.telegram_user.session,
+                    peer=src_conf.telegram_user.peer,
+                    state=self.repo.get_source_state(src_conf.id)
+                )
+                try:
+                    self.ingest_pipeline.run(src_conf.id, conn, source_type=src_conf.type)
                     ingest_count += 1
                 except Exception as e:
                     logger.exception(f"Ingest failed for source '{src_conf.id}': {e}")

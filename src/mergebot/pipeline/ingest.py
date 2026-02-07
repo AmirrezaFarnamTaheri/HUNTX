@@ -12,7 +12,7 @@ class IngestionPipeline:
         self.raw_store = raw_store
         self.state_repo = state_repo
 
-    def run(self, source_id: str, connector: SourceConnector):
+    def run(self, source_id: str, connector: SourceConnector, source_type: str = "telegram"):
         logger.info(f"Starting ingestion for source: {source_id}")
         state = self.state_repo.get_source_state(source_id) or {}
 
@@ -76,7 +76,7 @@ class IngestionPipeline:
                 }
             }
 
-            self.state_repo.update_source_state(source_id, new_state, source_type="telegram")
+            self.state_repo.update_source_state(source_id, new_state, source_type=source_type)
 
             logger.info(
                 f"Ingestion complete for {source_id}: "
@@ -86,4 +86,3 @@ class IngestionPipeline:
 
         except Exception as e:
             logger.exception(f"Failed to update state for source {source_id}: {e}")
-

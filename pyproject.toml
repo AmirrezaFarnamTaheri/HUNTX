@@ -3,7 +3,7 @@ name = "mergebot"
 version = "0.1.0"
 description = "Incremental multi-format file merger and Telegram publisher"
 requires-python = ">=3.11"
-dependencies = ["PyYAML>=6.0"]
+dependencies = ["PyYAML>=6.0", "telethon>=1.42,<2"]
 
 [project.scripts]
 mergebot = "mergebot.cli.main:main"

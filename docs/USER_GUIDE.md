@@ -5,6 +5,7 @@
 2. [Running locally](#running-locally)
 3. [Running on GitHub Actions](#running-on-github-actions)
 4. [Architecture](#architecture)
+5. [Telegram User Session (MTProto)](#telegram-user-session-mtproto)
 
 ## Configuration
 
@@ -13,6 +14,10 @@ The core of MergeBot is controlled by a YAML configuration file.
 ### Sources
 
 Define where the bot should look for files.
+
+#### Bot API Source (Standard)
+
+Good for private channels where the bot is an admin, or simply downloading files sent to the bot.
 
 ```yaml
 sources:
@@ -25,6 +30,23 @@ sources:
       chat_id: "-1001234567890"
 ```
 
+#### Telegram User Source (MTProto)
+
+Good for scraping public channels without joining, or reading message history (text content).
+
+```yaml
+sources:
+  - id: "public_channel_source"
+    type: "telegram_user"
+    selector:
+      include_formats: ["npvt", "conf_lines"]
+    telegram_user:
+      api_id: ${TELEGRAM_API_ID}
+      api_hash: "${TELEGRAM_API_HASH}"
+      session: "${TELEGRAM_USER_SESSION}"
+      peer: "@SomePublicChannel"
+```
+
 ### Publishing Routes
 
 Define how to merge and where to publish the results.
@@ -33,13 +55,41 @@ Define how to merge and where to publish the results.
 publishing:
   routes:
     - name: "merged_vpn"
-      from_sources: ["source_channel_1"]
+      from_sources: ["source_channel_1", "public_channel_source"]
       formats: ["npvt"]
       destinations:
         - chat_id: "-1009876543210"
           mode: "post_on_change"
           caption_template: "Merged V2Ray Configs\nDate: {timestamp}"
 ```
+
+## Telegram User Session (MTProto)
+
+Using a "User Session" allows the bot to act as a normal Telegram user. This unlocks:
+- **History Access**: Fetch old messages (Bot API `getUpdates` is limited to 24h).
+- **Public Channels**: Read from public channels without needing to join them or add a bot admin.
+- **Text Content**: Ingest config lines directly from message text, not just files.
+
+### Setup Steps
+
+1. **Get API Credentials**:
+   - Go to [my.telegram.org](https://my.telegram.org).
+   - Log in and go to "API development tools".
+   - Create an app to get `App api_id` and `App api_hash`.
+
+2. **Generate Session String**:
+   - Run the helper script locally (interactive login):
+     ```bash
+     python scripts/make_telethon_session.py
+     ```
+   - Enter your phone number and 2FA password if prompted.
+   - Copy the long `SESSION_STRING` output.
+
+3. **Configure Secrets**:
+   - Set environment variables or GitHub Secrets:
+     - `TELEGRAM_API_ID`
+     - `TELEGRAM_API_HASH`
+     - `TELEGRAM_USER_SESSION`
 
 ## Running Locally
 
@@ -58,6 +108,7 @@ MergeBot is designed to run periodically on GitHub Actions without a dedicated s
    - Go to Settings -> Secrets and variables -> Actions.
    - Add `TELEGRAM_TOKEN` (for the scraping bot).
    - Add `PUBLISH_BOT_TOKEN` (if using a separate bot for publishing).
+   - **For User Session**: Add `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, and `TELEGRAM_USER_SESSION`.
 3. **Enable Workflows**:
    - The `.github/workflows/mergebot.yml` workflow is scheduled to run hourly.
    - It will automatically create an orphan branch `mergebot-state` to store the SQLite database between runs.
