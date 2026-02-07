@@ -138,3 +138,13 @@ A verification script is included in the GitHub Artifacts output.
   ```bash
   python verify_output.py
   ```
+
+### Extended Format Support & Security
+MergeBot now supports ingesting and bundling:
+- `.ehi`, `.hc`, `.hat`, `.sip`, `.npvtsub`, `.conf`
+- These files are treated as opaque bundles and can be merged into zip archives.
+
+Additionally, to ensure security, the bot automatically **skips** any file with the `.apk` extension to prevent distribution of potential malware.
+
+### Mixed Content Ingestion
+Both `telegram` (Bot API) and `telegram_user` (MTProto) sources now support ingesting both text (captions/messages) and documents from the same update.

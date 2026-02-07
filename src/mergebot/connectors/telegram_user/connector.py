@@ -71,6 +71,7 @@ class TelegramUserConnector:
                 "text_messages": 0,
                 "media_messages": 0,
                 "skipped_size_limit": 0,
+                "skipped_apk": 0,
                 "skipped_no_content": 0,
                 "download_errors": 0
             }
@@ -88,7 +89,7 @@ class TelegramUserConnector:
                 # 1. Text content
                 text = msg.message or ""
                 if text:
-                     logger.debug(f"Message {msg.id} has text content. Yielding.")
+                     logger.info(f"Message {msg.id} has text content. Yielding.")
                      stats["text_messages"] += 1
                      content_found = True
                      yield SourceItem(
@@ -106,6 +107,20 @@ class TelegramUserConnector:
                         # Check size limit (20MB)
                         # Accessing msg.file returns a helper wrapper
                         f = msg.file
+
+                        # APK Skip Logic
+                        if f:
+                            is_apk = False
+                            if f.name and f.name.lower().endswith(".apk"):
+                                is_apk = True
+                            elif f.ext and f.ext.lower() == ".apk":
+                                is_apk = True
+
+                            if is_apk:
+                                logger.info(f"Skipping APK media in msg {msg.id}: {f.name or 'unknown'}")
+                                stats["skipped_apk"] += 1
+                                continue
+
                         if f and f.size and f.size > 20 * 1024 * 1024:
                              size_mb = f.size / (1024 * 1024)
                              logger.warning(f"Skipping media in msg {msg.id} (Size: {size_mb:.2f}MB > 20MB)")
@@ -143,7 +158,7 @@ class TelegramUserConnector:
                         stats["download_errors"] += 1
 
                 if not content_found:
-                    logger.debug(f"Message {msg.id} has no text or valid media. Skipping.")
+                    # logger.debug(f"Message {msg.id} has no text or valid media. Skipping.")
                     stats["skipped_no_content"] += 1
 
             logger.info(f"Finished fetching messages from {self.peer}. Processed {count} messages. Stats: {json.dumps(stats)}")

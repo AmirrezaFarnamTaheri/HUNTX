@@ -7,12 +7,15 @@ MergeBot is a lightweight, zero-budget, incremental file merger and publisher fo
 - **Multi-Source Ingestion**: Scrapes files from Telegram channels.
   - Supports standard **Bot API** (documents/files).
   - Supports **User Session (MTProto)** for reading history and public channels.
+  - **Mixed Content**: Captures text/captions alongside files.
 - **Incremental Processing**: Only processes new files since the last run.
 - **Format Support**:
   - `npvt` (V2Ray/VLESS)
   - `ovpn` (OpenVPN)
   - `conf_lines` (Generic line-based configs)
   - `opaque_bundle` (Zipped binary blobs)
+  - **Extended Support**: `.ehi`, `.hc`, `.hat`, `.sip`, `.npvtsub`, `.conf`.
+- **Safety**: Automatically skips potentially malicious `.apk` files.
 - **Zero-Budget Architecture**: Designed to run on ephemeral GitHub Actions runners with state persistence committed to a git branch.
 - **Privacy Focused**: No external databases required; state is kept in a local SQLite file.
 

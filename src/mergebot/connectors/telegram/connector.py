@@ -1,23 +1,24 @@
-import json
 import logging
+import time
 import urllib.request
 import urllib.error
-import time
-from typing import Iterator, Dict, Any, Optional
-from ...connectors.base import SourceConnector, SourceItem
+import json
 from dataclasses import dataclass
+from typing import Dict, Any, Optional, Iterator
+from ..base import SourceConnector, SourceItem
+
+# Define TelegramItem as alias to SourceItem for compatibility/clarity
+@dataclass
+class TelegramItem:
+    external_id: str
+    data: bytes
+    metadata: Dict[str, Any]
 
 logger = logging.getLogger(__name__)
 
 # Constants for retries
 MAX_RETRIES = 3
 BACKOFF_FACTOR = 1
-
-@dataclass
-class TelegramItem:
-    external_id: str
-    data: bytes
-    metadata: Dict[str, Any]
 
 class TelegramConnector(SourceConnector):
     # Shared state to coordinate updates across multiple instances with the same token
@@ -172,8 +173,9 @@ class TelegramConnector(SourceConnector):
         stats = {
             "skipped_chat_mismatch": 0,
             "skipped_old_timestamp": 0,
-            "skipped_no_document": 0,
+            "skipped_no_content": 0,
             "skipped_size_limit": 0,
+            "skipped_apk": 0,
             "processed_updates": 0,
             "yielded_items": 0
         }
@@ -207,47 +209,73 @@ class TelegramConnector(SourceConnector):
                 stats["skipped_old_timestamp"] += 1
                 continue
 
-            # Check for document
-            doc = msg.get("document")
-            if not doc:
-                # logger.debug(f"Update {update_id} skipped: No document")
-                stats["skipped_no_document"] += 1
-                continue
+            content_found = False
 
-            # Check file size (20MB limit)
-            file_size = doc.get("file_size", 0)
-            if file_size > 20 * 1024 * 1024:
-                logger.warning(f"Skipping file {doc.get('file_name')} (Size: {file_size} > 20MB limit)")
-                stats["skipped_size_limit"] += 1
-                continue
-
-            file_id = doc.get("file_id")
-            file_name = doc.get("file_name", "unknown")
-
-            logger.info(f"Processing update {update_id}: Found file {file_name} (ID: {file_id})")
-
-            # Get File info
-            file_info_resp = self._make_request("getFile", {"file_id": file_id})
-            if not file_info_resp.get("ok"):
-                logger.error(f"Failed to get file info for {file_id}: {file_info_resp}")
-                continue
-
-            file_path = file_info_resp["result"]["file_path"]
-
-            # Download
-            data = self._download_file(file_path)
-            if data:
+            # 1. Text Content (message text or caption)
+            text_content = msg.get("text") or msg.get("caption")
+            if text_content:
+                logger.info(f"Processing update {update_id}: Found text content (Length: {len(text_content)})")
                 stats["yielded_items"] += 1
+                content_found = True
                 yield TelegramItem(
-                    external_id=str(msg["message_id"]),
-                    data=data,
+                    external_id=str(msg["message_id"]) + "_text",
+                    data=text_content.encode("utf-8"),
                     metadata={
-                        "filename": file_name,
-                        "file_id": file_id,
+                        "filename": f"msg_{msg['message_id']}.txt",
                         "timestamp": msg_date,
-                        "update_id": update_id
+                        "update_id": update_id,
+                        "is_text": True
                     }
                 )
+
+            # 2. Document Content
+            doc = msg.get("document")
+            if doc:
+                file_name = doc.get("file_name", "unknown")
+                file_size = doc.get("file_size", 0)
+
+                # Skip APK
+                if file_name.lower().endswith(".apk"):
+                    logger.info(f"Skipping APK file in update {update_id}: {file_name}")
+                    stats["skipped_apk"] += 1
+                    # Do not treat as content found, unless text was found
+                    # If text was found, we yield text but skip file.
+                    pass
+                # Check file size (20MB limit)
+                elif file_size > 20 * 1024 * 1024:
+                    logger.warning(f"Skipping file {file_name} (Size: {file_size} > 20MB limit)")
+                    stats["skipped_size_limit"] += 1
+                else:
+                    file_id = doc.get("file_id")
+
+                    logger.info(f"Processing update {update_id}: Found file {file_name} (ID: {file_id})")
+
+                    # Get File info
+                    file_info_resp = self._make_request("getFile", {"file_id": file_id})
+                    if not file_info_resp.get("ok"):
+                        logger.error(f"Failed to get file info for {file_id}: {file_info_resp}")
+                    else:
+                        file_path = file_info_resp["result"]["file_path"]
+
+                        # Download
+                        data = self._download_file(file_path)
+                        if data:
+                            stats["yielded_items"] += 1
+                            content_found = True
+                            yield TelegramItem(
+                                external_id=str(msg["message_id"]),
+                                data=data,
+                                metadata={
+                                    "filename": file_name,
+                                    "file_id": file_id,
+                                    "timestamp": msg_date,
+                                    "update_id": update_id
+                                }
+                            )
+
+            if not content_found:
+                # logger.debug(f"Update {update_id} skipped: No content (text/document)")
+                stats["skipped_no_content"] += 1
 
         logger.info(f"Connector processing done. Stats: {json.dumps(stats)}")
 
