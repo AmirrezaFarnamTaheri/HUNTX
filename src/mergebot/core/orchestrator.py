@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class Orchestrator:
     def __init__(self, config: AppConfig):
-        logger.info("Initializing Orchestrator...")
+        logger.info("[Orchestrator] Initializing...")
         self.config = config
 
         # Init stores
@@ -29,12 +29,12 @@ class Orchestrator:
         # Init DB/Repo
         self.db = open_db(STATE_DB_PATH)
         self.repo = StateRepo(self.db)
-        logger.debug(f"Connected to state DB at {STATE_DB_PATH}")
+        logger.debug(f"[Orchestrator] Connected to state DB at {STATE_DB_PATH}")
 
         # Init Registry
         self.registry = FormatRegistry.get_instance()
         register_all_formats(self.registry, self.raw_store)
-        logger.debug("Formats registered.")
+        logger.debug("[Orchestrator] Formats registered.")
 
         # Map source configs for TransformPipeline
         source_configs = {s.id: s for s in self.config.sources}
@@ -44,17 +44,18 @@ class Orchestrator:
         self.transform_pipeline = TransformPipeline(self.raw_store, self.repo, self.registry, source_configs)
         self.build_pipeline = BuildPipeline(self.repo, self.artifact_store, self.registry)
         self.publish_pipeline = PublishPipeline(self.repo)
-        logger.info("Pipelines initialized.")
+        logger.info("[Orchestrator] Pipelines initialized.")
 
     def run(self):
         start_time = time.time()
-        logger.info("Starting orchestrator run...")
+        run_id = int(start_time)
+        logger.info(f"[Orchestrator] Starting run (ID: {run_id})...")
 
         # 1. Ingest
         ingest_count = 0
         for src_conf in self.config.sources:
             if src_conf.type == "telegram" and src_conf.telegram:
-                logger.info(f"Running ingestion for source: {src_conf.id}")
+                logger.info(f"[Orchestrator] Running ingestion for source: {src_conf.id}")
                 conn = TelegramConnector(
                     token=src_conf.telegram.token,
                     chat_id=src_conf.telegram.chat_id,
@@ -64,9 +65,9 @@ class Orchestrator:
                     self.ingest_pipeline.run(src_conf.id, conn, source_type=src_conf.type)
                     ingest_count += 1
                 except Exception as e:
-                    logger.exception(f"Ingest failed for source '{src_conf.id}': {e}")
+                    logger.exception(f"[Orchestrator] Ingest failed for source '{src_conf.id}': {e}")
             elif src_conf.type == "telegram_user" and src_conf.telegram_user:
-                logger.info(f"Running ingestion for source: {src_conf.id} (Telegram User)")
+                logger.info(f"[Orchestrator] Running ingestion for source: {src_conf.id} (Telegram User)")
                 conn = TelegramUserConnector(
                     api_id=src_conf.telegram_user.api_id,
                     api_hash=src_conf.telegram_user.api_hash,
@@ -78,21 +79,21 @@ class Orchestrator:
                     self.ingest_pipeline.run(src_conf.id, conn, source_type=src_conf.type)
                     ingest_count += 1
                 except Exception as e:
-                    logger.exception(f"Ingest failed for source '{src_conf.id}': {e}")
+                    logger.exception(f"[Orchestrator] Ingest failed for source '{src_conf.id}': {e}")
             else:
-                logger.warning(f"Skipping source '{src_conf.id}': Unsupported type or missing config.")
+                logger.warning(f"[Orchestrator] Skipping source '{src_conf.id}': Unsupported type or missing config.")
 
         # 2. Transform
         try:
-            logger.info("Running transformation pipeline...")
+            logger.info("[Orchestrator] Running transformation pipeline...")
             self.transform_pipeline.process_pending()
         except Exception as e:
-            logger.exception(f"Transform pipeline failed: {e}")
+            logger.exception(f"[Orchestrator] Transform pipeline failed: {e}")
 
         # 3. Build & Publish
         build_publish_count = 0
         for route in self.config.routes:
-            logger.info(f"Processing route: {route.name}")
+            logger.info(f"[Orchestrator] Processing route: {route.name}")
             try:
                 # Pass from_sources to BuildPipeline
                 route_dict = {
@@ -123,7 +124,7 @@ class Orchestrator:
                     build_publish_count += 1
 
             except Exception as e:
-                logger.exception(f"Build/Publish failed for route '{route.name}': {e}")
+                logger.exception(f"[Orchestrator] Build/Publish failed for route '{route.name}': {e}")
 
         duration = time.time() - start_time
-        logger.info(f"Orchestrator run complete in {duration:.2f}s. Sources ingested: {ingest_count}, Routes processed: {build_publish_count}.")
+        logger.info(f"[Orchestrator] Run {run_id} complete in {duration:.2f}s. Sources ingested: {ingest_count}, Routes processed: {build_publish_count}.")

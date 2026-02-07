@@ -75,6 +75,8 @@ class TelegramConnector(SourceConnector):
         local_offset = state.get("offset", 0) if state else 0
         self.offset = local_offset
 
+        logger.info(f"Fetching updates from Telegram (offset={self.offset})...")
+
         # Determine if this is a fresh start (no previous offset)
         is_fresh_start = (local_offset == 0)
         # Explicit override: 723600 seconds instead of 72 hours
@@ -159,7 +161,7 @@ class TelegramConnector(SourceConnector):
             # Check file size (20MB limit)
             file_size = doc.get("file_size", 0)
             if file_size > 20 * 1024 * 1024:
-                logger.warning(f"Skipping file {doc.get('file_name')} (Size: {file_size})")
+                logger.warning(f"Skipping file {doc.get('file_name')} (Size: {file_size} > 20MB limit)")
                 continue
 
             file_id = doc.get("file_id")
