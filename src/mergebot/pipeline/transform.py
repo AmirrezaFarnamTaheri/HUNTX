@@ -36,8 +36,9 @@ class TransformPipeline:
             raw_hash = row["raw_hash"]
             source_id = row["source_id"]
             filename = row["filename"] or "unknown"
+            file_size_bytes = row.get("file_size", 0)
 
-            logger.debug(f"[Transform] Processing file: {filename} (hash: {raw_hash}) from source: {source_id}")
+            logger.debug(f"[Transform] Processing file: {filename} (hash: {raw_hash}, size: {file_size_bytes} bytes) from source: {source_id}")
 
             try:
                 data = self.raw_store.get(raw_hash)
@@ -57,7 +58,7 @@ class TransformPipeline:
                 if source_conf and source_conf.selector:
                     allowed = source_conf.selector.include_formats
                     if fmt_id not in allowed and "all" not in allowed:
-                         logger.info(f"[Transform] Skipping file {filename} from {source_id}: Format {fmt_id} not in allowed list {allowed}")
+                         logger.info(f"[Transform] Skipping file {filename} from {source_id}: Format '{fmt_id}' not in allowed list {allowed}")
                          self.state_repo.update_file_status(raw_hash, "ignored", f"Format {fmt_id} not allowed")
                          skipped_count += 1
                          continue

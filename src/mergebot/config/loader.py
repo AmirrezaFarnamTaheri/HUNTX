@@ -28,6 +28,8 @@ def load_config(path: Path) -> AppConfig:
 
         # Parse sources
         sources = []
+        source_ids = set()
+
         for i, s in enumerate(data.get("sources", [])):
             tg_conf = None
             telegram_data = s.get("telegram")
@@ -77,7 +79,9 @@ def load_config(path: Path) -> AppConfig:
                 logger.error(f"Source at index {i} is missing required fields: 'id', 'type', or 'selector.include_formats'.")
                 raise ValueError(f"Source at index {i} is missing required fields.")
 
-            logger.debug(f"Loaded source config: {source_id} ({source_type})")
+            num_formats = len(include_formats)
+            logger.debug(f"Loaded source config: {source_id} ({source_type}) - Accepts {num_formats} formats: {include_formats}")
+
             sources.append(SourceConfig(
                 id=source_id,
                 type=source_type,
@@ -85,6 +89,7 @@ def load_config(path: Path) -> AppConfig:
                 telegram=tg_conf,
                 telegram_user=tg_user_conf
             ))
+            source_ids.add(source_id)
 
         # Parse routes
         routes = []
@@ -99,10 +104,16 @@ def load_config(path: Path) -> AppConfig:
                     token=d.get("token")
                 ))
 
-            logger.debug(f"Loaded route config: {route_name} with {len(dests)} destinations")
+            from_sources = r.get("from_sources", [])
+            # Validation: Check if sources exist
+            for src in from_sources:
+                if src not in source_ids:
+                    logger.warning(f"Route '{route_name}' references unknown source ID: '{src}'. This source will be ignored.")
+
+            logger.debug(f"Loaded route config: {route_name} with {len(dests)} destinations. Sources: {from_sources}")
             routes.append(PublishRoute(
                 name=route_name,
-                from_sources=r.get("from_sources", []),
+                from_sources=from_sources,
                 formats=r.get("formats", []),
                 destinations=dests
             ))

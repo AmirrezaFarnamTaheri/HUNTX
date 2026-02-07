@@ -10,6 +10,10 @@ class TelegramPublisher:
         self.token = token
         self.base_url = f"https://api.telegram.org/bot{token}"
 
+        # Validation
+        if not self.token or ':' not in self.token:
+             logger.warning(f"Initialized TelegramPublisher with potentially invalid token: {self.token[:5]}... (missing colon)")
+
     def publish(self, chat_id: str, data: bytes, filename: str, caption: str = ""):
         # Using multipart/form-data is complex with urllib standard lib.
         # But we must do it to send files.
@@ -43,16 +47,24 @@ class TelegramPublisher:
 
         body = body_start + data + body_end
 
+        payload_size = len(body)
+        payload_size_kb = payload_size / 1024
+
         headers = {
             'Content-Type': f'multipart/form-data; boundary={boundary}',
-            'Content-Length': str(len(body))
+            'Content-Length': str(payload_size)
         }
+
+        logger.debug(f"Sending document to {chat_id}. Payload size: {payload_size_kb:.2f} KB. URL: {self.base_url}/sendDocument")
 
         req = urllib.request.Request(f"{self.base_url}/sendDocument", data=body, headers=headers)
 
         try:
             with urllib.request.urlopen(req, timeout=60) as response:
-                return json.loads(response.read().decode("utf-8"))
+                resp_code = response.getcode()
+                resp_body = response.read().decode("utf-8")
+                logger.info(f"Telegram API Response Code: {resp_code}")
+                return json.loads(resp_body)
         except Exception as e:
-            logger.error(f"Telegram publish failed: {e}")
+            logger.error(f"Telegram publish failed for {chat_id}: {e}")
             raise

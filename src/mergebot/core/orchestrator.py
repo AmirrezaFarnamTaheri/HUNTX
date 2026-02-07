@@ -52,7 +52,13 @@ class Orchestrator:
         logger.info(f"[Orchestrator] Starting run (ID: {run_id})...")
 
         # 1. Ingest
+        ingest_start = time.time()
         ingest_count = 0
+        ingest_failed = 0
+        total_sources = len(self.config.sources)
+
+        logger.info(f"[Orchestrator] === Phase 1: Ingestion ({total_sources} sources) ===")
+
         for src_conf in self.config.sources:
             if src_conf.type == "telegram" and src_conf.telegram:
                 logger.info(f"[Orchestrator] Running ingestion for source: {src_conf.id}")
@@ -66,6 +72,7 @@ class Orchestrator:
                     ingest_count += 1
                 except Exception as e:
                     logger.exception(f"[Orchestrator] Ingest failed for source '{src_conf.id}': {e}")
+                    ingest_failed += 1
             elif src_conf.type == "telegram_user" and src_conf.telegram_user:
                 logger.info(f"[Orchestrator] Running ingestion for source: {src_conf.id} (Telegram User)")
                 conn = TelegramUserConnector(
@@ -80,18 +87,32 @@ class Orchestrator:
                     ingest_count += 1
                 except Exception as e:
                     logger.exception(f"[Orchestrator] Ingest failed for source '{src_conf.id}': {e}")
+                    ingest_failed += 1
             else:
                 logger.warning(f"[Orchestrator] Skipping source '{src_conf.id}': Unsupported type or missing config.")
+                ingest_failed += 1
+
+        ingest_duration = time.time() - ingest_start
+        logger.info(f"[Orchestrator] Ingestion phase complete in {ingest_duration:.2f}s. Success: {ingest_count}, Failed/Skipped: {ingest_failed}.")
 
         # 2. Transform
+        transform_start = time.time()
+        logger.info("[Orchestrator] === Phase 2: Transformation ===")
         try:
-            logger.info("[Orchestrator] Running transformation pipeline...")
             self.transform_pipeline.process_pending()
         except Exception as e:
             logger.exception(f"[Orchestrator] Transform pipeline failed: {e}")
 
+        transform_duration = time.time() - transform_start
+        logger.info(f"[Orchestrator] Transformation phase complete in {transform_duration:.2f}s.")
+
         # 3. Build & Publish
+        build_start = time.time()
+        logger.info(f"[Orchestrator] === Phase 3: Build & Publish ({len(self.config.routes)} routes) ===")
+
         build_publish_count = 0
+        build_publish_failed = 0
+
         for route in self.config.routes:
             logger.info(f"[Orchestrator] Processing route: {route.name}")
             try:
@@ -122,9 +143,17 @@ class Orchestrator:
                         self.publish_pipeline.run(res, dests)
 
                     build_publish_count += 1
+                else:
+                    logger.info(f"[Orchestrator] Route '{route.name}' produced no artifacts.")
 
             except Exception as e:
                 logger.exception(f"[Orchestrator] Build/Publish failed for route '{route.name}': {e}")
+                build_publish_failed += 1
 
+        build_duration = time.time() - build_start
         duration = time.time() - start_time
-        logger.info(f"[Orchestrator] Run {run_id} complete in {duration:.2f}s. Sources ingested: {ingest_count}, Routes processed: {build_publish_count}.")
+
+        logger.info(f"[Orchestrator] Build & Publish phase complete in {build_duration:.2f}s.")
+        logger.info(f"[Orchestrator] Run {run_id} complete in {duration:.2f}s. "
+                    f"Sources: {ingest_count} ok / {ingest_failed} err. "
+                    f"Routes: {build_publish_count} ok / {build_publish_failed} err.")

@@ -30,7 +30,12 @@ class BuildPipeline:
         records = self.state_repo.get_records_for_build(formats, allowed_source_ids)
         fetch_duration = time.time() - fetch_start
         record_count = len(records)
-        logger.info(f"[Build] Fetched {record_count} records for route '{route_name}' in {fetch_duration:.2f}s")
+
+        # Determine unique source IDs in the fetched records
+        unique_sources = set(r.get("source_id") for r in records if r.get("source_id"))
+
+        logger.info(f"[Build] Fetched {record_count} records for route '{route_name}' in {fetch_duration:.2f}s. "
+                    f"Contributing Sources ({len(unique_sources)}): {list(unique_sources)}")
 
         if not records:
             logger.info(f"[Build] No records found for route '{route_name}', skipping build.")
@@ -51,6 +56,7 @@ class BuildPipeline:
                 artifact_bytes = handler.build(records)
                 build_duration = time.time() - build_start
                 artifact_size = len(artifact_bytes)
+                artifact_size_kb = artifact_size / 1024
 
                 if not artifact_bytes:
                      logger.warning(f"[Build] Build returned empty artifact for '{route_name}' format '{fmt}'")
@@ -59,11 +65,11 @@ class BuildPipeline:
                 # 3. Save artifact
                 # Save to history (hashed)
                 artifact_hash = self.artifact_store.save_artifact(route_name, artifact_bytes)
-                logger.debug(f"[Build] Saved artifact history: {artifact_hash} ({artifact_size} bytes)")
+                logger.debug(f"[Build] Saved artifact history: {artifact_hash} ({artifact_size_kb:.2f} KB)")
 
                 # Save to output (named)
                 self.artifact_store.save_output(route_name, fmt, artifact_bytes)
-                logger.info(f"[Build] Saved output artifact: {route_name} ({fmt}) - Size: {artifact_size} bytes, Time: {build_duration:.2f}s, Hash: {artifact_hash}")
+                logger.info(f"[Build] Saved output artifact: {route_name} ({fmt}) - Size: {artifact_size_kb:.2f} KB, Time: {build_duration:.2f}s, Hash: {artifact_hash}")
 
                 # Unique ID for state tracking combines route and format
                 unique_id = f"{route_name}:{fmt}"

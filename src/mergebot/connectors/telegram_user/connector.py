@@ -1,4 +1,5 @@
 import logging
+import json
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, Iterator
 from telethon.sync import TelegramClient
@@ -38,6 +39,7 @@ class TelegramUserConnector:
 
         last_id = self.offset
         client = self._client()
+        is_fresh_start = (last_id == 0)
 
         # Connect if not connected
         if not client.is_connected():
@@ -58,6 +60,13 @@ class TelegramUserConnector:
             logger.info(f"Fetching messages from {self.peer} starting after ID {last_id}")
 
             count = 0
+            stats = {
+                "text_messages": 0,
+                "media_messages": 0,
+                "skipped_size_limit": 0,
+                "download_errors": 0
+            }
+
             # Iterate messages
             # min_id excludes the message with that ID, so we get newer ones
             for msg in client.iter_messages(peer_entity, min_id=last_id, reverse=True):
@@ -70,6 +79,7 @@ class TelegramUserConnector:
                 text = msg.message or ""
                 if text:
                      logger.debug(f"Message {msg.id} has text content. Yielding.")
+                     stats["text_messages"] += 1
                      yield SourceItem(
                         external_id=str(msg.id),
                         data=text.encode("utf-8", errors="ignore"),
@@ -87,6 +97,7 @@ class TelegramUserConnector:
                         f = msg.file
                         if f and f.size and f.size > 20 * 1024 * 1024:
                              logger.warning(f"Skipping media in msg {msg.id} (Size: {f.size} > 20MB)")
+                             stats["skipped_size_limit"] += 1
                              continue
 
                         logger.debug(f"Downloading media for msg {msg.id}...")
@@ -103,6 +114,7 @@ class TelegramUserConnector:
                                  filename = f"media_{msg.id}{ext}"
 
                              logger.info(f"Downloaded media {filename} from msg {msg.id} (Size: {len(data)})")
+                             stats["media_messages"] += 1
 
                              yield SourceItem(
                                 external_id=str(msg.id) + "_media",
@@ -114,8 +126,13 @@ class TelegramUserConnector:
                             )
                     except Exception as e:
                         logger.error(f"Failed to download media for msg {msg.id}: {e}")
+                        stats["download_errors"] += 1
 
-            logger.info(f"Finished fetching messages from {self.peer}. Processed {count} messages.")
+            logger.info(f"Finished fetching messages from {self.peer}. Processed {count} messages. Stats: {json.dumps(stats)}")
+
+            if count == 0 and is_fresh_start:
+                 logger.warning(f"Fetched 0 messages from {self.peer} on a fresh start. "
+                                f"Ensure the user/bot has access to the channel and the channel is not empty.")
 
         except Exception as e:
             logger.error(f"Error listing new messages for {self.peer}: {e}")

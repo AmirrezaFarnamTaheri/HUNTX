@@ -16,7 +16,11 @@ class TestBuildPipeline(unittest.TestCase):
             "from_sources": ["src1"]
         }
 
-        self.state_repo.get_records_for_build.return_value = ["rec1", "rec2"]
+        # Updated mock to return dicts instead of strings, to match expected structure
+        self.state_repo.get_records_for_build.return_value = [
+            {"unique_hash": "hash1", "data": "data1", "source_id": "src1"},
+            {"unique_hash": "hash2", "data": "data2", "source_id": "src1"}
+        ]
 
         handler = Mock()
         handler.build.return_value = b"artifact data"
