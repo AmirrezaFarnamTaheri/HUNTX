@@ -1,6 +1,7 @@
 import logging
 import datetime
 import os
+import time
 from typing import Dict, Any, List
 from ..state.repo import StateRepo
 from ..publishers.telegram.publisher import TelegramPublisher
@@ -18,18 +19,18 @@ class PublishPipeline:
         fmt = build_result.get("format", "unknown")
         unique_id = build_result.get("unique_id", route_name)
 
-        logger.debug(f"Publishing check: {unique_id} with hash {new_hash}")
+        logger.debug(f"[Publish] Checking publish necessity for {unique_id} (New Hash: {new_hash})")
 
         # Check if changed using unique_id (route + format)
         last_hash = self.state_repo.get_last_published_hash(unique_id)
         if last_hash == new_hash:
-            logger.info(f"No content change for {unique_id} (hash: {last_hash}), skipping publish.")
+            logger.info(f"[Publish] No content change for {unique_id} (hash: {last_hash}), skipping publish.")
             return
 
         default_token = os.getenv("TELEGRAM_TOKEN")
         published_any = False
 
-        logger.info(f"Content changed for {unique_id} ({last_hash} -> {new_hash}). Publishing to {len(destinations)} destinations.")
+        logger.info(f"[Publish] Content changed for {unique_id} ({last_hash} -> {new_hash}). Publishing to {len(destinations)} destinations.")
 
         for dest in destinations:
             chat_id = dest["chat_id"]
@@ -37,15 +38,15 @@ class PublishPipeline:
             token = dest.get("token", default_token)
 
             if not token:
-                logger.error(f"No token configured for destination chat_id: {chat_id}")
+                logger.error(f"[Publish] No token configured for destination chat_id: {chat_id}")
                 continue
 
             # Mask token for logging
             masked_token = f"{token[:5]}...{token[-5:]}" if len(token) > 10 else "***"
-            logger.debug(f"Using publisher with token {masked_token} for chat_id {chat_id}")
 
             # Get publisher
             if token not in self.publishers:
+                logger.debug(f"[Publish] Initializing publisher for token {masked_token}")
                 self.publishers[token] = TelegramPublisher(token)
             pub = self.publishers[token]
 
@@ -56,6 +57,10 @@ class PublishPipeline:
                 count=build_result.get("count", "?"),
                 format=fmt
             )
+
+            # Log caption preview (truncated)
+            caption_preview = (caption[:50] + '...') if len(caption) > 50 else caption
+            logger.debug(f"[Publish] Prepared caption for {chat_id}: '{caption_preview}'")
 
             # Filename extension logic
             ext = ".txt"
@@ -70,15 +75,20 @@ class PublishPipeline:
             filename = f"{route_name}_{fmt}_{new_hash[:8]}{ext}"
 
             try:
-                logger.info(f"Publishing artifact '{filename}' to Telegram chat_id: {chat_id}")
+                start_time = time.time()
+                logger.info(f"[Publish] Publishing artifact '{filename}' to Telegram chat_id: {chat_id} using token {masked_token}")
+
+                # We assume publish returns nothing or checks internally
                 pub.publish(chat_id, build_result["data"], filename, caption)
+
                 published_any = True
-                logger.debug(f"Successfully published to {chat_id}")
+                duration = time.time() - start_time
+                logger.info(f"[Publish] Successfully published to {chat_id} (Took: {duration:.2f}s)")
             except Exception as e:
-                logger.error(f"Failed to publish to {chat_id}: {e}")
+                logger.error(f"[Publish] Failed to publish to {chat_id}: {e}")
 
         if published_any:
             self.state_repo.mark_published(unique_id, new_hash)
-            logger.info(f"Published {unique_id} ({new_hash}) successfully. State updated.")
+            logger.info(f"[Publish] Published {unique_id} ({new_hash}) successfully. State updated.")
         else:
-            logger.warning(f"Failed to publish {unique_id} to any destination.")
+            logger.warning(f"[Publish] Failed to publish {unique_id} to any destination.")

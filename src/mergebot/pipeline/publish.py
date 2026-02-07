@@ -19,7 +19,7 @@ class PublishPipeline:
         fmt = build_result.get("format", "unknown")
         unique_id = build_result.get("unique_id", route_name)
 
-        logger.debug(f"[Publish] Publishing check: {unique_id} with hash {new_hash}")
+        logger.debug(f"[Publish] Checking publish necessity for {unique_id} (New Hash: {new_hash})")
 
         # Check if changed using unique_id (route + format)
         last_hash = self.state_repo.get_last_published_hash(unique_id)
@@ -43,10 +43,10 @@ class PublishPipeline:
 
             # Mask token for logging
             masked_token = f"{token[:5]}...{token[-5:]}" if len(token) > 10 else "***"
-            logger.debug(f"[Publish] Using publisher with token {masked_token} for chat_id {chat_id}")
 
             # Get publisher
             if token not in self.publishers:
+                logger.debug(f"[Publish] Initializing publisher for token {masked_token}")
                 self.publishers[token] = TelegramPublisher(token)
             pub = self.publishers[token]
 
@@ -57,6 +57,10 @@ class PublishPipeline:
                 count=build_result.get("count", "?"),
                 format=fmt
             )
+
+            # Log caption preview (truncated)
+            caption_preview = (caption[:50] + '...') if len(caption) > 50 else caption
+            logger.debug(f"[Publish] Prepared caption for {chat_id}: '{caption_preview}'")
 
             # Filename extension logic
             ext = ".txt"
@@ -72,8 +76,11 @@ class PublishPipeline:
 
             try:
                 start_time = time.time()
-                logger.info(f"[Publish] Publishing artifact '{filename}' to Telegram chat_id: {chat_id}")
+                logger.info(f"[Publish] Publishing artifact '{filename}' to Telegram chat_id: {chat_id} using token {masked_token}")
+
+                # We assume publish returns nothing or checks internally
                 pub.publish(chat_id, build_result["data"], filename, caption)
+
                 published_any = True
                 duration = time.time() - start_time
                 logger.info(f"[Publish] Successfully published to {chat_id} (Took: {duration:.2f}s)")

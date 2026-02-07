@@ -4,7 +4,7 @@ import os
 from typing import Dict, Any, Optional
 from pathlib import Path
 from .env_expand import expand_env
-from .schema import AppConfig, SourceConfig, TelegramSourceConfig, SourceSelector, PublishRoute, DestinationConfig
+from .schema import AppConfig, SourceConfig, TelegramSourceConfig, TelegramUserSourceConfig, SourceSelector, PublishRoute, DestinationConfig
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +43,32 @@ def load_config(path: Path) -> AppConfig:
                     continue
                 tg_conf = TelegramSourceConfig(token=tg_token, chat_id=tg_chat_id)
 
+            tg_user_conf = None
+            telegram_user_data = s.get("telegram_user")
+
+            if telegram_user_data:
+                 api_id = telegram_user_data.get("api_id")
+                 api_hash = telegram_user_data.get("api_hash")
+                 session = telegram_user_data.get("session")
+                 peer = telegram_user_data.get("peer")
+
+                 if not all([api_id, api_hash, session, peer]):
+                     logger.warning(f"Skipping source '{source_id}' (index {i}): Missing Telegram User config fields.")
+                     continue
+
+                 try:
+                     api_id = int(api_id)
+                 except ValueError:
+                     logger.warning(f"Skipping source '{source_id}' (index {i}): api_id must be an integer.")
+                     continue
+
+                 tg_user_conf = TelegramUserSourceConfig(
+                     api_id=api_id,
+                     api_hash=api_hash,
+                     session=session,
+                     peer=peer
+                 )
+
             source_type = s.get("type")
             selector_data = s.get("selector", {})
             include_formats = selector_data.get("include_formats")
@@ -56,7 +82,8 @@ def load_config(path: Path) -> AppConfig:
                 id=source_id,
                 type=source_type,
                 selector=SourceSelector(include_formats=include_formats),
-                telegram=tg_conf
+                telegram=tg_conf,
+                telegram_user=tg_user_conf
             ))
 
         # Parse routes

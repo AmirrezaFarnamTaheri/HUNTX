@@ -1,6 +1,7 @@
 README.md
 pyproject.toml
 src/mergebot/__init__.py
+src/mergebot/logging_conf.py
 src/mergebot.egg-info/PKG-INFO
 src/mergebot.egg-info/SOURCES.txt
 src/mergebot.egg-info/dependency_links.txt

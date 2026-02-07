@@ -33,6 +33,8 @@ class TelegramConnector(SourceConnector):
 
     def _make_request(self, method: str, params: Dict[str, Any] = {}) -> Dict[str, Any]:
         url = f"{self.base_url}/{method}"
+        start_time = time.time()
+
         if params:
             data = json.dumps(params).encode("utf-8")
             req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
@@ -42,24 +44,34 @@ class TelegramConnector(SourceConnector):
         for attempt in range(MAX_RETRIES + 1):
             try:
                 with urllib.request.urlopen(req, timeout=30) as response:
-                    return json.loads(response.read().decode("utf-8"))
+                    res = json.loads(response.read().decode("utf-8"))
+                    duration = time.time() - start_time
+                    # Only log slow requests or if debug
+                    if duration > 1.0:
+                         logger.debug(f"API request {method} took {duration:.2f}s")
+                    return res
             except urllib.error.URLError as e:
                 if attempt < MAX_RETRIES:
                     sleep_time = BACKOFF_FACTOR * (2 ** attempt)
                     logger.warning(f"Telegram API error (attempt {attempt + 1}/{MAX_RETRIES + 1}): {e}. Retrying in {sleep_time}s...")
                     time.sleep(sleep_time)
                 else:
-                    logger.error(f"Telegram API error (final attempt): {e}")
+                    logger.error(f"Telegram API error (final attempt) for {method}: {e}")
                     return {"ok": False}
         return {"ok": False}
 
     def _download_file(self, file_path: str) -> Optional[bytes]:
         url = f"https://api.telegram.org/file/bot{self.token}/{file_path}"
+        logger.debug(f"Downloading file from {url}")
 
         for attempt in range(MAX_RETRIES + 1):
             try:
+                start_time = time.time()
                 with urllib.request.urlopen(url, timeout=60) as response:
-                    return response.read()
+                    data = response.read()
+                    duration = time.time() - start_time
+                    logger.debug(f"Downloaded {len(data)} bytes in {duration:.2f}s")
+                    return data
             except Exception as e:
                 if attempt < MAX_RETRIES:
                     sleep_time = BACKOFF_FACTOR * (2 ** attempt)
@@ -95,6 +107,7 @@ class TelegramConnector(SourceConnector):
         has_more = True
 
         current_max_update_id = shared['last_offset']
+        fetched_updates_count = 0
 
         while has_more:
             # We request updates starting from the last known biggest update_id + 1
@@ -110,9 +123,12 @@ class TelegramConnector(SourceConnector):
             })
 
             if not resp.get("ok"):
+                logger.warning(f"getUpdates returned not OK: {resp}")
                 break
 
             updates = resp.get("result", [])
+            fetched_updates_count += len(updates)
+
             if not updates:
                 has_more = False
                 break
@@ -130,32 +146,43 @@ class TelegramConnector(SourceConnector):
             # small sleep to be nice to API
             time.sleep(0.5)
 
+        logger.info(f"Fetched {fetched_updates_count} updates. Processing cache...")
+
         # Now yield items from cache relevant to THIS source
         sorted_ids = sorted(shared['updates'].keys())
+        processed_count = 0
+        yielded_count = 0
+
         for update_id in sorted_ids:
             if update_id <= local_offset:
                 continue
 
+            processed_count += 1
             # Update local offset tracking
             self.offset = max(self.offset, update_id)
 
             update = shared['updates'][update_id]
             msg = update.get("channel_post") or update.get("message")
             if not msg:
+                logger.debug(f"Update {update_id} has no message/channel_post")
                 continue
 
             # Check chat_id
-            if str(msg.get("chat", {}).get("id")) != self.target_chat_id:
+            msg_chat_id = str(msg.get("chat", {}).get("id"))
+            if msg_chat_id != self.target_chat_id:
+                # logger.debug(f"Update {update_id} skipped: Chat ID {msg_chat_id} != target {self.target_chat_id}")
                 continue
 
             # Check timestamp for fresh starts
             msg_date = msg.get("date", 0)
             if is_fresh_start and msg_date < cutoff_time:
+                # logger.debug(f"Update {update_id} skipped: Too old (timestamp {msg_date} < {cutoff_time})")
                 continue
 
             # Check for document
             doc = msg.get("document")
             if not doc:
+                # logger.debug(f"Update {update_id} skipped: No document")
                 continue
 
             # Check file size (20MB limit)
@@ -167,9 +194,12 @@ class TelegramConnector(SourceConnector):
             file_id = doc.get("file_id")
             file_name = doc.get("file_name", "unknown")
 
+            logger.info(f"Processing update {update_id}: Found file {file_name} (ID: {file_id})")
+
             # Get File info
             file_info_resp = self._make_request("getFile", {"file_id": file_id})
             if not file_info_resp.get("ok"):
+                logger.error(f"Failed to get file info for {file_id}: {file_info_resp}")
                 continue
 
             file_path = file_info_resp["result"]["file_path"]
@@ -177,15 +207,19 @@ class TelegramConnector(SourceConnector):
             # Download
             data = self._download_file(file_path)
             if data:
+                yielded_count += 1
                 yield TelegramItem(
                     external_id=str(msg["message_id"]),
                     data=data,
                     metadata={
                         "filename": file_name,
                         "file_id": file_id,
-                        "timestamp": msg_date
+                        "timestamp": msg_date,
+                        "update_id": update_id
                     }
                 )
+
+        logger.info(f"Connector processing done. Processed {processed_count} new updates, yielded {yielded_count} items.")
 
     def get_state(self) -> Dict[str, Any]:
         return {"offset": self.offset}
