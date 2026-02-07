@@ -5,7 +5,6 @@ import sys
 from pathlib import Path
 
 from ..config.loader import load_config
-from ..core.orchestrator import Orchestrator
 from ..logging_conf import setup_logging
 from ..store.paths import set_paths
 
@@ -39,6 +38,9 @@ def main():
     setup_logging(log_level=getattr(logging, log_level), log_file=str(log_file))
 
     if args.command == "run":
+        # Delayed import to ensure paths are set
+        from ..core.orchestrator import Orchestrator
+
         logger.info(f"Starting MergeBot with config: {args.config}")
         try:
             config = load_config(args.config)
