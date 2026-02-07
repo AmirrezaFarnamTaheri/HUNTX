@@ -2,7 +2,8 @@ sources:
 - id: src_1001018853394
   type: telegram
   selector:
-    include_formats: *id001
+    include_formats: &id001
+    - all
   telegram:
     token: ${TELEGRAM_TOKEN}
     chat_id: '-1001018853394'

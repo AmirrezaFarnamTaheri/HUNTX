@@ -2,7 +2,8 @@ sources:
 - id: src_1001018853394
   type: telegram_user
   selector:
-    include_formats: *id001
+    include_formats: &id001
+    - all
   telegram_user:
     api_id: ${TELEGRAM_API_ID}
     api_hash: ${TELEGRAM_API_HASH}
