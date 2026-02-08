@@ -1,6 +1,7 @@
 import logging
 import time
 from pathlib import Path
+from ..utils.atomic import atomic_write
 from typing import Optional, List
 from .paths import DATA_DIR
 
@@ -33,8 +34,8 @@ class ArtifactStore:
             target_dir.mkdir(parents=True, exist_ok=True)
             target_path = target_dir / f"{h}.{format_id}"
 
-            with open(target_path, "wb") as f:
-                f.write(data)
+            atomic_write(target_path, data)
+
             return h
         except Exception as e:
             logger.error(f"Failed to save internal artifact for '{route_name}': {e}")
@@ -52,8 +53,8 @@ class ArtifactStore:
         """
         target_path = self.output_dir / f"{route_name}.{format_id}"
         try:
-            with open(target_path, "wb") as f:
-                f.write(data)
+            atomic_write(target_path, data)
+
             logger.info(f"Saved output artifact: {target_path}")
 
             # Also save to archive
@@ -72,8 +73,8 @@ class ArtifactStore:
         filename = f"{route_name}_{timestamp}.{format_id}"
         target_path = self.archive_dir / filename
         try:
-            with open(target_path, "wb") as f:
-                f.write(data)
+            atomic_write(target_path, data)
+
             logger.info(f"Archived artifact: {target_path}")
         except Exception as e:
             logger.error(f"Failed to archive artifact '{filename}': {e}")

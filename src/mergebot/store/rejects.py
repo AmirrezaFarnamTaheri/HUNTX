@@ -1,5 +1,6 @@
 import datetime
 from pathlib import Path
+from ..utils.atomic import atomic_write
 from .paths import REJECTS_DIR
 
 class RejectsStore:
@@ -16,5 +17,4 @@ class RejectsStore:
         filename = f"{timestamp}_{safe_source}_{safe_reason}.dat"
         path = self.base_dir / filename
 
-        with open(path, "wb") as f:
-            f.write(data)
+        atomic_write(path, data)
