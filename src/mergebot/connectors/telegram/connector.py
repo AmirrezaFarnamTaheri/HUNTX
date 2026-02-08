@@ -11,6 +11,7 @@ from ..base import SourceConnector, SourceItem
 # Define TelegramItem as alias to SourceItem for compatibility/clarity
 @dataclass
 class TelegramItem:
+    __slots__ = ("external_id", "data", "metadata")
     external_id: str
     data: bytes
     metadata: Dict[str, Any]
@@ -114,8 +115,9 @@ class TelegramConnector(SourceConnector):
 
         # Determine if this is a fresh start (no previous offset)
         is_fresh_start = local_offset == 0
-        # Explicit override: 129600 seconds instead of 36 hours
-        cutoff_time = time.time() - 129600
+        # Explicit override: 48h (172800) for media/hybrid, 2h (7200) for text
+        cutoff_time_media = time.time() - 172800
+        cutoff_time_text = time.time() - 7200
 
         # Initialize shared state for this token if needed
         if self.token not in self._shared_state:
@@ -209,34 +211,40 @@ class TelegramConnector(SourceConnector):
                 stats["skipped_chat_mismatch"] += 1
                 continue
 
-            # Check timestamp for fresh starts
+            # Check content type & timestamp for fresh starts
             msg_date = msg.get("date", 0)
-            if is_fresh_start and msg_date < cutoff_time:
-                # logger.debug(f"Update {update_id} skipped: Too old (timestamp {msg_date} < {cutoff_time})")
-                stats["skipped_old_timestamp"] += 1
-                continue
+            doc = msg.get("document")
+            has_document = bool(doc)
+
+            if is_fresh_start:
+                limit = cutoff_time_media if has_document else cutoff_time_text
+                if msg_date < limit:
+                    # logger.debug(f"Update {update_id} skipped: Too old (timestamp {msg_date} < {limit})")
+                    stats["skipped_old_timestamp"] += 1
+                    continue
 
             content_found = False
 
             # 1. Text Content (message text or caption)
-            text_content = msg.get("text") or msg.get("caption")
-            if text_content:
-                logger.info(f"Processing update {update_id}: Found text content (Length: {len(text_content)})")
-                stats["yielded_items"] += 1
-                content_found = True
-                yield TelegramItem(
-                    external_id=str(msg["message_id"]) + "_text",
-                    data=text_content.encode("utf-8"),
-                    metadata={
-                        "filename": f"msg_{msg['message_id']}.txt",
-                        "timestamp": msg_date,
-                        "update_id": update_id,
-                        "is_text": True,
-                    },
-                )
+            # Only process if NO document is present (drop text instantly for hybrid)
+            if not has_document:
+                text_content = msg.get("text") or msg.get("caption")
+                if text_content:
+                    logger.info(f"Processing update {update_id}: Found text content (Length: {len(text_content)})")
+                    stats["yielded_items"] += 1
+                    content_found = True
+                    yield TelegramItem(
+                        external_id=str(msg["message_id"]) + "_text",
+                        data=text_content.encode("utf-8"),
+                        metadata={
+                            "filename": f"msg_{msg['message_id']}.txt",
+                            "timestamp": msg_date,
+                            "update_id": update_id,
+                            "is_text": True,
+                        },
+                    )
 
             # 2. Document Content
-            doc = msg.get("document")
             if doc:
                 file_name = doc.get("file_name", "unknown")
                 file_size = doc.get("file_size", 0)

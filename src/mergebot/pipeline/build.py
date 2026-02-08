@@ -32,37 +32,47 @@ class BuildPipeline:
             return b""
 
         decoded_entries: List[Dict[str, Any]] = []
+        protocols: Dict[str, int] = {}
+
         for line in text.splitlines():
             line = line.strip()
             if not line:
                 continue
+
+            protocol = None
+            entry = None
+
             if line.startswith("vmess://"):
+                protocol = "vmess"
                 try:
-                    b64 = line[len("vmess://") :]
+                    b64 = line[8:] # len("vmess://") is 8
                     padding = 4 - len(b64) % 4
                     if padding != 4:
                         b64 += "=" * padding
                     raw = base64.b64decode(b64).decode("utf-8", errors="ignore")
                     obj = json.loads(raw)
-                    decoded_entries.append({"protocol": "vmess", "decoded": obj, "raw": line})
+                    entry = {"protocol": "vmess", "decoded": obj, "raw": line}
                 except Exception:
-                    decoded_entries.append({"protocol": "vmess", "raw": line, "error": "decode_failed"})
+                    entry = {"protocol": "vmess", "raw": line, "error": "decode_failed"}
             elif line.startswith("vless://"):
-                decoded_entries.append({"protocol": "vless", "raw": line})
+                protocol = "vless"
+                entry = {"protocol": "vless", "raw": line}
             elif line.startswith("trojan://"):
-                decoded_entries.append({"protocol": "trojan", "raw": line})
+                protocol = "trojan"
+                entry = {"protocol": "trojan", "raw": line}
             elif line.startswith("ss://"):
-                decoded_entries.append({"protocol": "shadowsocks", "raw": line})
+                protocol = "shadowsocks"
+                entry = {"protocol": "shadowsocks", "raw": line}
             elif line.startswith("ssr://"):
-                decoded_entries.append({"protocol": "shadowsocksr", "raw": line})
+                protocol = "shadowsocksr"
+                entry = {"protocol": "shadowsocksr", "raw": line}
+
+            if entry:
+                decoded_entries.append(entry)
+                protocols[protocol] = protocols.get(protocol, 0) + 1
 
         if not decoded_entries:
             return b""
-
-        protocols: Dict[str, int] = {}
-        for e in decoded_entries:
-            p = e["protocol"]
-            protocols[p] = protocols.get(p, 0) + 1
 
         result: Dict[str, Any] = {
             "total": len(decoded_entries),

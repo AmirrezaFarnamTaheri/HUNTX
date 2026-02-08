@@ -50,7 +50,7 @@ class TestTelegramUserConnector(unittest.TestCase):
         msg1.id = 100
         msg1.message = "Hello World"
         msg1.media = None
-        msg1.date = datetime.datetime.fromtimestamp(1600000000)
+        msg1.date = datetime.datetime.now()
 
         mock_client.iter_messages.return_value = [msg1]
 
@@ -76,7 +76,7 @@ class TestTelegramUserConnector(unittest.TestCase):
         msg2.media = True
         msg2.file.size = 1024
         msg2.file.name = "image.png"
-        msg2.date = datetime.datetime.fromtimestamp(1600000100)
+        msg2.date = datetime.datetime.now()
 
         mock_client.iter_messages.return_value = [msg2]
         mock_client.download_media.return_value = b"fake_image_bytes"
@@ -102,7 +102,7 @@ class TestTelegramUserConnector(unittest.TestCase):
         msg3.message = None
         msg3.media = True
         msg3.file.size = 30 * 1024 * 1024  # 30MB
-        msg3.date = datetime.datetime.fromtimestamp(1600000200)
+        msg3.date = datetime.datetime.now()
 
         mock_client.iter_messages.return_value = [msg3]
 
@@ -124,7 +124,7 @@ class TestTelegramUserConnector(unittest.TestCase):
         msg.media = True
         msg.file.size = 20 * 1024 * 1024  # 20MB - should be accepted
         msg.file.name = "valid_config.txt"
-        msg.date = datetime.datetime.fromtimestamp(1600000300)
+        msg.date = datetime.datetime.now()
 
         mock_client.iter_messages.return_value = [msg]
         mock_client.download_media.return_value = b"config content"
