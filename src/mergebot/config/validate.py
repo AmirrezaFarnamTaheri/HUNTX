@@ -1,5 +1,6 @@
 from .schema import AppConfig
 
+
 def validate_config(config: AppConfig):
     # Basic validation
     seen_ids = set()

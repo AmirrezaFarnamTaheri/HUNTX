@@ -4,17 +4,18 @@ from unittest.mock import MagicMock, patch
 from mergebot.connectors.telegram.connector import TelegramConnector
 from mergebot.connectors.telegram_user.connector import TelegramUserConnector
 
+
 class TestApkSkipping(unittest.TestCase):
     def setUp(self):
         # Clear shared state to prevent test pollution
-        if hasattr(TelegramConnector, '_shared_state'):
+        if hasattr(TelegramConnector, "_shared_state"):
             TelegramConnector._shared_state = {}
         # Clear local state for TelegramUserConnector
-        if hasattr(TelegramUserConnector._local, 'clients'):
+        if hasattr(TelegramUserConnector._local, "clients"):
             TelegramUserConnector._local.clients = {}
 
     def _set_mock_client(self, connector, mock_client):
-        if not hasattr(connector._local, 'clients'):
+        if not hasattr(connector._local, "clients"):
             connector._local.clients = {}
         connector._local.clients[(connector.api_id, connector.session)] = mock_client
 
@@ -23,27 +24,28 @@ class TestApkSkipping(unittest.TestCase):
         now = time.time()
 
         # Mock _make_request to return updates with an APK file
-        with patch.object(connector, '_make_request') as mock_request,              patch.object(connector, '_download_file') as mock_download:
+        with (
+            patch.object(connector, "_make_request") as mock_request,
+            patch.object(connector, "_download_file") as mock_download,
+        ):
 
             mock_request.side_effect = [
                 {
                     "ok": True,
-                    "result": [{
-                        "update_id": 1,
-                        "message": {
-                            "message_id": 100,
-                            "date": now,
-                            "chat": {"id": 123},
-                            "document": {
-                                "file_id": "file_apk",
-                                "file_name": "malicious.apk",
-                                "file_size": 1000
-                            }
+                    "result": [
+                        {
+                            "update_id": 1,
+                            "message": {
+                                "message_id": 100,
+                                "date": now,
+                                "chat": {"id": 123},
+                                "document": {"file_id": "file_apk", "file_name": "malicious.apk", "file_size": 1000},
+                            },
                         }
-                    }]
+                    ],
                 },
-                {"ok": True, "result": []}, # End updates loop
-                {"ok": True, "result": {"file_path": "path/apk"}} # getFile - Should NOT be called if skipped
+                {"ok": True, "result": []},  # End updates loop
+                {"ok": True, "result": {"file_path": "path/apk"}},  # getFile - Should NOT be called if skipped
             ]
             mock_download.return_value = b"apk_content"
 
@@ -58,34 +60,34 @@ class TestApkSkipping(unittest.TestCase):
             self.assertEqual(calls[0][0][0], "getUpdates")
             self.assertEqual(calls[1][0][0], "getUpdates")
 
-
     def test_telegram_connector_mixed_content(self):
         connector = TelegramConnector("token", "123")
         now = time.time()
 
         # Mock update with text AND valid file
-        with patch.object(connector, '_make_request') as mock_request,              patch.object(connector, '_download_file') as mock_download:
+        with (
+            patch.object(connector, "_make_request") as mock_request,
+            patch.object(connector, "_download_file") as mock_download,
+        ):
 
             mock_request.side_effect = [
                 {
                     "ok": True,
-                    "result": [{
-                        "update_id": 2,
-                        "message": {
-                            "message_id": 200,
-                            "date": now,
-                            "chat": {"id": 123},
-                            "text": "Some config text",
-                            "document": {
-                                "file_id": "file_conf",
-                                "file_name": "good.conf",
-                                "file_size": 1000
-                            }
+                    "result": [
+                        {
+                            "update_id": 2,
+                            "message": {
+                                "message_id": 200,
+                                "date": now,
+                                "chat": {"id": 123},
+                                "text": "Some config text",
+                                "document": {"file_id": "file_conf", "file_name": "good.conf", "file_size": 1000},
+                            },
                         }
-                    }]
+                    ],
                 },
                 {"ok": True, "result": []},
-                {"ok": True, "result": {"file_path": "path/good.conf"}}
+                {"ok": True, "result": {"file_path": "path/good.conf"}},
             ]
 
             mock_download.return_value = b"conf_content"
@@ -163,5 +165,6 @@ class TestApkSkipping(unittest.TestCase):
         self.assertIn("400", text_ids)
         self.assertIn("400_media", text_ids)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

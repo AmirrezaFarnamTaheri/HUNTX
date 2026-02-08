@@ -4,11 +4,13 @@ from .common.normalize_text import normalize_text
 from .common.hashing import hash_string
 import base64
 
+
 class NpvtHandler(FormatHandler):
     """
     Handles proxy configs like vmess://, vless://, trojan:// etc.
     Sometimes these are base64 encoded.
     """
+
     @property
     def format_id(self) -> str:
         return "npvt"
@@ -18,12 +20,12 @@ class NpvtHandler(FormatHandler):
 
         # Try to decode if it looks like base64 (no spaces, length multiple of 4 roughly)
         clean_text = text.strip()
-        if "://" not in clean_text and not " " in clean_text:
+        if "://" not in clean_text and " " not in clean_text:
             try:
                 decoded = base64.b64decode(clean_text).decode("utf-8", errors="ignore")
                 text = decoded
             except Exception:
-                pass # Not base64 or failed
+                pass  # Not base64 or failed
 
         records = []
         for line in text.splitlines():
@@ -34,10 +36,7 @@ class NpvtHandler(FormatHandler):
             # Simple heuristic: must contain :// or be a known format
             # For strictness we could check schemas
             if "://" in clean or "ssr://" in clean:
-                record = {
-                    "unique_hash": hash_string(clean),
-                    "data": {"line": clean}
-                }
+                record = {"unique_hash": hash_string(clean), "data": {"line": clean}}
                 records.append(record)
         return records
 

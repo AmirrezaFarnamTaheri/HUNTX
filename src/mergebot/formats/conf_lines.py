@@ -3,6 +3,7 @@ from .base import FormatHandler
 from .common.normalize_text import normalize_text
 from .common.hashing import hash_string
 
+
 class ConfLinesHandler(FormatHandler):
     @property
     def format_id(self) -> str:
@@ -17,10 +18,7 @@ class ConfLinesHandler(FormatHandler):
                 continue
 
             # Record structure
-            record = {
-                "unique_hash": hash_string(clean),
-                "data": {"line": clean}
-            }
+            record = {"unique_hash": hash_string(clean), "data": {"line": clean}}
             records.append(record)
         return records
 

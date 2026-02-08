@@ -14,10 +14,12 @@ LOGS_DIR = DATA_DIR / "logs"
 
 STATE_DB_PATH = Path(os.getenv("MERGEBOT_STATE_DB_PATH", str(STATE_DIR / "state.db"))).resolve()
 
+
 def ensure_dirs():
     """Create all necessary directories."""
     for d in [DATA_DIR, RAW_STORE_DIR, ARTIFACT_STORE_DIR, REJECTS_DIR, STATE_DIR, LOGS_DIR]:
         d.mkdir(parents=True, exist_ok=True)
+
 
 def set_paths(data_dir: str, db_path: str):
     """

@@ -1,12 +1,28 @@
 [project]
 name = "mergebot"
-version = "0.1.0"
+version = "0.2.0"
 description = "Incremental multi-format file merger and Telegram publisher"
 requires-python = ">=3.11"
 dependencies = ["PyYAML>=6.0", "telethon>=1.42,<2", "pydantic>=2.0"]
+
+[project.optional-dependencies]
+dev = ["pytest", "black", "flake8", "mypy", "types-PyYAML"]
 
 [project.scripts]
 mergebot = "mergebot.cli.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.black]
+line-length = 120
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.flake8]
+max-line-length = 120
+extend-ignore = ["E203"]

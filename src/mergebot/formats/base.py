@@ -1,5 +1,6 @@
 from typing import Protocol, List, Any, Dict, runtime_checkable
 
+
 @runtime_checkable
 class FormatHandler(Protocol):
     @property

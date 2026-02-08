@@ -5,6 +5,7 @@ from .base import FormatHandler
 from .common.hashing import hash_bytes
 from ..store.raw_store import RawStore
 
+
 class OpaqueBundleHandler(FormatHandler):
     def __init__(self, raw_store: RawStore, format_name: str = "opaque_bundle"):
         self.raw_store = raw_store
@@ -28,12 +29,8 @@ class OpaqueBundleHandler(FormatHandler):
         filename = source_info.get("filename", f"{raw_hash}.bin")
 
         record = {
-            "unique_hash": raw_hash, # Dedup by content
-            "data": {
-                "filename": filename,
-                "blob_hash": raw_hash,
-                "size": len(raw_data)
-            }
+            "unique_hash": raw_hash,  # Dedup by content
+            "data": {"filename": filename, "blob_hash": raw_hash, "size": len(raw_data)},
         }
         return [record]
 
@@ -50,7 +47,7 @@ class OpaqueBundleHandler(FormatHandler):
                 # Retrieve content
                 content = self.raw_store.get(blob_hash)
                 if not content:
-                    continue # Should warn?
+                    continue  # Should warn?
 
                 # Handle name collisions
                 name = original_name

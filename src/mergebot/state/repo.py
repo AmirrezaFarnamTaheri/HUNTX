@@ -5,6 +5,7 @@ import sqlite3
 
 logger = logging.getLogger(__name__)
 
+
 class StateRepo:
     def __init__(self, db_connection):
         self.db = db_connection
@@ -12,10 +13,7 @@ class StateRepo:
     def get_source_state(self, source_id: str, conn: Optional[sqlite3.Connection] = None) -> Optional[Dict[str, Any]]:
         try:
             if conn:
-                cursor = conn.execute(
-                    "SELECT state_json FROM source_state WHERE source_id = ?",
-                    (source_id,)
-                )
+                cursor = conn.execute("SELECT state_json FROM source_state WHERE source_id = ?", (source_id,))
                 row = cursor.fetchone()
                 return json.loads(row["state_json"]) if row else None
             else:
@@ -25,7 +23,13 @@ class StateRepo:
             logger.error(f"Failed to get source state for {source_id}: {e}")
             return None
 
-    def update_source_state(self, source_id: str, state: Dict[str, Any], source_type: str = "telegram", conn: Optional[sqlite3.Connection] = None):
+    def update_source_state(
+        self,
+        source_id: str,
+        state: Dict[str, Any],
+        source_type: str = "telegram",
+        conn: Optional[sqlite3.Connection] = None,
+    ):
         try:
             state_json = json.dumps(state)
             if conn:
@@ -37,7 +41,7 @@ class StateRepo:
                         state_json = excluded.state_json,
                         updated_at = excluded.updated_at
                     """,
-                    (source_id, source_type, state_json)
+                    (source_id, source_type, state_json),
                 )
             else:
                 with self.db.connect() as c:
@@ -60,11 +64,22 @@ class StateRepo:
             logger.error(f"Error checking seen file {external_id} from {source_id}: {e}")
             return False
 
-    def record_file(self, source_id: str, external_id: str, raw_hash: str, file_size: int, filename: str, status: str = "pending", metadata: Dict[str, Any] = {}, conn: Optional[sqlite3.Connection] = None):
+    def record_file(
+        self,
+        source_id: str,
+        external_id: str,
+        raw_hash: str,
+        file_size: int,
+        filename: str,
+        status: str = "pending",
+        metadata: Dict[str, Any] = {},
+        conn: Optional[sqlite3.Connection] = None,
+    ):
         try:
             metadata_json = json.dumps(metadata)
             sql = """
-                INSERT OR IGNORE INTO seen_files (source_id, external_id, raw_hash, file_size, filename, status, metadata_json)
+                INSERT OR IGNORE INTO seen_files
+                (source_id, external_id, raw_hash, file_size, filename, status, metadata_json)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """
             args = (source_id, str(external_id), raw_hash, file_size, filename, status, metadata_json)
@@ -84,7 +99,7 @@ class StateRepo:
             with self.db.connect() as conn:
                 conn.execute(
                     "UPDATE seen_files SET status = ?, error_msg = ? WHERE raw_hash = ?",
-                    (status, error_msg, raw_hash)
+                    (status, error_msg, raw_hash),
                 )
         except Exception as e:
             logger.error(f"Failed to update status for {raw_hash}: {e}")
@@ -93,7 +108,8 @@ class StateRepo:
         try:
             with self.db.connect() as conn:
                 cursor = conn.execute(
-                    "SELECT id, source_id, external_id, raw_hash, filename, file_size FROM seen_files WHERE status = 'pending'"
+                    "SELECT id, source_id, external_id, raw_hash, filename, file_size "
+                    "FROM seen_files WHERE status = 'pending'"
                 )
                 return [dict(row) for row in cursor.fetchall()]
         except Exception as e:
@@ -108,7 +124,7 @@ class StateRepo:
                     INSERT INTO records (source_file_hash, record_type, unique_hash, data_json)
                     VALUES (?, ?, ?, ?)
                     """,
-                    (raw_hash, record_type, unique_hash, json.dumps(data))
+                    (raw_hash, record_type, unique_hash, json.dumps(data)),
                 )
         except Exception as e:
             logger.exception(f"Failed to add record {unique_hash}: {e}")
@@ -149,7 +165,7 @@ class StateRepo:
                     SELECT 1 FROM published_artifacts
                     WHERE route_name = ? AND artifact_hash = ?
                     """,
-                    (route_name, artifact_hash)
+                    (route_name, artifact_hash),
                 ).fetchone()
                 return bool(row)
         except Exception as e:
@@ -164,11 +180,21 @@ class StateRepo:
                     INSERT INTO published_artifacts (route_name, artifact_hash, metadata_json)
                     VALUES (?, ?, ?)
                     """,
-                    (route_name, artifact_hash, json.dumps(metadata))
+                    (route_name, artifact_hash, json.dumps(metadata)),
                 )
             logger.info(f"Marked artifact {artifact_hash} as published for {route_name}")
         except Exception as e:
             logger.exception(f"Failed to mark published artifact: {e}")
+
+    def get_processed_hashes(self) -> List[str]:
+        """Return raw_hash values for files that are no longer pending (processed/failed/ignored)."""
+        try:
+            with self.db.connect() as conn:
+                cursor = conn.execute("SELECT DISTINCT raw_hash FROM seen_files WHERE status != 'pending'")
+                return [row["raw_hash"] for row in cursor.fetchall()]
+        except Exception as e:
+            logger.error(f"Failed to get processed hashes: {e}")
+            return []
 
     def get_last_published_hash(self, route_name: str) -> Optional[str]:
         try:
@@ -179,7 +205,7 @@ class StateRepo:
                     WHERE route_name = ?
                     ORDER BY published_at DESC LIMIT 1
                     """,
-                    (route_name,)
+                    (route_name,),
                 ).fetchone()
                 return row["artifact_hash"] if row else None
         except Exception as e:

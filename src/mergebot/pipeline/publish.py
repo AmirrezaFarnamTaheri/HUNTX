@@ -8,10 +8,11 @@ from ..publishers.telegram.publisher import TelegramPublisher
 
 logger = logging.getLogger(__name__)
 
+
 class PublishPipeline:
     def __init__(self, state_repo: StateRepo):
         self.state_repo = state_repo
-        self.publishers = {} # cache of (token) -> publisher
+        self.publishers: Dict[str, TelegramPublisher] = {}
 
     def run(self, build_result: Dict[str, Any], destinations: List[Dict[str, Any]]):
         route_name = build_result["route_name"]
@@ -30,7 +31,10 @@ class PublishPipeline:
         default_token = os.getenv("TELEGRAM_TOKEN")
         published_any = False
 
-        logger.info(f"[Publish] Content changed for {unique_id} ({last_hash} -> {new_hash}). Publishing to {len(destinations)} destinations.")
+        logger.info(
+            f"[Publish] Content changed for {unique_id} ({last_hash} -> {new_hash}). "
+            f"Publishing to {len(destinations)} destination(s)."
+        )
 
         for dest in destinations:
             chat_id = dest["chat_id"]
@@ -55,28 +59,30 @@ class PublishPipeline:
                 timestamp=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 sha12=new_hash[:12],
                 count=build_result.get("count", "?"),
-                format=fmt
+                format=fmt,
             )
 
             # Log caption preview (truncated)
-            caption_preview = (caption[:50] + '...') if len(caption) > 50 else caption
+            caption_preview = (caption[:50] + "...") if len(caption) > 50 else caption
             logger.debug(f"[Publish] Prepared caption for {chat_id}: '{caption_preview}'")
 
             # Filename extension logic
             ext = ".txt"
-            if fmt in ["ovpn"]:
+            if fmt == "ovpn":
                 ext = ".ovpn"
-            elif fmt in ["opaque_bundle"]:
+            elif fmt in ("opaque_bundle", "ehi", "hc", "hat", "sip", "npv4"):
                 ext = ".zip"
-            elif fmt in ["conf_lines"]:
+            elif fmt == "conf_lines":
                 ext = ".conf"
+            elif fmt == "npvtsub":
+                ext = ".txt"
 
             # Filename
             filename = f"{route_name}_{fmt}_{new_hash[:8]}{ext}"
 
             try:
                 start_time = time.time()
-                logger.info(f"[Publish] Publishing artifact '{filename}' to Telegram chat_id: {chat_id} using token {masked_token}")
+                logger.info(f"[Publish] Publishing '{filename}' to chat {chat_id} (token {masked_token})")
 
                 # We assume publish returns nothing or checks internally
                 pub.publish(chat_id, build_result["data"], filename, caption)

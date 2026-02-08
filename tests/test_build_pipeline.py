@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import Mock
 from mergebot.pipeline.build import BuildPipeline
 
+
 class TestBuildPipeline(unittest.TestCase):
     def setUp(self):
         self.state_repo = Mock()
@@ -10,16 +11,12 @@ class TestBuildPipeline(unittest.TestCase):
         self.pipeline = BuildPipeline(self.state_repo, self.artifact_store, self.registry)
 
     def test_build_success(self):
-        route_config = {
-            "name": "route1",
-            "formats": ["fmt1"],
-            "from_sources": ["src1"]
-        }
+        route_config = {"name": "route1", "formats": ["fmt1"], "from_sources": ["src1"]}
 
         # Updated mock to return dicts instead of strings, to match expected structure
         self.state_repo.get_records_for_build.return_value = [
             {"unique_hash": "hash1", "data": "data1", "source_id": "src1"},
-            {"unique_hash": "hash2", "data": "data2", "source_id": "src1"}
+            {"unique_hash": "hash2", "data": "data2", "source_id": "src1"},
         ]
 
         handler = Mock()
@@ -35,11 +32,7 @@ class TestBuildPipeline(unittest.TestCase):
         self.artifact_store.save_output.assert_called_with("route1", "fmt1", b"artifact data")
 
     def test_build_no_records(self):
-        route_config = {
-            "name": "route1",
-            "formats": ["fmt1"],
-            "from_sources": ["src1"]
-        }
+        route_config = {"name": "route1", "formats": ["fmt1"], "from_sources": ["src1"]}
         self.state_repo.get_records_for_build.return_value = []
 
         results = self.pipeline.run(route_config)
@@ -47,5 +40,6 @@ class TestBuildPipeline(unittest.TestCase):
         self.assertEqual(len(results), 0)
         self.artifact_store.save_artifact.assert_not_called()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -5,6 +5,7 @@ from pathlib import Path
 from mergebot.config.loader import load_config
 from mergebot.config.schema import AppConfig
 
+
 class TestConfigLoader(unittest.TestCase):
     def setUp(self):
         self.test_dir = tempfile.TemporaryDirectory()
@@ -140,18 +141,19 @@ class TestConfigLoader(unittest.TestCase):
         with open(self.config_path, "w") as f:
             f.write(config_content)
 
-        os.environ['TEST_API_ID_ENV'] = '98765'
-        os.environ['TEST_API_HASH_ENV'] = 'secret_hash'
+        os.environ["TEST_API_ID_ENV"] = "98765"
+        os.environ["TEST_API_HASH_ENV"] = "secret_hash"
 
         try:
             config = load_config(self.config_path)
             self.assertEqual(config.sources[0].telegram_user.api_id, 98765)
-            self.assertEqual(config.sources[0].telegram_user.api_hash, 'secret_hash')
+            self.assertEqual(config.sources[0].telegram_user.api_hash, "secret_hash")
         finally:
-            if 'TEST_API_ID_ENV' in os.environ:
-                del os.environ['TEST_API_ID_ENV']
-            if 'TEST_API_HASH_ENV' in os.environ:
-                del os.environ['TEST_API_HASH_ENV']
+            if "TEST_API_ID_ENV" in os.environ:
+                del os.environ["TEST_API_ID_ENV"]
+            if "TEST_API_HASH_ENV" in os.environ:
+                del os.environ["TEST_API_HASH_ENV"]
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

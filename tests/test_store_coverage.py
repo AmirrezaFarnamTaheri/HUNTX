@@ -2,9 +2,10 @@ import unittest
 import shutil
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from mergebot.store.raw_store import RawStore
 from mergebot.store.artifact_store import ArtifactStore
+
 
 class TestStoreCoverage(unittest.TestCase):
     def setUp(self):
@@ -55,7 +56,7 @@ class TestStoreCoverage(unittest.TestCase):
         store = RawStore(base_dir=self.base_dir)
 
         # Mock mkdir to raise exception
-        with patch('pathlib.Path.mkdir', side_effect=Exception("Disk full")):
+        with patch("pathlib.Path.mkdir", side_effect=Exception("Disk full")):
             with self.assertRaises(Exception):
                 store.save(b"data")
 
@@ -63,22 +64,23 @@ class TestStoreCoverage(unittest.TestCase):
         # Create a file
         h = store.save(b"data")
 
-        with patch('pathlib.Path.read_bytes', side_effect=Exception("IO Error")):
-             # Store uses Path object methods
-             store.get(h)
-             # Actually get() catches exception and logs it, returns None
-             self.assertIsNone(store.get(h))
+        with patch("pathlib.Path.read_bytes", side_effect=Exception("IO Error")):
+            # Store uses Path object methods
+            store.get(h)
+            # Actually get() catches exception and logs it, returns None
+            self.assertIsNone(store.get(h))
 
     def test_artifact_store_exceptions(self):
         store = ArtifactStore(base_dir=self.base_dir)
 
-        with patch('pathlib.Path.mkdir', side_effect=Exception("Disk full")):
+        with patch("pathlib.Path.mkdir", side_effect=Exception("Disk full")):
             with self.assertRaises(Exception):
                 store.save_artifact("r", "fmt", b"data")
 
-        with patch('builtins.open', side_effect=Exception("Write fail")):
+        with patch("builtins.open", side_effect=Exception("Write fail")):
             with self.assertRaises(Exception):
                 store.save_output("r", "fmt", b"data")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

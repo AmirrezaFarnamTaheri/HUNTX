@@ -6,6 +6,7 @@ from typing import Generator
 
 logger = logging.getLogger(__name__)
 
+
 class DBConnection:
     def __init__(self, db_path: Path):
         self.db_path = db_path
@@ -49,7 +50,6 @@ class DBConnection:
         except Exception as e:
             logger.error(f"Migration check failed: {e}")
 
-
     @contextlib.contextmanager
     def connect(self) -> Generator[sqlite3.Connection, None, None]:
         # Increase timeout to handle concurrent writes better (default is 5.0)
@@ -63,6 +63,7 @@ class DBConnection:
             raise
         finally:
             conn.close()
+
 
 def open_db(path: Path) -> DBConnection:
     return DBConnection(path)

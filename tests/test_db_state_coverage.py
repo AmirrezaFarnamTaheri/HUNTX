@@ -1,11 +1,11 @@
 import unittest
-import sqlite3
 import os
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock
 from mergebot.state.db import open_db
 from mergebot.state.repo import StateRepo
+
 
 class TestDBStateCoverage(unittest.TestCase):
     def setUp(self):
@@ -39,7 +39,9 @@ class TestDBStateCoverage(unittest.TestCase):
         self.repo.record_file("src1", "ext1", "hash2", 200, "f1_v2.txt", "processed", {"foo": "bar"})
 
         with self.db.connect() as conn:
-            cursor = conn.execute("SELECT raw_hash, file_size, filename, status FROM seen_files WHERE external_id=?", ("ext1",))
+            cursor = conn.execute(
+                "SELECT raw_hash, file_size, filename, status FROM seen_files WHERE external_id=?", ("ext1",)
+            )
             row = cursor.fetchone()
             self.assertEqual(row[0], "hash1")
             self.assertEqual(row[1], 100)
@@ -52,7 +54,7 @@ class TestDBStateCoverage(unittest.TestCase):
 
         pending = list(self.repo.get_pending_files())
         self.assertEqual(len(pending), 2)
-        ids = [p['external_id'] for p in pending]
+        ids = [p["external_id"] for p in pending]
         self.assertIn("ext1", ids)
         self.assertIn("ext3", ids)
 
@@ -105,7 +107,7 @@ class TestDBStateCoverage(unittest.TestCase):
 
         # update_source_state raises exception
         with self.assertRaises(Exception):
-             self.repo.update_source_state("id", {})
+            self.repo.update_source_state("id", {})
 
         self.assertFalse(self.repo.has_seen_file("id", "ext"))
         self.repo.record_file("id", "ext", "hash", 1, "f")
@@ -119,5 +121,6 @@ class TestDBStateCoverage(unittest.TestCase):
 
         self.db.connect = original_connect
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -1,9 +1,11 @@
 from typing import Protocol, Iterator, Dict, Any, Optional
 
+
 class SourceItem(Protocol):
     external_id: str
     data: bytes
-    metadata: Dict[str, Any] # must contain 'filename' if possible
+    metadata: Dict[str, Any]  # must contain 'filename' if possible
+
 
 class SourceConnector(Protocol):
     def list_new(self, state: Optional[Dict[str, Any]]) -> Iterator[SourceItem]:

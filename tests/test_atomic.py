@@ -1,8 +1,8 @@
 import unittest
 import tempfile
-import os
 from pathlib import Path
 from src.mergebot.utils.atomic import atomic_write
+
 
 class TestAtomicWrite(unittest.TestCase):
     def setUp(self):
@@ -11,6 +11,7 @@ class TestAtomicWrite(unittest.TestCase):
 
     def tearDown(self):
         import shutil
+
         shutil.rmtree(self.test_dir)
 
     def test_atomic_write_bytes(self):
@@ -34,6 +35,7 @@ class TestAtomicWrite(unittest.TestCase):
         nested_path = Path(self.test_dir) / "nested" / "file.txt"
         atomic_write(nested_path, b"data")
         self.assertTrue(nested_path.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

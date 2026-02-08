@@ -1,8 +1,9 @@
 import logging
-from typing import Dict, Optional, Type
+from typing import Dict, Optional
 from .base import FormatHandler
 
 logger = logging.getLogger(__name__)
+
 
 class FormatRegistry:
     _instance = None

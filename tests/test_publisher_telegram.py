@@ -3,12 +3,13 @@ import json
 from unittest.mock import MagicMock, patch
 from mergebot.publishers.telegram.publisher import TelegramPublisher
 
+
 class TestTelegramPublisher(unittest.TestCase):
     def setUp(self):
         self.token = "fake_token"
         self.publisher = TelegramPublisher(self.token)
 
-    @patch('urllib.request.urlopen')
+    @patch("urllib.request.urlopen")
     def test_publish_success(self, mock_urlopen):
         # Mock response
         mock_response = MagicMock()
@@ -26,13 +27,13 @@ class TestTelegramPublisher(unittest.TestCase):
 
         # Verify multipart body roughly
         self.assertIn(b'Content-Disposition: form-data; name="chat_id"', req.data)
-        self.assertIn(b'chat123', req.data)
+        self.assertIn(b"chat123", req.data)
         self.assertIn(b'Content-Disposition: form-data; name="caption"', req.data)
-        self.assertIn(b'caption', req.data)
+        self.assertIn(b"caption", req.data)
         self.assertIn(b'filename="test.txt"', req.data)
-        self.assertIn(b'filecontent', req.data)
+        self.assertIn(b"filecontent", req.data)
 
-    @patch('urllib.request.urlopen')
+    @patch("urllib.request.urlopen")
     def test_publish_failure(self, mock_urlopen):
         mock_urlopen.side_effect = Exception("Network Error")
 

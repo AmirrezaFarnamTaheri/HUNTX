@@ -3,6 +3,7 @@ import sys
 from logging.handlers import RotatingFileHandler
 from typing import Optional
 
+
 def setup_logging(log_level: int = logging.INFO, log_file: Optional[str] = None):
     """
     Configures logging for the application.
@@ -21,7 +22,7 @@ def setup_logging(log_level: int = logging.INFO, log_file: Optional[str] = None)
     # Detailed formatter
     # Including threadName, module, pathname for maximum context
     formatter = logging.Formatter(
-        '%(asctime)s | %(levelname)-8s | PID:%(process)d | Thread:%(threadName)s | %(name)s | %(module)s:%(funcName)s:%(lineno)d | %(pathname)s - %(message)s'
+        "%(asctime)s | %(levelname)-8s | %(name)s | %(module)s:%(funcName)s:%(lineno)d - %(message)s"
     )
 
     # Console Handler
@@ -33,10 +34,7 @@ def setup_logging(log_level: int = logging.INFO, log_file: Optional[str] = None)
     if log_file:
         try:
             file_handler = RotatingFileHandler(
-                log_file,
-                maxBytes=10 * 1024 * 1024,  # 10 MB
-                backupCount=5,
-                encoding='utf-8'
+                log_file, maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"  # 10 MB
             )
             file_handler.setFormatter(formatter)
             root_logger.addHandler(file_handler)

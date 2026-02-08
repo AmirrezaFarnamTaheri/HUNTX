@@ -1,9 +1,9 @@
 import unittest
-from unittest.mock import MagicMock, patch, ANY
+from unittest.mock import MagicMock, patch
 import datetime
 import logging
-import threading
-from mergebot.connectors.telegram_user.connector import TelegramUserConnector, SourceItem
+from mergebot.connectors.telegram_user.connector import TelegramUserConnector
+
 
 class TestTelegramUserConnector(unittest.TestCase):
     def setUp(self):
@@ -14,32 +14,32 @@ class TestTelegramUserConnector(unittest.TestCase):
         self.connector = TelegramUserConnector(self.api_id, self.api_hash, self.session, self.peer)
 
         # Capture logs
-        self.logger = logging.getLogger('mergebot.connectors.telegram_user.connector')
+        self.logger = logging.getLogger("mergebot.connectors.telegram_user.connector")
         self.logger.setLevel(logging.DEBUG)
 
     def _set_mock_client(self, mock_client):
         """Helper to inject a mock client into the thread-local storage."""
-        if not hasattr(TelegramUserConnector._local, 'clients'):
+        if not hasattr(TelegramUserConnector._local, "clients"):
             TelegramUserConnector._local.clients = {}
         TelegramUserConnector._local.clients[(self.api_id, self.session)] = mock_client
 
-    @patch('mergebot.connectors.telegram_user.connector.StringSession')
-    @patch('mergebot.connectors.telegram_user.connector.TelegramClient')
+    @patch("mergebot.connectors.telegram_user.connector.StringSession")
+    @patch("mergebot.connectors.telegram_user.connector.TelegramClient")
     def test_initialization(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
 
         # Clear local state to force initialization
-        if hasattr(TelegramUserConnector._local, 'clients'):
-             TelegramUserConnector._local.clients = {}
+        if hasattr(TelegramUserConnector._local, "clients"):
+            TelegramUserConnector._local.clients = {}
 
         client = self.connector._client()
 
         mock_client_cls.assert_called_with(mock_session_cls.return_value, self.api_id, self.api_hash)
         self.assertEqual(client, mock_client)
 
-    @patch('mergebot.connectors.telegram_user.connector.StringSession')
-    @patch('mergebot.connectors.telegram_user.connector.TelegramClient')
+    @patch("mergebot.connectors.telegram_user.connector.StringSession")
+    @patch("mergebot.connectors.telegram_user.connector.TelegramClient")
     def test_list_new_text(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -59,11 +59,11 @@ class TestTelegramUserConnector(unittest.TestCase):
         self.assertEqual(len(items), 1)
         self.assertEqual(items[0].external_id, "100")
         self.assertEqual(items[0].data, b"Hello World")
-        self.assertEqual(items[0].metadata['filename'], "msg_100.txt")
+        self.assertEqual(items[0].metadata["filename"], "msg_100.txt")
         self.assertEqual(self.connector.offset, 100)
 
-    @patch('mergebot.connectors.telegram_user.connector.StringSession')
-    @patch('mergebot.connectors.telegram_user.connector.TelegramClient')
+    @patch("mergebot.connectors.telegram_user.connector.StringSession")
+    @patch("mergebot.connectors.telegram_user.connector.TelegramClient")
     def test_list_new_media(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -86,11 +86,11 @@ class TestTelegramUserConnector(unittest.TestCase):
         self.assertEqual(len(items), 1)
         self.assertEqual(items[0].external_id, "101_media")
         self.assertEqual(items[0].data, b"fake_image_bytes")
-        self.assertEqual(items[0].metadata['filename'], "image.png")
+        self.assertEqual(items[0].metadata["filename"], "image.png")
         self.assertEqual(self.connector.offset, 101)
 
-    @patch('mergebot.connectors.telegram_user.connector.StringSession')
-    @patch('mergebot.connectors.telegram_user.connector.TelegramClient')
+    @patch("mergebot.connectors.telegram_user.connector.StringSession")
+    @patch("mergebot.connectors.telegram_user.connector.TelegramClient")
     def test_list_new_skip_large_file(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -101,7 +101,7 @@ class TestTelegramUserConnector(unittest.TestCase):
         msg3.id = 102
         msg3.message = None
         msg3.media = True
-        msg3.file.size = 30 * 1024 * 1024 # 30MB
+        msg3.file.size = 30 * 1024 * 1024  # 30MB
         msg3.date = datetime.datetime.fromtimestamp(1600000200)
 
         mock_client.iter_messages.return_value = [msg3]
@@ -110,8 +110,8 @@ class TestTelegramUserConnector(unittest.TestCase):
         self.assertEqual(len(items), 0)
         self.assertEqual(self.connector.offset, 102)
 
-    @patch('mergebot.connectors.telegram_user.connector.StringSession')
-    @patch('mergebot.connectors.telegram_user.connector.TelegramClient')
+    @patch("mergebot.connectors.telegram_user.connector.StringSession")
+    @patch("mergebot.connectors.telegram_user.connector.TelegramClient")
     def test_list_new_mixed_content_with_failures(self, mock_client_cls, mock_session_cls):
         """Test a mix of text, media, skipped media, and download errors."""
         mock_client = MagicMock()
@@ -131,7 +131,7 @@ class TestTelegramUserConnector(unittest.TestCase):
         msg2.id = 201
         msg2.message = None
         msg2.media = True
-        msg2.file.size = 25 * 1024 * 1024 # 25MB
+        msg2.file.size = 25 * 1024 * 1024  # 25MB
         msg2.date = datetime.datetime.now()
 
         # Msg 3: Media download failure
@@ -169,15 +169,15 @@ class TestTelegramUserConnector(unittest.TestCase):
         # Offset should update to the last processed message
         self.assertEqual(self.connector.offset, 203)
 
-    @patch('mergebot.connectors.telegram_user.connector.StringSession')
-    @patch('mergebot.connectors.telegram_user.connector.TelegramClient')
+    @patch("mergebot.connectors.telegram_user.connector.StringSession")
+    @patch("mergebot.connectors.telegram_user.connector.TelegramClient")
     def test_get_state(self, mock_client_cls, mock_session_cls):
         self.connector.offset = 500
         state = self.connector.get_state()
-        self.assertEqual(state, {'offset': 500})
+        self.assertEqual(state, {"offset": 500})
 
-    @patch('mergebot.connectors.telegram_user.connector.StringSession')
-    @patch('mergebot.connectors.telegram_user.connector.TelegramClient')
+    @patch("mergebot.connectors.telegram_user.connector.StringSession")
+    @patch("mergebot.connectors.telegram_user.connector.TelegramClient")
     def test_state_update_on_list_new(self, mock_client_cls, mock_session_cls):
         """Test that list_new updates internal offset from state if provided."""
         mock_client = MagicMock()
@@ -189,15 +189,15 @@ class TestTelegramUserConnector(unittest.TestCase):
         self.connector.offset = 100
 
         # Case 1: State offset is higher -> Update
-        list(self.connector.list_new(state={'offset': 200}))
+        list(self.connector.list_new(state={"offset": 200}))
         self.assertEqual(self.connector.offset, 200)
 
         # Case 2: State offset is lower -> Ignore (keep current)
-        list(self.connector.list_new(state={'offset': 150}))
+        list(self.connector.list_new(state={"offset": 150}))
         self.assertEqual(self.connector.offset, 200)
 
-    @patch('mergebot.connectors.telegram_user.connector.StringSession')
-    @patch('mergebot.connectors.telegram_user.connector.TelegramClient')
+    @patch("mergebot.connectors.telegram_user.connector.StringSession")
+    @patch("mergebot.connectors.telegram_user.connector.TelegramClient")
     def test_connection_handling(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -216,8 +216,8 @@ class TestTelegramUserConnector(unittest.TestCase):
         list(self.connector.list_new())
         mock_client.connect.assert_not_called()
 
-    @patch('mergebot.connectors.telegram_user.connector.StringSession')
-    @patch('mergebot.connectors.telegram_user.connector.TelegramClient')
+    @patch("mergebot.connectors.telegram_user.connector.StringSession")
+    @patch("mergebot.connectors.telegram_user.connector.TelegramClient")
     def test_list_new_exceptions(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -234,8 +234,8 @@ class TestTelegramUserConnector(unittest.TestCase):
         with self.assertRaises(Exception):
             list(self.connector.list_new())
 
-    @patch('mergebot.connectors.telegram_user.connector.StringSession')
-    @patch('mergebot.connectors.telegram_user.connector.TelegramClient')
+    @patch("mergebot.connectors.telegram_user.connector.StringSession")
+    @patch("mergebot.connectors.telegram_user.connector.TelegramClient")
     def test_resolve_peer_error_handled(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -244,12 +244,13 @@ class TestTelegramUserConnector(unittest.TestCase):
 
         self.connector.peer = "-10012345"
 
-        with patch('telethon.utils.resolve_id', side_effect=Exception("Resolve fail")):
+        with patch("telethon.utils.resolve_id", side_effect=Exception("Resolve fail")):
             mock_client.iter_messages.return_value = []
             list(self.connector.list_new())
 
             args, kwargs = mock_client.iter_messages.call_args
             self.assertEqual(args[0], "-10012345")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -6,7 +6,8 @@ from .env_expand import recursive_expand
 
 logger = logging.getLogger(__name__)
 
-def load_config(path: str) -> AppConfig:
+
+def load_config(path: "str | Path") -> AppConfig:
     p = Path(path)
     if not p.exists():
         raise FileNotFoundError(f"Config file not found: {path}")

@@ -1,10 +1,9 @@
 import unittest
 import sqlite3
-import json
 import logging
 from unittest.mock import MagicMock
 from mergebot.state.repo import StateRepo
-from mergebot.state.db import DBConnection
+
 
 class TestStateRepo(unittest.TestCase):
     def setUp(self):
@@ -13,7 +12,8 @@ class TestStateRepo(unittest.TestCase):
         self.conn.row_factory = sqlite3.Row
 
         # Apply schema manually since DBConnection usually does it from file
-        self.conn.executescript("""
+        self.conn.executescript(
+            """
         CREATE TABLE source_state (
             source_id TEXT PRIMARY KEY,
             source_type TEXT NOT NULL,
@@ -50,7 +50,8 @@ class TestStateRepo(unittest.TestCase):
             metadata_json TEXT,
             published_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
-        """)
+        """
+        )
 
         # Mock DBConnection to return our memory connection
         # StateRepo calls db.connect() which returns a context manager yielding the connection
@@ -61,7 +62,7 @@ class TestStateRepo(unittest.TestCase):
         self.repo = StateRepo(self.mock_db_conn)
 
         # Suppress logging during tests
-        logging.getLogger('mergebot.state.repo').setLevel(logging.CRITICAL)
+        logging.getLogger("mergebot.state.repo").setLevel(logging.CRITICAL)
 
     def tearDown(self):
         self.conn.close()
@@ -130,5 +131,6 @@ class TestStateRepo(unittest.TestCase):
         self.assertEqual(self.repo.get_last_published_hash(route), h)
         self.assertTrue(self.repo.is_artifact_published(route, h))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

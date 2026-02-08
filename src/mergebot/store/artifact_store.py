@@ -7,6 +7,7 @@ from .paths import DATA_DIR
 
 logger = logging.getLogger(__name__)
 
+
 class ArtifactStore:
     def __init__(self, base_dir: Path = DATA_DIR):
         self.base_dir = base_dir
@@ -25,6 +26,7 @@ class ArtifactStore:
         """
         # We assume data is bytes
         import hashlib
+
         h = hashlib.sha256(data).hexdigest()
 
         # Sharded? Maybe overkill for artifacts, flat is ok for now unless huge volume.

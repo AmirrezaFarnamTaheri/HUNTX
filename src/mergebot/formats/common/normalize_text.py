@@ -1,5 +1,6 @@
 import unicodedata
 
+
 def normalize_text(text: str) -> str:
     """
     Normalizes text to NFKC, strips whitespace, handles unified newlines.
@@ -7,7 +8,7 @@ def normalize_text(text: str) -> str:
     if not text:
         return ""
     # NFKC normalization for compatibility
-    text = unicodedata.normalize('NFKC', text)
+    text = unicodedata.normalize("NFKC", text)
     # Strip whitespace
     text = text.strip()
     return text

@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import Mock
 from mergebot.formats.registry import FormatRegistry
 
+
 class TestFormatRegistry(unittest.TestCase):
     def setUp(self):
         # Explicitly reset the singleton state before each test
@@ -40,5 +41,6 @@ class TestFormatRegistry(unittest.TestCase):
 
         self.assertIs(self.registry.get("fmt"), h2)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

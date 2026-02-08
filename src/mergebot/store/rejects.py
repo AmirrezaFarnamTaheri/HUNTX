@@ -3,6 +3,7 @@ from pathlib import Path
 from ..utils.atomic import atomic_write
 from .paths import REJECTS_DIR
 
+
 class RejectsStore:
     def __init__(self, base_dir: Path = REJECTS_DIR):
         self.base_dir = base_dir

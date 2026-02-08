@@ -1,6 +1,7 @@
 import unittest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, MagicMock
 from mergebot.pipeline.ingest import IngestionPipeline
+
 
 class TestIngestPipeline(unittest.TestCase):
     def setUp(self):
@@ -47,12 +48,12 @@ class TestIngestPipeline(unittest.TestCase):
         # record_file should be called with conn argument
         self.state_repo.record_file.assert_called_once()
         args, kwargs = self.state_repo.record_file.call_args
-        self.assertEqual(kwargs['conn'], self.mock_conn)
+        self.assertEqual(kwargs["conn"], self.mock_conn)
 
         # update_source_state called with conn
         self.state_repo.update_source_state.assert_called_once()
         args, kwargs = self.state_repo.update_source_state.call_args
-        self.assertEqual(kwargs['conn'], self.mock_conn)
+        self.assertEqual(kwargs["conn"], self.mock_conn)
 
     def test_skip_seen_files(self):
         self.state_repo.get_source_state.return_value = {}
@@ -69,5 +70,6 @@ class TestIngestPipeline(unittest.TestCase):
         self.raw_store.save.assert_not_called()
         self.state_repo.record_file.assert_not_called()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

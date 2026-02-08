@@ -1,6 +1,7 @@
 import unittest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, patch
 from mergebot.pipeline.transform import TransformPipeline
+
 
 class TestTransformPipeline(unittest.TestCase):
     def setUp(self):
@@ -12,12 +13,9 @@ class TestTransformPipeline(unittest.TestCase):
 
     def test_process_pending_success(self):
         # Setup pending file
-        self.state_repo.get_pending_files.return_value = [{
-            "raw_hash": "hash123",
-            "source_id": "src1",
-            "filename": "test.conf",
-            "metadata": {}
-        }]
+        self.state_repo.get_pending_files.return_value = [
+            {"raw_hash": "hash123", "source_id": "src1", "filename": "test.conf", "metadata": {}}
+        ]
 
         self.raw_store.get.return_value = b"config content"
 
@@ -38,11 +36,9 @@ class TestTransformPipeline(unittest.TestCase):
         self.state_repo.update_file_status.assert_called_with("hash123", "processed")
 
     def test_process_pending_missing_data(self):
-        self.state_repo.get_pending_files.return_value = [{
-            "raw_hash": "hash123",
-            "source_id": "src1",
-            "filename": "test.conf"
-        }]
+        self.state_repo.get_pending_files.return_value = [
+            {"raw_hash": "hash123", "source_id": "src1", "filename": "test.conf"}
+        ]
         self.raw_store.get.return_value = None
 
         self.pipeline.process_pending()
@@ -53,11 +49,9 @@ class TestTransformPipeline(unittest.TestCase):
         # Config excludes fmt1
         self.source_configs["src1"].selector.include_formats = ["other_fmt"]
 
-        self.state_repo.get_pending_files.return_value = [{
-            "raw_hash": "hash123",
-            "source_id": "src1",
-            "filename": "test.conf"
-        }]
+        self.state_repo.get_pending_files.return_value = [
+            {"raw_hash": "hash123", "source_id": "src1", "filename": "test.conf"}
+        ]
         self.raw_store.get.return_value = b"data"
 
         with patch("mergebot.pipeline.transform.decide_format", return_value="fmt1"):
@@ -67,11 +61,9 @@ class TestTransformPipeline(unittest.TestCase):
         self.state_repo.update_file_status.assert_called_with("hash123", "ignored", "Format fmt1 not allowed")
 
     def test_process_exception_during_processing(self):
-        self.state_repo.get_pending_files.return_value = [{
-            "raw_hash": "hash123",
-            "source_id": "src1",
-            "filename": "test.conf"
-        }]
+        self.state_repo.get_pending_files.return_value = [
+            {"raw_hash": "hash123", "source_id": "src1", "filename": "test.conf"}
+        ]
         # store raises exception
         self.raw_store.get.side_effect = Exception("Store error")
 
@@ -80,23 +72,22 @@ class TestTransformPipeline(unittest.TestCase):
         self.state_repo.update_file_status.assert_called_with("hash123", "failed", "Store error")
 
     def test_process_unknown_format(self):
-         self.state_repo.get_pending_files.return_value = [{
-            "raw_hash": "hash123",
-            "source_id": "src1",
-            "filename": "test.conf"
-        }]
-         self.raw_store.get.return_value = b"data"
+        self.state_repo.get_pending_files.return_value = [
+            {"raw_hash": "hash123", "source_id": "src1", "filename": "test.conf"}
+        ]
+        self.raw_store.get.return_value = b"data"
 
-         # Config must include unknown_fmt otherwise it fails early as excluded
-         self.source_configs["src1"].selector.include_formats = ["unknown_fmt"]
+        # Config must include unknown_fmt otherwise it fails early as excluded
+        self.source_configs["src1"].selector.include_formats = ["unknown_fmt"]
 
-         # Registry returns None for unknown format
-         self.registry.get.return_value = None
+        # Registry returns None for unknown format
+        self.registry.get.return_value = None
 
-         with patch("mergebot.pipeline.transform.decide_format", return_value="unknown_fmt"):
-             self.pipeline.process_pending()
+        with patch("mergebot.pipeline.transform.decide_format", return_value="unknown_fmt"):
+            self.pipeline.process_pending()
 
-         self.state_repo.update_file_status.assert_called_with("hash123", "failed", "No handler for unknown_fmt")
+        self.state_repo.update_file_status.assert_called_with("hash123", "failed", "No handler for unknown_fmt")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

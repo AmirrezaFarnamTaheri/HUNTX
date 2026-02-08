@@ -1,3 +1,28 @@
-.venv/
+# Python
 __pycache__/
-src/mergebot.egg-info/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Testing & QA
+.coverage
+.pytest_cache/
+.mypy_cache/
+htmlcov/
+*.db-shm
+*.db-wal
+
+# Runtime data
+data/
+persist/
+my_config.yaml
+*.session
+*.log

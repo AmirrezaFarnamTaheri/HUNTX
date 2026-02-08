@@ -1,66 +1,100 @@
 # MergeBot
 
-MergeBot is a lightweight, zero-budget, incremental file merger and publisher for Telegram. It aggregates configuration files (like V2Ray, OpenVPN) from multiple Telegram channels, deduplicates them, merges them into unified subscriptions, and republishes them.
+Lightweight, zero-budget, incremental proxy-config aggregator and Telegram publisher. Scrapes configuration files (V2Ray, OpenVPN, etc.) from multiple Telegram channels, deduplicates and merges them, then republishes unified subscriptions.
 
-## Key Features
+## Features
 
-- **Multi-Source Ingestion**: Scrapes files from Telegram channels.
-  - Supports standard **Bot API** (documents/files).
-  - Supports **User Session (MTProto)** for reading history and public channels.
-  - **Mixed Content**: Captures text/captions alongside files.
-- **Incremental Processing**: Only processes new files since the last run.
-- **Format Support**:
-  - `npvt` (V2Ray/VLESS)
-  - `ovpn` (OpenVPN)
-  - `conf_lines` (Generic line-based configs)
-  - `opaque_bundle` (Zipped binary blobs)
-  - **Extended Support**: `.ehi`, `.hc`, `.hat`, `.sip`, `.npvtsub`, `.conf`.
-- **Safety**: Automatically skips potentially malicious `.apk` files.
-- **Zero-Budget Architecture**: Designed to run on ephemeral GitHub Actions runners with state persistence committed to a git branch.
-- **Privacy Focused**: No external databases required; state is kept in a local SQLite file.
+- **Multi-source ingestion** — Bot API and MTProto User Session connectors
+- **10-worker parallel pool** — configurable via `MERGEBOT_MAX_WORKERS`
+- **11 format handlers** — `npvt`, `npvtsub`, `ovpn`, `npv4`, `conf_lines`, `ehi`, `hc`, `hat`, `sip`, `opaque_bundle`, plus content-based detection
+- **V2Ray link decoding** — decoded JSON artifact saved locally (never published)
+- **Incremental & deduplicated** — SHA-256 content hashing, only new files processed
+- **APK safety filter** — `.apk` files automatically rejected
+- **Interactive bot** — `/latest`, `/status`, `/formats`, `/subscribe`, `/unsubscribe`
+- **Zero-budget CI** — runs on GitHub Actions with SQLite state persisted to a git branch
+- **Cross-platform** — works on Linux, macOS, and Windows
 
 ## Quick Start
-
-### 1. Installation
 
 ```bash
 git clone https://github.com/your-username/mergebot.git
 cd mergebot
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
 ```
 
-### 2. Configuration
-
-Copy the example config and edit it:
+Copy and edit the config:
 
 ```bash
 cp configs/config.prod.yaml my_config.yaml
-```
-
-Set your environment variables:
-
-```bash
 export TELEGRAM_TOKEN="your-bot-token"
 ```
 
-For **User Session** (reading public channels/history):
-Generate a session string:
+For MTProto user session (history + public channels):
+
 ```bash
 python scripts/make_telethon_session.py
 ```
 
-### 3. Run
+Run:
 
 ```bash
 mergebot --config my_config.yaml run
 ```
 
-## Documentation
+## Architecture
 
-- [User Guide](docs/USER_GUIDE.md): Detailed configuration and usage instructions.
-- [Development Guide](DEVELOPMENT.md): How to contribute to the project.
+```
+Sources (Telegram)
+    │  ┌──────────────┐
+    ├──│ Worker 1      │──► Ingest ──► Raw Store
+    ├──│ Worker 2      │──► Ingest ──► Raw Store
+    ├──│ ...           │──► ...
+    └──│ Worker N (10) │──► Ingest ──► Raw Store
+       └──────────────┘
+                │
+        Transform (format detection + parse)
+                │
+        Build (merge + deduplicate per route)
+                │
+          ┌─────┴─────┐
+     Publish       Decode (V2Ray JSON artifact)
+     (Telegram)    (local only)
+```
+
+**Pipeline phases:**
+1. **Ingest** — N workers pull sources from a shared queue (no duplicates)
+2. **Transform** — detect format, parse into records, deduplicate
+3. **Build** — merge records per route/format, save artifacts
+4. **Publish** — send changed artifacts to destination channels
+5. **Cleanup** — prune processed raw blobs and old archives
+
+## Configuration
+
+See [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for full configuration reference.
+
+## Environment Variables
+
+| Variable | Description | Default |
+|---|---|---|
+| `TELEGRAM_TOKEN` | Bot API token for ingestion | — |
+| `PUBLISH_BOT_TOKEN` | Bot token for publishing (optional) | — |
+| `TELEGRAM_API_ID` | MTProto API ID | — |
+| `TELEGRAM_API_HASH` | MTProto API hash | — |
+| `TELEGRAM_USER_SESSION` | Telethon session string | — |
+| `MERGEBOT_MAX_WORKERS` | Parallel ingestion workers | `10` |
+| `MERGEBOT_DATA_DIR` | Data directory path | `./data` |
+| `MERGEBOT_STATE_DB_PATH` | SQLite DB path | `./data/state/state.db` |
+| `LOG_LEVEL` | Logging level | `INFO` |
+
+## Development
+
+```bash
+pip install -e ".[dev]"
+python -m pytest tests/ -v
+```
+
+See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for contribution guidelines.
 
 ## License
 

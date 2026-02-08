@@ -2,7 +2,7 @@ import logging
 import time
 import concurrent.futures
 from collections import Counter
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from ..store.raw_store import RawStore
 from ..state.repo import StateRepo
 from ..formats.registry import FormatRegistry
@@ -11,8 +11,15 @@ from ..config.schema import SourceConfig
 
 logger = logging.getLogger(__name__)
 
+
 class TransformPipeline:
-    def __init__(self, raw_store: RawStore, state_repo: StateRepo, registry: FormatRegistry, source_configs: Dict[str, SourceConfig] = {}):
+    def __init__(
+        self,
+        raw_store: RawStore,
+        state_repo: StateRepo,
+        registry: FormatRegistry,
+        source_configs: Dict[str, SourceConfig] = {},
+    ):
         self.raw_store = raw_store
         self.state_repo = state_repo
         self.registry = registry
@@ -27,14 +34,7 @@ class TransformPipeline:
         raw_hash = row["raw_hash"]
         source_id = row["source_id"]
         filename = row["filename"] or "unknown"
-        file_size_bytes = row.get("file_size", 0)
-
-        result = {
-            "status": "ok",
-            "format": None,
-            "records": 0,
-            "duration": 0
-        }
+        result: Dict[str, Any] = {"status": "ok", "format": None, "records": 0, "duration": 0.0}
 
         # logger.debug(f"[Transform] Processing file: {filename} (hash: {raw_hash})")
 
@@ -55,10 +55,12 @@ class TransformPipeline:
             if source_conf and source_conf.selector:
                 allowed = source_conf.selector.include_formats
                 if fmt_id not in allowed and "all" not in allowed:
-                     logger.info(f"[Transform] Skipping file {filename} from {source_id}: Format '{fmt_id}' not in allowed list {allowed}")
-                     self.state_repo.update_file_status(raw_hash, "ignored", f"Format {fmt_id} not allowed")
-                     result["status"] = "skipped"
-                     return result
+                    logger.info(
+                        f"[Transform] Skipping {filename} from {source_id}: " f"format '{fmt_id}' not in {allowed}"
+                    )
+                    self.state_repo.update_file_status(raw_hash, "ignored", f"Format {fmt_id} not allowed")
+                    result["status"] = "skipped"
+                    return result
 
             # Check handler availability
             handler = self.registry.get(fmt_id)
@@ -83,10 +85,7 @@ class TransformPipeline:
             saved_records = 0
             for rec in records:
                 self.state_repo.add_record(
-                    raw_hash=raw_hash,
-                    record_type=fmt_id,
-                    unique_hash=rec["unique_hash"],
-                    data=rec["data"]
+                    raw_hash=raw_hash, record_type=fmt_id, unique_hash=rec["unique_hash"], data=rec["data"]
                 )
                 saved_records += 1
 

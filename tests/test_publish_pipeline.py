@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import Mock, patch
 from mergebot.pipeline.publish import PublishPipeline
 
+
 class TestPublishPipeline(unittest.TestCase):
     def setUp(self):
         self.state_repo = Mock()
@@ -10,12 +11,7 @@ class TestPublishPipeline(unittest.TestCase):
     @patch("mergebot.pipeline.publish.TelegramPublisher")
     def test_publish_new_content(self, MockPublisher):
         # Setup
-        build_result = {
-            "route_name": "route1",
-            "artifact_hash": "new_hash",
-            "format": "fmt1",
-            "data": b"data"
-        }
+        build_result = {"route_name": "route1", "artifact_hash": "new_hash", "format": "fmt1", "data": b"data"}
         destinations = [{"chat_id": "123", "token": "tok"}]
 
         self.state_repo.get_last_published_hash.return_value = "old_hash"
@@ -33,11 +29,7 @@ class TestPublishPipeline(unittest.TestCase):
         self.state_repo.mark_published.assert_called_with("route1", "new_hash")
 
     def test_skip_same_content(self):
-        build_result = {
-            "route_name": "route1",
-            "artifact_hash": "same_hash",
-            "format": "fmt1"
-        }
+        build_result = {"route_name": "route1", "artifact_hash": "same_hash", "format": "fmt1"}
         destinations = [{"chat_id": "123"}]
 
         self.state_repo.get_last_published_hash.return_value = "same_hash"
@@ -46,5 +38,6 @@ class TestPublishPipeline(unittest.TestCase):
             self.pipeline.run(build_result, destinations)
             MockPublisher.assert_not_called()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Dict, Any, Optional, Iterator
 from ..base import SourceConnector, SourceItem
 
+
 # Define TelegramItem as alias to SourceItem for compatibility/clarity
 @dataclass
 class TelegramItem:
@@ -14,16 +15,18 @@ class TelegramItem:
     data: bytes
     metadata: Dict[str, Any]
 
+
 logger = logging.getLogger(__name__)
 
 # Constants for retries
 MAX_RETRIES = 3
 BACKOFF_FACTOR = 1
 
+
 class TelegramConnector(SourceConnector):
     # Shared state to coordinate updates across multiple instances with the same token
     # Structure: { token: { 'updates': {update_id: update_obj}, 'last_offset': int } }
-    _shared_state = {}
+    _shared_state: Dict[str, Any] = {}
 
     def __init__(self, token: str, chat_id: str, state: Optional[Dict[str, Any]] = None):
         self.token = token
@@ -33,16 +36,18 @@ class TelegramConnector(SourceConnector):
         self.base_url = f"https://api.telegram.org/bot{self.token}"
 
         # Basic validation for Bot Token format
-        if ':' in self.token:
-            prefix = self.token.split(':')[0]
+        if ":" in self.token:
+            prefix = self.token.split(":")[0]
             if not prefix.isdigit():
-                 logger.warning(f"The provided token starts with '{prefix}', which is not a digit. "
-                                f"Ensure this is a valid Telegram Bot API token (e.g., '123456:ABC-DEF...'), "
-                                f"and NOT a Telethon session string.")
+                logger.warning(
+                    f"The provided token starts with '{prefix}', which is not a digit. "
+                    f"Ensure this is a valid Telegram Bot API token (e.g., '123456:ABC-DEF...'), "
+                    f"and NOT a Telethon session string."
+                )
         else:
-             logger.warning(f"The provided token does not contain a colon. "
-                            f"Ensure this is a valid Telegram Bot API token.")
-
+            logger.warning(
+                "The provided token does not contain a colon. Ensure this is a valid Telegram Bot API token."
+            )
 
     def _make_request(self, method: str, params: Dict[str, Any] = {}) -> Dict[str, Any]:
         url = f"{self.base_url}/{method}"
@@ -61,12 +66,15 @@ class TelegramConnector(SourceConnector):
                     duration = time.time() - start_time
                     # Only log slow requests or if debug
                     if duration > 1.0:
-                         logger.debug(f"API request {method} took {duration:.2f}s")
+                        logger.debug(f"API request {method} took {duration:.2f}s")
                     return res
             except urllib.error.URLError as e:
                 if attempt < MAX_RETRIES:
-                    sleep_time = BACKOFF_FACTOR * (2 ** attempt)
-                    logger.warning(f"Telegram API error (attempt {attempt + 1}/{MAX_RETRIES + 1}): {e}. Retrying in {sleep_time}s...")
+                    sleep_time = BACKOFF_FACTOR * (2**attempt)
+                    logger.warning(
+                        f"Telegram API error (attempt {attempt + 1}/{MAX_RETRIES + 1}): {e}. "
+                        f"Retrying in {sleep_time}s..."
+                    )
                     time.sleep(sleep_time)
                 else:
                     logger.error(f"Telegram API error (final attempt) for {method}: {e}")
@@ -87,8 +95,10 @@ class TelegramConnector(SourceConnector):
                     return data
             except Exception as e:
                 if attempt < MAX_RETRIES:
-                    sleep_time = BACKOFF_FACTOR * (2 ** attempt)
-                    logger.warning(f"Download failed (attempt {attempt + 1}/{MAX_RETRIES + 1}): {e}. Retrying in {sleep_time}s...")
+                    sleep_time = BACKOFF_FACTOR * (2**attempt)
+                    logger.warning(
+                        f"Download failed (attempt {attempt + 1}/{MAX_RETRIES + 1}): {e}. Retrying in {sleep_time}s..."
+                    )
                     time.sleep(sleep_time)
                 else:
                     logger.error(f"Download failed (final attempt): {e}")
@@ -103,23 +113,20 @@ class TelegramConnector(SourceConnector):
         logger.info(f"Fetching updates from Telegram (offset={self.offset})...")
 
         # Determine if this is a fresh start (no previous offset)
-        is_fresh_start = (local_offset == 0)
+        is_fresh_start = local_offset == 0
         # Explicit override: 129600 seconds instead of 36 hours
         cutoff_time = time.time() - 129600
 
         # Initialize shared state for this token if needed
         if self.token not in self._shared_state:
-            self._shared_state[self.token] = {
-                'updates': {},
-                'last_offset': 0
-            }
+            self._shared_state[self.token] = {"updates": {}, "last_offset": 0}
 
         shared = self._shared_state[self.token]
 
         # Fetch new updates from Telegram into shared cache
         has_more = True
 
-        current_max_update_id = shared['last_offset']
+        current_max_update_id = shared["last_offset"]
         fetched_updates_count = 0
 
         while has_more:
@@ -128,12 +135,10 @@ class TelegramConnector(SourceConnector):
 
             req_offset = current_max_update_id + 1 if current_max_update_id > 0 else 0
 
-            resp = self._make_request("getUpdates", {
-                "offset": req_offset,
-                "timeout": 2,
-                "limit": 100,
-                "allowed_updates": ["channel_post", "message"]
-            })
+            resp = self._make_request(
+                "getUpdates",
+                {"offset": req_offset, "timeout": 2, "limit": 100, "allowed_updates": ["channel_post", "message"]},
+            )
 
             if not resp.get("ok"):
                 logger.warning(f"getUpdates returned not OK: {resp}")
@@ -151,10 +156,10 @@ class TelegramConnector(SourceConnector):
                 current_max_update_id = max(current_max_update_id, update_id)
 
                 # Cache the update if not present
-                if update_id not in shared['updates']:
-                    shared['updates'][update_id] = update
+                if update_id not in shared["updates"]:
+                    shared["updates"][update_id] = update
 
-            shared['last_offset'] = current_max_update_id
+            shared["last_offset"] = current_max_update_id
 
             # small sleep to be nice to API
             time.sleep(0.5)
@@ -162,12 +167,14 @@ class TelegramConnector(SourceConnector):
         logger.info(f"Fetched {fetched_updates_count} updates. Processing cache...")
 
         if fetched_updates_count == 0 and is_fresh_start:
-             logger.warning("Fetched 0 updates on a fresh start. Note that Telegram Bot API does NOT provide "
-                            "historical messages. It only receives new messages sent AFTER the bot was started. "
-                            "If you need history, consider using the 'telegram_user' source type.")
+            logger.warning(
+                "Fetched 0 updates on a fresh start. Note that Telegram Bot API does NOT provide "
+                "historical messages. It only receives new messages sent AFTER the bot was started. "
+                "If you need history, consider using the 'telegram_user' source type."
+            )
 
         # Now yield items from cache relevant to THIS source
-        sorted_ids = sorted(shared['updates'].keys())
+        sorted_ids = sorted(shared["updates"].keys())
 
         # Statistics counters
         stats = {
@@ -177,7 +184,7 @@ class TelegramConnector(SourceConnector):
             "skipped_size_limit": 0,
             "skipped_apk": 0,
             "processed_updates": 0,
-            "yielded_items": 0
+            "yielded_items": 0,
         }
 
         for update_id in sorted_ids:
@@ -189,7 +196,7 @@ class TelegramConnector(SourceConnector):
             # Update local offset tracking
             self.offset = max(self.offset, update_id)
 
-            update = shared['updates'][update_id]
+            update = shared["updates"][update_id]
             msg = update.get("channel_post") or update.get("message")
             if not msg:
                 logger.debug(f"Update {update_id} has no message/channel_post")
@@ -224,8 +231,8 @@ class TelegramConnector(SourceConnector):
                         "filename": f"msg_{msg['message_id']}.txt",
                         "timestamp": msg_date,
                         "update_id": update_id,
-                        "is_text": True
-                    }
+                        "is_text": True,
+                    },
                 )
 
             # 2. Document Content
@@ -269,8 +276,8 @@ class TelegramConnector(SourceConnector):
                                     "filename": file_name,
                                     "file_id": file_id,
                                     "timestamp": msg_date,
-                                    "update_id": update_id
-                                }
+                                    "update_id": update_id,
+                                },
                             )
 
             if not content_found:

@@ -1,15 +1,18 @@
-from typing import List, Optional, Dict
-from pydantic import BaseModel, Field, validator
+from typing import List, Optional
+from pydantic import BaseModel, field_validator
+
 
 class TelegramSourceConfig(BaseModel):
     token: str
     chat_id: str
 
-    @validator('token')
-    def validate_token(cls, v):
-        if ':' not in v:
-            raise ValueError('Invalid Telegram Bot Token format (missing colon)')
+    @field_validator("token")
+    @classmethod
+    def validate_token(cls, v: str) -> str:
+        if ":" not in v:
+            raise ValueError("Invalid Telegram Bot Token format (missing colon)")
         return v
+
 
 class TelegramUserSourceConfig(BaseModel):
     api_id: int
@@ -17,8 +20,10 @@ class TelegramUserSourceConfig(BaseModel):
     session: str
     peer: str
 
+
 class SourceSelector(BaseModel):
     include_formats: List[str]
+
 
 class SourceConfig(BaseModel):
     id: str
@@ -27,11 +32,13 @@ class SourceConfig(BaseModel):
     telegram: Optional[TelegramSourceConfig] = None
     telegram_user: Optional[TelegramUserSourceConfig] = None
 
-    @validator('type')
-    def validate_type(cls, v):
-        if v not in ('telegram', 'telegram_user'):
+    @field_validator("type")
+    @classmethod
+    def validate_type(cls, v: str) -> str:
+        if v not in ("telegram", "telegram_user"):
             raise ValueError(f"Unknown source type: {v}")
         return v
+
 
 class DestinationConfig(BaseModel):
     chat_id: str
@@ -39,14 +46,17 @@ class DestinationConfig(BaseModel):
     caption_template: str = "{filename}"
     token: Optional[str] = None
 
+
 class PublishRoute(BaseModel):
     name: str
     from_sources: List[str]
     formats: List[str]
     destinations: List[DestinationConfig]
 
+
 class PublishingConfig(BaseModel):
     routes: List[PublishRoute]
+
 
 class AppConfig(BaseModel):
     sources: List[SourceConfig]

@@ -2,10 +2,12 @@ import os
 import re
 from typing import Any
 
+
 def expand_env(text: str) -> str:
     # Use raw string for regex
-    pattern = re.compile(r'\$\{([A-Z0-9_]+)\}')
-    return pattern.sub(lambda m: os.getenv(m.group(1), ''), text)
+    pattern = re.compile(r"\$\{([A-Z0-9_]+)\}")
+    return pattern.sub(lambda m: os.getenv(m.group(1), ""), text)
+
 
 def recursive_expand(data: Any) -> Any:
     if isinstance(data, dict):

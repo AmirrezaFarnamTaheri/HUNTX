@@ -3,6 +3,7 @@ import json
 from unittest.mock import patch, MagicMock
 from mergebot.connectors.telegram.connector import TelegramConnector
 
+
 class TestTelegramConcurrency(unittest.TestCase):
     def setUp(self):
         # Reset shared state to ensure test isolation
@@ -15,8 +16,8 @@ class TestTelegramConcurrency(unittest.TestCase):
                     "message_id": 101,
                     "date": 2000000000,
                     "chat": {"id": -1001},
-                    "document": {"file_id": "f1", "file_name": "file1.txt", "file_size": 100}
-                }
+                    "document": {"file_id": "f1", "file_name": "file1.txt", "file_size": 100},
+                },
             },
             {
                 "update_id": 2,
@@ -24,15 +25,15 @@ class TestTelegramConcurrency(unittest.TestCase):
                     "message_id": 102,
                     "date": 2000000000,
                     "chat": {"id": -1002},
-                    "document": {"file_id": "f2", "file_name": "file2.txt", "file_size": 100}
-                }
-            }
+                    "document": {"file_id": "f2", "file_name": "file2.txt", "file_size": 100},
+                },
+            },
         ]
         self.max_acked = 0
 
     def mock_urlopen(self, request, timeout=30):
         # Extract URL and Data
-        if hasattr(request, 'full_url'):
+        if hasattr(request, "full_url"):
             full_url = request.full_url
             data = request.data
         else:
@@ -62,10 +63,9 @@ class TestTelegramConcurrency(unittest.TestCase):
             return resp_mock
 
         elif "getFile" in full_url:
-            resp_mock.read.return_value = json.dumps({
-                "ok": True,
-                "result": {"file_path": "path/to/file"}
-            }).encode("utf-8")
+            resp_mock.read.return_value = json.dumps({"ok": True, "result": {"file_path": "path/to/file"}}).encode(
+                "utf-8"
+            )
             return resp_mock
 
         elif "/file/bot" in full_url:
@@ -74,8 +74,8 @@ class TestTelegramConcurrency(unittest.TestCase):
 
         return resp_mock
 
-    @patch('urllib.request.urlopen')
-    @patch('time.sleep') # Skip sleeps
+    @patch("urllib.request.urlopen")
+    @patch("time.sleep")  # Skip sleeps
     def test_shared_state_concurrency(self, mock_sleep, mock_urlopen):
         mock_urlopen.side_effect = self.mock_urlopen
 
@@ -99,5 +99,6 @@ class TestTelegramConcurrency(unittest.TestCase):
         self.assertEqual(len(items2), 1, "Source 2 should find 1 item")
         self.assertEqual(items2[0].metadata["file_id"], "f2")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

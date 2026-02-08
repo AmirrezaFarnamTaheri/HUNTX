@@ -1,150 +1,173 @@
 # MergeBot User Guide
 
 ## Table of Contents
+
 1. [Configuration](#configuration)
-2. [Running locally](#running-locally)
-3. [Running on GitHub Actions](#running-on-github-actions)
-4. [Architecture](#architecture)
+2. [Supported Formats](#supported-formats)
+3. [Running Locally](#running-locally)
+4. [Running on GitHub Actions](#running-on-github-actions)
 5. [Telegram User Session (MTProto)](#telegram-user-session-mtproto)
+6. [Interactive Bot](#interactive-bot)
+7. [Architecture](#architecture)
+8. [Output Artifacts](#output-artifacts)
 
 ## Configuration
 
-The core of MergeBot is controlled by a YAML configuration file.
+MergeBot is controlled by a YAML configuration file with environment variable expansion (`${VAR}`).
 
 ### Sources
 
-Define where the bot should look for files.
+#### Bot API Source
 
-#### Bot API Source (Standard)
-
-Good for private channels where the bot is an admin, or simply downloading files sent to the bot.
+For private channels where the bot is an admin:
 
 ```yaml
 sources:
   - id: "source_channel_1"
     type: "telegram"
     selector:
-      include_formats: ["npvt", "ovpn"]
+      include_formats: ["all"]
     telegram:
       token: "${TELEGRAM_TOKEN}"
       chat_id: "-1001234567890"
 ```
 
-#### Telegram User Source (MTProto)
+#### MTProto User Source
 
-Good for scraping public channels without joining, or reading message history (text content).
+For public channels, message history, and text content:
 
 ```yaml
 sources:
-  - id: "public_channel_source"
+  - id: "public_channel"
     type: "telegram_user"
     selector:
-      include_formats: ["npvt", "conf_lines"]
+      include_formats: ["npvt", "npvtsub", "conf_lines"]
     telegram_user:
       api_id: ${TELEGRAM_API_ID}
       api_hash: "${TELEGRAM_API_HASH}"
       session: "${TELEGRAM_USER_SESSION}"
-      peer: "@SomePublicChannel"
+      peer: "@ChannelName"
 ```
 
 ### Publishing Routes
-
-Define how to merge and where to publish the results.
 
 ```yaml
 publishing:
   routes:
     - name: "merged_vpn"
-      from_sources: ["source_channel_1", "public_channel_source"]
+      from_sources: ["source_channel_1", "public_channel"]
       formats: ["npvt"]
       destinations:
         - chat_id: "-1009876543210"
           mode: "post_on_change"
-          caption_template: "Merged V2Ray Configs\nDate: {timestamp}"
+          caption_template: "Merged configs — {timestamp}"
 ```
 
-## Telegram User Session (MTProto)
+### Selector: `include_formats`
 
-Using a "User Session" allows the bot to act as a normal Telegram user. This unlocks:
-- **History Access**: Fetch old messages (Bot API `getUpdates` is limited to 24h).
-- **Public Channels**: Read from public channels without needing to join them or add a bot admin.
-- **Text Content**: Ingest config lines directly from message text, not just files.
+Use `["all"]` to accept every format, or list specific IDs:
 
-### Setup Steps
+```yaml
+selector:
+  include_formats: ["npvt", "npvtsub", "ovpn", "ehi"]
+```
 
-1. **Get API Credentials**:
-   - Go to [my.telegram.org](https://my.telegram.org).
-   - Log in and go to "API development tools".
-   - Create an app to get `App api_id` and `App api_hash`.
+## Supported Formats
 
-2. **Generate Session String**:
-   - Run the helper script locally (interactive login):
-     ```bash
-     python scripts/make_telethon_session.py
-     ```
-   - Enter your phone number and 2FA password if prompted.
-   - Copy the long `SESSION_STRING` output.
+| Format ID | Extension | Type | Description |
+|---|---|---|---|
+| `npvt` | `.txt`, auto-detect | Text | V2Ray/VLESS/Trojan/SS proxy URIs |
+| `npvtsub` | `.npvtsub` | Text | Subscription files with proxy URIs |
+| `ovpn` | `.ovpn` | Binary | OpenVPN configs (zipped) |
+| `npv4` | `.npv4` | Binary | NPV4 configs (zipped) |
+| `conf_lines` | `.conf` | Text | Generic line-based configs |
+| `ehi` | `.ehi` | Binary | EHI tunnel configs (zipped) |
+| `hc` | `.hc` | Binary | HTTP Custom configs (zipped) |
+| `hat` | `.hat` | Binary | HTTP Advanced Tunnel configs (zipped) |
+| `sip` | `.sip` | Binary | SIP configs (zipped) |
+| `opaque_bundle` | fallback | Binary | Any unrecognized binary files (zipped) |
 
-3. **Configure Secrets**:
-   - Set environment variables or GitHub Secrets:
-     - `TELEGRAM_API_ID`
-     - `TELEGRAM_API_HASH`
-     - `TELEGRAM_USER_SESSION`
+All binary formats produce ZIP archives. Text formats produce deduplicated plain-text files.
 
 ## Running Locally
-
-To run the bot manually:
 
 ```bash
 mergebot --config configs/config.prod.yaml --data-dir ./data --db-path ./data/state/state.db run
 ```
 
+Set `MERGEBOT_MAX_WORKERS` to control parallelism (default: 10):
+
+```bash
+MERGEBOT_MAX_WORKERS=5 mergebot --config my_config.yaml run
+```
+
 ## Running on GitHub Actions
 
-MergeBot is designed to run periodically on GitHub Actions without a dedicated server.
+1. **Fork the repository**
+2. **Add Secrets** (Settings → Secrets → Actions):
+   - `TELEGRAM_TOKEN` — Bot API token for ingestion
+   - `PUBLISH_BOT_TOKEN` — separate bot token for publishing (optional)
+   - `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_USER_SESSION` — for MTProto
+3. **Enable the workflow** — `.github/workflows/mergebot.yml` runs every 3 hours
+4. **Manual trigger** — use "Run workflow" with custom `max_workers` input
+5. State is persisted on an orphan branch `mergebot-state`
 
-1. **Fork the repository**.
-2. **Add Secrets**:
-   - Go to Settings -> Secrets and variables -> Actions.
-   - Add `TELEGRAM_TOKEN` (for the scraping bot).
-   - Add `PUBLISH_BOT_TOKEN` (if using a separate bot for publishing).
-   - **For User Session**: Add `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, and `TELEGRAM_USER_SESSION`.
-3. **Enable Workflows**:
-   - The `.github/workflows/mergebot.yml` workflow is scheduled to run hourly.
-   - It will automatically create an orphan branch `mergebot-state` to store the SQLite database between runs.
+## Telegram User Session (MTProto)
+
+Unlocks history access, public channel reading, and text content ingestion.
+
+### Setup
+
+1. Go to [my.telegram.org](https://my.telegram.org) → API development tools → create an app
+2. Generate session string:
+   ```bash
+   python scripts/make_telethon_session.py
+   ```
+3. Save as `TELEGRAM_USER_SESSION` in GitHub Secrets or env vars
+
+## Interactive Bot
+
+The bot processes commands during each scheduled run (30-second window).
+
+| Command | Description |
+|---|---|
+| `/start`, `/help` | Show help message |
+| `/latest [format] [days]` | Get latest artifacts (default: all, 4 days) |
+| `/status` | Pipeline statistics (sources, files, records) |
+| `/formats` | List all supported formats |
+| `/subscribe <format> [hours]` | Auto-deliver every N hours (default: 6) |
+| `/unsubscribe [format]` | Remove subscription(s) |
 
 ## Architecture
 
-- **Ingestion**: The bot connects to Telegram, downloads new files, and computes a SHA256 hash.
-- **Deduplication**: Files with known hashes are skipped.
-- **Transformation**: Files are parsed into a normalized format (if supported) or treated as opaque blobs.
-- **Merging**: Compatible formats are combined into a single artifact.
-- **Publishing**: The merged artifact is sent to the destination channel.
+```
+Sources → [Worker Pool (N=10)] → Ingest → Raw Store (SHA-256 sharded)
+                                              ↓
+                                    Transform (format detect + parse)
+                                              ↓
+                                    Build (merge + deduplicate)
+                                         ↓          ↓
+                                    Publish    V2Ray Decode
+                                  (Telegram)   (local artifact)
+                                         ↓
+                                    Cleanup (prune raw + archive)
+```
 
-## Recent Updates
+Workers pull from a shared queue — no two workers process the same source.
 
-### 72-Hour Fresh Start Logic
-When a Telegram source is added for the first time (or if the database state is reset), the bot will now default to fetching messages from the last **723600 seconds** (approx 8.3 days). This prevents fetching extremely old history while ensuring recent content is captured.
+## Output Artifacts
 
-### Multi-Format Output
-The bot now generates user-friendly output files in the `persist/data/output` directory.
-- Files are named as `{route_name}.{format}` (e.g., `demo_output.npvt`).
-- These are separate from the internal hashed artifacts.
+| Path | Description |
+|---|---|
+| `output/{route}.{fmt}` | Latest merged artifact per route/format |
+| `output/{route}.npvt.decoded.json` | Decoded V2Ray links (local only, never published) |
+| `archive/{route}_{timestamp}.{fmt}` | Timestamped archive copies |
+| `dist/` | Packaged output for GitHub Actions upload |
 
-### Verification Script
-A verification script is included in the GitHub Artifacts output.
-- Locate `verify_output.py` in the downloaded artifact zip.
-- Run it locally to validate the integrity of your proxy files:
-  ```bash
-  python verify_output.py
-  ```
+### Verification
 
-### Extended Format Support & Security
-MergeBot now supports ingesting and bundling:
-- `.ehi`, `.hc`, `.hat`, `.sip`, `.npvtsub`, `.conf`
-- These files are treated as opaque bundles and can be merged into zip archives.
+```bash
+python scripts/verify_output.py
+```
 
-Additionally, to ensure security, the bot automatically **skips** any file with the `.apk` extension to prevent distribution of potential malware.
-
-### Mixed Content Ingestion
-Both `telegram` (Bot API) and `telegram_user` (MTProto) sources now support ingesting both text (captions/messages) and documents from the same update.
+Validates output files, decodes VMess links, and optionally runs V2Ray config checks.

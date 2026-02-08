@@ -6,6 +6,7 @@ from pathlib import Path
 from mergebot.store.raw_store import RawStore
 from mergebot.store.artifact_store import ArtifactStore
 
+
 class TestRawStore(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.mkdtemp()
@@ -25,6 +26,7 @@ class TestRawStore(unittest.TestCase):
     def test_get_nonexistent(self):
         self.assertIsNone(self.store.get("nonexistent"))
         self.assertFalse(self.store.exists("nonexistent"))
+
 
 class TestArtifactStore(unittest.TestCase):
     def setUp(self):
@@ -57,5 +59,6 @@ class TestArtifactStore(unittest.TestCase):
     def test_get_artifact_nonexistent(self):
         self.assertIsNone(self.store.get_artifact("r", "h", "f"))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

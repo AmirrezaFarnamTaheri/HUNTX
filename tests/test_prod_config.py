@@ -4,13 +4,17 @@ import os
 from mergebot.config.loader import load_config
 from mergebot.config.validate import validate_config
 
+
 class TestProdConfig(unittest.TestCase):
-    @patch.dict(os.environ, {
-        "TELEGRAM_API_ID": "12345",
-        "TELEGRAM_API_HASH": "test_hash",
-        "TELEGRAM_USER_SESSION": "test_session",
-        "TELEGRAM_TOKEN": "12345:test_token"
-    })
+    @patch.dict(
+        os.environ,
+        {
+            "TELEGRAM_API_ID": "12345",
+            "TELEGRAM_API_HASH": "test_hash",
+            "TELEGRAM_USER_SESSION": "test_session",
+            "TELEGRAM_TOKEN": "12345:test_token",
+        },
+    )
     def test_prod_config_validity(self):
         config_path = "configs/config.prod.yaml"
 
@@ -35,5 +39,6 @@ class TestProdConfig(unittest.TestCase):
         # Validate logic (duplicate IDs etc)
         validate_config(config)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

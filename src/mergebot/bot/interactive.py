@@ -1,18 +1,41 @@
+import asyncio
 import logging
 import time
-import asyncio
-from pathlib import Path
-from typing import List, Dict, Any, Optional
 
 from telethon import TelegramClient, events
-from telethon.sessions import StringSession
 
 from ..store.artifact_store import ArtifactStore
 from ..state.repo import StateRepo
 from ..state.db import open_db
-from ..store.paths import STATE_DB_PATH
+from ..store.paths import STATE_DB_PATH, DATA_DIR
 
 logger = logging.getLogger(__name__)
+
+HELP_TEXT = (
+    "**MergeBot** — Aggregated proxy config publisher\n\n"
+    "**Commands:**\n"
+    "`/start` `/help` — Show this message\n"
+    "`/latest [format] [days]` — Get latest merged files (default: all, 4 days)\n"
+    "`/status` — Show pipeline statistics\n"
+    "`/formats` — List supported formats\n"
+    "`/subscribe <format> [hours]` — Auto-deliver every N hours (default: 6)\n"
+    "`/unsubscribe [format]` — Remove a subscription\n\n"
+    "_This bot runs periodically. Responses may be delayed up to the schedule interval._"
+)
+
+SUPPORTED_FORMATS = [
+    "npvt",
+    "npvtsub",
+    "ovpn",
+    "npv4",
+    "conf_lines",
+    "ehi",
+    "hc",
+    "hat",
+    "sip",
+    "opaque_bundle",
+]
+
 
 class InteractiveBot:
     def __init__(self, token: str, api_id: int, api_hash: str):
@@ -26,113 +49,177 @@ class InteractiveBot:
 
         self._init_subs_table()
 
-        # Use a file-based session for the bot (or in-memory if transient)
-        # Since we run periodically, file session is better to persist cache/auth
-        # But we are in a container/ephemeral env.
-        # Ideally pass a session string, but bot tokens don't strictly need one for basic auth.
-        # We'll use 'bot.session' in data dir.
-        session_path = Path("persist/data/bot.session")
+        session_path = DATA_DIR / "bot.session"
         self.client = TelegramClient(str(session_path), self.api_id, self.api_hash)
 
     def _init_subs_table(self):
         with self.db.connect() as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS bot_subs (
                     user_id TEXT,
                     chat_id TEXT,
                     format_filter TEXT,
-                    frequency_hours INTEGER,
-                    last_sent_ts REAL,
+                    frequency_hours INTEGER DEFAULT 6,
+                    last_sent_ts REAL DEFAULT 0,
                     PRIMARY KEY (user_id, format_filter)
                 )
-            """)
+                """
+            )
 
     async def start(self):
         await self.client.start(bot_token=self.token)
 
-        # Register handlers
-        self.client.add_event_handler(self._handler_start, events.NewMessage(pattern='/start|/help'))
-        self.client.add_event_handler(self._handler_latest, events.NewMessage(pattern='/latest'))
+        self.client.add_event_handler(self._on_start, events.NewMessage(pattern=r"/start|/help"))
+        self.client.add_event_handler(self._on_latest, events.NewMessage(pattern=r"/latest"))
+        self.client.add_event_handler(self._on_status, events.NewMessage(pattern=r"/status"))
+        self.client.add_event_handler(self._on_formats, events.NewMessage(pattern=r"/formats"))
+        self.client.add_event_handler(self._on_subscribe, events.NewMessage(pattern=r"/subscribe"))
+        self.client.add_event_handler(self._on_unsubscribe, events.NewMessage(pattern=r"/unsubscribe"))
 
-        # Run loop for a short period to fetch pending updates?
-        # Telethon's run_until_disconnected() blocks forever.
-        # We want to process *pending* updates and then exit (cron job style).
-        # OR we can just fetch history.
-        # Better: run for a fixed timeout (e.g., 30 seconds) to process any backlog commands.
-        logger.info("Bot started. Listening for updates for 30 seconds...")
+        logger.info("Bot started. Processing pending updates (30 s window)...")
 
-        # Also run subscription check once
-        await self._process_subscriptions()
+        await self._deliver_subscriptions()
 
         try:
-            # We assume the cron job handles the scheduling.
-            # We just want to react to any commands sent since last run?
-            # Actually, standard Bot API via Webhook or Long Polling is continuous.
-            # Running "every 3 hours" means users have to wait 3 hours for a response?
-            # That is terrible UX.
-            # But the requirement is "User can ask... User can customize...".
-            # If the architecture is strict "run periodically", then the bot is not truly interactive in real-time.
-            # However, for the purpose of this task within the constraints, we will process pending messages.
-            # Telethon 'catch_up' behavior usually fetches missed updates on start.
-
-            # We'll run until disconnected, but interrupt after 60s.
             await asyncio.wait_for(self.client.run_until_disconnected(), timeout=30)
         except asyncio.TimeoutError:
-            logger.info("Run finished (timeout).")
+            logger.info("Bot timeout reached — exiting.")
         except Exception as e:
             logger.error(f"Bot error: {e}")
         finally:
             await self.client.disconnect()
 
-    async def _handler_start(self, event):
-        await event.respond(
-            "MergeBot Interactive:\n"
-            "/latest [format] [days] - Get latest merged files (default: all, last 4 days)\n"
-            "Note: This bot runs periodically. Responses may be delayed."
-        )
+    # ── Handlers ──────────────────────────────────────────────────────
 
-    async def _handler_latest(self, event):
+    async def _on_start(self, event):
+        await event.respond(HELP_TEXT, parse_mode="md")
+
+    async def _on_latest(self, event):
         args = event.text.split()[1:]
         fmt = args[0] if args else None
         days = int(args[1]) if len(args) > 1 and args[1].isdigit() else 4
 
         files = self.artifact_store.list_archive(days=days)
         if not files:
-            await event.respond(f"No artifacts found in the last {days} days.")
+            await event.respond(f"No artifacts in the last {days} day(s).")
             return
 
-        sent_count = 0
+        sent = 0
         for f in files:
-            parts = f.name.split(".")
-            ext = parts[-1]
+            ext = f.suffix.lstrip(".")
             if fmt and ext != fmt:
                 continue
-
-            await self.client.send_file(
-                event.chat_id,
-                f,
-                caption=f"Archive: {f.name}"
-            )
-            sent_count += 1
+            await self.client.send_file(event.chat_id, f, caption=f"`{f.name}`", parse_mode="md")
+            sent += 1
             await asyncio.sleep(0.5)
 
-        if sent_count == 0:
-             await event.respond(f"No artifacts found matching filter '{fmt}'.")
+        if sent == 0:
+            await event.respond(f"No artifacts matching `{fmt}`.")
 
-    async def _process_subscriptions(self):
-        # Placeholder for subscription logic (send updates if due)
-        pass
+    async def _on_status(self, event):
+        try:
+            with self.db.connect() as conn:
+                total = conn.execute("SELECT COUNT(*) AS c FROM seen_files").fetchone()["c"]
+                pending = conn.execute("SELECT COUNT(*) AS c FROM seen_files WHERE status='pending'").fetchone()["c"]
+                processed = conn.execute("SELECT COUNT(*) AS c FROM seen_files WHERE status='processed'").fetchone()[
+                    "c"
+                ]
+                failed = conn.execute("SELECT COUNT(*) AS c FROM seen_files WHERE status='failed'").fetchone()["c"]
+                sources = conn.execute("SELECT COUNT(*) AS c FROM source_state").fetchone()["c"]
+                records = conn.execute("SELECT COUNT(*) AS c FROM records WHERE is_active=1").fetchone()["c"]
+
+            msg = (
+                f"**Pipeline Status**\n"
+                f"Sources: {sources}\n"
+                f"Files: {total} total ({pending} pending, {processed} processed, {failed} failed)\n"
+                f"Records: {records} active"
+            )
+            await event.respond(msg, parse_mode="md")
+        except Exception as e:
+            await event.respond(f"Error: {e}")
+
+    async def _on_formats(self, event):
+        lines = ["**Supported Formats:**"] + [f"• `{f}`" for f in SUPPORTED_FORMATS]
+        await event.respond("\n".join(lines), parse_mode="md")
+
+    async def _on_subscribe(self, event):
+        args = event.text.split()[1:]
+        if not args:
+            await event.respond("Usage: `/subscribe <format> [hours]`", parse_mode="md")
+            return
+        fmt = args[0]
+        hours = int(args[1]) if len(args) > 1 and args[1].isdigit() else 6
+        user_id = str(event.sender_id)
+        chat_id = str(event.chat_id)
+
+        with self.db.connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO bot_subs (user_id, chat_id, format_filter, frequency_hours, last_sent_ts)
+                VALUES (?, ?, ?, ?, 0)
+                ON CONFLICT(user_id, format_filter) DO UPDATE SET
+                    frequency_hours = excluded.frequency_hours, chat_id = excluded.chat_id
+                """,
+                (user_id, chat_id, fmt, hours),
+            )
+        await event.respond(f"Subscribed to `{fmt}` every {hours}h.", parse_mode="md")
+
+    async def _on_unsubscribe(self, event):
+        args = event.text.split()[1:]
+        user_id = str(event.sender_id)
+        with self.db.connect() as conn:
+            if args:
+                conn.execute("DELETE FROM bot_subs WHERE user_id=? AND format_filter=?", (user_id, args[0]))
+                await event.respond(f"Unsubscribed from `{args[0]}`.", parse_mode="md")
+            else:
+                conn.execute("DELETE FROM bot_subs WHERE user_id=?", (user_id,))
+                await event.respond("All subscriptions removed.")
+
+    # ── Subscription delivery ─────────────────────────────────────────
+
+    async def _deliver_subscriptions(self):
+        now = time.time()
+        try:
+            with self.db.connect() as conn:
+                rows = conn.execute("SELECT * FROM bot_subs").fetchall()
+
+            for row in rows:
+                freq_sec = row["frequency_hours"] * 3600
+                if now - row["last_sent_ts"] < freq_sec:
+                    continue
+
+                fmt = row["format_filter"]
+                chat_id = row["chat_id"]
+                files = self.artifact_store.list_archive(days=1)
+                sent = False
+                for f in files:
+                    if f.suffix.lstrip(".") == fmt:
+                        await self.client.send_file(
+                            int(chat_id), f, caption=f"Subscription: `{f.name}`", parse_mode="md"
+                        )
+                        sent = True
+                        break
+
+                if sent:
+                    with self.db.connect() as conn:
+                        conn.execute(
+                            "UPDATE bot_subs SET last_sent_ts=? WHERE user_id=? AND format_filter=?",
+                            (now, row["user_id"], fmt),
+                        )
+        except Exception as e:
+            logger.error(f"Subscription delivery error: {e}")
+
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--token", required=True)
     parser.add_argument("--api-id", type=int, required=True)
     parser.add_argument("--api-hash", required=True)
     args = parser.parse_args()
 
-    # Configure logging
     logging.basicConfig(level=logging.INFO)
-
     bot = InteractiveBot(args.token, args.api_id, args.api_hash)
     asyncio.run(bot.start())
