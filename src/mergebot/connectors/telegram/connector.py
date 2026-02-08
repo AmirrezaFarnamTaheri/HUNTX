@@ -248,9 +248,9 @@ class TelegramConnector(SourceConnector):
                     # Do not treat as content found, unless text was found
                     # If text was found, we yield text but skip file.
                     pass
-                # Check file size (20MB limit)
-                elif file_size > 20 * 1024 * 1024:
-                    logger.warning(f"Skipping file {file_name} (Size: {file_size} > 20MB limit)")
+                # Check file size (25MB limit)
+                elif file_size > 25 * 1024 * 1024:
+                    logger.warning(f"Skipping file {file_name} (Size: {file_size} > 25MB limit)")
                     stats["skipped_size_limit"] += 1
                 else:
                     file_id = doc.get("file_id")

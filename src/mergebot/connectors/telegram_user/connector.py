@@ -106,7 +106,7 @@ class TelegramUserConnector:
                 # 2. Media content
                 if msg.media:
                     try:
-                        # Check size limit (20MB)
+                        # Check size limit (25MB)
                         # Accessing msg.file returns a helper wrapper
                         f = msg.file
 
@@ -123,9 +123,9 @@ class TelegramUserConnector:
                                 stats["skipped_apk"] += 1
                                 continue
 
-                        if f and f.size and f.size > 20 * 1024 * 1024:
+                        if f and f.size and f.size > 25 * 1024 * 1024:
                             size_mb = f.size / (1024 * 1024)
-                            logger.warning(f"Skipping media in msg {msg.id} (Size: {size_mb:.2f}MB > 20MB)")
+                            logger.warning(f"Skipping media in msg {msg.id} (Size: {size_mb:.2f}MB > 25MB)")
                             stats["skipped_size_limit"] += 1
                             continue
 

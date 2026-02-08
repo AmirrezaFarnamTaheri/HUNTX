@@ -112,6 +112,31 @@ class TestTelegramUserConnector(unittest.TestCase):
 
     @patch("mergebot.connectors.telegram_user.connector.StringSession")
     @patch("mergebot.connectors.telegram_user.connector.TelegramClient")
+    def test_list_new_accept_20mb_file(self, mock_client_cls, mock_session_cls):
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        self._set_mock_client(mock_client)
+        mock_client.is_connected.return_value = True
+
+        msg = MagicMock()
+        msg.id = 103
+        msg.message = None
+        msg.media = True
+        msg.file.size = 20 * 1024 * 1024  # 20MB - should be accepted
+        msg.file.name = "valid_config.txt"
+        msg.date = datetime.datetime.fromtimestamp(1600000300)
+
+        mock_client.iter_messages.return_value = [msg]
+        mock_client.download_media.return_value = b"config content"
+
+        items = list(self.connector.list_new())
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].external_id, "103_media")
+        self.assertEqual(items[0].metadata["filename"], "valid_config.txt")
+        self.assertEqual(self.connector.offset, 103)
+
+    @patch("mergebot.connectors.telegram_user.connector.StringSession")
+    @patch("mergebot.connectors.telegram_user.connector.TelegramClient")
     def test_list_new_mixed_content_with_failures(self, mock_client_cls, mock_session_cls):
         """Test a mix of text, media, skipped media, and download errors."""
         mock_client = MagicMock()
@@ -131,7 +156,7 @@ class TestTelegramUserConnector(unittest.TestCase):
         msg2.id = 201
         msg2.message = None
         msg2.media = True
-        msg2.file.size = 25 * 1024 * 1024  # 25MB
+        msg2.file.size = 30 * 1024 * 1024  # 30MB
         msg2.date = datetime.datetime.now()
 
         # Msg 3: Media download failure
