@@ -95,7 +95,7 @@ All binary formats produce ZIP archives. Text formats produce deduplicated plain
 mergebot --config configs/config.prod.yaml --data-dir ./data --db-path ./data/state/state.db run
 ```
 
-Set `MERGEBOT_MAX_WORKERS` to control parallelism (default: 10):
+Set `MERGEBOT_MAX_WORKERS` to control parallelism (default: 2):
 
 ```bash
 MERGEBOT_MAX_WORKERS=5 mergebot --config my_config.yaml run
@@ -141,7 +141,7 @@ The bot processes commands during each scheduled run (30-second window).
 ## Architecture
 
 ```
-Sources → [Worker Pool (N=10)] → Ingest → Raw Store (SHA-256 sharded)
+Sources → [Worker Pool (N=2)] → Ingest → Raw Store (SHA-256 sharded)
                                               ↓
                                     Transform (format detect + parse)
                                               ↓

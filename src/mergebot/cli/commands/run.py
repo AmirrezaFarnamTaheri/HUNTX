@@ -22,7 +22,7 @@ def run_command(config_path: str):
         logging.error(f"Config file not found: {cfg_path}")
         return
 
-    max_workers = int(os.getenv("MERGEBOT_MAX_WORKERS", "10"))
+    max_workers = int(os.getenv("MERGEBOT_MAX_WORKERS", "2"))
 
     try:
         config = load_config(cfg_path)

@@ -34,7 +34,7 @@ def main():
     if args.command == "run":
         from ..core.orchestrator import Orchestrator
 
-        max_workers = int(os.environ.get("MERGEBOT_MAX_WORKERS", "10"))
+        max_workers = int(os.environ.get("MERGEBOT_MAX_WORKERS", "2"))
         logger.info(f"Starting MergeBot — config={args.config}, workers={max_workers}")
         try:
             config = load_config(args.config)

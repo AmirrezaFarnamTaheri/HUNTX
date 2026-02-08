@@ -5,7 +5,7 @@ Lightweight, zero-budget, incremental proxy-config aggregator and Telegram publi
 ## Features
 
 - **Multi-source ingestion** — Bot API and MTProto User Session connectors
-- **10-worker parallel pool** — configurable via `MERGEBOT_MAX_WORKERS`
+- **2-worker parallel pool** — configurable via `MERGEBOT_MAX_WORKERS`
 - **11 format handlers** — `npvt`, `npvtsub`, `ovpn`, `npv4`, `conf_lines`, `ehi`, `hc`, `hat`, `sip`, `opaque_bundle`, plus content-based detection
 - **V2Ray link decoding** — decoded JSON artifact saved locally (never published)
 - **Incremental & deduplicated** — SHA-256 content hashing, only new files processed
@@ -50,7 +50,7 @@ Sources (Telegram)
     ├──│ Worker 1      │──► Ingest ──► Raw Store
     ├──│ Worker 2      │──► Ingest ──► Raw Store
     ├──│ ...           │──► ...
-    └──│ Worker N (10) │──► Ingest ──► Raw Store
+    └──│ Worker N (2)  │──► Ingest ──► Raw Store
        └──────────────┘
                 │
         Transform (format detection + parse)
@@ -82,7 +82,7 @@ See [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for full configuration reference.
 | `TELEGRAM_API_ID` | MTProto API ID | — |
 | `TELEGRAM_API_HASH` | MTProto API hash | — |
 | `TELEGRAM_USER_SESSION` | Telethon session string | — |
-| `MERGEBOT_MAX_WORKERS` | Parallel ingestion workers | `10` |
+| `MERGEBOT_MAX_WORKERS` | Parallel ingestion workers | `2` |
 | `MERGEBOT_DATA_DIR` | Data directory path | `./data` |
 | `MERGEBOT_STATE_DB_PATH` | SQLite DB path | `./data/state/state.db` |
 | `LOG_LEVEL` | Logging level | `INFO` |

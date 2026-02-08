@@ -20,7 +20,7 @@ src/mergebot/
 │   └── telegram_user/    # MTProto (Telethon) connector
 ├── core/                 # Orchestration & routing
 │   ├── locks.py          # Cross-platform file locking
-│   ├── orchestrator.py   # Main pipeline (10-worker pool)
+│   ├── orchestrator.py   # Main pipeline (2-worker pool)
 │   └── router.py         # Format detection by extension/content
 ├── formats/              # Format handlers
 │   ├── base.py           # FormatHandler protocol
