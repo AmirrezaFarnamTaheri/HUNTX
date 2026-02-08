@@ -213,11 +213,25 @@ class TelegramConnector(SourceConnector):
 
             # Check content type & timestamp for fresh starts
             msg_date = msg.get("date", 0)
+
+            # Check if message contains any media (document, photo, video, etc.)
+            # These fields indicate "hybrid" or "media" content
+            media_fields = [
+                "document",
+                "photo",
+                "video",
+                "audio",
+                "voice",
+                "video_note",
+                "sticker",
+                "animation",
+            ]
+            has_media = any(msg.get(field) for field in media_fields)
+
             doc = msg.get("document")
-            has_document = bool(doc)
 
             if is_fresh_start:
-                limit = cutoff_time_media if has_document else cutoff_time_text
+                limit = cutoff_time_media if has_media else cutoff_time_text
                 if msg_date < limit:
                     # logger.debug(f"Update {update_id} skipped: Too old (timestamp {msg_date} < {limit})")
                     stats["skipped_old_timestamp"] += 1
@@ -226,8 +240,8 @@ class TelegramConnector(SourceConnector):
             content_found = False
 
             # 1. Text Content (message text or caption)
-            # Only process if NO document is present (drop text instantly for hybrid)
-            if not has_document:
+            # Only process if NO media is present (drop text instantly for hybrid)
+            if not has_media:
                 text_content = msg.get("text") or msg.get("caption")
                 if text_content:
                     logger.info(f"Processing update {update_id}: Found text content (Length: {len(text_content)})")
