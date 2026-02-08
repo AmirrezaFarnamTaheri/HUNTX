@@ -1,5 +1,6 @@
 import logging
 import json
+import time
 import threading
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, Iterator
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class SourceItem:
+    __slots__ = ("external_id", "data", "metadata")
     external_id: str
     data: bytes
     metadata: Dict[str, Any]
@@ -81,6 +83,10 @@ class TelegramUserConnector:
                 "download_errors": 0,
             }
 
+            # Define cutoffs (48h for media, 2h for text)
+            cutoff_media = time.time() - 172800
+            cutoff_text = time.time() - 7200
+
             # Iterate messages
             # min_id excludes the message with that ID, so we get newer ones
             for msg in client.iter_messages(peer_entity, min_id=last_id, reverse=True):
@@ -89,19 +95,29 @@ class TelegramUserConnector:
 
                 # logger.debug(f"Processing message {msg.id} (Date: {msg.date})")
 
+                has_media = bool(msg.media)
+
+                if is_fresh_start:
+                    limit = cutoff_media if has_media else cutoff_text
+                    if msg.date.timestamp() < limit:
+                        # logger.debug(f"Message {msg.id} skipped: Too old")
+                        continue
+
                 content_found = False
 
                 # 1. Text content
-                text = msg.message or ""
-                if text:
-                    logger.info(f"Message {msg.id} has text content. Yielding.")
-                    stats["text_messages"] += 1
-                    content_found = True
-                    yield SourceItem(
-                        external_id=str(msg.id),
-                        data=text.encode("utf-8", errors="ignore"),
-                        metadata={"filename": f"msg_{msg.id}.txt", "timestamp": msg.date.timestamp()},
-                    )
+                # Only yield if NO media (hybrid drop text)
+                if not has_media:
+                    text = msg.message or ""
+                    if text:
+                        logger.info(f"Message {msg.id} has text content. Yielding.")
+                        stats["text_messages"] += 1
+                        content_found = True
+                        yield SourceItem(
+                            external_id=str(msg.id),
+                            data=text.encode("utf-8", errors="ignore"),
+                            metadata={"filename": f"msg_{msg.id}.txt", "timestamp": msg.date.timestamp()},
+                        )
 
                 # 2. Media content
                 if msg.media:

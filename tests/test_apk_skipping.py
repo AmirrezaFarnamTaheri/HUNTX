@@ -94,13 +94,13 @@ class TestApkSkipping(unittest.TestCase):
 
             items = list(connector.list_new())
 
-            self.assertEqual(len(items), 2)
+            # Text dropped due to hybrid content logic
+            self.assertEqual(len(items), 1)
 
             text_item = next((i for i in items if i.external_id.endswith("_text")), None)
             file_item = next((i for i in items if not i.external_id.endswith("_text")), None)
 
-            self.assertIsNotNone(text_item)
-            self.assertEqual(text_item.data.decode("utf-8"), "Some config text")
+            self.assertIsNone(text_item)
 
             self.assertIsNotNone(file_item)
             self.assertEqual(file_item.data, b"conf_content")
@@ -158,11 +158,12 @@ class TestApkSkipping(unittest.TestCase):
 
         items = list(connector.list_new())
 
-        self.assertEqual(len(items), 2)
+        # Text dropped due to hybrid content logic
+        self.assertEqual(len(items), 1)
 
         # Check items
         text_ids = [i.external_id for i in items]
-        self.assertIn("400", text_ids)
+        self.assertNotIn("400", text_ids)
         self.assertIn("400_media", text_ids)
 
 

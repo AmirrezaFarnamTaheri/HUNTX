@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 class RawStore:
     def __init__(self, base_dir: Path = RAW_STORE_DIR):
         self.base_dir = base_dir
+        self._ensured_dirs = set()
         # Ensure base directory exists
         try:
             self.base_dir.mkdir(parents=True, exist_ok=True)
@@ -25,7 +26,10 @@ class RawStore:
             # Sharding by first 2 chars
             prefix = sha256[:2]
             target_dir = self.base_dir / prefix
-            target_dir.mkdir(parents=True, exist_ok=True)
+
+            if target_dir not in self._ensured_dirs:
+                target_dir.mkdir(parents=True, exist_ok=True)
+                self._ensured_dirs.add(target_dir)
 
             target_path = target_dir / sha256
 
