@@ -2,6 +2,7 @@ import hashlib
 import logging
 from pathlib import Path
 from typing import Optional
+from ..utils.atomic import atomic_write
 from .paths import RAW_STORE_DIR
 
 logger = logging.getLogger(__name__)
@@ -29,10 +30,7 @@ class RawStore:
 
             # Atomic write if not exists
             if not target_path.exists():
-                tmp_path = target_path.with_suffix(".tmp")
-                with open(tmp_path, "wb") as f:
-                    f.write(data)
-                tmp_path.rename(target_path)
+                atomic_write(target_path, data)
                 logger.debug(f"Saved new raw blob: {sha256} ({len(data)} bytes)")
             else:
                 logger.debug(f"Raw blob {sha256} already exists, skipping write.")

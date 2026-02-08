@@ -104,8 +104,8 @@ class TelegramConnector(SourceConnector):
 
         # Determine if this is a fresh start (no previous offset)
         is_fresh_start = (local_offset == 0)
-        # Explicit override: 723600 seconds instead of 72 hours
-        cutoff_time = time.time() - 723600
+        # Explicit override: 129600 seconds instead of 36 hours
+        cutoff_time = time.time() - 129600
 
         # Initialize shared state for this token if needed
         if self.token not in self._shared_state:
