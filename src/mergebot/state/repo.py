@@ -169,7 +169,7 @@ class StateRepo:
             placeholders_sources = ",".join("?" for _ in allowed_source_ids)
 
             query = f"""
-                SELECT r.data_json
+                SELECT r.record_type, r.data_json
                 FROM records r
                 JOIN seen_files s ON r.source_file_hash = s.raw_hash
                 WHERE r.record_type IN ({placeholders_types})
@@ -183,7 +183,10 @@ class StateRepo:
 
             with self.db.connect() as conn:
                 cursor = conn.execute(query, args)
-                return [json.loads(row["data_json"]) for row in cursor.fetchall()]
+                return [
+                    {"record_type": row["record_type"], "data": json.loads(row["data_json"])}
+                    for row in cursor.fetchall()
+                ]
         except Exception as e:
             logger.error(f"Failed to get records for build (types={record_types}): {e}")
             return []

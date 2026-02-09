@@ -31,8 +31,10 @@ class OpaqueBundleHandler(FormatHandler):
         with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
             seen_names = set()
             for r in records:
-                data = r["data"]
-                blob_hash = data["blob_hash"]
+                data = r.get("data", {})
+                blob_hash = data.get("blob_hash")
+                if not blob_hash:
+                    continue
                 original_name = data.get("filename", "file.bin")
 
                 # Retrieve content

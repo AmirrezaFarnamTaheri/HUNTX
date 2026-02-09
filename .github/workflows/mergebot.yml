@@ -13,6 +13,11 @@ on:
         description: "Post-pipeline bot window (seconds, 0=skip)"
         required: false
         default: "60"
+      reset:
+        description: "Factory reset before run (wipe all state/data/outputs)"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -74,6 +79,26 @@ jobs:
             cp -r data_archive/* persist/data/archive/ 2>/dev/null || true
             rm -rf data_archive
           fi
+
+      - name: Factory reset (if requested)
+        if: ${{ github.event.inputs.reset == 'true' }}
+        run: |
+          echo "=== FACTORY RESET ==="
+          rm -rf persist/state.db persist/data/{raw,output,archive,dist,rejects,artifacts,state,logs}/*
+          rm -rf outputs/* outputs_dev/*
+
+          # Wipe state branch
+          if git rev-parse --verify mergebot-state >/dev/null 2>&1; then
+            git push origin --delete mergebot-state 2>/dev/null || true
+            echo "Deleted mergebot-state branch"
+          fi
+
+          # Recreate READMEs
+          mkdir -p outputs outputs_dev
+          echo -e "# MergeBot Outputs\n\nAuto-generated build output. Do not edit manually." > outputs/README.md
+          echo -e "# Dev Outputs\n\nAuto-generated with 48h rolling window. Do not edit manually." > outputs_dev/README.md
+
+          echo "Reset complete — all sources will be first-seen on this run."
 
       - name: Run mergebot
         env:

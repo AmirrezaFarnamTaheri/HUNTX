@@ -306,6 +306,141 @@ sources:
     api_hash: ${TELEGRAM_API_HASH}
     session: ${TELEGRAM_USER_SESSION}
     peer: '-1002094972529'
+- id: src_1001810074293
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001810074293'
+- id: src_1002086200619
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1002086200619'
+- id: src_1003336135529
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1003336135529'
+- id: src_1001821423515
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001821423515'
+- id: src_1001629460620
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001629460620'
+- id: src_1001436746445
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001436746445'
+- id: src_1001789702327
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001789702327'
+- id: src_1001891582980
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001891582980'
+- id: src_1001266790118
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001266790118'
+- id: src_1001268460826
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001268460826'
+- id: src_1001171741566
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001171741566'
+- id: src_1001896624193
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001896624193'
+- id: src_1001426238402
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001426238402'
+- id: src_1001874521308
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001874521308'
+- id: src_1001825957541
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001825957541'
 publishing:
   routes:
   - name: all_sources
@@ -344,6 +479,21 @@ publishing:
     - src_1001767284651
     - src_1002750253398
     - src_1002094972529
+    - src_1001810074293
+    - src_1002086200619
+    - src_1003336135529
+    - src_1001821423515
+    - src_1001629460620
+    - src_1001436746445
+    - src_1001789702327
+    - src_1001891582980
+    - src_1001266790118
+    - src_1001268460826
+    - src_1001171741566
+    - src_1001896624193
+    - src_1001426238402
+    - src_1001874521308
+    - src_1001825957541
     formats:
     - npvt
     - npvtsub

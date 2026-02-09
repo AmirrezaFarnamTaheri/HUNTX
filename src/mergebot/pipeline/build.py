@@ -237,9 +237,15 @@ class BuildPipeline:
         fetch_duration = time.time() - fetch_start
         record_count = len(records)
 
+        # Count records per format type for diagnostics
+        type_counts = {}
+        for r in records:
+            rt = r.get("record_type", "?")
+            type_counts[rt] = type_counts.get(rt, 0) + 1
+
         logger.info(
             f"[Build] Fetched {record_count} records in {fetch_duration:.2f}s "
-            f"from {len(allowed_source_ids)} sources"
+            f"from {len(allowed_source_ids)} sources  types={type_counts}"
         )
 
         if not records:
@@ -258,7 +264,14 @@ class BuildPipeline:
                     logger.error(f"[Build] No handler for format={fmt}, skipping.")
                     continue
 
-                artifact_bytes = handler.build(records)
+                # Filter records to only those matching this format's record_type
+                fmt_records = [r for r in records if r.get("record_type") == fmt]
+                if not fmt_records:
+                    empty_formats.append(fmt)
+                    logger.debug(f"[Build] No records of type '{fmt}' for route '{route_name}'")
+                    continue
+
+                artifact_bytes = handler.build(fmt_records)
                 build_duration = time.time() - build_start
                 artifact_size_kb = len(artifact_bytes) / 1024
 

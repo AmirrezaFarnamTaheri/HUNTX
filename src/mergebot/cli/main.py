@@ -43,6 +43,10 @@ def main():
     clean_parser = subparsers.add_parser("clean", help="Delete all data, state, cache for a fresh start")
     clean_parser.add_argument("--yes", "-y", action="store_true", help="Skip confirmation prompt")
 
+    # reset subcommand — full factory reset
+    reset_parser = subparsers.add_parser("reset", help="Full factory reset: wipe ALL data, state, caches, outputs, and source offsets")
+    reset_parser.add_argument("--yes", "-y", action="store_true", help="Skip confirmation prompt")
+
     args = parser.parse_args()
 
     set_paths(args.data_dir, args.db_path)
@@ -60,6 +64,8 @@ def main():
         _cmd_bot(args)
     elif args.command == "clean":
         _cmd_clean(args)
+    elif args.command == "reset":
+        _cmd_reset(args)
 
 
 def _cmd_run(args):
@@ -144,6 +150,73 @@ def _cmd_clean(args):
             logger.info(f"Removed file: {p}")
 
     print("Cleanup complete.")
+
+
+def _cmd_reset(args):
+    """Full factory reset: wipe ALL data, state, caches, outputs, and source offsets.
+    This returns every source to first-seen state."""
+    data_dir = Path(DATA_DIR)
+    db_path = Path(STATE_DB_PATH)
+    repo_root = Path.cwd()
+
+    # Collect everything to wipe
+    data_subdirs = ["raw", "output", "archive", "dist", "rejects", "logs", "artifacts", "state"]
+    items_to_remove = [data_dir / d for d in data_subdirs]
+    items_to_remove.append(db_path)
+
+    # Repo-tracked output directories
+    repo_outputs = [repo_root / "outputs", repo_root / "outputs_dev"]
+    for d in repo_outputs:
+        if d.exists():
+            items_to_remove.append(d)
+
+    existing = [p for p in items_to_remove if p.exists()]
+
+    if not existing:
+        print("Nothing to reset — already clean.")
+        return
+
+    print("=== FULL FACTORY RESET ===")
+    print("This will DELETE all of the following and reset all sources to first-seen state:\n")
+    for p in existing:
+        label = "(dir)" if p.is_dir() else "(file)"
+        print(f"  {label}  {p}")
+
+    if not args.yes:
+        confirm = input("\nType 'RESET' to confirm: ").strip()
+        if confirm != "RESET":
+            print("Aborted.")
+            return
+
+    removed = 0
+    for p in existing:
+        try:
+            if p.is_dir():
+                shutil.rmtree(p)
+            elif p.is_file():
+                p.unlink()
+            removed += 1
+            logger.info(f"[Reset] Removed: {p}")
+        except Exception as e:
+            logger.error(f"[Reset] Failed to remove {p}: {e}")
+
+    # Recreate outputs dirs with READMEs so git tracks them
+    outputs_dir = repo_root / "outputs"
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "README.md").write_text(
+        "# MergeBot Outputs\n\nAuto-generated build output. Do not edit manually.\n",
+        encoding="utf-8",
+    )
+
+    outputs_dev_dir = repo_root / "outputs_dev"
+    outputs_dev_dir.mkdir(parents=True, exist_ok=True)
+    (outputs_dev_dir / "README.md").write_text(
+        "# Dev Outputs\n\nAuto-generated with 48h rolling window. Do not edit manually.\n",
+        encoding="utf-8",
+    )
+
+    print(f"\nReset complete. Removed {removed} item(s).")
+    print("All sources will be treated as first-seen on the next run.")
 
 
 def _run_bot_with_timeout(timeout: int):
