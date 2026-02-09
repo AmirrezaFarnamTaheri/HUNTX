@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import datetime
 import json
 import logging
@@ -111,66 +112,116 @@ class Orchestrator:
     # Dev output export
     # ------------------------------------------------------------------
 
+    _DEV_RETENTION_SECONDS = 48 * 3600  # 48-hour rolling window
+
     def _export_dev_outputs(self, all_build_results: list):
-        """Write proxies.txt and proxies.json to outputs_dev/ in the repo root.
-        These are committed back to the repo by CI for easy access."""
+        """Accumulate proxy URIs into outputs_dev/ with a 48-hour rolling window.
+
+        Writes three files from the accumulated state:
+          - proxies.txt      — one URI per line
+          - proxies.json     — structured JSON with metadata
+          - proxies_b64sub.txt — base64-encoded subscription
+        A hidden _manifest.json tracks {uri: last_seen_timestamp} for dedup
+        and pruning across runs.
+        """
         dev_dir = Path.cwd() / "outputs_dev"
         dev_dir.mkdir(parents=True, exist_ok=True)
+        manifest_path = dev_dir / "_manifest.json"
+        now = time.time()
 
-        raw_text_data = None
-        decoded_json_data = None
+        # ── Load existing manifest ────────────────────────────────────
+        manifest: dict = {}  # {uri_string: last_seen_epoch}
+        if manifest_path.exists():
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError) as e:
+                logger.warning(f"[DevExport] Could not read manifest, starting fresh: {e}")
 
+        # ── Extract new URIs from this run ────────────────────────────
+        new_uris: list = []
         for res in all_build_results:
             fmt = res.get("format", "")
-            # Pick the primary npvt text artifact (raw proxy lines)
-            if fmt == "npvt" and raw_text_data is None:
-                raw_text_data = res.get("data")
-            # Pick the decoded JSON artifact
-            if fmt == "npvt.decoded.json" and decoded_json_data is None:
-                decoded_json_data = res.get("data")
+            if fmt not in ("npvt", "npvtsub"):
+                continue
+            data = res.get("data")
+            if not data:
+                continue
+            text = data.decode("utf-8", errors="ignore") if isinstance(data, bytes) else str(data)
+            for line in text.splitlines():
+                uri = line.strip()
+                if uri and "://" in uri:
+                    new_uris.append(uri)
 
-        ts = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
-        files_written = 0
+        added = 0
+        for uri in new_uris:
+            if uri not in manifest:
+                added += 1
+            manifest[uri] = now
 
-        # Write proxies.txt
-        if raw_text_data:
-            txt_path = dev_dir / "proxies.txt"
-            header = f"# MergeBot proxy list — auto-generated {ts}\n# One proxy URI per line\n\n"
-            if isinstance(raw_text_data, bytes):
-                payload = raw_text_data.decode("utf-8", errors="ignore")
-            else:
-                payload = str(raw_text_data)
-            line_count = len([l for l in payload.splitlines() if l.strip()])
-            txt_path.write_text(header + payload, encoding="utf-8")
-            files_written += 1
-            logger.info(f"[DevExport] Written {txt_path} ({line_count} lines, {txt_path.stat().st_size / 1024:.1f} KB)")
+        # ── Prune entries older than 48 hours ─────────────────────────
+        cutoff = now - self._DEV_RETENTION_SECONDS
+        before = len(manifest)
+        manifest = {uri: ts for uri, ts in manifest.items() if ts >= cutoff}
+        pruned = before - len(manifest)
 
-        # Write proxies.json
-        if decoded_json_data:
-            json_path = dev_dir / "proxies.json"
-            if isinstance(decoded_json_data, bytes):
-                raw_json = decoded_json_data.decode("utf-8", errors="ignore")
-            else:
-                raw_json = str(decoded_json_data)
-            # Re-parse and wrap with metadata
-            try:
-                parsed = json.loads(raw_json)
-                wrapped = {
-                    "_generated": ts,
-                    "_count": len(parsed) if isinstance(parsed, list) else 1,
-                    "proxies": parsed,
-                }
-                json_path.write_text(json.dumps(wrapped, indent=2, ensure_ascii=False), encoding="utf-8")
-            except (json.JSONDecodeError, TypeError):
-                # Fallback: write raw
-                json_path.write_text(raw_json, encoding="utf-8")
-            files_written += 1
-            logger.info(f"[DevExport] Written {json_path} ({json_path.stat().st_size / 1024:.1f} KB)")
+        logger.info(
+            f"[DevExport] Manifest: {before} existing + {added} new - {pruned} expired "
+            f"= {len(manifest)} total"
+        )
 
-        if files_written == 0:
-            logger.warning("[DevExport] No npvt artifacts found — outputs_dev/ not updated.")
-        else:
-            logger.info(f"[DevExport] Exported {files_written} file(s) to {dev_dir}")
+        if not manifest:
+            logger.warning("[DevExport] No proxy URIs in rolling window — outputs_dev/ not updated.")
+            return
+
+        # ── Save manifest ─────────────────────────────────────────────
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        # ── Sort URIs deterministically (newest first, then alpha) ────
+        sorted_uris = sorted(manifest.keys(), key=lambda u: (-manifest[u], u))
+        ts_str = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+
+        # ── proxies.txt ───────────────────────────────────────────────
+        txt_path = dev_dir / "proxies.txt"
+        header = (
+            f"# MergeBot proxy list — {ts_str}\n"
+            f"# Rolling 48h window — {len(sorted_uris)} unique URIs\n\n"
+        )
+        txt_path.write_text(header + "\n".join(sorted_uris) + "\n", encoding="utf-8")
+        logger.info(
+            f"[DevExport] Written {txt_path.name} "
+            f"({len(sorted_uris)} URIs, {txt_path.stat().st_size / 1024:.1f} KB)"
+        )
+
+        # ── proxies_b64sub.txt ────────────────────────────────────────
+        b64_path = dev_dir / "proxies_b64sub.txt"
+        plain = "\n".join(sorted_uris)
+        b64_payload = base64.b64encode(plain.encode("utf-8")).decode("ascii")
+        b64_path.write_text(b64_payload + "\n", encoding="utf-8")
+        logger.info(
+            f"[DevExport] Written {b64_path.name} "
+            f"({b64_path.stat().st_size / 1024:.1f} KB)"
+        )
+
+        # ── proxies.json ─────────────────────────────────────────────
+        json_path = dev_dir / "proxies.json"
+        wrapped = {
+            "_generated": ts_str,
+            "_window_hours": 48,
+            "_count": len(sorted_uris),
+            "proxies": [
+                {"uri": uri, "last_seen": manifest[uri]}
+                for uri in sorted_uris
+            ],
+        }
+        json_path.write_text(
+            json.dumps(wrapped, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        logger.info(
+            f"[DevExport] Written {json_path.name} "
+            f"({json_path.stat().st_size / 1024:.1f} KB)"
+        )
+
+        logger.info(f"[DevExport] Exported 3 file(s) to {dev_dir}")
 
     # ------------------------------------------------------------------
     # Worker helpers
