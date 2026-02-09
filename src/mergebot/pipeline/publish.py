@@ -74,7 +74,7 @@ class PublishPipeline:
                 ext = ".zip"
             elif fmt == "conf_lines":
                 ext = ".conf"
-            elif fmt == "npvtsub":
+            elif fmt in ("npvt", "npvtsub"):
                 ext = ".txt"
 
             # Filename

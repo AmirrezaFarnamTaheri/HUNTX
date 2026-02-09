@@ -192,3 +192,24 @@ class TelegramUserConnector:
 
     def get_state(self) -> Dict[str, Any]:
         return {"offset": self.offset}
+
+    def cleanup(self):
+        """Clean up Telegram client connections to prevent asyncio errors."""
+        if hasattr(self._local, "clients"):
+            logger.info("Cleaning up Telegram client connections...")
+            for key, client in self._local.clients.items():
+                try:
+                    if client.is_connected():
+                        client.disconnect()
+                        logger.debug(f"Disconnected Telegram client for key {key}")
+                except Exception as e:
+                    logger.warning(f"Error disconnecting Telegram client for key {key}: {e}")
+            self._local.clients.clear()
+
+    def __del__(self):
+        """Ensure cleanup on object destruction."""
+        try:
+            self.cleanup()
+        except Exception:
+            # Ignore errors during cleanup in destructor
+            pass

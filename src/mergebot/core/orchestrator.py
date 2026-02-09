@@ -82,8 +82,12 @@ class Orchestrator:
                     peer=src_conf.telegram_user.peer,
                     state=self.repo.get_source_state(src_conf.id),
                 )
-                self.ingest_pipeline.run(src_conf.id, user_conn, source_type=src_conf.type)
-                return True
+                try:
+                    self.ingest_pipeline.run(src_conf.id, user_conn, source_type=src_conf.type)
+                    return True
+                finally:
+                    # Ensure cleanup happens even if ingest fails
+                    user_conn.cleanup()
             else:
                 logger.warning(f"[Worker] Skipping {src_conf.id}: unsupported type.")
                 return False

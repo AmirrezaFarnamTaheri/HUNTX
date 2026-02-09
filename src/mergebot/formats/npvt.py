@@ -45,8 +45,21 @@ class NpvtHandler(FormatHandler):
         lines = []
         seen = set()
         for r in records:
-            line = r["data"]["line"]
-            if line not in seen:
+            # Handle different record structures gracefully
+            line = None
+            if isinstance(r, dict):
+                if "data" in r and isinstance(r["data"], dict) and "line" in r["data"]:
+                    line = r["data"]["line"]
+                elif "line" in r:
+                    line = r["line"]
+                elif "unique_hash" in r and len(r) == 2:
+                    # Record might be {"unique_hash": "...", "data": {"line": "..."}}
+                    for key, value in r.items():
+                        if key != "unique_hash" and isinstance(value, dict) and "line" in value:
+                            line = value["line"]
+                            break
+            
+            if line and line not in seen:
                 lines.append(line)
                 seen.add(line)
 
