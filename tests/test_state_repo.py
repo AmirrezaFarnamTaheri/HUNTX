@@ -2,7 +2,7 @@ import unittest
 import sqlite3
 import logging
 from unittest.mock import MagicMock
-from mergebot.state.repo import StateRepo
+from huntx.state.repo import StateRepo
 
 
 class TestStateRepo(unittest.TestCase):
@@ -62,7 +62,7 @@ class TestStateRepo(unittest.TestCase):
         self.repo = StateRepo(self.mock_db_conn)
 
         # Suppress logging during tests
-        logging.getLogger("mergebot.state.repo").setLevel(logging.CRITICAL)
+        logging.getLogger("huntx.state.repo").setLevel(logging.CRITICAL)
 
     def tearDown(self):
         self.conn.close()

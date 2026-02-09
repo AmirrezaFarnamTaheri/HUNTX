@@ -1,4 +1,4 @@
-# MergeBot User Guide
+# HUNTX User Guide
 
 ## Table of Contents
 
@@ -16,7 +16,7 @@
 
 ## Configuration
 
-MergeBot is controlled by a YAML configuration file with environment variable expansion (`${VAR}`).
+HUNTX is controlled by a YAML configuration file with environment variable expansion (`${VAR}`).
 
 ### Sources
 
@@ -132,23 +132,23 @@ All of the following URI schemes are detected, parsed, and decoded:
 ## Running Locally
 
 ```bash
-mergebot --config configs/config.prod.yaml run
+HUNTX --config configs/config.prod.yaml run
 ```
 
-Set `MERGEBOT_MAX_WORKERS` to control parallelism (default: 2):
+Set `HUNTX_MAX_WORKERS` to control parallelism (default: 2):
 
 ```bash
-MERGEBOT_MAX_WORKERS=5 mergebot --config my_config.yaml run
+HUNTX_MAX_WORKERS=5 HUNTX --config my_config.yaml run
 ```
 
 ## CLI Commands
 
-### `mergebot run`
+### `HUNTX run`
 
 Run the full pipeline (ingest → transform → build → publish → cleanup).
 
 ```bash
-mergebot --config my_config.yaml run [OPTIONS]
+HUNTX --config my_config.yaml run [OPTIONS]
 ```
 
 | Flag | Description | Default |
@@ -159,22 +159,22 @@ mergebot --config my_config.yaml run [OPTIONS]
 | `--file-subsequent-hours N` | File lookback on subsequent runs (0=all new) | `0` |
 | `--bot-timeout N` | Run interactive bot for N seconds after pipeline | `0` (skip) |
 
-### `mergebot bot`
+### `HUNTX bot`
 
 Run the interactive Telegram bot persistently (stays connected, responds to commands).
 
 ```bash
-mergebot bot [--token TOKEN] [--api-id ID] [--api-hash HASH]
+HUNTX bot [--token TOKEN] [--api-id ID] [--api-hash HASH]
 ```
 
 Credentials default to `PUBLISH_BOT_TOKEN`/`TELEGRAM_TOKEN`, `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`.
 
-### `mergebot clean`
+### `HUNTX clean`
 
 Delete all data, state, cache, and logs for a fresh start.
 
 ```bash
-mergebot clean [--yes]
+HUNTX clean [--yes]
 ```
 
 Deletes: raw store, output, archive, state DB, rejects, and logs.
@@ -186,9 +186,9 @@ Deletes: raw store, output, archive, state DB, rejects, and logs.
    - `TELEGRAM_TOKEN` — Bot API token for ingestion
    - `PUBLISH_BOT_TOKEN` — separate bot token for publishing (optional)
    - `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_USER_SESSION` — for MTProto
-3. **Enable the workflow** — `.github/workflows/mergebot.yml` runs every 3 hours
+3. **Enable the workflow** — `.github/workflows/HUNTX.yml` runs every 3 hours
 4. **Manual trigger** — use "Run workflow" with custom `max_workers` input
-5. State is persisted on an orphan branch `mergebot-state`
+5. State is persisted on an orphan branch `HUNTX-state`
 
 ## Telegram User Session (MTProto)
 
@@ -205,7 +205,7 @@ Unlocks history access, public channel reading, and text content ingestion.
 
 ## Interactive Bot
 
-The bot can run persistently (`mergebot bot`) or briefly after each pipeline run (`--bot-timeout`).
+The bot can run persistently (`HUNTX bot`) or briefly after each pipeline run (`--bot-timeout`).
 
 | Command | Description |
 |---|---|

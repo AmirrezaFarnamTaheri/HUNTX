@@ -14,7 +14,7 @@ from ..store.paths import STATE_DB_PATH, DATA_DIR
 logger = logging.getLogger(__name__)
 
 HELP_TEXT = (
-    "**MergeBot** — Aggregated proxy config publisher\n\n"
+    "**GatherX** — Aggregated proxy config publisher\n\n"
     "**Commands:**\n"
     "`/start` `/help` — Show this message\n"
     "`/latest [format] [days]` — Get latest merged files (default: all, 4 days)\n"
@@ -217,9 +217,9 @@ class InteractiveBot:
         msg = (
             "**Cleanup Instructions**\n\n"
             "To wipe all data, state, and cache for a fresh start, run:\n\n"
-            "`mergebot clean`\n\n"
+            "`huntx clean`\n\n"
             "Or with auto-confirm:\n"
-            "`mergebot clean --yes`\n\n"
+            "`huntx clean --yes`\n\n"
             "This deletes: raw store, output, archive, state DB, rejects, and logs."
         )
         await event.respond(msg, parse_mode="md")

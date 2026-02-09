@@ -1,8 +1,8 @@
 import unittest
 from unittest.mock import patch
 import os
-from mergebot.config.loader import load_config
-from mergebot.config.validate import validate_config
+from huntx.config.loader import load_config
+from huntx.config.validate import validate_config
 
 
 class TestProdConfig(unittest.TestCase):

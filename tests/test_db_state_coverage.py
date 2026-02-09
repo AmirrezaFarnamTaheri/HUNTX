@@ -3,8 +3,8 @@ import os
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock
-from mergebot.state.db import open_db
-from mergebot.state.repo import StateRepo
+from huntx.state.db import open_db
+from huntx.state.repo import StateRepo
 
 
 class TestDBStateCoverage(unittest.TestCase):

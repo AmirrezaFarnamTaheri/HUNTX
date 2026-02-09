@@ -2,7 +2,7 @@ import unittest
 import json
 from unittest.mock import patch, MagicMock
 from urllib.error import URLError
-from mergebot.connectors.telegram.connector import TelegramConnector
+from huntx.connectors.telegram.connector import TelegramConnector
 
 
 class TestTelegramConnector(unittest.TestCase):

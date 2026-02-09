@@ -2,8 +2,8 @@ import unittest
 import os
 import tempfile
 from pathlib import Path
-from mergebot.config.loader import load_config
-from mergebot.config.schema import AppConfig
+from huntx.config.loader import load_config
+from huntx.config.schema import AppConfig
 
 
 class TestConfigLoader(unittest.TestCase):

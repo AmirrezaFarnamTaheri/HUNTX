@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import Mock, MagicMock
-from mergebot.pipeline.ingest import IngestionPipeline
+from huntx.pipeline.ingest import IngestionPipeline
 
 
 class TestIngestPipeline(unittest.TestCase):

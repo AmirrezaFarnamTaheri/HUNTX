@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import Mock, patch
-from mergebot.pipeline.publish import PublishPipeline
+from huntx.pipeline.publish import PublishPipeline
 
 
 class TestPublishPipeline(unittest.TestCase):
@@ -8,7 +8,7 @@ class TestPublishPipeline(unittest.TestCase):
         self.state_repo = Mock()
         self.pipeline = PublishPipeline(self.state_repo)
 
-    @patch("mergebot.pipeline.publish.TelegramPublisher")
+    @patch("huntx.pipeline.publish.TelegramPublisher")
     def test_publish_new_content(self, MockPublisher):
         # Setup
         build_result = {"route_name": "route1", "artifact_hash": "new_hash", "format": "fmt1", "data": b"data"}
@@ -34,7 +34,7 @@ class TestPublishPipeline(unittest.TestCase):
 
         self.state_repo.get_last_published_hash.return_value = "same_hash"
 
-        with patch("mergebot.pipeline.publish.TelegramPublisher") as MockPublisher:
+        with patch("huntx.pipeline.publish.TelegramPublisher") as MockPublisher:
             self.pipeline.run(build_result, destinations)
             MockPublisher.assert_not_called()
 

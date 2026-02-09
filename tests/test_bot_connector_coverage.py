@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 import json
 import urllib.error
-from mergebot.connectors.telegram.connector import TelegramConnector
+from huntx.connectors.telegram.connector import TelegramConnector
 
 
 class TestBotConnectorCoverage(unittest.TestCase):

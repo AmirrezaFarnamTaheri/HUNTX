@@ -3,8 +3,8 @@ import shutil
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
-from mergebot.store.raw_store import RawStore
-from mergebot.store.artifact_store import ArtifactStore
+from huntx.store.raw_store import RawStore
+from huntx.store.artifact_store import ArtifactStore
 
 
 class TestStoreCoverage(unittest.TestCase):

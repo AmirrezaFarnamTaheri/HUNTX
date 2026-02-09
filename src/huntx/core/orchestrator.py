@@ -183,7 +183,7 @@ class Orchestrator:
         # ── proxies.txt ───────────────────────────────────────────────
         txt_path = dev_dir / "proxies.txt"
         header = (
-            f"# MergeBot proxy list — {ts_str}\n"
+            f"# huntx proxy list — {ts_str}\n"
             f"# Rolling 48h window — {len(sorted_uris)} unique URIs\n\n"
         )
         txt_path.write_text(header + "\n".join(sorted_uris) + "\n", encoding="utf-8")

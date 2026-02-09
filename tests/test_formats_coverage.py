@@ -1,13 +1,13 @@
 import unittest
 from unittest.mock import MagicMock
-from mergebot.formats.npvt import NpvtHandler
-from mergebot.formats.npvtsub import NpvtSubHandler
-from mergebot.formats.conf_lines import ConfLinesHandler
-from mergebot.formats.opaque_bundle import OpaqueBundleHandler
-from mergebot.formats.ehi import EhiHandler
-from mergebot.formats.hc import HcHandler
-from mergebot.formats.hat import HatHandler
-from mergebot.formats.sip import SipHandler
+from huntx.formats.npvt import NpvtHandler
+from huntx.formats.npvtsub import NpvtSubHandler
+from huntx.formats.conf_lines import ConfLinesHandler
+from huntx.formats.opaque_bundle import OpaqueBundleHandler
+from huntx.formats.ehi import EhiHandler
+from huntx.formats.hc import HcHandler
+from huntx.formats.hat import HatHandler
+from huntx.formats.sip import SipHandler
 
 
 class TestFormatsCoverage(unittest.TestCase):

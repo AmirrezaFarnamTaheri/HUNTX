@@ -1,11 +1,11 @@
-# MergeBot
+# HUNTX
 
 Lightweight, zero-budget, incremental proxy-config aggregator and Telegram publisher. Scrapes configuration files (V2Ray, OpenVPN, WireGuard, Hysteria, TUIC, etc.) from multiple Telegram channels, deduplicates and merges them, then republishes unified subscriptions.
 
 ## Features
 
 - **Multi-source ingestion** — Bot API and MTProto User Session connectors
-- **Configurable worker pool** — parallel ingestion via `MERGEBOT_MAX_WORKERS`
+- **Configurable worker pool** — parallel ingestion via `HUNTX_MAX_WORKERS`
 - **12 format handlers** — `npvt`, `npvtsub`, `ovpn`, `npv4`, `conf_lines`, `ehi`, `hc`, `hat`, `sip`, `nm`, `opaque_bundle`, plus content-based detection
 - **20+ proxy protocols** — vmess, vless, trojan, ss, ssr, hysteria2, tuic, wireguard, socks, juicity, anytls, warp, dns, and more
 - **Full protocol decoding** — all proxy URIs decoded to structured JSON; base64 subscription re-encoding
@@ -22,8 +22,8 @@ Lightweight, zero-budget, incremental proxy-config aggregator and Telegram publi
 ## Quick Start
 
 ```bash
-git clone https://github.com/your-username/mergebot.git
-cd mergebot
+git clone https://github.com/your-username/HUNTX.git
+cd HUNTX
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
 ```
@@ -44,24 +44,24 @@ python scripts/make_telethon_session.py
 Run the pipeline:
 
 ```bash
-mergebot --config my_config.yaml run
+HUNTX --config my_config.yaml run
 ```
 
 Run the interactive bot persistently:
 
 ```bash
-mergebot bot
+HUNTX bot
 ```
 
 Wipe all data for a fresh start:
 
 ```bash
-mergebot clean
+HUNTX clean
 ```
 
 ## CLI Commands
 
-### `mergebot run`
+### `HUNTX run`
 
 Run the full pipeline (ingest → transform → build → publish → cleanup).
 
@@ -73,7 +73,7 @@ Run the full pipeline (ingest → transform → build → publish → cleanup).
 | `--file-subsequent-hours N` | File lookback on subsequent runs (0=all new) | `0` |
 | `--bot-timeout N` | Run bot for N seconds after pipeline | `0` (skip) |
 
-### `mergebot bot`
+### `HUNTX bot`
 
 Run the interactive Telegram bot persistently (stays connected, responds to commands).
 
@@ -83,7 +83,7 @@ Run the interactive Telegram bot persistently (stays connected, responds to comm
 | `--api-id` | Telegram API ID | `TELEGRAM_API_ID` |
 | `--api-hash` | Telegram API hash | `TELEGRAM_API_HASH` |
 
-### `mergebot clean`
+### `HUNTX clean`
 
 Delete all data, state, cache, and logs for a fresh start.
 
@@ -158,10 +158,10 @@ See [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for full configuration reference.
 | `TELEGRAM_API_ID` | MTProto API ID | — |
 | `TELEGRAM_API_HASH` | MTProto API hash | — |
 | `TELEGRAM_USER_SESSION` | Telethon session string | — |
-| `MERGEBOT_MAX_WORKERS` | Parallel ingestion workers | `2` |
-| `MERGEBOT_BOT_TIMEOUT` | Post-pipeline bot window (seconds) | `0` |
-| `MERGEBOT_DATA_DIR` | Data directory path | `./data` |
-| `MERGEBOT_STATE_DB_PATH` | SQLite DB path | `./data/state/state.db` |
+| `HUNTX_MAX_WORKERS` | Parallel ingestion workers | `2` |
+| `HUNTX_BOT_TIMEOUT` | Post-pipeline bot window (seconds) | `0` |
+| `HUNTX_DATA_DIR` | Data directory path | `./data` |
+| `HUNTX_STATE_DB_PATH` | SQLite DB path | `./data/state/state.db` |
 | `LOG_LEVEL` | Logging level | `INFO` |
 
 ## Development

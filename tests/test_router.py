@@ -1,5 +1,5 @@
 import unittest
-from mergebot.core.router import decide_format
+from huntx.core.router import decide_format
 
 
 class TestRouter(unittest.TestCase):

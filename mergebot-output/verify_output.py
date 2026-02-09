@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 # Paths
-DATA_DIR = Path(os.getenv("HUNTX_DATA_DIR", "persist/data")).resolve()
+DATA_DIR = Path(os.getenv("MERGEBOT_DATA_DIR", "persist/data")).resolve()
 OUTPUT_DIR = DATA_DIR / "output"
 DIST_DIR = DATA_DIR / "dist"
 
@@ -196,7 +196,7 @@ def validate_file(path: Path) -> Dict[str, Any]:
 
 
 def main():
-    print(f"═══ HUNTX Output Verification ═══")
+    print(f"═══ MergeBot Output Verification ═══")
     print(f"Output: {OUTPUT_DIR}")
     print(f"Dist:   {DIST_DIR}")
 

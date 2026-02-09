@@ -22,7 +22,7 @@ class TelegramPublisher:
         # But we must do it to send files.
         # To avoid dependencies like 'requests', we implement a simple multipart encoder or use boundaries.
 
-        boundary = "----WebKitFormBoundaryMergeBot7MA4YWxkTrZu0gW"
+        boundary = "----WebKitFormBoundaryhuntx7MA4YWxkTrZu0gW"
         lines = []
 
         # Chat ID

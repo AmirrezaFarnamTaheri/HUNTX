@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="MergeBot CLI")
+    parser = argparse.ArgumentParser(description="huntx CLI")
     parser.add_argument("--config", default="config.yaml", help="Path to config file")
     parser.add_argument("--data-dir", default="./data", help="Data directory")
     parser.add_argument("--db-path", default="./data/state/state.db", help="State DB path")
@@ -21,7 +21,7 @@ def main():
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # run subcommand
-    run_parser = subparsers.add_parser("run", help="Run the mergebot pipeline")
+    run_parser = subparsers.add_parser("run", help="Run the huntx pipeline")
     run_parser.add_argument("--msg-fresh-hours", type=float, default=2,
                             help="Text message lookback hours for first-seen source (default: 2)")
     run_parser.add_argument("--file-fresh-hours", type=float, default=48,
@@ -53,7 +53,7 @@ def main():
 
     log_dir = Path(args.data_dir) / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
-    log_file = log_dir / "mergebot.log"
+    log_file = log_dir / "huntx.log"
 
     log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
     setup_logging(log_level=getattr(logging, log_level), log_file=str(log_file))
@@ -71,8 +71,8 @@ def main():
 def _cmd_run(args):
     from ..core.orchestrator import Orchestrator
 
-    max_workers = int(os.environ.get("MERGEBOT_MAX_WORKERS", "2"))
-    logger.info(f"Starting MergeBot — config={args.config}, workers={max_workers}")
+    max_workers = int(os.environ.get("huntx_MAX_WORKERS", "2"))
+    logger.info(f"Starting huntx — config={args.config}, workers={max_workers}")
 
     fetch_windows = {
         "msg_fresh_hours": args.msg_fresh_hours,
@@ -92,7 +92,7 @@ def _cmd_run(args):
     # Optionally run bot after pipeline
     bot_timeout = args.bot_timeout
     if bot_timeout is None:
-        bot_timeout = int(os.environ.get("MERGEBOT_BOT_TIMEOUT", "0"))
+        bot_timeout = int(os.environ.get("huntx_BOT_TIMEOUT", "0"))
     if bot_timeout > 0:
         _run_bot_with_timeout(bot_timeout)
 
@@ -204,7 +204,7 @@ def _cmd_reset(args):
     outputs_dir = repo_root / "outputs"
     outputs_dir.mkdir(parents=True, exist_ok=True)
     (outputs_dir / "README.md").write_text(
-        "# MergeBot Outputs\n\nAuto-generated build output. Do not edit manually.\n",
+        "# huntx Outputs\n\nAuto-generated build output. Do not edit manually.\n",
         encoding="utf-8",
     )
 

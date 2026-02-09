@@ -1,13 +1,13 @@
-# MergeBot Development Guide
+# HUNTX Development Guide
 
 ## Project Structure
 
 ```
-src/mergebot/
+src/HUNTX/
 ├── bot/                  # Interactive Telegram bot
 │   └── interactive.py    # Commands: /start /latest /status /run /formats /subscribe /unsubscribe /clean
 ├── cli/                  # CLI entry points
-│   └── main.py           # mergebot CLI: run, bot, clean subcommands
+│   └── main.py           # HUNTX CLI: run, bot, clean subcommands
 ├── config/               # Configuration loading & validation
 │   ├── env_expand.py     # ${VAR} expansion
 │   ├── loader.py         # YAML → AppConfig
@@ -89,13 +89,13 @@ mypy src/ --ignore-missing-imports
 
 ## Adding a New Format
 
-1. Create `src/mergebot/formats/myformat.py`:
+1. Create `src/HUNTX/formats/myformat.py`:
    - Extend `OpaqueBundleHandler` for binary formats
    - Implement `FormatHandler` protocol for text formats
-2. Add routing in `src/mergebot/core/router.py`
-3. Register in `src/mergebot/formats/register_builtin.py`
+2. Add routing in `src/HUNTX/core/router.py`
+3. Register in `src/HUNTX/formats/register_builtin.py`
 4. Add tests in `tests/test_formats_coverage.py` and `tests/test_router.py`
-5. Update `SUPPORTED_FORMATS` in `src/mergebot/bot/interactive.py`
+5. Update `SUPPORTED_FORMATS` in `src/HUNTX/bot/interactive.py`
 6. Add to `_ZIP_FORMATS` in `pipeline/publish.py` if binary
 
 ## Adding a New Proxy Protocol

@@ -1,7 +1,7 @@
 import unittest
 import tempfile
 from pathlib import Path
-from src.mergebot.utils.atomic import atomic_write
+from src.huntx.utils.atomic import atomic_write
 
 
 class TestAtomicWrite(unittest.TestCase):

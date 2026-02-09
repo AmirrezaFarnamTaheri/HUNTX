@@ -14,7 +14,7 @@ def run_command(config_path: str):
     log_level = getattr(logging, log_level_str, logging.INFO)
 
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
-    log_file = LOGS_DIR / "mergebot.log"
+    log_file = LOGS_DIR / "huntx.log"
     setup_logging(log_level=log_level, log_file=str(log_file))
 
     cfg_path = Path(config_path)
@@ -22,13 +22,13 @@ def run_command(config_path: str):
         logging.error(f"Config file not found: {cfg_path}")
         return
 
-    max_workers = int(os.getenv("MERGEBOT_MAX_WORKERS", "2"))
+    max_workers = int(os.getenv("huntx_MAX_WORKERS", "2"))
 
     try:
         config = load_config(cfg_path)
         validate_config(config)
 
-        lock_path = STATE_DIR / "mergebot.lock"
+        lock_path = STATE_DIR / "huntx.lock"
         with acquire_lock(lock_path):
             orch = Orchestrator(config, max_workers=max_workers)
             orch.run()

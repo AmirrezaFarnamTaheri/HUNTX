@@ -3,7 +3,7 @@ import sqlite3
 import os
 import tempfile
 from pathlib import Path
-from mergebot.state.db import open_db
+from huntx.state.db import open_db
 
 
 class TestDBMigrations(unittest.TestCase):

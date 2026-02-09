@@ -1,7 +1,7 @@
 import unittest
 import json
 from unittest.mock import MagicMock, patch
-from mergebot.publishers.telegram.publisher import TelegramPublisher
+from huntx.publishers.telegram.publisher import TelegramPublisher
 
 
 class TestTelegramPublisher(unittest.TestCase):

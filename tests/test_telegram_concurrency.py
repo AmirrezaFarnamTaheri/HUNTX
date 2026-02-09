@@ -1,7 +1,7 @@
 import unittest
 import json
 from unittest.mock import patch, MagicMock
-from mergebot.connectors.telegram.connector import TelegramConnector
+from huntx.connectors.telegram.connector import TelegramConnector
 
 
 class TestTelegramConcurrency(unittest.TestCase):

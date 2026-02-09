@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import Mock
-from mergebot.pipeline.build import BuildPipeline
+from huntx.pipeline.build import BuildPipeline
 
 
 class TestBuildPipeline(unittest.TestCase):

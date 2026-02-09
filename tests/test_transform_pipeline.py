@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import Mock, patch
-from mergebot.pipeline.transform import TransformPipeline
+from huntx.pipeline.transform import TransformPipeline
 
 
 class TestTransformPipeline(unittest.TestCase):
@@ -26,7 +26,7 @@ class TestTransformPipeline(unittest.TestCase):
         self.registry.get.return_value = handler
 
         # Run
-        with patch("mergebot.pipeline.transform.decide_format", return_value="fmt1"):
+        with patch("huntx.pipeline.transform.decide_format", return_value="fmt1"):
             self.pipeline.process_pending()
 
         # Verify
@@ -54,7 +54,7 @@ class TestTransformPipeline(unittest.TestCase):
         ]
         self.raw_store.get.return_value = b"data"
 
-        with patch("mergebot.pipeline.transform.decide_format", return_value="fmt1"):
+        with patch("huntx.pipeline.transform.decide_format", return_value="fmt1"):
             self.pipeline.process_pending()
 
         # Updated expectation: ignored with specific message
@@ -83,7 +83,7 @@ class TestTransformPipeline(unittest.TestCase):
         # Registry returns None for unknown format
         self.registry.get.return_value = None
 
-        with patch("mergebot.pipeline.transform.decide_format", return_value="unknown_fmt"):
+        with patch("huntx.pipeline.transform.decide_format", return_value="unknown_fmt"):
             self.pipeline.process_pending()
 
         self.state_repo.update_file_status.assert_called_with("hash123", "failed", "No handler for unknown_fmt")

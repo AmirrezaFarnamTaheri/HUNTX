@@ -1,8 +1,8 @@
 import unittest
 import time
 from unittest.mock import MagicMock, patch
-from mergebot.connectors.telegram.connector import TelegramConnector
-from mergebot.connectors.telegram_user.connector import TelegramUserConnector
+from huntx.connectors.telegram.connector import TelegramConnector
+from huntx.connectors.telegram_user.connector import TelegramUserConnector
 
 
 class TestApkSkipping(unittest.TestCase):

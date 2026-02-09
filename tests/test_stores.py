@@ -3,8 +3,8 @@ import shutil
 import tempfile
 import os
 from pathlib import Path
-from mergebot.store.raw_store import RawStore
-from mergebot.store.artifact_store import ArtifactStore
+from huntx.store.raw_store import RawStore
+from huntx.store.artifact_store import ArtifactStore
 
 
 class TestRawStore(unittest.TestCase):

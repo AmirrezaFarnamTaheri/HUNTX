@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import Mock
-from mergebot.formats.registry import FormatRegistry
+from huntx.formats.registry import FormatRegistry
 
 
 class TestFormatRegistry(unittest.TestCase):

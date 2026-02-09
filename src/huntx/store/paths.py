@@ -2,8 +2,8 @@ import os
 from pathlib import Path
 
 # Base directory for all data
-# Can be overridden by env var MERGEBOT_DATA_DIR
-DATA_DIR = Path(os.getenv("MERGEBOT_DATA_DIR", "data")).resolve()
+# Can be overridden by env var huntx_DATA_DIR
+DATA_DIR = Path(os.getenv("huntx_DATA_DIR", "data")).resolve()
 
 # Specific subdirectories
 RAW_STORE_DIR = DATA_DIR / "raw"
@@ -12,7 +12,7 @@ REJECTS_DIR = DATA_DIR / "rejects"
 STATE_DIR = DATA_DIR / "state"
 LOGS_DIR = DATA_DIR / "logs"
 
-STATE_DB_PATH = Path(os.getenv("MERGEBOT_STATE_DB_PATH", str(STATE_DIR / "state.db"))).resolve()
+STATE_DB_PATH = Path(os.getenv("huntx_STATE_DB_PATH", str(STATE_DIR / "state.db"))).resolve()
 
 
 def ensure_dirs():
@@ -34,8 +34,8 @@ def set_paths(data_dir: str, db_path: str):
     d = Path(data_dir).resolve()
 
     # Update environment variables for consistency
-    os.environ["MERGEBOT_DATA_DIR"] = str(d)
-    os.environ["MERGEBOT_STATE_DB_PATH"] = str(Path(db_path).resolve())
+    os.environ["huntx_DATA_DIR"] = str(d)
+    os.environ["huntx_STATE_DB_PATH"] = str(Path(db_path).resolve())
 
     DATA_DIR = d
     RAW_STORE_DIR = DATA_DIR / "raw"

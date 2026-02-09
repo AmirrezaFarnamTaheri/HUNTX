@@ -1,4 +1,4 @@
-name: mergebot
+name: huntx
 
 on:
   schedule:
@@ -23,7 +23,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: mergebot
+  group: huntx
   cancel-in-progress: false
 
 env:
@@ -66,16 +66,16 @@ jobs:
 
       - name: Restore state
         run: |
-          git fetch origin mergebot-state:mergebot-state 2>/dev/null || echo "No state branch yet"
+          git fetch origin huntx-state:huntx-state 2>/dev/null || echo "No state branch yet"
 
-          if git show mergebot-state:state.db > persist/state.db 2>/dev/null; then
+          if git show huntx-state:state.db > persist/state.db 2>/dev/null; then
             echo "Restored state.db"
           else
             echo "Starting fresh"
           fi
 
-          if git ls-tree -d mergebot-state:data_archive >/dev/null 2>&1; then
-            git checkout mergebot-state -- data_archive
+          if git ls-tree -d huntx-state:data_archive >/dev/null 2>&1; then
+            git checkout huntx-state -- data_archive
             cp -r data_archive/* persist/data/archive/ 2>/dev/null || true
             rm -rf data_archive
           fi
@@ -88,30 +88,30 @@ jobs:
           rm -rf outputs/* outputs_dev/*
 
           # Wipe state branch
-          if git rev-parse --verify mergebot-state >/dev/null 2>&1; then
-            git push origin --delete mergebot-state 2>/dev/null || true
-            echo "Deleted mergebot-state branch"
+          if git rev-parse --verify huntx-state >/dev/null 2>&1; then
+            git push origin --delete huntx-state 2>/dev/null || true
+            echo "Deleted huntx-state branch"
           fi
 
           # Recreate READMEs
           mkdir -p outputs outputs_dev
-          echo -e "# MergeBot Outputs\n\nAuto-generated build output. Do not edit manually." > outputs/README.md
+          echo -e "# HuntX Outputs\n\nAuto-generated build output. Do not edit manually." > outputs/README.md
           echo -e "# Dev Outputs\n\nAuto-generated with 48h rolling window. Do not edit manually." > outputs_dev/README.md
 
           echo "Reset complete — all sources will be first-seen on this run."
 
-      - name: Run mergebot
+      - name: Run huntx
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           PUBLISH_BOT_TOKEN: ${{ secrets.PUBLISH_BOT_TOKEN }}
           TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_USER_SESSION: ${{ secrets.TELEGRAM_USER_SESSION }}
-          MERGEBOT_MAX_WORKERS: ${{ env.MAX_WORKERS }}
-          MERGEBOT_BOT_TIMEOUT: ${{ env.BOT_TIMEOUT }}
+          HUNTX_MAX_WORKERS: ${{ env.MAX_WORKERS }}
+          HUNTX_BOT_TIMEOUT: ${{ env.BOT_TIMEOUT }}
           LOG_LEVEL: INFO
         run: |
-          mergebot \
+          huntx \
             --config configs/config.prod.yaml \
             --data-dir persist/data \
             --db-path persist/state.db \
@@ -120,27 +120,27 @@ jobs:
 
       - name: Verify & package output
         env:
-          MERGEBOT_DATA_DIR: persist/data
+          HUNTX_DATA_DIR: persist/data
         run: python scripts/verify_output.py
 
       - name: Upload output
         uses: actions/upload-artifact@v4
         with:
-          name: mergebot-output
+          name: huntx-output
           path: persist/data/dist/
           retention-days: 4
 
       - name: Upload logs
         uses: actions/upload-artifact@v4
         with:
-          name: mergebot-logs
+          name: huntx-logs
           path: persist/data/logs/
           retention-days: 4
 
       - name: Commit outputs to main
         run: |
-          git config user.name "mergebot-bot"
-          git config user.email "mergebot-bot@users.noreply.github.com"
+          git config user.name "huntx-bot"
+          git config user.email "huntx-bot@users.noreply.github.com"
 
           git add outputs/ outputs_dev/ 2>/dev/null || true
 
@@ -157,11 +157,11 @@ jobs:
           cp persist/state.db /tmp/state_commit/state.db
           cp -r persist/data/archive/* /tmp/state_commit/data_archive/ 2>/dev/null || true
 
-          if git rev-parse --verify mergebot-state >/dev/null 2>&1; then
-            git checkout mergebot-state
+          if git rev-parse --verify huntx-state >/dev/null 2>&1; then
+            git checkout huntx-state
             git rm -rf . 2>/dev/null || true
           else
-            git checkout --orphan mergebot-state
+            git checkout --orphan huntx-state
             git rm -rf . 2>/dev/null || true
           fi
 
@@ -174,5 +174,5 @@ jobs:
             echo "No state changes."
           else
             git commit -m "Update state [skip ci]"
-            git push origin HEAD:mergebot-state
+            git push origin HEAD:huntx-state
           fi

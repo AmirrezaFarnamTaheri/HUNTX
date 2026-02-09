@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
-from mergebot.core.orchestrator import Orchestrator
-from mergebot.config.schema import (
+from huntx.core.orchestrator import Orchestrator
+from huntx.config.schema import (
     AppConfig,
     SourceConfig,
     TelegramSourceConfig,
@@ -43,18 +43,18 @@ class TestOrchestrator(unittest.TestCase):
             ),
         )
 
-    @patch("mergebot.core.orchestrator.RawStore")
-    @patch("mergebot.core.orchestrator.ArtifactStore")
-    @patch("mergebot.core.orchestrator.open_db")
-    @patch("mergebot.core.orchestrator.StateRepo")
-    @patch("mergebot.core.orchestrator.FormatRegistry")
-    @patch("mergebot.core.orchestrator.IngestionPipeline")
-    @patch("mergebot.core.orchestrator.TransformPipeline")
-    @patch("mergebot.core.orchestrator.BuildPipeline")
-    @patch("mergebot.core.orchestrator.PublishPipeline")
+    @patch("huntx.core.orchestrator.RawStore")
+    @patch("huntx.core.orchestrator.ArtifactStore")
+    @patch("huntx.core.orchestrator.open_db")
+    @patch("huntx.core.orchestrator.StateRepo")
+    @patch("huntx.core.orchestrator.FormatRegistry")
+    @patch("huntx.core.orchestrator.IngestionPipeline")
+    @patch("huntx.core.orchestrator.TransformPipeline")
+    @patch("huntx.core.orchestrator.BuildPipeline")
+    @patch("huntx.core.orchestrator.PublishPipeline")
     # Use sys.modules patching or patch where the class is defined because import is local
-    @patch("mergebot.connectors.telegram.connector.TelegramConnector")
-    @patch("mergebot.connectors.telegram_user.connector.TelegramUserConnector")
+    @patch("huntx.connectors.telegram.connector.TelegramConnector")
+    @patch("huntx.connectors.telegram_user.connector.TelegramUserConnector")
     def test_run_orchestrator(
         self,
         MockUserConn,
@@ -94,15 +94,15 @@ class TestOrchestrator(unittest.TestCase):
         # Verify publish
         MockPub.return_value.run.assert_called_once()
 
-    @patch("mergebot.core.orchestrator.RawStore")
-    @patch("mergebot.core.orchestrator.ArtifactStore")
-    @patch("mergebot.core.orchestrator.open_db")
-    @patch("mergebot.core.orchestrator.StateRepo")
-    @patch("mergebot.core.orchestrator.FormatRegistry")
-    @patch("mergebot.core.orchestrator.IngestionPipeline")
-    @patch("mergebot.core.orchestrator.TransformPipeline")
-    @patch("mergebot.core.orchestrator.BuildPipeline")
-    @patch("mergebot.core.orchestrator.PublishPipeline")
+    @patch("huntx.core.orchestrator.RawStore")
+    @patch("huntx.core.orchestrator.ArtifactStore")
+    @patch("huntx.core.orchestrator.open_db")
+    @patch("huntx.core.orchestrator.StateRepo")
+    @patch("huntx.core.orchestrator.FormatRegistry")
+    @patch("huntx.core.orchestrator.IngestionPipeline")
+    @patch("huntx.core.orchestrator.TransformPipeline")
+    @patch("huntx.core.orchestrator.BuildPipeline")
+    @patch("huntx.core.orchestrator.PublishPipeline")
     def test_orchestrator_initialization(self, *args):
         orch = Orchestrator(self.config)
         self.assertIsNotNone(orch)

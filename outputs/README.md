@@ -1,4 +1,4 @@
-# MergeBot Outputs
+# HUNTX Outputs
 
 This directory contains the full build output from each pipeline run.
 Files are auto-generated and committed by CI — **do not edit manually**.
