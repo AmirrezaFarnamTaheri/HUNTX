@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import time
 from pathlib import Path
@@ -24,13 +25,7 @@ class ArtifactStore:
         Saves an internal artifact named by hash.
         Returns the hash of the data.
         """
-        # We assume data is bytes
-        import hashlib
-
         h = hashlib.sha256(data).hexdigest()
-
-        # Sharded? Maybe overkill for artifacts, flat is ok for now unless huge volume.
-        # Let's use simple flat dir for route artifacts.
         target_dir = self.internal_dir / route_name
         try:
             target_dir.mkdir(parents=True, exist_ok=True)

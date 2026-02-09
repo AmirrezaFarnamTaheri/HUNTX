@@ -1,3 +1,18 @@
+# All known proxy URI schemes for content-based detection
+_PROXY_URI_PREFIXES = (
+    "vmess://", "vless://", "trojan://",
+    "ss://", "ssr://",
+    "hysteria2://", "hy2://", "hysteria://",
+    "tuic://",
+    "wireguard://", "wg://",
+    "socks://", "socks5://", "socks4://",
+    "anytls://",
+    "juicity://",
+    "warp://",
+    "dns://", "dnstt://",
+)
+
+
 def decide_format(filename: str, content: bytes) -> str:
     """
     Decides the format ID based on filename extension and content.
@@ -21,16 +36,30 @@ def decide_format(filename: str, content: bytes) -> str:
         return "hat"
     if fn.endswith(".sip"):
         return "sip"
+    if fn.endswith(".nm"):
+        return "nm"
+    if fn.endswith(".dark"):
+        return "dark"
 
     # .npvtsub is a subscription text (VLESS/VMESS/Trojan URIs)
     if fn.endswith(".npvtsub"):
         return "npvtsub"
 
-    # Content based heuristics
+    # Content based heuristics — detect proxy URI lines
     try:
-        text_preview = content[:1024].decode("utf-8", errors="ignore")
-        if "vless://" in text_preview or "vmess://" in text_preview or "trojan://" in text_preview:
+        text_preview = content[:2048].decode("utf-8", errors="ignore")
+        if any(scheme in text_preview for scheme in _PROXY_URI_PREFIXES):
             return "npvt"
+        # Also detect base64-encoded subscription content
+        clean = text_preview.strip()
+        if clean and "://" not in clean and " " not in clean and len(clean) > 20:
+            import base64
+            try:
+                decoded = base64.b64decode(clean[:512] + "==").decode("utf-8", errors="ignore")
+                if any(scheme in decoded for scheme in _PROXY_URI_PREFIXES):
+                    return "npvt"
+            except Exception:
+                pass
     except Exception:
         pass
 

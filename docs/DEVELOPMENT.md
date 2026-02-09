@@ -5,43 +5,42 @@
 ```
 src/mergebot/
 ├── bot/                  # Interactive Telegram bot
-│   └── interactive.py
+│   └── interactive.py    # Commands: /start /latest /status /run /formats /subscribe /unsubscribe /clean
 ├── cli/                  # CLI entry points
-│   ├── main.py           # mergebot CLI (argparse)
-│   └── commands/run.py   # run subcommand
+│   └── main.py           # mergebot CLI: run, bot, clean subcommands
 ├── config/               # Configuration loading & validation
 │   ├── env_expand.py     # ${VAR} expansion
 │   ├── loader.py         # YAML → AppConfig
 │   ├── schema.py         # Pydantic v2 models
 │   └── validate.py       # Cross-reference validation
-├── connectors/           # Source connectors
+├── connectors/           # Source connectors (with media filtering + configurable fetch windows)
 │   ├── base.py           # Protocol definitions
 │   ├── telegram/         # Bot API connector
 │   └── telegram_user/    # MTProto (Telethon) connector
 ├── core/                 # Orchestration & routing
 │   ├── locks.py          # Cross-platform file locking
-│   ├── orchestrator.py   # Main pipeline (2-worker pool)
-│   └── router.py         # Format detection by extension/content
-├── formats/              # Format handlers
+│   ├── orchestrator.py   # Main pipeline (N-worker pool, 4 phases)
+│   └── router.py         # Format detection by extension/content (20+ proxy URI schemes)
+├── formats/              # Format handlers (12 total)
 │   ├── base.py           # FormatHandler protocol
 │   ├── common/           # Shared utilities (hashing, normalization)
 │   ├── registry.py       # Singleton handler registry
 │   ├── register_builtin.py
-│   ├── npvt.py           # V2Ray/VLESS/Trojan URIs
+│   ├── npvt.py           # Proxy URIs (vmess/vless/trojan/ss/ssr/hysteria2/tuic/wireguard/socks/etc.)
 │   ├── npvtsub.py        # .npvtsub subscription files
 │   ├── conf_lines.py     # Generic line-based configs
-│   ├── opaque_bundle.py  # Binary → ZIP archive
-│   ├── ovpn.py, npv4.py, ehi.py, hc.py, hat.py, sip.py
+│   ├── opaque_bundle.py  # Binary → ZIP archive (base class)
+│   ├── ovpn.py, npv4.py, ehi.py, hc.py, hat.py, sip.py, nm.py  # Opaque format subclasses
 ├── pipeline/             # Processing stages
-│   ├── ingest.py         # Download + save raw blobs
-│   ├── transform.py      # Parse raw → records
-│   ├── build.py          # Merge records → artifacts + V2Ray decode
+│   ├── ingest.py         # Download + save raw blobs (with progress logging)
+│   ├── transform.py      # Batch parse raw → records (200/batch, batch DB writes)
+│   ├── build.py          # Merge records → artifacts + full protocol decode + base64 re-encode
 │   └── publish.py        # Send artifacts to Telegram
 ├── publishers/
 │   └── telegram/publisher.py  # Multipart file upload
 ├── state/                # SQLite state management
 │   ├── db.py             # Connection pool + migrations
-│   ├── repo.py           # StateRepo (CRUD for all tables)
+│   ├── repo.py           # StateRepo (CRUD + batch insert/update)
 │   └── schema.sql        # DDL
 ├── store/                # File storage
 │   ├── paths.py          # Global path configuration
@@ -82,7 +81,11 @@ mypy src/ --ignore-missing-imports
 - **Atomic writes**: All file writes go through `atomic_write()` using `os.replace()` for cross-platform safety
 - **SQLite with WAL**: Concurrent reads are safe; writes use 30s timeout for thread contention
 - **Format registry singleton**: Handlers registered once at startup; looked up by format ID at runtime
-- **V2Ray decode artifacts**: `build.py` decodes vmess/vless/trojan links into JSON but never publishes them — they're local artifacts only
+- **Batch transform**: Files processed in batches of 200 with `executemany` for record inserts and status updates — avoids per-record DB round-trips
+- **Full protocol decode**: `build.py` decodes all proxy URI schemes (vmess, ss, ssr via base64; vless, trojan, hysteria2, tuic, wireguard, socks, etc. via URL parse) into structured JSON
+- **Re-encoding**: Plain-text proxy URI lists are also re-encoded as base64 subscription blobs for v2rayN/v2rayNG client compatibility
+- **Media filtering**: Both connectors drop images/videos/GIFs/stickers/voice/audio before downloading, keeping only text, documents, and text+document hybrids
+- **Configurable fetch windows**: 4 separate lookback parameters (msg fresh, file fresh, msg subsequent, file subsequent) threaded from CLI → orchestrator → connectors
 
 ## Adding a New Format
 
@@ -93,10 +96,19 @@ mypy src/ --ignore-missing-imports
 3. Register in `src/mergebot/formats/register_builtin.py`
 4. Add tests in `tests/test_formats_coverage.py` and `tests/test_router.py`
 5. Update `SUPPORTED_FORMATS` in `src/mergebot/bot/interactive.py`
+6. Add to `_ZIP_FORMATS` in `pipeline/publish.py` if binary
+
+## Adding a New Proxy Protocol
+
+1. Add URI scheme to `_PROXY_SCHEMES` in `formats/npvt.py`
+2. Add scheme to `_PROXY_URI_PREFIXES` in `core/router.py`
+3. Add decoder in `pipeline/build.py::_decode_single_line()` — use `_parse_standard_uri()` for standard URI formats or add custom decoder for base64/encoded formats
+4. Add scheme to `_PROXY_SCHEMES` in `pipeline/build.py`
 
 ## Adding a New Connector
 
 1. Implement `SourceConnector` protocol from `connectors/base.py`
-2. Add connector instantiation in `orchestrator.py::_ingest_one_source()`
-3. Add source type to `config/schema.py::SourceConfig`
-4. Add validation in `config/schema.py` field validator
+2. Accept `fetch_windows` dict in constructor
+3. Add connector instantiation in `orchestrator.py::_ingest_one_source()`
+4. Add source type to `config/schema.py::SourceConfig`
+5. Add validation in `config/schema.py` field validator

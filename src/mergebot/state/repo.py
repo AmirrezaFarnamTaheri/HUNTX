@@ -129,6 +129,37 @@ class StateRepo:
         except Exception as e:
             logger.exception(f"Failed to add record {unique_hash}: {e}")
 
+    def add_records_batch(self, rows: List[tuple]):
+        """Batch insert records. Each row is (raw_hash, record_type, unique_hash, data_json_str)."""
+        if not rows:
+            return
+        try:
+            with self.db.connect() as conn:
+                conn.executemany(
+                    """
+                    INSERT INTO records (source_file_hash, record_type, unique_hash, data_json)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    rows,
+                )
+            logger.debug(f"Batch-inserted {len(rows)} records.")
+        except Exception as e:
+            logger.exception(f"Failed to batch-insert {len(rows)} records: {e}")
+
+    def update_file_status_batch(self, updates: List[tuple]):
+        """Batch update file statuses. Each item is (status, error_msg, raw_hash)."""
+        if not updates:
+            return
+        try:
+            with self.db.connect() as conn:
+                conn.executemany(
+                    "UPDATE seen_files SET status = ?, error_msg = ? WHERE raw_hash = ?",
+                    updates,
+                )
+            logger.debug(f"Batch-updated status for {len(updates)} files.")
+        except Exception as e:
+            logger.error(f"Failed to batch-update file statuses: {e}")
+
     def get_records_for_build(self, record_types: List[str], allowed_source_ids: List[str]) -> List[Dict[str, Any]]:
         if not record_types or not allowed_source_ids:
             return []

@@ -16,15 +16,6 @@ class OpaqueBundleHandler(FormatHandler):
         return self._format_name
 
     def parse(self, raw_data: bytes, source_info: Dict[str, Any]) -> List[Dict[str, Any]]:
-        # The raw_data is the file content.
-        # We assume it's already saved in RawStore by Ingest step,
-        # but here we might just have the bytes.
-        # Actually parse receives raw_data.
-        # But we want to store a reference to the blob.
-        # We re-hash it to find it in RawStore?
-        # Ideally we pass the raw_hash in source_info?
-
-        # Let's assume source_info has 'raw_hash' or 'filename'.
         raw_hash = hash_bytes(raw_data)
         filename = source_info.get("filename", f"{raw_hash}.bin")
 

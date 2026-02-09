@@ -8,6 +8,8 @@ from ..publishers.telegram.publisher import TelegramPublisher
 
 logger = logging.getLogger(__name__)
 
+_ZIP_FORMATS = ("ovpn", "opaque_bundle", "ehi", "hc", "hat", "sip", "npv4", "nm", "dark")
+
 
 class PublishPipeline:
     def __init__(self, state_repo: StateRepo):
@@ -19,21 +21,21 @@ class PublishPipeline:
         new_hash = build_result["artifact_hash"]
         fmt = build_result.get("format", "unknown")
         unique_id = build_result.get("unique_id", route_name)
-
-        logger.debug(f"[Publish] Checking publish necessity for {unique_id} (New Hash: {new_hash})")
+        data_size_kb = len(build_result.get("data", b"")) / 1024
 
         # Check if changed using unique_id (route + format)
         last_hash = self.state_repo.get_last_published_hash(unique_id)
         if last_hash == new_hash:
-            logger.info(f"[Publish] No content change for {unique_id} (hash: {last_hash}), skipping publish.")
+            logger.debug(f"[Publish] No change for {unique_id} (hash={last_hash[:12]}), skip.")
             return
 
         default_token = os.getenv("TELEGRAM_TOKEN")
         published_any = False
 
         logger.info(
-            f"[Publish] Content changed for {unique_id} ({last_hash} -> {new_hash}). "
-            f"Publishing to {len(destinations)} destination(s)."
+            f"[Publish] Content changed for {unique_id}  "
+            f"hash={last_hash[:12] if last_hash else 'NEW'} → {new_hash[:12]}  "
+            f"size={data_size_kb:.1f} KB  destinations={len(destinations)}"
         )
 
         for dest in destinations:
@@ -66,14 +68,15 @@ class PublishPipeline:
             caption_preview = (caption[:50] + "...") if len(caption) > 50 else caption
             logger.debug(f"[Publish] Prepared caption for {chat_id}: '{caption_preview}'")
 
-            # Filename extension logic
             ext = ".txt"
-            if fmt == "ovpn":
-                ext = ".ovpn"
-            elif fmt in ("opaque_bundle", "ehi", "hc", "hat", "sip", "npv4"):
+            if fmt in _ZIP_FORMATS:
                 ext = ".zip"
             elif fmt == "conf_lines":
                 ext = ".conf"
+            elif fmt.endswith(".decoded.json"):
+                ext = ".json"
+            elif fmt.endswith(".b64sub"):
+                ext = ".txt"
             elif fmt in ("npvt", "npvtsub"):
                 ext = ".txt"
 

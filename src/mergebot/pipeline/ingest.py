@@ -15,49 +15,53 @@ class IngestionPipeline:
     def run(self, source_id: str, connector: SourceConnector, source_type: str = "telegram"):
         connector_name = connector.__class__.__name__
         logger.info(
-            f"[Ingest] Starting ingestion for source: {source_id} (Type: {source_type}, Connector: {connector_name})"
+            f"[Ingest] ═══ Starting source {source_id} ═══  "
+            f"type={source_type}  connector={connector_name}"
         )
 
         # Optimization: Open DB connection once for the entire pipeline run
         with self.state_repo.db.connect() as conn:
             state = self.state_repo.get_source_state(source_id, conn=conn) or {}
-            logger.debug(f"[Ingest] Initial state for {source_id}: {state}")
-
-            # Initialize or retrieve existing stats
+            offset = state.get("offset", 0)
             existing_stats = state.get("stats", {})
             total_files = existing_stats.get("total_files", 0)
+            last_run = existing_stats.get("last_run", {})
+
+            logger.info(
+                f"[Ingest] State: offset={offset}  total_files_so_far={total_files}  "
+                f"last_run_files={last_run.get('files_ingested', '?')}  "
+                f"last_run_skipped={last_run.get('skipped_files', '?')}"
+            )
 
             count = 0
             new_bytes = 0
             skipped_count = 0
+            text_count = 0
+            media_count = 0
 
             start_time = time.time()
 
             try:
-                logger.info(f"[Ingest] Requesting new items from connector for {source_id}...")
+                logger.info(f"[Ingest] Requesting items from connector for {source_id}...")
                 for item in connector.list_new(state):
-                    # logger.debug(f"[Ingest] Found item: {item.external_id} (Metadata: {item.metadata})")
-
                     if self.state_repo.has_seen_file(source_id, item.external_id, conn=conn):
-                        # logger.debug(f"[Ingest] Skipping already seen file: {item.external_id}")
                         skipped_count += 1
-                        if skipped_count % 50 == 0:
+                        if skipped_count % 100 == 0:
                             logger.info(
-                                f"[Ingest] Skipped {skipped_count} already-seen files so far from {source_id}..."
+                                f"[Ingest] … skipped {skipped_count} already-seen items from {source_id}"
                             )
                         continue
 
                     filename = item.metadata.get("filename", "unknown")
                     file_size = len(item.data)
-                    timestamp = item.metadata.get("timestamp", "unknown")
+                    is_text = item.metadata.get("is_text", False) or filename.endswith(".txt")
 
-                    logger.info(
-                        f"[Ingest] New file: {filename} (ID: {item.external_id}, "
-                        f"Size: {file_size}B, TS: {timestamp})"
-                    )
+                    if is_text:
+                        text_count += 1
+                    else:
+                        media_count += 1
 
                     raw_hash = self.raw_store.save(item.data)
-                    logger.debug(f"[Ingest] Saved raw data with hash: {raw_hash}")
 
                     self.state_repo.record_file(
                         source_id=source_id,
@@ -66,55 +70,64 @@ class IngestionPipeline:
                         file_size=file_size,
                         filename=filename,
                         status="pending",
-                        metadata=item.metadata,  # Pass metadata
+                        metadata=item.metadata,
                         conn=conn,
                     )
                     count += 1
                     new_bytes += file_size
 
-                    if count % 10 == 0:
+                    # Progress logging every 25 items
+                    if count % 25 == 0:
+                        elapsed = time.time() - start_time
+                        rate = count / elapsed if elapsed > 0 else 0
                         logger.info(
-                            f"[Ingest] Ingested {count} files so far from {source_id} (Total bytes: {new_bytes})..."
+                            f"[Ingest] … {source_id}: {count} ingested "
+                            f"({new_bytes / 1024:.1f} KB, {rate:.1f} items/s)  "
+                            f"skipped={skipped_count}"
                         )
 
             except Exception as e:
-                logger.exception(f"[Ingest] Error during ingestion for source {source_id}: {e}")
+                logger.exception(
+                    f"[Ingest] Error during ingestion for {source_id} after {count} items: {e}"
+                )
                 raise
 
             duration = time.time() - start_time
             avg_size = (new_bytes / count) if count > 0 else 0
+            rate = count / duration if duration > 0 else 0
 
             # Update stats
             try:
                 new_state = connector.get_state()
-                logger.debug(f"[Ingest] New connector state for {source_id}: {new_state}")
 
-                # Merge stats into state
                 new_state["stats"] = {
                     "total_files": total_files + count,
                     "last_run": {
                         "timestamp": time.time(),
                         "files_ingested": count,
                         "bytes_ingested": new_bytes,
-                        "duration_seconds": duration,
+                        "duration_seconds": round(duration, 2),
                         "skipped_files": skipped_count,
+                        "text_items": text_count,
+                        "media_items": media_count,
                     },
                 }
 
                 self.state_repo.update_source_state(source_id, new_state, source_type=source_type, conn=conn)
 
                 logger.info(
-                    f"[Ingest] Ingestion complete for {source_id}: "
-                    f"{count} new files ({new_bytes} bytes, Avg: {avg_size:.0f} bytes), {skipped_count} skipped, "
-                    f"took {duration:.2f}s."
+                    f"[Ingest] ═══ Done {source_id} ═══  "
+                    f"new={count} (text={text_count} media={media_count})  "
+                    f"size={new_bytes / 1024:.1f} KB (avg={avg_size:.0f} B)  "
+                    f"skipped={skipped_count}  rate={rate:.1f}/s  duration={duration:.2f}s"
                 )
 
                 if count == 0 and skipped_count == 0:
-                    logger.info(
-                        f"[Ingest] No items were ingested or skipped for {source_id}. "
-                        f"Check connector logs above for details on filtered/ignored updates."
+                    logger.warning(
+                        f"[Ingest] Zero items from {source_id}. "
+                        f"Check connector logs for filtered/ignored updates."
                     )
 
             except Exception as e:
-                logger.exception(f"[Ingest] Failed to update state for source {source_id}: {e}")
+                logger.exception(f"[Ingest] Failed to update state for {source_id}: {e}")
                 raise

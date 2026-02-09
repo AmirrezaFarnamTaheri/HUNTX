@@ -216,6 +216,96 @@ sources:
     api_hash: ${TELEGRAM_API_HASH}
     session: ${TELEGRAM_USER_SESSION}
     peer: '-1003744627358'
+- id: src_1001796213998
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001796213998'
+- id: src_1001514302686
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001514302686'
+- id: src_1001763408915
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001763408915'
+- id: src_1002564682495
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1002564682495'
+- id: src_1001875619482
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001875619482'
+- id: src_1002675340099
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1002675340099'
+- id: src_1003705249752
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1003705249752'
+- id: src_1001767284651
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1001767284651'
+- id: src_1002750253398
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1002750253398'
+- id: src_1002094972529
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '-1002094972529'
 publishing:
   routes:
   - name: all_sources
@@ -244,8 +334,29 @@ publishing:
     - src_1003209702364
     - src_1003459192517
     - src_1003744627358
+    - src_1001796213998
+    - src_1001514302686
+    - src_1001763408915
+    - src_1002564682495
+    - src_1001875619482
+    - src_1002675340099
+    - src_1003705249752
+    - src_1001767284651
+    - src_1002750253398
+    - src_1002094972529
     formats:
     - npvt
+    - npvtsub
+    - conf_lines
+    - ovpn
+    - npv4
+    - ehi
+    - hc
+    - hat
+    - sip
+    - nm
+    - dark
+    - opaque_bundle
     destinations:
     - chat_id: "8526064109"
       mode: post_on_change

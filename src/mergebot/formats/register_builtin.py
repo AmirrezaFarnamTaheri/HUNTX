@@ -9,6 +9,8 @@ from .ehi import EhiHandler
 from .hc import HcHandler
 from .hat import HatHandler
 from .sip import SipHandler
+from .nm import NmHandler
+from .dark import DarkHandler
 from .opaque_bundle import OpaqueBundleHandler
 
 
@@ -22,4 +24,6 @@ def register_all_formats(registry: FormatRegistry, raw_store: RawStore):
     registry.register(HcHandler(raw_store))
     registry.register(HatHandler(raw_store))
     registry.register(SipHandler(raw_store))
+    registry.register(NmHandler(raw_store))
+    registry.register(DarkHandler(raw_store))
     registry.register(OpaqueBundleHandler(raw_store, "opaque_bundle"))

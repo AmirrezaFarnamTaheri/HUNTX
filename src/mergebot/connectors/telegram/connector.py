@@ -8,9 +8,9 @@ from typing import Dict, Any, Optional, Iterator
 from ..base import SourceConnector, SourceItem
 
 
-# Define TelegramItem as alias to SourceItem for compatibility/clarity
 @dataclass
 class TelegramItem:
+    """Concrete SourceItem for Bot API connector."""
     __slots__ = ("external_id", "data", "metadata")
     external_id: str
     data: bytes
@@ -29,12 +29,18 @@ class TelegramConnector(SourceConnector):
     # Structure: { token: { 'updates': {update_id: update_obj}, 'last_offset': int } }
     _shared_state: Dict[str, Any] = {}
 
-    def __init__(self, token: str, chat_id: str, state: Optional[Dict[str, Any]] = None):
+    def __init__(self, token: str, chat_id: str, state: Optional[Dict[str, Any]] = None,
+                 fetch_windows: Optional[Dict[str, Any]] = None):
         self.token = token
         self.target_chat_id = str(chat_id)
         # If state is None or offset is 0, it is effectively a fresh start.
         self.offset = state.get("offset", 0) if state else 0
         self.base_url = f"https://api.telegram.org/bot{self.token}"
+        fw = fetch_windows or {}
+        self._msg_fresh_s = fw.get("msg_fresh_hours", 2) * 3600
+        self._file_fresh_s = fw.get("file_fresh_hours", 48) * 3600
+        self._msg_sub_s = fw.get("msg_subsequent_hours", 0) * 3600
+        self._file_sub_s = fw.get("file_subsequent_hours", 0) * 3600
 
         # Basic validation for Bot Token format
         if ":" in self.token:
@@ -111,13 +117,21 @@ class TelegramConnector(SourceConnector):
         local_offset = state.get("offset", 0) if state else 0
         self.offset = local_offset
 
-        logger.info(f"Fetching updates from Telegram (offset={self.offset})...")
+        is_fresh_start = local_offset == 0
+        mode = "fresh_start" if is_fresh_start else "subsequent"
+        logger.info(
+            f"[BotAPI] Fetching updates  chat={self.target_chat_id}  offset={self.offset}  mode={mode}"
+        )
 
         # Determine if this is a fresh start (no previous offset)
-        is_fresh_start = local_offset == 0
-        # Explicit override: 48h (172800) for media/hybrid, 2h (7200) for text
-        cutoff_time_media = time.time() - 172800
-        cutoff_time_text = time.time() - 7200
+        # Configurable cutoffs from fetch_windows
+        now = time.time()
+        if is_fresh_start:
+            cutoff_time_media = now - self._file_fresh_s if self._file_fresh_s > 0 else 0
+            cutoff_time_text = now - self._msg_fresh_s if self._msg_fresh_s > 0 else 0
+        else:
+            cutoff_time_media = now - self._file_sub_s if self._file_sub_s > 0 else 0
+            cutoff_time_text = now - self._msg_sub_s if self._msg_sub_s > 0 else 0
 
         # Initialize shared state for this token if needed
         if self.token not in self._shared_state:
@@ -166,25 +180,32 @@ class TelegramConnector(SourceConnector):
             # small sleep to be nice to API
             time.sleep(0.5)
 
-        logger.info(f"Fetched {fetched_updates_count} updates. Processing cache...")
+        cache_size = len(shared["updates"])
+        logger.info(
+            f"[BotAPI] Fetched {fetched_updates_count} new updates  "
+            f"cache_total={cache_size}  processing..."
+        )
 
         if fetched_updates_count == 0 and is_fresh_start:
             logger.warning(
-                "Fetched 0 updates on a fresh start. Note that Telegram Bot API does NOT provide "
-                "historical messages. It only receives new messages sent AFTER the bot was started. "
-                "If you need history, consider using the 'telegram_user' source type."
+                "[BotAPI] Zero updates on fresh start. Bot API only receives messages sent AFTER "
+                "the bot was started. Use 'telegram_user' source type for history."
             )
 
         # Now yield items from cache relevant to THIS source
         sorted_ids = sorted(shared["updates"].keys())
 
         # Statistics counters
+        # Media types to drop entirely (not useful for proxy configs)
+        _UNWANTED_MEDIA_FIELDS = ("photo", "video", "animation", "sticker", "voice", "audio", "video_note")
+
         stats = {
             "skipped_chat_mismatch": 0,
             "skipped_old_timestamp": 0,
             "skipped_no_content": 0,
             "skipped_size_limit": 0,
             "skipped_apk": 0,
+            "skipped_media_type": 0,
             "processed_updates": 0,
             "yielded_items": 0,
         }
@@ -214,51 +235,40 @@ class TelegramConnector(SourceConnector):
             # Check content type & timestamp for fresh starts
             msg_date = msg.get("date", 0)
 
-            # Check if message contains any media (document, photo, video, etc.)
-            # These fields indicate "hybrid" or "media" content
-            media_fields = [
-                "document",
-                "photo",
-                "video",
-                "audio",
-                "voice",
-                "video_note",
-                "sticker",
-                "animation",
-            ]
-            has_media = any(msg.get(field) for field in media_fields)
+            # Early filter: drop messages with unwanted media types entirely
+            has_unwanted = any(msg.get(field) for field in _UNWANTED_MEDIA_FIELDS)
+            if has_unwanted:
+                stats["skipped_media_type"] += 1
+                continue
 
             doc = msg.get("document")
+            has_document = bool(doc)
 
-            if is_fresh_start:
-                limit = cutoff_time_media if has_media else cutoff_time_text
-                if msg_date < limit:
-                    # logger.debug(f"Update {update_id} skipped: Too old (timestamp {msg_date} < {limit})")
-                    stats["skipped_old_timestamp"] += 1
-                    continue
+            cutoff = cutoff_time_media if has_document else cutoff_time_text
+            if cutoff > 0 and msg_date < cutoff:
+                stats["skipped_old_timestamp"] += 1
+                continue
 
             content_found = False
 
-            # 1. Text Content (message text or caption)
-            # Only process if NO media is present (drop text instantly for hybrid)
-            if not has_media:
-                text_content = msg.get("text") or msg.get("caption")
-                if text_content:
-                    logger.info(f"Processing update {update_id}: Found text content (Length: {len(text_content)})")
-                    stats["yielded_items"] += 1
-                    content_found = True
-                    yield TelegramItem(
-                        external_id=str(msg["message_id"]) + "_text",
-                        data=text_content.encode("utf-8"),
-                        metadata={
-                            "filename": f"msg_{msg['message_id']}.txt",
-                            "timestamp": msg_date,
-                            "update_id": update_id,
-                            "is_text": True,
-                        },
-                    )
+            # 1. Text Content — yield for text-only and text+document messages
+            text_content = msg.get("text") or msg.get("caption")
+            if text_content:
+                logger.info(f"Processing update {update_id}: Found text content (Length: {len(text_content)})")
+                stats["yielded_items"] += 1
+                content_found = True
+                yield TelegramItem(
+                    external_id=str(msg["message_id"]) + "_text",
+                    data=text_content.encode("utf-8"),
+                    metadata={
+                        "filename": f"msg_{msg['message_id']}.txt",
+                        "timestamp": msg_date,
+                        "update_id": update_id,
+                        "is_text": True,
+                    },
+                )
 
-            # 2. Document Content
+            # 2. Document Content (only documents, not other media)
             if doc:
                 file_name = doc.get("file_name", "unknown")
                 file_size = doc.get("file_size", 0)
@@ -306,7 +316,14 @@ class TelegramConnector(SourceConnector):
                 # logger.debug(f"Update {update_id} skipped: No content (text/document)")
                 stats["skipped_no_content"] += 1
 
-        logger.info(f"Connector processing done. Stats: {json.dumps(stats)}")
+        logger.info(
+            f"[BotAPI] ═══ Done chat={self.target_chat_id} ═══  "
+            f"processed={stats['processed_updates']}  yielded={stats['yielded_items']}  "
+            f"skipped: chat_mismatch={stats['skipped_chat_mismatch']}  "
+            f"media_type={stats['skipped_media_type']}  cutoff={stats['skipped_old_timestamp']}  "
+            f"no_content={stats['skipped_no_content']}  apk={stats['skipped_apk']}  "
+            f"size_limit={stats['skipped_size_limit']}"
+        )
 
     def get_state(self) -> Dict[str, Any]:
         return {"offset": self.offset}

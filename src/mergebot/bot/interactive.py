@@ -3,6 +3,8 @@ import logging
 import time
 
 from telethon import TelegramClient, events
+from telethon.tl.functions.bots import SetBotCommandsRequest
+from telethon.tl.types import BotCommand, BotCommandScopeDefault
 
 from ..store.artifact_store import ArtifactStore
 from ..state.repo import StateRepo
@@ -17,11 +19,24 @@ HELP_TEXT = (
     "`/start` `/help` — Show this message\n"
     "`/latest [format] [days]` — Get latest merged files (default: all, 4 days)\n"
     "`/status` — Show pipeline statistics\n"
+    "`/run` — Show last pipeline run info\n"
     "`/formats` — List supported formats\n"
     "`/subscribe <format> [hours]` — Auto-deliver every N hours (default: 6)\n"
-    "`/unsubscribe [format]` — Remove a subscription\n\n"
+    "`/unsubscribe [format]` — Remove a subscription\n"
+    "`/clean` — Show cleanup instructions\n\n"
     "_This bot runs periodically. Responses may be delayed up to the schedule interval._"
 )
+
+_BOT_COMMANDS = [
+    BotCommand(command="start", description="Show help message"),
+    BotCommand(command="latest", description="Get latest merged files"),
+    BotCommand(command="status", description="Show pipeline statistics"),
+    BotCommand(command="run", description="Show last pipeline run info"),
+    BotCommand(command="formats", description="List supported formats"),
+    BotCommand(command="subscribe", description="Auto-deliver a format"),
+    BotCommand(command="unsubscribe", description="Remove a subscription"),
+    BotCommand(command="clean", description="Show cleanup instructions"),
+]
 
 SUPPORTED_FORMATS = [
     "npvt",
@@ -33,6 +48,8 @@ SUPPORTED_FORMATS = [
     "hc",
     "hat",
     "sip",
+    "nm",
+    "dark",
     "opaque_bundle",
 ]
 
@@ -67,22 +84,40 @@ class InteractiveBot:
                 """
             )
 
-    async def start(self):
+    async def start(self, timeout: int = 0):
+        """Start the bot. timeout=0 means run forever (persistent mode)."""
         await self.client.start(bot_token=self.token)
+
+        # Register command menu in Telegram
+        try:
+            await self.client(SetBotCommandsRequest(
+                scope=BotCommandScopeDefault(),
+                lang_code="",
+                commands=_BOT_COMMANDS,
+            ))
+            logger.info("Bot commands menu registered.")
+        except Exception as e:
+            logger.warning(f"Failed to register bot commands: {e}")
 
         self.client.add_event_handler(self._on_start, events.NewMessage(pattern=r"/start|/help"))
         self.client.add_event_handler(self._on_latest, events.NewMessage(pattern=r"/latest"))
         self.client.add_event_handler(self._on_status, events.NewMessage(pattern=r"/status"))
+        self.client.add_event_handler(self._on_run, events.NewMessage(pattern=r"/run"))
         self.client.add_event_handler(self._on_formats, events.NewMessage(pattern=r"/formats"))
         self.client.add_event_handler(self._on_subscribe, events.NewMessage(pattern=r"/subscribe"))
         self.client.add_event_handler(self._on_unsubscribe, events.NewMessage(pattern=r"/unsubscribe"))
+        self.client.add_event_handler(self._on_clean, events.NewMessage(pattern=r"/clean"))
 
-        logger.info("Bot started. Processing pending updates (30 s window)...")
+        mode = "persistent" if timeout == 0 else f"{timeout}s window"
+        logger.info(f"Bot started ({mode}). Delivering subscriptions...")
 
         await self._deliver_subscriptions()
 
         try:
-            await asyncio.wait_for(self.client.run_until_disconnected(), timeout=30)
+            if timeout > 0:
+                await asyncio.wait_for(self.client.run_until_disconnected(), timeout=timeout)
+            else:
+                await self.client.run_until_disconnected()
         except asyncio.TimeoutError:
             logger.info("Bot timeout reached — exiting.")
         except Exception as e:
@@ -138,6 +173,56 @@ class InteractiveBot:
             await event.respond(msg, parse_mode="md")
         except Exception as e:
             await event.respond(f"Error: {e}")
+
+    async def _on_run(self, event):
+        """Show last pipeline run info per source."""
+        try:
+            import json as _json
+            with self.db.connect() as conn:
+                rows = conn.execute(
+                    "SELECT source_id, state_json FROM source_state ORDER BY updated_at DESC LIMIT 20"
+                ).fetchall()
+
+            if not rows:
+                await event.respond("No pipeline run data yet.")
+                return
+
+            lines = ["**Last Pipeline Run (per source):**"]
+            for row in rows:
+                sid = row["source_id"]
+                try:
+                    st = _json.loads(row["state_json"])
+                    lr = st.get("stats", {}).get("last_run", {})
+                    if lr:
+                        files = lr.get("files_ingested", "?")
+                        skipped = lr.get("skipped_files", "?")
+                        dur = lr.get("duration_seconds", "?")
+                        byt = lr.get("bytes_ingested", 0)
+                        kb = f"{byt / 1024:.1f}" if isinstance(byt, (int, float)) else "?"
+                        lines.append(
+                            f"`{sid}`: {files} new, {skipped} skipped, "
+                            f"{kb} KB, {dur}s"
+                        )
+                    else:
+                        lines.append(f"`{sid}`: no run data")
+                except Exception:
+                    lines.append(f"`{sid}`: parse error")
+
+            await event.respond("\n".join(lines), parse_mode="md")
+        except Exception as e:
+            await event.respond(f"Error: {e}")
+
+    async def _on_clean(self, event):
+        """Show cleanup instructions."""
+        msg = (
+            "**Cleanup Instructions**\n\n"
+            "To wipe all data, state, and cache for a fresh start, run:\n\n"
+            "`mergebot clean`\n\n"
+            "Or with auto-confirm:\n"
+            "`mergebot clean --yes`\n\n"
+            "This deletes: raw store, output, archive, state DB, rejects, and logs."
+        )
+        await event.respond(msg, parse_mode="md")
 
     async def _on_formats(self, event):
         lines = ["**Supported Formats:**"] + [f"• `{f}`" for f in SUPPORTED_FORMATS]
