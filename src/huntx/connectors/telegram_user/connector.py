@@ -61,8 +61,31 @@ class TelegramUserConnector:
                 logger.error(f"[MTProto] Connection failed: {e}")
                 raise
 
-    def _resolve_peer(self, peer_entity):
-        if isinstance(peer_entity, str) and peer_entity.startswith("-100"):
+    def _resolve_peer(self, peer_entity, client: TelegramClient = None):
+        """Resolve a peer identifier to a Telegram entity.
+
+        Uses client.get_entity() for proper API resolution (handles channels
+        the session hasn't seen before). Falls back to raw PeerChannel only
+        if the API call fails.
+        """
+        if client and isinstance(peer_entity, str) and peer_entity.startswith("-100"):
+            try:
+                # Use get_entity with the full marked ID — Telethon handles it
+                entity = client.get_entity(int(peer_entity))
+                logger.debug(f"[MTProto] Resolved {peer_entity} via API -> {type(entity).__name__}")
+                return entity
+            except Exception as e:
+                logger.warning(
+                    f"[MTProto] API resolution failed for {peer_entity}: {e}. "
+                    f"Falling back to raw PeerChannel."
+                )
+                # Fallback: construct PeerChannel directly
+                try:
+                    real_id, peer_type = utils.resolve_id(int(peer_entity))
+                    return peer_type(real_id)
+                except Exception as e2:
+                    logger.warning(f"[MTProto] Fallback also failed for {peer_entity}: {e2}. Using as-is.")
+        elif isinstance(peer_entity, str) and peer_entity.startswith("-100"):
             try:
                 real_id, peer_type = utils.resolve_id(int(peer_entity))
                 return peer_type(real_id)
@@ -278,7 +301,7 @@ class TelegramUserConnector:
         self._ensure_connected(client)
 
         try:
-            peer_entity = self._resolve_peer(self.peer)
+            peer_entity = self._resolve_peer(self.peer, client)
 
             mode = "fresh_start" if is_fresh_start else "subsequent"
             logger.info(
