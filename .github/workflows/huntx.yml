@@ -2,17 +2,17 @@ name: huntx
 
 on:
   schedule:
-    - cron: "0 */3 * * *"
+    - cron: "0 */2 * * *"
   workflow_dispatch:
     inputs:
       max_workers:
         description: "Number of parallel ingestion workers"
         required: false
-        default: "2"
+        default: "1"
       msg_fresh_hours:
         description: "Text lookback hours for first-seen sources"
         required: false
-        default: "2"
+        default: "24"
       file_fresh_hours:
         description: "File/media lookback hours for first-seen sources"
         required: false
