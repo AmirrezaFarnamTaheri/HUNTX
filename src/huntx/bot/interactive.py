@@ -226,7 +226,12 @@ class InteractiveBot:
         except Exception as e:
             logger.error(f"[GatherX] Delivery error: {e}")
         finally:
-            await self.client.disconnect()
+            try:
+                await self.client.disconnect()
+            except Exception:
+                pass
+            # Allow Telethon internal tasks to finish cancellation
+            await asyncio.sleep(0.25)
 
     def _register_handlers(self):
         """Register all event handlers and the callback query handler."""

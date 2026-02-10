@@ -231,7 +231,26 @@ def _deliver_updates():
 
     logger.info("Delivering subscription updates via GatherX bot...")
     bot = InteractiveBot(token, api_id, api_hash)
-    asyncio.run(bot.deliver_updates())
+
+    # Manual loop management to gracefully cancel Telethon's internal tasks
+    # (asyncio.run() would destroy them ungracefully, causing RuntimeError)
+    loop = asyncio.new_event_loop()
+    try:
+        loop.run_until_complete(bot.deliver_updates())
+    finally:
+        try:
+            pending = asyncio.all_tasks(loop)
+            for task in pending:
+                task.cancel()
+            if pending:
+                loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+        except Exception:
+            pass
+        try:
+            loop.run_until_complete(loop.shutdown_asyncgens())
+        except Exception:
+            pass
+        loop.close()
 
 
 if __name__ == "__main__":
