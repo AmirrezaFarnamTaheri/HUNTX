@@ -17,8 +17,8 @@ _UNWANTED_MEDIA_ATTRS = ("photo", "video", "gif", "sticker", "voice", "audio", "
 _TEXT_BATCH_SIZE = 100
 
 # Max reconnect retries per pass when connection drops
-_MAX_RECONNECT_RETRIES = 3
-_RECONNECT_DELAY_BASE = 2  # seconds, exponential backoff
+_MAX_RECONNECT_RETRIES = 6
+_RECONNECT_DELAYS = (2, 2, 4, 4, 8, 8)  # seconds per retry attempt
 
 
 @dataclass
@@ -97,13 +97,33 @@ class TelegramUserConnector:
                 logger.warning(f"[MTProto] Failed to resolve marked ID {peer_entity}: {e}. Using as-is.")
         return peer_entity
 
+    def resolve_channel_id(self) -> Optional[int]:
+        """Connect and resolve the peer to a canonical numeric channel ID.
+
+        Returns the raw channel ID (without -100 prefix), or None if
+        resolution fails. Used by the orchestrator for dedup.
+        """
+        client = self._client()
+        self._ensure_connected(client)
+        try:
+            entity = client.get_entity(
+                int(self.peer) if self.peer.lstrip("-").isdigit() else self.peer
+            )
+            raw_id = getattr(entity, "id", None)
+            if raw_id:
+                logger.info(f"[MTProto] Resolved peer {self.peer} -> channel_id={raw_id}")
+            return raw_id
+        except Exception as e:
+            logger.warning(f"[MTProto] Could not resolve peer {self.peer} for dedup: {e}")
+            return None
+
     # ------------------------------------------------------------------
     # Pass 1: Text messages (fast, no downloads, batched)
     # ------------------------------------------------------------------
 
     def _reconnect(self, client, retry_num: int):
-        """Reconnect a dropped Telethon client with exponential backoff."""
-        delay = _RECONNECT_DELAY_BASE * (2 ** retry_num)
+        """Reconnect a dropped Telethon client with stepped backoff."""
+        delay = _RECONNECT_DELAYS[min(retry_num, len(_RECONNECT_DELAYS) - 1)]
         logger.warning(
             f"[MTProto] Connection lost. Reconnecting in {delay}s "
             f"(attempt {retry_num + 1}/{_MAX_RECONNECT_RETRIES})..."

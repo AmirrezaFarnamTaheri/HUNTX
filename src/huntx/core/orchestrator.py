@@ -55,6 +55,8 @@ class Orchestrator:
         self.transform_pipeline = TransformPipeline(self.raw_store, self.repo, self.registry, source_configs)
         self.build_pipeline = BuildPipeline(self.repo, self.artifact_store, self.registry)
         self.publish_pipeline = PublishPipeline(self.repo)
+        self._seen_channels: set = set()   # canonical channel IDs for dedup
+        self._seen_lock = threading.Lock()
         logger.info(
             f"[Orchestrator] Ready — {len(self.config.sources)} sources, "
             f"{len(self.config.routes)} routes, {self.max_workers} workers."
@@ -283,6 +285,18 @@ class Orchestrator:
                     state=self.repo.get_source_state(src_conf.id),
                     fetch_windows=self.fetch_windows,
                 )
+                # Dedup: resolve canonical channel ID and skip if already seen
+                channel_id = user_conn.resolve_channel_id()
+                if channel_id is not None:
+                    with self._seen_lock:
+                        if channel_id in self._seen_channels:
+                            logger.warning(
+                                f"[Worker] Skipping {src_conf.id} — channel {channel_id} "
+                                f"already ingested by another source"
+                            )
+                            user_conn.cleanup()
+                            return True  # not an error, just a dup
+                        self._seen_channels.add(channel_id)
                 try:
                     self.ingest_pipeline.run(src_conf.id, user_conn, source_type=src_conf.type)
                     return True

@@ -1,4 +1,5 @@
 sources:
+# ── Working numeric-ID sources (kept from previous config) ──────────
 - id: src_1001018853394
   type: telegram_user
   selector:
@@ -216,51 +217,6 @@ sources:
     api_hash: ${TELEGRAM_API_HASH}
     session: ${TELEGRAM_USER_SESSION}
     peer: '-1003744627358'
-- id: src_1001796213998
-  type: telegram_user
-  selector:
-    include_formats: *id001
-  telegram_user:
-    api_id: ${TELEGRAM_API_ID}
-    api_hash: ${TELEGRAM_API_HASH}
-    session: ${TELEGRAM_USER_SESSION}
-    peer: '-1001796213998'
-- id: src_1001514302686
-  type: telegram_user
-  selector:
-    include_formats: *id001
-  telegram_user:
-    api_id: ${TELEGRAM_API_ID}
-    api_hash: ${TELEGRAM_API_HASH}
-    session: ${TELEGRAM_USER_SESSION}
-    peer: '-1001514302686'
-- id: src_1001763408915
-  type: telegram_user
-  selector:
-    include_formats: *id001
-  telegram_user:
-    api_id: ${TELEGRAM_API_ID}
-    api_hash: ${TELEGRAM_API_HASH}
-    session: ${TELEGRAM_USER_SESSION}
-    peer: '-1001763408915'
-- id: src_1002564682495
-  type: telegram_user
-  selector:
-    include_formats: *id001
-  telegram_user:
-    api_id: ${TELEGRAM_API_ID}
-    api_hash: ${TELEGRAM_API_HASH}
-    session: ${TELEGRAM_USER_SESSION}
-    peer: '-1002564682495'
-- id: src_1001875619482
-  type: telegram_user
-  selector:
-    include_formats: *id001
-  telegram_user:
-    api_id: ${TELEGRAM_API_ID}
-    api_hash: ${TELEGRAM_API_HASH}
-    session: ${TELEGRAM_USER_SESSION}
-    peer: '-1001875619482'
 - id: src_1002675340099
   type: telegram_user
   selector:
@@ -279,114 +235,6 @@ sources:
     api_hash: ${TELEGRAM_API_HASH}
     session: ${TELEGRAM_USER_SESSION}
     peer: '-1003705249752'
-- id: src_1001767284651
-  type: telegram_user
-  selector:
-    include_formats: *id001
-  telegram_user:
-    api_id: ${TELEGRAM_API_ID}
-    api_hash: ${TELEGRAM_API_HASH}
-    session: ${TELEGRAM_USER_SESSION}
-    peer: '-1001767284651'
-- id: src_1002750253398
-  type: telegram_user
-  selector:
-    include_formats: *id001
-  telegram_user:
-    api_id: ${TELEGRAM_API_ID}
-    api_hash: ${TELEGRAM_API_HASH}
-    session: ${TELEGRAM_USER_SESSION}
-    peer: '-1002750253398'
-- id: src_1002094972529
-  type: telegram_user
-  selector:
-    include_formats: *id001
-  telegram_user:
-    api_id: ${TELEGRAM_API_ID}
-    api_hash: ${TELEGRAM_API_HASH}
-    session: ${TELEGRAM_USER_SESSION}
-    peer: '-1002094972529'
-- id: src_1001810074293
-  type: telegram_user
-  selector:
-    include_formats: *id001
-  telegram_user:
-    api_id: ${TELEGRAM_API_ID}
-    api_hash: ${TELEGRAM_API_HASH}
-    session: ${TELEGRAM_USER_SESSION}
-    peer: '-1001810074293'
-- id: src_1002086200619
-  type: telegram_user
-  selector:
-    include_formats: *id001
-  telegram_user:
-    api_id: ${TELEGRAM_API_ID}
-    api_hash: ${TELEGRAM_API_HASH}
-    session: ${TELEGRAM_USER_SESSION}
-    peer: '-1002086200619'
-- id: src_1003336135529
-  type: telegram_user
-  selector:
-    include_formats: *id001
-  telegram_user:
-    api_id: ${TELEGRAM_API_ID}
-    api_hash: ${TELEGRAM_API_HASH}
-    session: ${TELEGRAM_USER_SESSION}
-    peer: '-1003336135529'
-- id: src_1001821423515
-  type: telegram_user
-  selector:
-    include_formats: *id001
-  telegram_user:
-    api_id: ${TELEGRAM_API_ID}
-    api_hash: ${TELEGRAM_API_HASH}
-    session: ${TELEGRAM_USER_SESSION}
-    peer: '-1001821423515'
-- id: src_1001629460620
-  type: telegram_user
-  selector:
-    include_formats: *id001
-  telegram_user:
-    api_id: ${TELEGRAM_API_ID}
-    api_hash: ${TELEGRAM_API_HASH}
-    session: ${TELEGRAM_USER_SESSION}
-    peer: '-1001629460620'
-- id: src_1001436746445
-  type: telegram_user
-  selector:
-    include_formats: *id001
-  telegram_user:
-    api_id: ${TELEGRAM_API_ID}
-    api_hash: ${TELEGRAM_API_HASH}
-    session: ${TELEGRAM_USER_SESSION}
-    peer: '-1001436746445'
-- id: src_1001789702327
-  type: telegram_user
-  selector:
-    include_formats: *id001
-  telegram_user:
-    api_id: ${TELEGRAM_API_ID}
-    api_hash: ${TELEGRAM_API_HASH}
-    session: ${TELEGRAM_USER_SESSION}
-    peer: '-1001789702327'
-- id: src_1001891582980
-  type: telegram_user
-  selector:
-    include_formats: *id001
-  telegram_user:
-    api_id: ${TELEGRAM_API_ID}
-    api_hash: ${TELEGRAM_API_HASH}
-    session: ${TELEGRAM_USER_SESSION}
-    peer: '-1001891582980'
-- id: src_1001266790118
-  type: telegram_user
-  selector:
-    include_formats: *id001
-  telegram_user:
-    api_id: ${TELEGRAM_API_ID}
-    api_hash: ${TELEGRAM_API_HASH}
-    session: ${TELEGRAM_USER_SESSION}
-    peer: '-1001266790118'
 - id: src_1001268460826
   type: telegram_user
   selector:
@@ -396,7 +244,7 @@ sources:
     api_hash: ${TELEGRAM_API_HASH}
     session: ${TELEGRAM_USER_SESSION}
     peer: '-1001268460826'
-- id: src_1001171741566
+- id: src_1002086200619
   type: telegram_user
   selector:
     include_formats: *id001
@@ -404,8 +252,8 @@ sources:
     api_id: ${TELEGRAM_API_ID}
     api_hash: ${TELEGRAM_API_HASH}
     session: ${TELEGRAM_USER_SESSION}
-    peer: '-1001171741566'
-- id: src_1001896624193
+    peer: '-1002086200619'
+- id: src_1001821423515
   type: telegram_user
   selector:
     include_formats: *id001
@@ -413,8 +261,9 @@ sources:
     api_id: ${TELEGRAM_API_ID}
     api_hash: ${TELEGRAM_API_HASH}
     session: ${TELEGRAM_USER_SESSION}
-    peer: '-1001896624193'
-- id: src_1001426238402
+    peer: '-1001821423515'
+# ── New @username sources (deduped at runtime by orchestrator) ──────
+- id: src_XIXVPN
   type: telegram_user
   selector:
     include_formats: *id001
@@ -422,8 +271,8 @@ sources:
     api_id: ${TELEGRAM_API_ID}
     api_hash: ${TELEGRAM_API_HASH}
     session: ${TELEGRAM_USER_SESSION}
-    peer: '-1001426238402'
-- id: src_1001874521308
+    peer: '@XIXVPN'
+- id: src_xixv2ray
   type: telegram_user
   selector:
     include_formats: *id001
@@ -431,8 +280,8 @@ sources:
     api_id: ${TELEGRAM_API_ID}
     api_hash: ${TELEGRAM_API_HASH}
     session: ${TELEGRAM_USER_SESSION}
-    peer: '-1001874521308'
-- id: src_1001825957541
+    peer: '@xixv2ray'
+- id: src_xixadmin
   type: telegram_user
   selector:
     include_formats: *id001
@@ -440,7 +289,484 @@ sources:
     api_id: ${TELEGRAM_API_ID}
     api_hash: ${TELEGRAM_API_HASH}
     session: ${TELEGRAM_USER_SESSION}
-    peer: '-1001825957541'
+    peer: '@xixadmin'
+- id: src_Capoit
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@Capoit'
+- id: src_V2XCore
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@V2XCore'
+- id: src_Farah_VPN
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@Farah_VPN'
+- id: src_NamiraConfigs
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@NamiraConfigs'
+- id: src_warpscanner
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@warpscanner'
+- id: src_heavenvibesss
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@heavenvibesss'
+- id: src_InfoTech_VK
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@InfoTech_VK'
+- id: src_darkproxy
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@darkproxy'
+- id: src_AzadNet
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@AzadNet'
+- id: src_proxymtprotoir
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@proxymtprotoir'
+- id: src_vpnsal
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@vpnsal'
+- id: src_ShadowProxy66
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@ShadowProxy66'
+- id: src_arshia_mod_fun
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@arshia_mod_fun'
+- id: src_gheychiamoozesh
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@gheychiamoozesh'
+- id: src_vazistavazista
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@vazistavazista'
+- id: src_SHOP_GAMING1011
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@SHOP_GAMING1011'
+- id: src_v2ray_Extractor
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@v2ray_Extractor'
+- id: src_vpnowl
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@vpnowl'
+- id: src_mypremium98
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@mypremium98'
+- id: src_sip_socksip
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@sip_socksip'
+- id: src_xsfilternet
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@xsfilternet'
+- id: src_mitivpn
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@mitivpn'
+- id: src_daily_configs
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@daily_configs'
+- id: src_V2rayEnglish
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@V2rayEnglish'
+- id: src_v2raba
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@v2raba'
+- id: src_DailyV2RY
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@DailyV2RY'
+- id: src_NETMelliAnti
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@NETMelliAnti'
+- id: src_Gp_config
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@Gp_config'
+- id: src_netmelli15
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@netmelli15'
+- id: src_Speeds_vpn1
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@Speeds_vpn1'
+- id: src_farsiproxy
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@farsiproxy'
+- id: src_anty_filter
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@anty_filter'
+- id: src_subHiddify
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@subHiddify'
+- id: src_zedmodeonvpn
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@zedmodeonvpn'
+- id: src_BugFreeNet_Chat
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@BugFreeNet_Chat'
+- id: src_eeevpn
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@eeevpn'
+- id: src_EzAccessGP
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@EzAccessGP'
+- id: src_v2ray_configs_pool
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@v2ray_configs_pool'
+- id: src_configshub2
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@configshub2'
+- id: src_oneclickvpnkeys
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@oneclickvpnkeys'
+- id: src_outline_vpn
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@outline_vpn'
+- id: src_prrofile_purple
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@prrofile_purple'
+- id: src_v2line
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@v2line'
+- id: src_v2nodes
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@v2nodes'
+- id: src_v2ray1_ng
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@v2ray1_ng'
+- id: src_v2rayNG_Matsuri
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@v2rayNG_Matsuri'
+- id: src_configV2rayForFree
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@configV2rayForFree'
+- id: src_V2rayNg_madam
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@V2rayNg_madam'
+- id: src_configV2rayNG
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@configV2rayNG'
+- id: src_config_proxy
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@config_proxy'
+- id: src_persianvpnhub
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@persianvpnhub'
+- id: src_Hope_Net
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@Hope_Net'
+- id: src_NetAccount
+  type: telegram_user
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@NetAccount'
 publishing:
   routes:
   - name: all_sources
@@ -469,31 +795,67 @@ publishing:
     - src_1003209702364
     - src_1003459192517
     - src_1003744627358
-    - src_1001796213998
-    - src_1001514302686
-    - src_1001763408915
-    - src_1002564682495
-    - src_1001875619482
     - src_1002675340099
     - src_1003705249752
-    - src_1001767284651
-    - src_1002750253398
-    - src_1002094972529
-    - src_1001810074293
-    - src_1002086200619
-    - src_1003336135529
-    - src_1001821423515
-    - src_1001629460620
-    - src_1001436746445
-    - src_1001789702327
-    - src_1001891582980
-    - src_1001266790118
     - src_1001268460826
-    - src_1001171741566
-    - src_1001896624193
-    - src_1001426238402
-    - src_1001874521308
-    - src_1001825957541
+    - src_1002086200619
+    - src_1001821423515
+    - src_XIXVPN
+    - src_xixv2ray
+    - src_xixadmin
+    - src_Capoit
+    - src_V2XCore
+    - src_Farah_VPN
+    - src_NamiraConfigs
+    - src_warpscanner
+    - src_heavenvibesss
+    - src_InfoTech_VK
+    - src_darkproxy
+    - src_AzadNet
+    - src_proxymtprotoir
+    - src_vpnsal
+    - src_ShadowProxy66
+    - src_arshia_mod_fun
+    - src_gheychiamoozesh
+    - src_vazistavazista
+    - src_SHOP_GAMING1011
+    - src_v2ray_Extractor
+    - src_vpnowl
+    - src_mypremium98
+    - src_sip_socksip
+    - src_xsfilternet
+    - src_mitivpn
+    - src_daily_configs
+    - src_V2rayEnglish
+    - src_v2raba
+    - src_DailyV2RY
+    - src_NETMelliAnti
+    - src_Gp_config
+    - src_netmelli15
+    - src_Speeds_vpn1
+    - src_farsiproxy
+    - src_anty_filter
+    - src_subHiddify
+    - src_zedmodeonvpn
+    - src_BugFreeNet_Chat
+    - src_eeevpn
+    - src_EzAccessGP
+    - src_v2ray_configs_pool
+    - src_configshub2
+    - src_oneclickvpnkeys
+    - src_outline_vpn
+    - src_prrofile_purple
+    - src_v2line
+    - src_v2nodes
+    - src_v2ray1_ng
+    - src_v2rayNG_Matsuri
+    - src_configV2rayForFree
+    - src_V2rayNg_madam
+    - src_configV2rayNG
+    - src_config_proxy
+    - src_persianvpnhub
+    - src_Hope_Net
+    - src_NetAccount
     formats:
     - npvt
     - npvtsub
