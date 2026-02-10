@@ -3,7 +3,7 @@ import datetime
 import logging
 import time
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from telethon import TelegramClient, events, Button
 from telethon.tl.functions.bots import SetBotCommandsRequest
