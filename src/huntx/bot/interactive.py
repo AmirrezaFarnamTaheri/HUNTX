@@ -1,12 +1,11 @@
 import asyncio
 import datetime
-import json as _json
 import logging
 import time
 from pathlib import Path
 from typing import List, Optional
 
-from telethon import TelegramClient, events
+from telethon import TelegramClient, events, Button
 from telethon.tl.functions.bots import SetBotCommandsRequest
 from telethon.tl.types import BotCommand, BotCommandScopeDefault
 
@@ -20,39 +19,32 @@ logger = logging.getLogger(__name__)
 # ── Bot text ──────────────────────────────────────────────────────────
 
 WELCOME_TEXT = (
-    "**Welcome to GatherX** 🛰\n\n"
-    "I aggregate proxy configs from 49+ Telegram channels every 3 hours "
-    "and deliver them straight to you.\n\n"
-    "**You're now registered** — you'll automatically receive fresh proxy "
-    "lists after every pipeline run.\n\n"
-    "**Commands:**\n"
-    "`/get [format]` — Download configs (default: your preferred format)\n"
-    "`/latest [days]` — All recent artifacts (default: 4 days)\n"
-    "`/formats` — List all supported formats\n"
-    "`/protocols` — Supported proxy protocols\n"
-    "`/count` — Proxy count per protocol\n"
-    "`/setformat <fmt>` — Set your default format\n"
-    "`/myinfo` — Your account & preferences\n"
-    "`/status` — Pipeline statistics\n"
-    "`/mute` / `/unmute` — Toggle auto-delivery\n"
-    "`/ping` — Check if bot is alive\n"
-    "`/help` — Show this message"
+    "🛰 **GatherX — Free Proxy Configs**\n"
+    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+    "Fresh proxy configs from **49+ sources**, updated every 3 hours.\n"
+    "VMess · VLESS · Trojan · SS · Hysteria2 · TUIC · WireGuard and more.\n\n"
+    "� **Get Proxies**\n"
+    "  /get — Download proxies (your default format)\n"
+    "  /get `b64sub` — Base64 subscription link\n"
+    "  /latest — All recent proxy files\n"
+    "  /formats — See all available formats\n\n"
+    "⚙️ **Settings**\n"
+    "  /setformat — Change your preferred format\n"
+    "  /mute · /unmute — Toggle auto-delivery\n"
+    "  /myinfo — Your preferences\n\n"
+    "Proxies are delivered automatically. Use /mute to stop."
 )
 
 _BOT_COMMANDS = [
-    BotCommand(command="start", description="Register and get started"),
-    BotCommand(command="get", description="Download configs by format"),
-    BotCommand(command="latest", description="Get all recent artifacts"),
-    BotCommand(command="formats", description="List supported formats"),
-    BotCommand(command="protocols", description="Supported proxy protocols"),
-    BotCommand(command="count", description="Proxy count per protocol"),
-    BotCommand(command="setformat", description="Set your default format"),
-    BotCommand(command="myinfo", description="Your account & preferences"),
-    BotCommand(command="status", description="Pipeline statistics"),
-    BotCommand(command="mute", description="Stop auto-delivery"),
-    BotCommand(command="unmute", description="Resume auto-delivery"),
-    BotCommand(command="ping", description="Check if bot is alive"),
-    BotCommand(command="help", description="Show help message"),
+    BotCommand(command="start", description="🚀 Start and get proxies"),
+    BotCommand(command="get", description="📥 Download proxies"),
+    BotCommand(command="latest", description="📦 Recent proxy files"),
+    BotCommand(command="formats", description="📋 Available formats"),
+    BotCommand(command="setformat", description="⚙️ Change default format"),
+    BotCommand(command="myinfo", description="👤 Your preferences"),
+    BotCommand(command="mute", description="🔇 Stop auto-delivery"),
+    BotCommand(command="unmute", description="🔔 Resume auto-delivery"),
+    BotCommand(command="help", description="❓ Help"),
 ]
 
 SUPPORTED_FORMATS = [
@@ -60,8 +52,30 @@ SUPPORTED_FORMATS = [
     "ehi", "hc", "hat", "sip", "nm", "dark", "opaque_bundle",
 ]
 
+# All valid format names a user can request (includes derived formats)
+_ALL_VALID_FORMATS = SUPPORTED_FORMATS + ["b64sub", "decoded.json"]
+
 # Formats to auto-deliver (the most useful ones)
 _AUTO_DELIVER_FORMATS = ("npvt", "npvt.b64sub")
+
+# Human-readable format descriptions
+_FORMAT_LABELS: Dict[str, str] = {
+    "npvt": "📋 V2Ray/Xray proxy list",
+    "npvtsub": "📋 NapsternetV subscription",
+    "b64sub": "🔗 Base64 subscription (v2rayN/v2rayNG)",
+    "decoded.json": "📊 Structured JSON (all proxies decoded)",
+    "conf_lines": "📝 Generic config lines",
+    "ovpn": "🔐 OpenVPN",
+    "npv4": "📱 NapsternetV v4",
+    "ehi": "📱 HTTP Injector",
+    "hc": "📱 HTTP Custom",
+    "hat": "📱 HA Tunnel Plus",
+    "sip": "📱 SocksIP Tunnel",
+    "nm": "📱 NetMod VPN",
+    "dark": "📱 Dark Tunnel VPN",
+    "opaque_bundle": "📦 Binary bundle (ZIP)",
+}
+
 
 
 # ── Bot class ─────────────────────────────────────────────────────────
@@ -214,11 +228,30 @@ class InteractiveBot:
         finally:
             await self.client.disconnect()
 
+    def _register_handlers(self):
+        """Register all event handlers and the callback query handler."""
+        self.client.add_event_handler(self._on_start, events.NewMessage(pattern=r"(?i)/start"))
+        self.client.add_event_handler(self._on_help, events.NewMessage(pattern=r"(?i)/help"))
+        self.client.add_event_handler(self._on_get, events.NewMessage(pattern=r"(?i)/get"))
+        self.client.add_event_handler(self._on_latest, events.NewMessage(pattern=r"(?i)/latest"))
+        self.client.add_event_handler(self._on_formats, events.NewMessage(pattern=r"(?i)/formats"))
+        self.client.add_event_handler(self._on_setformat, events.NewMessage(pattern=r"(?i)/setformat"))
+        self.client.add_event_handler(self._on_myinfo, events.NewMessage(pattern=r"(?i)/myinfo"))
+        self.client.add_event_handler(self._on_mute, events.NewMessage(pattern=r"(?i)/mute"))
+        self.client.add_event_handler(self._on_unmute, events.NewMessage(pattern=r"(?i)/unmute"))
+        self.client.add_event_handler(self._on_callback, events.CallbackQuery())
+
     async def start(self):
-        """Start the bot in persistent interactive mode (listens forever)."""
+        """Start the bot in persistent interactive mode (long-polling).
+
+        This is designed to run as a standalone process, e.g.:
+            huntx bot
+        It connects via Telethon, registers the command menu with Telegram,
+        sets up event handlers, and blocks on run_until_disconnected().
+        """
         await self.client.start(bot_token=self.token)
 
-        # Register command menu
+        # Register command menu with Telegram
         try:
             await self.client(SetBotCommandsRequest(
                 scope=BotCommandScopeDefault(),
@@ -229,24 +262,11 @@ class InteractiveBot:
         except Exception as e:
             logger.warning(f"[GatherX] Failed to register commands: {e}")
 
-        # Register handlers
-        self.client.add_event_handler(self._on_start, events.NewMessage(pattern=r"(?i)/start"))
-        self.client.add_event_handler(self._on_help, events.NewMessage(pattern=r"(?i)/help"))
-        self.client.add_event_handler(self._on_get, events.NewMessage(pattern=r"(?i)/get"))
-        self.client.add_event_handler(self._on_latest, events.NewMessage(pattern=r"(?i)/latest"))
-        self.client.add_event_handler(self._on_formats, events.NewMessage(pattern=r"(?i)/formats"))
-        self.client.add_event_handler(self._on_protocols, events.NewMessage(pattern=r"(?i)/protocols"))
-        self.client.add_event_handler(self._on_count, events.NewMessage(pattern=r"(?i)/count"))
-        self.client.add_event_handler(self._on_setformat, events.NewMessage(pattern=r"(?i)/setformat"))
-        self.client.add_event_handler(self._on_myinfo, events.NewMessage(pattern=r"(?i)/myinfo"))
-        self.client.add_event_handler(self._on_status, events.NewMessage(pattern=r"(?i)/status"))
-        self.client.add_event_handler(self._on_mute, events.NewMessage(pattern=r"(?i)/mute"))
-        self.client.add_event_handler(self._on_unmute, events.NewMessage(pattern=r"(?i)/unmute"))
-        self.client.add_event_handler(self._on_ping, events.NewMessage(pattern=r"(?i)/ping"))
+        self._register_handlers()
 
         stats = self._get_user_count()
         logger.info(
-            f"[GatherX] Bot started — {stats['total']} users "
+            f"[GatherX] Bot started (long-polling) — {stats['total']} users "
             f"({stats['active']} active, {stats['muted']} muted)"
         )
 
@@ -322,7 +342,7 @@ class InteractiveBot:
     # ── Command handlers ──────────────────────────────────────────────
 
     async def _on_start(self, event):
-        """Register user and send welcome + latest proxy list."""
+        """Register user and send welcome with quick-action buttons."""
         user_id = str(event.sender_id)
         chat_id = str(event.chat_id)
         username = None
@@ -333,23 +353,27 @@ class InteractiveBot:
             pass
 
         is_new = self._register_user(user_id, chat_id, username)
-        await event.respond(WELCOME_TEXT, parse_mode="md")
+
+        buttons = [
+            [Button.inline("📥 Get Proxies", b"get:npvt"),
+             Button.inline("🔗 Base64 Sub", b"get:b64sub")],
+            [Button.inline("� All Formats", b"cmd:formats"),
+             Button.inline("⚙️ Settings", b"cmd:myinfo")],
+        ]
+        await event.respond(WELCOME_TEXT, parse_mode="md", buttons=buttons)
 
         if is_new:
             logger.info(f"[GatherX] New user registered: {user_id} (@{username})")
 
-        # Auto-send latest npvt + b64sub on /start
-        await event.respond("Fetching your latest proxy configs...")
-        sent = await self._send_latest_to_user(event.chat_id, fmt="npvt", days=2)
-        sent += await self._send_latest_to_user(event.chat_id, fmt="npvt.b64sub", days=2)
-        if sent == 0:
-            await event.respond(
-                "No proxy configs available yet. "
-                "You'll receive them automatically after the next pipeline run."
-            )
-
     async def _on_help(self, event):
-        await event.respond(WELCOME_TEXT, parse_mode="md")
+        self._register_user(str(event.sender_id), str(event.chat_id))
+        buttons = [
+            [Button.inline("📥 Get Proxies", b"get:npvt"),
+             Button.inline("🔗 Base64 Sub", b"get:b64sub")],
+            [Button.inline("� All Formats", b"cmd:formats"),
+             Button.inline("⚙️ Settings", b"cmd:myinfo")],
+        ]
+        await event.respond(WELCOME_TEXT, parse_mode="md", buttons=buttons)
 
     async def _on_get(self, event):
         """On-demand file download: /get [format]"""
@@ -357,39 +381,68 @@ class InteractiveBot:
         self._register_user(user_id, str(event.chat_id))
 
         args = event.text.split()[1:]
-        fmt = args[0].lower() if args else self._get_user_pref(user_id)
-
-        if fmt not in SUPPORTED_FORMATS and fmt not in ("b64sub", "decoded.json"):
+        if not args:
+            # No format specified → show quick-pick buttons
+            buttons = [
+                [Button.inline("📋 Proxy List (npvt)", b"get:npvt"),
+                 Button.inline("🔗 Base64 Sub", b"get:b64sub")],
+                [Button.inline("📊 Decoded JSON", b"get:decoded.json")],
+                [Button.inline("🔐 OpenVPN", b"get:ovpn"),
+                 Button.inline("📱 HTTP Injector", b"get:ehi")],
+                [Button.inline("📱 HTTP Custom", b"get:hc"),
+                 Button.inline("📱 HA Tunnel", b"get:hat")],
+            ]
+            current = self._get_user_pref(user_id)
             await event.respond(
-                f"Unknown format `{fmt}`.\n"
-                f"Use `/formats` to see available formats.",
+                f"📥 **Download Configs**\n\n"
+                f"Your default format: `{current}`\n"
+                f"Pick a format below or type `/get <format>`:",
+                parse_mode="md",
+                buttons=buttons,
+            )
+            return
+
+        fmt = args[0].lower()
+        await self._send_format_to_user(event.chat_id, fmt)
+
+    async def _send_format_to_user(self, chat_id: int, fmt: str):
+        """Send files matching a format to a user. Used by both /get and button callbacks."""
+        if fmt not in _ALL_VALID_FORMATS:
+            await self.client.send_message(
+                chat_id,
+                f"Unknown format `{fmt}`.\nUse /formats to see available formats.",
                 parse_mode="md",
             )
             return
 
-        # Search output dir for matching files
         output_dir = DATA_DIR / "output"
         sent = 0
         if output_dir.exists():
             for f in sorted(output_dir.iterdir()):
                 if not f.is_file() or f.stat().st_size == 0:
                     continue
-                if fmt in f.name:
+                if f.name.endswith(f".{fmt}") or (fmt in f.name and fmt not in ("nm", "hc")):
                     size_kb = f.stat().st_size / 1024
+                    label = _FORMAT_LABELS.get(fmt, fmt)
                     await self.client.send_file(
-                        event.chat_id, f,
-                        caption=f"`{f.name}` ({size_kb:.0f} KB)",
+                        chat_id, f,
+                        caption=f"{label}\n`{f.name}` ({size_kb:.0f} KB)",
                         parse_mode="md",
                     )
                     sent += 1
                     await asyncio.sleep(0.3)
 
         if sent == 0:
-            # Fallback to archive
-            sent = await self._send_latest_to_user(event.chat_id, fmt=fmt, days=4)
+            sent = await self._send_latest_to_user(chat_id, fmt=fmt, days=4)
 
         if sent == 0:
-            await event.respond(f"No files found for `{fmt}`. Try `/formats` to see what's available.", parse_mode="md")
+            await self.client.send_message(
+                chat_id,
+                f"No files found for `{fmt}`.\n"
+                f"The pipeline may not have produced this format yet.\n"
+                f"Use /formats to see all options.",
+                parse_mode="md",
+            )
 
     async def _on_latest(self, event):
         """Send all recent artifacts: /latest [days]"""
@@ -397,127 +450,43 @@ class InteractiveBot:
 
         args = event.text.split()[1:]
         days = int(args[0]) if args and args[0].isdigit() else 4
+        days = min(days, 30)
 
+        await event.respond(f"📦 Fetching artifacts from the last {days} day(s)...")
         sent = await self._send_latest_to_user(event.chat_id, days=days)
         if sent == 0:
-            await event.respond(f"No artifacts in the last {days} day(s).")
+            await event.respond(
+                f"No artifacts in the last {days} day(s).\n"
+                f"Try a larger window: `/latest 7`",
+                parse_mode="md",
+            )
         else:
-            await event.respond(f"Sent {sent} file(s).")
+            await event.respond(f"✅ Sent {sent} file(s).")
 
     async def _on_formats(self, event):
         self._register_user(str(event.sender_id), str(event.chat_id))
 
-        lines = [
-            "**Available Formats:**\n",
-            "**Text-based** (proxy URIs):",
-            "  `npvt` — V2Ray/Xray proxy list (most popular)",
-            "  `npvtsub` — NapsternetV subscription",
-            "  `conf_lines` — Generic config lines",
-            "  `b64sub` — Base64 subscription (v2rayN/v2rayNG)",
-            "  `decoded.json` — Structured JSON of all proxies\n",
-            "**Binary configs** (ZIP archives):",
-            "  `ovpn` — OpenVPN",
-            "  `npv4` — NapsternetV v4",
-            "  `ehi` — HTTP Injector",
-            "  `hc` — HTTP Custom",
-            "  `hat` — HA Tunnel Plus",
-            "  `sip` — SocksIP Tunnel",
-            "  `nm` — NetMod VPN",
-            "  `dark` — Dark Tunnel VPN\n",
-            "Use `/get <format>` to download any of these.",
+        text_fmts = ["npvt", "npvtsub", "conf_lines", "b64sub", "decoded.json"]
+        bin_fmts = ["ovpn", "npv4", "ehi", "hc", "hat", "sip", "nm", "dark"]
+
+        lines = ["📋 **Available Formats**\n"]
+        lines.append("**Text-based** (proxy URIs):")
+        for f in text_fmts:
+            label = _FORMAT_LABELS.get(f, f)
+            lines.append(f"  `{f}` — {label}")
+        lines.append("")
+        lines.append("**Binary configs** (ZIP archives):")
+        for f in bin_fmts:
+            label = _FORMAT_LABELS.get(f, f)
+            lines.append(f"  `{f}` — {label}")
+        lines.append("\nUse `/get <format>` to download.")
+
+        buttons = [
+            [Button.inline("📋 Get npvt", b"get:npvt"),
+             Button.inline("🔗 Get b64sub", b"get:b64sub")],
+            [Button.inline("📊 Get decoded.json", b"get:decoded.json")],
         ]
-        await event.respond("\n".join(lines), parse_mode="md")
-
-    async def _on_status(self, event):
-        self._register_user(str(event.sender_id), str(event.chat_id))
-
-        try:
-            with self.db.connect() as conn:
-                total_files = conn.execute("SELECT COUNT(*) AS c FROM seen_files").fetchone()["c"]
-                processed = conn.execute(
-                    "SELECT COUNT(*) AS c FROM seen_files WHERE status='processed'"
-                ).fetchone()["c"]
-                sources = conn.execute("SELECT COUNT(*) AS c FROM source_state").fetchone()["c"]
-                records = conn.execute("SELECT COUNT(*) AS c FROM records WHERE is_active=1").fetchone()["c"]
-
-            user_stats = self._get_user_count()
-
-            msg = (
-                "**GatherX Pipeline Status**\n\n"
-                f"📡 Sources: {sources}\n"
-                f"📁 Files processed: {processed}/{total_files}\n"
-                f"📋 Active records: {records}\n"
-                f"👥 Users: {user_stats['active']} active, {user_stats['muted']} muted"
-            )
-            await event.respond(msg, parse_mode="md")
-        except Exception as e:
-            await event.respond(f"Error: {e}")
-
-    async def _on_protocols(self, event):
-        """Show supported proxy protocols."""
-        self._register_user(str(event.sender_id), str(event.chat_id))
-        msg = (
-            "**Supported Proxy Protocols**\n\n"
-            "| Scheme | Protocol |\n"
-            "|---|---|\n"
-            "| `vmess://` | VMess (V2Ray) |\n"
-            "| `vless://` | VLESS (Xray) |\n"
-            "| `trojan://` | Trojan |\n"
-            "| `ss://` | Shadowsocks |\n"
-            "| `ssr://` | ShadowsocksR |\n"
-            "| `hysteria2://` `hy2://` | Hysteria 2 |\n"
-            "| `hysteria://` | Hysteria 1 |\n"
-            "| `tuic://` | TUIC (QUIC) |\n"
-            "| `wireguard://` `wg://` | WireGuard |\n"
-            "| `socks://` `socks5://` | SOCKS proxy |\n"
-            "| `anytls://` | AnyTLS |\n"
-            "| `juicity://` | Juicity |\n"
-            "| `warp://` | Cloudflare WARP |\n"
-            "| `dns://` `dnstt://` | DNS tunnel |"
-        )
-        await event.respond(msg, parse_mode="md")
-
-    async def _on_count(self, event):
-        """Show proxy URI count per protocol from active records."""
-        self._register_user(str(event.sender_id), str(event.chat_id))
-        try:
-            with self.db.connect() as conn:
-                rows = conn.execute(
-                    "SELECT data_json FROM records WHERE is_active = 1"
-                ).fetchall()
-
-            if not rows:
-                await event.respond("No active records yet.")
-                return
-
-            counts = {}
-            total = 0
-            for row in rows:
-                try:
-                    data = _json.loads(row["data_json"])
-                    lines = data.get("lines", []) if isinstance(data, dict) else []
-                    for line in lines:
-                        if "://" in line:
-                            scheme = line.split("://")[0].lower()
-                            counts[scheme] = counts.get(scheme, 0) + 1
-                            total += 1
-                except Exception:
-                    pass
-
-            if not counts:
-                await event.respond("No proxy URIs found in active records.")
-                return
-
-            sorted_counts = sorted(counts.items(), key=lambda x: -x[1])
-            lines = [f"**Proxy URI Count** ({total} total)\n"]
-            for scheme, cnt in sorted_counts:
-                pct = cnt / total * 100
-                bar = "█" * max(1, int(pct / 5))
-                lines.append(f"`{scheme}` — {cnt} ({pct:.0f}%) {bar}")
-
-            await event.respond("\n".join(lines), parse_mode="md")
-        except Exception as e:
-            await event.respond(f"Error: {e}")
+        await event.respond("\n".join(lines), parse_mode="md", buttons=buttons)
 
     async def _on_setformat(self, event):
         """Set user's preferred default format: /setformat <fmt>"""
@@ -527,78 +496,85 @@ class InteractiveBot:
         args = event.text.split()[1:]
         if not args:
             current = self._get_user_pref(user_id)
+            label = _FORMAT_LABELS.get(current, current)
+            buttons = [
+                [Button.inline("📋 npvt", b"setfmt:npvt"),
+                 Button.inline("🔗 b64sub", b"setfmt:b64sub")],
+                [Button.inline("📊 decoded.json", b"setfmt:decoded.json"),
+                 Button.inline("🔐 ovpn", b"setfmt:ovpn")],
+                [Button.inline("📱 ehi", b"setfmt:ehi"),
+                 Button.inline("📱 hc", b"setfmt:hc"),
+                 Button.inline("📱 hat", b"setfmt:hat")],
+            ]
             await event.respond(
-                f"Your current default format: `{current}`\n\n"
-                f"Usage: `/setformat <format>`\n"
-                f"Example: `/setformat ovpn`\n\n"
-                f"Use `/formats` to see all options.",
+                f"⚙️ **Set Default Format**\n\n"
+                f"Current: `{current}` ({label})\n\n"
+                f"Pick below or type `/setformat <format>`:",
                 parse_mode="md",
+                buttons=buttons,
             )
             return
 
         fmt = args[0].lower()
-        all_valid = SUPPORTED_FORMATS + ["b64sub", "decoded.json"]
-        if fmt not in all_valid:
+        if fmt not in _ALL_VALID_FORMATS:
             await event.respond(
-                f"Unknown format `{fmt}`. Use `/formats` to see available options.",
+                f"Unknown format `{fmt}`. Use /formats to see available options.",
                 parse_mode="md",
             )
             return
 
         self._set_user_pref(user_id, fmt)
+        label = _FORMAT_LABELS.get(fmt, fmt)
         await event.respond(
-            f"Default format set to `{fmt}`.\n"
+            f"✅ Default format set to `{fmt}` ({label})\n"
             f"`/get` will now download `{fmt}` files by default.",
             parse_mode="md",
         )
 
     async def _on_myinfo(self, event):
-        """Show user's account info and preferences."""
+        """Show user's preferences and delivery settings."""
         user_id = str(event.sender_id)
         self._register_user(user_id, str(event.chat_id))
 
         info = self._get_user_info(user_id)
         if not info:
-            await event.respond("No account info found. Send /start to register.")
+            await event.respond("Send /start to get started.")
             return
 
-        reg_time = datetime.datetime.fromtimestamp(info["registered_at"]).strftime("%Y-%m-%d %H:%M")
-        last_del = "Never"
+        last_del = "Not yet"
         if info["last_delivered_at"] and info["last_delivered_at"] > 0:
-            last_del = datetime.datetime.fromtimestamp(info["last_delivered_at"]).strftime("%Y-%m-%d %H:%M")
+            last_del = datetime.datetime.fromtimestamp(info["last_delivered_at"]).strftime("%Y-%m-%d %H:%M UTC")
 
-        muted_str = "🔇 Muted" if info["muted"] else "🔔 Active"
-        username_str = f"@{info['username']}" if info.get("username") else "—"
+        muted_icon = "🔇" if info["muted"] else "🔔"
+        muted_str = "Paused" if info["muted"] else "Active"
+        fmt = info.get("default_format", "npvt")
+        fmt_label = _FORMAT_LABELS.get(fmt, fmt)
 
         msg = (
-            "**Your GatherX Account**\n\n"
-            f"👤 Username: {username_str}\n"
-            f"🆔 User ID: `{user_id}`\n"
-            f"📅 Registered: {reg_time}\n"
-            f"📦 Default format: `{info.get('default_format', 'npvt')}`\n"
-            f"📬 Auto-delivery: {muted_str}\n"
-            f"🕐 Last delivery: {last_del}"
+            "⚙️ **Your Settings**\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"  Download format: `{fmt}` ({fmt_label})\n"
+            f"  Auto-delivery: {muted_icon} {muted_str}\n"
+            f"  Last received: {last_del}"
         )
-        await event.respond(msg, parse_mode="md")
-
-    async def _on_ping(self, event):
-        """Health check."""
-        uptime_info = ""
-        try:
-            with self.db.connect() as conn:
-                records = conn.execute("SELECT COUNT(*) AS c FROM records WHERE is_active=1").fetchone()["c"]
-            uptime_info = f"\n📋 Active records: {records}"
-        except Exception:
-            pass
-        await event.respond(f"🏓 **Pong!** GatherX is online.{uptime_info}", parse_mode="md")
+        toggle_text = "🔇 Pause Delivery" if not info["muted"] else "🔔 Resume Delivery"
+        toggle_data = b"cmd:mute" if not info["muted"] else b"cmd:unmute"
+        buttons = [
+            [Button.inline("⚙️ Change Format", b"cmd:setformat"),
+             Button.inline(toggle_text, toggle_data)],
+            [Button.inline("📥 Get Proxies", b"get:npvt")],
+        ]
+        await event.respond(msg, parse_mode="md", buttons=buttons)
 
     async def _on_mute(self, event):
         user_id = str(event.sender_id)
+        self._register_user(user_id, str(event.chat_id))
         with self.db.connect() as conn:
             conn.execute("UPDATE bot_users SET muted = 1 WHERE user_id = ?", (user_id,))
         await event.respond(
-            "🔇 Auto-delivery **muted**. You won't receive automatic updates.\n"
-            "Use `/unmute` to resume, or `/get` to download on demand.",
+            "🔇 Auto-delivery **muted**.\n\n"
+            "You won't receive automatic updates.\n"
+            "Use /unmute to resume, or /get to download on demand.",
             parse_mode="md",
         )
 
@@ -608,9 +584,117 @@ class InteractiveBot:
         with self.db.connect() as conn:
             conn.execute("UPDATE bot_users SET muted = 0 WHERE user_id = ?", (user_id,))
         await event.respond(
-            "🔔 Auto-delivery **resumed**. You'll receive updates after each pipeline run.",
+            "🔔 Auto-delivery **resumed**.\n\n"
+            "You'll receive updates after each pipeline run.",
             parse_mode="md",
         )
+
+    # ── Inline button callback handler ─────────────────────────────
+
+    async def _on_callback(self, event):
+        """Handle inline button presses."""
+        data = event.data.decode("utf-8") if event.data else ""
+        user_id = str(event.sender_id)
+        chat_id = event.chat_id
+
+        try:
+            if data.startswith("get:"):
+                fmt = data.split(":", 1)[1]
+                await event.answer(f"Fetching {fmt}...")
+                await self._send_format_to_user(chat_id, fmt)
+
+            elif data.startswith("setfmt:"):
+                fmt = data.split(":", 1)[1]
+                if fmt in _ALL_VALID_FORMATS:
+                    self._set_user_pref(user_id, fmt)
+                    label = _FORMAT_LABELS.get(fmt, fmt)
+                    await event.answer(f"Default set to {fmt}")
+                    await self.client.send_message(
+                        chat_id,
+                        f"✅ Default format set to `{fmt}` ({label})",
+                        parse_mode="md",
+                    )
+
+            elif data.startswith("cmd:"):
+                cmd = data.split(":", 1)[1]
+                await event.answer()
+                if cmd == "formats":
+                    await self._respond_formats(chat_id)
+                elif cmd == "myinfo":
+                    await self._respond_myinfo(chat_id, user_id)
+                elif cmd == "mute":
+                    self._register_user(user_id, str(chat_id))
+                    with self.db.connect() as conn:
+                        conn.execute("UPDATE bot_users SET muted = 1 WHERE user_id = ?", (user_id,))
+                    await self.client.send_message(chat_id, "🔇 Auto-delivery **paused**.", parse_mode="md")
+                elif cmd == "unmute":
+                    self._register_user(user_id, str(chat_id))
+                    with self.db.connect() as conn:
+                        conn.execute("UPDATE bot_users SET muted = 0 WHERE user_id = ?", (user_id,))
+                    await self.client.send_message(chat_id, "🔔 Auto-delivery **resumed**.", parse_mode="md")
+                elif cmd == "setformat":
+                    current = self._get_user_pref(user_id)
+                    label = _FORMAT_LABELS.get(current, current)
+                    buttons = [
+                        [Button.inline("📋 npvt", b"setfmt:npvt"),
+                         Button.inline("🔗 b64sub", b"setfmt:b64sub")],
+                        [Button.inline("📊 decoded.json", b"setfmt:decoded.json"),
+                         Button.inline("🔐 ovpn", b"setfmt:ovpn")],
+                    ]
+                    await self.client.send_message(
+                        chat_id,
+                        f"⚙️ Current: `{current}` ({label})\nPick a new default:",
+                        parse_mode="md",
+                        buttons=buttons,
+                    )
+            else:
+                await event.answer("Unknown action")
+        except Exception as e:
+            logger.exception(f"[GatherX] Callback error: {e}")
+            await event.answer(f"Error: {e}"[:200])
+
+    # ── Callback-friendly response methods ─────────────────────────
+
+    async def _respond_formats(self, chat_id: int):
+        """Send formats list to a chat."""
+        text_fmts = ["npvt", "npvtsub", "conf_lines", "b64sub", "decoded.json"]
+        bin_fmts = ["ovpn", "npv4", "ehi", "hc", "hat", "sip", "nm", "dark"]
+        lines = ["📋 **Available Formats**\n", "**Text-based:**"]
+        for f in text_fmts:
+            lines.append(f"  `{f}` — {_FORMAT_LABELS.get(f, f)}")
+        lines.append("\n**Binary (ZIP):**")
+        for f in bin_fmts:
+            lines.append(f"  `{f}` — {_FORMAT_LABELS.get(f, f)}")
+        lines.append("\nUse `/get <format>` to download.")
+        buttons = [[Button.inline("📋 Get npvt", b"get:npvt"), Button.inline("🔗 Get b64sub", b"get:b64sub")]]
+        await self.client.send_message(chat_id, "\n".join(lines), parse_mode="md", buttons=buttons)
+
+    async def _respond_myinfo(self, chat_id: int, user_id: str):
+        """Send user settings to a chat (callback version)."""
+        info = self._get_user_info(user_id)
+        if not info:
+            await self.client.send_message(chat_id, "Send /start to get started.")
+            return
+        last_del = "Not yet"
+        if info["last_delivered_at"] and info["last_delivered_at"] > 0:
+            last_del = datetime.datetime.fromtimestamp(info["last_delivered_at"]).strftime("%Y-%m-%d %H:%M UTC")
+        muted_icon = "🔇" if info["muted"] else "🔔"
+        muted_str = "Paused" if info["muted"] else "Active"
+        fmt = info.get("default_format", "npvt")
+        msg = (
+            f"⚙️ **Your Settings**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"  Download format: `{fmt}` ({_FORMAT_LABELS.get(fmt, fmt)})\n"
+            f"  Auto-delivery: {muted_icon} {muted_str}\n"
+            f"  Last received: {last_del}"
+        )
+        toggle_text = "🔇 Pause" if not info["muted"] else "🔔 Resume"
+        toggle_data = b"cmd:mute" if not info["muted"] else b"cmd:unmute"
+        buttons = [
+            [Button.inline("⚙️ Change Format", b"cmd:setformat"),
+             Button.inline(toggle_text, toggle_data)],
+            [Button.inline("📥 Get Proxies", b"get:npvt")],
+        ]
+        await self.client.send_message(chat_id, msg, parse_mode="md", buttons=buttons)
 
 
 if __name__ == "__main__":

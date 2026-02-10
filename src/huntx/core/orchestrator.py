@@ -188,8 +188,9 @@ class Orchestrator:
         # ── proxies.txt ───────────────────────────────────────────────
         txt_path = dev_dir / "proxies.txt"
         header = (
-            f"# huntx proxy list — {ts_str}\n"
-            f"# Rolling 48h window — {len(remarked_uris)} unique URIs\n\n"
+            f"# huntx proxy list \u2014 {ts_str}\n"
+            f"# Rolling 48h window \u2014 {len(remarked_uris)} unique URIs\n"
+            f"# One proxy URI per line\n\n"
         )
         txt_path.write_text(header + "\n".join(remarked_uris) + "\n", encoding="utf-8")
         logger.info(

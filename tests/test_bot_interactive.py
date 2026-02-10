@@ -165,12 +165,12 @@ class TestBotConstants(unittest.TestCase):
         self.assertIn("GatherX", WELCOME_TEXT)
 
     def test_welcome_text_contains_all_commands(self):
-        for cmd in ["/get", "/latest", "/formats", "/protocols", "/count",
-                    "/setformat", "/myinfo", "/status", "/mute", "/unmute", "/ping", "/help"]:
+        for cmd in ["/get", "/latest", "/formats",
+                    "/setformat", "/myinfo", "/mute", "/unmute"]:
             self.assertIn(cmd, WELCOME_TEXT, f"Missing command {cmd} in WELCOME_TEXT")
 
     def test_bot_commands_list_length(self):
-        self.assertEqual(len(_BOT_COMMANDS), 13)
+        self.assertEqual(len(_BOT_COMMANDS), 9)
 
     def test_supported_formats_count(self):
         self.assertEqual(len(SUPPORTED_FORMATS), 12)
