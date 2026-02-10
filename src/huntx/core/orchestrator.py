@@ -138,6 +138,25 @@ class Orchestrator:
             except (json.JSONDecodeError, OSError) as e:
                 logger.warning(f"[DevExport] Could not read manifest, starting fresh: {e}")
 
+        # ── Seed manifest from existing outputs/ artifacts ──────────
+        # Ensures dedup even after a reset or when manifest is empty
+        out_dir = Path.cwd() / "outputs"
+        seeded = 0
+        for npvt_file in out_dir.glob("*.npvt"):
+            try:
+                text = npvt_file.read_text(encoding="utf-8", errors="ignore")
+                for line in text.splitlines():
+                    uri = line.strip()
+                    if uri and "://" in uri:
+                        key = strip_proxy_remark(uri)
+                        if key not in manifest:
+                            manifest[key] = now
+                            seeded += 1
+            except OSError as e:
+                logger.warning(f"[DevExport] Could not read {npvt_file.name} for seeding: {e}")
+        if seeded:
+            logger.info(f"[DevExport] Seeded {seeded} URIs from existing outputs/")
+
         # ── Extract new URIs from this run (strip remarks for dedup) ──
         new_uris: list = []
         for res in all_build_results:

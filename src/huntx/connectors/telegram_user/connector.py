@@ -16,6 +16,10 @@ _UNWANTED_MEDIA_ATTRS = ("photo", "video", "gif", "sticker", "voice", "audio", "
 # How many text messages to accumulate before yielding a batch
 _TEXT_BATCH_SIZE = 100
 
+# Max reconnect retries per pass when connection drops
+_MAX_RECONNECT_RETRIES = 3
+_RECONNECT_DELAY_BASE = 2  # seconds, exponential backoff
+
 
 @dataclass
 class SourceItem:
@@ -97,6 +101,22 @@ class TelegramUserConnector:
     # Pass 1: Text messages (fast, no downloads, batched)
     # ------------------------------------------------------------------
 
+    def _reconnect(self, client, retry_num: int):
+        """Reconnect a dropped Telethon client with exponential backoff."""
+        delay = _RECONNECT_DELAY_BASE * (2 ** retry_num)
+        logger.warning(
+            f"[MTProto] Connection lost. Reconnecting in {delay}s "
+            f"(attempt {retry_num + 1}/{_MAX_RECONNECT_RETRIES})..."
+        )
+        time.sleep(delay)
+        try:
+            if client.is_connected():
+                client.disconnect()
+        except Exception:
+            pass
+        client.connect()
+        logger.info("[MTProto] Reconnected.")
+
     def _fetch_text_pass(self, client, peer_entity, last_id, cutoff_text, stats) -> Iterator[SourceItem]:
         """Scan all messages, yield only text content. Skip anything with documents
         (those are handled in pass 2). This is fast because no downloads happen."""
@@ -105,72 +125,87 @@ class TelegramUserConnector:
         yielded = 0
         total_bytes = 0
         batch: List[SourceItem] = []
+        resume_after_id = last_id  # track progress for reconnect resume
 
         logger.info(
             f"[MTProto] ── Pass 1: Text messages ──  peer={self.peer}  min_id={last_id}  "
             f"batch_size={_TEXT_BATCH_SIZE}"
         )
 
-        for msg in client.iter_messages(peer_entity, min_id=last_id, reverse=True):
-            self.offset = max(self.offset, msg.id)
-            scanned += 1
+        retries = 0
+        while retries <= _MAX_RECONNECT_RETRIES:
+          try:
+            for msg in client.iter_messages(peer_entity, min_id=resume_after_id, reverse=True):
+                self.offset = max(self.offset, msg.id)
+                resume_after_id = max(resume_after_id, msg.id)
+                scanned += 1
 
-            # Progress every 500 messages (text scan is fast)
-            if scanned % 500 == 0:
-                elapsed = time.time() - pass_start
-                logger.info(
-                    f"[MTProto] Pass 1: scanned={scanned}  yielded={yielded}  "
-                    f"batches_flushed={yielded // _TEXT_BATCH_SIZE}  elapsed={elapsed:.1f}s"
+                # Progress every 500 messages (text scan is fast)
+                if scanned % 500 == 0:
+                    elapsed = time.time() - pass_start
+                    logger.info(
+                        f"[MTProto] Pass 1: scanned={scanned}  yielded={yielded}  "
+                        f"batches_flushed={yielded // _TEXT_BATCH_SIZE}  elapsed={elapsed:.1f}s"
+                    )
+
+                # Drop unwanted media types
+                has_unwanted = any(getattr(msg, attr, None) for attr in _UNWANTED_MEDIA_ATTRS)
+                if has_unwanted:
+                    stats["skipped_media_type"] += 1
+                    continue
+
+                # Skip documents entirely in this pass (handled in pass 2)
+                has_document = bool(msg.document)
+
+                # Apply text cutoff
+                if cutoff_text > 0 and msg.date.timestamp() < cutoff_text:
+                    if not has_document:
+                        stats["skipped_cutoff"] += 1
+                    continue
+
+                # Extract text content
+                text = msg.message or ""
+                if not text:
+                    if not has_document:
+                        stats["skipped_no_content"] += 1
+                    continue
+
+                # Skip if this is a document-only message (text from doc messages
+                # is also captured here as a separate item, which is fine)
+                stats["text_messages"] += 1
+                text_bytes = text.encode("utf-8", errors="ignore")
+                total_bytes += len(text_bytes)
+                yielded += 1
+
+                item = SourceItem(
+                    external_id=str(msg.id),
+                    data=text_bytes,
+                    metadata={
+                        "filename": f"msg_{msg.id}.txt",
+                        "timestamp": msg.date.timestamp(),
+                        "is_text": True,
+                    },
                 )
+                batch.append(item)
 
-            # Drop unwanted media types
-            has_unwanted = any(getattr(msg, attr, None) for attr in _UNWANTED_MEDIA_ATTRS)
-            if has_unwanted:
-                stats["skipped_media_type"] += 1
-                continue
+                # Flush batch
+                if len(batch) >= _TEXT_BATCH_SIZE:
+                    logger.info(
+                        f"[MTProto] Pass 1: flushing batch of {len(batch)} text items  "
+                        f"(total yielded={yielded})"
+                    )
+                    yield from batch
+                    batch.clear()
 
-            # Skip documents entirely in this pass (handled in pass 2)
-            has_document = bool(msg.document)
+            break  # completed successfully, exit retry loop
 
-            # Apply text cutoff
-            if cutoff_text > 0 and msg.date.timestamp() < cutoff_text:
-                if not has_document:
-                    stats["skipped_cutoff"] += 1
-                continue
-
-            # Extract text content
-            text = msg.message or ""
-            if not text:
-                if not has_document:
-                    stats["skipped_no_content"] += 1
-                continue
-
-            # Skip if this is a document-only message (text from doc messages
-            # is also captured here as a separate item, which is fine)
-            stats["text_messages"] += 1
-            text_bytes = text.encode("utf-8", errors="ignore")
-            total_bytes += len(text_bytes)
-            yielded += 1
-
-            item = SourceItem(
-                external_id=str(msg.id),
-                data=text_bytes,
-                metadata={
-                    "filename": f"msg_{msg.id}.txt",
-                    "timestamp": msg.date.timestamp(),
-                    "is_text": True,
-                },
-            )
-            batch.append(item)
-
-            # Flush batch
-            if len(batch) >= _TEXT_BATCH_SIZE:
-                logger.info(
-                    f"[MTProto] Pass 1: flushing batch of {len(batch)} text items  "
-                    f"(total yielded={yielded})"
-                )
-                yield from batch
-                batch.clear()
+          except ConnectionError as e:
+            retries += 1
+            if retries > _MAX_RECONNECT_RETRIES:
+                logger.error(f"[MTProto] Pass 1: exhausted {_MAX_RECONNECT_RETRIES} reconnect retries: {e}")
+                raise
+            self._reconnect(client, retries - 1)
+            logger.info(f"[MTProto] Pass 1: resuming from min_id={resume_after_id} after reconnect")
 
         # Flush remaining
         if batch:
@@ -200,79 +235,96 @@ class TelegramUserConnector:
         scanned = 0
         yielded = 0
         total_bytes = 0
+        resume_after_id = last_id  # track progress for reconnect resume
 
         logger.info(
             f"[MTProto] ── Pass 2: Documents (server-filtered) ──  peer={self.peer}  min_id={last_id}"
         )
 
-        for msg in client.iter_messages(
-            peer_entity, min_id=last_id, reverse=True,
-            filter=InputMessagesFilterDocument,
-        ):
-            self.offset = max(self.offset, msg.id)
-            scanned += 1
+        retries = 0
+        while retries <= _MAX_RECONNECT_RETRIES:
+          try:
+            for msg in client.iter_messages(
+                peer_entity, min_id=resume_after_id, reverse=True,
+                filter=InputMessagesFilterDocument,
+            ):
+                self.offset = max(self.offset, msg.id)
+                resume_after_id = max(resume_after_id, msg.id)
+                scanned += 1
 
-            # Progress every 50 documents (downloads are slow)
-            if scanned % 50 == 0:
-                elapsed = time.time() - pass_start
-                logger.info(
-                    f"[MTProto] Pass 2: scanned={scanned}  yielded={yielded}  "
-                    f"bytes={total_bytes / 1024:.1f} KB  elapsed={elapsed:.1f}s"
-                )
+                # Progress every 50 documents (downloads are slow)
+                if scanned % 50 == 0:
+                    elapsed = time.time() - pass_start
+                    logger.info(
+                        f"[MTProto] Pass 2: scanned={scanned}  yielded={yielded}  "
+                        f"bytes={total_bytes / 1024:.1f} KB  elapsed={elapsed:.1f}s"
+                    )
 
-            # Apply file cutoff
-            if cutoff_file > 0 and msg.date.timestamp() < cutoff_file:
-                stats["skipped_cutoff"] += 1
-                continue
-
-            if not msg.document:
-                continue
-
-            try:
-                f = msg.file
-
-                # APK skip
-                if f:
-                    is_apk = False
-                    if f.name and f.name.lower().endswith(".apk"):
-                        is_apk = True
-                    elif f.ext and f.ext.lower() == ".apk":
-                        is_apk = True
-                    if is_apk:
-                        logger.debug(f"[MTProto] Skipping APK in msg {msg.id}: {f.name or '?'}")
-                        stats["skipped_apk"] += 1
-                        continue
-
-                # Size limit (25 MB)
-                if f and f.size and f.size > 25 * 1024 * 1024:
-                    size_mb = f.size / (1024 * 1024)
-                    logger.info(f"[MTProto] Skipping oversized file msg {msg.id} ({size_mb:.1f} MB)")
-                    stats["skipped_size_limit"] += 1
+                # Apply file cutoff
+                if cutoff_file > 0 and msg.date.timestamp() < cutoff_file:
+                    stats["skipped_cutoff"] += 1
                     continue
 
-                data = client.download_media(msg, file=bytes)
-                if data:
-                    filename = "unknown"
-                    if f and f.name:
-                        filename = f.name
-                    else:
-                        ext = ""
-                        if f and f.ext:
-                            ext = f.ext
-                        filename = f"media_{msg.id}{ext}"
+                if not msg.document:
+                    continue
 
-                    total_bytes += len(data)
-                    stats["media_messages"] += 1
-                    yielded += 1
+                try:
+                    f = msg.file
 
-                    yield SourceItem(
-                        external_id=str(msg.id) + "_media",
-                        data=data,
-                        metadata={"filename": filename, "timestamp": msg.date.timestamp()},
-                    )
-            except Exception as e:
-                logger.error(f"[MTProto] Download failed msg {msg.id}: {e}")
-                stats["download_errors"] += 1
+                    # APK skip
+                    if f:
+                        is_apk = False
+                        if f.name and f.name.lower().endswith(".apk"):
+                            is_apk = True
+                        elif f.ext and f.ext.lower() == ".apk":
+                            is_apk = True
+                        if is_apk:
+                            logger.debug(f"[MTProto] Skipping APK in msg {msg.id}: {f.name or '?'}")
+                            stats["skipped_apk"] += 1
+                            continue
+
+                    # Size limit (25 MB)
+                    if f and f.size and f.size > 25 * 1024 * 1024:
+                        size_mb = f.size / (1024 * 1024)
+                        logger.info(f"[MTProto] Skipping oversized file msg {msg.id} ({size_mb:.1f} MB)")
+                        stats["skipped_size_limit"] += 1
+                        continue
+
+                    data = client.download_media(msg, file=bytes)
+                    if data:
+                        filename = "unknown"
+                        if f and f.name:
+                            filename = f.name
+                        else:
+                            ext = ""
+                            if f and f.ext:
+                                ext = f.ext
+                            filename = f"media_{msg.id}{ext}"
+
+                        total_bytes += len(data)
+                        stats["media_messages"] += 1
+                        yielded += 1
+
+                        yield SourceItem(
+                            external_id=str(msg.id) + "_media",
+                            data=data,
+                            metadata={"filename": filename, "timestamp": msg.date.timestamp()},
+                        )
+                except ConnectionError:
+                    raise  # let outer handler deal with reconnect
+                except Exception as e:
+                    logger.error(f"[MTProto] Download failed msg {msg.id}: {e}")
+                    stats["download_errors"] += 1
+
+            break  # completed successfully, exit retry loop
+
+          except ConnectionError as e:
+            retries += 1
+            if retries > _MAX_RECONNECT_RETRIES:
+                logger.error(f"[MTProto] Pass 2: exhausted {_MAX_RECONNECT_RETRIES} reconnect retries: {e}")
+                raise
+            self._reconnect(client, retries - 1)
+            logger.info(f"[MTProto] Pass 2: resuming from min_id={resume_after_id} after reconnect")
 
         pass_dur = time.time() - pass_start
         rate = scanned / pass_dur if pass_dur > 0 else 0
