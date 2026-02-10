@@ -27,6 +27,9 @@ class TestProdConfig(unittest.TestCase):
         # Validate using pydantic
         self.assertIsNotNone(config)
 
+        # Validate sources count (49 sources as of latest config)
+        self.assertGreaterEqual(len(config.sources), 49, "Expected at least 49 sources")
+
         # Validate destinations
         route = next((r for r in config.publishing.routes if r.name == "all_sources"), None)
         self.assertIsNotNone(route, "Route 'all_sources' not found")
@@ -35,6 +38,15 @@ class TestProdConfig(unittest.TestCase):
         dest = route.destinations[0]
         self.assertEqual(dest.chat_id, "8526064109")
         self.assertEqual(dest.mode, "post_on_change")
+
+        # Validate formats count (12 formats)
+        self.assertEqual(len(route.formats), 12, "Expected 12 formats in all_sources route")
+
+        # Validate from_sources matches sources count
+        self.assertEqual(
+            len(route.from_sources), len(config.sources),
+            "from_sources count should match total sources count"
+        )
 
         # Validate logic (duplicate IDs etc)
         validate_config(config)

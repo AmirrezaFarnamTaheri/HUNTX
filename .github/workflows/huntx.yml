@@ -9,10 +9,22 @@ on:
         description: "Number of parallel ingestion workers"
         required: false
         default: "2"
-      bot_timeout:
-        description: "Post-pipeline bot window (seconds, 0=skip)"
+      msg_fresh_hours:
+        description: "Text lookback hours for first-seen sources"
         required: false
-        default: "60"
+        default: "2"
+      file_fresh_hours:
+        description: "File/media lookback hours for first-seen sources"
+        required: false
+        default: "48"
+      msg_subsequent_hours:
+        description: "Text lookback hours on subsequent runs (0=all new since last)"
+        required: false
+        default: "0"
+      file_subsequent_hours:
+        description: "File/media lookback hours on subsequent runs (0=all new since last)"
+        required: false
+        default: "0"
       reset:
         description: "Factory reset before run (wipe all state/data/outputs)"
         required: false
@@ -28,7 +40,10 @@ concurrency:
 
 env:
   MAX_WORKERS: ${{ github.event.inputs.max_workers || '2' }}
-  BOT_TIMEOUT: ${{ github.event.inputs.bot_timeout || '60' }}
+  MSG_FRESH_HOURS: ${{ github.event.inputs.msg_fresh_hours || '2' }}
+  FILE_FRESH_HOURS: ${{ github.event.inputs.file_fresh_hours || '48' }}
+  MSG_SUBSEQUENT_HOURS: ${{ github.event.inputs.msg_subsequent_hours || '0' }}
+  FILE_SUBSEQUENT_HOURS: ${{ github.event.inputs.file_subsequent_hours || '0' }}
 
 jobs:
   run:
@@ -108,7 +123,6 @@ jobs:
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_USER_SESSION: ${{ secrets.TELEGRAM_USER_SESSION }}
           HUNTX_MAX_WORKERS: ${{ env.MAX_WORKERS }}
-          HUNTX_BOT_TIMEOUT: ${{ env.BOT_TIMEOUT }}
           LOG_LEVEL: INFO
         run: |
           huntx \
@@ -116,7 +130,10 @@ jobs:
             --data-dir persist/data \
             --db-path persist/state.db \
             run \
-            --bot-timeout ${{ env.BOT_TIMEOUT }}
+            --msg-fresh-hours ${{ env.MSG_FRESH_HOURS }} \
+            --file-fresh-hours ${{ env.FILE_FRESH_HOURS }} \
+            --msg-subsequent-hours ${{ env.MSG_SUBSEQUENT_HOURS }} \
+            --file-subsequent-hours ${{ env.FILE_SUBSEQUENT_HOURS }}
 
       - name: Verify & package output
         env:

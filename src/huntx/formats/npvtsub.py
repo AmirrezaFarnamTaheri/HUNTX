@@ -2,7 +2,7 @@ from typing import List, Dict, Any
 from .base import FormatHandler
 from .common.normalize_text import normalize_text
 from .common.hashing import hash_string
-from .npvt import _PROXY_SCHEMES, _is_proxy_line, _extract_proxy_uris
+from .npvt import _PROXY_SCHEMES, _is_proxy_line, _extract_proxy_uris, strip_proxy_remark, add_clean_remark
 import base64
 
 
@@ -44,30 +44,34 @@ class NpvtSubHandler(FormatHandler):
 
             # Fast path: line starts with a proxy scheme
             if _is_proxy_line(clean):
-                h = hash_string(clean)
+                stripped = strip_proxy_remark(clean)
+                h = hash_string(stripped)
                 if h not in seen_hashes:
                     seen_hashes.add(h)
-                    records.append({"unique_hash": h, "data": {"line": clean}})
+                    records.append({"unique_hash": h, "data": {"line": stripped}})
                 continue
 
             # Slow path: extract URIs embedded mid-line
             uris = _extract_proxy_uris(clean)
             for uri in uris:
                 uri = uri.strip()
-                h = hash_string(uri)
+                stripped = strip_proxy_remark(uri)
+                h = hash_string(stripped)
                 if h not in seen_hashes:
                     seen_hashes.add(h)
-                    records.append({"unique_hash": h, "data": {"line": uri}})
+                    records.append({"unique_hash": h, "data": {"line": stripped}})
 
         return records
 
     def build(self, records: List[Dict[str, Any]]) -> bytes:
         lines = []
         seen: set = set()
+        remark_counter: dict = {}
         for r in records:
             line = r["data"]["line"]
-            if line not in seen:
-                lines.append(line)
-                seen.add(line)
+            stripped = strip_proxy_remark(line)
+            if stripped not in seen:
+                seen.add(stripped)
+                lines.append(add_clean_remark(stripped, remark_counter))
         content = "\n".join(lines)
         return content.encode("utf-8")

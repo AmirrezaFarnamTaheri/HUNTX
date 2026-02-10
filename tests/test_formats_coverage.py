@@ -18,7 +18,7 @@ class TestFormatsCoverage(unittest.TestCase):
         content = b"vless://uuid@host:443?key=val#remark\nvmess://base64"
         lines = fmt.parse(content, {})
         self.assertEqual(len(lines), 2)
-        self.assertEqual(lines[0]["data"]["line"], "vless://uuid@host:443?key=val#remark")
+        self.assertEqual(lines[0]["data"]["line"], "vless://uuid@host:443?key=val")
 
         # Test parse base64
         import base64
@@ -76,7 +76,7 @@ class TestFormatsCoverage(unittest.TestCase):
         content = b"vless://uuid@host:443#tag\nvmess://base64\ngarbage"
         records = fmt.parse(content, {})
         self.assertEqual(len(records), 2)
-        self.assertEqual(records[0]["data"]["line"], "vless://uuid@host:443#tag")
+        self.assertEqual(records[0]["data"]["line"], "vless://uuid@host:443")
 
         # Test base64 decode path
         import base64

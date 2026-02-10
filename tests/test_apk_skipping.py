@@ -94,13 +94,14 @@ class TestApkSkipping(unittest.TestCase):
 
             items = list(connector.list_new())
 
-            # Text dropped due to hybrid content logic
-            self.assertEqual(len(items), 1)
+            # Bot API now yields text AND document as separate items
+            self.assertEqual(len(items), 2)
 
             text_item = next((i for i in items if i.external_id.endswith("_text")), None)
             file_item = next((i for i in items if not i.external_id.endswith("_text")), None)
 
-            self.assertIsNone(text_item)
+            self.assertIsNotNone(text_item)
+            self.assertEqual(text_item.data, b"Some config text")
 
             self.assertIsNotNone(file_item)
             self.assertEqual(file_item.data, b"conf_content")
@@ -112,12 +113,17 @@ class TestApkSkipping(unittest.TestCase):
         mock_client = MagicMock()
         self._set_mock_client(connector, mock_client)
 
-        # Mock message with APK
+        _unwanted = ("photo", "video", "gif", "sticker", "voice", "audio", "video_note")
+
+        # Mock message with APK document
         msg_apk = MagicMock()
         msg_apk.id = 300
         msg_apk.date.timestamp.return_value = time.time()
         msg_apk.message = None
         msg_apk.media = True
+        msg_apk.document = True
+        for attr in _unwanted:
+            setattr(msg_apk, attr, None)
 
         file_obj = MagicMock()
         file_obj.name = "bad.apk"
@@ -139,12 +145,17 @@ class TestApkSkipping(unittest.TestCase):
         mock_client = MagicMock()
         self._set_mock_client(connector, mock_client)
 
+        _unwanted = ("photo", "video", "gif", "sticker", "voice", "audio", "video_note")
+
         # Mock message with Text AND valid file
         msg_mixed = MagicMock()
         msg_mixed.id = 400
         msg_mixed.date.timestamp.return_value = time.time()
         msg_mixed.message = "Config text"
         msg_mixed.media = True
+        msg_mixed.document = True
+        for attr in _unwanted:
+            setattr(msg_mixed, attr, None)
 
         file_obj = MagicMock()
         file_obj.name = "good.ovpn"
@@ -158,13 +169,13 @@ class TestApkSkipping(unittest.TestCase):
 
         items = list(connector.list_new())
 
-        # Text dropped due to hybrid content logic
-        self.assertEqual(len(items), 1)
+        # Two-pass: pass 1 yields text content (msg has text + document, text is
+        # extracted regardless of document presence). Pass 2 yields document download.
+        self.assertEqual(len(items), 2)
 
-        # Check items
-        text_ids = [i.external_id for i in items]
-        self.assertNotIn("400", text_ids)
-        self.assertIn("400_media", text_ids)
+        ext_ids = [i.external_id for i in items]
+        self.assertIn("400", ext_ids)       # text from pass 1
+        self.assertIn("400_media", ext_ids)  # document from pass 2
 
 
 if __name__ == "__main__":

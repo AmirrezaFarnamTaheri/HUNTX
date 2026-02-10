@@ -18,6 +18,7 @@ from ..pipeline.ingest import IngestionPipeline
 from ..pipeline.transform import TransformPipeline
 from ..pipeline.build import BuildPipeline
 from ..pipeline.publish import PublishPipeline
+from ..formats.npvt import strip_proxy_remark, add_clean_remark
 from ..config.schema import AppConfig
 
 logger = logging.getLogger(__name__)
@@ -137,7 +138,7 @@ class Orchestrator:
             except (json.JSONDecodeError, OSError) as e:
                 logger.warning(f"[DevExport] Could not read manifest, starting fresh: {e}")
 
-        # ── Extract new URIs from this run ────────────────────────────
+        # ── Extract new URIs from this run (strip remarks for dedup) ──
         new_uris: list = []
         for res in all_build_results:
             fmt = res.get("format", "")
@@ -150,7 +151,7 @@ class Orchestrator:
             for line in text.splitlines():
                 uri = line.strip()
                 if uri and "://" in uri:
-                    new_uris.append(uri)
+                    new_uris.append(strip_proxy_remark(uri))
 
         added = 0
         for uri in new_uris:
@@ -180,13 +181,17 @@ class Orchestrator:
         sorted_uris = sorted(manifest.keys(), key=lambda u: (-manifest[u], u))
         ts_str = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
 
+        # ── Add clean protocol-N remarks for output ────────────────────
+        remark_counter: dict = {}
+        remarked_uris = [add_clean_remark(u, remark_counter) for u in sorted_uris]
+
         # ── proxies.txt ───────────────────────────────────────────────
         txt_path = dev_dir / "proxies.txt"
         header = (
             f"# huntx proxy list — {ts_str}\n"
-            f"# Rolling 48h window — {len(sorted_uris)} unique URIs\n\n"
+            f"# Rolling 48h window — {len(remarked_uris)} unique URIs\n\n"
         )
-        txt_path.write_text(header + "\n".join(sorted_uris) + "\n", encoding="utf-8")
+        txt_path.write_text(header + "\n".join(remarked_uris) + "\n", encoding="utf-8")
         logger.info(
             f"[DevExport] Written {txt_path.name} "
             f"({len(sorted_uris)} URIs, {txt_path.stat().st_size / 1024:.1f} KB)"
@@ -194,7 +199,7 @@ class Orchestrator:
 
         # ── proxies_b64sub.txt ────────────────────────────────────────
         b64_path = dev_dir / "proxies_b64sub.txt"
-        plain = "\n".join(sorted_uris)
+        plain = "\n".join(remarked_uris)
         b64_payload = base64.b64encode(plain.encode("utf-8")).decode("ascii")
         b64_path.write_text(b64_payload + "\n", encoding="utf-8")
         logger.info(
@@ -209,8 +214,8 @@ class Orchestrator:
             "_window_hours": 48,
             "_count": len(sorted_uris),
             "proxies": [
-                {"uri": uri, "last_seen": manifest[uri]}
-                for uri in sorted_uris
+                {"uri": remarked, "last_seen": manifest[raw]}
+                for raw, remarked in zip(sorted_uris, remarked_uris)
             ],
         }
         json_path.write_text(

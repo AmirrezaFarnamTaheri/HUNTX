@@ -13,10 +13,10 @@ class TestBuildPipeline(unittest.TestCase):
     def test_build_success(self):
         route_config = {"name": "route1", "formats": ["fmt1"], "from_sources": ["src1"]}
 
-        # Updated mock to return dicts instead of strings, to match expected structure
+        # Records now include record_type for per-format filtering in build pipeline
         self.state_repo.get_records_for_build.return_value = [
-            {"unique_hash": "hash1", "data": "data1", "source_id": "src1"},
-            {"unique_hash": "hash2", "data": "data2", "source_id": "src1"},
+            {"record_type": "fmt1", "data": "data1"},
+            {"record_type": "fmt1", "data": "data2"},
         ]
 
         handler = Mock()

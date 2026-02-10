@@ -1,9 +1,10 @@
+import base64
+import json
 import re
 from typing import List, Dict, Any
 from .base import FormatHandler
 from .common.normalize_text import normalize_text
 from .common.hashing import hash_string
-import base64
 
 # All known proxy URI schemes
 _PROXY_SCHEMES = (
@@ -35,6 +36,66 @@ def _is_proxy_line(line: str) -> bool:
 def _extract_proxy_uris(text: str) -> List[str]:
     """Extract all proxy URIs from text, even if embedded mid-line."""
     return _PROXY_URI_RE.findall(text)
+
+
+def _b64_decode_safe(data: str) -> str:
+    """Base64 decode with auto-padding, supports URL-safe variant."""
+    data = data.replace("-", "+").replace("_", "/")
+    padding = 4 - len(data) % 4
+    if padding != 4:
+        data += "=" * padding
+    return base64.b64decode(data).decode("utf-8", errors="ignore")
+
+
+def strip_proxy_remark(uri: str) -> str:
+    """Strip the remark/tag from a proxy URI for deduplication.
+
+    For vmess:// — decode base64 JSON, remove 'ps' field, re-encode
+    deterministically so identical proxies with different remarks hash the same.
+    For all others — strip the #fragment.
+    """
+    if uri.startswith("vmess://"):
+        try:
+            b64 = uri[8:]
+            raw = _b64_decode_safe(b64)
+            obj = json.loads(raw)
+            obj.pop("ps", None)
+            canonical = json.dumps(obj, sort_keys=True, separators=(',', ':'))
+            return "vmess://" + base64.b64encode(canonical.encode()).decode()
+        except Exception:
+            pass
+    # For all other protocols: strip #fragment
+    idx = uri.rfind("#")
+    if idx > 0:
+        return uri[:idx]
+    return uri
+
+
+def add_clean_remark(uri: str, counter: dict) -> str:
+    """Replace any existing remark with a clean protocol-N tag.
+
+    For vmess:// — set 'ps' field in decoded JSON.
+    For all others — append #protocol-N.
+    """
+    scheme = uri.split("://")[0].lower() if "://" in uri else "proxy"
+    counter[scheme] = counter.get(scheme, 0) + 1
+    tag = f"{scheme}-{counter[scheme]}"
+
+    if uri.startswith("vmess://"):
+        try:
+            b64 = uri[8:]
+            raw = _b64_decode_safe(b64)
+            obj = json.loads(raw)
+            obj["ps"] = tag
+            encoded = json.dumps(obj, separators=(',', ':')).encode()
+            return "vmess://" + base64.b64encode(encoded).decode()
+        except Exception:
+            return uri
+
+    # Strip existing fragment, add clean one
+    idx = uri.rfind("#")
+    base = uri[:idx] if idx > 0 else uri
+    return f"{base}#{tag}"
 
 
 class NpvtHandler(FormatHandler):
@@ -74,27 +135,29 @@ class NpvtHandler(FormatHandler):
 
             # Fast path: line starts with a proxy scheme (most common case)
             if _is_proxy_line(clean):
-                h = hash_string(clean)
+                stripped = strip_proxy_remark(clean)
+                h = hash_string(stripped)
                 if h not in seen_hashes:
                     seen_hashes.add(h)
-                    records.append({"unique_hash": h, "data": {"line": clean}})
+                    records.append({"unique_hash": h, "data": {"line": stripped}})
                 continue
 
             # Slow path: extract URIs embedded mid-line
-            # (e.g., "🔴 New config vmess://abc..." or "Use: vless://xyz...")
             uris = _extract_proxy_uris(clean)
             for uri in uris:
                 uri = uri.strip()
-                h = hash_string(uri)
+                stripped = strip_proxy_remark(uri)
+                h = hash_string(stripped)
                 if h not in seen_hashes:
                     seen_hashes.add(h)
-                    records.append({"unique_hash": h, "data": {"line": uri}})
+                    records.append({"unique_hash": h, "data": {"line": stripped}})
 
         return records
 
     def build(self, records: List[Dict[str, Any]]) -> bytes:
         lines = []
         seen = set()
+        remark_counter: dict = {}
         for r in records:
             line = None
             if isinstance(r, dict):
@@ -103,9 +166,12 @@ class NpvtHandler(FormatHandler):
                 elif "line" in r:
                     line = r["line"]
 
-            if line and line not in seen:
-                lines.append(line)
-                seen.add(line)
+            if not line:
+                continue
+            stripped = strip_proxy_remark(line)
+            if stripped not in seen:
+                seen.add(stripped)
+                lines.append(add_clean_remark(stripped, remark_counter))
 
         content = "\n".join(lines)
         return content.encode("utf-8")

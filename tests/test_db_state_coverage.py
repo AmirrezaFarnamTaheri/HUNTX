@@ -78,7 +78,8 @@ class TestDBStateCoverage(unittest.TestCase):
 
         records = self.repo.get_records_for_build(["fmt1"], ["src1"])
         self.assertEqual(len(records), 1)
-        self.assertEqual(records[0]["data"], "foo")
+        self.assertEqual(records[0]["record_type"], "fmt1")
+        self.assertEqual(records[0]["data"], {"data": "foo"})
 
         records = self.repo.get_records_for_build(["fmt1"], ["src2"])
         self.assertEqual(len(records), 0)

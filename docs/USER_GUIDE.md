@@ -1,4 +1,4 @@
-# HUNTX User Guide
+# HuntX User Guide
 
 ## Table of Contents
 
@@ -9,14 +9,14 @@
 5. [CLI Commands](#cli-commands)
 6. [Running on GitHub Actions](#running-on-github-actions)
 7. [Telegram User Session (MTProto)](#telegram-user-session-mtproto)
-8. [Interactive Bot](#interactive-bot)
+8. [GatherX Bot](#gatherx-bot)
 9. [Media Filtering](#media-filtering)
 10. [Architecture](#architecture)
 11. [Output Artifacts](#output-artifacts)
 
 ## Configuration
 
-HUNTX is controlled by a YAML configuration file with environment variable expansion (`${VAR}`).
+HuntX is controlled by a YAML configuration file with environment variable expansion (`${VAR}`).
 
 ### Sources
 
@@ -132,23 +132,23 @@ All of the following URI schemes are detected, parsed, and decoded:
 ## Running Locally
 
 ```bash
-HUNTX --config configs/config.prod.yaml run
+huntx --config configs/config.prod.yaml run
 ```
 
 Set `HUNTX_MAX_WORKERS` to control parallelism (default: 2):
 
 ```bash
-HUNTX_MAX_WORKERS=5 HUNTX --config my_config.yaml run
+HUNTX_MAX_WORKERS=5 huntx --config my_config.yaml run
 ```
 
 ## CLI Commands
 
-### `HUNTX run`
+### `huntx run`
 
-Run the full pipeline (ingest → transform → build → publish → cleanup).
+Run the full pipeline (ingest → transform → build → publish → auto-deliver → cleanup).
 
 ```bash
-HUNTX --config my_config.yaml run [OPTIONS]
+huntx --config my_config.yaml run [OPTIONS]
 ```
 
 | Flag | Description | Default |
@@ -157,38 +157,60 @@ HUNTX --config my_config.yaml run [OPTIONS]
 | `--file-fresh-hours N` | File lookback hours for first-seen source | `48` |
 | `--msg-subsequent-hours N` | Text lookback on subsequent runs (0=all new) | `0` |
 | `--file-subsequent-hours N` | File lookback on subsequent runs (0=all new) | `0` |
-| `--bot-timeout N` | Run interactive bot for N seconds after pipeline | `0` (skip) |
+| `--no-deliver` | Skip automatic subscription delivery after pipeline | — |
 
-### `HUNTX bot`
+After the pipeline completes, all output files are automatically sent to every registered GatherX bot user (unless `--no-deliver` is passed).
 
-Run the interactive Telegram bot persistently (stays connected, responds to commands).
+### `huntx bot`
+
+Run the GatherX bot in persistent interactive mode (listens forever for DM commands).
 
 ```bash
-HUNTX bot [--token TOKEN] [--api-id ID] [--api-hash HASH]
+huntx bot [--token TOKEN] [--api-id ID] [--api-hash HASH]
 ```
 
 Credentials default to `PUBLISH_BOT_TOKEN`/`TELEGRAM_TOKEN`, `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`.
 
-### `HUNTX clean`
+### `huntx clean`
 
 Delete all data, state, cache, and logs for a fresh start.
 
 ```bash
-HUNTX clean [--yes]
+huntx clean [--yes]
 ```
 
 Deletes: raw store, output, archive, state DB, rejects, and logs.
+
+### `huntx reset`
+
+Full factory reset — wipes ALL data, state, caches, outputs, and source offsets.
+
+```bash
+huntx reset [--yes]
+```
+
+Requires typing `RESET` to confirm, or pass `--yes` to skip.
 
 ## Running on GitHub Actions
 
 1. **Fork the repository**
 2. **Add Secrets** (Settings → Secrets → Actions):
    - `TELEGRAM_TOKEN` — Bot API token for ingestion
-   - `PUBLISH_BOT_TOKEN` — separate bot token for publishing (optional)
+   - `PUBLISH_BOT_TOKEN` — separate bot token for GatherX (optional)
    - `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_USER_SESSION` — for MTProto
-3. **Enable the workflow** — `.github/workflows/HUNTX.yml` runs every 3 hours
-4. **Manual trigger** — use "Run workflow" with custom `max_workers` input
-5. State is persisted on an orphan branch `HUNTX-state`
+3. **Enable the workflow** — `.github/workflows/huntx.yml` runs every 3 hours
+4. **Manual trigger** — use "Run workflow" with configurable inputs:
+
+| Input | Description | Default |
+|---|---|---|
+| `max_workers` | Parallel ingestion workers | `2` |
+| `msg_fresh_hours` | Text lookback for first-seen sources | `2` |
+| `file_fresh_hours` | File/media lookback for first-seen sources | `48` |
+| `msg_subsequent_hours` | Text lookback on subsequent runs | `0` |
+| `file_subsequent_hours` | File/media lookback on subsequent runs | `0` |
+| `reset` | Factory reset before run (checkbox) | `false` |
+
+5. State is persisted on the `huntx-state` orphan branch
 
 ## Telegram User Session (MTProto)
 
@@ -203,22 +225,50 @@ Unlocks history access, public channel reading, and text content ingestion.
    ```
 3. Save as `TELEGRAM_USER_SESSION` in GitHub Secrets or env vars
 
-## Interactive Bot
+## GatherX Bot
 
-The bot can run persistently (`HUNTX bot`) or briefly after each pipeline run (`--bot-timeout`).
+**GatherX** is the user-facing Telegram bot. Anyone can DM it to register and receive proxy configs.
+
+### How It Works
+
+1. User sends `/start` → auto-registered + receives latest proxy list
+2. After every `huntx run` → bot auto-sends all outputs to every registered user
+3. Users can request specific formats on demand with `/get`
+4. Users can set a preferred format with `/setformat`
+5. Users can `/mute` to opt out, `/unmute` to opt back in
+
+### Running the Bot
+
+- **After pipeline** (automatic): `huntx run` auto-delivers to all users
+- **Persistent mode**: `huntx bot` listens for DM commands forever
+
+### Bot Commands
 
 | Command | Description |
 |---|---|
-| `/start`, `/help` | Show help message |
-| `/latest [format] [days]` | Get latest artifacts (default: all, 4 days) |
-| `/status` | Pipeline statistics (sources, files, records) |
-| `/run` | Show last pipeline run info per source |
-| `/formats` | List all supported formats |
-| `/subscribe <format> [hours]` | Auto-deliver every N hours (default: 6) |
-| `/unsubscribe [format]` | Remove subscription(s) |
-| `/clean` | Show cleanup instructions |
+| `/start` | Register and receive latest configs |
+| `/get [format]` | Download configs (default: your preferred format) |
+| `/latest [days]` | Get all recent artifacts (default: 4 days) |
+| `/formats` | List all supported formats with descriptions |
+| `/protocols` | Show all supported proxy protocols |
+| `/count` | Proxy URI count per protocol (with bar chart) |
+| `/setformat <fmt>` | Set your preferred default format |
+| `/myinfo` | Your account info and preferences |
+| `/status` | Pipeline statistics (sources, files, records, users) |
+| `/mute` | Stop auto-delivery |
+| `/unmute` | Resume auto-delivery |
+| `/ping` | Check if bot is alive |
+| `/help` | Show help message |
 
 The bot registers its command menu via `setMyCommands` on startup, so commands appear in the Telegram menu.
+
+### User Data
+
+User data is stored in the `bot_users` SQLite table:
+- `user_id`, `chat_id`, `username` — identity
+- `default_format` — preferred format for `/get` (default: `npvt`)
+- `muted` — opt-out of auto-delivery
+- `last_delivered_at` — timestamp of last delivery
 
 ## Media Filtering
 

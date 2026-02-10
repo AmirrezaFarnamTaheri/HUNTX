@@ -30,8 +30,8 @@ def main():
                             help="Text message lookback hours on subsequent runs (0=all new, default: 0)")
     run_parser.add_argument("--file-subsequent-hours", type=float, default=0,
                             help="File/media lookback hours on subsequent runs (0=all new, default: 0)")
-    run_parser.add_argument("--bot-timeout", type=int, default=None,
-                            help="Run interactive bot after pipeline for N seconds (default: from env or skip)")
+    run_parser.add_argument("--no-deliver", action="store_true",
+                            help="Skip automatic subscription delivery after pipeline")
 
     # bot subcommand — persistent standalone bot
     bot_parser = subparsers.add_parser("bot", help="Run the interactive bot persistently")
@@ -71,8 +71,8 @@ def main():
 def _cmd_run(args):
     from ..core.orchestrator import Orchestrator
 
-    max_workers = int(os.environ.get("huntx_MAX_WORKERS", "2"))
-    logger.info(f"Starting huntx — config={args.config}, workers={max_workers}")
+    max_workers = int(os.environ.get("HUNTX_MAX_WORKERS", "2"))
+    logger.info(f"Starting HuntX — config={args.config}, workers={max_workers}")
 
     fetch_windows = {
         "msg_fresh_hours": args.msg_fresh_hours,
@@ -89,12 +89,9 @@ def _cmd_run(args):
         logger.exception(f"Fatal error: {e}")
         sys.exit(1)
 
-    # Optionally run bot after pipeline
-    bot_timeout = args.bot_timeout
-    if bot_timeout is None:
-        bot_timeout = int(os.environ.get("huntx_BOT_TIMEOUT", "0"))
-    if bot_timeout > 0:
-        _run_bot_with_timeout(bot_timeout)
+    # Auto-deliver subscription updates to all subscribers
+    if not args.no_deliver:
+        _deliver_updates()
 
 
 def _cmd_bot(args):
@@ -113,9 +110,9 @@ def _cmd_bot(args):
         logger.error("API ID and hash required. Set TELEGRAM_API_ID/TELEGRAM_API_HASH or use --api-id/--api-hash.")
         sys.exit(1)
 
-    logger.info("Starting interactive bot in persistent mode...")
+    logger.info("Starting GatherX bot in persistent mode...")
     bot = InteractiveBot(token, api_id, api_hash)
-    asyncio.run(bot.start(timeout=0))
+    asyncio.run(bot.start())
 
 
 def _cmd_clean(args):
@@ -219,8 +216,8 @@ def _cmd_reset(args):
     print("All sources will be treated as first-seen on the next run.")
 
 
-def _run_bot_with_timeout(timeout: int):
-    """Run the interactive bot for a limited time after pipeline."""
+def _deliver_updates():
+    """Auto-deliver subscription updates to all subscribers after pipeline."""
     import asyncio
     from ..bot.interactive import InteractiveBot
 
@@ -229,12 +226,12 @@ def _run_bot_with_timeout(timeout: int):
     api_hash = os.environ.get("TELEGRAM_API_HASH", "")
 
     if not token or not api_id or not api_hash:
-        logger.warning("Bot credentials not configured — skipping post-pipeline bot window.")
+        logger.warning("Bot credentials not configured — skipping subscription delivery.")
         return
 
-    logger.info(f"Starting post-pipeline bot window ({timeout}s)...")
+    logger.info("Delivering subscription updates via GatherX bot...")
     bot = InteractiveBot(token, api_id, api_hash)
-    asyncio.run(bot.start(timeout=timeout))
+    asyncio.run(bot.deliver_updates())
 
 
 if __name__ == "__main__":

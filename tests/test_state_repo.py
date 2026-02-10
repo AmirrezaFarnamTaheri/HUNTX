@@ -107,10 +107,11 @@ class TestStateRepo(unittest.TestCase):
         record_data = {"key": "val"}
         self.repo.add_record("rawhash1", "fmt1", "unique1", record_data)
 
-        # Test fetch
+        # Test fetch — now returns {"record_type": ..., "data": ...}
         records = self.repo.get_records_for_build(["fmt1"], ["src1"])
         self.assertEqual(len(records), 1)
-        self.assertEqual(records[0], record_data)
+        self.assertEqual(records[0]["record_type"], "fmt1")
+        self.assertEqual(records[0]["data"], record_data)
 
         # Test filter by source (should return empty)
         records_wrong_source = self.repo.get_records_for_build(["fmt1"], ["src2"])

@@ -50,7 +50,11 @@ class TestTelegramUserConnector(unittest.TestCase):
         msg1.id = 100
         msg1.message = "Hello World"
         msg1.media = None
+        msg1.document = None
         msg1.date = datetime.datetime.now()
+        # Explicitly clear unwanted media attrs so MagicMock doesn't return truthy
+        for attr in ("photo", "video", "gif", "sticker", "voice", "audio", "video_note"):
+            setattr(msg1, attr, None)
 
         mock_client.iter_messages.return_value = [msg1]
 
@@ -144,36 +148,53 @@ class TestTelegramUserConnector(unittest.TestCase):
         self._set_mock_client(mock_client)
         mock_client.is_connected.return_value = True
 
+        _unwanted = ("photo", "video", "gif", "sticker", "voice", "audio", "video_note")
+
         # Msg 1: Text only
         msg1 = MagicMock()
         msg1.id = 200
         msg1.message = "Text Message"
         msg1.media = None
+        msg1.document = None
         msg1.date = datetime.datetime.now()
+        for attr in _unwanted:
+            setattr(msg1, attr, None)
 
-        # Msg 2: Media too large
+        # Msg 2: Media too large (document)
         msg2 = MagicMock()
         msg2.id = 201
         msg2.message = None
         msg2.media = True
+        msg2.document = True
         msg2.file.size = 30 * 1024 * 1024  # 30MB
+        msg2.file.name = "huge.bin"
+        msg2.file.ext = ".bin"
         msg2.date = datetime.datetime.now()
+        for attr in _unwanted:
+            setattr(msg2, attr, None)
 
-        # Msg 3: Media download failure
+        # Msg 3: Media download failure (document)
         msg3 = MagicMock()
         msg3.id = 202
         msg3.message = None
         msg3.media = True
+        msg3.document = True
         msg3.file.size = 1024
-        msg3.file.name = "broken.jpg"
+        msg3.file.name = "broken.conf"
+        msg3.file.ext = ".conf"
         msg3.date = datetime.datetime.now()
+        for attr in _unwanted:
+            setattr(msg3, attr, None)
 
         # Msg 4: Empty message (skipped)
         msg4 = MagicMock()
         msg4.id = 203
         msg4.message = ""
         msg4.media = None
+        msg4.document = None
         msg4.date = datetime.datetime.now()
+        for attr in _unwanted:
+            setattr(msg4, attr, None)
 
         mock_client.iter_messages.return_value = [msg4, msg3, msg2, msg1]
 
@@ -187,7 +208,7 @@ class TestTelegramUserConnector(unittest.TestCase):
 
         items = list(self.connector.list_new())
 
-        # Should only get 1 item (the text message)
+        # Pass 1 yields text from msg1; pass 2 processes documents (msg2 too large, msg3 fails download)
         self.assertEqual(len(items), 1)
         self.assertEqual(items[0].external_id, "200")
 

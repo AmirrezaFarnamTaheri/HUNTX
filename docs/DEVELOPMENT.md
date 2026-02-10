@@ -1,25 +1,26 @@
-# HUNTX Development Guide
+# HuntX Development Guide
 
 ## Project Structure
 
 ```
-src/HUNTX/
-├── bot/                  # Interactive Telegram bot
-│   └── interactive.py    # Commands: /start /latest /status /run /formats /subscribe /unsubscribe /clean
+src/huntx/
+├── bot/                  # GatherX Telegram bot (DM-based, 13 commands)
+│   └── interactive.py    # InteractiveBot: /start /get /latest /formats /protocols /count
+│                         #   /setformat /myinfo /status /mute /unmute /ping /help
 ├── cli/                  # CLI entry points
-│   └── main.py           # HUNTX CLI: run, bot, clean subcommands
+│   └── main.py           # huntx CLI: run, bot, clean, reset subcommands
 ├── config/               # Configuration loading & validation
 │   ├── env_expand.py     # ${VAR} expansion
 │   ├── loader.py         # YAML → AppConfig
 │   ├── schema.py         # Pydantic v2 models
 │   └── validate.py       # Cross-reference validation
-├── connectors/           # Source connectors (with media filtering + configurable fetch windows)
+├── connectors/           # Source connectors (media filtering + configurable fetch windows)
 │   ├── base.py           # Protocol definitions
 │   ├── telegram/         # Bot API connector
 │   └── telegram_user/    # MTProto (Telethon) connector
 ├── core/                 # Orchestration & routing
 │   ├── locks.py          # Cross-platform file locking
-│   ├── orchestrator.py   # Main pipeline (N-worker pool, 4 phases)
+│   ├── orchestrator.py   # Main pipeline (N-worker pool, 6 phases)
 │   └── router.py         # Format detection by extension/content (20+ proxy URI schemes)
 ├── formats/              # Format handlers (12 total)
 │   ├── base.py           # FormatHandler protocol
@@ -30,7 +31,7 @@ src/HUNTX/
 │   ├── npvtsub.py        # .npvtsub subscription files
 │   ├── conf_lines.py     # Generic line-based configs
 │   ├── opaque_bundle.py  # Binary → ZIP archive (base class)
-│   ├── ovpn.py, npv4.py, ehi.py, hc.py, hat.py, sip.py, nm.py  # Opaque format subclasses
+│   ├── ovpn.py, npv4.py, ehi.py, hc.py, hat.py, sip.py, nm.py, dark.py  # Opaque subclasses
 ├── pipeline/             # Processing stages
 │   ├── ingest.py         # Download + save raw blobs (with progress logging)
 │   ├── transform.py      # Batch parse raw → records (200/batch, batch DB writes)
@@ -87,15 +88,28 @@ mypy src/ --ignore-missing-imports
 - **Media filtering**: Both connectors drop images/videos/GIFs/stickers/voice/audio before downloading, keeping only text, documents, and text+document hybrids
 - **Configurable fetch windows**: 4 separate lookback parameters (msg fresh, file fresh, msg subsequent, file subsequent) threaded from CLI → orchestrator → connectors
 
+## GatherX Bot Architecture
+
+The bot (`src/huntx/bot/interactive.py`) has two modes:
+
+- **`deliver_updates()`** — fire-and-forget: connect, send all output files to all non-muted users, disconnect. Called automatically after every `huntx run`.
+- **`start()`** — persistent: registers 13 command handlers, listens forever for DM commands.
+
+User state is stored in the `bot_users` SQLite table:
+- Auto-registered on first `/start`
+- `default_format` column for per-user preferences (`/setformat`)
+- `muted` flag for opt-out (`/mute` / `/unmute`)
+- `last_delivered_at` for delivery tracking
+
 ## Adding a New Format
 
-1. Create `src/HUNTX/formats/myformat.py`:
+1. Create `src/huntx/formats/myformat.py`:
    - Extend `OpaqueBundleHandler` for binary formats
    - Implement `FormatHandler` protocol for text formats
-2. Add routing in `src/HUNTX/core/router.py`
-3. Register in `src/HUNTX/formats/register_builtin.py`
+2. Add routing in `src/huntx/core/router.py`
+3. Register in `src/huntx/formats/register_builtin.py`
 4. Add tests in `tests/test_formats_coverage.py` and `tests/test_router.py`
-5. Update `SUPPORTED_FORMATS` in `src/HUNTX/bot/interactive.py`
+5. Update `SUPPORTED_FORMATS` in `src/huntx/bot/interactive.py`
 6. Add to `_ZIP_FORMATS` in `pipeline/publish.py` if binary
 
 ## Adding a New Proxy Protocol
@@ -112,3 +126,11 @@ mypy src/ --ignore-missing-imports
 3. Add connector instantiation in `orchestrator.py::_ingest_one_source()`
 4. Add source type to `config/schema.py::SourceConfig`
 5. Add validation in `config/schema.py` field validator
+
+## Adding a New Bot Command
+
+1. Add handler method `_on_<command>` in `src/huntx/bot/interactive.py`
+2. Register event handler in `start()` method
+3. Add `BotCommand(...)` entry to `_BOT_COMMANDS` list
+4. Update `WELCOME_TEXT` help string
+5. Add test in `tests/test_bot_interactive.py`
