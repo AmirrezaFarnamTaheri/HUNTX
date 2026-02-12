@@ -56,9 +56,11 @@ class TelegramConnector(SourceConnector):
                 "The provided token does not contain a colon. Ensure this is a valid Telegram Bot API token."
             )
 
-    def _make_request(self, method: str, params: Dict[str, Any] = {}) -> Dict[str, Any]:
+    def _make_request(self, method: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         url = f"{self.base_url}/{method}"
         start_time = time.time()
+
+        params = params or {}
 
         if params:
             data = json.dumps(params).encode("utf-8")

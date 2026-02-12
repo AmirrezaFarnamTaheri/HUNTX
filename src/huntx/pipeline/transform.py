@@ -3,7 +3,7 @@ import logging
 import time
 import concurrent.futures
 from collections import Counter
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 from ..store.raw_store import RawStore
 from ..state.repo import StateRepo
 from ..formats.registry import FormatRegistry
@@ -22,12 +22,12 @@ class TransformPipeline:
         raw_store: RawStore,
         state_repo: StateRepo,
         registry: FormatRegistry,
-        source_configs: Dict[str, SourceConfig] = {},
+        source_configs: Optional[Dict[str, SourceConfig]] = None,
     ):
         self.raw_store = raw_store
         self.state_repo = state_repo
         self.registry = registry
-        self.source_configs = source_configs
+        self.source_configs = source_configs or {}
 
     def _process_single_file(self, row: Dict[str, Any]) -> Dict[str, Any]:
         """

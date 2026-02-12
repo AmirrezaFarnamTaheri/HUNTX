@@ -132,8 +132,8 @@ class TelegramUserConnector:
         try:
             if client.is_connected():
                 client.disconnect()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"[MTProto] Disconnect failed during reconnect: {e}")
         client.connect()
         logger.info("[MTProto] Reconnected.")
 
@@ -460,5 +460,5 @@ class TelegramUserConnector:
         """Ensure cleanup on object destruction."""
         try:
             self.cleanup()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"[MTProto] Cleanup error on __del__: {e}")

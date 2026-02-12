@@ -228,8 +228,8 @@ class InteractiveBot:
         finally:
             try:
                 await self.client.disconnect()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"[GatherX] Failed to disconnect bot client: {e}")
             # Allow Telethon internal tasks to finish cancellation
             await asyncio.sleep(0.25)
 
@@ -354,8 +354,8 @@ class InteractiveBot:
         try:
             sender = await event.get_sender()
             username = getattr(sender, "username", None)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"[GatherX] Failed to fetch sender info: {e}")
 
         is_new = self._register_user(user_id, chat_id, username)
 
@@ -426,7 +426,7 @@ class InteractiveBot:
             for f in sorted(output_dir.iterdir()):
                 if not f.is_file() or f.stat().st_size == 0:
                     continue
-                if f.name.endswith(f".{fmt}") or (fmt in f.name and fmt not in ("nm", "hc")):
+                if f.name.endswith(f".{fmt}") or f".{fmt}." in f.name:
                     size_kb = f.stat().st_size / 1024
                     label = _FORMAT_LABELS.get(fmt, fmt)
                     await self.client.send_file(

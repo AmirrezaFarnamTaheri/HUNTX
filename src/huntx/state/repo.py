@@ -7,6 +7,12 @@ logger = logging.getLogger(__name__)
 
 
 class StateRepo:
+    # Formats whose records reference raw blobs at build time (via blob_hash).
+    # These must NOT have their raw blobs pruned while active records exist.
+    _BLOB_DEPENDENT_FORMATS = (
+        "opaque_bundle", "ovpn", "npv4", "ehi", "hc", "hat", "sip", "nm", "dark",
+    )
+
     def __init__(self, db_connection):
         self.db = db_connection
 
@@ -72,11 +78,11 @@ class StateRepo:
         file_size: int,
         filename: str,
         status: str = "pending",
-        metadata: Dict[str, Any] = {},
+        metadata: Optional[Dict[str, Any]] = None,
         conn: Optional[sqlite3.Connection] = None,
     ):
         try:
-            metadata_json = json.dumps(metadata)
+            metadata_json = json.dumps(metadata or {})
             sql = """
                 INSERT OR IGNORE INTO seen_files
                 (source_id, external_id, raw_hash, file_size, filename, status, metadata_json)
@@ -206,25 +212,46 @@ class StateRepo:
             logger.error(f"Error checking if artifact published: {e}")
             return False
 
-    def mark_published(self, route_name: str, artifact_hash: str, metadata: Dict[str, Any] = {}):
+    def mark_published(self, route_name: str, artifact_hash: str, metadata: Optional[Dict[str, Any]] = None):
         try:
+            metadata_json = json.dumps(metadata or {})
             with self.db.connect() as conn:
                 conn.execute(
                     """
                     INSERT INTO published_artifacts (route_name, artifact_hash, metadata_json)
                     VALUES (?, ?, ?)
                     """,
-                    (route_name, artifact_hash, json.dumps(metadata)),
+                    (route_name, artifact_hash, metadata_json),
                 )
             logger.info(f"Marked artifact {artifact_hash} as published for {route_name}")
         except Exception as e:
             logger.exception(f"Failed to mark published artifact: {e}")
 
     def get_processed_hashes(self) -> List[str]:
-        """Return raw_hash values for files that are no longer pending (processed/failed/ignored)."""
+        """Return raw_hash values for files that are no longer pending
+        AND are not still needed by active blob-dependent records."""
         try:
+            placeholders = ",".join("?" for _ in self._BLOB_DEPENDENT_FORMATS)
             with self.db.connect() as conn:
-                cursor = conn.execute("SELECT DISTINCT raw_hash FROM seen_files WHERE status != 'pending'")
+                if placeholders:
+                    cursor = conn.execute(
+                        f"""
+                        SELECT DISTINCT sf.raw_hash
+                        FROM seen_files sf
+                        WHERE sf.status != 'pending'
+                          AND sf.raw_hash NOT IN (
+                              SELECT DISTINCT r.source_file_hash
+                              FROM records r
+                              WHERE r.record_type IN ({placeholders})
+                                AND r.is_active = 1
+                          )
+                        """,
+                        list(self._BLOB_DEPENDENT_FORMATS),
+                    )
+                else:
+                    cursor = conn.execute(
+                        "SELECT DISTINCT raw_hash FROM seen_files WHERE status != 'pending'"
+                    )
                 return [row["raw_hash"] for row in cursor.fetchall()]
         except Exception as e:
             logger.error(f"Failed to get processed hashes: {e}")

@@ -1,4 +1,5 @@
 from .opaque_bundle import OpaqueBundleHandler
+from ..store.raw_store import RawStore
 
 
 class NmHandler(OpaqueBundleHandler):
@@ -6,6 +7,5 @@ class NmHandler(OpaqueBundleHandler):
     Supports SSH, V2Ray/Xray, SSL/TLS, OpenVPN, DNSTT tunneling.
     Files may be locked/private — treated as opaque binary bundles."""
 
-    @property
-    def format_id(self) -> str:
-        return "nm"
+    def __init__(self, raw_store: RawStore):
+        super().__init__(raw_store, "nm")

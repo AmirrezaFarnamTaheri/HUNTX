@@ -10,6 +10,9 @@ logger = logging.getLogger(__name__)
 
 _ZIP_FORMATS = ("ovpn", "opaque_bundle", "ehi", "hc", "hat", "sip", "npv4", "nm", "dark")
 
+# An empty ZIP file (no entries) is exactly 22 bytes.
+_EMPTY_ZIP_THRESHOLD = 22
+
 
 class PublishPipeline:
     def __init__(self, state_repo: StateRepo):
@@ -21,7 +24,13 @@ class PublishPipeline:
         new_hash = build_result["artifact_hash"]
         fmt = build_result.get("format", "unknown")
         unique_id = build_result.get("unique_id", route_name)
-        data_size_kb = len(build_result.get("data", b"")) / 1024
+        data = build_result.get("data", b"")
+        data_size_kb = len(data) / 1024
+
+        # Skip empty/minimal artifacts (e.g. empty ZIPs)
+        if isinstance(data, (bytes, bytearray)) and len(data) <= _EMPTY_ZIP_THRESHOLD:
+            logger.debug(f"[Publish] Skipping minimal artifact {unique_id} ({len(data)} bytes)")
+            return
 
         # Check if changed using unique_id (route + format)
         last_hash = self.state_repo.get_last_published_hash(unique_id)
@@ -29,7 +38,7 @@ class PublishPipeline:
             logger.debug(f"[Publish] No change for {unique_id} (hash={last_hash[:12]}), skip.")
             return
 
-        default_token = os.getenv("TELEGRAM_TOKEN")
+        default_token = os.getenv("PUBLISH_BOT_TOKEN") or os.getenv("TELEGRAM_TOKEN")
         published_any = False
 
         logger.info(

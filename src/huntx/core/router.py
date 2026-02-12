@@ -1,3 +1,6 @@
+import base64
+import binascii
+
 # All known proxy URI schemes for content-based detection
 _PROXY_URI_PREFIXES = (
     "vmess://", "vless://", "trojan://",
@@ -46,22 +49,18 @@ def decide_format(filename: str, content: bytes) -> str:
         return "npvtsub"
 
     # Content based heuristics — detect proxy URI lines
-    try:
-        text_preview = content[:2048].decode("utf-8", errors="ignore")
-        if any(scheme in text_preview for scheme in _PROXY_URI_PREFIXES):
-            return "npvt"
-        # Also detect base64-encoded subscription content
-        clean = text_preview.strip()
-        if clean and "://" not in clean and " " not in clean and len(clean) > 20:
-            import base64
-            try:
-                decoded = base64.b64decode(clean[:512] + "==").decode("utf-8", errors="ignore")
-                if any(scheme in decoded for scheme in _PROXY_URI_PREFIXES):
-                    return "npvt"
-            except Exception:
-                pass
-    except Exception:
-        pass
+    text_preview = content[:2048].decode("utf-8", errors="ignore")
+    if any(scheme in text_preview for scheme in _PROXY_URI_PREFIXES):
+        return "npvt"
+    # Also detect base64-encoded subscription content
+    clean = text_preview.strip()
+    if clean and "://" not in clean and " " not in clean and len(clean) > 20:
+        try:
+            decoded = base64.b64decode(clean[:512] + "==").decode("utf-8", errors="ignore")
+            if any(scheme in decoded for scheme in _PROXY_URI_PREFIXES):
+                return "npvt"
+        except (binascii.Error, ValueError):
+            pass
 
     # Default fallback
     return "opaque_bundle"

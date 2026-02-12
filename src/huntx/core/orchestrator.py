@@ -3,6 +3,7 @@ import base64
 import datetime
 import json
 import logging
+import os
 import time
 import queue
 import threading
@@ -66,31 +67,63 @@ class Orchestrator:
     # Output export
     # ------------------------------------------------------------------
 
+    # An empty ZIP file (no entries) is exactly 22 bytes.
+    _EMPTY_ZIP_THRESHOLD = 22
+
     def _export_outputs(self, all_build_results: list):
         """Write all build artifacts to outputs/ in the repo root.
         These are committed back to the repo by CI."""
         out_dir = Path.cwd() / "outputs"
         out_dir.mkdir(parents=True, exist_ok=True)
 
-        files_written = 0
-        total_bytes = 0
-
+        # ── Collect the set of filenames we will write this run ────────
+        new_filenames: set = set()
+        valid_results = []
         for res in all_build_results:
             route = res.get("route_name", "unknown")
             fmt = res.get("format", "unknown")
             data = res.get("data")
             if not data:
                 continue
+            if isinstance(data, (bytes, bytearray)) and len(data) <= self._EMPTY_ZIP_THRESHOLD:
+                logger.debug(
+                    f"[Export] Skipping minimal artifact for {route}.{fmt} "
+                    f"(size={len(data)} bytes)"
+                )
+                continue
 
-            # Determine filename from route + format
-            if fmt.endswith(".decoded.json"):
-                filename = f"{route}_{fmt.replace('.decoded.json', '')}_decoded.json"
-            elif fmt.endswith(".b64sub"):
-                filename = f"{route}_{fmt.replace('.b64sub', '')}_b64sub.txt"
-            else:
-                filename = f"{route}.{fmt}"
+            filename = self._output_filename(route, fmt)
+            new_filenames.add(filename)
+            valid_results.append((filename, data))
+
+        # ── Remove stale route files (old naming conventions, empty leftovers) ──
+        routes_in_play = {r.get("route_name") for r in all_build_results if r.get("route_name")}
+        stale_removed = 0
+        for existing in out_dir.iterdir():
+            if not existing.is_file():
+                continue
+            # Skip non-pipeline files (README, scripts, etc.)
+            name = existing.name
+            if not any(name.startswith(rt) for rt in routes_in_play):
+                continue
+            if name in new_filenames:
+                continue
+            # This is a route-owned file that is NOT in the new set → stale
+            try:
+                existing.unlink()
+                stale_removed += 1
+                logger.info(f"[Export] Removed stale output: {name}")
+            except OSError as e:
+                logger.warning(f"[Export] Could not remove stale file {name}: {e}")
+        if stale_removed:
+            logger.info(f"[Export] Cleaned {stale_removed} stale file(s) from {out_dir}")
+
+        # ── Write new outputs ─────────────────────────────────────────
+        files_written = 0
+        total_bytes = 0
+
+        for filename, data in valid_results:
             path = out_dir / filename
-
             try:
                 if isinstance(data, bytes):
                     path.write_bytes(data)
@@ -110,6 +143,16 @@ class Orchestrator:
                 f"[Export] Exported {files_written} file(s) to {out_dir} "
                 f"({total_bytes / 1024:.1f} KB total)"
             )
+
+    @staticmethod
+    def _output_filename(route: str, fmt: str) -> str:
+        """Determine the output filename for a route+format pair."""
+        if fmt.endswith(".decoded.json"):
+            return f"{route}_{fmt.replace('.decoded.json', '')}_decoded.json"
+        elif fmt.endswith(".b64sub"):
+            return f"{route}_{fmt.replace('.b64sub', '')}_b64sub.txt"
+        else:
+            return f"{route}.{fmt}"
 
     # ------------------------------------------------------------------
     # Dev output export
@@ -200,7 +243,7 @@ class Orchestrator:
 
         # ── Sort URIs deterministically (newest first, then alpha) ────
         sorted_uris = sorted(manifest.keys(), key=lambda u: (-manifest[u], u))
-        ts_str = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+        ts_str = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
         # ── Add clean protocol-N remarks for output ────────────────────
         remark_counter: dict = {}
@@ -397,7 +440,7 @@ class Orchestrator:
         build_ok = 0
         build_err = 0
         total_artifacts = 0
-        total_published = 0
+        publish_attempts = 0
         all_build_results = []
 
         for route in self.config.routes:
@@ -424,9 +467,21 @@ class Orchestrator:
                     }
                     for d in route.destinations
                 ]
-                for res in build_results:
-                    self.publish_pipeline.run(res, dests)
-                    total_published += 1
+
+                # Check if any destination has a usable token before attempting publish
+                _default_token = os.getenv("PUBLISH_BOT_TOKEN") or os.getenv("TELEGRAM_TOKEN")
+                has_token = any(d.get("token") or _default_token for d in dests)
+                if not has_token:
+                    if publish_attempts == 0:
+                        logger.warning(
+                            "[Orchestrator] No publish token configured "
+                            "(set PUBLISH_BOT_TOKEN or TELEGRAM_TOKEN). "
+                            "Skipping all publish steps."
+                        )
+                else:
+                    for res in build_results:
+                        self.publish_pipeline.run(res, dests)
+                        publish_attempts += 1
                 build_ok += 1
             except Exception as e:
                 logger.exception(f"[Orchestrator] Build/Publish failed for '{route.name}': {e}")
@@ -435,7 +490,7 @@ class Orchestrator:
         build_duration = time.time() - build_start
         logger.info(
             f"[Orchestrator] Phase 3 done: routes={build_ok} ok / {build_err} err  "
-            f"artifacts={total_artifacts}  published={total_published}  "
+            f"artifacts={total_artifacts}  publish_attempts={publish_attempts}  "
             f"duration={build_duration:.2f}s"
         )
 

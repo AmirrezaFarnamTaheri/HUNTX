@@ -1,9 +1,12 @@
+import logging
 import zipfile
 import io
 from typing import List, Dict, Any
 from .base import FormatHandler
 from .common.hashing import hash_bytes
 from ..store.raw_store import RawStore
+
+logger = logging.getLogger(__name__)
 
 
 class OpaqueBundleHandler(FormatHandler):
@@ -40,7 +43,11 @@ class OpaqueBundleHandler(FormatHandler):
                 # Retrieve content
                 content = self.raw_store.get(blob_hash)
                 if not content:
-                    continue  # Should warn?
+                    logger.warning(
+                        f"[{self._format_name}] Raw blob missing for {original_name} "
+                        f"(hash={blob_hash[:12]}), skipping."
+                    )
+                    continue
 
                 # Handle name collisions
                 name = original_name

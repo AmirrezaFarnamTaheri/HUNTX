@@ -1,4 +1,5 @@
 import base64
+import binascii
 import json
 import re
 from typing import List, Dict, Any
@@ -62,7 +63,7 @@ def strip_proxy_remark(uri: str) -> str:
             obj.pop("ps", None)
             canonical = json.dumps(obj, sort_keys=True, separators=(',', ':'))
             return "vmess://" + base64.b64encode(canonical.encode()).decode()
-        except Exception:
+        except (binascii.Error, ValueError, json.JSONDecodeError):
             pass
     # For all other protocols: strip #fragment
     idx = uri.rfind("#")
@@ -89,7 +90,7 @@ def add_clean_remark(uri: str, counter: dict) -> str:
             obj["ps"] = tag
             encoded = json.dumps(obj, separators=(',', ':')).encode()
             return "vmess://" + base64.b64encode(encoded).decode()
-        except Exception:
+        except (binascii.Error, ValueError, json.JSONDecodeError):
             return uri
 
     # Strip existing fragment, add clean one
@@ -122,7 +123,7 @@ class NpvtHandler(FormatHandler):
                 decoded = base64.b64decode(clean_text).decode("utf-8", errors="ignore")
                 if any(s in decoded for s in _PROXY_SCHEMES):
                     text = decoded
-            except Exception:
+            except (binascii.Error, ValueError):
                 pass  # Not base64 or failed
 
         records = []

@@ -26,7 +26,13 @@ class ConfLinesHandler(FormatHandler):
         lines = []
         seen = set()
         for r in records:
-            line = r["data"]["line"]
+            line = None
+            if isinstance(r, dict):
+                data = r.get("data")
+                if isinstance(data, dict):
+                    line = data.get("line")
+            if not line:
+                continue
             if line not in seen:
                 lines.append(line)
                 seen.add(line)

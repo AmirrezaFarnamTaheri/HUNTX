@@ -1,6 +1,9 @@
 import sys
+import logging
 from contextlib import contextmanager
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 @contextmanager
@@ -32,6 +35,6 @@ def acquire_lock(lock_file: Path):
                 import fcntl
 
                 fcntl.lockf(f, fcntl.LOCK_UN)
-        except Exception:
-            pass
+        except OSError as e:
+            logger.debug(f"Failed to release lock {lock_file}: {e}")
         f.close()

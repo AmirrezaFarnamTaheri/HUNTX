@@ -64,7 +64,7 @@ class RawStore:
         try:
             prefix = sha256[:2]
             return (self.base_dir / prefix / sha256).exists()
-        except Exception:
+        except (OSError, ValueError):
             return False
 
     def prune_processed(self, state_repo) -> int:

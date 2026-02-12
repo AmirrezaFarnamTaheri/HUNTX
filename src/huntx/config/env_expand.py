@@ -5,7 +5,7 @@ from typing import Any
 
 def expand_env(text: str) -> str:
     # Use raw string for regex
-    pattern = re.compile(r"\$\{([A-Z0-9_]+)\}")
+    pattern = re.compile(r"\$\{([A-Za-z0-9_]+)\}")
     return pattern.sub(lambda m: os.getenv(m.group(1), ""), text)
 
 

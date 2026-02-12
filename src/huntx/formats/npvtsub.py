@@ -1,4 +1,5 @@
 from typing import List, Dict, Any
+import binascii
 from .base import FormatHandler
 from .common.normalize_text import normalize_text
 from .common.hashing import hash_string
@@ -31,7 +32,7 @@ class NpvtSubHandler(FormatHandler):
                 decoded = base64.b64decode(clean_text).decode("utf-8", errors="ignore")
                 if any(s in decoded for s in _PROXY_SCHEMES):
                     text = decoded
-            except Exception:
+            except (binascii.Error, ValueError):
                 pass
 
         records = []
@@ -68,7 +69,15 @@ class NpvtSubHandler(FormatHandler):
         seen: set = set()
         remark_counter: dict = {}
         for r in records:
-            line = r["data"]["line"]
+            line = None
+            if isinstance(r, dict):
+                data = r.get("data")
+                if isinstance(data, dict):
+                    line = data.get("line")
+                elif isinstance(r.get("line"), str):
+                    line = r["line"]
+            if not line:
+                continue
             stripped = strip_proxy_remark(line)
             if stripped not in seen:
                 seen.add(stripped)

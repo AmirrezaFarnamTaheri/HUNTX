@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from ..config.loader import load_config
+from ..config.validate import validate_config
 from ..logging_conf import setup_logging
 from ..store.paths import set_paths, DATA_DIR, STATE_DB_PATH
 
@@ -71,7 +72,14 @@ def main():
 def _cmd_run(args):
     from ..core.orchestrator import Orchestrator
 
-    max_workers = int(os.environ.get("HUNTX_MAX_WORKERS", "2"))
+    max_workers_str = os.environ.get("HUNTX_MAX_WORKERS") or os.environ.get("huntx_MAX_WORKERS") or "2"
+    try:
+        max_workers = int(max_workers_str)
+    except ValueError:
+        logger.warning(
+            f"Invalid HUNTX_MAX_WORKERS value '{max_workers_str}', defaulting to 2."
+        )
+        max_workers = 2
     logger.info(f"Starting HuntX — config={args.config}, workers={max_workers}")
 
     fetch_windows = {
@@ -83,6 +91,7 @@ def _cmd_run(args):
 
     try:
         config = load_config(args.config)
+        validate_config(config)
         orchestrator = Orchestrator(config, max_workers=max_workers, fetch_windows=fetch_windows)
         orchestrator.run()
     except Exception as e:
@@ -244,12 +253,12 @@ def _deliver_updates():
                 task.cancel()
             if pending:
                 loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Failed to cancel pending tasks cleanly: {e}")
         try:
             loop.run_until_complete(loop.shutdown_asyncgens())
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Failed to shutdown async generators cleanly: {e}")
         loop.close()
 
 
