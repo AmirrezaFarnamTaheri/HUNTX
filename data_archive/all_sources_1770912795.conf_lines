@@ -1,0 +1,81 @@
+PrivateKey =  +FpUHSgO5dOTQ/fKg390+ZzyphHqfl3jqphxVNkVw38=
+Endpoint = 188.114.96.154:968
+PrivateKey =  kO3VgSe6B5ibJ5+ToaykA4FYdYKHn1wRMHmCAGj71FQ=
+PrivateKey =  QBEkqvsTjhyQ6nQlQ2WBL3dCHJuDstxDSE7A6l5TGXk=
+PublicKey = bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=
+Endpoint = 162.159.192.7:8319
+DNS = 1.1.1.1, 1.0.0.1, 2606:4700:4700::1111, 2606:4700:4700::1001
+PrivateKey =  WLW6RWAj378EyJ8GzOp2O66Z9PDyap/U1IommLsEFmo=
+Endpoint = 188.114.97.225:4198
+MTU = 1330
+Endpoint = 188.114.98.170:1070
+H4 = 4
+PrivateKey =  kMbTTqMaLll4syIMKoq/43YuUwUI2m6c0wUX0AJ6yXg=
+Endpoint = 162.159.195.80:864
+Endpoint = 188.114.96.133:8742
+H3 = 3
+Jmin = 40
+PrivateKey = kMbTTqMaLll4syIMKoq/43YuUwUI2m6c0wUX0AJ6yXg=
+Jmax = 70
+PrivateKey = kO3VgSe6B5ibJ5+ToaykA4FYdYKHn1wRMHmCAGj71FQ=
+MTU = 1280
+Endpoint = 188.114.99.112:1010
+PrivateKey = mDeSdbTBovfA+woOcfeQS9oTvm5P1AN/GYZH+DtpoGY=
+AllowedIPs = 0.0.0.0/0, ::/0
+PrivateKey = WLW6RWAj378EyJ8GzOp2O66Z9PDyap/U1IommLsEFmo=
+H2 = 2
+PrivateKey =  oHWAw8ZYUgYHM7yl5O4qRVnfcnVX4MqYNKWHsx/Kel8=
+PrivateKey = QBEkqvsTjhyQ6nQlQ2WBL3dCHJuDstxDSE7A6l5TGXk=
+H1 = 1
+Endpoint = 188.114.98.175:934
+Address = 172.16.0.2/32, 2606:4700:110:846c:e510:bfa1:ea9f:5247/128
+Jc = 4
+[Interface]
+PrivateKey = 4MB+J6i2PCn4xlh7af11Pk3amjK0nOzg8UryEA6YEWE=
+PrivateKey =  4MB+J6i2PCn4xlh7af11Pk3amjK0nOzg8UryEA6YEWE=
+PrivateKey = +FpUHSgO5dOTQ/fKg390+ZzyphHqfl3jqphxVNkVw38=
+PrivateKey =  mDeSdbTBovfA+woOcfeQS9oTvm5P1AN/GYZH+DtpoGY=
+PrivateKey = oHWAw8ZYUgYHM7yl5O4qRVnfcnVX4MqYNKWHsx/Kel8=
+[Peer]
+PublicKey = n7nQqprnViIq1C1L15MW6S1uX8RfSn0GdNf0wiSvLZg=
+PrivateKey = Uh7cVnrb1UvgvyBe4cILG6YJW8L2xqPhMe7DlzhHJAo=
+DNS = aQewq.ipvPicko-176-153-248-236-227-137.QcPk, pk.Qweg-207-6b5-1e4a-90e-ca4.cqwQd.Picko
+PreSharedKey = ZhgfI6OR1DaOSKxYo39sy0VGyIDlTm9qlMi0XikNI+g=
+DNS = aQewq.ipvPicko-223-164-87-114-58-178.QcPk, pk.Qweg-241-13d1-125e-2226-1044.cqwQd.Picko
+Address = 5.48.223.164/32, 2a01:e0a::2226:0:1044:241
+ListenPort = 2087
+DNS = 8.8.8.8, 5.48.87.114, 2a01:e0a::13d1:125e:224e:fe, 2a01:e0a::13d1:125e:758:fe
+ListenPort = 2088
+DNS = 114.114.114.114, 88.228.248.236, 2a02:ff0::6b5:1e4a:d96:fe, 2a02:ff0::6b5:1e4a:26b4:fe
+Address = 88.228.176.153/32, 2a02:ff0::90e:0:ca4:207
+PreSharedKey = b48xXYgKmuz7KEmvRkQRldP4J4nt8AvURE5VMV2hINQ=
+PrivateKey = VvssWPXWZmx8c1hVCZkVdluSsmMFKdUvOyMy5RoQdx0=
+MTU = 1421
+MTU = 1429
+Endpoint = 88.228.227.137:2088
+AllowedIPs = 5.48.0.0/16, 2a01:e0a::/128
+AllowedIPs = 88.228.0.0/16, 2a02:ff0::/128
+PersistentKeepalive = 25
+PublicKey = 21C6CJY4pcL6X5OtkDcctcyJPfaV1XVdIPfhdZGdC8E=
+Endpoint = 5.48.58.178:2087
+Endpoint = 188.114.99.20:1010
+PrivateKey = EFpYZ5ibwHtScXxljjVLceGlm2ZQ+Gg6FJrvob7AG0Y=
+Endpoint = 162.159.192.50:1843
+Endpoint = 188.114.99.221:1014
+Endpoint = 188.114.98.121:890
+PrivateKey =  sCNJRGRsdyNeGHgfqpKAzsKfcUv8OOYzwc5ia+s9J0s=
+PrivateKey = sCNJRGRsdyNeGHgfqpKAzsKfcUv8OOYzwc5ia+s9J0s=
+Endpoint = 162.159.195.255:1002
+Endpoint = 162.159.195.215:942
+PrivateKey =  qGykxEWwStZKts5ffv+esu1ZcP1tg5jeAZUqQAyYPX4=
+PrivateKey = mBZESFWXayuMB5CVDo+i2sR7gIGvZbdFe6k6XAhGhkU=
+PrivateKey =  6IOpQdyG70VTlvdUyz2bJcwpagLsyJ16sAJjiYWXVEE=
+PrivateKey = qGykxEWwStZKts5ffv+esu1ZcP1tg5jeAZUqQAyYPX4=
+PrivateKey =  sMmwVAIBnlgUoiN7J5DscAZ0xQ8LVhqhMXnJJz6ug2o=
+PrivateKey =  eMbVN5VFuyNAdzVryPLAcnpEbgVoBZ363aS4K9l3WlQ=
+PrivateKey = eMbVN5VFuyNAdzVryPLAcnpEbgVoBZ363aS4K9l3WlQ=
+Endpoint = 188.114.98.142:903
+PrivateKey =  EFpYZ5ibwHtScXxljjVLceGlm2ZQ+Gg6FJrvob7AG0Y=
+PrivateKey =  mBZESFWXayuMB5CVDo+i2sR7gIGvZbdFe6k6XAhGhkU=
+PrivateKey = sMmwVAIBnlgUoiN7J5DscAZ0xQ8LVhqhMXnJJz6ug2o=
+PrivateKey = 6IOpQdyG70VTlvdUyz2bJcwpagLsyJ16sAJjiYWXVEE=
