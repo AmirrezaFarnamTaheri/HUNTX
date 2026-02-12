@@ -1,4 +1,4 @@
-# huntx proxy list — 2026-02-12 19:06:00 UTC
+# huntx proxy list — 2026-02-12 20:40:22 UTC
 # Rolling 48h window — 18419 unique URIs
 # One proxy URI per line
 
