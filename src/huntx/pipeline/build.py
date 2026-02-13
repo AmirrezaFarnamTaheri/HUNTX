@@ -10,10 +10,6 @@ from ..formats.registry import FormatRegistry
 
 logger = logging.getLogger(__name__)
 
-# An empty ZIP file (no entries) is exactly 22 bytes.
-# Artifacts at or below this size are useless and should be skipped.
-_EMPTY_ZIP_THRESHOLD = 22
-
 # All proxy URI schemes
 _PROXY_SCHEMES = (
     "vmess://", "vless://", "trojan://",
@@ -282,15 +278,6 @@ class BuildPipeline:
                 if not artifact_bytes:
                     empty_formats.append(fmt)
                     logger.debug(f"[Build] Empty artifact for '{route_name}/{fmt}' — no matching records")
-                    continue
-
-                # Skip minimal/empty ZIP artifacts (opaque formats with no real content)
-                if isinstance(artifact_bytes, (bytes, bytearray)) and len(artifact_bytes) <= _EMPTY_ZIP_THRESHOLD:
-                    empty_formats.append(fmt)
-                    logger.debug(
-                        f"[Build] Minimal artifact for '{route_name}/{fmt}' "
-                        f"({len(artifact_bytes)} bytes, likely empty ZIP) — skipping"
-                    )
                     continue
 
                 artifact_hash = self.artifact_store.save_artifact(route_name, fmt, artifact_bytes)

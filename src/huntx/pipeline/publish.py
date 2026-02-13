@@ -25,10 +25,13 @@ class PublishPipeline:
         fmt = build_result.get("format", "unknown")
         unique_id = build_result.get("unique_id", route_name)
         data = build_result.get("data", b"")
+        if not isinstance(data, (bytes, bytearray)):
+            data = str(data).encode("utf-8")
         data_size_kb = len(data) / 1024
 
-        # Skip empty/minimal artifacts (e.g. empty ZIPs)
-        if isinstance(data, (bytes, bytearray)) and len(data) <= _EMPTY_ZIP_THRESHOLD:
+        # Skip empty/minimal ZIP artifacts (e.g. empty ZIPs).
+        # Do not apply this to text formats because tiny payloads can be valid.
+        if fmt in _ZIP_FORMATS and len(data) <= _EMPTY_ZIP_THRESHOLD:
             logger.debug(f"[Publish] Skipping minimal artifact {unique_id} ({len(data)} bytes)")
             return
 
@@ -97,7 +100,7 @@ class PublishPipeline:
                 logger.info(f"[Publish] Publishing '{filename}' to chat {chat_id} (token {masked_token})")
 
                 # We assume publish returns nothing or checks internally
-                pub.publish(chat_id, build_result["data"], filename, caption)
+                pub.publish(chat_id, data, filename, caption)
 
                 published_any = True
                 duration = time.time() - start_time

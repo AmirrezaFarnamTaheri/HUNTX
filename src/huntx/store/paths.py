@@ -1,9 +1,20 @@
 import os
 from pathlib import Path
 
+
+def _read_env(primary: str, legacy: str, default: str) -> str:
+    value = os.getenv(primary)
+    if value is not None:
+        return value
+    legacy_value = os.getenv(legacy)
+    if legacy_value is not None:
+        return legacy_value
+    return default
+
+
 # Base directory for all data
-# Can be overridden by env var huntx_DATA_DIR
-DATA_DIR = Path(os.getenv("huntx_DATA_DIR", "data")).resolve()
+# Can be overridden by env var HUNTX_DATA_DIR (or legacy huntx_DATA_DIR)
+DATA_DIR = Path(_read_env("HUNTX_DATA_DIR", "huntx_DATA_DIR", "data")).resolve()
 
 # Specific subdirectories
 RAW_STORE_DIR = DATA_DIR / "raw"
@@ -12,7 +23,9 @@ REJECTS_DIR = DATA_DIR / "rejects"
 STATE_DIR = DATA_DIR / "state"
 LOGS_DIR = DATA_DIR / "logs"
 
-STATE_DB_PATH = Path(os.getenv("huntx_STATE_DB_PATH", str(STATE_DIR / "state.db"))).resolve()
+STATE_DB_PATH = Path(
+    _read_env("HUNTX_STATE_DB_PATH", "huntx_STATE_DB_PATH", str(STATE_DIR / "state.db"))
+).resolve()
 
 
 def ensure_dirs():
@@ -33,9 +46,13 @@ def set_paths(data_dir: str, db_path: str):
 
     d = Path(data_dir).resolve()
 
-    # Update environment variables for consistency
+    # Update env vars for both current and legacy spellings.
+    # Keep legacy keys for backward compatibility with older scripts.
+    resolved_db = str(Path(db_path).resolve())
+    os.environ["HUNTX_DATA_DIR"] = str(d)
     os.environ["huntx_DATA_DIR"] = str(d)
-    os.environ["huntx_STATE_DB_PATH"] = str(Path(db_path).resolve())
+    os.environ["HUNTX_STATE_DB_PATH"] = resolved_db
+    os.environ["huntx_STATE_DB_PATH"] = resolved_db
 
     DATA_DIR = d
     RAW_STORE_DIR = DATA_DIR / "raw"
@@ -44,4 +61,4 @@ def set_paths(data_dir: str, db_path: str):
     STATE_DIR = DATA_DIR / "state"
     LOGS_DIR = DATA_DIR / "logs"
 
-    STATE_DB_PATH = Path(db_path).resolve()
+    STATE_DB_PATH = Path(resolved_db).resolve()

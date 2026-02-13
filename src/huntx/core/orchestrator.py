@@ -3,7 +3,6 @@ import base64
 import datetime
 import json
 import logging
-import os
 import time
 import queue
 import threading
@@ -67,8 +66,57 @@ class Orchestrator:
     # Output export
     # ------------------------------------------------------------------
 
-    # An empty ZIP file (no entries) is exactly 22 bytes.
-    _EMPTY_ZIP_THRESHOLD = 22
+    def _iter_expected_output_keys(self):
+        """Yield (route_name, format_id) keys expected by current config."""
+        for route in self.config.routes:
+            for fmt in route.formats:
+                yield route.name, fmt
+                if fmt in ("npvt", "npvtsub"):
+                    yield route.name, f"{fmt}.decoded.json"
+                    yield route.name, f"{fmt}.b64sub"
+
+    def _load_latest_archive_artifact(self, route: str, fmt: str):
+        """
+        Load latest archived bytes for route+format.
+        Returns None if no matching archive artifact exists.
+        """
+        archive_dir = self.artifact_store.archive_dir
+        if not archive_dir.exists():
+            return None
+
+        prefix = f"{route}_"
+        suffix = f".{fmt}"
+        latest_path = None
+        latest_ts = -1
+
+        for item in archive_dir.iterdir():
+            if not item.is_file():
+                continue
+            name = item.name
+            if not (name.startswith(prefix) and name.endswith(suffix)):
+                continue
+
+            middle = name[len(prefix): -len(suffix)]
+            if middle.isdigit():
+                ts = int(middle)
+            else:
+                try:
+                    ts = int(item.stat().st_mtime)
+                except OSError:
+                    continue
+
+            if ts > latest_ts:
+                latest_ts = ts
+                latest_path = item
+
+        if not latest_path:
+            return None
+
+        try:
+            return latest_path.read_bytes()
+        except OSError as e:
+            logger.warning(f"[Export] Could not read archived artifact {latest_path.name}: {e}")
+            return None
 
     def _export_outputs(self, all_build_results: list):
         """Write all build artifacts to outputs/ in the repo root.
@@ -76,28 +124,41 @@ class Orchestrator:
         out_dir = Path.cwd() / "outputs"
         out_dir.mkdir(parents=True, exist_ok=True)
 
-        # ── Collect the set of filenames we will write this run ────────
-        new_filenames: set = set()
-        valid_results = []
+        # Collect payloads to write. Keyed by filename.
+        output_payloads = {}
+
         for res in all_build_results:
+            if not isinstance(res, dict):
+                logger.warning(f"[Export] Ignoring malformed build result: {type(res).__name__}")
+                continue
             route = res.get("route_name", "unknown")
             fmt = res.get("format", "unknown")
             data = res.get("data")
             if not data:
                 continue
-            if isinstance(data, (bytes, bytearray)) and len(data) <= self._EMPTY_ZIP_THRESHOLD:
-                logger.debug(
-                    f"[Export] Skipping minimal artifact for {route}.{fmt} "
-                    f"(size={len(data)} bytes)"
-                )
-                continue
 
             filename = self._output_filename(route, fmt)
-            new_filenames.add(filename)
-            valid_results.append((filename, data))
+            output_payloads[filename] = data
 
-        # ── Remove stale route files (old naming conventions, empty leftovers) ──
-        routes_in_play = {r.get("route_name") for r in all_build_results if r.get("route_name")}
+        # Backfill missing promised outputs from archive snapshots.
+        for route, fmt in self._iter_expected_output_keys():
+            filename = self._output_filename(route, fmt)
+            if filename in output_payloads:
+                continue
+            if (out_dir / filename).exists():
+                continue
+            archived_data = self._load_latest_archive_artifact(route, fmt)
+            if archived_data is None:
+                continue
+            output_payloads[filename] = archived_data
+            logger.info(f"[Export] Restored {filename} from archive")
+
+        expected_filenames = {
+            self._output_filename(route, fmt) for route, fmt in self._iter_expected_output_keys()
+        }
+
+        # Remove stale route files that are no longer part of expected naming.
+        routes_in_play = {r.name for r in self.config.routes}
         stale_removed = 0
         for existing in out_dir.iterdir():
             if not existing.is_file():
@@ -106,7 +167,10 @@ class Orchestrator:
             name = existing.name
             if not any(name.startswith(rt) for rt in routes_in_play):
                 continue
-            if name in new_filenames:
+            if name in output_payloads:
+                continue
+            # Keep expected files even when this run did not rebuild them.
+            if name in expected_filenames:
                 continue
             # This is a route-owned file that is NOT in the new set → stale
             try:
@@ -122,7 +186,7 @@ class Orchestrator:
         files_written = 0
         total_bytes = 0
 
-        for filename, data in valid_results:
+        for filename, data in output_payloads.items():
             path = out_dir / filename
             try:
                 if isinstance(data, bytes):
@@ -205,6 +269,8 @@ class Orchestrator:
         # ── Extract new URIs from this run (strip remarks for dedup) ──
         new_uris: list = []
         for res in all_build_results:
+            if not isinstance(res, dict):
+                continue
             fmt = res.get("format", "")
             if fmt not in ("npvt", "npvtsub"):
                 continue
@@ -468,20 +534,9 @@ class Orchestrator:
                     for d in route.destinations
                 ]
 
-                # Check if any destination has a usable token before attempting publish
-                _default_token = os.getenv("PUBLISH_BOT_TOKEN") or os.getenv("TELEGRAM_TOKEN")
-                has_token = any(d.get("token") or _default_token for d in dests)
-                if not has_token:
-                    if publish_attempts == 0:
-                        logger.warning(
-                            "[Orchestrator] No publish token configured "
-                            "(set PUBLISH_BOT_TOKEN or TELEGRAM_TOKEN). "
-                            "Skipping all publish steps."
-                        )
-                else:
-                    for res in build_results:
-                        self.publish_pipeline.run(res, dests)
-                        publish_attempts += 1
+                for res in build_results:
+                    self.publish_pipeline.run(res, dests)
+                    publish_attempts += 1
                 build_ok += 1
             except Exception as e:
                 logger.exception(f"[Orchestrator] Build/Publish failed for '{route.name}': {e}")
