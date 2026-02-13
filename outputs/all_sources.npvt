@@ -18443,3 +18443,5 @@ vless://8ffkHZrOL5gJhxW2UvEfxmGAGbUrO/XhhEyn/qOsMqAdEEIHvPiyPPJ2azBjZnBHQti90ZZk
 vmess://eyJhZGQiOiI5NS4yMTYuMTgzLjExMyIsImFpZCI6IjAiLCJhbHBuIjoiIiwiZnAiOiIiLCJob3N0IjoiIiwiaWQiOiIwMThmNDQ1OS0wNTZlLTRjNDEtOTBjZS0xMmNiYzJjNjcwYjIiLCJpbnNlY3VyZSI6IjAiLCJuZXQiOiJ0Y3AiLCJwYXRoIjoiIiwicG9ydCI6IjQyMTUyIiwic2N5IjoiYXV0byIsInNuaSI6IiIsInRscyI6IiIsInR5cGUiOiJub25lIiwidiI6IjIiLCJwcyI6InZtZXNzLTE0NTIifQ==
 vless://8ffkHZrOL5gJhxW2UvEfxmGAGbUrO/XhhEyn/qOsMqDejZ8aywg8BDGw3riWH5Ve5NqGtMpqbEyDpw3osu191GxpLtiGGe+UVMPJw5P1twuitX51OJctDuwyrD/MGUs1fMYtkg+eNy9LautUnoIR8eeoruypryBrR6PYJHaZudARofHiXlPODfv1FruG2T04VgfrOmPFQYlt7nqC5zr8Ag2W55ald/84YLE8PvfQ5uLTiFxT0WPCYI7zGXzwTWOD4WOfcrQiBnYWmAFZpLKRuR2wgV/emnKiejI9/Gj6dh0=#vless-14474
 trojan://vAwQ8hlAXP@148.251.173.125:17818?type=tcp&security=none#trojan-1060
+vless://e765eb5b-8442-40e3-9532-857ba5ececa7@66.81.247.155:443?mode=gun&security=tls&alpn=h2%2Chttp%2F1.1&encryption=none&insecure=1&type=grpc&allowInsecure=1&sni=vbox.ping-box.com#vless-14475
+vless://a98dfd2a-b021-607c-af2d-362ae38c9478@85.133.249.38:58128?security=none&encryption=none&host=myket.ir&headerType=http&type=tcp#vless-14476
