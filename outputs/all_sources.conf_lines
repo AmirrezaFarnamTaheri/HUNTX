@@ -79,3 +79,7 @@ PrivateKey =  EFpYZ5ibwHtScXxljjVLceGlm2ZQ+Gg6FJrvob7AG0Y=
 PrivateKey =  mBZESFWXayuMB5CVDo+i2sR7gIGvZbdFe6k6XAhGhkU=
 PrivateKey = sMmwVAIBnlgUoiN7J5DscAZ0xQ8LVhqhMXnJJz6ug2o=
 PrivateKey = 6IOpQdyG70VTlvdUyz2bJcwpagLsyJ16sAJjiYWXVEE=
+PrivateKey = wIn9j+rPentaWzvLPi0QHrfuXQQTt2C/iD8l6iocr0Y=
+Endpoint = [2606:4700:d0::e92e:4977:87d0:1d4e]:934
+DNS = 1.1.1.1, 1.0.0.1, 8.8.8.8, 8.8.4.4, 2606:4700:4700::1111, 2606:4700:4700::1001
+PersistentKeepalive = 30
