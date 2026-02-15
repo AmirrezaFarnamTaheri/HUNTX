@@ -104,3 +104,18 @@ PrivateKey = uPfnrX6QVauyrVZyzo61ocLGDsvRLOH4ERnIwDXVq3k=
 PrivateKey =  GNC3/3kjN0owZ5w4/K9MwYNojF5NuwjeM8z6zH54TG8=
 Endpoint = 188.114.98.201:854
 PrivateKey =  wM+G2wlgqPxS5zDl19ZF1lrdczhGuwau8qsxi6BWXkw=
+S2 = 145
+Endpoint = 90.156.221.234:8443
+S1 = 78
+H2 = 1864454341
+PublicKey = mlM3ws92VGyNHZm8UGNkop14IJUeiemGekBReIrAuCg=
+H1 = 1041856871
+H4 = 576782736
+Jmax = 50
+Jc = 2
+H3 = 2127452411
+PrivateKey = CLB+/ExE19dfVco4ZD9joJ9Gv0U/LfWEfC0YHlWhqZA=
+Jmin = 10
+Address = 10.8.1.4/32
+PresharedKey = E1PKCsBXjBhsDFUGOHBAqMN+R0s/rwc3w+iHKOC8YoY=
+DNS = 172.29.172.254, 1.0.0.1
