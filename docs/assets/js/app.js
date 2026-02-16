@@ -147,7 +147,7 @@ const App = () => {
     return html`
         <div class="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 font-sans text-gray-900 dark:text-gray-100 transition-colors duration-300 selection:bg-brand-500 selection:text-white">
 
-            <$\{Header}
+            <${Header}
                 onSearch=${setQuery}
                 stats=${stats}
                 theme=${theme}
@@ -156,9 +156,9 @@ const App = () => {
 
             <main class="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
 
-                <$\{Hero} />
+                <${Hero} />
 
-                <$\{ControlBar}
+                <${ControlBar}
                     types=${types}
                     activeType=${filterType}
                     onSelectType=${setFilterType}
@@ -185,7 +185,7 @@ const App = () => {
                 ` : html`
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in">
                         ${processedFiles.map(file => html`
-                            <$\{ArtifactCard}
+                            <${ArtifactCard}
                                 key=${file.filename}
                                 file=${file}
                                 onCopy=${handleCopy}
@@ -195,11 +195,11 @@ const App = () => {
                 `}
             </main>
 
-            <$\{Footer} lastUpdated=${stats.lastUpdated} />
+            <${Footer} lastUpdated=${stats.lastUpdated} />
 
-            ${toast && html`<$\{Toast} message=${toast.message} type=${toast.type} />`}
+            ${toast && html`<${Toast} message=${toast.message} type=${toast.type} />`}
         </div>
     `;
 };
 
-render(html`<$\{App} />`, document.getElementById('app'));
+render(html`<${App} />`, document.getElementById('app'));
