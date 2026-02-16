@@ -226,14 +226,20 @@ class BuildPipeline:
         route_name = route_config["name"]
         formats = route_config["formats"]
         allowed_source_ids = route_config.get("from_sources", [])
+        min_seen_file_id = route_config.get("min_seen_file_id")
 
         logger.info(
             f"[Build] ═══ Route '{route_name}' ═══  "
-            f"formats={formats}  sources={len(allowed_source_ids)}"
+            f"formats={formats}  sources={len(allowed_source_ids)}  "
+            f"delta_seen_files_id>{min_seen_file_id if min_seen_file_id is not None else 'all'}"
         )
 
         fetch_start = time.time()
-        records = self.state_repo.get_records_for_build(formats, allowed_source_ids)
+        records = self.state_repo.get_records_for_build(
+            formats,
+            allowed_source_ids,
+            min_seen_file_id=min_seen_file_id,
+        )
         fetch_duration = time.time() - fetch_start
         record_count = len(records)
 

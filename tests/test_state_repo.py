@@ -121,6 +121,30 @@ class TestStateRepo(unittest.TestCase):
         records_wrong_type = self.repo.get_records_for_build(["fmt2"], ["src1"])
         self.assertEqual(len(records_wrong_type), 0)
 
+    def test_get_records_for_build_dedup_is_scoped_per_record_type(self):
+        self.repo.record_file("src1", "101", "rawhash1", 100, "file1.txt")
+        self.repo.record_file("src1", "102", "rawhash2", 100, "file2.txt")
+
+        # Same unique_hash across two record types should keep both.
+        self.repo.add_record("rawhash1", "fmt1", "same_unique", {"line": "a"})
+        self.repo.add_record("rawhash2", "fmt2", "same_unique", {"line": "b"})
+
+        records = self.repo.get_records_for_build(["fmt1", "fmt2"], ["src1"])
+        self.assertEqual(len(records), 2)
+        self.assertEqual({r["record_type"] for r in records}, {"fmt1", "fmt2"})
+
+    def test_get_records_for_build_respects_min_seen_file_id(self):
+        self.repo.record_file("src1", "101", "rawhash1", 100, "file1.txt")
+        self.repo.record_file("src1", "102", "rawhash2", 100, "file2.txt")
+
+        self.repo.add_record("rawhash1", "fmt1", "u1", {"line": "first"})
+        self.repo.add_record("rawhash2", "fmt1", "u2", {"line": "second"})
+
+        # seen_files IDs are 1 and 2, so >1 should return only second file's record.
+        records = self.repo.get_records_for_build(["fmt1"], ["src1"], min_seen_file_id=1)
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["data"], {"line": "second"})
+
     def test_published_artifacts_tracking(self):
         route = "route1"
         h = "art_hash_1"

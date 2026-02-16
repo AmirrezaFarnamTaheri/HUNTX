@@ -17,7 +17,7 @@
 - **4 CLI commands** — `run` (pipeline + auto-deliver), `bot` (persistent bot), `clean`, `reset`
 - **Configurable fetch windows** — separate lookback for text/files on fresh vs subsequent runs (tunable from CI)
 - **Factory reset** — full wipe of state, data, outputs, and source offsets (CLI + CI trigger)
-- **48h rolling dev output** — deduplicated proxy URIs accumulated with timestamps in `outputs_dev/`
+- **Cumulative dev output** — deduplicated proxy URIs accumulated across all runs in `outputs_dev/`
 - **Zero-budget CI** — runs on GitHub Actions every 3h with SQLite state on an orphan branch
 - **Cross-platform** — Linux, macOS, Windows
 

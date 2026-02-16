@@ -1,7 +1,6 @@
 import unittest
 import sqlite3
 import time
-from unittest.mock import MagicMock, patch, AsyncMock
 from huntx.bot.interactive import (
     InteractiveBot,
     WELCOME_TEXT,
@@ -189,6 +188,16 @@ class TestBotCommandNames(unittest.TestCase):
     def test_no_duplicate_commands(self):
         names = [cmd.command for cmd in _BOT_COMMANDS]
         self.assertEqual(len(names), len(set(names)), "Duplicate bot command names found")
+
+
+class TestBotFilenameMatching(unittest.TestCase):
+    def test_matches_internal_and_exported_b64sub_names(self):
+        self.assertTrue(InteractiveBot._filename_matches_format("all_sources.npvt.b64sub", "b64sub"))
+        self.assertTrue(InteractiveBot._filename_matches_format("all_sources_npvt_b64sub.txt", "b64sub"))
+
+    def test_matches_internal_and_exported_decoded_names(self):
+        self.assertTrue(InteractiveBot._filename_matches_format("all_sources.npvt.decoded.json", "decoded.json"))
+        self.assertTrue(InteractiveBot._filename_matches_format("all_sources_npvt_decoded.json", "decoded.json"))
 
 
 if __name__ == "__main__":

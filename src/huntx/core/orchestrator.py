@@ -7,7 +7,7 @@ import time
 import queue
 import threading
 from pathlib import Path
-from ..store.paths import STATE_DB_PATH
+from ..store import paths
 from ..store.raw_store import RawStore
 from ..store.artifact_store import ArtifactStore
 from ..state.db import open_db
@@ -42,9 +42,9 @@ class Orchestrator:
         self.raw_store = RawStore()
         self.artifact_store = ArtifactStore()
 
-        self.db = open_db(STATE_DB_PATH)
+        self.db = open_db(paths.STATE_DB_PATH)
         self.repo = StateRepo(self.db)
-        logger.debug(f"[Orchestrator] State DB at {STATE_DB_PATH}")
+        logger.debug(f"[Orchestrator] State DB at {paths.STATE_DB_PATH}")
 
         self.registry = FormatRegistry.get_instance()
         register_all_formats(self.registry, self.raw_store)
@@ -66,60 +66,8 @@ class Orchestrator:
     # Output export
     # ------------------------------------------------------------------
 
-    def _iter_expected_output_keys(self):
-        """Yield (route_name, format_id) keys expected by current config."""
-        for route in self.config.routes:
-            for fmt in route.formats:
-                yield route.name, fmt
-                if fmt in ("npvt", "npvtsub"):
-                    yield route.name, f"{fmt}.decoded.json"
-                    yield route.name, f"{fmt}.b64sub"
-
-    def _load_latest_archive_artifact(self, route: str, fmt: str):
-        """
-        Load latest archived bytes for route+format.
-        Returns None if no matching archive artifact exists.
-        """
-        archive_dir = self.artifact_store.archive_dir
-        if not archive_dir.exists():
-            return None
-
-        prefix = f"{route}_"
-        suffix = f".{fmt}"
-        latest_path = None
-        latest_ts = -1
-
-        for item in archive_dir.iterdir():
-            if not item.is_file():
-                continue
-            name = item.name
-            if not (name.startswith(prefix) and name.endswith(suffix)):
-                continue
-
-            middle = name[len(prefix): -len(suffix)]
-            if middle.isdigit():
-                ts = int(middle)
-            else:
-                try:
-                    ts = int(item.stat().st_mtime)
-                except OSError:
-                    continue
-
-            if ts > latest_ts:
-                latest_ts = ts
-                latest_path = item
-
-        if not latest_path:
-            return None
-
-        try:
-            return latest_path.read_bytes()
-        except OSError as e:
-            logger.warning(f"[Export] Could not read archived artifact {latest_path.name}: {e}")
-            return None
-
     def _export_outputs(self, all_build_results: list):
-        """Write all build artifacts to outputs/ in the repo root.
+        """Write this run's build artifacts to outputs/ in the repo root.
         These are committed back to the repo by CI."""
         out_dir = Path.cwd() / "outputs"
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -140,23 +88,6 @@ class Orchestrator:
             filename = self._output_filename(route, fmt)
             output_payloads[filename] = data
 
-        # Backfill missing promised outputs from archive snapshots.
-        for route, fmt in self._iter_expected_output_keys():
-            filename = self._output_filename(route, fmt)
-            if filename in output_payloads:
-                continue
-            if (out_dir / filename).exists():
-                continue
-            archived_data = self._load_latest_archive_artifact(route, fmt)
-            if archived_data is None:
-                continue
-            output_payloads[filename] = archived_data
-            logger.info(f"[Export] Restored {filename} from archive")
-
-        expected_filenames = {
-            self._output_filename(route, fmt) for route, fmt in self._iter_expected_output_keys()
-        }
-
         # Remove stale route files that are no longer part of expected naming.
         routes_in_play = {r.name for r in self.config.routes}
         stale_removed = 0
@@ -168,9 +99,6 @@ class Orchestrator:
             if not any(name.startswith(rt) for rt in routes_in_play):
                 continue
             if name in output_payloads:
-                continue
-            # Keep expected files even when this run did not rebuild them.
-            if name in expected_filenames:
                 continue
             # This is a route-owned file that is NOT in the new set → stale
             try:
@@ -222,17 +150,15 @@ class Orchestrator:
     # Dev output export
     # ------------------------------------------------------------------
 
-    _DEV_RETENTION_SECONDS = 48 * 3600  # 48-hour rolling window
-
     def _export_dev_outputs(self, all_build_results: list):
-        """Accumulate proxy URIs into outputs_dev/ with a 48-hour rolling window.
+        """Accumulate proxy URIs into outputs_dev/ as an all-time cumulative set.
 
         Writes three files from the accumulated state:
           - proxies.txt      — one URI per line
           - proxies.json     — structured JSON with metadata
           - proxies_b64sub.txt — base64-encoded subscription
-        A hidden _manifest.json tracks {uri: last_seen_timestamp} for dedup
-        and pruning across runs.
+        A hidden _manifest.json tracks {uri: first_seen_timestamp} for dedup
+        across runs.
         """
         dev_dir = Path.cwd() / "outputs_dev"
         dev_dir.mkdir(parents=True, exist_ok=True)
@@ -240,68 +166,40 @@ class Orchestrator:
         now = time.time()
 
         # ── Load existing manifest ────────────────────────────────────
-        manifest: dict = {}  # {uri_string: last_seen_epoch}
+        manifest: dict = {}  # {uri_string: first_seen_epoch}
         if manifest_path.exists():
             try:
                 manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, OSError) as e:
                 logger.warning(f"[DevExport] Could not read manifest, starting fresh: {e}")
 
-        # ── Seed manifest from existing outputs/ artifacts ──────────
-        # Ensures dedup even after a reset or when manifest is empty
-        out_dir = Path.cwd() / "outputs"
-        seeded = 0
-        for npvt_file in out_dir.glob("*.npvt"):
-            try:
-                text = npvt_file.read_text(encoding="utf-8", errors="ignore")
-                for line in text.splitlines():
-                    uri = line.strip()
-                    if uri and "://" in uri:
-                        key = strip_proxy_remark(uri)
-                        if key not in manifest:
-                            manifest[key] = now
-                            seeded += 1
-            except OSError as e:
-                logger.warning(f"[DevExport] Could not read {npvt_file.name} for seeding: {e}")
-        if seeded:
-            logger.info(f"[DevExport] Seeded {seeded} URIs from existing outputs/")
-
-        # ── Extract new URIs from this run (strip remarks for dedup) ──
-        new_uris: list = []
-        for res in all_build_results:
-            if not isinstance(res, dict):
-                continue
-            fmt = res.get("format", "")
-            if fmt not in ("npvt", "npvtsub"):
-                continue
-            data = res.get("data")
-            if not data:
-                continue
-            text = data.decode("utf-8", errors="ignore") if isinstance(data, bytes) else str(data)
-            for line in text.splitlines():
-                uri = line.strip()
-                if uri and "://" in uri:
-                    new_uris.append(strip_proxy_remark(uri))
+        # ── Add all known npvt/npvtsub records from state DB ────────
+        source_ids = [s.id for s in self.config.sources]
+        history_records = self.repo.get_records_for_build(["npvt", "npvtsub"], source_ids)
 
         added = 0
-        for uri in new_uris:
-            if uri not in manifest:
+        for rec in history_records:
+            data = rec.get("data")
+            if not isinstance(data, dict):
+                continue
+            line = data.get("line")
+            if not isinstance(line, str):
+                continue
+            uri = line.strip()
+            if not uri or "://" not in uri:
+                continue
+            key = strip_proxy_remark(uri)
+            if key not in manifest:
+                manifest[key] = now
                 added += 1
-            manifest[uri] = now
-
-        # ── Prune entries older than 48 hours ─────────────────────────
-        cutoff = now - self._DEV_RETENTION_SECONDS
-        before = len(manifest)
-        manifest = {uri: ts for uri, ts in manifest.items() if ts >= cutoff}
-        pruned = before - len(manifest)
 
         logger.info(
-            f"[DevExport] Manifest: {before} existing + {added} new - {pruned} expired "
+            f"[DevExport] Manifest: {len(manifest) - added} existing + {added} added "
             f"= {len(manifest)} total"
         )
 
         if not manifest:
-            logger.warning("[DevExport] No proxy URIs in rolling window — outputs_dev/ not updated.")
+            logger.warning("[DevExport] No proxy URIs found — outputs_dev/ not updated.")
             return
 
         # ── Save manifest ─────────────────────────────────────────────
@@ -319,7 +217,7 @@ class Orchestrator:
         txt_path = dev_dir / "proxies.txt"
         header = (
             f"# huntx proxy list \u2014 {ts_str}\n"
-            f"# Rolling 48h window \u2014 {len(remarked_uris)} unique URIs\n"
+            f"# All-time cumulative history \u2014 {len(remarked_uris)} unique URIs\n"
             f"# One proxy URI per line\n\n"
         )
         txt_path.write_text(header + "\n".join(remarked_uris) + "\n", encoding="utf-8")
@@ -342,10 +240,10 @@ class Orchestrator:
         json_path = dev_dir / "proxies.json"
         wrapped = {
             "_generated": ts_str,
-            "_window_hours": 48,
+            "_scope": "all_time_cumulative",
             "_count": len(sorted_uris),
             "proxies": [
-                {"uri": remarked, "last_seen": manifest[raw]}
+                {"uri": remarked, "first_seen": manifest[raw]}
                 for raw, remarked in zip(sorted_uris, remarked_uris)
             ],
         }
@@ -362,6 +260,18 @@ class Orchestrator:
     # ------------------------------------------------------------------
     # Worker helpers
     # ------------------------------------------------------------------
+
+    def _get_seen_file_max_id(self) -> int:
+        """Return the highest seen_files.id currently stored."""
+        try:
+            with self.db.connect() as conn:
+                row = conn.execute("SELECT COALESCE(MAX(id), 0) AS max_id FROM seen_files").fetchone()
+                if not row:
+                    return 0
+                return int(row["max_id"] or 0)
+        except Exception as e:
+            logger.warning(f"[Orchestrator] Could not read seen_files max id: {e}")
+            return 0
 
     def _ingest_one_source(self, src_conf) -> bool:
         """Ingest a single source. Designed for thread-pool execution."""
@@ -449,13 +359,15 @@ class Orchestrator:
         total_sources = len(self.config.sources)
         total_routes = len(self.config.routes)
         effective_workers = min(self.max_workers, total_sources)
+        seen_file_cutoff_id = self._get_seen_file_max_id()
 
         logger.info(
             f"[Orchestrator] ╔══════════════════════════════════════════╗\n"
             f"[Orchestrator] ║  Run {run_id}                              ║\n"
             f"[Orchestrator] ╚══════════════════════════════════════════╝\n"
             f"[Orchestrator] sources={total_sources}  routes={total_routes}  "
-            f"workers={effective_workers}  fetch_windows={self.fetch_windows}"
+            f"workers={effective_workers}  fetch_windows={self.fetch_windows}  "
+            f"delta_seen_files_id>{seen_file_cutoff_id}"
         )
 
         # ── Phase 1: Ingestion (pool-based) ──────────────────────────
@@ -507,6 +419,7 @@ class Orchestrator:
         build_err = 0
         total_artifacts = 0
         publish_attempts = 0
+        publish_failures = 0
         all_build_results = []
 
         for route in self.config.routes:
@@ -515,6 +428,7 @@ class Orchestrator:
                     "name": route.name,
                     "formats": route.formats,
                     "from_sources": route.from_sources,
+                    "min_seen_file_id": seen_file_cutoff_id,
                 }
                 build_results = self.build_pipeline.run(route_dict)
                 if not build_results:
@@ -534,10 +448,23 @@ class Orchestrator:
                     for d in route.destinations
                 ]
 
+                route_publish_failed = False
                 for res in build_results:
-                    self.publish_pipeline.run(res, dests)
                     publish_attempts += 1
-                build_ok += 1
+                    try:
+                        self.publish_pipeline.run(res, dests)
+                    except Exception as e:
+                        route_publish_failed = True
+                        publish_failures += 1
+                        logger.error(
+                            f"[Orchestrator] Publish failed for route='{route.name}' "
+                            f"artifact='{res.get('unique_id', 'unknown')}': {e}"
+                        )
+
+                if route_publish_failed:
+                    build_err += 1
+                else:
+                    build_ok += 1
             except Exception as e:
                 logger.exception(f"[Orchestrator] Build/Publish failed for '{route.name}': {e}")
                 build_err += 1
@@ -546,6 +473,7 @@ class Orchestrator:
         logger.info(
             f"[Orchestrator] Phase 3 done: routes={build_ok} ok / {build_err} err  "
             f"artifacts={total_artifacts}  publish_attempts={publish_attempts}  "
+            f"publish_failures={publish_failures}  "
             f"duration={build_duration:.2f}s"
         )
 
@@ -576,6 +504,13 @@ class Orchestrator:
             f"[Orchestrator] Total duration: {duration:.2f}s\n"
             f"[Orchestrator]   Phase 1 Ingest:    {ingest_duration:.1f}s  ({results['ok']} ok, {results['err']} err)\n"
             f"[Orchestrator]   Phase 2 Transform: {transform_duration:.1f}s\n"
-            f"[Orchestrator]   Phase 3 Build/Pub: {build_duration:.1f}s  ({total_artifacts} artifacts)\n"
+            f"[Orchestrator]   Phase 3 Build/Pub: {build_duration:.1f}s  "
+            f"({total_artifacts} artifacts, {publish_failures} publish failures)\n"
             f"[Orchestrator]   Phase 4 Cleanup:   {cleanup_duration:.1f}s"
         )
+
+        if build_err > 0:
+            raise RuntimeError(
+                f"{build_err} route(s) failed during build/publish "
+                f"(publish_failures={publish_failures})"
+            )

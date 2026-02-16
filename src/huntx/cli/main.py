@@ -8,7 +8,7 @@ from pathlib import Path
 from ..config.loader import load_config
 from ..config.validate import validate_config
 from ..logging_conf import setup_logging
-from ..store.paths import set_paths, DATA_DIR, STATE_DB_PATH
+from ..store import paths
 
 logger = logging.getLogger(__name__)
 
@@ -45,12 +45,15 @@ def main():
     clean_parser.add_argument("--yes", "-y", action="store_true", help="Skip confirmation prompt")
 
     # reset subcommand — full factory reset
-    reset_parser = subparsers.add_parser("reset", help="Full factory reset: wipe ALL data, state, caches, outputs, and source offsets")
+    reset_parser = subparsers.add_parser(
+        "reset",
+        help="Full factory reset: wipe ALL data, state, caches, outputs, and source offsets",
+    )
     reset_parser.add_argument("--yes", "-y", action="store_true", help="Skip confirmation prompt")
 
     args = parser.parse_args()
 
-    set_paths(args.data_dir, args.db_path)
+    paths.set_paths(args.data_dir, args.db_path)
 
     log_dir = Path(args.data_dir) / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -126,8 +129,8 @@ def _cmd_bot(args):
 
 def _cmd_clean(args):
     """Delete all data, state, cache for a fresh start."""
-    data_dir = Path(DATA_DIR)
-    db_path = Path(STATE_DB_PATH)
+    data_dir = Path(paths.DATA_DIR)
+    db_path = Path(paths.STATE_DB_PATH)
 
     dirs_to_clean = ["raw", "output", "archive", "dist", "rejects", "logs"]
     items = [data_dir / d for d in dirs_to_clean] + [db_path]
@@ -161,8 +164,8 @@ def _cmd_clean(args):
 def _cmd_reset(args):
     """Full factory reset: wipe ALL data, state, caches, outputs, and source offsets.
     This returns every source to first-seen state."""
-    data_dir = Path(DATA_DIR)
-    db_path = Path(STATE_DB_PATH)
+    data_dir = Path(paths.DATA_DIR)
+    db_path = Path(paths.STATE_DB_PATH)
     repo_root = Path.cwd()
 
     # Collect everything to wipe
@@ -217,7 +220,7 @@ def _cmd_reset(args):
     outputs_dev_dir = repo_root / "outputs_dev"
     outputs_dev_dir.mkdir(parents=True, exist_ok=True)
     (outputs_dev_dir / "README.md").write_text(
-        "# Dev Outputs\n\nAuto-generated with 48h rolling window. Do not edit manually.\n",
+        "# Dev Outputs\n\nAuto-generated as an all-time cumulative set. Do not edit manually.\n",
         encoding="utf-8",
     )
 

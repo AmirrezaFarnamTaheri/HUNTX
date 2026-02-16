@@ -40,6 +40,21 @@ class TestBuildPipeline(unittest.TestCase):
         self.assertEqual(len(results), 0)
         self.artifact_store.save_artifact.assert_not_called()
 
+    def test_build_passes_min_seen_file_id(self):
+        route_config = {
+            "name": "route1",
+            "formats": ["fmt1"],
+            "from_sources": ["src1"],
+            "min_seen_file_id": 55,
+        }
+        self.state_repo.get_records_for_build.return_value = []
+
+        self.pipeline.run(route_config)
+
+        self.state_repo.get_records_for_build.assert_called_once_with(
+            ["fmt1"], ["src1"], min_seen_file_id=55
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -84,6 +84,16 @@ class TestDBStateCoverage(unittest.TestCase):
         records = self.repo.get_records_for_build(["fmt1"], ["src2"])
         self.assertEqual(len(records), 0)
 
+    def test_get_records_for_build_min_seen_file_id(self):
+        self.repo.record_file("src1", "ext1", "h1", 10, "f1", "transformed", {})
+        self.repo.record_file("src1", "ext2", "h2", 10, "f2", "transformed", {})
+        self.repo.add_record("h1", "fmt1", "u1", {"data": "old"})
+        self.repo.add_record("h2", "fmt1", "u2", {"data": "new"})
+
+        records = self.repo.get_records_for_build(["fmt1"], ["src1"], min_seen_file_id=1)
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["data"], {"data": "new"})
+
     def test_publish_artifacts(self):
         route = "r1"
         h = "hash123"

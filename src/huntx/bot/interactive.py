@@ -56,7 +56,7 @@ SUPPORTED_FORMATS = [
 _ALL_VALID_FORMATS = SUPPORTED_FORMATS + ["b64sub", "decoded.json"]
 
 # Formats to auto-deliver (the most useful ones)
-_AUTO_DELIVER_FORMATS = ("npvt", "npvt.b64sub")
+_AUTO_DELIVER_FORMATS = ("npvt", "b64sub")
 
 # Human-readable format descriptions
 _FORMAT_LABELS: Dict[str, str] = {
@@ -75,7 +75,6 @@ _FORMAT_LABELS: Dict[str, str] = {
     "dark": "📱 Dark Tunnel VPN",
     "opaque_bundle": "📦 Binary bundle (ZIP)",
 }
-
 
 
 # ── Bot class ─────────────────────────────────────────────────────────
@@ -284,6 +283,28 @@ class InteractiveBot:
 
     # ── Helpers ────────────────────────────────────────────────────────
 
+    @staticmethod
+    def _filename_matches_format(name: str, fmt: str) -> bool:
+        """Match both internal (route.fmt) and exported (route_fmt_suffix.ext) naming."""
+        n = name.lower()
+        f = fmt.lower()
+
+        if f in ("npvt", "npvtsub"):
+            return n.endswith(f".{f}") or n.endswith(f"_{f}.txt")
+
+        if f in ("b64sub", "npvt.b64sub", "npvtsub.b64sub"):
+            return ".b64sub" in n or n.endswith("_b64sub.txt")
+
+        if f in ("decoded.json", "npvt.decoded.json", "npvtsub.decoded.json"):
+            return ".decoded.json" in n or n.endswith("_decoded.json")
+
+        return (
+            n.endswith(f".{f}")
+            or n.endswith(f"_{f}.txt")
+            or n.endswith(f"_{f}.json")
+            or n.endswith(f"_{f}.zip")
+        )
+
     def _collect_delivery_files(self, output_dir: Path, formats=None) -> List[tuple]:
         """Collect output files to deliver. Returns list of (path, caption).
         If formats is given, only include files whose name ends with one of those suffixes.
@@ -298,8 +319,8 @@ class InteractiveBot:
                 continue
             name = f.name
 
-            # Filter: file must end with .{fmt} for at least one allowed format
-            if not any(name.endswith(f".{fmt}") for fmt in allowed):
+            # Filter: file must match at least one requested format.
+            if not any(self._filename_matches_format(name, fmt) for fmt in allowed):
                 continue
 
             size_kb = f.stat().st_size / 1024
@@ -426,7 +447,7 @@ class InteractiveBot:
             for f in sorted(output_dir.iterdir()):
                 if not f.is_file() or f.stat().st_size == 0:
                     continue
-                if f.name.endswith(f".{fmt}") or f".{fmt}." in f.name:
+                if self._filename_matches_format(f.name, fmt):
                     size_kb = f.stat().st_size / 1024
                     label = _FORMAT_LABELS.get(fmt, fmt)
                     await self.client.send_file(

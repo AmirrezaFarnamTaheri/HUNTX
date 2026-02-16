@@ -19,7 +19,7 @@ class PublishPipeline:
         self.state_repo = state_repo
         self.publishers: Dict[str, TelegramPublisher] = {}
 
-    def run(self, build_result: Dict[str, Any], destinations: List[Dict[str, Any]]):
+    def run(self, build_result: Dict[str, Any], destinations: List[Dict[str, Any]]) -> bool:
         route_name = build_result["route_name"]
         new_hash = build_result["artifact_hash"]
         fmt = build_result.get("format", "unknown")
@@ -33,16 +33,20 @@ class PublishPipeline:
         # Do not apply this to text formats because tiny payloads can be valid.
         if fmt in _ZIP_FORMATS and len(data) <= _EMPTY_ZIP_THRESHOLD:
             logger.debug(f"[Publish] Skipping minimal artifact {unique_id} ({len(data)} bytes)")
-            return
+            return True
 
         # Check if changed using unique_id (route + format)
         last_hash = self.state_repo.get_last_published_hash(unique_id)
         if last_hash == new_hash:
             logger.debug(f"[Publish] No change for {unique_id} (hash={last_hash[:12]}), skip.")
-            return
+            return True
+
+        if not destinations:
+            raise RuntimeError(f"No publish destinations configured for {unique_id}")
 
         default_token = os.getenv("PUBLISH_BOT_TOKEN") or os.getenv("TELEGRAM_TOKEN")
         published_any = False
+        failures: List[str] = []
 
         logger.info(
             f"[Publish] Content changed for {unique_id}  "
@@ -56,7 +60,9 @@ class PublishPipeline:
             token = dest.get("token", default_token)
 
             if not token:
-                logger.error(f"[Publish] No token configured for destination chat_id: {chat_id}")
+                msg = f"No token configured for destination chat_id={chat_id}"
+                logger.error(f"[Publish] {msg}")
+                failures.append(msg)
                 continue
 
             # Mask token for logging
@@ -99,17 +105,26 @@ class PublishPipeline:
                 start_time = time.time()
                 logger.info(f"[Publish] Publishing '{filename}' to chat {chat_id} (token {masked_token})")
 
-                # We assume publish returns nothing or checks internally
                 pub.publish(chat_id, data, filename, caption)
 
                 published_any = True
                 duration = time.time() - start_time
                 logger.info(f"[Publish] Successfully published to {chat_id} (Took: {duration:.2f}s)")
             except Exception as e:
-                logger.error(f"[Publish] Failed to publish to {chat_id}: {e}")
+                msg = f"chat_id={chat_id} error={e}"
+                failures.append(msg)
+                logger.error(f"[Publish] Failed to publish to {msg}")
+
+        if failures:
+            raise RuntimeError(
+                f"Publish failed for {unique_id}: {len(failures)} destination error(s): "
+                + "; ".join(failures)
+            )
 
         if published_any:
             self.state_repo.mark_published(unique_id, new_hash)
             logger.info(f"[Publish] Published {unique_id} ({new_hash}) successfully. State updated.")
+            return True
         else:
             logger.warning(f"[Publish] Failed to publish {unique_id} to any destination.")
+            raise RuntimeError(f"Publish failed for {unique_id}: no destinations succeeded")

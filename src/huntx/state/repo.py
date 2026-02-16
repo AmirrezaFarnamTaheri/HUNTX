@@ -166,26 +166,44 @@ class StateRepo:
         except Exception as e:
             logger.error(f"Failed to batch-update file statuses: {e}")
 
-    def get_records_for_build(self, record_types: List[str], allowed_source_ids: List[str]) -> List[Dict[str, Any]]:
+    def get_records_for_build(
+        self,
+        record_types: List[str],
+        allowed_source_ids: List[str],
+        min_seen_file_id: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
         if not record_types or not allowed_source_ids:
             return []
 
         try:
             placeholders_types = ",".join("?" for _ in record_types)
             placeholders_sources = ",".join("?" for _ in allowed_source_ids)
+            where_extra = ""
+            args: List[Any] = list(record_types) + list(allowed_source_ids)
+            if min_seen_file_id is not None:
+                where_extra = " AND s.id > ?"
+                args.append(int(min_seen_file_id))
 
             query = f"""
-                SELECT r.record_type, r.data_json
-                FROM records r
-                JOIN seen_files s ON r.source_file_hash = s.raw_hash
-                WHERE r.record_type IN ({placeholders_types})
-                  AND s.source_id IN ({placeholders_sources})
-                  AND r.is_active = 1
-                GROUP BY r.unique_hash
-                ORDER BY r.created_at ASC
+                WITH filtered AS (
+                    SELECT r.id, r.record_type, r.unique_hash, r.data_json
+                    FROM records r
+                    JOIN seen_files s ON r.source_file_hash = s.raw_hash
+                    WHERE r.record_type IN ({placeholders_types})
+                      AND s.source_id IN ({placeholders_sources})
+                      AND r.is_active = 1
+                      {where_extra}
+                ),
+                dedup AS (
+                    SELECT record_type, unique_hash, MAX(id) AS keep_id
+                    FROM filtered
+                    GROUP BY record_type, unique_hash
+                )
+                SELECT f.record_type, f.data_json
+                FROM filtered f
+                JOIN dedup d ON d.keep_id = f.id
+                ORDER BY f.id ASC
             """
-
-            args = record_types + allowed_source_ids
 
             with self.db.connect() as conn:
                 cursor = conn.execute(query, args)

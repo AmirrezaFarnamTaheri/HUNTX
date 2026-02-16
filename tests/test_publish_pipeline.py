@@ -38,6 +38,16 @@ class TestPublishPipeline(unittest.TestCase):
             self.pipeline.run(build_result, destinations)
             MockPublisher.assert_not_called()
 
+    def test_fail_when_destination_has_no_token(self):
+        build_result = {"route_name": "route1", "artifact_hash": "new_hash", "format": "fmt1", "data": b"x"}
+        destinations = [{"chat_id": "123"}]
+        self.state_repo.get_last_published_hash.return_value = "old_hash"
+
+        with self.assertRaises(RuntimeError):
+            self.pipeline.run(build_result, destinations)
+
+        self.state_repo.mark_published.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

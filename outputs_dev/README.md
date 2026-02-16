@@ -1,3 +1,3 @@
 # Dev Outputs
 
-Auto-generated with 48h rolling window. Do not edit manually.
+Auto-generated as an all-time cumulative set. Do not edit manually.
