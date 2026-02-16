@@ -370,147 +370,156 @@ class Orchestrator:
             f"delta_seen_files_id>{seen_file_cutoff_id}"
         )
 
-        # ── Phase 1: Ingestion (pool-based) ──────────────────────────
-        ingest_start = time.time()
-        source_queue: queue.Queue = queue.Queue()
-        for src in self.config.sources:
-            source_queue.put(src)
-
-        results = {"ok": 0, "err": 0}
-        lock = threading.Lock()
-
-        logger.info(
-            f"[Orchestrator] ═══ Phase 1: Ingestion ═══  "
-            f"sources={total_sources}  workers={effective_workers}"
-        )
-
-        threads = []
-        for _ in range(effective_workers):
-            t = threading.Thread(target=self._worker, args=(source_queue, results, lock), daemon=True)
-            t.start()
-            threads.append(t)
-
-        for t in threads:
-            t.join()
-
-        ingest_duration = time.time() - ingest_start
-        logger.info(
-            f"[Orchestrator] Phase 1 done: {results['ok']} ok / {results['err']} failed  "
-            f"duration={ingest_duration:.2f}s"
-        )
-
-        # ── Phase 2: Transform ───────────────────────────────────────
-        transform_start = time.time()
-        logger.info("[Orchestrator] ═══ Phase 2: Transformation ═══")
-        try:
-            self.transform_pipeline.process_pending()
-        except Exception as e:
-            logger.exception(f"[Orchestrator] Transform failed: {e}")
-        transform_duration = time.time() - transform_start
-        logger.info(f"[Orchestrator] Phase 2 done: duration={transform_duration:.2f}s")
-
-        # ── Phase 3: Build & Publish ─────────────────────────────────
-        build_start = time.time()
-        logger.info(
-            f"[Orchestrator] ═══ Phase 3: Build & Publish ═══  routes={total_routes}"
-        )
-
+        all_build_results = []
         build_ok = 0
         build_err = 0
         total_artifacts = 0
-        publish_attempts = 0
         publish_failures = 0
-        all_build_results = []
-
-        for route in self.config.routes:
-            try:
-                route_dict = {
-                    "name": route.name,
-                    "formats": route.formats,
-                    "from_sources": route.from_sources,
-                    "min_seen_file_id": seen_file_cutoff_id,
-                }
-                build_results = self.build_pipeline.run(route_dict)
-                if not build_results:
-                    logger.info(f"[Orchestrator] Route '{route.name}': no artifacts produced.")
-                    continue
-
-                total_artifacts += len(build_results)
-                all_build_results.extend(build_results)
-
-                dests = [
-                    {
-                        "chat_id": d.chat_id,
-                        "mode": d.mode,
-                        "caption_template": d.caption_template,
-                        "token": d.token,
-                    }
-                    for d in route.destinations
-                ]
-
-                route_publish_failed = False
-                for res in build_results:
-                    publish_attempts += 1
-                    try:
-                        self.publish_pipeline.run(res, dests)
-                    except Exception as e:
-                        route_publish_failed = True
-                        publish_failures += 1
-                        logger.error(
-                            f"[Orchestrator] Publish failed for route='{route.name}' "
-                            f"artifact='{res.get('unique_id', 'unknown')}': {e}"
-                        )
-
-                if route_publish_failed:
-                    build_err += 1
-                else:
-                    build_ok += 1
-            except Exception as e:
-                logger.exception(f"[Orchestrator] Build/Publish failed for '{route.name}': {e}")
-                build_err += 1
-
-        build_duration = time.time() - build_start
-        logger.info(
-            f"[Orchestrator] Phase 3 done: routes={build_ok} ok / {build_err} err  "
-            f"artifacts={total_artifacts}  publish_attempts={publish_attempts}  "
-            f"publish_failures={publish_failures}  "
-            f"duration={build_duration:.2f}s"
-        )
-
-        # ── Phase 3b: Export outputs to repo ──────────────────────────
-        try:
-            self._export_outputs(all_build_results)
-        except Exception as e:
-            logger.error(f"[Orchestrator] Output export failed: {e}")
+        publish_attempts = 0
+        ingest_duration = 0
+        transform_duration = 0
+        build_duration = 0
+        cleanup_duration = 0
+        results = {"ok": 0, "err": 0}
 
         try:
-            self._export_dev_outputs(all_build_results)
-        except Exception as e:
-            logger.error(f"[Orchestrator] Dev export failed: {e}")
+            # ── Phase 1: Ingestion (pool-based) ──────────────────────────
+            ingest_start = time.time()
+            source_queue: queue.Queue = queue.Queue()
+            for src in self.config.sources:
+                source_queue.put(src)
 
-        # ── Phase 4: Cleanup raw cache for processed files ───────────
-        cleanup_start = time.time()
-        logger.info("[Orchestrator] ═══ Phase 4: Cleanup ═══")
-        self.raw_store.prune_processed(self.repo)
-        self.artifact_store.prune_archive()
-        cleanup_duration = time.time() - cleanup_start
+            lock = threading.Lock()
 
-        duration = time.time() - start_time
-
-        logger.info(
-            f"[Orchestrator] ╔══════════════════════════════════════════╗\n"
-            f"[Orchestrator] ║  Run {run_id} COMPLETE                     ║\n"
-            f"[Orchestrator] ╚══════════════════════════════════════════╝\n"
-            f"[Orchestrator] Total duration: {duration:.2f}s\n"
-            f"[Orchestrator]   Phase 1 Ingest:    {ingest_duration:.1f}s  ({results['ok']} ok, {results['err']} err)\n"
-            f"[Orchestrator]   Phase 2 Transform: {transform_duration:.1f}s\n"
-            f"[Orchestrator]   Phase 3 Build/Pub: {build_duration:.1f}s  "
-            f"({total_artifacts} artifacts, {publish_failures} publish failures)\n"
-            f"[Orchestrator]   Phase 4 Cleanup:   {cleanup_duration:.1f}s"
-        )
-
-        if build_err > 0:
-            raise RuntimeError(
-                f"{build_err} route(s) failed during build/publish "
-                f"(publish_failures={publish_failures})"
+            logger.info(
+                f"[Orchestrator] ═══ Phase 1: Ingestion ═══  "
+                f"sources={total_sources}  workers={effective_workers}"
             )
+
+            threads = []
+            for _ in range(effective_workers):
+                t = threading.Thread(target=self._worker, args=(source_queue, results, lock), daemon=True)
+                t.start()
+                threads.append(t)
+
+            for t in threads:
+                t.join()
+
+            ingest_duration = time.time() - ingest_start
+            logger.info(
+                f"[Orchestrator] Phase 1 done: {results['ok']} ok / {results['err']} failed  "
+                f"duration={ingest_duration:.2f}s"
+            )
+
+            # ── Phase 2: Transform ───────────────────────────────────────
+            transform_start = time.time()
+            logger.info("[Orchestrator] ═══ Phase 2: Transformation ═══")
+            try:
+                self.transform_pipeline.process_pending()
+            except Exception as e:
+                logger.exception(f"[Orchestrator] Transform failed: {e}")
+            transform_duration = time.time() - transform_start
+            logger.info(f"[Orchestrator] Phase 2 done: duration={transform_duration:.2f}s")
+
+            # ── Phase 3: Build & Publish ─────────────────────────────────
+            build_start = time.time()
+            logger.info(
+                f"[Orchestrator] ═══ Phase 3: Build & Publish ═══  routes={total_routes}"
+            )
+
+            for route in self.config.routes:
+                try:
+                    route_dict = {
+                        "name": route.name,
+                        "formats": route.formats,
+                        "from_sources": route.from_sources,
+                        "min_seen_file_id": seen_file_cutoff_id,
+                    }
+                    build_results = self.build_pipeline.run(route_dict)
+                    if not build_results:
+                        logger.info(f"[Orchestrator] Route '{route.name}': no artifacts produced.")
+                        continue
+
+                    total_artifacts += len(build_results)
+                    all_build_results.extend(build_results)
+
+                    dests = [
+                        {
+                            "chat_id": d.chat_id,
+                            "mode": d.mode,
+                            "caption_template": d.caption_template,
+                            "token": d.token,
+                        }
+                        for d in route.destinations
+                    ]
+
+                    route_publish_failed = False
+                    for res in build_results:
+                        publish_attempts += 1
+                        try:
+                            self.publish_pipeline.run(res, dests)
+                        except Exception as e:
+                            route_publish_failed = True
+                            publish_failures += 1
+                            logger.error(
+                                f"[Orchestrator] Publish failed for route='{route.name}' "
+                                f"artifact='{res.get('unique_id', 'unknown')}': {e}"
+                            )
+
+                    if route_publish_failed:
+                        build_err += 1
+                    else:
+                        build_ok += 1
+                except Exception as e:
+                    logger.exception(f"[Orchestrator] Build/Publish failed for '{route.name}': {e}")
+                    build_err += 1
+
+            build_duration = time.time() - build_start
+            logger.info(
+                f"[Orchestrator] Phase 3 done: routes={build_ok} ok / {build_err} err  "
+                f"artifacts={total_artifacts}  publish_attempts={publish_attempts}  "
+                f"publish_failures={publish_failures}  "
+                f"duration={build_duration:.2f}s"
+            )
+
+        finally:
+            # ── Phase 3b: Export outputs to repo ──────────────────────────
+            try:
+                self._export_outputs(all_build_results)
+            except Exception as e:
+                logger.error(f"[Orchestrator] Output export failed: {e}")
+
+            try:
+                self._export_dev_outputs(all_build_results)
+            except Exception as e:
+                logger.error(f"[Orchestrator] Dev export failed: {e}")
+
+            # ── Phase 4: Cleanup raw cache for processed files ───────────
+            cleanup_start = time.time()
+            logger.info("[Orchestrator] ═══ Phase 4: Cleanup ═══")
+            try:
+                self.raw_store.prune_processed(self.repo)
+                self.artifact_store.prune_archive()
+            except Exception as e:
+                logger.error(f"[Orchestrator] Cleanup failed: {e}")
+            cleanup_duration = time.time() - cleanup_start
+
+            duration = time.time() - start_time
+
+            logger.info(
+                f"[Orchestrator] ╔══════════════════════════════════════════╗\n"
+                f"[Orchestrator] ║  Run {run_id} COMPLETE                     ║\n"
+                f"[Orchestrator] ╚══════════════════════════════════════════╝\n"
+                f"[Orchestrator] Total duration: {duration:.2f}s\n"
+                f"[Orchestrator]   Phase 1 Ingest:    {ingest_duration:.1f}s  ({results['ok']} ok, {results['err']} err)\n"
+                f"[Orchestrator]   Phase 2 Transform: {transform_duration:.1f}s\n"
+                f"[Orchestrator]   Phase 3 Build/Pub: {build_duration:.1f}s  "
+                f"({total_artifacts} artifacts, {publish_failures} publish failures)\n"
+                f"[Orchestrator]   Phase 4 Cleanup:   {cleanup_duration:.1f}s"
+            )
+
+            if build_err > 0:
+                raise RuntimeError(
+                    f"{build_err} route(s) failed during build/publish "
+                    f"(publish_failures={publish_failures})"
+                )

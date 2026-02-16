@@ -452,6 +452,11 @@ class TelegramUserConnector:
                     if client.is_connected():
                         client.disconnect()
                         logger.debug(f"Disconnected Telegram client for key {key}")
+                except RuntimeError as e:
+                    if "Event loop is closed" in str(e):
+                        logger.debug(f"Expected loop closure during cleanup for {key}: {e}")
+                    else:
+                        logger.warning(f"RuntimeError disconnecting Telegram client for key {key}: {e}")
                 except Exception as e:
                     logger.warning(f"Error disconnecting Telegram client for key {key}: {e}")
             self._local.clients.clear()
