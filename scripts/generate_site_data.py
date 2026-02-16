@@ -44,6 +44,8 @@ def get_file_metadata(filepath: Path) -> dict:
         "size": size_bytes,
         "size_str": size_str,
         "type": filepath.suffix.lstrip(".").upper() or "UNKNOWN",
+        "ext": filepath.suffix.lstrip(".").upper() or "UNKNOWN",
+        "tags": [],
         "last_modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
         "hash": get_file_hash(filepath)
     }

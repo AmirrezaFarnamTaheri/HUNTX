@@ -1,44 +1,7 @@
 {
-  "generated_at": "2026-02-16T11:15:46.134388",
-  "total_files": 4,
+  "generated_at": "2026-02-16T12:50:36.099354",
+  "total_files": 0,
   "total_size": 0,
   "total_size_str": "0.0 KB",
-  "files": [
-    {
-      "filename": "test_config.ehi",
-      "path": "artifacts/test_config.ehi",
-      "size": 0,
-      "size_str": "0 B",
-      "type": "EHI",
-      "last_modified": "2026-02-16T11:01:14.324987",
-      "hash": "d41d8cd9"
-    },
-    {
-      "filename": "test_config.json",
-      "path": "artifacts/test_config.json",
-      "size": 0,
-      "size_str": "0 B",
-      "type": "JSON",
-      "last_modified": "2026-02-16T11:01:14.328987",
-      "hash": "d41d8cd9"
-    },
-    {
-      "filename": "test_config.yaml",
-      "path": "artifacts/test_config.yaml",
-      "size": 0,
-      "size_str": "0 B",
-      "type": "YAML",
-      "last_modified": "2026-02-16T11:04:30.932985",
-      "hash": "d41d8cd9"
-    },
-    {
-      "filename": "test_sub.b64sub",
-      "path": "artifacts/test_sub.b64sub",
-      "size": 0,
-      "size_str": "0 B",
-      "type": "B64SUB",
-      "last_modified": "2026-02-16T11:04:30.928985",
-      "hash": "d41d8cd9"
-    }
-  ]
+  "files": []
 }
