@@ -15,15 +15,20 @@ export const Toast = ({ message, type = 'success' }) => html`
 
 export const Hero = () => html`
     <div class="relative py-16 sm:py-24 text-center overflow-hidden">
-        <!-- Abstract Decoration -->
+        <!-- Abstract Decoration with Icons -->
         <div class="absolute inset-0 z-0 pointer-events-none opacity-30 dark:opacity-20 flex justify-center items-center">
             <div class="w-[600px] h-[600px] bg-brand-500/20 rounded-full blur-[100px] animate-pulse duration-[3000ms]"></div>
             <div class="absolute w-[400px] h-[400px] bg-indigo-500/20 rounded-full blur-[80px] translate-x-24 -translate-y-12"></div>
+
+            <!-- Floating Icons -->
+            <i data-lucide="shield" class="absolute top-10 left-10 w-12 h-12 text-brand-300/40 animate-bounce delay-75"></i>
+            <i data-lucide="globe" class="absolute bottom-20 right-20 w-16 h-16 text-indigo-300/40 animate-pulse delay-150"></i>
+            <i data-lucide="zap" class="absolute top-20 right-10 w-10 h-10 text-yellow-300/40 animate-bounce delay-300"></i>
         </div>
 
         <div class="relative z-10 max-w-4xl mx-auto px-4">
             <div class="inline-flex items-center space-x-2 px-3 py-1 bg-brand-50 dark:bg-brand-900/30 border border-brand-200 dark:border-brand-800 rounded-full text-brand-700 dark:text-brand-300 text-xs font-semibold uppercase tracking-wider mb-6 animate-fade-in">
-                <span class="w-2 h-2 rounded-full bg-brand-500 animate-pulse"></span>
+                <i data-lucide="sparkles" class="w-3 h-3 text-brand-500 animate-pulse"></i>
                 <span>Artifact Repository</span>
             </div>
 
@@ -74,9 +79,15 @@ export const Header = ({ onSearch, stats, theme, onToggleTheme }) => html`
             <!-- Actions -->
             <div class="flex items-center space-x-2 sm:space-x-4">
                 <div class="hidden md:flex items-center space-x-4 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 py-1.5 px-3 rounded-full border border-gray-200 dark:border-gray-700/50">
-                    <span title="Total Files">${stats.totalFiles} files</span>
+                    <span title="Total Files" class="flex items-center gap-1">
+                        <i data-lucide="files" class="w-3 h-3 text-brand-500"></i>
+                        ${stats.totalFiles}
+                    </span>
                     <span class="w-1 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></span>
-                    <span title="Total Size">${stats.totalSize}</span>
+                    <span title="Total Size" class="flex items-center gap-1">
+                        <i data-lucide="hard-drive" class="w-3 h-3 text-brand-500"></i>
+                        ${stats.totalSize}
+                    </span>
                 </div>
 
                 <button
@@ -99,7 +110,11 @@ export const ControlBar = ({ types, activeType, onSelectType, sortOption, onSort
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-100 dark:border-gray-800/50 pb-6 mb-6">
 
         <!-- Filter Tabs -->
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-2 items-center">
+            <span class="text-xs text-gray-500 uppercase tracking-wider font-semibold mr-2 flex items-center gap-1">
+                <i data-lucide="filter" class="w-3 h-3"></i>
+                Filter
+            </span>
             <button
                 class="px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 focus-ring ${activeType === 'ALL' ? 'bg-brand-500 text-white shadow-md shadow-brand-500/25 ring-2 ring-brand-500 ring-offset-2 dark:ring-offset-gray-900' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'}"
                 onClick=${() => onSelectType('ALL')}
@@ -118,19 +133,24 @@ export const ControlBar = ({ types, activeType, onSelectType, sortOption, onSort
 
         <!-- Sort Dropdown -->
         <div class="relative flex items-center space-x-2">
-            <span class="text-xs text-gray-500 uppercase tracking-wider font-semibold">Sort by</span>
-            <select
-                class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 text-sm rounded-lg focus:ring-brand-500 focus:border-brand-500 block w-full p-2 pl-3 pr-8 appearance-none cursor-pointer hover:border-brand-400 transition-colors"
-                value=${sortOption}
-                onChange=${(e) => onSortChange(e.target.value)}
-            >
-                <option value="date_desc">Newest First</option>
-                <option value="date_asc">Oldest First</option>
-                <option value="name_asc">Name (A-Z)</option>
-                <option value="size_desc">Size (Large to Small)</option>
-            </select>
-            <div class="absolute right-2 pointer-events-none text-gray-400">
-                <i data-lucide="chevron-down" class="w-4 h-4"></i>
+            <span class="text-xs text-gray-500 uppercase tracking-wider font-semibold flex items-center gap-1">
+                <i data-lucide="arrow-up-down" class="w-3 h-3"></i>
+                Sort
+            </span>
+            <div class="relative group">
+                <select
+                    class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 text-sm rounded-lg focus:ring-brand-500 focus:border-brand-500 block w-full p-2 pl-3 pr-8 appearance-none cursor-pointer hover:border-brand-400 transition-colors"
+                    value=${sortOption}
+                    onChange=${(e) => onSortChange(e.target.value)}
+                >
+                    <option value="date_desc">Newest First</option>
+                    <option value="date_asc">Oldest First</option>
+                    <option value="name_asc">Name (A-Z)</option>
+                    <option value="size_desc">Size (Large to Small)</option>
+                </select>
+                <div class="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                    <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                </div>
             </div>
         </div>
     </div>

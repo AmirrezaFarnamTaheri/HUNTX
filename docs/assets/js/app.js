@@ -136,9 +136,9 @@ const App = () => {
     if (loading) {
         return html`
             <div class="flex items-center justify-center h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-                <div class="relative w-24 h-24">
-                    <div class="absolute top-0 left-0 w-full h-full border-4 border-gray-200 dark:border-gray-800 rounded-full"></div>
-                    <div class="absolute top-0 left-0 w-full h-full border-4 border-brand-500 rounded-full animate-spin border-t-transparent"></div>
+                <div class="flex flex-col items-center gap-4">
+                    <i data-lucide="loader-2" class="w-12 h-12 text-brand-500 animate-spin"></i>
+                    <p class="text-sm text-gray-400 font-mono animate-pulse">Loading Artifacts...</p>
                 </div>
             </div>
         `;
