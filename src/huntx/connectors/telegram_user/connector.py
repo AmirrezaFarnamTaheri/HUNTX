@@ -17,8 +17,8 @@ _UNWANTED_MEDIA_ATTRS = ("photo", "video", "gif", "sticker", "voice", "audio", "
 _TEXT_BATCH_SIZE = 100
 
 # Max reconnect retries per pass when connection drops
-_MAX_RECONNECT_RETRIES = 6
-_RECONNECT_DELAYS = (2, 2, 4, 4, 8, 8)  # seconds per retry attempt
+_MAX_RECONNECT_RETRIES = 10
+_RECONNECT_DELAYS = (2, 2, 4, 4, 8, 8, 16, 16, 32, 32)  # seconds per retry attempt
 
 
 @dataclass
@@ -452,6 +452,11 @@ class TelegramUserConnector:
                     if client.is_connected():
                         client.disconnect()
                         logger.debug(f"Disconnected Telegram client for key {key}")
+                except RuntimeError as e:
+                    if "Event loop is closed" in str(e):
+                        logger.debug(f"Expected loop closure during cleanup for {key}: {e}")
+                    else:
+                        logger.warning(f"RuntimeError disconnecting Telegram client for key {key}: {e}")
                 except Exception as e:
                     logger.warning(f"Error disconnecting Telegram client for key {key}: {e}")
             self._local.clients.clear()

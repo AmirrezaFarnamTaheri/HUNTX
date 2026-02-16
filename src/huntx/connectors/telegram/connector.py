@@ -20,7 +20,7 @@ class TelegramItem:
 logger = logging.getLogger(__name__)
 
 # Constants for retries
-MAX_RETRIES = 3
+MAX_RETRIES = 6
 BACKOFF_FACTOR = 1
 
 
