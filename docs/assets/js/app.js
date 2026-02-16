@@ -1,6 +1,4 @@
-import { h, render } from 'https://esm.sh/preact@10.19.3';
-import { useState, useEffect, useMemo, useCallback } from 'https://esm.sh/preact@10.19.3/hooks';
-import { html } from 'https://esm.sh/htm/preact@10.19.3';
+import { h, render, useState, useEffect, useMemo, useCallback, html } from "./deps.js";
 import { store } from './store.js';
 import { Header, Hero, ControlBar, ArtifactCard, Footer, Toast } from './components.js';
 

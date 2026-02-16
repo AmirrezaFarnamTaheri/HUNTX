@@ -1,4 +1,4 @@
-import { html } from 'https://esm.sh/htm/preact';
+import { html } from "./deps.js";
 
 export const Toast = ({ message, type = 'success' }) => html`
     <div class="fixed bottom-4 right-4 z-[9999] transition-all duration-300 transform animate-slide-up">
