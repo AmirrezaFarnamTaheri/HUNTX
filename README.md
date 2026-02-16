@@ -232,3 +232,32 @@ See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for contribution guidelines.
 ## License
 
 MIT
+
+## GatherX - Frontend
+
+GatherX is the frontend interface for browsing and downloading generated artifacts. It features a modern, responsive UI with search, filtering, and dark mode support.
+
+### Features
+- **Modern UI/UX**: Built with Tailwind CSS, Preact, and Lucide Icons.
+- **Search & Filter**: Fuzzy search powered by Fuse.js and type-based filtering.
+- **Dark Mode**: Toggle between light and dark themes.
+- **Responsive**: Fully responsive design for mobile and desktop.
+- **No Build Step**: Uses ES Modules and CDN-hosted libraries for zero-config deployment.
+
+### Generating Site Data
+To update the artifacts and catalog for the frontend, run:
+```bash
+python3 scripts/generate_site_data.py
+```
+This script:
+1. Scans `persist/data/dist` for artifacts.
+2. Extracts metadata and protocol tags.
+3. Generates `docs/catalog.json`.
+4. Copies artifacts to `docs/artifacts/`.
+
+### Viewing the Site
+Simply serve the `docs/` directory using any static file server:
+```bash
+python3 -m http.server -d docs 8080
+```
+Or enable GitHub Pages on the repository pointing to the `docs/` folder.
