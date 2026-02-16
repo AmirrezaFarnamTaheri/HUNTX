@@ -27,3 +27,4 @@ my_config.yaml
 *.session
 *.log
 huntx-output/
+docs/artifacts/
