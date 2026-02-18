@@ -273,7 +273,7 @@ class Orchestrator:
             logger.warning(f"[Orchestrator] Could not read seen_files max id: {e}")
             return 0
 
-    def _ingest_one_source(self, src_conf) -> bool:
+    def _ingest_one_source(self, src_conf, deadline: float = None) -> bool:
         """Ingest a single source. Designed for thread-pool execution."""
         try:
             asyncio.get_event_loop()
