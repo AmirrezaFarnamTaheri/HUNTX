@@ -12,7 +12,8 @@ class IngestionPipeline:
         self.raw_store = raw_store
         self.state_repo = state_repo
 
-    def run(self, source_id: str, connector: SourceConnector, source_type: str = "telegram"):
+
+    def run(self, source_id: str, connector: SourceConnector, source_type: str = "telegram", deadline: float = None):
         connector_name = connector.__class__.__name__
         logger.info(
             f"[Ingest] ═══ Starting source {source_id} ═══  "
@@ -44,6 +45,10 @@ class IngestionPipeline:
             try:
                 logger.info(f"[Ingest] Requesting items from connector for {source_id}...")
                 for item in connector.list_new(state):
+                    if deadline and time.time() > deadline:
+                        logger.warning(f"[Ingest] Deadline exceeded for {source_id}. Interrupting ingestion.")
+                        break
+
                     if self.state_repo.has_seen_file(source_id, item.external_id, conn=conn):
                         skipped_count += 1
                         if skipped_count % 100 == 0:

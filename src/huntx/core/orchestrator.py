@@ -24,7 +24,7 @@ from ..config.schema import AppConfig
 logger = logging.getLogger(__name__)
 
 # Default number of parallel ingestion workers
-DEFAULT_MAX_WORKERS = 2
+DEFAULT_MAX_WORKERS = 5
 
 
 class Orchestrator:
@@ -292,7 +292,7 @@ class Orchestrator:
                     state=self.repo.get_source_state(src_conf.id),
                     fetch_windows=self.fetch_windows,
                 )
-                self.ingest_pipeline.run(src_conf.id, bot_conn, source_type=src_conf.type)
+                self.ingest_pipeline.run(src_conf.id, bot_conn, source_type=src_conf.type, deadline=deadline)
                 return True
             elif src_conf.type == "telegram_user" and src_conf.telegram_user:
                 logger.info(f"[Worker] Ingesting source {src_conf.id} (MTProto)")
@@ -317,7 +317,7 @@ class Orchestrator:
                             return True  # not an error, just a dup
                         self._seen_channels.add(channel_id)
                 try:
-                    self.ingest_pipeline.run(src_conf.id, user_conn, source_type=src_conf.type)
+                    self.ingest_pipeline.run(src_conf.id, user_conn, source_type=src_conf.type, deadline=deadline)
                     return True
                 finally:
                     # Ensure cleanup happens even if ingest fails
@@ -329,19 +329,22 @@ class Orchestrator:
             logger.exception(f"[Worker] Ingest failed for {src_conf.id}: {e}")
             return False
 
-    def _worker(self, source_queue: queue.Queue, results: dict, lock: threading.Lock):
+    def _worker(self, source_queue: queue.Queue, results: dict, lock: threading.Lock, deadline: float = None):
         """
         Pool worker: pull sources from the shared queue until it is empty.
         Each source is fully processed before the next one is taken, and
         no two workers can take the same source (guaranteed by queue).
         """
         while True:
+            if deadline and time.time() > deadline:
+                return
+
             try:
                 src_conf = source_queue.get_nowait()
             except queue.Empty:
                 return  # pool exhausted
 
-            success = self._ingest_one_source(src_conf)
+            success = self._ingest_one_source(src_conf, deadline=deadline)
             with lock:
                 if success:
                     results["ok"] += 1
@@ -353,8 +356,9 @@ class Orchestrator:
     # Main run
     # ------------------------------------------------------------------
 
-    def run(self):
+    def run(self, timeout: float = None):
         start_time = time.time()
+        deadline = start_time + timeout if timeout else None
         run_id = int(start_time)
         total_sources = len(self.config.sources)
         total_routes = len(self.config.routes)
@@ -367,7 +371,7 @@ class Orchestrator:
             f"[Orchestrator] ╚══════════════════════════════════════════╝\n"
             f"[Orchestrator] sources={total_sources}  routes={total_routes}  "
             f"workers={effective_workers}  fetch_windows={self.fetch_windows}  "
-            f"delta_seen_files_id>{seen_file_cutoff_id}"
+            f"delta_seen_files_id>{seen_file_cutoff_id}  timeout={timeout}"
         )
 
         all_build_results = []
@@ -398,7 +402,7 @@ class Orchestrator:
 
             threads = []
             for _ in range(effective_workers):
-                t = threading.Thread(target=self._worker, args=(source_queue, results, lock), daemon=True)
+                t = threading.Thread(target=self._worker, args=(source_queue, results, lock, deadline), daemon=True)
                 t.start()
                 threads.append(t)
 
@@ -412,14 +416,17 @@ class Orchestrator:
             )
 
             # ── Phase 2: Transform ───────────────────────────────────────
-            transform_start = time.time()
-            logger.info("[Orchestrator] ═══ Phase 2: Transformation ═══")
-            try:
-                self.transform_pipeline.process_pending()
-            except Exception as e:
-                logger.exception(f"[Orchestrator] Transform failed: {e}")
-            transform_duration = time.time() - transform_start
-            logger.info(f"[Orchestrator] Phase 2 done: duration={transform_duration:.2f}s")
+            if deadline and time.time() > deadline:
+                logger.warning("[Orchestrator] Deadline exceeded before Phase 2. Skipping transformation.")
+            else:
+                transform_start = time.time()
+                logger.info("[Orchestrator] ═══ Phase 2: Transformation ═══")
+                try:
+                    self.transform_pipeline.process_pending(deadline=deadline)
+                except Exception as e:
+                    logger.exception(f"[Orchestrator] Transform failed: {e}")
+                transform_duration = time.time() - transform_start
+                logger.info(f"[Orchestrator] Phase 2 done: duration={transform_duration:.2f}s")
 
             # ── Phase 3: Build & Publish ─────────────────────────────────
             build_start = time.time()
@@ -428,6 +435,10 @@ class Orchestrator:
             )
 
             for route in self.config.routes:
+                if deadline and time.time() > deadline:
+                    logger.warning("[Orchestrator] Deadline exceeded during Phase 3. Interrupting.")
+                    break
+
                 try:
                     route_dict = {
                         "name": route.name,

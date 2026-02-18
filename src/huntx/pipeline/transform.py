@@ -132,7 +132,7 @@ class TransformPipeline:
 
         return len(all_record_rows), processed, failed, skipped
 
-    def process_pending(self):
+    def process_pending(self, deadline: float = None):
         """
         Finds pending files, determines format, parses, and saves records.
         Processes in batches of TRANSFORM_BATCH_SIZE for efficient DB writes.
@@ -162,6 +162,10 @@ class TransformPipeline:
 
         # Process in batches
         for batch_start in range(0, total_pending, TRANSFORM_BATCH_SIZE):
+            if deadline and time.time() > deadline:
+                logger.warning("[Transform] Deadline exceeded. Interrupting transformation.")
+                break
+
             batch_num += 1
             batch = pending_files[batch_start : batch_start + TRANSFORM_BATCH_SIZE]
             batch_len = len(batch)
@@ -174,7 +178,7 @@ class TransformPipeline:
 
             # Parallel parse within batch
             batch_results: List[Dict[str, Any]] = []
-            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
                 future_to_row = {executor.submit(self._process_single_file, row): row for row in batch}
                 for future in concurrent.futures.as_completed(future_to_row):
                     res = future.result()
