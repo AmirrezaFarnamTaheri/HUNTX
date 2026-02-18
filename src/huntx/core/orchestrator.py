@@ -24,7 +24,7 @@ from ..config.schema import AppConfig
 logger = logging.getLogger(__name__)
 
 # Default number of parallel ingestion workers
-DEFAULT_MAX_WORKERS = 5
+DEFAULT_MAX_WORKERS = 2
 
 
 class Orchestrator:

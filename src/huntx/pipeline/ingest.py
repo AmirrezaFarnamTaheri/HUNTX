@@ -13,6 +13,68 @@ class IngestionPipeline:
         self.state_repo = state_repo
 
 
+
+    def _process_batch(self, source_id, buffer, conn):
+        if not buffer:
+            return 0, 0, 0, 0, 0  # processed, new_bytes, skipped, text, media
+
+        # 1. Check seen files in batch
+        external_ids = [item.external_id for item in buffer]
+        seen_ids = self.state_repo.get_seen_files_batch(source_id, external_ids, conn=conn)
+
+        records_to_insert = []
+        new_items_count = 0
+        new_bytes = 0
+        skipped_count = 0
+        text_count = 0
+        media_count = 0
+
+        for item in buffer:
+            if item.external_id in seen_ids:
+                skipped_count += 1
+                continue
+
+            filename = item.metadata.get("filename", "unknown")
+            file_size = len(item.data)
+            is_text = item.metadata.get("is_text", False) or filename.endswith(".txt")
+
+            if is_text:
+                text_count += 1
+            else:
+                media_count += 1
+
+            raw_hash = self.raw_store.save(item.data)
+
+            records_to_insert.append((
+                source_id,
+                item.external_id,
+                raw_hash,
+                file_size,
+                filename,
+                "pending",
+                item.metadata,  # metadata will be json.dumps inside record_files_batch
+            ))
+            new_items_count += 1
+            new_bytes += file_size
+
+        if records_to_insert:
+            # Note: record_files_batch handles json serialization of metadata
+            # But wait, record_files_batch expects tuples. We should adjust record_files_batch to handle serialization or do it here.
+            # Looking at StateRepo.record_file, it calls json.dumps.
+            # But StateRepo.record_files_batch we added does NOT call json.dumps on the tuple item.
+            # We need to serialize here.
+            import json
+            serialized_records = []
+            for r in records_to_insert:
+                # r is (source_id, external_id, raw_hash, file_size, filename, status, metadata)
+                serialized_records.append((
+                    r[0], r[1], r[2], r[3], r[4], r[5], json.dumps(r[6] or {})
+                ))
+
+            self.state_repo.record_files_batch(serialized_records, conn=conn)
+
+        return new_items_count, new_bytes, skipped_count, text_count, media_count
+
     def run(self, source_id: str, connector: SourceConnector, source_type: str = "telegram", deadline: float = None):
         connector_name = connector.__class__.__name__
         logger.info(
@@ -44,52 +106,42 @@ class IngestionPipeline:
 
             try:
                 logger.info(f"[Ingest] Requesting items from connector for {source_id}...")
+                buffer = []
+                BATCH_SIZE = 100
+
                 for item in connector.list_new(state):
                     if deadline and time.time() > deadline:
                         logger.warning(f"[Ingest] Deadline exceeded for {source_id}. Interrupting ingestion.")
                         break
 
-                    if self.state_repo.has_seen_file(source_id, item.external_id, conn=conn):
-                        skipped_count += 1
-                        if skipped_count % 100 == 0:
-                            logger.info(
-                                f"[Ingest] … skipped {skipped_count} already-seen items from {source_id}"
-                            )
-                        continue
+                    buffer.append(item)
+                    if len(buffer) >= BATCH_SIZE:
+                        c, nb, sc, tc, mc = self._process_batch(source_id, buffer, conn)
+                        count += c
+                        new_bytes += nb
+                        skipped_count += sc
+                        text_count += tc
+                        media_count += mc
+                        buffer = []
 
-                    filename = item.metadata.get("filename", "unknown")
-                    file_size = len(item.data)
-                    is_text = item.metadata.get("is_text", False) or filename.endswith(".txt")
+                        # Progress logging
+                        if count > 0 and count % 25 == 0: # Approximation for logging frequency
+                             elapsed = time.time() - start_time
+                             rate = count / elapsed if elapsed > 0 else 0
+                             logger.info(
+                                 f"[Ingest] … {source_id}: {count} ingested "
+                                 f"({new_bytes / 1024:.1f} KB, {rate:.1f} items/s)  "
+                                 f"skipped={skipped_count}"
+                             )
 
-                    if is_text:
-                        text_count += 1
-                    else:
-                        media_count += 1
-
-                    raw_hash = self.raw_store.save(item.data)
-
-                    self.state_repo.record_file(
-                        source_id=source_id,
-                        external_id=item.external_id,
-                        raw_hash=raw_hash,
-                        file_size=file_size,
-                        filename=filename,
-                        status="pending",
-                        metadata=item.metadata,
-                        conn=conn,
-                    )
-                    count += 1
-                    new_bytes += file_size
-
-                    # Progress logging every 25 items
-                    if count % 25 == 0:
-                        elapsed = time.time() - start_time
-                        rate = count / elapsed if elapsed > 0 else 0
-                        logger.info(
-                            f"[Ingest] … {source_id}: {count} ingested "
-                            f"({new_bytes / 1024:.1f} KB, {rate:.1f} items/s)  "
-                            f"skipped={skipped_count}"
-                        )
+                if buffer:
+                    c, nb, sc, tc, mc = self._process_batch(source_id, buffer, conn)
+                    count += c
+                    new_bytes += nb
+                    skipped_count += sc
+                    text_count += tc
+                    media_count += mc
+                    buffer = []
 
             except Exception as e:
                 logger.exception(

@@ -178,7 +178,7 @@ class TransformPipeline:
 
             # Parallel parse within batch
             batch_results: List[Dict[str, Any]] = []
-            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
                 future_to_row = {executor.submit(self._process_single_file, row): row for row in batch}
                 for future in concurrent.futures.as_completed(future_to_row):
                     res = future.result()
