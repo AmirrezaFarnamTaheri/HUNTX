@@ -96,7 +96,8 @@ def _cmd_run(args):
         config = load_config(args.config)
         validate_config(config)
         orchestrator = Orchestrator(config, max_workers=max_workers, fetch_windows=fetch_windows)
-        orchestrator.run()
+        # 4.5 hours time limit
+        orchestrator.run(timeout=16200)
     except Exception as e:
         logger.exception(f"Fatal error: {e}")
         sys.exit(1)

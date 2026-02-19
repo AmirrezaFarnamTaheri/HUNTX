@@ -39,7 +39,7 @@ class TestBotConnectorCoverage(unittest.TestCase):
 
         res = self.connector._make_request("getMe")
         self.assertFalse(res["ok"])
-        self.assertEqual(mock_urlopen.call_count, 4)
+        self.assertEqual(mock_urlopen.call_count, 7)
 
     @patch("urllib.request.urlopen")
     def test_download_file_retry(self, mock_urlopen):

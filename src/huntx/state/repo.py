@@ -1,6 +1,6 @@
 import logging
 import json
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Set
 import sqlite3
 
 logger = logging.getLogger(__name__)
@@ -99,6 +99,44 @@ class StateRepo:
             logger.debug(f"Recorded file {filename} (ID: {external_id}) from {source_id}")
         except Exception as e:
             logger.exception(f"Failed to record file {filename}: {e}")
+    def get_seen_files_batch(self, source_id: str, external_ids: List[str], conn: Optional[sqlite3.Connection] = None) -> Set[str]:
+        if not external_ids:
+            return set()
+
+        try:
+            placeholders = ",".join("?" for _ in external_ids)
+            query = f"SELECT external_id FROM seen_files WHERE source_id = ? AND external_id IN ({placeholders})"
+            args = [source_id] + external_ids
+
+            if conn:
+                cursor = conn.execute(query, args)
+                return {row[0] for row in cursor.fetchall()}
+            else:
+                with self.db.connect() as c:
+                    cursor = c.execute(query, args)
+                    return {row[0] for row in cursor.fetchall()}
+        except Exception as e:
+            logger.error(f"Failed to get seen files batch for {source_id}: {e}")
+            return set()
+
+    def record_files_batch(self, records: List[tuple], conn: Optional[sqlite3.Connection] = None):
+        if not records:
+            return
+
+        try:
+            sql = """
+                INSERT OR IGNORE INTO seen_files
+                (source_id, external_id, raw_hash, file_size, filename, status, metadata_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """
+            if conn:
+                conn.executemany(sql, records)
+            else:
+                with self.db.connect() as c:
+                    c.executemany(sql, records)
+            logger.debug(f"Batch-recorded {len(records)} files.")
+        except Exception as e:
+            logger.exception(f"Failed to batch-record files: {e}")
 
     def update_file_status(self, raw_hash: str, status: str, error_msg: Optional[str] = None):
         try:

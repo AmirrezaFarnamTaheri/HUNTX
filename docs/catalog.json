@@ -1,7 +1,73 @@
 {
-  "generated_at": "2026-02-16T12:50:36.099354",
-  "total_files": 0,
-  "total_size": 0,
-  "total_size_str": "0.0 KB",
-  "files": []
+  "generated_at": "2026-02-16T17:35:24.720595",
+  "total_files": 5,
+  "total_size": 21560133,
+  "total_size_str": "20.6 MB",
+  "files": [
+    {
+      "filename": "README.md",
+      "path": "artifacts/dev/README.md",
+      "size": 83,
+      "size_str": "83 B",
+      "type": "MD",
+      "ext": "MD",
+      "tags": [
+        "dev"
+      ],
+      "last_modified": "2026-02-16T17:21:36.099988",
+      "hash": "85361380"
+    },
+    {
+      "filename": "_manifest.json",
+      "path": "artifacts/dev/_manifest.json",
+      "size": 4826500,
+      "size_str": "4.6 MB",
+      "type": "JSON",
+      "ext": "JSON",
+      "tags": [
+        "dev"
+      ],
+      "last_modified": "2026-02-16T17:21:36.119988",
+      "hash": "1f26eedc"
+    },
+    {
+      "filename": "proxies.json",
+      "path": "artifacts/dev/proxies.json",
+      "size": 6052558,
+      "size_str": "5.8 MB",
+      "type": "JSON",
+      "ext": "JSON",
+      "tags": [
+        "dev"
+      ],
+      "last_modified": "2026-02-16T17:21:36.187989",
+      "hash": "b609bf39"
+    },
+    {
+      "filename": "proxies.txt",
+      "path": "artifacts/dev/proxies.txt",
+      "size": 4577639,
+      "size_str": "4.4 MB",
+      "type": "TXT",
+      "ext": "TXT",
+      "tags": [
+        "dev"
+      ],
+      "last_modified": "2026-02-16T17:21:36.255989",
+      "hash": "d03dc23a"
+    },
+    {
+      "filename": "proxies_b64sub.txt",
+      "path": "artifacts/dev/proxies_b64sub.txt",
+      "size": 6103353,
+      "size_str": "5.8 MB",
+      "type": "TXT",
+      "ext": "TXT",
+      "tags": [
+        "dev"
+      ],
+      "last_modified": "2026-02-16T17:21:36.315989",
+      "hash": "fca50919"
+    }
+  ]
 }
