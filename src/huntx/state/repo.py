@@ -110,13 +110,15 @@ class StateRepo:
         except Exception as e:
             logger.error(f"Failed to update status for {raw_hash}: {e}")
 
-    def get_pending_files(self) -> List[Dict[str, Any]]:
+    def get_pending_files(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         try:
+            sql = "SELECT id, source_id, external_id, raw_hash, filename, file_size FROM seen_files WHERE status = 'pending' ORDER BY id ASC"
+            args = []
+            if limit:
+                sql += " LIMIT ?"
+                args.append(limit)
             with self.db.connect() as conn:
-                cursor = conn.execute(
-                    "SELECT id, source_id, external_id, raw_hash, filename, file_size "
-                    "FROM seen_files WHERE status = 'pending'"
-                )
+                cursor = conn.execute(sql, args)
                 return [dict(row) for row in cursor.fetchall()]
         except Exception as e:
             logger.error(f"Failed to get pending files: {e}")

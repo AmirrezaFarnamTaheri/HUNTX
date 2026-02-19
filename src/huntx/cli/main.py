@@ -60,7 +60,7 @@ def main():
     log_file = log_dir / "huntx.log"
 
     log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
-    setup_logging(log_level=getattr(logging, log_level), log_file=str(log_file))
+    setup_logging(log_level=getattr(logging, log_level, logging.INFO), log_file=str(log_file))
 
     if args.command == "run":
         _cmd_run(args)
@@ -122,7 +122,7 @@ def _cmd_bot(args):
         logger.error("API ID and hash required. Set TELEGRAM_API_ID/TELEGRAM_API_HASH or use --api-id/--api-hash.")
         sys.exit(1)
 
-    logger.info("Starting GatherX bot in persistent mode...")
+    logger.info("Starting HuntX bot in persistent mode...")
     bot = InteractiveBot(token, api_id, api_hash)
     asyncio.run(bot.start())
 
@@ -241,7 +241,7 @@ def _deliver_updates():
         logger.warning("Bot credentials not configured — skipping subscription delivery.")
         return
 
-    logger.info("Delivering subscription updates via GatherX bot...")
+    logger.info("Delivering subscription updates via HuntX bot...")
     bot = InteractiveBot(token, api_id, api_hash)
 
     # Manual loop management to gracefully cancel Telethon's internal tasks

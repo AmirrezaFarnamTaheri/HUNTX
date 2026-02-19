@@ -44,10 +44,16 @@ env:
   FILE_FRESH_HOURS: ${{ github.event.inputs.file_fresh_hours || '48' }}
   MSG_SUBSEQUENT_HOURS: ${{ github.event.inputs.msg_subsequent_hours || '0' }}
   FILE_SUBSEQUENT_HOURS: ${{ github.event.inputs.file_subsequent_hours || '0' }}
+  # S3 State Storage Configuration
+  S3_BUCKET: ${{ secrets.S3_BUCKET }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
 
 jobs:
   run:
     runs-on: ubuntu-latest
+    timeout-minutes: 350
     steps:
       - name: Free disk space
         run: |
@@ -57,12 +63,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Cache pip
         uses: actions/cache@v4
@@ -74,25 +80,27 @@ jobs:
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install -e .
+          # Retry pip install to handle transient network issues
+          n=0
+          until [ "$n" -ge 3 ]; do
+            pip install -e . && break
+            n=$((n+1))
+            echo "Install failed. Retrying in $((n*5)) seconds..."
+            sleep $((n*5))
+          done
 
       - name: Prepare directories
         run: mkdir -p persist/data/{raw,output,dist,rejects,archive,state,logs}
 
       - name: Restore state
         run: |
-          git fetch origin huntx-state:huntx-state 2>/dev/null || echo "No state branch yet"
-
-          if git show huntx-state:state.db > persist/state.db 2>/dev/null; then
-            echo "Restored state.db"
+          if [[ -n "$S3_BUCKET" ]]; then
+            echo "Restoring state from S3 bucket: $S3_BUCKET"
+            aws s3 cp s3://$S3_BUCKET/state.db persist/state.db || echo "No state.db found in S3, starting fresh."
+            # Critical: Do not suppress errors here. If sync fails, we must abort to prevent wiping S3 in the persist step.
+            aws s3 sync s3://$S3_BUCKET/archive persist/data/archive --quiet
           else
-            echo "Starting fresh"
-          fi
-
-          if git ls-tree -d huntx-state:data_archive >/dev/null 2>&1; then
-            git checkout huntx-state -- data_archive
-            cp -r data_archive/* persist/data/archive/ 2>/dev/null || true
-            rm -rf data_archive
+            echo "No S3_BUCKET secret defined. Starting fresh (stateless run)."
           fi
 
       - name: Factory reset (if requested)
@@ -102,10 +110,11 @@ jobs:
           rm -rf persist/state.db persist/data/{raw,output,archive,dist,rejects,artifacts,state,logs}/*
           rm -rf outputs/* outputs_dev/*
 
-          # Wipe state branch
-          if git rev-parse --verify huntx-state >/dev/null 2>&1; then
-            git push origin --delete huntx-state 2>/dev/null || true
-            echo "Deleted huntx-state branch"
+          # Wipe S3 state
+          if [[ -n "$S3_BUCKET" ]]; then
+            aws s3 rm s3://$S3_BUCKET/state.db || true
+            aws s3 rm s3://$S3_BUCKET/archive --recursive || true
+            echo "Wiped S3 state"
           fi
 
           # Recreate READMEs
@@ -114,6 +123,15 @@ jobs:
           echo -e "# Dev Outputs\n\nAuto-generated with 48h rolling window. Do not edit manually." > outputs_dev/README.md
 
           echo "Reset complete — all sources will be first-seen on this run."
+
+      - name: Print Configuration
+        run: |
+          echo "=== Active Configuration ==="
+          echo "Max Workers: $MAX_WORKERS"
+          echo "Fresh Hours (Msg/File): $MSG_FRESH_HOURS / $FILE_FRESH_HOURS"
+          echo "Subsequent Hours: $MSG_SUBSEQUENT_HOURS / $FILE_SUBSEQUENT_HOURS"
+          echo "S3 Bucket: ${S3_BUCKET:-'Not Configured'}"
+          echo "============================"
 
       - name: Run huntx
         env:
@@ -165,31 +183,26 @@ jobs:
             echo "No output changes."
           else
             git commit -m "Update outputs [skip ci]"
-            git push origin HEAD
+            
+            # Retry logic for outputs push
+            n=0
+            until [ "$n" -ge 5 ]; do
+               git push origin HEAD && break
+               n=$((n+1))
+               echo "Push failed. Retrying in $((n*5)) seconds..."
+               sleep $((n*5))
+               git pull --rebase || true
+            done
           fi
 
       - name: Persist state
         run: |
-          mkdir -p /tmp/state_commit/data_archive
-          cp persist/state.db /tmp/state_commit/state.db
-          cp -r persist/data/archive/* /tmp/state_commit/data_archive/ 2>/dev/null || true
-
-          if git rev-parse --verify huntx-state >/dev/null 2>&1; then
-            git checkout huntx-state
-            git rm -rf . 2>/dev/null || true
+          if [[ -n "$S3_BUCKET" ]]; then
+            echo "Persisting state to S3 bucket: $S3_BUCKET"
+            # Upload database
+            aws s3 cp persist/state.db s3://$S3_BUCKET/state.db
+            # Sync archive (only uploads new/changed files)
+            aws s3 sync persist/data/archive s3://$S3_BUCKET/archive --quiet --delete
           else
-            git checkout --orphan huntx-state
-            git rm -rf . 2>/dev/null || true
-          fi
-
-          cp /tmp/state_commit/state.db .
-          cp -r /tmp/state_commit/data_archive . 2>/dev/null || true
-
-          git add state.db data_archive 2>/dev/null || git add state.db
-
-          if git diff --cached --quiet; then
-            echo "No state changes."
-          else
-            git commit -m "Update state [skip ci]"
-            git push origin HEAD:huntx-state
+            echo "No S3_BUCKET secret defined. State not persisted."
           fi

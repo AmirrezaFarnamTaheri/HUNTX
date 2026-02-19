@@ -8,7 +8,20 @@ from ..publishers.telegram.publisher import TelegramPublisher
 
 logger = logging.getLogger(__name__)
 
-_ZIP_FORMATS = ("ovpn", "opaque_bundle", "ehi", "hc", "hat", "sip", "npv4", "nm", "dark")
+_ZIP_FORMATS = {"ovpn", "opaque_bundle", "ehi", "hc", "hat", "sip", "npv4", "nm", "dark"}
+
+_EXT_MAPPING = {
+    "conf_lines": ".conf",
+    "npvt": ".txt",
+    "npvtsub": ".txt",
+}
+
+_EXT_LOOKUP = {
+    **{fmt: ".zip" for fmt in _ZIP_FORMATS},
+    **_EXT_MAPPING,
+}
+
+_DEFAULT_EXT = ".txt"
 
 # An empty ZIP file (no entries) is exactly 22 bytes.
 _EMPTY_ZIP_THRESHOLD = 22
@@ -86,17 +99,15 @@ class PublishPipeline:
             caption_preview = (caption[:50] + "...") if len(caption) > 50 else caption
             logger.debug(f"[Publish] Prepared caption for {chat_id}: '{caption_preview}'")
 
-            ext = ".txt"
-            if fmt in _ZIP_FORMATS:
-                ext = ".zip"
-            elif fmt == "conf_lines":
-                ext = ".conf"
-            elif fmt.endswith(".decoded.json"):
-                ext = ".json"
-            elif fmt.endswith(".b64sub"):
-                ext = ".txt"
-            elif fmt in ("npvt", "npvtsub"):
-                ext = ".txt"
+            # Determine extension
+            ext = _EXT_LOOKUP.get(fmt, _DEFAULT_EXT)
+            
+            # Fallback checks for suffixes if exact match not found
+            if ext == _DEFAULT_EXT:
+                if fmt.endswith(".decoded.json"):
+                    ext = ".json"
+                elif fmt.endswith(".b64sub"):
+                    ext = ".txt"
 
             # Filename
             filename = f"{route_name}_{fmt}_{new_hash[:8]}{ext}"

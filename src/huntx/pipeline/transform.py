@@ -23,11 +23,13 @@ class TransformPipeline:
         state_repo: StateRepo,
         registry: FormatRegistry,
         source_configs: Optional[Dict[str, SourceConfig]] = None,
+        max_workers: int = 4,
     ):
         self.raw_store = raw_store
         self.state_repo = state_repo
         self.registry = registry
         self.source_configs = source_configs or {}
+        self.max_workers = max_workers
 
     def _process_single_file(self, row: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -50,7 +52,7 @@ class TransformPipeline:
         try:
             data = self.raw_store.get(raw_hash)
             if not data:
-                logger.error(f"[Transform] Raw data missing for hash={raw_hash[:12]} file={filename}")
+                logger.warning(f"[Transform] Raw data missing for hash={raw_hash[:12]} file={filename}")
                 result["status"] = "failed"
                 result["status_update"] = ("failed", "Raw data missing", raw_hash)
                 return result
@@ -75,7 +77,7 @@ class TransformPipeline:
             # Check handler availability
             handler = self.registry.get(fmt_id)
             if not handler:
-                logger.warning(f"[Transform] No handler for format={fmt_id} file={filename}")
+                logger.debug(f"[Transform] No handler for format={fmt_id} file={filename}")
                 result["status"] = "failed"
                 result["status_update"] = ("failed", f"No handler for {fmt_id}", raw_hash)
                 return result
@@ -84,7 +86,7 @@ class TransformPipeline:
             try:
                 records = handler.parse(data, {"filename": filename, "source_id": source_id})
             except Exception as e:
-                logger.error(f"[Transform] Parse error file={filename} fmt={fmt_id}: {e}")
+                logger.warning(f"[Transform] Parse error file={filename} fmt={fmt_id}: {e}")
                 result["status"] = "failed"
                 result["status_update"] = ("failed", f"Parse error: {str(e)}", raw_hash)
                 return result
@@ -92,7 +94,8 @@ class TransformPipeline:
             # Accumulate record rows for batch insert (no DB call here)
             record_rows = []
             for rec in records:
-                record_rows.append((raw_hash, fmt_id, rec["unique_hash"], json.dumps(rec["data"])))
+                # Use default=str to safely handle non-serializable types (e.g. datetime)
+                record_rows.append((raw_hash, fmt_id, rec["unique_hash"], json.dumps(rec["data"], default=str)))
 
             result["record_rows"] = record_rows
             result["records"] = len(record_rows)
@@ -101,7 +104,7 @@ class TransformPipeline:
             return result
 
         except Exception as e:
-            logger.exception(f"[Transform] Unexpected error hash={raw_hash[:12]} file={filename}: {e}")
+            logger.error(f"[Transform] Unexpected error hash={raw_hash[:12]} file={filename}: {e}")
             result["status"] = "failed"
             result["status_update"] = ("failed", str(e), raw_hash)
             return result
@@ -139,20 +142,6 @@ class TransformPipeline:
         Parallelized with ThreadPoolExecutor within each batch.
         """
         phase_start = time.time()
-        pending_files = self.state_repo.get_pending_files()
-        total_pending = len(pending_files)
-
-        if total_pending == 0:
-            logger.info("[Transform] No pending files to process.")
-            return
-
-        total_bytes = sum(r.get("file_size", 0) for r in pending_files)
-        logger.info(
-            f"[Transform] ═══ Starting transformation ═══  "
-            f"files={total_pending}  total_size={total_bytes / 1024:.1f} KB  "
-            f"batch_size={TRANSFORM_BATCH_SIZE}"
-        )
-
         total_processed = 0
         total_failed = 0
         total_skipped = 0
@@ -160,45 +149,52 @@ class TransformPipeline:
         format_counts: Counter = Counter()
         batch_num = 0
 
-        # Process in batches
-        for batch_start in range(0, total_pending, TRANSFORM_BATCH_SIZE):
-            batch_num += 1
-            batch = pending_files[batch_start : batch_start + TRANSFORM_BATCH_SIZE]
-            batch_len = len(batch)
-            batch_t0 = time.time()
+        logger.info(f"[Transform] ═══ Starting transformation ═══  batch_size={TRANSFORM_BATCH_SIZE}")
 
-            logger.info(
-                f"[Transform] ── Batch {batch_num} ──  "
-                f"files={batch_len}  range=[{batch_start+1}..{batch_start+batch_len}]/{total_pending}"
-            )
+        # Reuse thread pool across batches to avoid overhead
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            while True:
+                # Fetch next batch of pending files
+                batch = self.state_repo.get_pending_files(limit=TRANSFORM_BATCH_SIZE)
+                if not batch:
+                    break
 
-            # Parallel parse within batch
-            batch_results: List[Dict[str, Any]] = []
-            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+                batch_num += 1
+                batch_len = len(batch)
+                batch_t0 = time.time()
+
+                logger.info(f"[Transform] ── Batch {batch_num} ──  files={batch_len}")
+
+                # Parallel parse within batch
+                batch_results: List[Dict[str, Any]] = []
                 future_to_row = {executor.submit(self._process_single_file, row): row for row in batch}
+                
                 for future in concurrent.futures.as_completed(future_to_row):
-                    res = future.result()
-                    batch_results.append(res)
-                    if res["format"]:
-                        format_counts[res["format"]] += 1
+                    try:
+                        res = future.result()
+                        batch_results.append(res)
+                        if res["format"]:
+                            format_counts[res["format"]] += 1
+                    except Exception as e:
+                        logger.error(f"[Transform] Worker thread failed: {e}")
 
-            # Flush batch to DB
-            flush_t0 = time.time()
-            records_inserted, processed, failed, skipped = self._flush_batch(batch_results)
-            flush_dur = time.time() - flush_t0
+                # Flush batch to DB
+                flush_t0 = time.time()
+                records_inserted, processed, failed, skipped = self._flush_batch(batch_results)
+                flush_dur = time.time() - flush_t0
 
-            total_processed += processed
-            total_failed += failed
-            total_skipped += skipped
-            total_records += records_inserted
-            batch_dur = time.time() - batch_t0
+                total_processed += processed
+                total_failed += failed
+                total_skipped += skipped
+                total_records += records_inserted
+                batch_dur = time.time() - batch_t0
 
-            logger.info(
-                f"[Transform] ── Batch {batch_num} done ──  "
-                f"processed={processed} failed={failed} skipped={skipped}  "
-                f"records={records_inserted}  "
-                f"parse={batch_dur - flush_dur:.2f}s  flush={flush_dur:.2f}s  total={batch_dur:.2f}s"
-            )
+                logger.info(
+                    f"[Transform] ── Batch {batch_num} done ──  "
+                    f"processed={processed} failed={failed} skipped={skipped}  "
+                    f"records={records_inserted}  "
+                    f"parse={batch_dur - flush_dur:.2f}s  flush={flush_dur:.2f}s  total={batch_dur:.2f}s"
+                )
 
         phase_dur = time.time() - phase_start
         formats_summary = ", ".join(f"{k}:{v}" for k, v in sorted(format_counts.items(), key=lambda x: -x[1]))
