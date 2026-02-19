@@ -41,7 +41,7 @@ concurrency:
 env:
   MAX_WORKERS: ${{ github.event.inputs.max_workers || '2' }}
   MSG_FRESH_HOURS: ${{ github.event.inputs.msg_fresh_hours || '2' }}
-  FILE_FRESH_HOURS: ${{ github.event.inputs.file_fresh_hours || '48' }}
+  FILE_FRESH_HOURS: ${{ github.event.inputs.file_fresh_hours || '2' }}
   MSG_SUBSEQUENT_HOURS: ${{ github.event.inputs.msg_subsequent_hours || '0' }}
   FILE_SUBSEQUENT_HOURS: ${{ github.event.inputs.file_subsequent_hours || '0' }}
   # S3 State Storage Configuration
