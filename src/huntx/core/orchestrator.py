@@ -373,7 +373,7 @@ class Orchestrator:
     # Main run
     # ------------------------------------------------------------------
 
-    def run(self):
+    def run(self, timeout: float | None = None):
         start_time = time.time()
         run_id = int(start_time)
         total_sources = len(self.config.sources)
@@ -381,13 +381,23 @@ class Orchestrator:
         effective_workers = min(self.max_workers, total_sources)
         seen_file_cutoff_id = self._get_seen_file_max_id()
 
+        def _raise_if_timed_out(stage: str):
+            if timeout is None:
+                return
+            elapsed = time.time() - start_time
+            if elapsed > timeout:
+                raise TimeoutError(
+                    f"[Orchestrator] Run timed out after {elapsed:.1f}s during {stage} "
+                    f"(timeout={timeout:.1f}s)"
+                )
+
         logger.info(
             f"[Orchestrator] ╔══════════════════════════════════════════╗\n"
             f"[Orchestrator] ║  Run {run_id}                              ║\n"
             f"[Orchestrator] ╚══════════════════════════════════════════╝\n"
             f"[Orchestrator] sources={total_sources}  routes={total_routes}  "
             f"workers={effective_workers}  fetch_windows={self.fetch_windows}  "
-            f"delta_seen_files_id>{seen_file_cutoff_id}"
+            f"delta_seen_files_id>{seen_file_cutoff_id}  timeout={timeout}"
         )
 
         # ── Phase 1: Ingestion (pool-based) ──────────────────────────
@@ -411,13 +421,26 @@ class Orchestrator:
             threads.append(t)
 
         for t in threads:
-            t.join()
+            if timeout is None:
+                t.join()
+                continue
+
+            # Bound join waits so a stuck worker cannot block forever.
+            while t.is_alive():
+                remaining = timeout - (time.time() - start_time)
+                if remaining <= 0:
+                    raise TimeoutError(
+                        f"[Orchestrator] Run timed out while waiting for ingestion workers "
+                        f"(timeout={timeout:.1f}s)"
+                    )
+                t.join(timeout=min(1.0, remaining))
 
         ingest_duration = time.time() - ingest_start
         logger.info(
             f"[Orchestrator] Phase 1 done: {results['ok']} ok / {results['err']} failed  "
             f"duration={ingest_duration:.2f}s"
         )
+        _raise_if_timed_out("phase 1 ingestion")
 
         # ── Phase 2: Transform ───────────────────────────────────────
         transform_start = time.time()
@@ -428,6 +451,7 @@ class Orchestrator:
             logger.exception(f"[Orchestrator] Transform failed: {e}")
         transform_duration = time.time() - transform_start
         logger.info(f"[Orchestrator] Phase 2 done: duration={transform_duration:.2f}s")
+        _raise_if_timed_out("phase 2 transformation")
 
         # ── Phase 3: Build & Publish ─────────────────────────────────
         build_start = time.time()
@@ -449,6 +473,7 @@ class Orchestrator:
 
             for route in self.config.routes:
                 try:
+                    _raise_if_timed_out(f"route build start ({route.name})")
                     route_dict = {
                         "name": route.name,
                         "formats": route.formats,
@@ -475,6 +500,7 @@ class Orchestrator:
 
                     # Submit tasks to the shared executor
                     for res in build_results:
+                        _raise_if_timed_out(f"publish submit ({route.name})")
                         fut = pub_executor.submit(self.publish_pipeline.run, res, dests)
                         future_to_meta[fut] = {
                             "route": route.name,
@@ -486,18 +512,31 @@ class Orchestrator:
                     failed_routes.add(route.name)
 
             # Now wait for all publish tasks to complete
-            for future in concurrent.futures.as_completed(future_to_meta):
-                meta = future_to_meta[future]
-                publish_attempts += 1
-                try:
-                    future.result()
-                except Exception as e:
-                    publish_failures += 1
-                    failed_routes.add(meta["route"])
-                    logger.error(
-                        f"[Orchestrator] Publish failed for route='{meta['route']}' "
-                        f"artifact='{meta['artifact']}': {e}"
-                    )
+            publish_wait_timeout = None
+            if timeout is not None:
+                publish_wait_timeout = max(0.0, timeout - (time.time() - start_time))
+            try:
+                for future in concurrent.futures.as_completed(
+                    future_to_meta,
+                    timeout=publish_wait_timeout,
+                ):
+                    meta = future_to_meta[future]
+                    publish_attempts += 1
+                    try:
+                        future.result()
+                    except Exception as e:
+                        publish_failures += 1
+                        failed_routes.add(meta["route"])
+                        logger.error(
+                            f"[Orchestrator] Publish failed for route='{meta['route']}' "
+                            f"artifact='{meta['artifact']}': {e}"
+                        )
+                    _raise_if_timed_out("phase 3 publish completion")
+            except concurrent.futures.TimeoutError as e:
+                raise TimeoutError(
+                    f"[Orchestrator] Run timed out while waiting for publish completion "
+                    f"(timeout={timeout:.1f}s)"
+                ) from e
 
         build_err = len(failed_routes)
         build_ok = total_routes - build_err
