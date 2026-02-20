@@ -20,11 +20,11 @@ on:
       msg_subsequent_hours:
         description: "Text lookback hours on subsequent runs (0=all new since last)"
         required: false
-        default: "0"
+        default: "2"
       file_subsequent_hours:
         description: "File/media lookback hours on subsequent runs (0=all new since last)"
         required: false
-        default: "0"
+        default: "2"
       reset:
         description: "Factory reset before run (wipe all state/data/outputs)"
         required: false
@@ -42,8 +42,8 @@ env:
   MAX_WORKERS: ${{ github.event.inputs.max_workers || '2' }}
   MSG_FRESH_HOURS: ${{ github.event.inputs.msg_fresh_hours || '2' }}
   FILE_FRESH_HOURS: ${{ github.event.inputs.file_fresh_hours || '2' }}
-  MSG_SUBSEQUENT_HOURS: ${{ github.event.inputs.msg_subsequent_hours || '0' }}
-  FILE_SUBSEQUENT_HOURS: ${{ github.event.inputs.file_subsequent_hours || '0' }}
+  MSG_SUBSEQUENT_HOURS: ${{ github.event.inputs.msg_subsequent_hours || '2' }}
+  FILE_SUBSEQUENT_HOURS: ${{ github.event.inputs.file_subsequent_hours || '2' }}
   # S3 State Storage Configuration
   S3_BUCKET: ${{ secrets.S3_BUCKET }}
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -53,7 +53,7 @@ env:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    timeout-minutes: 180
     steps:
       - name: Free disk space
         run: |
