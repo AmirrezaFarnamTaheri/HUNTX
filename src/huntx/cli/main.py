@@ -75,14 +75,14 @@ def main():
 def _cmd_run(args):
     from ..core.orchestrator import Orchestrator
 
-    max_workers_str = os.environ.get("HUNTX_MAX_WORKERS") or os.environ.get("huntx_MAX_WORKERS") or "2"
+    max_workers_str = os.environ.get("HUNTX_MAX_WORKERS") or os.environ.get("huntx_MAX_WORKERS") or "3"
     try:
         max_workers = int(max_workers_str)
     except ValueError:
         logger.warning(
-            f"Invalid HUNTX_MAX_WORKERS value '{max_workers_str}', defaulting to 2."
+            f"Invalid HUNTX_MAX_WORKERS value '{max_workers_str}', defaulting to 3."
         )
-        max_workers = 2
+        max_workers = 3
     logger.info(f"Starting HuntX — config={args.config}, workers={max_workers}")
 
     fetch_windows = {

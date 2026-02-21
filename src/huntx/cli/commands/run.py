@@ -22,14 +22,14 @@ def run_command(config_path: str):
         logging.error(f"Config file not found: {cfg_path}")
         return
 
-    max_workers_str = os.getenv("HUNTX_MAX_WORKERS") or os.getenv("huntx_MAX_WORKERS") or "2"
+    max_workers_str = os.getenv("HUNTX_MAX_WORKERS") or os.getenv("huntx_MAX_WORKERS") or "3"
     try:
         max_workers = int(max_workers_str)
     except ValueError:
         logging.warning(
-            f"Invalid HUNTX_MAX_WORKERS value '{max_workers_str}', defaulting to 2."
+            f"Invalid HUNTX_MAX_WORKERS value '{max_workers_str}', defaulting to 3."
         )
-        max_workers = 2
+        max_workers = 3
 
     try:
         config = load_config(cfg_path)
