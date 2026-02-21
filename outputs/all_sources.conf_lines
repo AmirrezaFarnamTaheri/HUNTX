@@ -1,9 +1,0 @@
-[Interface]
-PrivateKey = +A2SFWc7XHn875/Fbq9x2ezNNCQiX2Pn7lGT2sSuD3s=
-Address = 172.16.0.2/32, 2606:4700:110:846c:e510:bfa1:ea9f:5247/128
-DNS = 1.1.1.1, 1.0.0.1, 2606:4700:4700::1111, 2606:4700:4700::1001
-MTU = 1330
-[Peer]
-PublicKey = bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=
-AllowedIPs = 0.0.0.0/0, ::/0
-Endpoint = 188.114.97.177:934
