@@ -1,248 +1,238 @@
 {
-  "total": 79,
+  "total": 54,
   "protocols": {
-    "vmess": 4,
-    "vless": 65,
-    "dns": 7,
-    "shadowsocks": 2,
-    "trojan": 1
+    "vless": 47,
+    "dns": 5,
+    "shadowsocks": 1,
+    "vmess": 1
   },
   "entries": [
     {
-      "protocol": "vmess",
-      "decoded": {
-        "add": "tun.p2p1.sbs",
-        "aid": "0",
-        "host": "",
-        "id": "a41d51ae-82cc-4104-8d09-4c61acbed178",
-        "net": "tcp",
-        "path": "",
-        "port": "2017",
-        "scy": "auto",
-        "sni": "",
-        "tls": "",
-        "type": "none",
-        "v": "2",
-        "ps": "vmess-1"
-      },
-      "raw": "vmess://eyJhZGQiOiJ0dW4ucDJwMS5zYnMiLCJhaWQiOiIwIiwiaG9zdCI6IiIsImlkIjoiYTQxZDUxYWUtODJjYy00MTA0LThkMDktNGM2MWFjYmVkMTc4IiwibmV0IjoidGNwIiwicGF0aCI6IiIsInBvcnQiOiIyMDE3Iiwic2N5IjoiYXV0byIsInNuaSI6IiIsInRscyI6IiIsInR5cGUiOiJub25lIiwidiI6IjIiLCJwcyI6InZtZXNzLTEifQ=="
-    },
-    {
       "protocol": "vless",
-      "user": "44de73bc-eb6d-429d-9c2f-ec0a6e4a6681",
-      "address": "my.configfast.site",
-      "port": 4013,
+      "user": "e8d06b09-acd9-448c-9874-3c36151d36ee",
+      "address": "104.26.3.125",
+      "port": 2052,
       "tag": "vless-1",
       "params": {
+        "path": "/",
         "security": "none",
         "encryption": "none",
-        "host": "bale.ai, web.splus.ir, igap.net",
-        "headerType": "http",
-        "type": "tcp"
+        "host": "icy-wildflower-2590.lihuifeng595.workers.dev",
+        "type": "ws"
       },
-      "raw": "vless://44de73bc-eb6d-429d-9c2f-ec0a6e4a6681@my.configfast.site:4013?security=none&encryption=none&host=bale.ai%2C+web.splus.ir%2C+igap.net&headerType=http&type=tcp#vless-1"
+      "raw": "vless://e8d06b09-acd9-448c-9874-3c36151d36ee@104.26.3.125:2052?path=%2F&security=none&encryption=none&host=icy-wildflower-2590.lihuifeng595.workers.dev&type=ws#vless-1"
+    },
+    {
+      "protocol": "dns",
+      "address": "4i+bagxqvfr61xglw3y1ewb2gowaqy+5ntlpdnob8ro9ljwm6xpi98tflpk5xed03xxnloh9",
+      "tag": "dns-1",
+      "raw": "dns://4I+bAgXQVfr61xgLw3Y1ewb2GoWAqY+5NtlPdnob8rO9LjWM6XPi98tFlPK5xED03XxnLOH9/bqrmfW7Vp+r+Wwgn1v29K3ntb1CCYf6D4ihwPb7sSRz+GThY/9zLYY9m6KF1xgkTvBoeJeCft8cQSd4URlYZOMjhq8Rsc8clfm+D5HCi0yc8EmI9/VyXVAcB4T20UyvAcnza9rLDF5UZEh16eq6mzzqLwRpB/x7XWOduAXn8PKpuXh+BIaTVoZlNjn5hTvNN9/Ul+2Ax75C3w==#dns-1"
+    },
+    {
+      "protocol": "dns",
+      "address": "8oifdrcgqsf+ksbaqane6zjiz+khxtwfvybjvvdw+ud+",
+      "tag": "dns-2",
+      "raw": "dns://8OiFdrCGqSF+ksbaqane6ZJIz+KhxtWFvybJVvDw+uD+/+rwVQDt8SlMV6DFs3tujqvUvosxTjoFKArPdmaDTgV1sqkPl7Nk2kQCV02kyEZvpC1wZ6YFYnD9Xj1WCh5eZ5kB04Rz1gWarmVrbSBy4wrhU6HMpMRZmg1xYT8Z75i95p34dfVq+Vyp7aunrJpk/ISDBd50L0U0zM3ZIuLG0JiVsDcyV4D6AL9doVhP9bpvFe8E5z+duTC3OAuUBiMvse7+EMCs3FE1rXItB5nLjylVPjg2Jqkc/+DDbVGg+Ww=#dns-2"
+    },
+    {
+      "protocol": "dns",
+      "address": "8oifdrcgqsf+ksbaqane6zjiz+khxtwfvybjvvdw+ucpjrwd7zgjghp16favyld2ifhinojkgh",
+      "tag": "dns-3",
+      "raw": "dns://8OiFdrCGqSF+ksbaqane6ZJIz+KhxtWFvybJVvDw+uCpjRwd7zGJghp16faVYld2IfHINoJkgH/FMMSr+u2JZW5QKq4Hg62Gm1F6nK0nhFIVRptNPn8tR8eBNbY4mYvJeJeR1cGyWADIqcMiiT/yxD7XWA1Wsax82QGXPfOj49ONsg2fbYXBsHHU+gLWPQYYc2NLYm2O4N8flJ3AP+2SfryADUqTJmezYFTX+zr6gBfMYvPlwHg8QPE1rB7rsDSLY8fTua+v5vcEqiLbsRWUQA==#dns-3"
+    },
+    {
+      "protocol": "dns",
+      "address": "8oifdrcgqsf+ksbaqane6zjiz+khxtwfvybjvvdw+ud+",
+      "tag": "dns-4",
+      "raw": "dns://8OiFdrCGqSF+ksbaqane6ZJIz+KhxtWFvybJVvDw+uD+/+rwVQDt8SlMV6DFs3tujqvUvosxTjoFKArPdmaDTgV1sqkPl7Nk2kQCV02kyEZvpC1wZ6YFYnD9Xj1WCh5eZ5kB04Rz1gWarmVrbSBy4wrhU6HMpMRZmg1xYT8Z75i95p34dfVq+Vyp7au#dns-4"
+    },
+    {
+      "protocol": "dns",
+      "address": "qqt+0cnhadhlj9v4bsvxhuzvrjukztjwm2bkww3h7agbfrbbcvbbwkjzgsid3xhsnazd2syetsijzzrwfqnninvoyvyphfp9xmxi6cdrn",
+      "tag": "dns-5",
+      "raw": "dns://qqT+0cNhAdHlj9V4bSvxhUZVRJuKZTjWm2BKWW3h7agBFRbBCvbbWKJZgsID3XhsnAZD2sYETsIJZZRwfqNNInVoyvyPhFp9xMXi6CdrN/uDBH2nefxH4ihbFqIiH2a+Y1ErxkpuHMrt7+43UGX7Ux45JNasw49v/AJNWF4K1JQAqBV/wtmyvN212bN8xzzrn69ToT/noaVIFFYLhfUIoFgwRwOHcLloBf390vHjzi2DlogirRLcEvwDOOnvy1DFjDzw/Mj83RNmzBRDIGQe2w==#dns-5"
     },
     {
       "protocol": "vless",
-      "user": "3aa1e49b-93b5-49eb-b99c-f23a31dfb2f0",
-      "address": "my.kiomars.shop",
-      "port": 6664,
+      "user": "e384913f-8863-47b4-8858-a84b68abb4a6",
+      "address": "185.147.26.28",
+      "port": 23335,
       "tag": "vless-2",
       "params": {
-        "security": "none",
+        "type": "tcp",
         "encryption": "none",
-        "headerType": "none",
-        "type": "tcp"
+        "flow": "xtls-rprx-vision",
+        "sni": "icloud.com",
+        "fp": "chrome",
+        "security": "reality",
+        "pbk": "7Gi8eiUU9TIVbGuvSU16gl5-Aqt7tcCSB9x6CSxyvik",
+        "sid": "67b1e94e4dd1ef90"
       },
-      "raw": "vless://3aa1e49b-93b5-49eb-b99c-f23a31dfb2f0@my.kiomars.shop:6664?security=none&encryption=none&headerType=none&type=tcp#vless-2"
-    },
-    {
-      "protocol": "dns",
-      "address": "6ksfjnft+swi9zlhidwgcb5hs5buphnwtr6+n1hm679gd6uundse+vgzkmtfrheddzlbrne",
-      "tag": "dns-1",
-      "raw": "dns://6KsFJNFT+swI9ZlHiDWGCB5hs5buphnWTr6+n1Hm679Gd6UundsE+vGzkMTFRhEDDzLbRne/v9JWoHKijubQg7/bBEJnk8Rj1tUScYaSZsZANdvn1qlC5G89UtHSqP4PrvcEKvilaGo9ZgbolG619Zv0/9Ti7xUjbIoD6E63BtdcEkdKG9Rq2f0iodYl8U5ipkVoPXoovAp8HjNmqHvHsPZVpCLMbwo9Agh2IA0azW3vpg6QQrjLrWzfV86hAmYH#dns-1"
-    },
-    {
-      "protocol": "dns",
-      "address": "6ksfjnft+swi9zlhidwgcb5hs5buphnwtr6+n1hm679pk5k8krv2aidqwzhjdrkddzlbrne",
-      "tag": "dns-2",
-      "raw": "dns://6KsFJNFT+swI9ZlHiDWGCB5hs5buphnWTr6+n1Hm679pK5k8KrV2aiDQWzHjDrKDDzLbRne/v9JWoHKijubQg7/bBEJnk8Rj1tUScYaSZsZANdvn1qlC5G89UtHSqP4PrvcEKvilaGo9ZgbolG619Zv0/9Ti7xUjbIoD6E63BtdcEkdKG9Rq2f0iodYl8U5ipkVoPXoovAp8HjNmqHvHsPZVpCLMbwo9Agh2IA0azW3vpg6QQrjLrWzfV86hAmYH#dns-2"
-    },
-    {
-      "protocol": "dns",
-      "address": "6ksfjnft+swi9zlhidwgcb5hs5buphnwtr6+n1hm6784nzifhbh",
-      "tag": "dns-3",
-      "raw": "dns://6KsFJNFT+swI9ZlHiDWGCB5hs5buphnWTr6+n1Hm6784NzifHBh/mNIY9HAXFQxdF5scDrs3B+6jv8eq8PIDrrONDB19Nr7TO0D6IM4k0PmShsbo+s7/BgkS9eN0Z2L8+cw5os9572n3hErwnHpNBo7OvYHrrImxAsOK4cd2A18C2DUF8/PnuW97QaY6LzW65WiwOOQtOXZI2N1TkKwF5KdOWBqd4uiSqZnqzEsMr9FvLeXYMOmRI9O+6j4SYcj9gsfDusGfZICIxoMyUJCYNg==#dns-3"
-    },
-    {
-      "protocol": "dns",
-      "address": "doiojgfd17fwdz6ndwjjdk4l7m",
-      "tag": "dns-4",
-      "raw": "dns://dOioJGFD17Fwdz6NdWjjDk4L7M/ETQKc4CEQHj9Q8Ommu9jsBsdbNoUyvSuiUHxxCRUzZyGhGIHxTIT5XMEnfETN2d4VxMnbNG8kGAu/eR2ZQIQMfiHaIHURSFTEmynova5oeZ8QhOE8C4i7p44MudvqWlE/morhf/cQCaU1HZOWsPYCTePuK68xUIR1euJNIWCCRBnWs887k5Xl4Ujt2y6iqmSjigF7iH3M4IwIWN5gNycGewFfhWvwmnWwII9r40Yi/M8lznhyZ9b69u5vFg==#dns-4"
-    },
-    {
-      "protocol": "dns",
-      "address": "dhwro1cmxwtn3wjpyhxb8a2wffmyylu8ylmtkva6pnddzdhe8sml5sykqs975y9twgzhksy1w3v2lapxway",
-      "tag": "dns-5",
-      "raw": "dns://dHwRo1CMXWtn3WJPYHXB8a2WffmyyLU8YlMtkVA6PnDDZDhE8SML5SYkqS975Y9TwGZHksy1w3V2LApXWAY/a2YixNw1ql6wXu0B9Y1yO7c/Pz3C8Vg7hcl4jr6bOKov3/aIDMCsq8luygSAFIztGS+4R1iq+MDFDal5Yf2rEPuLJFemoo5kdIZbEyfql4HHZ4VWIlhxVPDp04qN6IFk0Q==#dns-5"
+      "raw": "vless://e384913f-8863-47b4-8858-a84b68abb4a6@185.147.26.28:23335/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=icloud.com&fp=chrome&security=reality&pbk=7Gi8eiUU9TIVbGuvSU16gl5-Aqt7tcCSB9x6CSxyvik&sid=67b1e94e4dd1ef90#vless-2"
     },
     {
       "protocol": "vless",
-      "user": "7396c077-f5cb-4808-84ca-92f268d79b3d",
-      "address": "3.70.230.188",
-      "port": 443,
+      "user": "e384913f-8863-47b4-8858-a84b68abb4a6",
+      "address": "185.147.26.14",
+      "port": 23335,
       "tag": "vless-3",
       "params": {
+        "flow": "xtls-rprx-vision",
         "encryption": "none",
-        "type": "tcp"
+        "type": "tcp",
+        "security": "reality",
+        "fp": "edge",
+        "sni": "icloud.com",
+        "pbk": "7Gi8eiUU9TIVbGuvSU16gl5-Aqt7tcCSB9x6CSxyvik",
+        "sid": "67b1e94e4dd1ef90"
       },
-      "raw": "vless://7396c077-f5cb-4808-84ca-92f268d79b3d@3.70.230.188:443?security=&encryption=none&headerType=&type=tcp#vless-3"
+      "raw": "vless://e384913f-8863-47b4-8858-a84b68abb4a6@185.147.26.14:23335?flow=xtls-rprx-vision&encryption=none&type=tcp&security=reality&fp=edge&sni=icloud.com&pbk=7Gi8eiUU9TIVbGuvSU16gl5-Aqt7tcCSB9x6CSxyvik&sid=67b1e94e4dd1ef90#vless-3"
     },
     {
       "protocol": "vless",
-      "user": "d16bab5b-a68d-4280-c340-d3e865f2a858",
-      "address": "18.153.80.37",
-      "port": 17506,
+      "user": "e384913f-8863-47b4-8858-a84b68abb4a6",
+      "address": "185.147.26.64",
+      "port": 23335,
       "tag": "vless-4",
       "params": {
+        "type": "tcp",
         "encryption": "none",
-        "type": "tcp"
+        "flow": "xtls-rprx-vision",
+        "sni": "icloud.com",
+        "fp": "chrome",
+        "security": "reality",
+        "pbk": "7Gi8eiUU9TIVbGuvSU16gl5-Aqt7tcCSB9x6CSxyvik",
+        "sid": "67b1e94e4dd1ef90"
       },
-      "raw": "vless://d16bab5b-a68d-4280-c340-d3e865f2a858@18.153.80.37:17506?security=&encryption=none&headerType=&type=tcp#vless-4"
+      "raw": "vless://e384913f-8863-47b4-8858-a84b68abb4a6@185.147.26.64:23335/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=icloud.com&fp=chrome&security=reality&pbk=7Gi8eiUU9TIVbGuvSU16gl5-Aqt7tcCSB9x6CSxyvik&sid=67b1e94e4dd1ef90#vless-4"
     },
     {
       "protocol": "vless",
-      "user": "fca42527-0f5f-4227-9554-ba32702fe90c",
-      "address": "18.199.80.93",
-      "port": 443,
+      "user": "e384913f-8863-47b4-8858-a84b68abb4a6",
+      "address": "185.147.26.35",
+      "port": 23335,
       "tag": "vless-5",
       "params": {
+        "flow": "xtls-rprx-vision",
         "encryption": "none",
-        "type": "tcp"
+        "type": "tcp",
+        "security": "reality",
+        "fp": "chrome",
+        "sni": "icloud.com",
+        "pbk": "7Gi8eiUU9TIVbGuvSU16gl5-Aqt7tcCSB9x6CSxyvik",
+        "sid": "67b1e94e4dd1ef90"
       },
-      "raw": "vless://fca42527-0f5f-4227-9554-ba32702fe90c@18.199.80.93:443?security=&encryption=none&headerType=&type=tcp#vless-5"
+      "raw": "vless://e384913f-8863-47b4-8858-a84b68abb4a6@185.147.26.35:23335?flow=xtls-rprx-vision&encryption=none&type=tcp&security=reality&fp=chrome&sni=icloud.com&pbk=7Gi8eiUU9TIVbGuvSU16gl5-Aqt7tcCSB9x6CSxyvik&sid=67b1e94e4dd1ef90#vless-5"
+    },
+    {
+      "protocol": "vless",
+      "user": "e384913f-8863-47b4-8858-a84b68abb4a6",
+      "address": "185.147.26.29",
+      "port": 23335,
+      "tag": "vless-6",
+      "params": {
+        "type": "tcp",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision",
+        "sni": "icloud.com",
+        "fp": "chrome",
+        "security": "reality",
+        "pbk": "7Gi8eiUU9TIVbGuvSU16gl5-Aqt7tcCSB9x6CSxyvik",
+        "sid": "67b1e94e4dd1ef90"
+      },
+      "raw": "vless://e384913f-8863-47b4-8858-a84b68abb4a6@185.147.26.29:23335/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=icloud.com&fp=chrome&security=reality&pbk=7Gi8eiUU9TIVbGuvSU16gl5-Aqt7tcCSB9x6CSxyvik&sid=67b1e94e4dd1ef90#vless-6"
+    },
+    {
+      "protocol": "vless",
+      "user": "6ec8b103-a55b-439a-ad11-1b46240e0fd9",
+      "address": "www.speedtest.net",
+      "port": 443,
+      "tag": "vless-7",
+      "params": {
+        "path": "/Free"
+      },
+      "raw": "vless://6ec8b103-a55b-439a-ad11-1b46240e0fd9@www.speedtest.net:443?path=/Free#vless-7"
     },
     {
       "protocol": "vless",
       "user": "6202b230-417c-4d8e-b624-0f71afa9c75d",
-      "address": "185.162.231.138",
-      "port": 2096,
-      "tag": "vless-6",
-      "params": {
-        "path": "/?ed=#TELEGRAM-MARAMBASHI_MARAMBASHI_MARAMBASHI_MARAMBASHI_MARAMBASHI?ed=512",
-        "security": "tls",
-        "encryption": "none",
-        "insecure": "0",
-        "host": "sni.111000.indevs.in",
-        "type": "ws",
-        "allowInsecure": "0",
-        "sni": "sni.111000.indevs.in"
-      },
-      "raw": "vless://6202b230-417c-4d8e-b624-0f71afa9c75d@185.162.231.138:2096?path=%2F%3Fed%3D%23TELEGRAM-MARAMBASHI_MARAMBASHI_MARAMBASHI_MARAMBASHI_MARAMBASHI%3Fed%3D512&security=tls&encryption=none&insecure=0&host=sni.111000.indevs.in&type=ws&allowInsecure=0&sni=sni.111000.indevs.in#vless-6"
-    },
-    {
-      "protocol": "vless",
-      "user": "ee9b0614-50ec-41b6-951b-e1d5d755fa4b",
-      "address": "glob.thisiswe.uno",
-      "port": 2053,
-      "tag": "vless-7",
-      "params": {
-        "path": "/?TELEGRAM-MARAMBASHI_MARAMBASHI_MARAMBASHI_MARAMBASHI_MARAMBASHI?ed=512",
-        "security": "tls",
-        "encryption": "none",
-        "insecure": "1",
-        "host": "cd11.thisiswe.uno",
-        "fp": "chrome",
-        "type": "ws",
-        "allowInsecure": "1",
-        "sni": "cd11.thisiswe.uno"
-      },
-      "raw": "vless://ee9b0614-50ec-41b6-951b-e1d5d755fa4b@glob.thisiswe.uno:2053?path=%2F%3FTELEGRAM-MARAMBASHI_MARAMBASHI_MARAMBASHI_MARAMBASHI_MARAMBASHI%3Fed%3D512&security=tls&encryption=none&insecure=1&host=cd11.thisiswe.uno&fp=chrome&type=ws&allowInsecure=1&sni=cd11.thisiswe.uno#vless-7"
-    },
-    {
-      "protocol": "vless",
-      "user": "17b16eb9-c1d0-4c12-8520-0b400567d8e4",
-      "address": "sr4.laptopstock7.com",
-      "port": 3030,
+      "address": "82.115.7.107",
+      "port": 443,
       "tag": "vless-8",
       "params": {
-        "flow": "xtls-rprx-vision",
-        "security": "reality",
-        "allowInsecure": "0",
         "encryption": "none",
-        "type": "tcp",
-        "sni": "tgju.org",
-        "sid": "42c0b628ba6a42a9",
-        "fp": "firefox",
-        "pbk": "wVG0SzD_MnGA_q_DtgzirtOY8bGIeZwxrHd7aoK8Uwk",
-        "headerType": "none"
+        "security": "tls",
+        "sni": "sni.111000.dynv6.net",
+        "insecure": "0",
+        "allowInsecure": "0",
+        "type": "ws",
+        "host": "sni.111000.dynv6.net",
+        "path": "/?ed=2560&Telegram🇨🇳@WangCai2"
       },
-      "raw": "vless://17b16eb9-c1d0-4c12-8520-0b400567d8e4@sr4.laptopstock7.com:3030?flow=xtls-rprx-vision&security=reality&allowInsecure=0&encryption=none&type=tcp&sni=tgju.org&sid=42c0b628ba6a42a9&fp=firefox&pbk=wVG0SzD_MnGA_q_DtgzirtOY8bGIeZwxrHd7aoK8Uwk&headerType=none#vless-8"
-    },
-    {
-      "protocol": "shadowsocks",
-      "method": "chacha20-ietf-poly1305",
-      "password": "ljqdalu13..",
-      "address": "3.1.195.148",
-      "port": 8316,
-      "tag": "ss-1",
-      "raw": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpsanFkYWx1MTMuLg@3.1.195.148:8316#ss-1"
-    },
-    {
-      "protocol": "shadowsocks",
-      "method": "chacha20-ietf-poly1305",
-      "password": "ljqdalu13..",
-      "address": "3.112.130.53",
-      "port": 8319,
-      "tag": "ss-2",
-      "raw": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpsanFkYWx1MTMuLg@3.112.130.53:8319#ss-2"
+      "raw": "vless://6202b230-417c-4d8e-b624-0f71afa9c75d@82.115.7.107:443?encryption=none&security=tls&sni=sni.111000.dynv6.net&insecure=0&allowInsecure=0&type=ws&host=sni.111000.dynv6.net&path=%2F%3Fed%3D2560%26Telegram%F0%9F%87%A8%F0%9F%87%B3%40WangCai2#vless-8"
     },
     {
       "protocol": "vless",
-      "user": "d2d6a501-5440-4159-94e9-fdcff756e156",
-      "address": "18.153.11.160",
-      "port": 26127,
+      "user": "6202b230-417c-4d8e-b624-0f71afa9c75d",
+      "address": "134.122.56.211",
+      "port": 443,
       "tag": "vless-9",
       "params": {
+        "path": "/?ed=2560&Telegram@AliXTso",
+        "security": "tls",
         "encryption": "none",
-        "type": "tcp",
-        "headerType": "none",
-        "security": "none"
+        "host": "sni.111000.indevs.in",
+        "type": "ws",
+        "sni": "sni.111000.indevs.in"
       },
-      "raw": "vless://d2d6a501-5440-4159-94e9-fdcff756e156@18.153.11.160:26127?encryption=none&type=tcp&headerType=none&security=none#vless-9"
+      "raw": "vless://6202b230-417c-4d8e-b624-0f71afa9c75d@134.122.56.211:443?path=%2F%3Fed%3D2560%26Telegram%40AliXTso&security=tls&encryption=none&host=sni.111000.indevs.in&type=ws&sni=sni.111000.indevs.in#vless-9"
     },
     {
       "protocol": "vless",
-      "user": "cbf69c40-f872-4cfb-858e-dd143468b272",
-      "address": "18.199.218.195",
-      "port": 443,
+      "user": "6202b230-417c-4d8e-b624-0f71afa9c75d",
+      "address": "185.198.167.93",
+      "port": 2053,
       "tag": "vless-10",
       "params": {
         "encryption": "none",
-        "type": "tcp",
-        "headerType": "none",
-        "security": "none"
+        "security": "tls",
+        "sni": "sni.111000.v6.navy",
+        "insecure": "0",
+        "allowInsecure": "0",
+        "type": "ws",
+        "host": "sni.111000.v6.navy",
+        "path": "/?ed=2560&Telegram🇨🇳 @WangCai2"
       },
-      "raw": "vless://cbf69c40-f872-4cfb-858e-dd143468b272@18.199.218.195:443?encryption=none&type=tcp&headerType=none&security=none#vless-10"
+      "raw": "vless://6202b230-417c-4d8e-b624-0f71afa9c75d@185.198.167.93:2053?encryption=none&security=tls&sni=sni.111000.v6.navy&insecure=0&allowInsecure=0&type=ws&host=sni.111000.v6.navy&path=%2F%3Fed%3D2560%26Telegram%F0%9F%87%A8%F0%9F%87%B3%20%40WangCai2#vless-10"
+    },
+    {
+      "protocol": "shadowsocks",
+      "method": "chacha20-ietf-poly1305",
+      "password": "k1dBOmOB4oqi7Ump37a1bQ",
+      "address": "82.38.31.218",
+      "port": 8080,
+      "tag": "ss-1",
+      "raw": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTprMWRCT21PQjRvcWk3VW1wMzdhMWJR@82.38.31.218:8080#ss-1"
     },
     {
       "protocol": "vless",
-      "user": "3363394e-d5ce-4b71-8281-39a3469924c5",
-      "address": "tr.speadnet.ir",
-      "port": 2087,
+      "user": "4c2a61d3-2b8d-e0a1-5195-53ac103c5396",
+      "address": "porttt2.webchipro2.ir",
+      "port": 3040,
       "tag": "vless-11",
       "params": {
         "security": "none",
         "encryption": "none",
-        "host": "taaghche.com",
+        "host": "www.speedtest.net",
         "headerType": "http",
-        "type": "tcp"
+        "type": "tcp",
+        "path": "/XIXVPN?ed=2560"
       },
-      "raw": "vless://3363394e-d5ce-4b71-8281-39a3469924c5@tr.speadnet.ir:2087?security=none&encryption=none&host=taaghche.com&headerType=http&type=tcp#vless-11"
+      "raw": "vless://4c2a61d3-2b8d-e0a1-5195-53ac103c5396@porttt2.webchipro2.ir:3040?security=none&encryption=none&host=www.speedtest.net&headerType=http&type=tcp&path=/XIXVPN?ed=2560#vless-11"
     },
     {
       "protocol": "vless",
-      "user": "2fb9335d-6a89-4eed-8246-0d5076fd556e",
+      "user": "21cebd2b-20f5-46d2-bf3b-fe0c45797d3d",
       "address": "vip-meli2.nightgemshop.com",
       "port": 443,
       "tag": "vless-12",
@@ -251,764 +241,46 @@
         "encryption": "none",
         "host": "alef.ir",
         "headerType": "http",
-        "type": "tcp"
+        "type": "tcp",
+        "path": "/XIXVPN?ed=2560"
       },
-      "raw": "vless://2fb9335d-6a89-4eed-8246-0d5076fd556e@vip-meli2.nightgemshop.com:443?security=none&encryption=none&host=alef.ir&headerType=http&type=tcp#vless-12"
+      "raw": "vless://21cebd2b-20f5-46d2-bf3b-fe0c45797d3d@vip-meli2.nightgemshop.com:443?security=none&encryption=none&host=alef.ir&headerType=http&type=tcp&path=/XIXVPN?ed=2560#vless-12"
     },
     {
       "protocol": "vless",
-      "user": "83b8e95b-df6e-4a80-b897-273cd4524caf",
-      "address": "81.12.33.100",
-      "port": 7710,
+      "user": "aa1667f9-e169-4134-a4d9-6a4188a12b37",
+      "address": "tun1.newdigitalstore.ir",
+      "port": 40229,
       "tag": "vless-13",
       "params": {
-        "mode": "gun",
         "security": "none",
         "encryption": "none",
-        "type": "grpc",
-        "serviceName": "qwemmqwoedmqwoemdoqwmedpmqwedmpm"
-      },
-      "raw": "vless://83b8e95b-df6e-4a80-b897-273cd4524caf@81.12.33.100:7710?mode=gun&security=none&encryption=none&type=grpc&serviceName=qwemmqwoedmqwoemdoqwmedpmqwedmpm#vless-13"
-    },
-    {
-      "protocol": "vmess",
-      "decoded": {
-        "add": "tun.p2p1.sbs",
-        "aid": "0",
-        "alpn": "",
-        "fp": "",
-        "host": "",
-        "id": "a41d51ae-82cc-4104-8d09-4c61acbed178",
-        "insecure": "0",
-        "net": "tcp",
-        "path": "",
-        "port": "2017",
-        "scy": "auto",
-        "sni": "",
-        "tls": "",
-        "type": "none",
-        "v": "2",
-        "ps": "vmess-2"
-      },
-      "raw": "vmess://eyJhZGQiOiJ0dW4ucDJwMS5zYnMiLCJhaWQiOiIwIiwiYWxwbiI6IiIsImZwIjoiIiwiaG9zdCI6IiIsImlkIjoiYTQxZDUxYWUtODJjYy00MTA0LThkMDktNGM2MWFjYmVkMTc4IiwiaW5zZWN1cmUiOiIwIiwibmV0IjoidGNwIiwicGF0aCI6IiIsInBvcnQiOiIyMDE3Iiwic2N5IjoiYXV0byIsInNuaSI6IiIsInRscyI6IiIsInR5cGUiOiJub25lIiwidiI6IjIiLCJwcyI6InZtZXNzLTIifQ=="
-    },
-    {
-      "protocol": "trojan",
-      "user": "telegram-id-directvpn",
-      "address": "13.39.97.14",
-      "port": 22223,
-      "tag": "trojan-1",
-      "params": {
-        "security": "tls",
-        "alpn": "http/1.1",
-        "insecure": "0",
-        "headerType": "none",
-        "type": "tcp",
-        "allowInsecure": "0",
-        "sni": "trojan.burgerip.co.uk"
-      },
-      "raw": "trojan://telegram-id-directvpn@13.39.97.14:22223?security=tls&alpn=http%2F1.1&insecure=0&headerType=none&type=tcp&allowInsecure=0&sni=trojan.burgerip.co.uk#trojan-1"
-    },
-    {
-      "protocol": "vmess",
-      "decoded": {
-        "add": "tun.p2p1.sbs",
-        "aid": "0",
-        "alpn": "",
-        "fp": "",
-        "host": "",
-        "id": "eb609599-0590-4d2d-bb7d-abbd7065e9b0",
-        "insecure": "0",
-        "net": "tcp",
-        "path": "",
-        "port": "2016",
-        "scy": "auto",
-        "sni": "",
-        "tls": "",
-        "type": "none",
-        "v": "2",
-        "ps": "vmess-3"
-      },
-      "raw": "vmess://eyJhZGQiOiJ0dW4ucDJwMS5zYnMiLCJhaWQiOiIwIiwiYWxwbiI6IiIsImZwIjoiIiwiaG9zdCI6IiIsImlkIjoiZWI2MDk1OTktMDU5MC00ZDJkLWJiN2QtYWJiZDcwNjVlOWIwIiwiaW5zZWN1cmUiOiIwIiwibmV0IjoidGNwIiwicGF0aCI6IiIsInBvcnQiOiIyMDE2Iiwic2N5IjoiYXV0byIsInNuaSI6IiIsInRscyI6IiIsInR5cGUiOiJub25lIiwidiI6IjIiLCJwcyI6InZtZXNzLTMifQ=="
-    },
-    {
-      "protocol": "vless",
-      "user": "ad3b1a22-3678-43a4-a0c2-ddd5b7da5b5a",
-      "address": "162.159.38.50",
-      "port": 443,
-      "tag": "vless-14",
-      "params": {
-        "security": "tls",
-        "fp": "chrome",
-        "sni": "20251127.ldvsmms.dpdns.org",
-        "type": "ws",
-        "headerType": "none",
-        "host": "20251127.ldvsmms.dpdns.org",
-        "path": "/"
-      },
-      "raw": "vless://ad3b1a22-3678-43a4-a0c2-ddd5b7da5b5a@162.159.38.50:443?&security=tls&fp=chrome&sni=20251127.ldvsmms.dpdns.org&type=ws&headerType=none&host=20251127.ldvsmms.dpdns.org&path=%2F#vless-14"
-    },
-    {
-      "protocol": "dns",
-      "address": "o",
-      "tag": "dns-6",
-      "raw": "dns://O/6WuN+5Aenjn344lAg6ISjynvcj0MyBaf4epaVkSAFHTwSJBuNBSZNiY71ktQKMoSs4DiYlmM0wqPXgfm6AVB70np25WBPuYSFBShuYa2kapU3Bmp+qpo0ifmA+P51RvSsL6xvREAcfuHrhSZev7b7MaBgJgco5+1NFKRAMtshH96mHmvB3J/3s+CGIdYgis7Obp/+lzQ9+TpHQiwQqAYUeCa54eMgo0GZ12cS4z8TGSf34qDvc9pLv9zVHWNe/#dns-6"
-    },
-    {
-      "protocol": "vless",
-      "user": "05519058-d2ac-4f28-9e4a-2b2a1386749e",
-      "address": "3.229.141.208",
-      "port": 22222,
-      "tag": "vless-15",
-      "params": {
-        "security": "tls",
-        "sni": "telegram-channel-vlessconfig.sohala.uk",
-        "type": "ws",
-        "host": "telegram-channel-vlessconfig.sohala.uk",
-        "path": "/telegram-channel-vlessconfig-ws"
-      },
-      "raw": "vless://05519058-d2ac-4f28-9e4a-2b2a1386749e@3.229.141.208:22222?security=tls&sni=telegram-channel-vlessconfig.sohala.uk&type=ws&host=telegram-channel-vlessconfig.sohala.uk&path=/telegram-channel-vlessconfig-ws#vless-15"
-    },
-    {
-      "protocol": "vless",
-      "user": "0f1b6d8d-3f8c-4713-b32d-c94947083485",
-      "address": "172.64.152.23",
-      "port": 443,
-      "tag": "vless-16",
-      "params": {
-        "path": "/43.218.77.16=1443",
-        "security": "tls",
-        "encryption": "none",
-        "insecure": "0",
-        "host": "apexbhao1.qzz.io",
-        "type": "ws",
-        "allowInsecure": "0",
-        "sni": "apexbhao1.qzz.io"
-      },
-      "raw": "vless://0f1b6d8d-3f8c-4713-b32d-c94947083485@172.64.152.23:443?path=%2F43.218.77.16%3D1443&security=tls&encryption=none&insecure=0&host=apexbhao1.qzz.io&type=ws&allowInsecure=0&sni=apexbhao1.qzz.io#vless-16"
-    },
-    {
-      "protocol": "vless",
-      "user": "a4f7ac23-8146-464b-a932-9753f97303aa",
-      "address": "sr-d-2.sedarchahar.top",
-      "port": 9102,
-      "tag": "vless-17",
-      "params": {
-        "encryption": "none",
-        "host": "api.live98.ir",
-        "headerType": "http",
-        "type": "tcp"
-      },
-      "raw": "vless://a4f7ac23-8146-464b-a932-9753f97303aa@sr-d-2.sedarchahar.top:9102?security=&encryption=none&host=api.live98.ir&headerType=http&type=tcp#vless-17"
-    },
-    {
-      "protocol": "vless",
-      "user": "1d7de1d6-f4ce-49f5-9a69-1739c497670e",
-      "address": "tapm.thisisdomain.monster",
-      "port": 2021,
-      "tag": "vless-18",
-      "params": {
-        "security": "none",
-        "type": "tcp"
-      },
-      "raw": "vless://1d7de1d6-f4ce-49f5-9a69-1739c497670e@tapm.thisisdomain.monster:2021?security=none&type=tcp&headerType=&path=&host=#vless-18"
-    },
-    {
-      "protocol": "vless",
-      "user": "1d7de1d6-f4ce-49f5-9a69-1739c497670e",
-      "address": "tapmd.thisisdomain.monster",
-      "port": 2029,
-      "tag": "vless-19",
-      "params": {
-        "security": "none",
-        "type": "tcp",
-        "host": "iranserver.com"
-      },
-      "raw": "vless://1d7de1d6-f4ce-49f5-9a69-1739c497670e@tapmd.thisisdomain.monster:2029?security=none&type=tcp&headerType=&path=&host=iranserver.com#vless-19"
-    },
-    {
-      "protocol": "dns",
-      "address": "qqt+0cnhadhlj9v4bsvxhuzvrjukztjwm2bkww3h7agbfrbbcvbbwkjzgsid3xhsnazd2syetsijzzrwfqnninvoyvyphfp9xmxi6cdrn",
-      "tag": "dns-7",
-      "raw": "dns://qqT+0cNhAdHlj9V4bSvxhUZVRJuKZTjWm2BKWW3h7agBFRbBCvbbWKJZgsID3XhsnAZD2sYETsIJZZRwfqNNInVoyvyPhFp9xMXi6CdrN/uDBH2nefxH4ihbFqIiH2a+Y1ErxkpuHMrt7+43UGX7Ux45JNasw49v/AJNWF4K1JQAqBV/wtmyvN212bN8xzzrn69ToT/noaVIFFYLhfUIoFgwRwOHcLloBf390vHjzi2DlogirRLcEvwDOOnvy1DFjDzw/Mj83RNmzBRDIGQe2w==#dns-7"
-    },
-    {
-      "protocol": "vmess",
-      "decoded": {
-        "add": "104.21.94.64",
-        "aid": "0",
-        "alpn": "",
-        "fp": "",
-        "host": "linja05.hwcar.sbs",
-        "id": "39cec18f-a439-427c-9a4e-aeb6fcdf6f53",
-        "net": "ws",
-        "path": "/linkws",
-        "port": "443",
-        "scy": "auto",
-        "sni": "linja05.hwcar.sbs",
-        "tls": "tls",
-        "type": "",
-        "v": "2",
-        "ps": "vmess-4"
-      },
-      "raw": "vmess://eyJhZGQiOiIxMDQuMjEuOTQuNjQiLCJhaWQiOiIwIiwiYWxwbiI6IiIsImZwIjoiIiwiaG9zdCI6ImxpbmphMDUuaHdjYXIuc2JzIiwiaWQiOiIzOWNlYzE4Zi1hNDM5LTQyN2MtOWE0ZS1hZWI2ZmNkZjZmNTMiLCJuZXQiOiJ3cyIsInBhdGgiOiIvbGlua3dzIiwicG9ydCI6IjQ0MyIsInNjeSI6ImF1dG8iLCJzbmkiOiJsaW5qYTA1Lmh3Y2FyLnNicyIsInRscyI6InRscyIsInR5cGUiOiIiLCJ2IjoiMiIsInBzIjoidm1lc3MtNCJ9"
-    },
-    {
-      "protocol": "vless",
-      "user": "6ec52bc7-fcd7-4841-ab69-70d6e03a6eda",
-      "address": "185.146.173.83",
-      "port": 80,
-      "tag": "vless-20",
-      "params": {
-        "path": "@V2rayGodVip=Telegram/",
-        "security": "none",
-        "encryption": "none",
-        "host": "آیدی-چنل-تلگرام-ماV2rayGodVipهستش.xn--oor7hj4iyes9ldmi6b99k5zcm7ge8wfuhdo4cd8m61eqretu4en5hcvkerw.Site.",
-        "type": "ws"
-      },
-      "raw": "vless://6ec52bc7-fcd7-4841-ab69-70d6e03a6eda@185.146.173.83:80?path=@V2rayGodVip=Telegram/&security=none&encryption=none&host=آیدی-چنل-تلگرام-ماV2rayGodVipهستش.xn--oor7hj4iyes9ldmi6b99k5zcm7ge8wfuhdo4cd8m61eqretu4en5hcvkerw.Site.&type=ws#vless-20"
-    },
-    {
-      "protocol": "vless",
-      "user": "6a89dc04-7781-46fe-b35c-e14a6b6e60b8",
-      "address": "allsms.rozfa.com",
-      "port": 443,
-      "tag": "vless-21",
-      "params": {
-        "path": "/DXapKozkFI9aiqC7?ed",
-        "security": "tls",
-        "encryption": "none",
-        "alpn": "h2,http/1.1",
-        "host": "tEST-tesT-Test-tesT.pAgeS.DEV",
-        "fp": "randomized",
-        "type": "ws",
-        "sni": "TeST-TESt-tEst-tESt.PagES.DEV"
-      },
-      "raw": "vless://6a89dc04-7781-46fe-b35c-e14a6b6e60b8@allsms.rozfa.com:443?path=/DXapKozkFI9aiqC7?ed&security=tls&encryption=none&alpn=h2,http/1.1&host=tEST-tesT-Test-tesT.pAgeS.DEV&fp=randomized&type=ws&sni=TeST-TESt-tEst-tESt.PagES.DEV#vless-21"
-    },
-    {
-      "protocol": "vless",
-      "user": "cfb6d9ad-7a14-4061-b159-8902fd73bb58",
-      "address": "104.17.148.22",
-      "port": 2095,
-      "tag": "vless-22",
-      "params": {
-        "Telegram": "@V2RayTz,@V2RayTz",
-        "path": "/DIGIV2RAY--DigiV2ray--digiv2ray--DIGIV2RAY--DigiV2ray--digiv2ray--DigiV2ray--DigiV2ray?ed=1024",
-        "security": "none",
-        "encryption": "none",
-        "host": "www.speedtest.net.ftp.debian.org.xn--ihqvla424c49bba047b50okggl0rcfo5o3aus3a.website.",
-        "type": "ws"
-      },
-      "raw": "vless://cfb6d9ad-7a14-4061-b159-8902fd73bb58@104.17.148.22:2095?Telegram=@V2RayTz,@V2RayTz&path=/DIGIV2RAY--DigiV2ray--digiv2ray--DIGIV2RAY--DigiV2ray--digiv2ray--DigiV2ray--DigiV2ray?ed=1024&security=none&encryption=none&host=www.speedtest.net.ftp.debian.org.xn--ihqvla424c49bba047b50okggl0rcfo5o3aus3a.website.&type=ws#vless-22"
-    },
-    {
-      "protocol": "vless",
-      "user": "cfb6d9ad-7a14-4061-b159-8902fd73bb57",
-      "address": "104.17.147.22",
-      "port": 2095,
-      "tag": "vless-23",
-      "params": {
-        "Telegram": "@V2RayTz,@V2RayTz",
-        "path": "/DIGIV2RAY--DigiV2ray--digiv2ray--DIGIV2RAY--DigiV2ray--digiv2ray--DigiV2ray--DigiV2ray?ed=1024",
-        "security": "none",
-        "encryption": "none",
-        "host": "www.speedtest.net.ftp.debian.org.xn--ihqvla424c49bba047b50okggl0rcfo5o3aus3a.website.",
-        "type": "ws"
-      },
-      "raw": "vless://cfb6d9ad-7a14-4061-b159-8902fd73bb57@104.17.147.22:2095?Telegram=@V2RayTz,@V2RayTz&path=/DIGIV2RAY--DigiV2ray--digiv2ray--DIGIV2RAY--DigiV2ray--digiv2ray--DigiV2ray--DigiV2ray?ed=1024&security=none&encryption=none&host=www.speedtest.net.ftp.debian.org.xn--ihqvla424c49bba047b50okggl0rcfo5o3aus3a.website.&type=ws#vless-23"
-    },
-    {
-      "protocol": "vless",
-      "user": "telegram-id-ArV2ray",
-      "address": "185.146.173.158",
-      "port": 80,
-      "tag": "vless-24",
-      "params": {
-        "Telegram": "@V2RayTz,@V2RayTz",
-        "path": "/telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray?ed=2048",
-        "security": "none",
-        "encryption": "none",
-        "host": "8.v.v.V-_-_-V2ray-_-_-V.v.v.v.www.speedtest.net.z.Zula.ir.cloudflare.com.bahrane.IR.",
-        "type": "ws"
-      },
-      "raw": "vless://telegram-id-ArV2ray@185.146.173.158:80?Telegram=@V2RayTz,@V2RayTz&path=/telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray?ed=2048&security=none&encryption=none&host=8.v.v.V-_-_-V2ray-_-_-V.v.v.v.www.speedtest.net.z.Zula.ir.cloudflare.com.bahrane.IR.&type=ws#vless-24"
-    },
-    {
-      "protocol": "vless",
-      "user": "f50e0469-3e74-4583-96bc-b6baa355093d",
-      "address": "104.20.25.32",
-      "port": 8080,
-      "tag": "vless-25",
-      "params": {
-        "type": "ws",
-        "path": "/Telegram:@vmessorg-Telegram:@vmessorg-Telegram:@vmessorg?ed=8080",
-        "host": "join-to.vmessorg.Community.",
-        "encryption": "none"
-      },
-      "raw": "vless://f50e0469-3e74-4583-96bc-b6baa355093d@104.20.25.32:8080?security=&type=ws&path=/Telegram:@vmessorg-Telegram:@vmessorg-Telegram:@vmessorg?ed=8080&host=join-to.vmessorg.Community.&encryption=none#vless-25"
-    },
-    {
-      "protocol": "vless",
-      "user": "619489ed-a7d8-4024-8aaa-7a8172029ef4",
-      "address": "185.146.173.95",
-      "port": 2095,
-      "tag": "vless-26",
-      "params": {
-        "path": "/",
-        "security": "none",
-        "encryption": "none",
-        "host": "V2ray-_-_-_-_-_-ShhProxy.TelegramChannelJoinBede.com.",
-        "type": "ws"
-      },
-      "raw": "vless://619489ed-a7d8-4024-8aaa-7a8172029ef4@185.146.173.95:2095?path=/&security=none&encryption=none&host=V2ray-_-_-_-_-_-ShhProxy.TelegramChannelJoinBede.com.&type=ws#vless-26"
-    },
-    {
-      "protocol": "vless",
-      "user": "26524cce-d514-4014-a426-365fb266a14d",
-      "address": "162.159.44.73",
-      "port": 443,
-      "tag": "vless-27",
-      "params": {
-        "security": "tls",
-        "fp": "random",
-        "sni": "cyuxj212pnq.chinat.indevs.in",
-        "type": "ws",
-        "headerType": "none",
-        "host": "cyuxj212pnq.chinat.indevs.in",
-        "path": "/danfeng"
-      },
-      "raw": "vless://26524cce-d514-4014-a426-365fb266a14d@162.159.44.73:443?&security=tls&fp=random&sni=cyuxj212pnq.chinat.indevs.in&type=ws&headerType=none&host=cyuxj212pnq.chinat.indevs.in&path=%2Fdanfeng#vless-27"
-    },
-    {
-      "protocol": "vless",
-      "user": "11e81251-ea65-48bc-bfd4-c4d38ef0f8cc",
-      "address": "185.146.173.58",
-      "port": 2095,
-      "tag": "vless-28",
-      "params": {
-        "path": "/servernet",
-        "security": "none",
-        "encryption": "none",
-        "host": "dcc5.servernet.fun.",
-        "type": "ws"
-      },
-      "raw": "vless://11e81251-ea65-48bc-bfd4-c4d38ef0f8cc@185.146.173.58:2095?path=/servernet&security=none&encryption=none&host=dcc5.servernet.fun.&type=ws#vless-28"
-    },
-    {
-      "protocol": "vless",
-      "user": "6202b230-417c-4d8e-b624-0f71afa9c75d",
-      "address": "159.65.60.61",
-      "port": 443,
-      "tag": "vless-29",
-      "params": {
-        "encryption": "none",
-        "security": "tls",
-        "sni": "sni.111000.indevs.in",
-        "allowInsecure": "1",
-        "type": "ws",
-        "host": "sni.111000.indevs.in",
-        "path": "/"
-      },
-      "raw": "vless://6202b230-417c-4d8e-b624-0f71afa9c75d@159.65.60.61:443?encryption=none&security=tls&sni=sni.111000.indevs.in&allowInsecure=1&type=ws&host=sni.111000.indevs.in&path=/#vless-29"
-    },
-    {
-      "protocol": "vless",
-      "user": "26524cce-d514-4014-a426-365fb266a14d",
-      "address": "163.5.207.124",
-      "port": 443,
-      "tag": "vless-30",
-      "params": {
-        "security": "tls",
-        "fp": "random",
-        "sni": "_acme-challenge.443888.xyz",
-        "type": "ws",
-        "headerType": "none",
-        "host": "_acme-challenge.443888.xyz",
-        "path": "/danfeng"
-      },
-      "raw": "vless://26524cce-d514-4014-a426-365fb266a14d@163.5.207.124:443?&security=tls&fp=random&sni=_acme-challenge.443888.xyz&type=ws&headerType=none&host=_acme-challenge.443888.xyz&path=%2Fdanfeng#vless-30"
-    },
-    {
-      "protocol": "vless",
-      "user": "bf3e8944-8d26-47de-8748-b9aa74cce974",
-      "address": "64.188.104.168",
-      "port": 40721,
-      "tag": "vless-31",
-      "params": {
-        "security": "reality",
-        "encryption": "none",
-        "pbk": "TUZgwzcTvoROSbgnqMh3WorXVMxQNIF2zsEM39FQbyk",
-        "headerType": "none",
-        "fp": "chrome",
-        "type": "tcp",
-        "sni": "yahoo.com",
-        "sid": "df8611c07d"
-      },
-      "raw": "vless://bf3e8944-8d26-47de-8748-b9aa74cce974@64.188.104.168:40721?security=reality&encryption=none&pbk=TUZgwzcTvoROSbgnqMh3WorXVMxQNIF2zsEM39FQbyk&headerType=none&fp=chrome&type=tcp&sni=yahoo.com&sid=df8611c07d#vless-31"
-    },
-    {
-      "protocol": "vless",
-      "user": "0665cf1e-0df8-4981-a8de-a366e37c0866",
-      "address": "104.18.15.19",
-      "port": 8443,
-      "tag": "vless-32",
-      "params": {
-        "type": "ws",
-        "security": "tls",
-        "path": "/XIXVPN?ed=2560",
-        "host": "xdol7mayq6wu5kil7wjyrni7o8tnydsafcmhfhn7g6rimbw5o2g6mlm.zjde5.de5.net",
-        "sni": "xdol7mayq6wu5kil7wjyrni7o8tnydsafcmhfhn7g6rimbw5o2g6mlm.zjde5.de5.net",
-        "alpn": "http/1.1",
-        "fp": "chrome",
-        "encryption": "none"
-      },
-      "raw": "vless://0665cf1e-0df8-4981-a8de-a366e37c0866@104.18.15.19:8443?type=ws&security=tls&path=/XIXVPN?ed=2560&host=xdol7mayq6wu5kil7wjyrni7o8tnydsafcmhfhn7g6rimbw5o2g6mlm.zjde5.de5.net&sni=xdol7mayq6wu5kil7wjyrni7o8tnydsafcmhfhn7g6rimbw5o2g6mlm.zjde5.de5.net&alpn=http%2F1.1&fp=chrome&encryption=none#vless-32"
-    },
-    {
-      "protocol": "vless",
-      "user": "5e62ddcf-78c9-4b15-803a-436c8c839ddc",
-      "address": "162.159.36.20",
-      "port": 2052,
-      "tag": "vless-33",
-      "params": {
-        "path": "/XIXVPN?ed=2560",
-        "security": "none",
-        "encryption": "none",
-        "host": "oBEDiENt-noiseqJf5ja18yF.wIndLer.CO.UK",
-        "type": "ws"
-      },
-      "raw": "vless://5e62ddcf-78c9-4b15-803a-436c8c839ddc@162.159.36.20:2052?path=/XIXVPN?ed=2560&security=none&encryption=none&host=oBEDiENt-noiseqJf5ja18yF.wIndLer.CO.UK&type=ws#vless-33"
-    },
-    {
-      "protocol": "vless",
-      "user": "a8da758c-510d-4827-83cf-2f2b51c49c5b",
-      "address": "download.lastilhame.monster",
-      "port": 443,
-      "tag": "vless-34",
-      "params": {
-        "security": "reality",
-        "encryption": "none",
-        "pbk": "WOPZy8oOnvHN21pLYobZAGa7sVp7op3q575B5BaFxkU",
-        "headerType": "none",
-        "fp": "chrome",
-        "type": "tcp",
-        "flow": "xtls-rprx-vision",
-        "sni": "www.techradar.com",
-        "sid": "faa900664bad",
-        "path": "/XIXVPN?ed=2560"
-      },
-      "raw": "vless://a8da758c-510d-4827-83cf-2f2b51c49c5b@download.lastilhame.monster:443?security=reality&encryption=none&pbk=WOPZy8oOnvHN21pLYobZAGa7sVp7op3q575B5BaFxkU&headerType=none&fp=chrome&type=tcp&flow=xtls-rprx-vision&sni=www.techradar.com&sid=faa900664bad&path=/XIXVPN?ed=2560#vless-34"
-    },
-    {
-      "protocol": "vless",
-      "user": "48ff2b70-e180-582f-8866-d9a2edeed5f5",
-      "address": "15.204.97.219",
-      "port": 23576,
-      "tag": "vless-35",
-      "params": {
-        "type": "tcp",
-        "encryption": "none",
-        "flow": "xtls-rprx-vision",
-        "sni": "fuck.rkn",
-        "fp": "chrome",
-        "security": "reality",
-        "pbk": "1y5h2FGWKXTJ9xLPCqPo6Mw7RxoZzh6fGkEQKNxpZ3s",
-        "sid": "01",
-        "path": "/XIXVPN?ed=2560"
-      },
-      "raw": "vless://48ff2b70-e180-582f-8866-d9a2edeed5f5@15.204.97.219:23576?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=fuck.rkn&fp=chrome&security=reality&pbk=1y5h2FGWKXTJ9xLPCqPo6Mw7RxoZzh6fGkEQKNxpZ3s&sid=01&path=/XIXVPN?ed=2560#vless-35"
-    },
-    {
-      "protocol": "vless",
-      "user": "6202b230-417c-4d8e-b624-0f71afa9c75d",
-      "address": "162.159.153.231",
-      "port": 2096,
-      "tag": "vless-36",
-      "params": {
-        "encryption": "none",
-        "security": "tls",
-        "sni": "sni.111000.indevs.in",
-        "allowInsecure": "1",
-        "type": "ws",
-        "host": "sni.111000.indevs.in",
-        "path": "/XIXVPN?ed=2560"
-      },
-      "raw": "vless://6202b230-417c-4d8e-b624-0f71afa9c75d@162.159.153.231:2096?encryption=none&security=tls&sni=sni.111000.indevs.in&allowInsecure=1&type=ws&host=sni.111000.indevs.in&path=/XIXVPN?ed=2560#vless-36"
-    },
-    {
-      "protocol": "vless",
-      "user": "26524cce-d514-4014-a426-365fb266a14d",
-      "address": "2.59.183.198",
-      "port": 443,
-      "tag": "vless-37",
-      "params": {
-        "security": "tls",
-        "fp": "random",
-        "sni": "_acme-challenge.443888.xyz",
-        "type": "ws",
-        "headerType": "none",
-        "host": "_acme-challenge.443888.xyz",
-        "path": "/XIXVPN?ed=2560"
-      },
-      "raw": "vless://26524cce-d514-4014-a426-365fb266a14d@2.59.183.198:443?&security=tls&fp=random&sni=_acme-challenge.443888.xyz&type=ws&headerType=none&host=_acme-challenge.443888.xyz&path=/XIXVPN?ed=2560#vless-37"
-    },
-    {
-      "protocol": "vless",
-      "user": "ada6ebdd-bdfa-44fb-989c-672051790aeb",
-      "address": "v2tr.topacp.store",
-      "port": 2053,
-      "tag": "vless-38",
-      "params": {
-        "security": "none",
-        "encryption": "none",
+        "host": "cafebazaar.ir",
         "headerType": "http",
         "type": "tcp",
         "path": "/XIXVPN?ed=2560"
       },
-      "raw": "vless://ada6ebdd-bdfa-44fb-989c-672051790aeb@v2tr.topacp.store:2053?security=none&encryption=none&headerType=http&type=tcp&path=/XIXVPN?ed=2560#vless-38"
-    },
-    {
-      "protocol": "vless",
-      "user": "db28d4ae-d827-4634-a7b6-6516afe5aea5",
-      "address": "router.pkg-build.ir",
-      "port": 80,
-      "tag": "vless-39",
-      "params": {
-        "encryption": "none",
-        "security": "none",
-        "type": "ws",
-        "path": "/XIXVPN?ed=2560"
-      },
-      "raw": "vless://db28d4ae-d827-4634-a7b6-6516afe5aea5@router.pkg-build.ir:80?encryption=none&security=none&type=ws&path=/XIXVPN?ed=2560#vless-39"
-    },
-    {
-      "protocol": "vless",
-      "user": "665b51bb-b60b-4653-dab5-cc7fc3125380",
-      "address": "37.32.43.252",
-      "port": 15717,
-      "tag": "vless-40",
-      "params": {
-        "security": "none",
-        "encryption": "none",
-        "headerType": "none",
-        "type": "tcp",
-        "path": "/XIXVPN?ed=2560"
-      },
-      "raw": "vless://665b51bb-b60b-4653-dab5-cc7fc3125380@37.32.43.252:15717?security=none&encryption=none&headerType=none&type=tcp&path=/XIXVPN?ed=2560#vless-40"
-    },
-    {
-      "protocol": "vless",
-      "user": "bb8c74a1-abc1-4511-b100-9876e30cb65c",
-      "address": "172.64.152.23",
-      "port": 443,
-      "tag": "vless-41",
-      "params": {
-        "encryption": "none",
-        "type": "ws",
-        "host": "xfjd79v2tjscrm6jqo.zjde5.de5.net",
-        "path": "/XIXVPN?ed=2560",
-        "security": "tls",
-        "sni": "xfjd79v2tjscrm6jqo.zjde5.de5.net",
-        "alpn": "http/1.1"
-      },
-      "raw": "vless://bb8c74a1-abc1-4511-b100-9876e30cb65c@172.64.152.23:443?encryption=none&type=ws&host=xfjd79v2tjscrm6jqo.zjde5.de5.net&path=/XIXVPN?ed=2560&security=tls&sni=xfjd79v2tjscrm6jqo.zjde5.de5.net&alpn=http/1.1#vless-41"
+      "raw": "vless://aa1667f9-e169-4134-a4d9-6a4188a12b37@Tun1.newdigitalstore.ir:40229?security=none&encryption=none&host=cafebazaar.ir&headerType=http&type=tcp&path=/XIXVPN?ed=2560#vless-13"
     },
     {
       "protocol": "vless",
       "user": "6250695f-bc80-444b-8344-4117131874a5",
       "address": "sr62.ruxel.fun",
       "port": 2086,
-      "tag": "vless-42",
+      "tag": "vless-14",
       "params": {
         "encryption": "none",
         "type": "tcp",
         "path": "/XIXVPN?ed=2560"
       },
-      "raw": "vless://6250695f-bc80-444b-8344-4117131874a5@sr62.ruxel.fun:2086?security=&encryption=none&headerType=&type=tcp&path=/XIXVPN?ed=2560#vless-42"
-    },
-    {
-      "protocol": "vless",
-      "user": "f466ea62-bb69-4119-8f3a-a8597bcd7730",
-      "address": "104.18.32.47",
-      "port": 443,
-      "tag": "vless-43",
-      "params": {
-        "encryption": "none",
-        "security": "tls",
-        "sni": "Direct.safeconfig.top",
-        "fp": "chrome",
-        "alpn": "h2,http/1.1",
-        "insecure": "0",
-        "allowInsecure": "0",
-        "type": "ws",
-        "host": "Direct.safeconfig.top",
-        "path": "/XIXVPN?ed=2560"
-      },
-      "raw": "vless://f466ea62-bb69-4119-8f3a-a8597bcd7730@104.18.32.47:443?encryption=none&security=tls&sni=Direct.safeconfig.top&fp=chrome&alpn=h2%2Chttp%2F1.1&insecure=0&allowInsecure=0&type=ws&host=Direct.safeconfig.top&path=/XIXVPN?ed=2560#vless-43"
-    },
-    {
-      "protocol": "vless",
-      "user": "4525c260-df3c-4f62-b8f1-f4f5f305694b",
-      "address": "192.200.160.132",
-      "port": 8443,
-      "tag": "vless-44",
-      "params": {
-        "path": "/XIXVPN?ed=2560",
-        "security": "tls",
-        "encryption": "none",
-        "host": "yyzsuabw9e3qd5ud7ihi5dxm96oglnsvr83cjojnm1efncfhr9ucordq.zjde5.de5.net",
-        "fp": "chrome",
-        "type": "ws",
-        "sni": "yyzsuabw9e3qd5ud7ihi5dxm96oglnsvr83cjojnm1efncfhr9ucordq.zjde5.de5.net"
-      },
-      "raw": "vless://4525c260-df3c-4f62-b8f1-f4f5f305694b@192.200.160.132:8443?path=/XIXVPN?ed=2560&security=tls&encryption=none&host=yyzsuabw9e3qd5ud7ihi5dxm96oglnsvr83cjojnm1efncfhr9ucordq.zjde5.de5.net&fp=chrome&type=ws&sni=yyzsuabw9e3qd5ud7ihi5dxm96oglnsvr83cjojnm1efncfhr9ucordq.zjde5.de5.net#vless-44"
-    },
-    {
-      "protocol": "vless",
-      "user": "32aa54e7-2190-4988-b220-900aaf19d2cc",
-      "address": "yohaha.spacesystems.shop",
-      "port": 51242,
-      "tag": "vless-45",
-      "params": {
-        "security": "none",
-        "encryption": "none",
-        "headerType": "none",
-        "type": "tcp",
-        "path": "/XIXVPN?ed=2560"
-      },
-      "raw": "vless://32aa54e7-2190-4988-b220-900aaf19d2cc@yohaha.spacesystems.shop:51242?security=none&encryption=none&headerType=none&type=tcp&path=/XIXVPN?ed=2560#vless-45"
-    },
-    {
-      "protocol": "vless",
-      "user": "26524cce-d514-4014-a426-365fb266a14d",
-      "address": "168.138.46.67",
-      "port": 443,
-      "tag": "vless-46",
-      "params": {
-        "security": "tls",
-        "fp": "random",
-        "sni": "_acme-challenge.443888.xyz",
-        "type": "ws",
-        "headerType": "none",
-        "host": "_acme-challenge.443888.xyz",
-        "path": "/XIXVPN?ed=2560"
-      },
-      "raw": "vless://26524cce-d514-4014-a426-365fb266a14d@168.138.46.67:443?&security=tls&fp=random&sni=_acme-challenge.443888.xyz&type=ws&headerType=none&host=_acme-challenge.443888.xyz&path=/XIXVPN?ed=2560#vless-46"
-    },
-    {
-      "protocol": "vless",
-      "user": "ac26aac6-9833-46e3-9629-ec2a87db2355",
-      "address": "ali.solnetseven.top",
-      "port": 8080,
-      "tag": "vless-47",
-      "params": {
-        "encryption": "none",
-        "security": "none",
-        "type": "ws",
-        "path": "/XIXVPN?ed=2560"
-      },
-      "raw": "vless://ac26aac6-9833-46e3-9629-ec2a87db2355@ali.solnetseven.top:8080?encryption=none&security=none&type=ws&path=/XIXVPN?ed=2560#vless-47"
-    },
-    {
-      "protocol": "vless",
-      "user": "6d12fa79-2eab-4082-b5f5-90f3c4c08165",
-      "address": "blog.telegrambot4.ir",
-      "port": 60,
-      "tag": "vless-48",
-      "params": {
-        "security": "none",
-        "encryption": "none",
-        "host": "speedtest.net",
-        "headerType": "http",
-        "type": "tcp",
-        "path": "/XIXVPN?ed=2560"
-      },
-      "raw": "vless://6d12fa79-2eab-4082-b5f5-90f3c4c08165@blog.telegrambot4.ir:60?security=none&encryption=none&host=speedtest.net&headerType=http&type=tcp&path=/XIXVPN?ed=2560#vless-48"
-    },
-    {
-      "protocol": "vless",
-      "user": "e5b9e2ae-cf6c-4710-9d1b-8acd7f2a7af7",
-      "address": "irfi.nikrobot.com",
-      "port": 8443,
-      "tag": "vless-49",
-      "params": {
-        "path": "/XIXVPN?ed=2560",
-        "security": "none",
-        "encryption": "none",
-        "host": "myket.ir",
-        "type": "ws"
-      },
-      "raw": "vless://e5b9e2ae-cf6c-4710-9d1b-8acd7f2a7af7@irfi.nikrobot.com:8443?path=/XIXVPN?ed=2560&security=none&encryption=none&host=myket.ir&type=ws#vless-49"
-    },
-    {
-      "protocol": "vless",
-      "user": "ce7331c5-a28c-4478-ae06-2a2c5b5416fe",
-      "address": "ir.api.clothesshopping.ir",
-      "port": 19163,
-      "tag": "vless-50",
-      "params": {
-        "mode": "gun",
-        "security": "none",
-        "encryption": "none",
-        "type": "grpc",
-        "serviceName": "vless",
-        "path": "/XIXVPN?ed=2560"
-      },
-      "raw": "vless://ce7331c5-a28c-4478-ae06-2a2c5b5416fe@ir.api.clothesshopping.ir:19163?mode=gun&security=none&encryption=none&type=grpc&serviceName=vless&path=/XIXVPN?ed=2560#vless-50"
-    },
-    {
-      "protocol": "vless",
-      "user": "6bf2c61f-db69-4e00-9dc5-249b83e69d73",
-      "address": "94.183.171.3",
-      "port": 41314,
-      "tag": "vless-51",
-      "params": {
-        "security": "none",
-        "encryption": "none",
-        "host": "bmw.com",
-        "headerType": "http",
-        "type": "tcp",
-        "path": "/XIXVPN?ed=2560"
-      },
-      "raw": "vless://6bf2c61f-db69-4e00-9dc5-249b83e69d73@94.183.171.3:41314?security=none&encryption=none&host=bmw.com&headerType=http&type=tcp&path=/XIXVPN?ed=2560#vless-51"
-    },
-    {
-      "protocol": "vless",
-      "user": "dc923edf-9962-4817-bd51-f43f696c5fbc",
-      "address": "oodplkgju.vjdkem.mmejdus.ksmajww.cncjskwisuxjs.infinityofconnectedminds.com",
-      "port": 3090,
-      "tag": "vless-52",
-      "params": {
-        "encryption": "none",
-        "security": "none",
-        "type": "ws",
-        "host": "ebqbi.knedno.kbrgcwq.aqpfmy.utzuryso.infinityofconnectedminds.com",
-        "path": "/XIXVPN?ed=2560"
-      },
-      "raw": "vless://dc923edf-9962-4817-bd51-f43f696c5fbc@oodplkgju.vjdkem.mmejdus.ksmajww.cncjskwisuxjs.infinityofconnectedminds.com:3090?encryption=none&security=none&type=ws&host=ebqbi.knedno.kbrgcwq.aqpfmy.utzuryso.infinityofconnectedminds.com&path=/XIXVPN?ed=2560#vless-52"
-    },
-    {
-      "protocol": "vless",
-      "user": "5d870ac3-9c5c-8071-9081-e9a79bce002b",
-      "address": "fast2.lolokhan.cloud",
-      "port": 80,
-      "tag": "vless-53",
-      "params": {
-        "security": "none",
-        "type": "ws",
-        "encryption": "none",
-        "path": "/XIXVPN?ed=2560",
-        "host": "greencp3.global.ssl.fastly.net"
-      },
-      "raw": "vless://5d870ac3-9c5c-8071-9081-e9a79bce002b@fast2.lolokhan.cloud:80?security=none&type=ws&headerType=&encryption=none&path=/XIXVPN?ed=2560&host=greencp3.global.ssl.fastly.net#vless-53"
+      "raw": "vless://6250695f-bc80-444b-8344-4117131874a5@sr62.ruxel.fun:2086?security=&encryption=none&headerType=&type=tcp&path=/XIXVPN?ed=2560#vless-14"
     },
     {
       "protocol": "vless",
       "user": "910e3778-bbee-492b-a1e5-5f9c1cfe4194",
       "address": "85.133.250.87",
       "port": 41679,
-      "tag": "vless-54",
+      "tag": "vless-15",
       "params": {
         "security": "none",
         "encryption": "none",
@@ -1017,14 +289,14 @@
         "type": "tcp",
         "path": "/XIXVPN?ed=2560"
       },
-      "raw": "vless://910e3778-bbee-492b-a1e5-5f9c1cfe4194@85.133.250.87:41679?security=none&encryption=none&host=78.157.49.67&headerType=http&type=tcp&path=/XIXVPN?ed=2560#vless-54"
+      "raw": "vless://910e3778-bbee-492b-a1e5-5f9c1cfe4194@85.133.250.87:41679?security=none&encryption=none&host=78.157.49.67&headerType=http&type=tcp&path=/XIXVPN?ed=2560#vless-15"
     },
     {
       "protocol": "vless",
       "user": "1eba8f10-8e16-484b-be7a-613327727d4d",
       "address": "91.98.27.174",
       "port": 4450,
-      "tag": "vless-55",
+      "tag": "vless-16",
       "params": {
         "type": "tcp",
         "security": "reality",
@@ -1035,14 +307,14 @@
         "encryption": "none",
         "path": "/XIXVPN?ed=2560"
       },
-      "raw": "vless://1eba8f10-8e16-484b-be7a-613327727d4d@91.98.27.174:4450?type=tcp&security=reality&pbk=y6JSkggQ__RA_nmCJpX1_ddSQC6vzDUPaN7KyvjVuic&sni=play.google.com&flow=xtls-rprx-vision&fp=firefox&encryption=none&path=/XIXVPN?ed=2560#vless-55"
+      "raw": "vless://1eba8f10-8e16-484b-be7a-613327727d4d@91.98.27.174:4450?type=tcp&security=reality&pbk=y6JSkggQ__RA_nmCJpX1_ddSQC6vzDUPaN7KyvjVuic&sni=play.google.com&flow=xtls-rprx-vision&fp=firefox&encryption=none&path=/XIXVPN?ed=2560#vless-16"
     },
     {
       "protocol": "vless",
       "user": "d4d031ec-0ba6-486a-aa0c-dce2b7cb8933",
       "address": "158.160.105.121",
       "port": 51102,
-      "tag": "vless-56",
+      "tag": "vless-17",
       "params": {
         "security": "reality",
         "encryption": "none",
@@ -1055,14 +327,14 @@
         "sid": "8f222b3475800821",
         "path": "/XIXVPN?ed=2560"
       },
-      "raw": "vless://d4d031ec-0ba6-486a-aa0c-dce2b7cb8933@158.160.105.121:51102?security=reality&encryption=none&pbk=Qddpg8luihgzgx4g4uMJklXzlrMCd8L1igJSWrRUvSc&headerType=none&fp=chrome&type=tcp&flow=xtls-rprx-vision&sni=yandex.ru&sid=8f222b3475800821&path=/XIXVPN?ed=2560#vless-56"
+      "raw": "vless://d4d031ec-0ba6-486a-aa0c-dce2b7cb8933@158.160.105.121:51102?security=reality&encryption=none&pbk=Qddpg8luihgzgx4g4uMJklXzlrMCd8L1igJSWrRUvSc&headerType=none&fp=chrome&type=tcp&flow=xtls-rprx-vision&sni=yandex.ru&sid=8f222b3475800821&path=/XIXVPN?ed=2560#vless-17"
     },
     {
       "protocol": "vless",
       "user": "5d870ac3-9c5c-8071-9081-e9a79bce002b",
       "address": "fast1.lolokhan.cloud",
       "port": 80,
-      "tag": "vless-57",
+      "tag": "vless-18",
       "params": {
         "security": "none",
         "type": "ws",
@@ -1070,14 +342,101 @@
         "path": "/XIXVPN?ed=2560",
         "host": "audreythird3.global.ssl.fastly.net"
       },
-      "raw": "vless://5d870ac3-9c5c-8071-9081-e9a79bce002b@fast1.lolokhan.cloud:80?security=none&type=ws&headerType=&encryption=none&path=/XIXVPN?ed=2560&host=audreythird3.global.ssl.fastly.net#vless-57"
+      "raw": "vless://5d870ac3-9c5c-8071-9081-e9a79bce002b@fast1.lolokhan.cloud:80?security=none&type=ws&headerType=&encryption=none&path=/XIXVPN?ed=2560&host=audreythird3.global.ssl.fastly.net#vless-18"
     },
     {
       "protocol": "vless",
-      "user": "32a694da-c497-4f6d-972c-a39250dc5fe4",
-      "address": "5.75.205.170",
-      "port": 8443,
-      "tag": "vless-58",
+      "user": "5d870ac3-9c5c-8071-9081-e9a79bce002b",
+      "address": "fast3.lolokhan.cloud",
+      "port": 443,
+      "tag": "vless-19",
+      "params": {
+        "security": "tls",
+        "type": "ws",
+        "encryption": "none",
+        "path": "/XIXVPN?ed=2560",
+        "host": "cf3.lolokhan.cloud",
+        "sni": "cf3.lolokhan.cloud",
+        "fp": "chrome"
+      },
+      "raw": "vless://5d870ac3-9c5c-8071-9081-e9a79bce002b@fast3.lolokhan.cloud:443?security=tls&type=ws&headerType=&encryption=none&path=/XIXVPN?ed=2560&host=cf3.lolokhan.cloud&sni=cf3.lolokhan.cloud&fp=chrome#vless-19"
+    },
+    {
+      "protocol": "vless",
+      "user": "f0dab6f2-afa0-4b6c-818a-b806a40ccb4a",
+      "address": "meta-hub.megaconfig.com",
+      "port": 1198,
+      "tag": "vless-20",
+      "params": {
+        "encryption": "none",
+        "security": "reality",
+        "sni": "refersion.com",
+        "fp": "chrome",
+        "pbk": "J4od8RrAV4Us8mO38jkKdaW6yb-8TqISgE0ttrtPoV4",
+        "sid": "908833730613ddfb",
+        "type": "tcp",
+        "headerType": "none",
+        "path": "/XIXVPN?ed=2560"
+      },
+      "raw": "vless://f0dab6f2-afa0-4b6c-818a-b806a40ccb4a@meta-hub.megaconfig.com:1198?encryption=none&security=reality&sni=refersion.com&fp=chrome&pbk=J4od8RrAV4Us8mO38jkKdaW6yb-8TqISgE0ttrtPoV4&sid=908833730613ddfb&type=tcp&headerType=none&path=/XIXVPN?ed=2560#vless-20"
+    },
+    {
+      "protocol": "vless",
+      "user": "ce286bdb-1af2-583e-eb44-8d450f189b1e",
+      "address": "81.12.46.79",
+      "port": 2096,
+      "tag": "vless-21",
+      "params": {
+        "security": "none",
+        "encryption": "none",
+        "host": "nobitex.ir",
+        "headerType": "none",
+        "type": "tcp",
+        "path": "/XIXVPN?ed=2560"
+      },
+      "raw": "vless://ce286bdb-1af2-583e-eb44-8d450f189b1e@81.12.46.79:2096?security=none&encryption=none&host=nobitex.ir&headerType=none&type=tcp&path=/XIXVPN?ed=2560#vless-21"
+    },
+    {
+      "protocol": "vless",
+      "user": "6202b230-417c-4d8e-b624-0f71afa9c75d",
+      "address": "199.119.137.95",
+      "port": 2053,
+      "tag": "vless-22",
+      "params": {
+        "path": "/XIXVPN?ed=2560",
+        "security": "tls",
+        "encryption": "none",
+        "insecure": "0",
+        "host": "sni.111000.indevs.in",
+        "type": "ws",
+        "allowInsecure": "0",
+        "sni": "sni.111000.indevs.in"
+      },
+      "raw": "vless://6202b230-417c-4d8e-b624-0f71afa9c75d@199.119.137.95:2053?path=/XIXVPN?ed=2560&security=tls&encryption=none&insecure=0&host=sni.111000.indevs.in&type=ws&allowInsecure=0&sni=sni.111000.indevs.in#vless-22"
+    },
+    {
+      "protocol": "vless",
+      "user": "26524cce-d514-4014-a426-365fb266a14d",
+      "address": "178.32.43.41",
+      "port": 2053,
+      "tag": "vless-23",
+      "params": {
+        "security": "tls",
+        "fp": "random",
+        "sni": "cyuxj212pnq.chinat.indevs.in",
+        "type": "ws",
+        "headerType": "none",
+        "host": "cyuxj212pnq.chinat.indevs.in",
+        "path": "/XIXVPN?ed=2560"
+      },
+      "raw": "vless://26524cce-d514-4014-a426-365fb266a14d@178.32.43.41:2053?&security=tls&fp=random&sni=cyuxj212pnq.chinat.indevs.in&type=ws&headerType=none&host=cyuxj212pnq.chinat.indevs.in&path=/XIXVPN?ed=2560#vless-23"
+    },
+    {
+      "protocol": "vless",
+      "user": "3e4cf35f-ce6a-4275-feae-b69f03bf3a47",
+      "address": "185.231.180.136",
+      "port": 39846,
+      "tag": "vless-24",
       "params": {
         "security": "none",
         "encryption": "none",
@@ -1085,122 +444,405 @@
         "type": "tcp",
         "path": "/XIXVPN?ed=2560"
       },
-      "raw": "vless://32a694da-c497-4f6d-972c-a39250dc5fe4@5.75.205.170:8443?security=none&encryption=none&headerType=none&type=tcp&path=/XIXVPN?ed=2560#vless-58"
+      "raw": "vless://3e4cf35f-ce6a-4275-feae-b69f03bf3a47@185.231.180.136:39846?security=none&encryption=none&headerType=none&type=tcp&path=/XIXVPN?ed=2560#vless-24"
     },
     {
       "protocol": "vless",
-      "user": "JT82NfVfBaVbehRbuIvttb",
-      "address": "45.89.52.5",
-      "port": 443,
-      "tag": "vless-59",
-      "params": {
-        "security": "tls",
-        "encryption": "none",
-        "insecure": "1",
-        "headerType": "none",
-        "fp": "chrome",
-        "type": "tcp",
-        "allowInsecure": "1",
-        "sni": "tr2.alice",
-        "path": "/XIXVPN?ed=2560"
-      },
-      "raw": "vless://JT82NfVfBaVbehRbuIvttb@45.89.52.5:443?security=tls&encryption=none&insecure=1&headerType=none&fp=chrome&type=tcp&allowInsecure=1&sni=tr2.alice&path=/XIXVPN?ed=2560#vless-59"
-    },
-    {
-      "protocol": "vless",
-      "user": "ed2513b5-9974-4fb0-acd6-25fd556fb255",
-      "address": "tun.aws-sub.com",
-      "port": 1017,
-      "tag": "vless-60",
-      "params": {
-        "security": "reality",
-        "encryption": "none",
-        "pbk": "CAdP5-sUePkDhbiFJlK9jFK_8ay3k3BALdwbiNyXaTE",
-        "headerType": "none",
-        "fp": "firefox",
-        "type": "tcp",
-        "sni": "ub.com",
-        "sid": "83f404",
-        "path": "/XIXVPN?ed=2560"
-      },
-      "raw": "vless://ed2513b5-9974-4fb0-acd6-25fd556fb255@tun.aws-sub.com:1017?security=reality&encryption=none&pbk=CAdP5-sUePkDhbiFJlK9jFK_8ay3k3BALdwbiNyXaTE&headerType=none&fp=firefox&type=tcp&sni=ub.com&sid=83f404&path=/XIXVPN?ed=2560#vless-60"
-    },
-    {
-      "protocol": "vless",
-      "user": "Telegram",
-      "address": "193.124.225.148",
-      "port": 443,
-      "tag": "vless-61",
-      "params": {
-        "security": "tls",
-        "type": "ws",
-        "path": "/XIXVPN?ed=2560",
-        "host": "tn1rr.qzz.io",
-        "sni": "tn1rr.qzz.io",
-        "fp": "chrome",
-        "encryption": "none"
-      },
-      "raw": "vless://Telegram@193.124.225.148:443?security=tls&type=ws&path=/XIXVPN?ed=2560&host=tn1rr.qzz.io&sni=tn1rr.qzz.io&fp=chrome&encryption=none#vless-61"
-    },
-    {
-      "protocol": "vless",
-      "user": "ce7331c5-a28c-4478-ae06-2a2c5b5416fe",
-      "address": "ir.api.clothesshopping.ir",
-      "port": 19163,
-      "tag": "vless-62",
+      "user": "b174b5d5-8cd7-4f2d-927a-f1a5ec309d36",
+      "address": "78.157.37.186",
+      "port": 2099,
+      "tag": "vless-25",
       "params": {
         "mode": "gun",
         "security": "none",
         "encryption": "none",
         "type": "grpc",
-        "serviceName": "vless"
+        "serviceName": "vless",
+        "path": "/XIXVPN?ed=2560"
       },
-      "raw": "vless://ce7331c5-a28c-4478-ae06-2a2c5b5416fe@ir.api.clothesshopping.ir:19163?mode=gun&security=none&encryption=none&type=grpc&serviceName=vless#vless-62"
+      "raw": "vless://b174b5d5-8cd7-4f2d-927a-f1a5ec309d36@78.157.37.186:2099?mode=gun&security=none&encryption=none&type=grpc&serviceName=vless&path=/XIXVPN?ed=2560#vless-25"
     },
     {
       "protocol": "vless",
-      "user": "6bf2c61f-db69-4e00-9dc5-249b83e69d73",
-      "address": "94.183.171.3",
-      "port": 41314,
-      "tag": "vless-63",
+      "user": "cff6f361-828a-43c8-a8b5-8d10b32e57fb",
+      "address": "45.130.125.69",
+      "port": 8443,
+      "tag": "vless-26",
+      "params": {
+        "path": "/XIXVPN?ed=2560",
+        "security": "tls",
+        "encryption": "none",
+        "alpn": "http/1.1",
+        "host": "zh.hollowspot.ir",
+        "type": "ws",
+        "sni": "zh.hollowspot.ir"
+      },
+      "raw": "vless://cff6f361-828a-43c8-a8b5-8d10b32e57fb@45.130.125.69:8443?path=/XIXVPN?ed=2560&security=tls&encryption=none&alpn=http/1.1&host=zh.hollowspot.ir&type=ws&sni=zh.hollowspot.ir#vless-26"
+    },
+    {
+      "protocol": "vless",
+      "user": "41c2fdac-3212-468b-bf4f-6c14ad2b8bdd",
+      "address": "meta-hub.megaconfig.com",
+      "port": 1198,
+      "tag": "vless-27",
+      "params": {
+        "encryption": "none",
+        "security": "reality",
+        "sni": "refersion.com",
+        "fp": "chrome",
+        "pbk": "J4od8RrAV4Us8mO38jkKdaW6yb-8TqISgE0ttrtPoV4",
+        "sid": "908833730613ddfb",
+        "type": "tcp",
+        "headerType": "none",
+        "path": "/XIXVPN?ed=2560"
+      },
+      "raw": "vless://41c2fdac-3212-468b-bf4f-6c14ad2b8bdd@meta-hub.megaconfig.com:1198?encryption=none&security=reality&sni=refersion.com&fp=chrome&pbk=J4od8RrAV4Us8mO38jkKdaW6yb-8TqISgE0ttrtPoV4&sid=908833730613ddfb&type=tcp&headerType=none&path=/XIXVPN?ed=2560#vless-27"
+    },
+    {
+      "protocol": "vless",
+      "user": "3fa2f5cd-0cbc-4e4f-bce1-a59ae090eef4",
+      "address": "192.76.160.216",
+      "port": 2280,
+      "tag": "vless-28",
+      "params": {
+        "security": "reality",
+        "encryption": "none",
+        "sni": "tgju.org",
+        "fp": "firefox",
+        "pbk": "3O9CVvzD_0omAKw17VJoL0NlezpzxRAHNIbOWGBto2I",
+        "sid": "faf804ddc2e49f6c",
+        "type": "tcp",
+        "headerType": "none",
+        "path": "/XIXVPN?ed=2560"
+      },
+      "raw": "vless://3fa2f5cd-0cbc-4e4f-bce1-a59ae090eef4@192.76.160.216:2280?security=reality&encryption=none&sni=tgju.org&fp=firefox&pbk=3O9CVvzD_0omAKw17VJoL0NlezpzxRAHNIbOWGBto2I&sid=faf804ddc2e49f6c&type=tcp&headerType=none&path=/XIXVPN?ed=2560#vless-28"
+    },
+    {
+      "protocol": "vless",
+      "user": "4525c260-df3c-4f62-b8f1-f4f5f305694b",
+      "address": "188.114.98.0",
+      "port": 443,
+      "tag": "vless-29",
+      "params": {
+        "type": "ws",
+        "security": "tls",
+        "path": "/XIXVPN?ed=2560",
+        "host": "yyzsuabw9e3qd5ud7ihi5dxm96oglnsvr83cjojnm1efncfhr9ucordq.zjde5.de5.net",
+        "sni": "yyzsuabw9e3qd5ud7ihi5dxm96oglnsvr83cjojnm1efncfhr9ucordq.zjde5.de5.net",
+        "fp": "chrome",
+        "encryption": "none"
+      },
+      "raw": "vless://4525c260-df3c-4f62-b8f1-f4f5f305694b@188.114.98.0:443?type=ws&security=tls&path=/XIXVPN?ed=2560&host=yyzsuabw9e3qd5ud7ihi5dxm96oglnsvr83cjojnm1efncfhr9ucordq.zjde5.de5.net&sni=yyzsuabw9e3qd5ud7ihi5dxm96oglnsvr83cjojnm1efncfhr9ucordq.zjde5.de5.net&fp=chrome&encryption=none#vless-29"
+    },
+    {
+      "protocol": "vless",
+      "user": "5d870ac3-9c5c-8071-9081-e9a79bce002b",
+      "address": "fast4.lolokhan.cloud",
+      "port": 443,
+      "tag": "vless-30",
+      "params": {
+        "security": "tls",
+        "type": "ws",
+        "encryption": "none",
+        "path": "/XIXVPN?ed=2560",
+        "host": "cf5.lolokhan.cloud",
+        "sni": "cf5.lolokhan.cloud",
+        "fp": "chrome"
+      },
+      "raw": "vless://5d870ac3-9c5c-8071-9081-e9a79bce002b@fast4.lolokhan.cloud:443?security=tls&type=ws&headerType=&encryption=none&path=/XIXVPN?ed=2560&host=cf5.lolokhan.cloud&sni=cf5.lolokhan.cloud&fp=chrome#vless-30"
+    },
+    {
+      "protocol": "vless",
+      "user": "b583a294-4bb1-4fc2-965f-83a1c2ec1cdb",
+      "address": "7.zaravds.cfd",
+      "port": 22500,
+      "tag": "vless-31",
+      "params": {
+        "encryption": "none",
+        "security": "reality",
+        "sni": "refersion.com",
+        "fp": "chrome",
+        "pbk": "kbMQl4k3RhWszX6EkZVPRWtbUiRZDGePfTDeNkKCBiY",
+        "sid": "f3e0c9",
+        "spx": "/",
+        "type": "tcp",
+        "headerType": "none",
+        "path": "/XIXVPN?ed=2560"
+      },
+      "raw": "vless://b583a294-4bb1-4fc2-965f-83a1c2ec1cdb@7.zaravds.cfd:22500?encryption=none&security=reality&sni=refersion.com&fp=chrome&pbk=kbMQl4k3RhWszX6EkZVPRWtbUiRZDGePfTDeNkKCBiY&sid=f3e0c9&spx=%2F&type=tcp&headerType=none&path=/XIXVPN?ed=2560#vless-31"
+    },
+    {
+      "protocol": "vless",
+      "user": "6202b230-417c-4d8e-b624-0f71afa9c75d",
+      "address": "45.135.180.157",
+      "port": 2053,
+      "tag": "vless-32",
+      "params": {
+        "path": "/XIXVPN?ed=2560"
+      },
+      "raw": "vless://6202b230-417c-4d8e-b624-0f71afa9c75d@45.135.180.157:2053?path=/XIXVPN?ed=2560&telegram🇨🇳#vless-32"
+    },
+    {
+      "protocol": "vless",
+      "user": "292f3ea4-c29c-4906-acf3-e2384e2006ae",
+      "address": "vip-80.f-sub.cfd",
+      "port": 1517,
+      "tag": "vless-33",
       "params": {
         "security": "none",
         "encryption": "none",
-        "host": "bmw.com",
+        "host": "speedtest.net",
         "headerType": "http",
-        "type": "tcp"
+        "type": "tcp",
+        "path": "/XIXVPN?ed=2560"
       },
-      "raw": "vless://6bf2c61f-db69-4e00-9dc5-249b83e69d73@94.183.171.3:41314?security=none&encryption=none&host=bmw.com&headerType=http&type=tcp#vless-63"
+      "raw": "vless://292f3ea4-c29c-4906-acf3-e2384e2006ae@vip-80.f-sub.cfd:1517?security=none&encryption=none&host=speedtest.net&headerType=http&type=tcp&path=/XIXVPN?ed=2560#vless-33"
+    },
+    {
+      "protocol": "vless",
+      "user": "589c0f96-7ab5-470b-8f1d-cb87e09d2138",
+      "address": "germany.heliyadak.ir",
+      "port": 52678,
+      "tag": "vless-34",
+      "params": {
+        "security": "none",
+        "encryption": "none",
+        "type": "ws",
+        "path": "/XIXVPN?ed=2560"
+      },
+      "raw": "vless://589c0f96-7ab5-470b-8f1d-cb87e09d2138@germany.heliyadak.ir:52678?security=none&encryption=none&type=ws&path=/XIXVPN?ed=2560#vless-34"
+    },
+    {
+      "protocol": "vless",
+      "user": "6202b230-417c-4d8e-b624-0f71afa9c75d",
+      "address": "57.129.63.154",
+      "port": 2053,
+      "tag": "vless-35",
+      "params": {
+        "path": "/XIXVPN?ed=2560",
+        "security": "tls",
+        "encryption": "none",
+        "insecure": "0",
+        "host": "sni.111000.dynv6.net",
+        "fp": "chrome",
+        "type": "ws",
+        "allowInsecure": "0",
+        "sni": "sni.111000.dynv6.net"
+      },
+      "raw": "vless://6202b230-417c-4d8e-b624-0f71afa9c75d@57.129.63.154:2053?path=/XIXVPN?ed=2560&Telegram@V2rayAlpha&security=tls&encryption=none&insecure=0&host=sni.111000.dynv6.net&fp=chrome&type=ws&allowInsecure=0&sni=sni.111000.dynv6.net#vless-35"
+    },
+    {
+      "protocol": "vless",
+      "user": "abffeed5-2e99-47cd-96c1-bcfb4a21e648",
+      "address": "31.56.205.56",
+      "port": 27463,
+      "tag": "vless-36",
+      "params": {
+        "security": "none",
+        "encryption": "none",
+        "headerType": "http",
+        "type": "tcp",
+        "path": "/XIXVPN?ed=2560"
+      },
+      "raw": "vless://abffeed5-2e99-47cd-96c1-bcfb4a21e648@31.56.205.56:27463?security=none&encryption=none&headerType=http&type=tcp&path=/XIXVPN?ed=2560#vless-36"
+    },
+    {
+      "protocol": "vless",
+      "user": "0665cf1e-0df8-4981-a8de-a366e37c0866",
+      "address": "104.18.15.19",
+      "port": 8443,
+      "tag": "vless-37",
+      "params": {
+        "type": "ws",
+        "security": "tls",
+        "path": "/XIXVPN?ed=2560",
+        "host": "xdol7mayq6wu5kil7wjyrni7o8tnydsafcmhfhn7g6rimbw5o2g6mlm.zjde5.de5.net",
+        "sni": "xdol7mayq6wu5kil7wjyrni7o8tnydsafcmhfhn7g6rimbw5o2g6mlm.zjde5.de5.net",
+        "alpn": "http/1.1",
+        "fp": "chrome",
+        "encryption": "none"
+      },
+      "raw": "vless://0665cf1e-0df8-4981-a8de-a366e37c0866@104.18.15.19:8443?type=ws&security=tls&path=/XIXVPN?ed=2560&host=xdol7mayq6wu5kil7wjyrni7o8tnydsafcmhfhn7g6rimbw5o2g6mlm.zjde5.de5.net&sni=xdol7mayq6wu5kil7wjyrni7o8tnydsafcmhfhn7g6rimbw5o2g6mlm.zjde5.de5.net&alpn=http%2F1.1&fp=chrome&encryption=none#vless-37"
+    },
+    {
+      "protocol": "vless",
+      "user": "TELEGRAM-NUFiLTER",
+      "address": "151.101.9.80",
+      "port": 80,
+      "tag": "vless-38",
+      "params": {
+        "mode": "packet-up",
+        "path": "/XIXVPN?ed=2560",
+        "security": "none",
+        "encryption": "none",
+        "host": "CDN-NUFiLTER.global.ssl.fastly.net",
+        "type": "xhttp"
+      },
+      "raw": "vless://TELEGRAM-NUFiLTER@151.101.9.80:80?mode=packet-up&path=/XIXVPN?ed=2560&security=none&encryption=none&host=CDN-NUFiLTER.global.ssl.fastly.net&type=xhttp#vless-38"
+    },
+    {
+      "protocol": "vless",
+      "user": "829658bf-03c4-4c28-81e9-dd6ea141b2d0",
+      "address": "ipbaz.ping-box.com",
+      "port": 8443,
+      "tag": "vless-39",
+      "params": {
+        "path": "/XIXVPN?ed=2560",
+        "security": "tls",
+        "alpn": "http/1.1",
+        "encryption": "none",
+        "insecure": "0",
+        "host": "5jq7fvwpqt5owo2fi198sa6qoxznkzfea7en4m3xroeqrt3u3q.zjde5.de5.net",
+        "fp": "chrome",
+        "type": "ws",
+        "allowInsecure": "0",
+        "sni": "5jq7fvwpqt5owo2fi198sa6qoxznkzfea7en4m3xroeqrt3u3q.zjde5.de5.net"
+      },
+      "raw": "vless://829658bf-03c4-4c28-81e9-dd6ea141b2d0@ipbaz.ping-box.com:8443?path=/XIXVPN?ed=2560&security=tls&alpn=http%2F1.1&encryption=none&insecure=0&host=5jq7fvwpqt5owo2fi198sa6qoxznkzfea7en4m3xroeqrt3u3q.zjde5.de5.net&fp=chrome&type=ws&allowInsecure=0&sni=5jq7fvwpqt5owo2fi198sa6qoxznkzfea7en4m3xroeqrt3u3q.zjde5.de5.net#vless-39"
+    },
+    {
+      "protocol": "vless",
+      "user": "ad3b1a22-3678-43a4-a0c2-ddd5b7da5b5a",
+      "address": "104.18.86.181",
+      "port": 443,
+      "tag": "vless-40",
+      "params": {
+        "security": "tls",
+        "fp": "chrome",
+        "sni": "20251127.ldvsmms.dpdns.org",
+        "type": "ws",
+        "headerType": "none",
+        "host": "20251127.ldvsmms.dpdns.org",
+        "path": "/XIXVPN?ed=2560"
+      },
+      "raw": "vless://ad3b1a22-3678-43a4-a0c2-ddd5b7da5b5a@104.18.86.181:443?&security=tls&fp=chrome&sni=20251127.ldvsmms.dpdns.org&type=ws&headerType=none&host=20251127.ldvsmms.dpdns.org&path=/XIXVPN?ed=2560#vless-40"
+    },
+    {
+      "protocol": "vless",
+      "user": "cee4ee46-7856-4d3e-a579-f08269b26f77",
+      "address": "poe.com",
+      "port": 443,
+      "tag": "vless-41",
+      "params": {
+        "path": "/XIXVPN?ed=2560",
+        "security": "tls",
+        "encryption": "none",
+        "insecure": "0",
+        "host": "jop-6z6.pages.dev",
+        "fp": "chrome",
+        "type": "ws",
+        "allowInsecure": "0",
+        "sni": "jop-6z6.pages.dev"
+      },
+      "raw": "vless://cee4ee46-7856-4d3e-a579-f08269b26f77@poe.com:443?path=/XIXVPN?ed=2560&security=tls&encryption=none&insecure=0&host=jop-6z6.pages.dev&fp=chrome&type=ws&allowInsecure=0&sni=jop-6z6.pages.dev#vless-41"
     },
     {
       "protocol": "vless",
       "user": "dc923edf-9962-4817-bd51-f43f696c5fbc",
       "address": "oodplkgju.vjdkem.mmejdus.ksmajww.cncjskwisuxjs.infinityofconnectedminds.com",
-      "port": 3090,
-      "tag": "vless-64",
+      "port": 9030,
+      "tag": "vless-42",
       "params": {
-        "path": "/XIXVPN?ed",
-        "security": "none",
         "encryption": "none",
-        "host": "ebqbi.knedno.kbrgcwq.aqpfmy.utzuryso.infinityofconnectedminds.com",
-        "type": "ws"
+        "security": "none",
+        "type": "ws",
+        "host": "ybeax.bbtgvwq.erjcfu.nkkifx.tkiipdcm.infinityofconnectedminds.com",
+        "path": "/XIXVPN?ed=2560"
       },
-      "raw": "vless://dc923edf-9962-4817-bd51-f43f696c5fbc@oodplkgju.vjdkem.mmejdus.ksmajww.cncjskwisuxjs.infinityofconnectedminds.com:3090?path=%2FXIXVPN%3Fed&security=none&encryption=none&host=ebqbi.knedno.kbrgcwq.aqpfmy.utzuryso.infinityofconnectedminds.com&type=ws#vless-64"
+      "raw": "vless://dc923edf-9962-4817-bd51-f43f696c5fbc@oodplkgju.vjdkem.mmejdus.ksmajww.cncjskwisuxjs.infinityofconnectedminds.com:9030?encryption=none&security=none&type=ws&host=ybeax.bbtgvwq.erjcfu.nkkifx.tkiipdcm.infinityofconnectedminds.com&path=/XIXVPN?ed=2560#vless-42"
     },
     {
       "protocol": "vless",
-      "user": "5d870ac3-9c5c-8071-9081-e9a79bce002b",
-      "address": "fast2.lolokhan.cloud",
-      "port": 80,
-      "tag": "vless-65",
+      "user": "b5a71bc7-cc2c-4c6c-90b6-d08c341994c6",
+      "address": "46.245.65.49",
+      "port": 2053,
+      "tag": "vless-43",
       "params": {
-        "path": "/XIXVPN?ed",
+        "path": "/",
         "security": "none",
         "encryption": "none",
-        "host": "greencp3.global.ssl.fastly.net",
         "type": "ws"
       },
-      "raw": "vless://5d870ac3-9c5c-8071-9081-e9a79bce002b@fast2.lolokhan.cloud:80?path=%2FXIXVPN%3Fed&security=none&encryption=none&host=greencp3.global.ssl.fastly.net&type=ws#vless-65"
+      "raw": "vless://b5a71bc7-cc2c-4c6c-90b6-d08c341994c6@46.245.65.49:2053?path=%2F&security=none&encryption=none&type=ws#vless-43"
+    },
+    {
+      "protocol": "vless",
+      "user": "f63e2f5c-c399-4b65-802c-6f0f2efd1930",
+      "address": "185.146.173.37",
+      "port": 80,
+      "tag": "vless-44",
+      "params": {
+        "type": "ws",
+        "path": "/telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray?ed=2048",
+        "host": "1.v.v.V-_-_-V2ray-_-_-V.v.v.mv.speedtest.net.www.Zula.ir.check-host.net.5.cakesfoodapp.COM.",
+        "security": "none"
+      },
+      "raw": "vless://f63e2f5c-c399-4b65-802c-6f0f2efd1930@185.146.173.37:80?type=ws&path=/telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray?ed=2048&host=1.v.v.V-_-_-V2ray-_-_-V.v.v.mv.speedtest.net.www.Zula.ir.check-host.net.5.cakesfoodapp.COM.&security=none#vless-44"
+    },
+    {
+      "protocol": "vless",
+      "user": "6c55ee30-f23e-42f4-bbcc-a19f04c63ae4",
+      "address": "zula.ir",
+      "port": 8080,
+      "tag": "vless-45",
+      "params": {
+        "type": "ws",
+        "path": "/Telegram:@UnlimitedDev-Telegram:@UnlimitedDev?ed=8080",
+        "host": "unlimiteddev-vpn.unlimiteddev.Community.",
+        "encryption": "none"
+      },
+      "raw": "vless://6c55ee30-f23e-42f4-bbcc-a19f04c63ae4@zula.ir:8080?security=&type=ws&path=/Telegram:@UnlimitedDev-Telegram:@UnlimitedDev?ed=8080&host=unlimiteddev-vpn.unlimiteddev.Community.&encryption=none#vless-45"
+    },
+    {
+      "protocol": "vless",
+      "user": "10716279-b1ee-41d8-b63e-87782088305b",
+      "address": "104.16.216.241",
+      "port": 443,
+      "tag": "vless-46",
+      "params": {
+        "path": "/iXNpb8TL5D4uHOQC?ed",
+        "security": "tls",
+        "encryption": "none",
+        "alpn": "h2,http/1.1",
+        "host": "hey.bacheBiapAIN.iR",
+        "fp": "randomized",
+        "type": "ws",
+        "sni": "heY.bACHeBiapAiN.Ir"
+      },
+      "raw": "vless://10716279-b1ee-41d8-b63e-87782088305b@104.16.216.241:443?path=/iXNpb8TL5D4uHOQC?ed&security=tls&encryption=none&alpn=h2,http/1.1&host=hey.bacheBiapAIN.iR&fp=randomized&type=ws&sni=heY.bACHeBiapAiN.Ir#vless-46"
+    },
+    {
+      "protocol": "vmess",
+      "decoded": {
+        "add": "::ffff:3981:3258",
+        "aid": "0",
+        "alpn": "",
+        "fp": "",
+        "host": "",
+        "id": "5f77f446-6b97-4f39-b9b1-af353e3c4d50",
+        "net": "tcp",
+        "path": "",
+        "port": "16513",
+        "scy": "auto",
+        "sni": "",
+        "tls": "",
+        "type": "",
+        "v": "2",
+        "ps": "vmess-1"
+      },
+      "raw": "vmess://eyJhZGQiOiI6OmZmZmY6Mzk4MTozMjU4IiwiYWlkIjoiMCIsImFscG4iOiIiLCJmcCI6IiIsImhvc3QiOiIiLCJpZCI6IjVmNzdmNDQ2LTZiOTctNGYzOS1iOWIxLWFmMzUzZTNjNGQ1MCIsIm5ldCI6InRjcCIsInBhdGgiOiIiLCJwb3J0IjoiMTY1MTMiLCJzY3kiOiJhdXRvIiwic25pIjoiIiwidGxzIjoiIiwidHlwZSI6IiIsInYiOiIyIiwicHMiOiJ2bWVzcy0xIn0="
+    },
+    {
+      "protocol": "vless",
+      "user": "e271ff6a-2520-4cb1-8993-b43e763ad41c",
+      "address": "2.144.5.9",
+      "port": 13346,
+      "tag": "vless-47",
+      "params": {
+        "encryption": "none",
+        "type": "tcp"
+      },
+      "raw": "vless://e271ff6a-2520-4cb1-8993-b43e763ad41c@2.144.5.9:13346?security=&encryption=none&headerType=&type=tcp#vless-47"
     }
   ]
 }
