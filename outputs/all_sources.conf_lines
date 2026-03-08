@@ -1,0 +1,4 @@
+[Interface]
+Address = 188.92.28.171/32
+ListenPort = 1024
+PrivateKey = qGRnczDRx6lbdYfdYKBcVCDlxel9Ok6WZS7Xoc3BJFM=
