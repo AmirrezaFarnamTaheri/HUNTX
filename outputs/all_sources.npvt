@@ -1,12 +1,2 @@
-vless://dc633bcd-5a7c-7c41-46a1-0f72db2cf9f3@cloud.vpsino.com:48324?security=none&encryption=none&headerType=none&type=tcp#vless-1
-vless://22c17038-412c-4043-8d08-74e6afb1f862@star.1conf.top:3389?security=none&encryption=none&headerType=http&type=tcp#vless-2
-vless://3e8796c1-b19f-474a-a0ff-9df5fa029266@theboy.ultimatechat.shop:38975?security=none&encryption=none&headerType=none&type=tcp#vless-3
-vless://4f93c1f9-6dbf-4103-bfa7-2239105ae9d6@ir.gafe-lorbad.ir:443?security=none&encryption=none&headerType=none&type=tcp#vless-4
-vless://b62ffdfa-e1e5-ce44-a7a3-e8874ce1efa1@91.107.129.147:23142?path=%2F&security=none&encryption=none&host=i&type=ws#vless-5
-vless://8443a8a4-cf3b-42bc-9ea8-899c54194918@193.242.125.155:11892?security=none&encryption=none&headerType=none&type=tcp#vless-6
-vless://f2032be3-a30f-4ba0-9f18-7abc10f4a25e@www.p4free.site:28254?security=none&encryption=none&headerType=none&type=tcp#vless-7
-vless://4c003bc1-6e72-40d4-8b9b-0e814e315336@snapp.doctor:80?path=%2F&security=none&encryption=none&host=shop2.plusself.ir&type=ws#vless-8
-vless://6198c0ce-4abd-41d0-bdf0-b5eaf690c766@irankamk1.khabariran.fun:1908?security=none&encryption=none&host=www.speedtest.com&headerType=http&type=tcp#vless-9
-vless://65b4983d-65cb-4d29-a8e5-bd14378a009c@minecraftiro.com:666?security=none&encryption=none&headerType=none&type=tcp#vless-10
-vless://6fe0b9b2-8caa-4e5e-9f65-e10990628d05@n1.b760plus.shop:19977/?type=tcp&encryption=none&path=%2F&headerType=http&security=none#vless-11
-vless://22c17038-412c-4043-8d08-74e6afb1f862@star.1conf.top:3389?security=none&allowInsecure=0&encryption=none&type=tcp&path=/&headerType=http#vless-12
+vless://d487ba20-7d36-11ca-1116-cfdec2883bcf@cloud.vpsino.com:48324?security=none&encryption=none&headerType=none&type=tcp#vless-1
+vless://750f9853-c182-37fa-82d3-9de3b7e48f89@cloud.vpsino.com:48324?security=none&encryption=none&headerType=none&type=tcp#vless-2
