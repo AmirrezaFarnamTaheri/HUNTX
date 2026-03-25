@@ -1,12 +1,14 @@
 {
-  "total": 2,
+  "total": 8,
   "protocols": {
-    "vless": 2
+    "vless": 6,
+    "trojan": 1,
+    "shadowsocks": 1
   },
   "entries": [
     {
       "protocol": "vless",
-      "user": "d487ba20-7d36-11ca-1116-cfdec2883bcf",
+      "user": "dc633bcd-5a7c-7c41-46a1-0f72db2cf9f3",
       "address": "cloud.vpsino.com",
       "port": 48324,
       "tag": "vless-1",
@@ -16,21 +18,100 @@
         "headerType": "none",
         "type": "tcp"
       },
-      "raw": "vless://d487ba20-7d36-11ca-1116-cfdec2883bcf@cloud.vpsino.com:48324?security=none&encryption=none&headerType=none&type=tcp#vless-1"
+      "raw": "vless://dc633bcd-5a7c-7c41-46a1-0f72db2cf9f3@cloud.vpsino.com:48324?security=none&encryption=none&headerType=none&type=tcp#vless-1"
+    },
+    {
+      "protocol": "trojan",
+      "user": "telegram-id-privatevpns",
+      "address": "3.69.71.108",
+      "port": 22222,
+      "tag": "trojan-1",
+      "params": {
+        "security": "tls",
+        "alpn": "http/1.1",
+        "headerType": "none",
+        "type": "tcp",
+        "sni": "trojan.burgerip.co.uk"
+      },
+      "raw": "trojan://telegram-id-privatevpns@3.69.71.108:22222?security=tls&alpn=http/1.1&headerType=none&type=tcp&sni=trojan.burgerip.co.uk#trojan-1"
+    },
+    {
+      "protocol": "shadowsocks",
+      "method": "chacha20-ietf-poly1305",
+      "password": "aduB9HGxQHjA2SBMRjkHX6",
+      "address": "102.37.156.224",
+      "port": 443,
+      "tag": "ss-1",
+      "raw": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTphZHVCOUhHeFFIakEyU0JNUmprSFg2@102.37.156.224:443#ss-1"
     },
     {
       "protocol": "vless",
-      "user": "750f9853-c182-37fa-82d3-9de3b7e48f89",
+      "user": "b7ed3ee1-1e02-4024-89f0-b7e497d57b35",
+      "address": "mrvip.novavp.xyz",
+      "port": 48671,
+      "tag": "vless-2",
+      "params": {
+        "type": "tcp",
+        "security": "none"
+      },
+      "raw": "vless://b7ed3ee1-1e02-4024-89f0-b7e497d57b35@mrvip.novavp.xyz:48671?type=tcp&security=none#vless-2"
+    },
+    {
+      "protocol": "vless",
+      "user": "d5ac7b96-3026-e1bf-a68e-ed0073231dba",
       "address": "cloud.vpsino.com",
       "port": 48324,
-      "tag": "vless-2",
+      "tag": "vless-3",
+      "params": {
+        "security": "none",
+        "type": "tcp",
+        "headerType": "none",
+        "encryption": "none"
+      },
+      "raw": "vless://d5ac7b96-3026-e1bf-a68e-ed0073231dba@cloud.vpsino.com:48324?security=none&type=tcp&headerType=none&encryption=none#vless-3"
+    },
+    {
+      "protocol": "vless",
+      "user": "72613d29-9a62-4660-93bf-dab6fcd5f318",
+      "address": "193.151.128.100",
+      "port": 443,
+      "tag": "vless-4",
+      "params": {
+        "type": "tcp",
+        "encryption": "none",
+        "security": "none"
+      },
+      "raw": "vless://72613d29-9a62-4660-93bf-dab6fcd5f318@193.151.128.100:443?type=tcp&encryption=none&security=none#vless-4"
+    },
+    {
+      "protocol": "vless",
+      "user": "057a8aeb-a435-44bd-912f-6f2bd9df1b8b",
+      "address": "193.151.128.100",
+      "port": 443,
+      "tag": "vless-5",
       "params": {
         "security": "none",
         "encryption": "none",
         "headerType": "none",
         "type": "tcp"
       },
-      "raw": "vless://750f9853-c182-37fa-82d3-9de3b7e48f89@cloud.vpsino.com:48324?security=none&encryption=none&headerType=none&type=tcp#vless-2"
+      "raw": "vless://057a8aeb-a435-44bd-912f-6f2bd9df1b8b@193.151.128.100:443?security=none&encryption=none&headerType=none&type=tcp#vless-5"
+    },
+    {
+      "protocol": "vless",
+      "user": "22c17038-412c-4043-8d08-74e6afb1f862",
+      "address": "star.1conf.top",
+      "port": 3389,
+      "tag": "vless-6",
+      "params": {
+        "security": "none",
+        "allowInsecure": "0",
+        "encryption": "none",
+        "type": "tcp",
+        "path": "/",
+        "headerType": "http"
+      },
+      "raw": "vless://22c17038-412c-4043-8d08-74e6afb1f862@star.1conf.top:3389?security=none&allowInsecure=0&encryption=none&type=tcp&path=/&headerType=http#vless-6"
     }
   ]
 }
