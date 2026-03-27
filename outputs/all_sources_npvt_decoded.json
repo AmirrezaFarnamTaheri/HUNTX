@@ -1,65 +1,109 @@
 {
-  "total": 6,
+  "total": 19,
   "protocols": {
-    "vless": 6
+    "trojan": 1,
+    "vless": 17,
+    "shadowsocks": 1
   },
   "entries": [
     {
+      "protocol": "trojan",
+      "user": "telegram-id-privatevpns",
+      "address": "15.236.83.28",
+      "port": 22222,
+      "tag": "trojan-1",
+      "params": {
+        "security": "tls",
+        "alpn": "http/1.1",
+        "headerType": "none",
+        "type": "tcp",
+        "sni": "trojan.burgerip.co.uk"
+      },
+      "raw": "trojan://telegram-id-privatevpns@15.236.83.28:22222?security=tls&alpn=http/1.1&headerType=none&type=tcp&sni=trojan.burgerip.co.uk#trojan-1"
+    },
+    {
       "protocol": "vless",
-      "user": "14c80e0e-f7ce-4991-94fc-99a1db4a9b1e",
-      "address": "159.89.87.21",
-      "port": 28190,
+      "user": "13050079-6b9e-4c4e-a3b7-eedc945003ea",
+      "address": "185.143.233.200",
+      "port": 443,
       "tag": "vless-1",
       "params": {
+        "path": "/?ed=443",
+        "security": "tls",
         "encryption": "none",
-        "flow": "xtls-rprx-vision",
-        "security": "reality",
-        "sni": "aws.amazon.com",
-        "fp": "chrome",
-        "pbk": "ZJRnFU-1s1JOnO8E9uZ7b00l1fPEh63fGRbdBANFRno",
-        "type": "tcp",
-        "headerType": "none"
+        "insecure": "0",
+        "host": "alef.ir.oadeflantrogm.abrirmahan.com",
+        "fp": "randomized",
+        "type": "ws",
+        "allowInsecure": "0",
+        "sni": "alef.ir.oadeflantrogm.abrirmahan.com"
       },
-      "raw": "vless://14c80e0e-f7ce-4991-94fc-99a1db4a9b1e@159.89.87.21:28190?encryption=none&flow=xtls-rprx-vision&security=reality&sni=aws.amazon.com&fp=chrome&pbk=ZJRnFU-1s1JOnO8E9uZ7b00l1fPEh63fGRbdBANFRno&type=tcp&headerType=none#vless-1"
+      "raw": "vless://13050079-6b9e-4c4e-a3b7-eedc945003ea@185.143.233.200:443?path=%2F%3Fed%3D443&security=tls&encryption=none&insecure=0&host=alef.ir.oadeflantrogm.abrirmahan.com&fp=randomized&type=ws&allowInsecure=0&sni=alef.ir.oadeflantrogm.abrirmahan.com#vless-1"
     },
     {
       "protocol": "vless",
-      "user": "c9fd0fb1-8251-4106-b09a-f4b426736f67",
-      "address": "137.184.218.169",
-      "port": 36925,
+      "user": "a010db41-c32b-4eff-a75d-0f7cbd2c9ffc",
+      "address": "185.143.233.232",
+      "port": 443,
       "tag": "vless-2",
       "params": {
+        "path": "/voip",
+        "security": "tls",
         "encryption": "none",
-        "flow": "xtls-rprx-vision",
-        "security": "reality",
-        "sni": "www.cloudflare.com",
+        "insecure": "1",
+        "host": "pishparda.ir",
         "fp": "chrome",
-        "pbk": "lJ9INPpO4rdnm2Tek_yg0PGFyUrBB6MoKyvqt_Mfqm0",
-        "type": "tcp",
-        "headerType": "none"
+        "type": "ws",
+        "allowInsecure": "1",
+        "sni": "pishparda.ir"
       },
-      "raw": "vless://c9fd0fb1-8251-4106-b09a-f4b426736f67@137.184.218.169:36925?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.cloudflare.com&fp=chrome&pbk=lJ9INPpO4rdnm2Tek_yg0PGFyUrBB6MoKyvqt_Mfqm0&type=tcp&headerType=none#vless-2"
+      "raw": "vless://a010db41-c32b-4eff-a75d-0f7cbd2c9ffc@185.143.233.232:443?path=%2Fvoip&security=tls&encryption=none&insecure=1&host=pishparda.ir&fp=chrome&type=ws&allowInsecure=1&sni=pishparda.ir#vless-2"
     },
     {
       "protocol": "vless",
-      "user": "75c2e936-cf92-4bb1-f6c4-7a1f777f59cb",
-      "address": "atlas.irpairinghosting24.org",
-      "port": 4051,
+      "user": "430399ca-d329-44c3-949c-0f74e3eb3b09",
+      "address": "anten.ir",
+      "port": 443,
       "tag": "vless-3",
       "params": {
-        "security": "none",
+        "path": "/?ed=2048",
+        "security": "tls",
+        "alpn": "h3,h2,http/1.1",
         "encryption": "none",
-        "headerType": "none",
-        "type": "tcp"
+        "insecure": "0",
+        "host": "cpcalendars.digital-ping.ir",
+        "fp": "chrome",
+        "type": "ws",
+        "allowInsecure": "0",
+        "sni": "cpcalendars.digital-ping.ir"
       },
-      "raw": "vless://75c2e936-cf92-4bb1-f6c4-7a1f777f59cb@atlas.irpairinghosting24.org:4051?security=none&encryption=none&headerType=none&type=tcp#vless-3"
+      "raw": "vless://430399ca-d329-44c3-949c-0f74e3eb3b09@anten.ir:443?path=%2F%3Fed%3D2048&security=tls&alpn=h3%2Ch2%2Chttp%2F1.1&encryption=none&insecure=0&host=cpcalendars.digital-ping.ir&fp=chrome&type=ws&allowInsecure=0&sni=cpcalendars.digital-ping.ir#vless-3"
     },
     {
       "protocol": "vless",
-      "user": "ba8687ac-d0db-4b5a-8963-c1665ef545b5",
-      "address": "sv1.vhuma.com",
-      "port": 4043,
+      "user": "e81b43d3-bb75-07d0-8b11-f526aef4fef4",
+      "address": "212.193.153.187",
+      "port": 443,
       "tag": "vless-4",
+      "params": {
+        "path": "/XIXVPN?ed",
+        "security": "tls",
+        "encryption": "none",
+        "insecure": "0",
+        "host": "lk-cdn.deploy-assure.ru",
+        "fp": "chrome",
+        "type": "ws",
+        "allowInsecure": "0",
+        "sni": "lk-cdn.deploy-assure.ru"
+      },
+      "raw": "vless://e81b43d3-bb75-07d0-8b11-f526aef4fef4@212.193.153.187:443?path=%2FXIXVPN%3Fed&security=tls&encryption=none&insecure=0&host=lk-cdn.deploy-assure.ru&fp=chrome&type=ws&allowInsecure=0&sni=lk-cdn.deploy-assure.ru#vless-4"
+    },
+    {
+      "protocol": "vless",
+      "user": "9b9fca9a-c567-4910-bccf-204458396cb9",
+      "address": "gemini.vhuma.com",
+      "port": 65,
+      "tag": "vless-5",
       "params": {
         "security": "none",
         "encryption": "none",
@@ -67,36 +111,211 @@
         "headerType": "http",
         "type": "tcp"
       },
-      "raw": "vless://ba8687ac-d0db-4b5a-8963-c1665ef545b5@sv1.vhuma.com:4043?security=none&encryption=none&host=bama.ir&headerType=http&type=tcp#vless-4"
+      "raw": "vless://9b9fca9a-c567-4910-bccf-204458396cb9@gemini.vhuma.com:65?security=none&encryption=none&host=bama.ir&headerType=http&type=tcp#vless-5"
+    },
+    {
+      "protocol": "vless",
+      "user": "9b9fca9a-c567-4910-bccf-204458396cb9",
+      "address": "pm5.vhuma.com",
+      "port": 443,
+      "tag": "vless-6",
+      "params": {
+        "security": "none",
+        "encryption": "none",
+        "host": "bama.ir",
+        "headerType": "http",
+        "type": "tcp"
+      },
+      "raw": "vless://9b9fca9a-c567-4910-bccf-204458396cb9@pm5.vhuma.com:443?security=none&encryption=none&host=bama.ir&headerType=http&type=tcp#vless-6"
+    },
+    {
+      "protocol": "vless",
+      "user": "f1eb7fed-bc91-4285-9e7f-23d941a0204a",
+      "address": "www.speedtest.net",
+      "port": 443,
+      "tag": "vless-7",
+      "params": {
+        "mode": "gun",
+        "security": "tls",
+        "alpn": "h3,h2,http/1.1",
+        "encryption": "none",
+        "fp": "chrome",
+        "type": "grpc",
+        "serviceName": "@ConfigTell,@ConfigTell,@ConfigTell",
+        "sni": "www.felafel.org"
+      },
+      "raw": "vless://f1eb7fed-bc91-4285-9e7f-23d941a0204a@www.speedtest.net:443?mode=gun&security=tls&alpn=h3%2Ch2%2Chttp%2F1.1&encryption=none&authority=&fp=chrome&type=grpc&serviceName=%40ConfigTell%2C%40ConfigTell%2C%40ConfigTell&sni=www.felafel.org#vless-7"
+    },
+    {
+      "protocol": "vless",
+      "user": "0f7f64bd-db72-43af-8be7-f3863de7f922",
+      "address": "152.53.135.159",
+      "port": 443,
+      "tag": "vless-8",
+      "params": {
+        "security": "reality",
+        "encryption": "none",
+        "pbk": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
+        "headerType": "none",
+        "fp": "chrome",
+        "type": "tcp",
+        "flow": "xtls-rprx-vision",
+        "sni": "us.reality.tv123.ru"
+      },
+      "raw": "vless://0f7f64bd-db72-43af-8be7-f3863de7f922@152.53.135.159:443?security=reality&encryption=none&pbk=SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc&headerType=none&fp=chrome&type=tcp&flow=xtls-rprx-vision&sni=us.reality.tv123.ru#vless-8"
+    },
+    {
+      "protocol": "vless",
+      "user": "bf263367-bb63-4663-b4a1-34946107a72e",
+      "address": "45.144.49.116",
+      "port": 8443,
+      "tag": "vless-9",
+      "params": {
+        "type": "tcp",
+        "security": "reality",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision",
+        "fp": "chrome",
+        "pbk": "5qvcOTHr_izGbsRz-j2xC3BMMdugFMsl7MnANjzwZ0I",
+        "sid": "b2a1c97a38",
+        "sni": "www.apple.com",
+        "spx": "/"
+      },
+      "raw": "vless://bf263367-bb63-4663-b4a1-34946107a72e@45.144.49.116:8443?type=tcp&security=reality&encryption=none&flow=xtls-rprx-vision&fp=chrome&pbk=5qvcOTHr_izGbsRz-j2xC3BMMdugFMsl7MnANjzwZ0I&sid=b2a1c97a38&sni=www.apple.com&spx=/#vless-9"
+    },
+    {
+      "protocol": "vless",
+      "user": "6f99ed2f-9879-40e3-b5b4-5590c60f8e4a",
+      "address": "82.26.91.244",
+      "port": 443,
+      "tag": "vless-10",
+      "params": {
+        "security": "reality",
+        "sni": "vk.ru",
+        "type": "grpc",
+        "fp": "chrome",
+        "pbk": "g8IbVqG1g7ht5ckWvYgOxZ9CrStwZt8QYQmTEwIWsTU",
+        "sid": "b5"
+      },
+      "raw": "vless://6f99ed2f-9879-40e3-b5b4-5590c60f8e4a@82.26.91.244:443?security=reality&sni=vk.ru&type=grpc&fp=chrome&pbk=g8IbVqG1g7ht5ckWvYgOxZ9CrStwZt8QYQmTEwIWsTU&sid=b5#vless-10"
+    },
+    {
+      "protocol": "vless",
+      "user": "eef044ee-21f4-4a8a-80cb-0d2af3df34c3",
+      "address": "dl.io-laptop.ir",
+      "port": 8443,
+      "tag": "vless-11",
+      "params": {
+        "mode": "auto",
+        "path": "?ed=2048",
+        "security": "tls",
+        "alpn": "h2,http/1.1",
+        "encryption": "none",
+        "insecure": "0",
+        "host": "dl.io-laptop.ir",
+        "fp": "chrome",
+        "type": "xhttp",
+        "allowInsecure": "0",
+        "sni": "dl.io-laptop.ir"
+      },
+      "raw": "vless://eef044ee-21f4-4a8a-80cb-0d2af3df34c3@dl.io-laptop.ir:8443?mode=auto&path=%3Fed%3D2048&security=tls&alpn=h2%2Chttp%2F1.1&encryption=none&insecure=0&host=dl.io-laptop.ir&fp=chrome&type=xhttp&allowInsecure=0&sni=dl.io-laptop.ir#vless-11"
+    },
+    {
+      "protocol": "vless",
+      "user": "fa5ea1a0-181d-11f1-936e-c3dd5dbd4179",
+      "address": "c-1.jservices.ir",
+      "port": 80,
+      "tag": "vless-12",
+      "params": {
+        "path": "/?ed=2560",
+        "encryption": "none",
+        "host": "c-1.jservices.ir",
+        "type": "ws"
+      },
+      "raw": "vless://fa5ea1a0-181d-11f1-936e-c3dd5dbd4179@c-1.jservices.ir:80?path=%2F%3Fed%3D2560&security=&encryption=none&host=c-1.jservices.ir&type=ws#vless-12"
+    },
+    {
+      "protocol": "vless",
+      "user": "05519058-d2ac-4f28-9e4a-2b2a1386749e",
+      "address": "52.58.26.183",
+      "port": 22224,
+      "tag": "vless-13",
+      "params": {
+        "type": "ws",
+        "security": "tls",
+        "path": "%techbod"
+      },
+      "raw": "vless://05519058-d2ac-4f28-9e4a-2b2a1386749e@52.58.26.183:22224?type=ws&security=tls&path=%techbod#vless-13"
     },
     {
       "protocol": "vless",
       "user": "da664175-e743-4095-8c35-623fbcd9394d",
       "address": "snapp.ir",
       "port": 80,
-      "tag": "vless-5",
+      "tag": "vless-14",
       "params": {
-        "path": "/",
-        "security": "none",
         "encryption": "none",
+        "security": "none",
+        "type": "ws",
         "host": "dl.avenflow.ir",
-        "type": "ws"
+        "path": "/"
       },
-      "raw": "vless://da664175-e743-4095-8c35-623fbcd9394d@snapp.ir:80?path=%2F&security=none&encryption=none&host=dl.avenflow.ir&type=ws#vless-5"
+      "raw": "vless://da664175-e743-4095-8c35-623fbcd9394d@snapp.ir:80?encryption=none&security=none&type=ws&host=dl.avenflow.ir&path=%2F#vless-14"
     },
     {
       "protocol": "vless",
-      "user": "ba8687ac-d0db-4b5a-8963-c1665ef545b5",
-      "address": "sv1.vhuma.com",
-      "port": 4043,
-      "tag": "vless-6",
+      "user": "983da2df-bc52-4226-84c1-bbfef0704427",
+      "address": "dqf21.sdssd1.sadqwdw1.carvan1.mimkiscx.ir",
+      "port": 443,
+      "tag": "vless-15",
+      "params": {
+        "security": "tls",
+        "alpn": "h2,http/1.1",
+        "encryption": "none",
+        "insecure": "0",
+        "fp": "chrome",
+        "type": "ws",
+        "allowInsecure": "0",
+        "sni": "beh1.salonemojallal.ir."
+      },
+      "raw": "vless://983da2df-bc52-4226-84c1-bbfef0704427@dqf21.sdssd1.sadqwdw1.carvan1.mimkiscx.ir:443?security=tls&alpn=h2%2Chttp%2F1.1&encryption=none&insecure=0&fp=chrome&type=ws&allowInsecure=0&sni=beh1.salonemojallal.ir.#vless-15"
+    },
+    {
+      "protocol": "vless",
+      "user": "f2032be3-a30f-4ba0-9f18-7abc10f4a25e",
+      "address": "www.p4free.site",
+      "port": 28254,
+      "tag": "vless-16",
+      "params": {
+        "security": "none",
+        "encryption": "none",
+        "headerType": "none",
+        "type": "tcp"
+      },
+      "raw": "vless://f2032be3-a30f-4ba0-9f18-7abc10f4a25e@www.p4free.site:28254?security=none&encryption=none&headerType=none&type=tcp#vless-16"
+    },
+    {
+      "protocol": "vless",
+      "user": "20285e4f-b0db-48a6-92a2-1b5677cb65ad",
+      "address": "ja3.diiginet.ir",
+      "port": 1500,
+      "tag": "vless-17",
       "params": {
         "encryption": "none",
-        "host": "bama.ir",
+        "host": "reata.ir",
         "headerType": "http",
         "type": "tcp"
       },
-      "raw": "vless://ba8687ac-d0db-4b5a-8963-c1665ef545b5@sv1.vhuma.com:4043?security=&encryption=none&host=bama.ir&headerType=http&type=tcp#vless-6"
+      "raw": "vless://20285e4f-b0db-48a6-92a2-1b5677cb65ad@ja3.diiginet.ir:1500?security=&encryption=none&host=reata.ir&headerType=http&type=tcp#vless-17"
+    },
+    {
+      "protocol": "shadowsocks",
+      "method": "chacha20-ietf-poly1305",
+      "password": "5IWCXfBeojarVe9vi33O2jbltyEqFtGj",
+      "address": "vip.tekcloud.site",
+      "port": 20900,
+      "tag": "ss-1",
+      "raw": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTo1SVdDWGZCZW9qYXJWZTl2aTMzTzJqYmx0eUVxRnRHag==@vip.tekcloud.site:20900#ss-1"
     }
   ]
 }
