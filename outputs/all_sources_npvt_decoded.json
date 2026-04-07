@@ -1,245 +1,85 @@
 {
-  "total": 16,
+  "total": 5,
   "protocols": {
-    "vless": 15,
-    "trojan": 1
+    "vless": 5
   },
   "entries": [
     {
       "protocol": "vless",
-      "user": "c3319fd7-627b-4ac2-a883-0bee53d15757",
-      "address": "snapp.ir",
-      "port": 80,
+      "user": "74c5af8f-1801-42a2-99ae-f3e5b7f3258a",
+      "address": "non.zabuzabfr.ir",
+      "port": 8880,
       "tag": "vless-1",
       "params": {
         "path": "/",
-        "security": "none",
         "encryption": "none",
-        "host": "arc.liarashop.ir",
-        "type": "ws"
+        "host": "non.zabuzabfr.ir",
+        "type": "httpupgrade"
       },
-      "raw": "vless://c3319fd7-627b-4ac2-a883-0bee53d15757@snapp.ir:80?path=%2F&security=none&encryption=none&host=arc.liarashop.ir&type=ws#vless-1"
+      "raw": "vless://74c5af8f-1801-42a2-99ae-f3e5b7f3258a@non.zabuzabfr.ir:8880?path=%2F&security=&encryption=none&host=non.zabuzabfr.ir&type=httpupgrade#vless-1"
     },
     {
       "protocol": "vless",
-      "user": "e8f469a1-28e6-477d-aa4b-0764849b1ab5",
-      "address": "tob1-c8040d1d55-edare.apps.ir-central1.arvancaas.ir",
-      "port": 80,
+      "user": "6fb4c229-6f9a-449a-a533-9f2a8040c71c",
+      "address": "185.238.140.212",
+      "port": 443,
       "tag": "vless-2",
       "params": {
-        "path": "/",
-        "security": "none",
+        "security": "reality",
         "encryption": "none",
-        "host": "tob1-c8040d1d55-edare.apps.ir-central1.arvancaas.ir",
-        "type": "ws"
+        "pbk": "gMpp8SHZ5tGcxwaUEZ4e-ZHa8J0qIV7S5C0iO-qkEEE",
+        "headerType": "none",
+        "fp": "chrome",
+        "type": "tcp",
+        "sni": "www.microsoft.com",
+        "sid": "6ba85179e30d4fc2"
       },
-      "raw": "vless://e8f469a1-28e6-477d-aa4b-0764849b1ab5@tob1-c8040d1d55-edare.apps.ir-central1.arvancaas.ir:80?path=%2F&security=none&encryption=none&host=tob1-c8040d1d55-edare.apps.ir-central1.arvancaas.ir&type=ws#vless-2"
+      "raw": "vless://6fb4c229-6f9a-449a-a533-9f2a8040c71c@185.238.140.212:443?security=reality&encryption=none&pbk=gMpp8SHZ5tGcxwaUEZ4e-ZHa8J0qIV7S5C0iO-qkEEE&headerType=none&fp=chrome&type=tcp&sni=www.microsoft.com&sid=6ba85179e30d4fc2#vless-2"
     },
     {
       "protocol": "vless",
-      "user": "e8f469a1-28e6-477d-aa4b-0764849b1ab5",
-      "address": "snapp.ir",
-      "port": 80,
+      "user": "7dfb08b3-420d-4aaa-b7e4-5d85068eb774",
+      "address": "37.152.189.74",
+      "port": 4431,
       "tag": "vless-3",
       "params": {
-        "path": "/",
+        "path": "/ek/irinn/live/1080p/",
         "security": "none",
         "encryption": "none",
-        "host": "dl700tobi.sudoserver.ir",
+        "host": "live-azd1102.telewebion.ir",
         "type": "ws"
       },
-      "raw": "vless://e8f469a1-28e6-477d-aa4b-0764849b1ab5@snapp.ir:80?path=%2F&security=none&encryption=none&host=dl700tobi.sudoserver.ir&type=ws#vless-3"
-    },
-    {
-      "protocol": "trojan",
-      "user": "telegram-id-privatevpns",
-      "address": "13.38.177.145",
-      "port": 22222,
-      "tag": "trojan-1",
-      "params": {
-        "security": "tls",
-        "alpn": "http/1.1",
-        "headerType": "none",
-        "type": "tcp",
-        "sni": "trojan.burgerip.co.uk"
-      },
-      "raw": "trojan://telegram-id-privatevpns@13.38.177.145:22222?security=tls&alpn=http/1.1&headerType=none&type=tcp&sni=trojan.burgerip.co.uk#trojan-1"
+      "raw": "vless://7dfb08b3-420d-4aaa-b7e4-5d85068eb774@37.152.189.74:4431?path=%2Fek%2Firinn%2Flive%2F1080p%2F&security=none&encryption=none&host=live-azd1102.telewebion.ir&type=ws#vless-3"
     },
     {
       "protocol": "vless",
-      "user": "0c74a134-003a-4ced-b4e4-87630e0224db",
-      "address": "de23.fastplus7.site",
-      "port": 80,
+      "user": "dbffbd74-59db-46a3-942c-e8f543e36914",
+      "address": "188.121.125.121",
+      "port": 2000,
       "tag": "vless-4",
       "params": {
-        "path": "/",
-        "security": "none",
-        "encryption": "none",
-        "host": "de23.fastplus11.ir",
-        "type": "ws"
-      },
-      "raw": "vless://0c74a134-003a-4ced-b4e4-87630e0224db@de23.fastplus7.site:80?path=%2F&security=none&encryption=none&host=de23.fastplus11.ir&type=ws#vless-4"
-    },
-    {
-      "protocol": "vless",
-      "user": "e4c9557e-0435-4669-8192-dda40aa188ee",
-      "address": "v2ir03186.temp.veraspeed.ir",
-      "port": 80,
-      "tag": "vless-5",
-      "params": {
-        "path": "/filimo-video/177430809054030600/1774365690/cb857b0770767a2b38b3ebc9d4c44d7fc5630fdd/196328x264new1-1080p.mp4/s-20-v1-a1.ts",
-        "security": "none",
-        "encryption": "none",
-        "host": "byebye.22.avenflow.ir",
-        "type": "ws"
-      },
-      "raw": "vless://e4c9557e-0435-4669-8192-dda40aa188ee@v2ir03186.temp.veraspeed.ir:80?path=%2Ffilimo-video%2F177430809054030600%2F1774365690%2Fcb857b0770767a2b38b3ebc9d4c44d7fc5630fdd%2F196328x264new1-1080p.mp4%2Fs-20-v1-a1.ts&security=none&encryption=none&host=byebye.22.avenflow.ir&type=ws#vless-5"
-    },
-    {
-      "protocol": "vless",
-      "user": "0c74a134-003a-4ced-b4e4-87630e0224db",
-      "address": "de23.fastplus7.site",
-      "port": 80,
-      "tag": "vless-6",
-      "params": {
-        "path": "/",
-        "encryption": "none",
-        "host": "de23.fastplus11.ir",
-        "type": "ws"
-      },
-      "raw": "vless://0c74a134-003a-4ced-b4e4-87630e0224db@de23.fastplus7.site:80?path=%2F&security=&encryption=none&host=de23.fastplus11.ir&type=ws#vless-6"
-    },
-    {
-      "protocol": "vless",
-      "user": "8fc836e4-f72f-40d7-8a55-8677324a2079",
-      "address": "185.143.234.122",
-      "port": 80,
-      "tag": "vless-7",
-      "params": {
-        "path": "/",
-        "security": "none",
-        "encryption": "none",
-        "host": "S4.koremusic.ir",
-        "type": "ws"
-      },
-      "raw": "vless://8fc836e4-f72f-40d7-8a55-8677324a2079@185.143.234.122:80?path=%2F&security=none&encryption=none&host=S4.koremusic.ir&type=ws#vless-7"
-    },
-    {
-      "protocol": "vless",
-      "user": "e5933eb3-2aa8-4f20-b622-92677bf618f8",
-      "address": "snapp.ir",
-      "port": 443,
-      "tag": "vless-8",
-      "params": {
-        "path": "/",
-        "security": "tls",
-        "encryption": "none",
-        "insecure": "0",
-        "host": "cdn.siilaam.online",
-        "fp": "chrome",
-        "type": "ws",
-        "allowInsecure": "0",
-        "sni": "info.siilaam.online"
-      },
-      "raw": "vless://e5933eb3-2aa8-4f20-b622-92677bf618f8@snapp.ir:443?path=%2F&security=tls&encryption=none&insecure=0&host=cdn.siilaam.online&fp=chrome&type=ws&allowInsecure=0&sni=info.siilaam.online#vless-8"
-    },
-    {
-      "protocol": "vless",
-      "user": "ef010b15-0522-47a9-aec8-e46d2c85989a",
-      "address": "uncl.atlasc.ir",
-      "port": 32432,
-      "tag": "vless-9",
-      "params": {
-        "encryption": "none",
-        "headerType": "http",
-        "host": "www.aparat.com",
-        "path": "/",
-        "security": "none",
-        "type": "tcp"
-      },
-      "raw": "vless://ef010b15-0522-47a9-aec8-e46d2c85989a@uncl.atlasc.ir:32432?encryption=none&headerType=http&host=www.aparat.com&path=%2F&security=none&type=tcp#vless-9"
-    },
-    {
-      "protocol": "vless",
-      "address": "095dac4-3550-498e-bfe0-971dacdcfa185.143.234.235",
-      "port": 80,
-      "tag": "vless-10",
-      "params": {
-        "security": "nne",
-        "encryption": "none",
-        "type": "ws"
-      },
-      "raw": "vless://095dac4-3550-498e-bfe0-971dacdcfa185.143.234.235:80?security=nne&encryption=none&hosi.idcnr.top&type=ws#vless-10"
-    },
-    {
-      "protocol": "vless",
-      "user": "b4e9234c-4517-400b-ac85-4e4b37657838",
-      "address": "iribnewreport.watch-out.ir",
-      "port": 443,
-      "tag": "vless-11",
-      "params": {
-        "fp": "chrome",
-        "path": "/j/47164",
-        "security": "tls",
-        "type": "ws"
-      },
-      "raw": "vless://b4e9234c-4517-400b-ac85-4e4b37657838@iribnewreport.watch-out.ir:443?flow=&fp=chrome&path=%2Fj%2F47164&security=tls&type=ws#vless-11"
-    },
-    {
-      "protocol": "vless",
-      "user": "b8906ad5-7b9f-4e49-9999-5ba6d7c78c1a",
-      "address": "185.143.234.122",
-      "port": 80,
-      "tag": "vless-12",
-      "params": {
-        "path": "/",
-        "security": "none",
-        "encryption": "none",
-        "host": "m1.avenflow.ir",
-        "type": "ws"
-      },
-      "raw": "vless://b8906ad5-7b9f-4e49-9999-5ba6d7c78c1a@185.143.234.122:80?path=%2F&security=none&encryption=none&host=m1.avenflow.ir&type=ws#vless-12"
-    },
-    {
-      "protocol": "vless",
-      "user": "c7152b70-fac2-4e46-9df4-16aa921c3cb2",
-      "address": "vortex.mytopmedia.pro",
-      "port": 100,
-      "tag": "vless-13",
-      "params": {
-        "security": "none",
         "encryption": "none",
         "headerType": "none",
         "type": "tcp"
       },
-      "raw": "vless://c7152b70-fac2-4e46-9df4-16aa921c3cb2@vortex.mytopmedia.pro:100?security=none&encryption=none&headerType=none&type=tcp#vless-13"
+      "raw": "vless://dbffbd74-59db-46a3-942c-e8f543e36914@188.121.125.121:2000?security=&encryption=none&headerType=none&type=tcp#vless-4"
     },
     {
       "protocol": "vless",
-      "user": "c92681e9-83f0-434e-8da2-8ebfae985a7a",
-      "address": "video.ir.temas-lomat.ir",
-      "port": 80,
-      "tag": "vless-14",
+      "user": "0bf3ab52-e1b1-49e2-bfa5-389d9a251710",
+      "address": "mim.md-teach.com",
+      "port": 8443,
+      "tag": "vless-5",
       "params": {
-        "type": "tcp",
-        "encryption": "none",
-        "security": "none"
-      },
-      "raw": "vless://c92681e9-83f0-434e-8da2-8ebfae985a7a@video.ir.temas-lomat.ir:80?type=tcp&encryption=none&security=none#vless-14"
-    },
-    {
-      "protocol": "vless",
-      "user": "6d15fab0-0d10-4245-bb24-e67ba669fe06",
-      "address": "141.ir",
-      "port": 2082,
-      "tag": "vless-15",
-      "params": {
-        "type": "ws",
-        "security": "none",
         "path": "/",
-        "host": "vip1a.deltamarket8.ir"
+        "security": "tls",
+        "encryption": "none",
+        "host": "md2.moradi.online",
+        "fp": "chrome",
+        "type": "ws",
+        "sni": "md2.moradi.online"
       },
-      "raw": "vless://6d15fab0-0d10-4245-bb24-e67ba669fe06@141.ir:2082?type=ws&security=none&path=%2F&host=vip1a.deltamarket8.ir#vless-15"
+      "raw": "vless://0bf3ab52-e1b1-49e2-bfa5-389d9a251710@mim.md-teach.com:8443?path=%2F&security=tls&encryption=none&host=md2.moradi.online&fp=chrome&type=ws&sni=md2.moradi.online#vless-5"
     }
   ]
 }
