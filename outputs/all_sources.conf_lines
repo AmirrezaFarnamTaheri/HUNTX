@@ -1,0 +1,10 @@
+[Interface]
+Address = 192.168.49.13/24
+DNS = 8.8.8.8
+MTU = 8080
+PrivateKey = oP8NWfZbvaW+LHcjD0gKL4t08CfZ1TMkeqXdY3/w9Ek=
+[Peer]
+AllowedIPs = 0.0.0.0/0
+Endpoint = s3.nimbaha.info:14040
+PersistentKeepalive = 25
+PublicKey = uu9DW8TlJiRLk+pUZWX2/mABcd0kwqK8xL5xAwBl+Rw=
