@@ -1,63 +1,544 @@
 {
-  "total": 6,
+  "total": 67,
   "protocols": {
-    "dns": 4,
-    "vless": 2
+    "socks": 67
   },
   "entries": [
     {
-      "protocol": "dns",
-      "address": "bwljlmduoc5zaxrljmuxyti2mgzingzlmwexntc3ytzhzwflyzyymji4nzjmm2vmztiznzhlmtqymgi2ndm3njbiogewyjaxyjhmnjgmnjy2niyxmc4xoduunjgumtezojuzjnvkca==",
-      "tag": "dns-1",
-      "raw": "dns://bWljLmduOC5zaXRlJmUxYTI2MGZiNGZlMWExNTc3YTZhZWFlYzYyMjI4NzJmM2VmZTIzNzhlMTQyMGI2NDM3NjBiOGEwYjAxYjhmNjgmNjY2NiYxMC4xODUuNjguMTEzOjUzJnVkcA==#dns-1"
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.2",
+      "port": 1011,
+      "tag": "socks-1",
+      "raw": "socks://Og%3D%3D@193.151.136.2:1011#socks-1"
     },
     {
-      "protocol": "dns",
-      "address": "bwljlmduoc5zaxrljmuxyti2mgzingzlmwexntc3ytzhzwflyzyymji4nzjmm2vmztiznzhlmtqymgi2ndm3njbiogewyjaxyjhmnjgmnjy2niy0ns45mi45nc4xodk6ntmmdwrw",
-      "tag": "dns-2",
-      "raw": "dns://bWljLmduOC5zaXRlJmUxYTI2MGZiNGZlMWExNTc3YTZhZWFlYzYyMjI4NzJmM2VmZTIzNzhlMTQyMGI2NDM3NjBiOGEwYjAxYjhmNjgmNjY2NiY0NS45Mi45NC4xODk6NTMmdWRw#dns-2"
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.6",
+      "port": 1011,
+      "tag": "socks-2",
+      "raw": "socks://Og%3D%3D@193.151.136.6:1011#socks-2"
     },
     {
-      "protocol": "vless",
-      "user": "8659d4c6-f795-4182-b46f-b9cc68f9e799",
-      "address": "snapp.ir",
-      "port": 80,
-      "tag": "vless-1",
-      "params": {
-        "encryption": "none",
-        "host": "Darxhinteam.bravo-six.ir",
-        "path": "/",
-        "security": "none",
-        "type": "ws"
-      },
-      "raw": "vless://8659d4c6-f795-4182-b46f-b9cc68f9e799@snapp.ir:80?encryption=none&host=Darxhinteam.bravo-six.ir&path=%2F&security=none&type=ws#vless-1"
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.9",
+      "port": 1011,
+      "tag": "socks-3",
+      "raw": "socks://Og%3D%3D@193.151.136.9:1011#socks-3"
     },
     {
-      "protocol": "dns",
-      "address": "chvyljjxds5teszmodqzzti0ytrlmtewnzeyn2vhywzmnmi4ngjlyza3nzbkotyymwe3ngvkyjiwntyymzhizgmyzmm1njdjnta1jjy2njymmzcumziumjqumtk4ojuzjnvkca==",
-      "tag": "dns-3",
-      "raw": "dns://cHVyLjJxdS5teSZmODQzZTI0YTRlMTEwNzEyN2VhYWZmNmI4NGJlYzA3NzBkOTYyMWE3NGVkYjIwNTYyMzhiZGMyZmM1NjdjNTA1JjY2NjYmMzcuMzIuMjQuMTk4OjUzJnVkcA==#dns-3"
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.20",
+      "port": 1011,
+      "tag": "socks-4",
+      "raw": "socks://Og%3D%3D@193.151.136.20:1011#socks-4"
     },
     {
-      "protocol": "dns",
-      "address": "chvyljjxds5teszmodqzzti0ytrlmtewnzeyn2vhywzmnmi4ngjlyza3nzbkotyymwe3ngvkyjiwntyymzhizgmyzmm1njdjnta1jjy2njymnzgumtu3lju3ljg3ojuzjnvkca==",
-      "tag": "dns-4",
-      "raw": "dns://cHVyLjJxdS5teSZmODQzZTI0YTRlMTEwNzEyN2VhYWZmNmI4NGJlYzA3NzBkOTYyMWE3NGVkYjIwNTYyMzhiZGMyZmM1NjdjNTA1JjY2NjYmNzguMTU3LjU3Ljg3OjUzJnVkcA==#dns-4"
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.30",
+      "port": 1011,
+      "tag": "socks-5",
+      "raw": "socks://Og%3D%3D@193.151.136.30:1011#socks-5"
     },
     {
-      "protocol": "vless",
-      "user": "94dd9065-5542-44fb-8c28-10c55c9dbfe8",
-      "address": "snapp.ir",
-      "port": 2086,
-      "tag": "vless-2",
-      "params": {
-        "path": "/",
-        "security": "none",
-        "encryption": "none",
-        "host": "beraghsaontop.netcura.ir",
-        "type": "ws"
-      },
-      "raw": "vless://94dd9065-5542-44fb-8c28-10c55c9dbfe8@snapp.ir:2086?path=%2F&security=none&encryption=none&host=beraghsaontop.netcura.ir&type=ws#vless-2"
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.36",
+      "port": 1011,
+      "tag": "socks-6",
+      "raw": "socks://Og%3D%3D@193.151.136.36:1011#socks-6"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.37",
+      "port": 1011,
+      "tag": "socks-7",
+      "raw": "socks://Og%3D%3D@193.151.136.37:1011#socks-7"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.42",
+      "port": 1011,
+      "tag": "socks-8",
+      "raw": "socks://Og%3D%3D@193.151.136.42:1011#socks-8"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.43",
+      "port": 1011,
+      "tag": "socks-9",
+      "raw": "socks://Og%3D%3D@193.151.136.43:1011#socks-9"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.47",
+      "port": 1011,
+      "tag": "socks-10",
+      "raw": "socks://Og%3D%3D@193.151.136.47:1011#socks-10"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.49",
+      "port": 1011,
+      "tag": "socks-11",
+      "raw": "socks://Og%3D%3D@193.151.136.49:1011#socks-11"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.52",
+      "port": 1011,
+      "tag": "socks-12",
+      "raw": "socks://Og%3D%3D@193.151.136.52:1011#socks-12"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.54",
+      "port": 1011,
+      "tag": "socks-13",
+      "raw": "socks://Og%3D%3D@193.151.136.54:1011#socks-13"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.57",
+      "port": 1011,
+      "tag": "socks-14",
+      "raw": "socks://Og%3D%3D@193.151.136.57:1011#socks-14"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.63",
+      "port": 1011,
+      "tag": "socks-15",
+      "raw": "socks://Og%3D%3D@193.151.136.63:1011#socks-15"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.71",
+      "port": 1011,
+      "tag": "socks-16",
+      "raw": "socks://Og%3D%3D@193.151.136.71:1011#socks-16"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.73",
+      "port": 1011,
+      "tag": "socks-17",
+      "raw": "socks://Og%3D%3D@193.151.136.73:1011#socks-17"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.81",
+      "port": 1011,
+      "tag": "socks-18",
+      "raw": "socks://Og%3D%3D@193.151.136.81:1011#socks-18"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.82",
+      "port": 1011,
+      "tag": "socks-19",
+      "raw": "socks://Og%3D%3D@193.151.136.82:1011#socks-19"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.84",
+      "port": 1011,
+      "tag": "socks-20",
+      "raw": "socks://Og%3D%3D@193.151.136.84:1011#socks-20"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.88",
+      "port": 1011,
+      "tag": "socks-21",
+      "raw": "socks://Og%3D%3D@193.151.136.88:1011#socks-21"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.93",
+      "port": 1011,
+      "tag": "socks-22",
+      "raw": "socks://Og%3D%3D@193.151.136.93:1011#socks-22"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.94",
+      "port": 1011,
+      "tag": "socks-23",
+      "raw": "socks://Og%3D%3D@193.151.136.94:1011#socks-23"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.97",
+      "port": 1011,
+      "tag": "socks-24",
+      "raw": "socks://Og%3D%3D@193.151.136.97:1011#socks-24"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.101",
+      "port": 1011,
+      "tag": "socks-25",
+      "raw": "socks://Og%3D%3D@193.151.136.101:1011#socks-25"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.103",
+      "port": 1011,
+      "tag": "socks-26",
+      "raw": "socks://Og%3D%3D@193.151.136.103:1011#socks-26"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.105",
+      "port": 1011,
+      "tag": "socks-27",
+      "raw": "socks://Og%3D%3D@193.151.136.105:1011#socks-27"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.107",
+      "port": 1011,
+      "tag": "socks-28",
+      "raw": "socks://Og%3D%3D@193.151.136.107:1011#socks-28"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.108",
+      "port": 1011,
+      "tag": "socks-29",
+      "raw": "socks://Og%3D%3D@193.151.136.108:1011#socks-29"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.112",
+      "port": 1011,
+      "tag": "socks-30",
+      "raw": "socks://Og%3D%3D@193.151.136.112:1011#socks-30"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.113",
+      "port": 1011,
+      "tag": "socks-31",
+      "raw": "socks://Og%3D%3D@193.151.136.113:1011#socks-31"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.114",
+      "port": 1011,
+      "tag": "socks-32",
+      "raw": "socks://Og%3D%3D@193.151.136.114:1011#socks-32"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.119",
+      "port": 1011,
+      "tag": "socks-33",
+      "raw": "socks://Og%3D%3D@193.151.136.119:1011#socks-33"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.124",
+      "port": 1011,
+      "tag": "socks-34",
+      "raw": "socks://Og%3D%3D@193.151.136.124:1011#socks-34"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.127",
+      "port": 1011,
+      "tag": "socks-35",
+      "raw": "socks://Og%3D%3D@193.151.136.127:1011#socks-35"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.133",
+      "port": 1011,
+      "tag": "socks-36",
+      "raw": "socks://Og%3D%3D@193.151.136.133:1011#socks-36"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.134",
+      "port": 1011,
+      "tag": "socks-37",
+      "raw": "socks://Og%3D%3D@193.151.136.134:1011#socks-37"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.138",
+      "port": 1011,
+      "tag": "socks-38",
+      "raw": "socks://Og%3D%3D@193.151.136.138:1011#socks-38"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.140",
+      "port": 1011,
+      "tag": "socks-39",
+      "raw": "socks://Og%3D%3D@193.151.136.140:1011#socks-39"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.142",
+      "port": 1011,
+      "tag": "socks-40",
+      "raw": "socks://Og%3D%3D@193.151.136.142:1011#socks-40"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.144",
+      "port": 1011,
+      "tag": "socks-41",
+      "raw": "socks://Og%3D%3D@193.151.136.144:1011#socks-41"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.147",
+      "port": 1011,
+      "tag": "socks-42",
+      "raw": "socks://Og%3D%3D@193.151.136.147:1011#socks-42"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.150",
+      "port": 1011,
+      "tag": "socks-43",
+      "raw": "socks://Og%3D%3D@193.151.136.150:1011#socks-43"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.154",
+      "port": 1011,
+      "tag": "socks-44",
+      "raw": "socks://Og%3D%3D@193.151.136.154:1011#socks-44"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.160",
+      "port": 1011,
+      "tag": "socks-45",
+      "raw": "socks://Og%3D%3D@193.151.136.160:1011#socks-45"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.162",
+      "port": 1011,
+      "tag": "socks-46",
+      "raw": "socks://Og%3D%3D@193.151.136.162:1011#socks-46"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.164",
+      "port": 1011,
+      "tag": "socks-47",
+      "raw": "socks://Og%3D%3D@193.151.136.164:1011#socks-47"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.166",
+      "port": 1011,
+      "tag": "socks-48",
+      "raw": "socks://Og%3D%3D@193.151.136.166:1011#socks-48"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.169",
+      "port": 1011,
+      "tag": "socks-49",
+      "raw": "socks://Og%3D%3D@193.151.136.169:1011#socks-49"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.174",
+      "port": 1011,
+      "tag": "socks-50",
+      "raw": "socks://Og%3D%3D@193.151.136.174:1011#socks-50"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.178",
+      "port": 1011,
+      "tag": "socks-51",
+      "raw": "socks://Og%3D%3D@193.151.136.178:1011#socks-51"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.180",
+      "port": 1011,
+      "tag": "socks-52",
+      "raw": "socks://Og%3D%3D@193.151.136.180:1011#socks-52"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.181",
+      "port": 1011,
+      "tag": "socks-53",
+      "raw": "socks://Og%3D%3D@193.151.136.181:1011#socks-53"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.194",
+      "port": 1011,
+      "tag": "socks-54",
+      "raw": "socks://Og%3D%3D@193.151.136.194:1011#socks-54"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.197",
+      "port": 1011,
+      "tag": "socks-55",
+      "raw": "socks://Og%3D%3D@193.151.136.197:1011#socks-55"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.201",
+      "port": 1011,
+      "tag": "socks-56",
+      "raw": "socks://Og%3D%3D@193.151.136.201:1011#socks-56"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.207",
+      "port": 1011,
+      "tag": "socks-57",
+      "raw": "socks://Og%3D%3D@193.151.136.207:1011#socks-57"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.214",
+      "port": 1011,
+      "tag": "socks-58",
+      "raw": "socks://Og%3D%3D@193.151.136.214:1011#socks-58"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.222",
+      "port": 1011,
+      "tag": "socks-59",
+      "raw": "socks://Og%3D%3D@193.151.136.222:1011#socks-59"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.228",
+      "port": 1011,
+      "tag": "socks-60",
+      "raw": "socks://Og%3D%3D@193.151.136.228:1011#socks-60"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.235",
+      "port": 1011,
+      "tag": "socks-61",
+      "raw": "socks://Og%3D%3D@193.151.136.235:1011#socks-61"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.236",
+      "port": 1011,
+      "tag": "socks-62",
+      "raw": "socks://Og%3D%3D@193.151.136.236:1011#socks-62"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.237",
+      "port": 1011,
+      "tag": "socks-63",
+      "raw": "socks://Og%3D%3D@193.151.136.237:1011#socks-63"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.238",
+      "port": 1011,
+      "tag": "socks-64",
+      "raw": "socks://Og%3D%3D@193.151.136.238:1011#socks-64"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.239",
+      "port": 1011,
+      "tag": "socks-65",
+      "raw": "socks://Og%3D%3D@193.151.136.239:1011#socks-65"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.245",
+      "port": 1011,
+      "tag": "socks-66",
+      "raw": "socks://Og%3D%3D@193.151.136.245:1011#socks-66"
+    },
+    {
+      "protocol": "socks",
+      "user": "Og==",
+      "address": "193.151.136.250",
+      "port": 1011,
+      "tag": "socks-67",
+      "raw": "socks://Og%3D%3D@193.151.136.250:1011#socks-67"
     }
   ]
 }
