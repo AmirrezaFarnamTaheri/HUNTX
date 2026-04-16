@@ -1,8 +1,7 @@
 {
-  "total": 4,
+  "total": 1,
   "protocols": {
-    "vless": 3,
-    "trojan": 1
+    "vless": 1
   },
   "entries": [
     {
@@ -12,61 +11,17 @@
       "port": 443,
       "tag": "vless-1",
       "params": {
-        "alpn": "http/1.1",
-        "encryption": "none",
-        "host": "ef88878e-c5a7-412f-82f1-0b09c6792d29.hollowspot.ir",
         "path": "/api/v1/uuid/9e97a8c9-fdb0-4dfb-9557-2a90a554aee4",
         "security": "tls",
-        "sni": "ef88878e-c5a7-412f-82f1-0b09c6792d29.hollowspot.ir",
-        "type": "ws"
-      },
-      "raw": "vless://6fd98b96-9dd2-442c-92a4-a449cdf0fd1e@5.239.245.250:443?alpn=http%2F1.1&encryption=none&host=ef88878e-c5a7-412f-82f1-0b09c6792d29.hollowspot.ir&path=%2Fapi%2Fv1%2Fuuid%2F9e97a8c9-fdb0-4dfb-9557-2a90a554aee4&security=tls&sni=ef88878e-c5a7-412f-82f1-0b09c6792d29.hollowspot.ir&type=ws#vless-1"
-    },
-    {
-      "protocol": "vless",
-      "user": "21cd6b70-e153-4c7b-848d-f236a480844f",
-      "address": "arvancloud.ir",
-      "port": 80,
-      "tag": "vless-2",
-      "params": {
-        "type": "ws",
+        "alpn": "http/1.1",
         "encryption": "none",
-        "path": "@TunizoNET",
-        "host": "enzo.amirenzohost.ir",
-        "security": "none"
-      },
-      "raw": "vless://21cd6b70-e153-4c7b-848d-f236a480844f@arvancloud.ir:80?type=ws&encryption=none&path=%40TunizoNET&host=enzo.amirenzohost.ir&security=none#vless-2"
-    },
-    {
-      "protocol": "vless",
-      "user": "d37a75db-76b6-4db8-b213-0d5b044d138d",
-      "address": "8.6.112.0",
-      "port": 443,
-      "tag": "vless-3",
-      "params": {
-        "path": "/",
-        "security": "tls",
-        "encryption": "none",
-        "host": "hio-awx.pages.dev",
+        "insecure": "0",
+        "host": "ef88878e-c5a7-412f-82f1-0b09c6792d29.hollowspot.ir",
+        "fp": "safari",
         "type": "ws",
-        "sni": "hio-awx.pages.dev"
+        "allowInsecure": "0"
       },
-      "raw": "vless://d37a75db-76b6-4db8-b213-0d5b044d138d@8.6.112.0:443?path=%2F&security=tls&encryption=none&host=hio-awx.pages.dev&type=ws&sni=hio-awx.pages.dev#vless-3"
-    },
-    {
-      "protocol": "trojan",
-      "user": "8r<[9'l6hAO#8ZQi",
-      "address": "8.6.112.0",
-      "port": 2096,
-      "tag": "trojan-1",
-      "params": {
-        "path": "/tr",
-        "security": "tls",
-        "host": "Koma-YT.PAGeS.Dev",
-        "type": "ws",
-        "sni": "Koma-YT.PAGeS.Dev"
-      },
-      "raw": "trojan://8r%3C%5B9%27l6hAO%238ZQi@8.6.112.0:2096?path=%2Ftr&security=tls&host=Koma-YT.PAGeS.Dev&type=ws&sni=Koma-YT.PAGeS.Dev#trojan-1"
+      "raw": "vless://6fd98b96-9dd2-442c-92a4-a449cdf0fd1e@5.239.245.250:443?path=%2Fapi%2Fv1%2Fuuid%2F9e97a8c9-fdb0-4dfb-9557-2a90a554aee4&security=tls&alpn=http%2F1.1&encryption=none&insecure=0&host=ef88878e-c5a7-412f-82f1-0b09c6792d29.hollowspot.ir&fp=safari&type=ws&allowInsecure=0#vless-1"
     }
   ]
 }
