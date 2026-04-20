@@ -5,6 +5,7 @@ from typing import List, Dict, Any
 from .base import FormatHandler
 from .common.hashing import hash_bytes
 from ..store.raw_store import RawStore
+from ..utils.safe_names import safe_zip_entry_name
 
 logger = logging.getLogger(__name__)
 
@@ -50,10 +51,10 @@ class OpaqueBundleHandler(FormatHandler):
                     continue
 
                 # Handle name collisions
-                name = original_name
+                name = safe_zip_entry_name(original_name, default="file.bin")
                 counter = 1
                 while name in seen_names:
-                    name = f"{counter}_{original_name}"
+                    name = f"{counter}_{safe_zip_entry_name(original_name, default='file.bin')}"
                     counter += 1
                 seen_names.add(name)
 

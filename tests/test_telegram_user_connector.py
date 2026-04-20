@@ -292,7 +292,7 @@ class TestTelegramUserConnector(unittest.TestCase):
 
         # Both get_entity (API) and resolve_id (fallback) fail → raw string used
         mock_client.get_entity.side_effect = Exception("API resolve fail")
-        with patch("telethon.utils.resolve_id", side_effect=Exception("Resolve fail")):
+        with patch("huntx.connectors.telegram_user.connector.utils.resolve_id", side_effect=Exception("Resolve fail")):
             mock_client.iter_messages.return_value = []
             list(self.connector.list_new())
 

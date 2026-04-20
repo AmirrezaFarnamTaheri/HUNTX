@@ -43,6 +43,21 @@ const App = () => {
         init();
     }, []);
 
+    // Keyboard shortcut: press '/' to focus search (common UX pattern)
+    useEffect(() => {
+        const onKeyDown = (e) => {
+            if (e.key === '/' && !(e.ctrlKey || e.metaKey || e.altKey)) {
+                const el = document.getElementById('gatherx_search');
+                if (el && document.activeElement !== el) {
+                    e.preventDefault();
+                    el.focus();
+                }
+            }
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, []);
+
     // Filter, Search, and Sort Logic
     const processedFiles = useMemo(() => {
         let result = data;

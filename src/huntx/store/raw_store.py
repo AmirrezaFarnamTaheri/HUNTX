@@ -3,14 +3,15 @@ import logging
 from pathlib import Path
 from typing import Optional
 from ..utils.atomic import atomic_write
-from .paths import RAW_STORE_DIR
+from . import paths
 
 logger = logging.getLogger(__name__)
 
 
 class RawStore:
-    def __init__(self, base_dir: Path = RAW_STORE_DIR):
-        self.base_dir = base_dir
+    def __init__(self, base_dir: Optional[Path] = None):
+        # IMPORTANT: compute default at runtime (after paths.set_paths()).
+        self.base_dir = base_dir or paths.RAW_STORE_DIR
         self._ensured_dirs = set()
         # Ensure base directory exists
         try:

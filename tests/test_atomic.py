@@ -1,7 +1,7 @@
 import unittest
 import tempfile
 from pathlib import Path
-from src.huntx.utils.atomic import atomic_write
+from huntx.utils.atomic import atomic_write
 
 
 class TestAtomicWrite(unittest.TestCase):

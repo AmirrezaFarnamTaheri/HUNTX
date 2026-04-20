@@ -206,7 +206,13 @@ def main():
 
     # Clean dist
     if DIST_DIR.exists():
-        shutil.rmtree(DIST_DIR)
+        # Safety guard: refuse to delete suspicious paths.
+        dist = DIST_DIR.resolve()
+        if dist.name.lower() != "dist":
+            raise RuntimeError(f"Refusing to delete non-dist directory: {dist}")
+        if len(dist.parts) < 3:
+            raise RuntimeError(f"Refusing to delete shallow path: {dist}")
+        shutil.rmtree(dist)
     DIST_DIR.mkdir(parents=True, exist_ok=True)
 
     all_outbounds: List[Dict[str, Any]] = []

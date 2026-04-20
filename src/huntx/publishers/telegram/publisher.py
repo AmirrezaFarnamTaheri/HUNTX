@@ -55,9 +55,8 @@ class TelegramPublisher:
 
         headers = {"Content-Type": f"multipart/form-data; boundary={boundary}", "Content-Length": str(payload_size)}
 
-        logger.debug(
-            f"Sending document to {chat_id}. Payload size: {payload_size_kb:.2f} KB. URL: {self.base_url}/sendDocument"
-        )
+        # Never log the full URL here (it contains the bot token).
+        logger.debug(f"Sending document to chat_id={chat_id}. Payload size: {payload_size_kb:.2f} KB.")
 
         req = urllib.request.Request(f"{self.base_url}/sendDocument", data=body, headers=headers)
 

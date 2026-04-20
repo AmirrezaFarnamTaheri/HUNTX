@@ -4,14 +4,15 @@ import time
 from pathlib import Path
 from ..utils.atomic import atomic_write
 from typing import Optional, List
-from .paths import DATA_DIR
+from . import paths
 
 logger = logging.getLogger(__name__)
 
 
 class ArtifactStore:
-    def __init__(self, base_dir: Path = DATA_DIR):
-        self.base_dir = base_dir
+    def __init__(self, base_dir: Optional[Path] = None):
+        # IMPORTANT: compute default at runtime (after paths.set_paths()).
+        self.base_dir = base_dir or paths.DATA_DIR
         self.internal_dir = self.base_dir / "dist" / "internal"
         self.output_dir = self.base_dir / "output"
         self.archive_dir = self.base_dir / "archive"
