@@ -7,13 +7,6 @@ class TestIngestPipeline(unittest.TestCase):
         self.raw_store = Mock()
         self.state_repo = Mock()
 
-        # Mock db connection context manager
-        self.mock_conn = MagicMock()
-        self.mock_ctx_mgr = MagicMock()
-        self.mock_ctx_mgr.__enter__.return_value = self.mock_conn
-        self.mock_ctx_mgr.__exit__.return_value = None
-        self.state_repo.db.connect.return_value = self.mock_ctx_mgr
-
         self.pipeline = IngestionPipeline(self.raw_store, self.state_repo)
         self.connector = Mock()
 
@@ -52,7 +45,7 @@ class TestIngestPipeline(unittest.TestCase):
         self.assertEqual(records[0][1], "123")
         self.assertEqual(records[0][2], "hash123")
 
-        # self.assertEqual(kwargs["conn"], self.mock_conn)
+        self.assertIsNone(kwargs.get("conn"))
 
         # update_source_state called with conn
         self.state_repo.update_source_state.assert_called_once()

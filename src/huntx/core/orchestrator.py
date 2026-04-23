@@ -218,6 +218,11 @@ class Orchestrator:
         # ── Save manifest ─────────────────────────────────────────────
         manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
+        # Only regenerate outputs if new proxies were added
+        if added == 0 and dev_dir.joinpath("proxies.json").exists():
+            logger.info("[DevExport] No new proxies added, skipping file generation to avoid timestamp churn.")
+            return
+
         # ── Sort URIs deterministically (newest first, then alpha) ────
         sorted_uris = sorted(manifest.keys(), key=lambda u: (-manifest[u], u))
         ts_str = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
