@@ -215,6 +215,14 @@ class Orchestrator:
             logger.warning("[DevExport] No proxy URIs found — outputs_dev/ not updated.")
             return
 
+        txt_path = dev_dir / "proxies.txt"
+        b64_path = dev_dir / "proxies_b64sub.txt"
+        json_path = dev_dir / "proxies.json"
+
+        if added == 0 and txt_path.exists() and b64_path.exists() and json_path.exists():
+            logger.info("[DevExport] No new proxy URIs added and output files exist, skipping outputs_dev/ updates to prevent churn.")
+            return
+
         # ── Save manifest ─────────────────────────────────────────────
         manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
