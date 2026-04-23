@@ -151,7 +151,7 @@ class TelegramUserConnector:
         time.sleep(delay)
         try:
             if client.is_connected():
-                client.disconnect()
+                client.loop.run_until_complete(client.disconnect()) if getattr(client, 'loop', None) and not client.loop.is_closed() else None
         except Exception as e:
             logger.debug(f"[MTProto] Disconnect failed during reconnect: {e}")
         client.connect()
@@ -470,7 +470,7 @@ class TelegramUserConnector:
             for key, client in self._local.clients.items():
                 try:
                     if client.is_connected():
-                        client.disconnect()
+                        client.loop.run_until_complete(client.disconnect()) if getattr(client, 'loop', None) and not client.loop.is_closed() else None
                         logger.debug(f"Disconnected Telegram client for key {key}")
                 except RuntimeError as e:
                     if "Event loop is closed" in str(e):
