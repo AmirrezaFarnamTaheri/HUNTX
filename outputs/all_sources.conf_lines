@@ -1,4 +1,4 @@
-PrivateKey = eO18H7Cai0pXawAC4wp6wE6+DGEHIazMlTNeXFTecE4=
+PrivateKey = QLSWyfqF2TjiXzpVyIf2M/OnzyIONWw7yxWTzN9ea2k=
 MTU = 1330
 [Interface]
 Address = 172.16.0.2/32, 2606:4700:110:846c:e510:bfa1:ea9f:5247/128
@@ -11,8 +11,8 @@ H1 = 1
 H2 = 2
 H3 = 3
 H4 = 4
-PrivateKey =  eO18H7Cai0pXawAC4wp6wE6+DGEHIazMlTNeXFTecE4=
+PrivateKey =  QLSWyfqF2TjiXzpVyIf2M/OnzyIONWw7yxWTzN9ea2k=
 [Peer]
 PublicKey = bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=
 AllowedIPs = 0.0.0.0/0, ::/0
-Endpoint = 162.159.192.252:1002
+Endpoint = 188.114.99.64:8742
