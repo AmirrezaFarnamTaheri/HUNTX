@@ -15,11 +15,9 @@
 - **Batch transform** — files processed in batches of 200 with batch DB writes
 - **GatherX bot** — DM-based interactive Telegram bot with 13 commands, user preferences, auto-delivery
 - **4 CLI commands** — `run` (pipeline + auto-deliver), `bot` (persistent bot), `clean`, `reset`
-- **Configurable fetch windows** — separate lookback for text/files on fresh vs subsequent runs (tunable from CI)
-- **Factory reset** — full wipe of state, data, outputs, and source offsets (CLI + CI trigger)
-- **Cumulative dev output** — deduplicated proxy URIs accumulated across all runs in `outputs_dev/`
-- **Zero-budget CI** — runs on GitHub Actions every 2h (cron), with optional S3-backed state
-- **Cross-platform** — Linux, macOS, Windows
+- **Quality Gates** — CI/CD enforces linting, typing, and tests before any run or deployment
+- **Auto-Deploy** — GitHub Pages frontend automatically updated with fresh catalog data on every run
+- **Security-First** — Magic-byte APK filtering, secret redaction, and atomic-write protection
 
 ## Quick Start
 
@@ -67,9 +65,10 @@ Run the full pipeline (ingest → transform → build → publish → auto-deliv
 | `--file-fresh-hours N` | File lookback hours for first-seen source | `48` |
 | `--msg-subsequent-hours N` | Text lookback on subsequent runs (0=all new) | `0` |
 | `--file-subsequent-hours N` | File lookback on subsequent runs (0=all new) | `0` |
-| `--no-deliver` | Skip automatic subscription delivery after pipeline | — |
+| `--no-auto-deliver` | Skip automatic subscription delivery after pipeline | — |
+| `--no-publish` | Skip publishing artifacts to destination channels | — |
 
-After the pipeline completes, all output files are automatically sent to every registered GatherX bot user (unless `--no-deliver` is passed).
+After the pipeline completes, all output files are automatically sent to every registered GatherX bot user (unless `--no-auto-deliver` is passed).
 
 ### `huntx bot`
 

@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import json
 import logging
 import time
 from pathlib import Path
@@ -35,11 +36,14 @@ WELCOME_TEXT = (
     "  /get — Download proxies (your default format)\n"
     "  /get `b64sub` — Base64 subscription link\n"
     "  /latest — All recent proxy files\n"
-    "  /formats — See all available formats\n\n"
+    "  /formats — See all available formats\n"
+    "  /protocols — Supported proxy protocols\n"
+    "  /count — Proxy count per protocol\n\n"
     "⚙️ **Settings**\n"
     "  /setformat — Change your preferred format\n"
     "  /mute · /unmute — Toggle auto-delivery\n"
-    "  /myinfo — Your preferences\n\n"
+    "  /myinfo — Your preferences\n"
+    "  /status · /ping — System status\n\n"
     "Proxies are delivered automatically. Use /mute to stop."
 )
 
@@ -51,10 +55,14 @@ _BOT_COMMANDS = [
             BotCommand(command="get", description="📥 Download proxies"),
             BotCommand(command="latest", description="📦 Recent proxy files"),
             BotCommand(command="formats", description="📋 Available formats"),
+            BotCommand(command="protocols", description="🔗 Supported protocols"),
+            BotCommand(command="count", description="📊 Proxy count per protocol"),
             BotCommand(command="setformat", description="⚙️ Change default format"),
             BotCommand(command="myinfo", description="👤 Your preferences"),
+            BotCommand(command="status", description="📈 Pipeline statistics"),
             BotCommand(command="mute", description="🔇 Stop auto-delivery"),
             BotCommand(command="unmute", description="🔔 Resume auto-delivery"),
+            BotCommand(command="ping", description="🏓 Check bot status"),
             BotCommand(command="help", description="❓ Help"),
         ]
         if BotCommand is not None
@@ -64,7 +72,8 @@ _BOT_COMMANDS = [
 
 SUPPORTED_FORMATS = [
     "npvt", "npvtsub", "ovpn", "npv4", "conf_lines",
-    "ehi", "hc", "hat", "sip", "nm", "dark", "opaque_bundle",
+    "ehi", "hc", "hat", "sip", "nm", "dark",
+    "tut", "sks", "tmt", "opaque_bundle",
 ]
 
 # All valid format names a user can request (includes derived formats)
@@ -88,6 +97,9 @@ _FORMAT_LABELS: Dict[str, str] = {
     "sip": "📱 SocksIP Tunnel",
     "nm": "📱 NetMod VPN",
     "dark": "📱 Dark Tunnel VPN",
+    "tut": "📱 HCTools TUT Config",
+    "sks": "📱 HCTools SKS Config",
+    "tmt": "📱 HCTools TMT Config",
     "opaque_bundle": "📦 Binary bundle (ZIP)",
 }
 
@@ -198,7 +210,7 @@ class InteractiveBot:
                 return
 
             # Find latest output files
-            output_dir = paths.DATA_DIR / "output"
+            output_dir = paths.OUTPUT_DIR
             files_to_send = self._collect_delivery_files(output_dir)
             if not files_to_send:
                 logger.info("[GatherX] No output files to deliver.")
@@ -260,8 +272,13 @@ class InteractiveBot:
         self.client.add_event_handler(self._on_formats, events.NewMessage(pattern=r"(?i)/formats"))
         self.client.add_event_handler(self._on_setformat, events.NewMessage(pattern=r"(?i)/setformat"))
         self.client.add_event_handler(self._on_myinfo, events.NewMessage(pattern=r"(?i)/myinfo"))
+        self.client.add_event_handler(self._on_status, events.NewMessage(pattern=r"(?i)/status"))
+        self.client.add_event_handler(self._on_protocols, events.NewMessage(pattern=r"(?i)/protocols"))
+        self.client.add_event_handler(self._on_count, events.NewMessage(pattern=r"(?i)/count"))
+        self.client.add_event_handler(self._on_ping, events.NewMessage(pattern=r"(?i)/ping"))
         self.client.add_event_handler(self._on_mute, events.NewMessage(pattern=r"(?i)/mute"))
         self.client.add_event_handler(self._on_unmute, events.NewMessage(pattern=r"(?i)/unmute"))
+        self.client.add_event_handler(self._on_admin, events.NewMessage(pattern=r"(?i)/admin"))
         self.client.add_event_handler(self._on_callback, events.CallbackQuery())
 
     async def start(self):
@@ -302,6 +319,34 @@ class InteractiveBot:
             await self.client.disconnect()
 
     # ── Helpers ────────────────────────────────────────────────────────
+
+    def _build_setformat_keyboard(self, user_id: str):
+        current = self._get_user_pref(user_id)
+        formats_layout = [
+            [("npvt", "📋 npvt"), ("b64sub", "🔗 b64sub")],
+            [("decoded.json", "📊 decoded"), ("ovpn", "🔐 ovpn")],
+            [("ehi", "📱 ehi"), ("hc", "📱 hc")],
+            [("hat", "📱 hat"), ("npv4", "📱 npv4")],
+        ]
+        buttons = []
+        for row in formats_layout:
+            row_buttons = []
+            for fmt, label in row:
+                display_label = f"✅ {label}" if current == fmt else label
+                row_buttons.append(Button.inline(display_label, f"setfmt:{fmt}".encode("utf-8")))
+            buttons.append(row_buttons)
+        buttons.append([Button.inline("🔙 Back to Settings", b"cmd:myinfo")])
+        return buttons
+
+    def _is_admin(self, user_id: str, username: Optional[str] = None) -> bool:
+        import os
+        admins_str = os.environ.get("HUNTX_ADMINS", "")
+        if not admins_str:
+            return False
+        admins = [a.strip().lower() for a in admins_str.split(",") if a.strip()]
+        user_id_str = str(user_id).lower()
+        username_str = str(username or "").lower().lstrip("@")
+        return user_id_str in admins or username_str in admins
 
     @staticmethod
     def _filename_matches_format(name: str, fmt: str) -> bool:
@@ -461,7 +506,7 @@ class InteractiveBot:
             )
             return
 
-        output_dir = DATA_DIR / "output"
+        output_dir = paths.OUTPUT_DIR
         sent = 0
         if output_dir.exists():
             for f in sorted(output_dir.iterdir()):
@@ -543,15 +588,7 @@ class InteractiveBot:
         if not args:
             current = self._get_user_pref(user_id)
             label = _FORMAT_LABELS.get(current, current)
-            buttons = [
-                [Button.inline("📋 npvt", b"setfmt:npvt"),
-                 Button.inline("🔗 b64sub", b"setfmt:b64sub")],
-                [Button.inline("📊 decoded.json", b"setfmt:decoded.json"),
-                 Button.inline("🔐 ovpn", b"setfmt:ovpn")],
-                [Button.inline("📱 ehi", b"setfmt:ehi"),
-                 Button.inline("📱 hc", b"setfmt:hc"),
-                 Button.inline("📱 hat", b"setfmt:hat")],
-            ]
+            buttons = self._build_setformat_keyboard(user_id)
             await event.respond(
                 f"⚙️ **Set Default Format**\n\n"
                 f"Current: `{current}` ({label})\n\n"
@@ -581,36 +618,7 @@ class InteractiveBot:
         """Show user's preferences and delivery settings."""
         user_id = str(event.sender_id)
         self._register_user(user_id, str(event.chat_id))
-
-        info = self._get_user_info(user_id)
-        if not info:
-            await event.respond("Send /start to get started.")
-            return
-
-        last_del = "Not yet"
-        if info["last_delivered_at"] and info["last_delivered_at"] > 0:
-            last_del = datetime.datetime.fromtimestamp(info["last_delivered_at"]).strftime("%Y-%m-%d %H:%M UTC")
-
-        muted_icon = "🔇" if info["muted"] else "🔔"
-        muted_str = "Paused" if info["muted"] else "Active"
-        fmt = info.get("default_format", "npvt")
-        fmt_label = _FORMAT_LABELS.get(fmt, fmt)
-
-        msg = (
-            "⚙️ **Your Settings**\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            f"  Download format: `{fmt}` ({fmt_label})\n"
-            f"  Auto-delivery: {muted_icon} {muted_str}\n"
-            f"  Last received: {last_del}"
-        )
-        toggle_text = "🔇 Pause Delivery" if not info["muted"] else "🔔 Resume Delivery"
-        toggle_data = b"cmd:mute" if not info["muted"] else b"cmd:unmute"
-        buttons = [
-            [Button.inline("⚙️ Change Format", b"cmd:setformat"),
-             Button.inline(toggle_text, toggle_data)],
-            [Button.inline("📥 Get Proxies", b"get:npvt")],
-        ]
-        await event.respond(msg, parse_mode="md", buttons=buttons)
+        await self._respond_myinfo(event.chat_id, user_id)
 
     async def _on_mute(self, event):
         user_id = str(event.sender_id)
@@ -635,6 +643,113 @@ class InteractiveBot:
             parse_mode="md",
         )
 
+    async def _on_protocols(self, event):
+        """Show supported proxy protocols."""
+        from ..formats.npvt import _PROXY_SCHEMES
+        schemes = sorted([s.replace("://", "") for s in _PROXY_SCHEMES])
+        msg = (
+            "🔗 **Supported Protocols**\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "HuntX can detect, parse, and decode:\n\n"
+            f"`{', '.join(schemes)}`"
+        )
+        await event.respond(msg, parse_mode="md")
+
+    async def _on_count(self, event):
+        """Show proxy counts per protocol with a simple bar chart."""
+        await event.respond("📊 Calculating proxy counts...")
+        counts = self._get_protocol_counts()
+        if not counts:
+            await event.respond("No proxies found in the database.")
+            return
+
+        total = sum(counts.values())
+        lines = [f"📊 **Proxy Counts (Total: {total})**\n"]
+        
+        # Sort by count descending
+        sorted_counts = sorted(counts.items(), key=lambda x: x[1], reverse=True)
+        max_count = sorted_counts[0][1] if sorted_counts else 1
+        
+        for proto, count in sorted_counts:
+            pct = count / total * 100
+            # Simple bar chart using unicode blocks
+            bar_len = int((count / max_count) * 10)
+            bar = "▇" * bar_len + "░" * (10 - bar_len)
+            lines.append(f"`{proto:<10}` {bar} `{count:>4}` ({pct:>2.0f}%)")
+        
+        await event.respond("\n".join(lines), parse_mode="md")
+
+    async def _on_status(self, event):
+        """Show system/pipeline statistics."""
+        stats = self._get_system_stats()
+        users = self._get_user_count()
+        
+        msg = (
+            "📈 **System Status**\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"👥 **Users:** `{users['total']}` total (`{users['active']}` active)\n"
+            f"📡 **Sources:** `{stats['sources']}` active Telegram channels\n"
+            f"📄 **Files:** `{stats['files']}` processed blobs\n"
+            f"💎 **Records:** `{stats['records']}` unique proxy configs\n"
+        )
+        await event.respond(msg, parse_mode="md")
+
+    async def _on_ping(self, event):
+        """Simple health check."""
+        start = time.time()
+        msg = await event.respond("🏓 Pong!")
+        latency = (time.time() - start) * 1000
+        await msg.edit(f"🏓 **Pong!**\nLatency: `{latency:.0f}ms`", parse_mode="md")
+
+    def _get_system_stats(self) -> dict:
+        """Query DB for general pipeline stats."""
+        with self.db.connect() as conn:
+            sources = conn.execute("SELECT COUNT(*) AS c FROM source_state").fetchone()["c"]
+            files = conn.execute("SELECT COUNT(*) AS c FROM seen_files").fetchone()["c"]
+            records = conn.execute("SELECT COUNT(*) AS c FROM records WHERE is_active=1").fetchone()["c"]
+            return {"sources": sources, "files": files, "records": records}
+
+    def _get_protocol_counts(self) -> Dict[str, int]:
+        """Query DB and parse JSON to get counts per protocol."""
+        from ..formats.npvt import _PROXY_SCHEMES
+        
+        counts: Dict[str, int] = {}
+        with self.db.connect() as conn:
+            # First, count non-npvt record types
+            rows = conn.execute(
+                "SELECT record_type, COUNT(*) as c FROM records WHERE is_active=1 AND record_type != 'npvt' GROUP BY record_type"
+            ).fetchall()
+            for r in rows:
+                counts[r["record_type"]] = r["c"]
+            
+            # Dynamically build CASE SQL statement using SQLite native JSON support
+            case_clauses = []
+            for scheme in _PROXY_SCHEMES:
+                proto = scheme.replace("://", "")
+                case_clauses.append(
+                    f"WHEN json_valid(data_json) = 1 AND LOWER(json_extract(data_json, '$.line')) LIKE '{scheme.lower()}%' THEN '{proto}'"
+                )
+            
+            case_sql = f"""
+                SELECT 
+                    CASE 
+                        {" ".join(case_clauses)}
+                        ELSE 'other'
+                    END as sub_proto,
+                    COUNT(*) as c
+                FROM records 
+                WHERE is_active=1 AND record_type = 'npvt'
+                GROUP BY sub_proto
+            """
+            
+            rows = conn.execute(case_sql).fetchall()
+            for r in rows:
+                sub_proto = r["sub_proto"]
+                counts[sub_proto] = counts.get(sub_proto, 0) + r["c"]
+                
+        return counts
+
+
     # ── Inline button callback handler ─────────────────────────────
 
     async def _on_callback(self, event):
@@ -654,45 +769,65 @@ class InteractiveBot:
                 if fmt in _ALL_VALID_FORMATS:
                     self._set_user_pref(user_id, fmt)
                     label = _FORMAT_LABELS.get(fmt, fmt)
-                    await event.answer(f"Default set to {fmt}")
-                    await self.client.send_message(
-                        chat_id,
-                        f"✅ Default format set to `{fmt}` ({label})",
+                    await event.answer(f"Default set to {fmt} ✅")
+                    buttons = self._build_setformat_keyboard(user_id)
+                    await event.edit(
+                        f"⚙️ **Set Default Format**\n\n"
+                        f"Current: `{fmt}` ({label})\n\n"
+                        f"Pick below or type `/setformat <format>`:",
                         parse_mode="md",
+                        buttons=buttons,
                     )
 
             elif data.startswith("cmd:"):
                 cmd = data.split(":", 1)[1]
-                await event.answer()
                 if cmd == "formats":
+                    await event.answer()
                     await self._respond_formats(chat_id)
                 elif cmd == "myinfo":
-                    await self._respond_myinfo(chat_id, user_id)
+                    await event.answer()
+                    await self._respond_myinfo(chat_id, user_id, event=event)
                 elif cmd == "mute":
                     self._register_user(user_id, str(chat_id))
                     with self.db.connect() as conn:
                         conn.execute("UPDATE bot_users SET muted = 1 WHERE user_id = ?", (user_id,))
-                    await self.client.send_message(chat_id, "🔇 Auto-delivery **paused**.", parse_mode="md")
+                    await event.answer("Auto-delivery paused 🔇")
+                    await self._respond_myinfo(chat_id, user_id, event=event)
                 elif cmd == "unmute":
                     self._register_user(user_id, str(chat_id))
                     with self.db.connect() as conn:
                         conn.execute("UPDATE bot_users SET muted = 0 WHERE user_id = ?", (user_id,))
-                    await self.client.send_message(chat_id, "🔔 Auto-delivery **resumed**.", parse_mode="md")
+                    await event.answer("Auto-delivery resumed 🔔")
+                    await self._respond_myinfo(chat_id, user_id, event=event)
                 elif cmd == "setformat":
+                    await event.answer()
                     current = self._get_user_pref(user_id)
                     label = _FORMAT_LABELS.get(current, current)
-                    buttons = [
-                        [Button.inline("📋 npvt", b"setfmt:npvt"),
-                         Button.inline("🔗 b64sub", b"setfmt:b64sub")],
-                        [Button.inline("📊 decoded.json", b"setfmt:decoded.json"),
-                         Button.inline("🔐 ovpn", b"setfmt:ovpn")],
-                    ]
-                    await self.client.send_message(
-                        chat_id,
-                        f"⚙️ Current: `{current}` ({label})\nPick a new default:",
+                    buttons = self._build_setformat_keyboard(user_id)
+                    await event.edit(
+                        f"⚙️ **Set Default Format**\n\n"
+                        f"Current: `{current}` ({label})\n\n"
+                        f"Pick a new default format:",
                         parse_mode="md",
                         buttons=buttons,
                     )
+            elif data.startswith("admin:"):
+                sender = await event.get_sender()
+                username = getattr(sender, "username", None)
+                if not self._is_admin(user_id, username):
+                    await event.answer("❌ Access Denied", alert=True)
+                    return
+                
+                action = data.split(":", 1)[1]
+                if action == "run":
+                    await event.answer("Starting pipeline run...")
+                    await self._trigger_background_run(event)
+                elif action.startswith("prune:"):
+                    days = int(action.split(":", 1)[1])
+                    await self._perform_admin_prune(event, days)
+                elif action == "stats":
+                    await event.answer("Refreshing statistics...")
+                    await self._respond_admin_dashboard(event, edit=True)
             else:
                 await event.answer("Unknown action")
         except Exception as e:
@@ -715,11 +850,14 @@ class InteractiveBot:
         buttons = [[Button.inline("📋 Get npvt", b"get:npvt"), Button.inline("🔗 Get b64sub", b"get:b64sub")]]
         await self.client.send_message(chat_id, "\n".join(lines), parse_mode="md", buttons=buttons)
 
-    async def _respond_myinfo(self, chat_id: int, user_id: str):
-        """Send user settings to a chat (callback version)."""
+    async def _respond_myinfo(self, chat_id: int, user_id: str, event=None):
+        """Send or edit user settings to a chat."""
         info = self._get_user_info(user_id)
         if not info:
-            await self.client.send_message(chat_id, "Send /start to get started.")
+            if event:
+                await event.respond("Send /start to get started.")
+            else:
+                await self.client.send_message(chat_id, "Send /start to get started.")
             return
         last_del = "Not yet"
         if info["last_delivered_at"] and info["last_delivered_at"] > 0:
@@ -733,14 +871,186 @@ class InteractiveBot:
             f"  Auto-delivery: {muted_icon} {muted_str}\n"
             f"  Last received: {last_del}"
         )
-        toggle_text = "🔇 Pause" if not info["muted"] else "🔔 Resume"
+        toggle_text = "🔇 Pause Delivery" if not info["muted"] else "🔔 Resume Delivery"
         toggle_data = b"cmd:mute" if not info["muted"] else b"cmd:unmute"
         buttons = [
             [Button.inline("⚙️ Change Format", b"cmd:setformat"),
              Button.inline(toggle_text, toggle_data)],
             [Button.inline("📥 Get Proxies", b"get:npvt")],
         ]
-        await self.client.send_message(chat_id, msg, parse_mode="md", buttons=buttons)
+        if event:
+            await event.edit(msg, parse_mode="md", buttons=buttons)
+        else:
+            await self.client.send_message(chat_id, msg, parse_mode="md", buttons=buttons)
+
+    async def deliver_updates_active(self):
+        """Send latest outputs to active users without connect/disconnect cycle."""
+        users = self._get_active_users()
+        if not users:
+            logger.info("[GatherX] No registered users — skipping delivery.")
+            return
+
+        # Find latest output files
+        output_dir = paths.OUTPUT_DIR
+        files_to_send = self._collect_delivery_files(output_dir)
+        if not files_to_send:
+            logger.info("[GatherX] No output files to deliver.")
+            return
+
+        logger.info(
+            f"[GatherX] Delivering {len(files_to_send)} file(s) "
+            f"to {len(users)} user(s)..."
+        )
+
+        now = time.time()
+        for user in users:
+            chat_id = int(user["chat_id"])
+            try:
+                await self.client.send_message(
+                    chat_id,
+                    "🛰 **GatherX Update**\n"
+                    f"Fresh proxy configs — {len(files_to_send)} file(s):",
+                    parse_mode="md",
+                )
+                for fpath, caption in files_to_send:
+                    await self.client.send_file(chat_id, fpath, caption=caption, parse_mode="md")
+                    await asyncio.sleep(0.3)
+
+                with self.db.connect() as conn:
+                    conn.execute(
+                        "UPDATE bot_users SET last_delivered_at = ? WHERE user_id = ?",
+                        (now, user["user_id"]),
+                    )
+            except Exception as e:
+                logger.warning(f"[GatherX] Failed to deliver to {user['user_id']}: {e}")
+
+    async def _on_admin(self, event):
+        """Secure admin control room command."""
+        user_id = str(event.sender_id)
+        
+        sender = await event.get_sender()
+        username = getattr(sender, "username", None)
+        
+        if not self._is_admin(user_id, username):
+            await event.respond("❌ **Access Denied**\nThis command is restricted to administrators.", parse_mode="md")
+            return
+            
+        args = event.text.split()[1:]
+        if args:
+            sub = args[0].lower()
+            if sub == "run":
+                await self._trigger_background_run(event)
+                return
+            elif sub == "prune":
+                days = 30
+                if len(args) > 1 and args[1].isdigit():
+                    days = int(args[1])
+                await self._perform_admin_prune(event, days)
+                return
+                
+        # Show interactive dashboard
+        await self._respond_admin_dashboard(event)
+
+    async def _respond_admin_dashboard(self, event, edit=False):
+        users = self._get_user_count()
+        system = self._get_system_stats()
+        
+        msg = (
+            "🛠 **GatherX Restricted Admin Panel**\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"👤 **Users:** `{users['total']}` (`{users['active']}` active, `{users['muted']}` muted)\n"
+            f"📡 **Sources:** `{system['sources']}`\n"
+            f"📄 **Seen Files:** `{system['files']}`\n"
+            f"💎 **Active Records:** `{system['records']}`\n"
+        )
+        
+        buttons = [
+            [Button.inline("⚡ Trigger Pipeline Run", b"admin:run")],
+            [Button.inline("🧹 Prune Database (30 Days)", b"admin:prune:30"),
+             Button.inline("🧹 Prune Database (15 Days)", b"admin:prune:15")],
+            [Button.inline("📊 Refresh Stats", b"admin:stats")]
+        ]
+        
+        if edit:
+            await event.edit(msg, parse_mode="md", buttons=buttons)
+        else:
+            await event.respond(msg, parse_mode="md", buttons=buttons)
+
+    async def _trigger_background_run(self, event):
+        """Trigger background pipeline run and notify upon completion."""
+        if hasattr(event, "answer"):
+            await event.answer("Starting pipeline run...")
+            
+        await event.respond("⚡ **Pipeline execution started in background...**\nAn update will be sent when complete.", parse_mode="md")
+        
+        loop = asyncio.get_running_loop()
+        
+        async def run_pipeline_task():
+            try:
+                await loop.run_in_executor(None, self._run_pipeline_blocking)
+                await self.deliver_updates_active()
+                await self.client.send_message(event.chat_id, "✅ **Pipeline execution and subscription delivery completed successfully!**", parse_mode="md")
+            except Exception as ex:
+                logger.exception(f"Background pipeline run failed: {ex}")
+                await self.client.send_message(event.chat_id, f"❌ **Pipeline execution failed:**\n`{ex}`", parse_mode="md")
+                
+        asyncio.create_task(run_pipeline_task())
+
+    def _run_pipeline_blocking(self):
+        from ..core.orchestrator import Orchestrator
+        from ..config.loader import load_config
+        from ..config.validate import validate_config
+        from ..core.locks import acquire_lock
+        import os
+        
+        config_path = os.environ.get("HUNTX_CONFIG", "config.yaml")
+        config = load_config(config_path)
+        validate_config(config)
+        
+        lock_path = paths.STATE_DIR / "huntx.lock"
+        with acquire_lock(lock_path):
+            orchestrator = Orchestrator(config)
+            no_publish = os.environ.get("HUNTX_BOT_NO_PUBLISH", "false").lower() == "true"
+            orchestrator.run(timeout=16200, no_publish=no_publish)
+
+    async def _perform_admin_prune(self, event, days):
+        """Invoke repo and raw store pruning and report counts."""
+        from ..store.raw_store import RawStore
+        
+        if hasattr(event, "answer"):
+            await event.answer(f"Pruning database ({days} days)...")
+            
+        msg = await event.respond(f"🧹 **Pruning database and raw store (older than {days} days)...**", parse_mode="md")
+        
+        try:
+            loop = asyncio.get_running_loop()
+            
+            def prune_blocking():
+                raw_store = RawStore()
+                res = self.repo.prune_old_data(days)
+                raw_pruned = 0
+                if res["raw_hashes"]:
+                    raw_pruned = raw_store.prune_by_hashes(res["raw_hashes"])
+                return res, raw_pruned
+                
+            res, raw_pruned = await loop.run_in_executor(None, prune_blocking)
+            
+            report = (
+                f"✅ **Pruning Complete (Older than {days} days)**\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"📄 **Seen Files Pruned:** `{res.get('seen_files', 0)}`\n"
+                f"💎 **Records Pruned:** `{res.get('records', 0)}`\n"
+                f"📦 **Published Artifacts Pruned:** `{res.get('published_artifacts', 0)}`\n"
+                f"🧹 **Raw Disk Blobs Deleted:** `{raw_pruned}`"
+            )
+            await msg.edit(report, parse_mode="md")
+            
+        except Exception as e:
+            logger.exception(f"Admin pruning failed: {e}")
+            await msg.edit(f"❌ **Pruning Failed:**\n`{e}`", parse_mode="md")
+
+
+
 
 
 if __name__ == "__main__":

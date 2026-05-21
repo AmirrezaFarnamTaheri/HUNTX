@@ -25,14 +25,15 @@ on:
         description: "File/media lookback hours on subsequent runs (0=all new since last)"
         required: false
         default: "2"
-      reset:
-        description: "Factory reset before run (wipe all state/data/outputs)"
+      reset_confirm:
+        description: "To confirm factory reset, type 'RESET-HUNTX-STATE' exactly"
         required: false
-        type: boolean
-        default: false
+        default: ""
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 concurrency:
   group: huntx
@@ -51,8 +52,31 @@ env:
   AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
 
 jobs:
-  run:
+  validate:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 mypy pytest types-requests types-PyYAML
+          pip install -e .
+      - name: Lint (flake8)
+        run: flake8 src/huntx --count --select=E9,F63,F7,F82 --show-source --statistics
+      - name: Type Check (mypy)
+        run: mypy src/huntx
+      - name: Test (pytest)
+        run: pytest tests/
+
+  run:
+    needs: validate
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     timeout-minutes: 180
     steps:
       - name: Free disk space
@@ -104,14 +128,20 @@ jobs:
           fi
 
       - name: Factory reset (if requested)
-        if: ${{ github.event.inputs.reset == 'true' }}
+        if: ${{ github.event.inputs.reset_confirm == 'RESET-HUNTX-STATE' }}
         run: |
           echo "=== FACTORY RESET ==="
+          if [[ -f persist/state.db ]]; then
+            cp persist/state.db persist/state.db.bak
+            echo "Created local backup: persist/state.db.bak"
+          fi
           rm -rf persist/state.db persist/data/{raw,output,archive,dist,rejects,artifacts,state,logs}/*
           rm -rf outputs/* outputs_dev/*
 
-          # Wipe S3 state
+          # Wipe S3 state after backup
           if [[ -n "$S3_BUCKET" ]]; then
+            echo "Creating backup of state.db in S3..."
+            aws s3 cp s3://$S3_BUCKET/state.db s3://$S3_BUCKET/state.db.bak || true
             aws s3 rm s3://$S3_BUCKET/state.db || true
             aws s3 rm s3://$S3_BUCKET/archive --recursive || true
             echo "Wiped S3 state"
@@ -172,29 +202,6 @@ jobs:
           path: persist/data/logs/
           retention-days: 4
 
-      - name: Commit outputs to main
-        run: |
-          git config user.name "huntx-bot"
-          git config user.email "huntx-bot@users.noreply.github.com"
-
-          git add outputs/ outputs_dev/ 2>/dev/null || true
-
-          if git diff --cached --quiet; then
-            echo "No output changes."
-          else
-            git commit -m "Update outputs [skip ci]"
-            
-            # Retry logic for outputs push
-            n=0
-            until [ "$n" -ge 5 ]; do
-               git push origin HEAD && break
-               n=$((n+1))
-               echo "Push failed. Retrying in $((n*5)) seconds..."
-               sleep $((n*5))
-               git pull --rebase || true
-            done
-          fi
-
       - name: Persist state
         run: |
           if [[ -n "$S3_BUCKET" ]]; then
@@ -206,3 +213,18 @@ jobs:
           else
             echo "No S3_BUCKET secret defined. State not persisted."
           fi
+
+      - name: Generate site data
+        run: python scripts/generate_site_data.py
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'docs/'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

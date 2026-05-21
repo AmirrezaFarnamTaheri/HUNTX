@@ -41,3 +41,6 @@ CREATE TABLE IF NOT EXISTS published_artifacts (
 );
 
 CREATE INDEX IF NOT EXISTS idx_pub_route ON published_artifacts(route_name, artifact_hash);
+CREATE INDEX IF NOT EXISTS idx_seen_files_hash ON seen_files(raw_hash);
+CREATE INDEX IF NOT EXISTS idx_records_hash ON records(source_file_hash);
+CREATE INDEX IF NOT EXISTS idx_seen_files_status ON seen_files(status);

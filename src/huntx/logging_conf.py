@@ -11,9 +11,10 @@ class _RedactSecretsFilter(logging.Filter):
     """
 
     _bot_token_in_url = re.compile(r"(https?://api\.telegram\.org/(file/)?bot)(\d+):([^/\s]+)", re.IGNORECASE)
-    _bot_token_generic = re.compile(r"\b(bot)(\d+):([A-Za-z0-9_-]{10,})\b")
+    _bot_token_generic = re.compile(r"\b(bot)?(\d+):([A-Za-z0-9_-]{30,})\b")
     _kv_secrets = re.compile(
-        r"\b(TELEGRAM_TOKEN|PUBLISH_BOT_TOKEN|AWS_SECRET_ACCESS_KEY|AWS_ACCESS_KEY_ID)\s*=\s*([^\s]+)\b"
+        r"\b(TELEGRAM_TOKEN|PUBLISH_BOT_TOKEN|AWS_SECRET_ACCESS_KEY|AWS_ACCESS_KEY_ID|TELEGRAM_API_HASH|TELEGRAM_USER_SESSION|AWS_SESSION_TOKEN)\s*[:=]\s*([^\s]+)\b",
+        re.IGNORECASE
     )
 
     def filter(self, record: logging.LogRecord) -> bool:
@@ -24,7 +25,7 @@ class _RedactSecretsFilter(logging.Filter):
 
         redacted = msg
         redacted = self._bot_token_in_url.sub(r"\1\3:***REDACTED***", redacted)
-        redacted = self._bot_token_generic.sub(r"\1\2:***REDACTED***", redacted)
+        redacted = self._bot_token_generic.sub(r"***REDACTED***", redacted)
         redacted = self._kv_secrets.sub(r"\1=***REDACTED***", redacted)
 
         if redacted != msg:

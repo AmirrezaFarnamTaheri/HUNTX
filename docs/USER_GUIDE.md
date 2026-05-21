@@ -157,9 +157,10 @@ huntx --config my_config.yaml run [OPTIONS]
 | `--file-fresh-hours N` | File lookback hours for first-seen source | `48` |
 | `--msg-subsequent-hours N` | Text lookback on subsequent runs (0=all new) | `0` |
 | `--file-subsequent-hours N` | File lookback on subsequent runs (0=all new) | `0` |
-| `--no-deliver` | Skip automatic subscription delivery after pipeline | — |
+| `--no-auto-deliver` | Skip automatic subscription delivery after pipeline | — |
+| `--no-publish` | Skip publishing artifacts to destination channels | — |
 
-After the pipeline completes, all output files are automatically sent to every registered GatherX bot user (unless `--no-deliver` is passed).
+After the pipeline completes, all output files are automatically sent to every registered GatherX bot user (unless `--no-auto-deliver` is passed).
 
 ### `huntx bot`
 

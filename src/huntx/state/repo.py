@@ -99,6 +99,7 @@ class StateRepo:
             logger.debug(f"Recorded file {filename} (ID: {external_id}) from {source_id}")
         except Exception as e:
             logger.exception(f"Failed to record file {filename}: {e}")
+            raise
     def get_seen_files_batch(self, source_id: str, external_ids: List[str], conn: Optional[sqlite3.Connection] = None) -> Set[str]:
         if not external_ids:
             return set()
@@ -137,6 +138,7 @@ class StateRepo:
             logger.debug(f"Batch-recorded {len(records)} files.")
         except Exception as e:
             logger.exception(f"Failed to batch-record files: {e}")
+            raise
 
     def update_file_status(self, raw_hash: str, status: str, error_msg: Optional[str] = None):
         try:
@@ -147,6 +149,7 @@ class StateRepo:
                 )
         except Exception as e:
             logger.error(f"Failed to update status for {raw_hash}: {e}")
+            raise
 
     def get_pending_files(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         try:
@@ -174,6 +177,7 @@ class StateRepo:
                 )
         except Exception as e:
             logger.exception(f"Failed to add record {unique_hash}: {e}")
+            raise
 
     def add_records_batch(self, rows: List[tuple]):
         """Batch insert records. Each row is (raw_hash, record_type, unique_hash, data_json_str)."""
@@ -191,6 +195,7 @@ class StateRepo:
             logger.debug(f"Batch-inserted {len(rows)} records.")
         except Exception as e:
             logger.exception(f"Failed to batch-insert {len(rows)} records: {e}")
+            raise  # Re-raise so the pipeline knows it failed
 
     def update_file_status_batch(self, updates: List[tuple]):
         """Batch update file statuses. Each item is (status, error_msg, raw_hash)."""
@@ -205,6 +210,7 @@ class StateRepo:
             logger.debug(f"Batch-updated status for {len(updates)} files.")
         except Exception as e:
             logger.error(f"Failed to batch-update file statuses: {e}")
+            raise  # Re-raise to prevent infinite loops if status update fails
 
     def get_records_for_build(
         self,
@@ -284,6 +290,7 @@ class StateRepo:
             logger.info(f"Marked artifact {artifact_hash} as published for {route_name}")
         except Exception as e:
             logger.exception(f"Failed to mark published artifact: {e}")
+            raise
 
     def get_processed_hashes(self) -> List[str]:
         """Return raw_hash values for files that are no longer pending
@@ -322,7 +329,7 @@ class StateRepo:
                     """
                     SELECT artifact_hash FROM published_artifacts
                     WHERE route_name = ?
-                    ORDER BY published_at DESC LIMIT 1
+                    ORDER BY published_at DESC, id DESC LIMIT 1
                     """,
                     (route_name,),
                 ).fetchone()
@@ -330,3 +337,53 @@ class StateRepo:
         except Exception as e:
             logger.error(f"Failed to get last published hash for {route_name}: {e}")
             return None
+
+    def prune_old_data(self, days: int) -> Dict[str, Any]:
+        """Purge seen_files, records, and published_artifacts older than N days.
+        Returns a dict summarizing the counts of pruned entries and deleted raw_hashes."""
+        res = {
+            "seen_files": 0,
+            "records": 0,
+            "published_artifacts": 0,
+            "raw_hashes": []
+        }
+        try:
+            with self.db.connect() as conn:
+                # 1. Get raw hashes of seen files that are older than N days and not pending
+                cursor = conn.execute(
+                    "SELECT DISTINCT raw_hash FROM seen_files WHERE ingested_at < datetime('now', ?) AND status != 'pending'",
+                    (f"-{days} days",)
+                )
+                res["raw_hashes"] = [row["raw_hash"] for row in cursor.fetchall()]
+
+                # 2. Delete seen_files
+                c = conn.execute(
+                    "DELETE FROM seen_files WHERE ingested_at < datetime('now', ?) AND status != 'pending'",
+                    (f"-{days} days",)
+                )
+                res["seen_files"] = c.rowcount
+
+                # 3. Delete records
+                c = conn.execute(
+                    "DELETE FROM records WHERE created_at < datetime('now', ?)",
+                    (f"-{days} days",)
+                )
+                res["records"] = c.rowcount
+
+                # 4. Delete published_artifacts
+                c = conn.execute(
+                    "DELETE FROM published_artifacts WHERE published_at < datetime('now', ?)",
+                    (f"-{days} days",)
+                )
+                res["published_artifacts"] = c.rowcount
+
+            logger.info(
+                f"Database auto-pruned records older than {days} days: "
+                f"{res['seen_files']} seen_files, {res['records']} records, "
+                f"{res['published_artifacts']} artifacts, {len(res['raw_hashes'])} potential raw blobs."
+            )
+        except Exception as e:
+            logger.error(f"Failed to prune old database records: {e}")
+            raise
+        return res
+

@@ -31,8 +31,10 @@ def main():
                             help="Text message lookback hours on subsequent runs (0=all new, default: 0)")
     run_parser.add_argument("--file-subsequent-hours", type=float, default=0,
                             help="File/media lookback hours on subsequent runs (0=all new, default: 0)")
-    run_parser.add_argument("--no-deliver", action="store_true",
+    run_parser.add_argument("--no-auto-deliver", action="store_true",
                             help="Skip automatic subscription delivery after pipeline")
+    run_parser.add_argument("--no-publish", action="store_true",
+                            help="Skip publishing artifacts to destination channels")
 
     # bot subcommand — persistent standalone bot
     bot_parser = subparsers.add_parser("bot", help="Run the interactive bot persistently")
@@ -50,6 +52,13 @@ def main():
         help="Full factory reset: wipe ALL data, state, caches, outputs, and source offsets",
     )
     reset_parser.add_argument("--yes", "-y", action="store_true", help="Skip confirmation prompt")
+
+    # prune subcommand — manual database and raw store pruning
+    prune_parser = subparsers.add_parser(
+        "prune",
+        help="Manual database and raw store auto-pruning",
+    )
+    prune_parser.add_argument("--days", type=int, default=30, help="Purge items older than N days (default: 30)")
 
     args = parser.parse_args()
 
@@ -71,13 +80,16 @@ def main():
         _cmd_clean(args)
     elif args.command == "reset":
         _cmd_reset(args)
+    elif args.command == "prune":
+        _cmd_prune(args)
+
 
 
 def _cmd_run(args):
     from ..core.orchestrator import Orchestrator
     from ..core.locks import acquire_lock
 
-    max_workers_str = os.environ.get("HUNTX_MAX_WORKERS") or os.environ.get("huntx_MAX_WORKERS") or "3"
+    max_workers_str = os.environ.get("HUNTX_MAX_WORKERS") or "3"
     try:
         max_workers = int(max_workers_str)
     except ValueError:
@@ -101,13 +113,13 @@ def _cmd_run(args):
         with acquire_lock(lock_path):
             orchestrator = Orchestrator(config, max_workers=max_workers, fetch_windows=fetch_windows)
             # 4.5 hours time limit
-            orchestrator.run(timeout=16200)
+            orchestrator.run(timeout=16200, no_publish=args.no_publish)
     except Exception as e:
         logger.exception(f"Fatal error: {e}")
         sys.exit(1)
 
     # Auto-deliver subscription updates to all subscribers
-    if not args.no_deliver:
+    if not args.no_auto_deliver:
         _deliver_updates()
 
 
@@ -137,8 +149,15 @@ def _cmd_clean(args):
     data_dir = Path(paths.DATA_DIR)
     db_path = Path(paths.STATE_DB_PATH)
 
-    dirs_to_clean = ["raw", "output", "archive", "dist", "rejects", "logs"]
-    items = [data_dir / d for d in dirs_to_clean] + [db_path]
+    items = [
+        paths.RAW_STORE_DIR,
+        paths.OUTPUT_DIR,
+        paths.DEV_OUTPUT_DIR,
+        paths.ARTIFACT_STORE_DIR,
+        paths.REJECTS_DIR,
+        paths.LOGS_DIR,
+        db_path,
+    ]
     existing = [p for p in items if p.exists()]
 
     if not existing:
@@ -168,21 +187,22 @@ def _cmd_clean(args):
 
 def _cmd_reset(args):
     """Full factory reset: wipe ALL data, state, caches, outputs, and source offsets.
-    This returns every source to first-seen state."""
-    data_dir = Path(paths.DATA_DIR)
+    This returns every source to first-seen state.
+    Includes a backup of the state DB before deletion.
+    """
     db_path = Path(paths.STATE_DB_PATH)
-    repo_root = Path.cwd()
 
     # Collect everything to wipe
-    data_subdirs = ["raw", "output", "archive", "dist", "rejects", "logs", "artifacts", "state"]
-    items_to_remove = [data_dir / d for d in data_subdirs]
-    items_to_remove.append(db_path)
-
-    # Repo-tracked output directories
-    repo_outputs = [repo_root / "outputs", repo_root / "outputs_dev"]
-    for d in repo_outputs:
-        if d.exists():
-            items_to_remove.append(d)
+    items_to_remove = [
+        paths.RAW_STORE_DIR,
+        paths.ARTIFACT_STORE_DIR,
+        paths.REJECTS_DIR,
+        paths.LOGS_DIR,
+        paths.STATE_DIR,
+        paths.OUTPUT_DIR,
+        paths.DEV_OUTPUT_DIR,
+        db_path,
+    ]
 
     existing = [p for p in items_to_remove if p.exists()]
 
@@ -202,6 +222,15 @@ def _cmd_reset(args):
             print("Aborted.")
             return
 
+    # Backup DB if it exists
+    if db_path.exists():
+        backup_path = db_path.with_suffix(".db.bak")
+        try:
+            shutil.copy2(db_path, backup_path)
+            print(f"Backed up state DB to: {backup_path}")
+        except Exception as e:
+            print(f"Warning: Failed to backup state DB: {e}")
+
     removed = 0
     for p in existing:
         try:
@@ -214,17 +243,15 @@ def _cmd_reset(args):
         except Exception as e:
             logger.error(f"[Reset] Failed to remove {p}: {e}")
 
-    # Recreate outputs dirs with READMEs so git tracks them
-    outputs_dir = repo_root / "outputs"
-    outputs_dir.mkdir(parents=True, exist_ok=True)
-    (outputs_dir / "README.md").write_text(
+    # Re-ensure standard directories
+    paths.ensure_dirs()
+    
+    # Add READMEs to outputs so git tracks them
+    (paths.OUTPUT_DIR / "README.md").write_text(
         "# huntx Outputs\n\nAuto-generated build output. Do not edit manually.\n",
         encoding="utf-8",
     )
-
-    outputs_dev_dir = repo_root / "outputs_dev"
-    outputs_dev_dir.mkdir(parents=True, exist_ok=True)
-    (outputs_dev_dir / "README.md").write_text(
+    (paths.DEV_OUTPUT_DIR / "README.md").write_text(
         "# Dev Outputs\n\nAuto-generated as an all-time cumulative set. Do not edit manually.\n",
         encoding="utf-8",
     )
@@ -270,5 +297,46 @@ def _deliver_updates():
         loop.close()
 
 
+def _cmd_prune(args):
+    """Manual database and raw store auto-pruning."""
+    from ..state.db import open_db
+    from ..state.repo import StateRepo
+    from ..store.raw_store import RawStore
+
+    db = open_db(paths.STATE_DB_PATH)
+    repo = StateRepo(db)
+    raw_store = RawStore()
+
+    logger.info(f"Starting manual pruning (older than {args.days} days)...")
+    print(f"Purging state database records older than {args.days} days...")
+
+    try:
+        res = repo.prune_old_data(args.days)
+    except Exception as e:
+        logger.error(f"Pruning failed: {e}")
+        sys.exit(1)
+
+    records_pruned = res.get("records", 0)
+    seen_files_pruned = res.get("seen_files", 0)
+    published_artifacts_pruned = res.get("published_artifacts", 0)
+    raw_hashes = res.get("raw_hashes", [])
+
+    print(f"Database statistics:")
+    print(f"  - Seen files pruned: {seen_files_pruned}")
+    print(f"  - Records pruned: {records_pruned}")
+    print(f"  - Published artifacts pruned: {published_artifacts_pruned}")
+
+    raw_pruned = 0
+    if raw_hashes:
+        print(f"Pruning {len(raw_hashes)} raw store files from disk...")
+        raw_pruned = raw_store.prune_by_hashes(raw_hashes)
+        print(f"  - Raw store files deleted: {raw_pruned}")
+    else:
+        print("No raw store files to prune.")
+
+    print("Pruning complete.")
+
+
 if __name__ == "__main__":
     main()
+

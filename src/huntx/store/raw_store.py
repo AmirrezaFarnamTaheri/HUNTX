@@ -1,7 +1,7 @@
 import hashlib
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 from ..utils.atomic import atomic_write
 from . import paths
 
@@ -87,4 +87,27 @@ class RawStore:
                     d.rmdir()
         except Exception as e:
             logger.error(f"Failed to prune raw store: {e}")
+        return pruned
+
+    def prune_by_hashes(self, hashes: List[str]) -> int:
+        """Prunes specific raw blobs by list of hashes."""
+        pruned = 0
+        for h in hashes:
+            prefix = h[:2]
+            path = self.base_dir / prefix / h
+            if path.exists():
+                try:
+                    path.unlink()
+                    pruned += 1
+                except Exception as e:
+                    logger.error(f"Failed to delete raw blob {h}: {e}")
+        # Clean up empty subdirectories
+        for d in self.base_dir.iterdir():
+            if d.is_dir() and not any(d.iterdir()):
+                try:
+                    d.rmdir()
+                except OSError:
+                    pass
+        if pruned > 0:
+            logger.info(f"Pruned {pruned} unlinked raw store files by hashes.")
         return pruned

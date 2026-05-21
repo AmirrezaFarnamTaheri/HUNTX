@@ -43,6 +43,12 @@ def decide_format(filename: str, content: bytes) -> str:
         return "nm"
     if fn.endswith(".dark"):
         return "dark"
+    if fn.endswith(".tut"):
+        return "tut"
+    if fn.endswith(".sks"):
+        return "sks"
+    if fn.endswith(".tmt"):
+        return "tmt"
 
     # .npvtsub is a subscription text (VLESS/VMESS/Trojan URIs)
     if fn.endswith(".npvtsub"):

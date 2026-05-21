@@ -3,6 +3,8 @@ import urllib.request
 import urllib.parse
 import json
 
+import secrets
+
 logger = logging.getLogger(__name__)
 
 
@@ -20,9 +22,9 @@ class TelegramPublisher:
     def publish(self, chat_id: str, data: bytes, filename: str, caption: str = ""):
         # Using multipart/form-data is complex with urllib standard lib.
         # But we must do it to send files.
-        # To avoid dependencies like 'requests', we implement a simple multipart encoder or use boundaries.
+        # To avoid dependencies like 'requests', we implement a simple multipart encoder.
 
-        boundary = "----WebKitFormBoundaryhuntx7MA4YWxkTrZu0gW"
+        boundary = f"----HuntXBoundary{secrets.token_hex(8)}"
         lines = []
 
         # Chat ID
@@ -64,8 +66,30 @@ class TelegramPublisher:
             with urllib.request.urlopen(req, timeout=60) as response:
                 resp_code = response.getcode()
                 resp_body = response.read().decode("utf-8")
-                logger.info(f"Telegram API Response Code: {resp_code}")
-                return json.loads(resp_body)
+                logger.debug(f"Telegram API Response Code: {resp_code}")
+                
+                payload = json.loads(resp_body)
+                if not payload.get("ok"):
+                    error_msg = payload.get("description", "Unknown Telegram error")
+                    params = payload.get("parameters", {})
+                    retry_after = params.get("retry_after")
+                    if retry_after:
+                        logger.warning(f"Telegram API rate limited. Retry after {retry_after}s: {error_msg}")
+                    else:
+                        logger.error(f"Telegram API rejected publish to {chat_id}: {error_msg}")
+                    raise RuntimeError(f"Telegram API error: {error_msg}")
+                
+                return payload
+        except urllib.error.HTTPError as e:
+            try:
+                resp_body = e.read().decode("utf-8")
+                payload = json.loads(resp_body)
+                error_msg = payload.get("description", str(e))
+                logger.error(f"Telegram API HTTP error {e.code}: {error_msg}")
+                raise RuntimeError(f"Telegram API HTTP {e.code}: {error_msg}")
+            except Exception:
+                logger.error(f"Telegram API HTTP error {e.code}: {e}")
+                raise
         except Exception as e:
             logger.error(f"Telegram publish failed for {chat_id}: {e}")
             raise

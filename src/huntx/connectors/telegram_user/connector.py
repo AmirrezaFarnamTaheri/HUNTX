@@ -8,10 +8,12 @@ try:
     from telethon.sessions import StringSession
     from telethon import utils
     from telethon.tl.types import InputMessagesFilterDocument
+    from telethon.errors import FloodWaitError
 except ModuleNotFoundError:  # pragma: no cover
     TelegramClient = None  # type: ignore[assignment]
     StringSession = None  # type: ignore[assignment]
     InputMessagesFilterDocument = object()  # type: ignore[assignment]
+    FloodWaitError = Exception
 
     class _UtilsStub:
         @staticmethod
@@ -239,6 +241,11 @@ class TelegramUserConnector:
 
             break  # completed successfully, exit retry loop
 
+          except FloodWaitError as e:
+            logger.warning(f"[MTProto] FloodWait for {e.seconds}s. Sleeping...")
+            time.sleep(e.seconds)
+            # Resume after sleep without incrementing retries
+            continue
           except ConnectionError as e:
             retries += 1
             if retries > _MAX_RECONNECT_RETRIES:
@@ -332,6 +339,14 @@ class TelegramUserConnector:
 
                     data = client.download_media(msg, file=bytes)
                     if data:
+                        # Deep inspection
+                        from ...utils.content_type import is_executable
+                        is_exec, type_desc = is_executable(data)
+                        if is_exec:
+                            logger.info(f"[MTProto] Skipping executable in msg {msg.id}: {f.name or '?'} ({type_desc})")
+                            stats["skipped_apk"] += 1
+                            continue
+
                         filename = "unknown"
                         if f and f.name:
                             filename = f.name
@@ -358,6 +373,11 @@ class TelegramUserConnector:
 
             break  # completed successfully, exit retry loop
 
+          except FloodWaitError as e:
+            logger.warning(f"[MTProto] FloodWait for {e.seconds}s. Sleeping...")
+            time.sleep(e.seconds)
+            # Resume after sleep without incrementing retries
+            continue
           except ConnectionError as e:
             retries += 1
             if retries > _MAX_RECONNECT_RETRIES:

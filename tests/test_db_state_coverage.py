@@ -121,13 +121,17 @@ class TestDBStateCoverage(unittest.TestCase):
             self.repo.update_source_state("id", {})
 
         self.assertFalse(self.repo.has_seen_file("id", "ext"))
-        self.repo.record_file("id", "ext", "hash", 1, "f")
-        self.repo.update_file_status("hash", "stat")
+        with self.assertRaises(Exception):
+            self.repo.record_file("id", "ext", "hash", 1, "f")
+        with self.assertRaises(Exception):
+            self.repo.update_file_status("hash", "stat")
         self.assertEqual(self.repo.get_pending_files(), [])
-        self.repo.add_record("hash", "type", "uniq", {})
+        with self.assertRaises(Exception):
+            self.repo.add_record("hash", "type", "uniq", {})
         self.assertEqual(self.repo.get_records_for_build(["t"], ["s"]), [])
         self.assertFalse(self.repo.is_artifact_published("r", "h"))
-        self.repo.mark_published("r", "h")
+        with self.assertRaises(Exception):
+            self.repo.mark_published("r", "h")
         self.assertIsNone(self.repo.get_last_published_hash("r"))
 
         self.db.connect = original_connect

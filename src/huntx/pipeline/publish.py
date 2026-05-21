@@ -75,6 +75,8 @@ class PublishPipeline:
 
             if not token:
                 msg = f"No token configured for destination chat_id={chat_id}. Skipping publish."
+                if os.getenv("HUNTX_STRICT", "0") in ("1", "true", "TRUE") or os.getenv("CI", "0") in ("1", "true", "TRUE"):
+                    raise RuntimeError(f"Strict Mode Active: {msg}")
                 logger.warning(f"[Publish] {msg}")
                 # Don't fail the pipeline if token is missing
                 continue

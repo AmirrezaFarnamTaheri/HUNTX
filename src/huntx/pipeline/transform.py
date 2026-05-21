@@ -179,9 +179,13 @@ class TransformPipeline:
                         logger.error(f"[Transform] Worker thread failed: {e}")
 
                 # Flush batch to DB
-                flush_t0 = time.time()
-                records_inserted, processed, failed, skipped = self._flush_batch(batch_results)
-                flush_dur = time.time() - flush_t0
+                try:
+                    flush_t0 = time.time()
+                    records_inserted, processed, failed, skipped = self._flush_batch(batch_results)
+                    flush_dur = time.time() - flush_t0
+                except Exception as e:
+                    logger.error(f"[Transform] Critical batch failure, aborting transform phase: {e}")
+                    raise
 
                 total_processed += processed
                 total_failed += failed

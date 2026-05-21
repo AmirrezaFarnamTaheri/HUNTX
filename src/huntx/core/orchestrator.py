@@ -1,4 +1,5 @@
 import asyncio
+import os
 import concurrent.futures
 import base64
 import datetime
@@ -22,6 +23,7 @@ from ..pipeline.publish import PublishPipeline
 from ..formats.npvt import strip_proxy_remark, add_clean_remark
 from ..config.schema import AppConfig
 from ..utils.safe_names import safe_component
+from ..utils.atomic import atomic_write
 
 logger = logging.getLogger(__name__)
 
@@ -76,9 +78,9 @@ class Orchestrator:
     # ------------------------------------------------------------------
 
     def _export_outputs(self, all_build_results: list):
-        """Write this run's build artifacts to outputs/ in the repo root.
+        """Write this run's build artifacts to the registered output directory.
         These are committed back to the repo by CI."""
-        out_dir = Path.cwd() / "outputs"
+        out_dir = paths.OUTPUT_DIR
         out_dir.mkdir(parents=True, exist_ok=True)
 
         # Collect payloads to write. Keyed by filename.
@@ -127,9 +129,9 @@ class Orchestrator:
             path = out_dir / filename
             try:
                 if isinstance(data, bytes):
-                    path.write_bytes(data)
+                    atomic_write(path, data)
                 else:
-                    path.write_text(str(data), encoding="utf-8")
+                    atomic_write(path, str(data).encode("utf-8"))
                 size = path.stat().st_size
                 total_bytes += size
                 files_written += 1
@@ -164,7 +166,7 @@ class Orchestrator:
     # ------------------------------------------------------------------
 
     def _export_dev_outputs(self, all_build_results: list):
-        """Accumulate proxy URIs into outputs_dev/ as an all-time cumulative set.
+        """Accumulate proxy URIs into the registered dev output directory as an all-time cumulative set.
 
         Writes three files from the accumulated state:
           - proxies.txt      — one URI per line
@@ -173,7 +175,7 @@ class Orchestrator:
         A hidden _manifest.json tracks {uri: first_seen_timestamp} for dedup
         across runs.
         """
-        dev_dir = Path.cwd() / "outputs_dev"
+        dev_dir = paths.DEV_OUTPUT_DIR
         dev_dir.mkdir(parents=True, exist_ok=True)
         manifest_path = dev_dir / "_manifest.json"
         now = time.time()
@@ -378,7 +380,7 @@ class Orchestrator:
     # Main run
     # ------------------------------------------------------------------
 
-    def run(self, timeout: float | None = None):
+    def run(self, timeout: float | None = None, no_publish: bool = False):
         start_time = time.time()
         run_id = int(start_time)
         total_sources = len(self.config.sources)
@@ -522,13 +524,16 @@ class Orchestrator:
                         ]
 
                         # Submit tasks to the shared executor
-                        for res in build_results:
-                            # Removed _raise_if_timed_out check here
-                            fut = pub_executor.submit(self.publish_pipeline.run, res, dests)
-                            future_to_meta[fut] = {
-                                "route": route.name,
-                                "artifact": res.get("unique_id", "unknown")
-                            }
+                        if not no_publish:
+                            for res in build_results:
+                                # Removed _raise_if_timed_out check here
+                                fut = pub_executor.submit(self.publish_pipeline.run, res, dests)
+                                future_to_meta[fut] = {
+                                    "route": route.name,
+                                    "artifact": res.get("unique_id", "unknown")
+                                }
+                        else:
+                            logger.info(f"[Orchestrator] Skipping publish for route '{route.name}' (--no-publish)")
 
                     except Exception as e:
                         logger.exception(f"[Orchestrator] Build/Publish failed for '{route.name}': {e}")
@@ -590,6 +595,19 @@ class Orchestrator:
             logger.info("[Orchestrator] ═══ Phase 4: Cleanup ═══")
             self.raw_store.prune_processed(self.repo)
             self.artifact_store.prune_archive()
+
+            # Auto-prune database records and disk raw store files older than N days (default: 30)
+            try:
+                prune_days_str = os.environ.get("HUNTX_PRUNE_DAYS", "30")
+                prune_days = int(prune_days_str)
+            except ValueError:
+                prune_days = 30
+
+            logger.info(f"[Orchestrator] Auto-pruning database and raw store older than {prune_days} days...")
+            prune_res = self.repo.prune_old_data(prune_days)
+            if prune_res["raw_hashes"]:
+                raw_pruned = self.raw_store.prune_by_hashes(prune_res["raw_hashes"])
+                logger.info(f"[Orchestrator] Pruned {raw_pruned} raw store files from disk during auto-prune.")
             cleanup_duration = time.time() - cleanup_start
         except Exception as e:
              logger.error(f"[Orchestrator] Cleanup failed: {e}")

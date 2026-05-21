@@ -298,10 +298,16 @@ class TelegramConnector(SourceConnector):
                         logger.error(f"Failed to get file info for {file_id}: {file_info_resp}")
                     else:
                         file_path = file_info_resp["result"]["file_path"]
-
-                        # Download
                         data = self._download_file(file_path)
                         if data:
+                            # Deep inspection
+                            from ...utils.content_type import is_executable
+                            is_exec, type_desc = is_executable(data)
+                            if is_exec:
+                                logger.info(f"Skipping executable file in update {update_id}: {file_name} ({type_desc})")
+                                stats["skipped_apk"] += 1
+                                continue
+
                             stats["yielded_items"] += 1
                             content_found = True
                             yield TelegramItem(

@@ -1,6 +1,8 @@
 import unittest
 import sqlite3
 import time
+from pathlib import Path
+from unittest.mock import patch, MagicMock, AsyncMock
 from huntx.bot.interactive import (
     InteractiveBot,
     WELCOME_TEXT,
@@ -204,6 +206,91 @@ class TestBotFilenameMatching(unittest.TestCase):
     def test_matches_internal_and_exported_decoded_names(self):
         self.assertTrue(InteractiveBot._filename_matches_format("all_sources.npvt.decoded.json", "decoded.json"))
         self.assertTrue(InteractiveBot._filename_matches_format("all_sources_npvt_decoded.json", "decoded.json"))
+
+
+class TestBotInteractiveCommands(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.state_db = Path("./temp_test_interactive.db")
+        self.data_dir = Path("./temp_data_interactive")
+        self.data_dir.mkdir(exist_ok=True)
+        
+        with patch('huntx.store.paths.STATE_DB_PATH', self.state_db), \
+             patch('huntx.store.paths.DATA_DIR', self.data_dir):
+            self.bot = InteractiveBot(
+                token="123:abc",
+                api_id=123,
+                api_hash="hash"
+            )
+            
+        self.bot.client = MagicMock()
+        self.bot.client.respond = AsyncMock()
+        
+    async def asyncTearDown(self):
+        if self.state_db.exists():
+            try:
+                self.state_db.unlink()
+            except OSError:
+                pass
+        if self.data_dir.exists():
+            try:
+                for f in self.data_dir.iterdir():
+                    f.unlink()
+                self.data_dir.rmdir()
+            except OSError:
+                pass
+
+    async def test_on_ping(self):
+        mock_msg = AsyncMock()
+        mock_msg.edit = AsyncMock()
+        
+        event = MagicMock()
+        event.respond = AsyncMock(return_value=mock_msg)
+        
+        await self.bot._on_ping(event)
+        
+        event.respond.assert_called_once_with("🏓 Pong!")
+        mock_msg.edit.assert_called_once()
+        self.assertIn("Latency", mock_msg.edit.call_args[0][0])
+
+    async def test_on_protocols(self):
+        event = MagicMock()
+        event.respond = AsyncMock()
+        
+        await self.bot._on_protocols(event)
+        
+        event.respond.assert_called_once()
+        msg = event.respond.call_args[0][0]
+        self.assertIn("Supported Protocols", msg)
+
+    async def test_on_status(self):
+        event = MagicMock()
+        event.respond = AsyncMock()
+        
+        with self.bot.db.connect() as conn:
+            conn.execute("INSERT OR REPLACE INTO source_state (source_id, source_type, state_json, updated_at) VALUES (?, ?, ?, 1)", ("src1", "telegram", "{}"))
+            conn.execute("INSERT OR REPLACE INTO seen_files (source_id, external_id, raw_hash, filename, status, file_size, metadata_json) VALUES (?, ?, ?, ?, ?, 1, '{}')", ("src1", "1", "hash123", "test.txt", "processed"))
+            conn.execute("INSERT OR REPLACE INTO records (source_file_hash, record_type, unique_hash, data_json, is_active) VALUES (?, ?, ?, ?, 1)", ("hash123", "npvt", "u1", '{"line": "vmess://test"}'))
+            
+        await self.bot._on_status(event)
+        
+        event.respond.assert_called_once()
+        msg = event.respond.call_args[0][0]
+        self.assertIn("System Status", msg)
+        self.assertIn("Sources", msg)
+
+    async def test_on_count(self):
+        event = MagicMock()
+        event.respond = AsyncMock()
+        
+        with self.bot.db.connect() as conn:
+            conn.execute("INSERT OR REPLACE INTO records (source_file_hash, record_type, unique_hash, data_json, is_active) VALUES (?, ?, ?, ?, 1)", ("hash123", "npvt", "u1", '{"line": "vmess://test"}'))
+            conn.execute("INSERT OR REPLACE INTO records (source_file_hash, record_type, unique_hash, data_json, is_active) VALUES (?, ?, ?, ?, 1)", ("hash123", "npvt", "u2", '{"line": "vless://test"}'))
+            
+        await self.bot._on_count(event)
+        
+        self.assertGreaterEqual(event.respond.call_count, 1)
+        msg = event.respond.call_args[0][0]
+        self.assertIn("Proxy Counts", msg)
 
 
 if __name__ == "__main__":
