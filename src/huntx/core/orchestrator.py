@@ -345,6 +345,18 @@ class Orchestrator:
                 finally:
                     # Ensure cleanup happens even if ingest fails
                     user_conn.cleanup()
+            elif src_conf.type == "v2ray_collector":
+                logger.info(f"[Worker] Ingesting source {src_conf.id} (Go v2ray_collector)")
+                from ..connectors.v2ray_collector.connector import V2RayCollectorConnector
+                # Determine absolute path to the v2ray_collector connector directory
+                connector_dir = os.path.join(
+                    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                    "connectors",
+                    "v2ray_collector"
+                )
+                collector_conn = V2RayCollectorConnector(base_dir=connector_dir)
+                self.ingest_pipeline.run(src_conf.id, collector_conn, source_type=src_conf.type)
+                return True
             else:
                 logger.warning(f"[Worker] Skipping {src_conf.id}: unsupported type.")
                 return False

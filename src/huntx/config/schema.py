@@ -35,7 +35,7 @@ class SourceConfig(BaseModel):
     @field_validator("type")
     @classmethod
     def validate_type(cls, v: str) -> str:
-        if v not in ("telegram", "telegram_user"):
+        if v not in ("telegram", "telegram_user", "v2ray_collector"):
             raise ValueError(f"Unknown source type: {v}")
         return v
 
