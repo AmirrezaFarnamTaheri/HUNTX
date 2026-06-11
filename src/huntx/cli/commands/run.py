@@ -6,15 +6,16 @@ from ...config.loader import load_config
 from ...config.validate import validate_config
 from ...core.orchestrator import Orchestrator
 from ...core.locks import acquire_lock
-from ...store.paths import STATE_DIR, LOGS_DIR
+from ...store import paths
 
 
 def run_command(config_path: str):
     log_level_str = os.getenv("LOG_LEVEL", "INFO").upper()
     log_level = getattr(logging, log_level_str, logging.INFO)
 
-    LOGS_DIR.mkdir(parents=True, exist_ok=True)
-    log_file = LOGS_DIR / "huntx.log"
+    paths.ensure_dirs()
+    paths.LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    log_file = paths.LOGS_DIR / "huntx.log"
     setup_logging(log_level=log_level, log_file=str(log_file))
 
     cfg_path = Path(config_path)
@@ -35,7 +36,7 @@ def run_command(config_path: str):
         config = load_config(cfg_path)
         validate_config(config)
 
-        lock_path = STATE_DIR / "huntx.lock"
+        lock_path = paths.STATE_DIR / "huntx.lock"
         with acquire_lock(lock_path):
             orch = Orchestrator(config, max_workers=max_workers)
             orch.run()

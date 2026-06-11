@@ -3,10 +3,22 @@ import time
 import threading
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, Iterator, List
-from telethon.sync import TelegramClient
-from telethon.sessions import StringSession
-from telethon import utils
-from telethon.tl.types import InputMessagesFilterDocument
+try:
+    from telethon.sync import TelegramClient
+    from telethon.sessions import StringSession
+    from telethon import utils
+    from telethon.tl.types import InputMessagesFilterDocument
+except ModuleNotFoundError:  # pragma: no cover
+    TelegramClient = None  # type: ignore[assignment]
+    StringSession = None  # type: ignore[assignment]
+    InputMessagesFilterDocument = object()  # type: ignore[assignment]
+
+    class _UtilsStub:
+        @staticmethod
+        def resolve_id(_peer_id: int):
+            raise RuntimeError("Telethon not installed")
+
+    utils = _UtilsStub()  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +58,14 @@ class TelegramUserConnector:
         self._file_sub_s = fw.get("file_subsequent_hours", 0) * 3600
 
     def _client(self) -> TelegramClient:
+        # Allow tests to inject a mock client even if Telethon isn't installed.
+        if hasattr(self._local, "clients") and getattr(self._local, "clients"):
+            key = (self.api_id, self.session)
+            if key in self._local.clients:
+                return self._local.clients[key]
+
+        if TelegramClient is None or StringSession is None:
+            raise RuntimeError("Telethon is required for telegram_user sources. Install dependencies (pip install -e .).")
         if not hasattr(self._local, "clients"):
             self._local.clients = {}
 
@@ -85,13 +105,13 @@ class TelegramUserConnector:
                 )
                 # Fallback: construct PeerChannel directly
                 try:
-                    real_id, peer_type = utils.resolve_id(int(peer_entity))
+                    real_id, peer_type = utils.resolve_id(int(peer_entity))  # type: ignore[union-attr]
                     return peer_type(real_id)
                 except Exception as e2:
                     logger.warning(f"[MTProto] Fallback also failed for {peer_entity}: {e2}. Using as-is.")
         elif isinstance(peer_entity, str) and peer_entity.startswith("-100"):
             try:
-                real_id, peer_type = utils.resolve_id(int(peer_entity))
+                real_id, peer_type = utils.resolve_id(int(peer_entity))  # type: ignore[union-attr]
                 return peer_type(real_id)
             except Exception as e:
                 logger.warning(f"[MTProto] Failed to resolve marked ID {peer_entity}: {e}. Using as-is.")

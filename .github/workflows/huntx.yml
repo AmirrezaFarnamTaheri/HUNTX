@@ -8,11 +8,11 @@ on:
       max_workers:
         description: "Number of parallel ingestion workers"
         required: false
-        default: "1"
+        default: "2"
       msg_fresh_hours:
         description: "Text lookback hours for first-seen sources"
         required: false
-        default: "24"
+        default: "2"
       file_fresh_hours:
         description: "File/media lookback hours for first-seen sources"
         required: false
@@ -20,19 +20,23 @@ on:
       msg_subsequent_hours:
         description: "Text lookback hours on subsequent runs (0=all new since last)"
         required: false
-        default: "2"
+        default: "0"
       file_subsequent_hours:
         description: "File/media lookback hours on subsequent runs (0=all new since last)"
         required: false
-        default: "2"
+        default: "0"
       reset:
         description: "Factory reset before run (wipe all state/data/outputs)"
         required: false
         type: boolean
         default: false
+      reset_confirm:
+        description: "Safety confirmation for reset (type RESET to confirm)"
+        required: false
+        default: ""
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: huntx
@@ -41,19 +45,16 @@ concurrency:
 env:
   MAX_WORKERS: ${{ github.event.inputs.max_workers || '2' }}
   MSG_FRESH_HOURS: ${{ github.event.inputs.msg_fresh_hours || '2' }}
-  FILE_FRESH_HOURS: ${{ github.event.inputs.file_fresh_hours || '2' }}
-  MSG_SUBSEQUENT_HOURS: ${{ github.event.inputs.msg_subsequent_hours || '2' }}
-  FILE_SUBSEQUENT_HOURS: ${{ github.event.inputs.file_subsequent_hours || '2' }}
-  # S3 State Storage Configuration
-  S3_BUCKET: ${{ secrets.S3_BUCKET }}
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+  FILE_FRESH_HOURS: ${{ github.event.inputs.file_fresh_hours || '48' }}
+  MSG_SUBSEQUENT_HOURS: ${{ github.event.inputs.msg_subsequent_hours || '0' }}
+  FILE_SUBSEQUENT_HOURS: ${{ github.event.inputs.file_subsequent_hours || '0' }}
 
 jobs:
   run:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 180
+    permissions:
+      contents: write
     steps:
       - name: Free disk space
         run: |
@@ -92,10 +93,23 @@ jobs:
       - name: Prepare directories
         run: mkdir -p persist/data/{raw,output,dist,rejects,archive,state,logs}
 
+      - name: Configure AWS credentials (optional OIDC)
+        if: ${{ secrets.AWS_ROLE_ARN != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+
       - name: Restore state
+        env:
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
         run: |
           if [[ -n "$S3_BUCKET" ]]; then
             echo "Restoring state from S3 bucket: $S3_BUCKET"
+            aws --version
             aws s3 cp s3://$S3_BUCKET/state.db persist/state.db || echo "No state.db found in S3, starting fresh."
             # Critical: Do not suppress errors here. If sync fails, we must abort to prevent wiping S3 in the persist step.
             aws s3 sync s3://$S3_BUCKET/archive persist/data/archive --quiet
@@ -105,15 +119,24 @@ jobs:
 
       - name: Factory reset (if requested)
         if: ${{ github.event.inputs.reset == 'true' }}
+        env:
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
         run: |
           echo "=== FACTORY RESET ==="
+          if [[ "${{ github.event.inputs.reset_confirm }}" != "RESET" ]]; then
+            echo "Refusing to reset: reset_confirm was not 'RESET'."
+            exit 1
+          fi
           rm -rf persist/state.db persist/data/{raw,output,archive,dist,rejects,artifacts,state,logs}/*
           rm -rf outputs/* outputs_dev/*
 
           # Wipe S3 state
           if [[ -n "$S3_BUCKET" ]]; then
-            aws s3 rm s3://$S3_BUCKET/state.db || true
-            aws s3 rm s3://$S3_BUCKET/archive --recursive || true
+            aws s3 rm s3://$S3_BUCKET/state.db
+            aws s3 rm s3://$S3_BUCKET/archive --recursive
             echo "Wiped S3 state"
           fi
 
@@ -158,6 +181,11 @@ jobs:
           HUNTX_DATA_DIR: persist/data
         run: python scripts/verify_output.py
 
+      - name: Generate docs site data
+        env:
+          HUNTX_DATA_DIR: persist/data
+        run: python scripts/generate_site_data.py
+
       - name: Upload output
         uses: actions/upload-artifact@v4
         with:
@@ -177,7 +205,7 @@ jobs:
           git config user.name "huntx-bot"
           git config user.email "huntx-bot@users.noreply.github.com"
 
-          git add outputs/ outputs_dev/ 2>/dev/null || true
+          git add outputs/ outputs_dev/ docs/catalog.json docs/artifacts/ 2>/dev/null || true
 
           if git diff --cached --quiet; then
             echo "No output changes."
@@ -196,13 +224,19 @@ jobs:
           fi
 
       - name: Persist state
+        env:
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
         run: |
           if [[ -n "$S3_BUCKET" ]]; then
             echo "Persisting state to S3 bucket: $S3_BUCKET"
+            aws --version
             # Upload database
             aws s3 cp persist/state.db s3://$S3_BUCKET/state.db
-            # Sync archive (only uploads new/changed files)
-            aws s3 sync persist/data/archive s3://$S3_BUCKET/archive --quiet --delete
+            # Sync archive (upload-only; never delete remote history)
+            aws s3 sync persist/data/archive s3://$S3_BUCKET/archive --quiet
           else
             echo "No S3_BUCKET secret defined. State not persisted."
           fi

@@ -5,6 +5,7 @@ import time
 from typing import Dict, Any, List
 from ..state.repo import StateRepo
 from ..publishers.telegram.publisher import TelegramPublisher
+from ..utils.safe_names import safe_component
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +111,9 @@ class PublishPipeline:
                     ext = ".txt"
 
             # Filename
-            filename = f"{route_name}_{fmt}_{new_hash[:8]}{ext}"
+            safe_route = safe_component(route_name, default="route")
+            safe_fmt = safe_component(fmt, default="fmt")
+            filename = f"{safe_route}_{safe_fmt}_{new_hash[:8]}{ext}"
 
             try:
                 start_time = time.time()

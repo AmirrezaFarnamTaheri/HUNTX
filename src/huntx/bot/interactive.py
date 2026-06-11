@@ -5,14 +5,22 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from telethon import TelegramClient, events, Button
-from telethon.tl.functions.bots import SetBotCommandsRequest
-from telethon.tl.types import BotCommand, BotCommandScopeDefault
+try:
+    from telethon import TelegramClient, events, Button
+    from telethon.tl.functions.bots import SetBotCommandsRequest
+    from telethon.tl.types import BotCommand, BotCommandScopeDefault
+except ModuleNotFoundError:  # pragma: no cover
+    TelegramClient = None  # type: ignore[assignment]
+    events = None  # type: ignore[assignment]
+    Button = None  # type: ignore[assignment]
+    SetBotCommandsRequest = None  # type: ignore[assignment]
+    BotCommand = None  # type: ignore[assignment]
+    BotCommandScopeDefault = None  # type: ignore[assignment]
 
 from ..store.artifact_store import ArtifactStore
 from ..state.repo import StateRepo
 from ..state.db import open_db
-from ..store.paths import STATE_DB_PATH, DATA_DIR
+from ..store import paths
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +29,9 @@ logger = logging.getLogger(__name__)
 WELCOME_TEXT = (
     "🛰 **GatherX — Free Proxy Configs**\n"
     "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-    "Fresh proxy configs from **49+ sources**, updated every 3 hours.\n"
+    "Fresh proxy configs from **49+ sources**, updated every 2 hours.\n"
     "VMess · VLESS · Trojan · SS · Hysteria2 · TUIC · WireGuard and more.\n\n"
-    "� **Get Proxies**\n"
+    "📥 **Get Proxies**\n"
     "  /get — Download proxies (your default format)\n"
     "  /get `b64sub` — Base64 subscription link\n"
     "  /latest — All recent proxy files\n"
@@ -36,15 +44,22 @@ WELCOME_TEXT = (
 )
 
 _BOT_COMMANDS = [
-    BotCommand(command="start", description="🚀 Start and get proxies"),
-    BotCommand(command="get", description="📥 Download proxies"),
-    BotCommand(command="latest", description="📦 Recent proxy files"),
-    BotCommand(command="formats", description="📋 Available formats"),
-    BotCommand(command="setformat", description="⚙️ Change default format"),
-    BotCommand(command="myinfo", description="👤 Your preferences"),
-    BotCommand(command="mute", description="🔇 Stop auto-delivery"),
-    BotCommand(command="unmute", description="🔔 Resume auto-delivery"),
-    BotCommand(command="help", description="❓ Help"),
+    # Telethon is optional at import-time (tests can run without it); these are populated only if available.
+    *(
+        [
+            BotCommand(command="start", description="🚀 Start and get proxies"),
+            BotCommand(command="get", description="📥 Download proxies"),
+            BotCommand(command="latest", description="📦 Recent proxy files"),
+            BotCommand(command="formats", description="📋 Available formats"),
+            BotCommand(command="setformat", description="⚙️ Change default format"),
+            BotCommand(command="myinfo", description="👤 Your preferences"),
+            BotCommand(command="mute", description="🔇 Stop auto-delivery"),
+            BotCommand(command="unmute", description="🔔 Resume auto-delivery"),
+            BotCommand(command="help", description="❓ Help"),
+        ]
+        if BotCommand is not None
+        else []
+    ),
 ]
 
 SUPPORTED_FORMATS = [
@@ -81,17 +96,19 @@ _FORMAT_LABELS: Dict[str, str] = {
 
 class InteractiveBot:
     def __init__(self, token: str, api_id: int, api_hash: str):
+        if TelegramClient is None:
+            raise RuntimeError("Telethon is required to run the bot. Install dependencies (pip install -e .).")
         self.token = token
         self.api_id = api_id
         self.api_hash = api_hash
 
         self.artifact_store = ArtifactStore()
-        self.db = open_db(STATE_DB_PATH)
+        self.db = open_db(paths.STATE_DB_PATH)
         self.repo = StateRepo(self.db)
 
         self._init_tables()
 
-        session_path = DATA_DIR / "bot.session"
+        session_path = paths.DATA_DIR / "bot.session"
         self.client = TelegramClient(str(session_path), self.api_id, self.api_hash)
 
     # ── DB setup ──────────────────────────────────────────────────────
@@ -181,7 +198,7 @@ class InteractiveBot:
                 return
 
             # Find latest output files
-            output_dir = DATA_DIR / "output"
+            output_dir = paths.DATA_DIR / "output"
             files_to_send = self._collect_delivery_files(output_dir)
             if not files_to_send:
                 logger.info("[GatherX] No output files to deliver.")
@@ -234,6 +251,8 @@ class InteractiveBot:
 
     def _register_handlers(self):
         """Register all event handlers and the callback query handler."""
+        if events is None:
+            raise RuntimeError("Telethon is required to run the bot. Install dependencies (pip install -e .).")
         self.client.add_event_handler(self._on_start, events.NewMessage(pattern=r"(?i)/start"))
         self.client.add_event_handler(self._on_help, events.NewMessage(pattern=r"(?i)/help"))
         self.client.add_event_handler(self._on_get, events.NewMessage(pattern=r"(?i)/get"))
@@ -257,11 +276,12 @@ class InteractiveBot:
 
         # Register command menu with Telegram
         try:
-            await self.client(SetBotCommandsRequest(
-                scope=BotCommandScopeDefault(),
-                lang_code="",
-                commands=_BOT_COMMANDS,
-            ))
+            if SetBotCommandsRequest is not None and BotCommandScopeDefault is not None:
+                await self.client(SetBotCommandsRequest(
+                    scope=BotCommandScopeDefault(),
+                    lang_code="",
+                    commands=_BOT_COMMANDS,
+                ))
             logger.info("[GatherX] Bot commands menu registered.")
         except Exception as e:
             logger.warning(f"[GatherX] Failed to register commands: {e}")
@@ -329,9 +349,9 @@ class InteractiveBot:
             if name.endswith(".npvt"):
                 caption = f"📋 `{name}` — proxy URI list ({size_kb:.0f} KB)"
             elif "b64sub" in name:
-                caption = f"� `{name}` — base64 subscription ({size_kb:.0f} KB)"
+                caption = f"🔗 `{name}` — base64 subscription ({size_kb:.0f} KB)"
             elif "decoded.json" in name:
-                caption = f"� `{name}` — decoded JSON ({size_kb:.0f} KB)"
+                caption = f"📊 `{name}` — decoded JSON ({size_kb:.0f} KB)"
             elif name.endswith((".ovpn", ".ehi", ".hc", ".hat", ".sip", ".nm", ".dark", ".npv4")):
                 caption = f"📦 `{name}` — config archive ({size_kb:.0f} KB)"
             else:
@@ -383,7 +403,7 @@ class InteractiveBot:
         buttons = [
             [Button.inline("📥 Get Proxies", b"get:npvt"),
              Button.inline("🔗 Base64 Sub", b"get:b64sub")],
-            [Button.inline("� All Formats", b"cmd:formats"),
+            [Button.inline("📋 All Formats", b"cmd:formats"),
              Button.inline("⚙️ Settings", b"cmd:myinfo")],
         ]
         await event.respond(WELCOME_TEXT, parse_mode="md", buttons=buttons)
@@ -396,7 +416,7 @@ class InteractiveBot:
         buttons = [
             [Button.inline("📥 Get Proxies", b"get:npvt"),
              Button.inline("🔗 Base64 Sub", b"get:b64sub")],
-            [Button.inline("� All Formats", b"cmd:formats"),
+            [Button.inline("📋 All Formats", b"cmd:formats"),
              Button.inline("⚙️ Settings", b"cmd:myinfo")],
         ]
         await event.respond(WELCOME_TEXT, parse_mode="md", buttons=buttons)

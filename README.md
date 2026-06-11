@@ -18,7 +18,7 @@
 - **Configurable fetch windows** — separate lookback for text/files on fresh vs subsequent runs (tunable from CI)
 - **Factory reset** — full wipe of state, data, outputs, and source offsets (CLI + CI trigger)
 - **Cumulative dev output** — deduplicated proxy URIs accumulated across all runs in `outputs_dev/`
-- **Zero-budget CI** — runs on GitHub Actions every 3h with SQLite state on an orphan branch
+- **Zero-budget CI** — runs on GitHub Actions every 2h (cron), with optional S3-backed state
 - **Cross-platform** — Linux, macOS, Windows
 
 ## Quick Start
@@ -189,7 +189,7 @@ vmess, vless, trojan, shadowsocks (ss), shadowsocksR (ssr), hysteria2/hy2, hyste
 
 ## GitHub Actions CI
 
-The workflow (`.github/workflows/huntx.yml`) runs every 3 hours and supports manual dispatch with these inputs:
+The workflow (`.github/workflows/huntx.yml`) runs every 2 hours (cron) and supports manual dispatch with these inputs:
 
 | Input | Description | Default |
 |---|---|---|
@@ -199,8 +199,11 @@ The workflow (`.github/workflows/huntx.yml`) runs every 3 hours and supports man
 | `msg_subsequent_hours` | Text lookback on subsequent runs | `0` |
 | `file_subsequent_hours` | File/media lookback on subsequent runs | `0` |
 | `reset` | Factory reset before run (checkbox) | `false` |
+| `reset_confirm` | Safety confirmation (type `RESET` to actually reset) | `""` |
 
-State is persisted on the `huntx-state` orphan branch.
+State persistence is **optional**:
+- If `S3_BUCKET` is configured, state DB + archive are restored/persisted to S3.
+- If `S3_BUCKET` is not configured, runs are stateless.
 
 ## Environment Variables
 

@@ -198,7 +198,7 @@ Requires typing `RESET` to confirm, or pass `--yes` to skip.
    - `TELEGRAM_TOKEN` — Bot API token for ingestion
    - `PUBLISH_BOT_TOKEN` — separate bot token for GatherX (optional)
    - `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_USER_SESSION` — for MTProto
-3. **Enable the workflow** — `.github/workflows/huntx.yml` runs every 3 hours
+3. **Enable the workflow** — `.github/workflows/huntx.yml` runs every 2 hours (cron)
 4. **Manual trigger** — use "Run workflow" with configurable inputs:
 
 | Input | Description | Default |
@@ -209,8 +209,11 @@ Requires typing `RESET` to confirm, or pass `--yes` to skip.
 | `msg_subsequent_hours` | Text lookback on subsequent runs | `0` |
 | `file_subsequent_hours` | File/media lookback on subsequent runs | `0` |
 | `reset` | Factory reset before run (checkbox) | `false` |
+| `reset_confirm` | Safety confirmation (type `RESET` to actually reset) | `""` |
 
-5. State is persisted on the `huntx-state` orphan branch
+5. State persistence is optional:
+   - If `S3_BUCKET` is configured, the workflow restores/persists `state.db` and syncs the archive to S3.
+   - If not configured, the workflow runs stateless (no state persistence).
 
 ## Telegram User Session (MTProto)
 

@@ -92,7 +92,8 @@ class TelegramConnector(SourceConnector):
 
     def _download_file(self, file_path: str) -> Optional[bytes]:
         url = f"https://api.telegram.org/file/bot{self.token}/{file_path}"
-        logger.debug(f"Downloading file from {url}")
+        # Never log the full URL here (it contains the bot token).
+        logger.debug(f"Downloading file path={file_path}")
 
         for attempt in range(MAX_RETRIES + 1):
             try:

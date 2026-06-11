@@ -1,5 +1,19 @@
 import { html } from "./deps.js";
 
+function isSafeArtifactPath(p) {
+    if (!p || typeof p !== 'string') return false;
+    // Reject scheme injection (javascript:, data:, http:, etc.)
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(p)) return false;
+    // Prevent traversal / odd separators.
+    if (p.includes('..') || p.includes('\\')) return false;
+    // Require expected prefix for this static site.
+    return p.startsWith('artifacts/');
+}
+
+function safeHref(p) {
+    return isSafeArtifactPath(p) ? p : '#';
+}
+
 export const Toast = ({ message, type = 'success' }) => html`
     <div class="fixed bottom-4 right-4 z-[9999] transition-all duration-300 transform animate-slide-up">
         <div class="glass dark:bg-gray-800 shadow-xl border-l-4 border-brand-500 rounded-lg p-4 flex items-center space-x-3 pr-6">
@@ -63,6 +77,7 @@ export const Header = ({ onSearch, stats, theme, onToggleTheme }) => html`
                         <i data-lucide="search" class="h-4 w-4 text-gray-400 group-focus-within:text-brand-500 transition-colors"></i>
                     </div>
                     <input
+                        id="gatherx_search"
                         type="text"
                         class="block w-full pl-10 pr-10 py-2 bg-gray-100/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl text-sm placeholder-gray-500 text-gray-900 dark:text-gray-100 focus-ring transition-all"
                         placeholder="Search by name, protocol, or tag..."
@@ -212,7 +227,7 @@ export const ArtifactCard = ({ file, onCopy }) => {
         <!-- Actions -->
         <div class="mt-auto pt-4 border-t border-gray-100 dark:border-gray-800 flex gap-3">
             <a
-                href="${file.path}"
+                href="${safeHref(file.path)}"
                 download
                 class="flex-1 flex items-center justify-center space-x-2 px-4 py-2.5 bg-gray-900 dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-200 text-white dark:text-gray-900 text-sm font-semibold rounded-xl transition-all shadow-md hover:shadow-lg focus-ring"
             >
@@ -220,7 +235,7 @@ export const ArtifactCard = ({ file, onCopy }) => {
                 <span>Download</span>
             </a>
             <button
-                onClick=${(e) => onCopy(file.path, e.currentTarget)}
+                onClick=${(e) => onCopy(safeHref(file.path), e.currentTarget)}
                 class="p-2.5 text-gray-500 hover:text-brand-600 dark:text-gray-400 dark:hover:text-brand-400 bg-gray-50 dark:bg-gray-800 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-xl transition-all border border-gray-200 dark:border-gray-700 hover:border-brand-200 dark:hover:border-brand-800 focus-ring"
                 title="Copy Link"
             >

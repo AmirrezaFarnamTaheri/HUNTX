@@ -54,6 +54,7 @@ def main():
     args = parser.parse_args()
 
     paths.set_paths(args.data_dir, args.db_path)
+    paths.ensure_dirs()
 
     log_dir = Path(args.data_dir) / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -74,6 +75,7 @@ def main():
 
 def _cmd_run(args):
     from ..core.orchestrator import Orchestrator
+    from ..core.locks import acquire_lock
 
     max_workers_str = os.environ.get("HUNTX_MAX_WORKERS") or os.environ.get("huntx_MAX_WORKERS") or "3"
     try:
@@ -95,9 +97,11 @@ def _cmd_run(args):
     try:
         config = load_config(args.config)
         validate_config(config)
-        orchestrator = Orchestrator(config, max_workers=max_workers, fetch_windows=fetch_windows)
-        # 4.5 hours time limit
-        orchestrator.run(timeout=16200)
+        lock_path = Path(paths.STATE_DIR) / "huntx.lock"
+        with acquire_lock(lock_path):
+            orchestrator = Orchestrator(config, max_workers=max_workers, fetch_windows=fetch_windows)
+            # 4.5 hours time limit
+            orchestrator.run(timeout=16200)
     except Exception as e:
         logger.exception(f"Fatal error: {e}")
         sys.exit(1)

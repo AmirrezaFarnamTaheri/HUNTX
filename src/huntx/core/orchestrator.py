@@ -21,6 +21,7 @@ from ..pipeline.build import BuildPipeline
 from ..pipeline.publish import PublishPipeline
 from ..formats.npvt import strip_proxy_remark, add_clean_remark
 from ..config.schema import AppConfig
+from ..utils.safe_names import safe_component
 
 logger = logging.getLogger(__name__)
 
@@ -147,12 +148,16 @@ class Orchestrator:
     @staticmethod
     def _output_filename(route: str, fmt: str) -> str:
         """Determine the output filename for a route+format pair."""
+        safe_route = safe_component(route, default="route")
         if fmt.endswith(".decoded.json"):
-            return f"{route}_{fmt.replace('.decoded.json', '')}_decoded.json"
+            base = safe_component(fmt.replace(".decoded.json", ""), default="decoded")
+            return f"{safe_route}_{base}_decoded.json"
         elif fmt.endswith(".b64sub"):
-            return f"{route}_{fmt.replace('.b64sub', '')}_b64sub.txt"
+            base = safe_component(fmt.replace(".b64sub", ""), default="b64sub")
+            return f"{safe_route}_{base}_b64sub.txt"
         else:
-            return f"{route}.{fmt}"
+            safe_fmt = safe_component(fmt, default="fmt")
+            return f"{safe_route}.{safe_fmt}"
 
     # ------------------------------------------------------------------
     # Dev output export

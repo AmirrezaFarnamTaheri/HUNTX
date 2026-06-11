@@ -43,19 +43,28 @@ class ArtifactStore {
 
     async _fetchAndCache(isBackground = false) {
         try {
-            const response = await fetch('./catalog.json?t=' + Date.now());
+            const response = await fetch('./catalog.json', { cache: 'no-store' });
             if (!response.ok) throw new Error('Failed to load catalog');
 
             const data = await response.json();
 
             // Update cache
-            localStorage.setItem(this.CACHE_KEY, JSON.stringify({
-                timestamp: Date.now(),
-                data: data
-            }));
+            try {
+                localStorage.setItem(this.CACHE_KEY, JSON.stringify({
+                    timestamp: Date.now(),
+                    generated_at: data?.generated_at || null,
+                    data: data
+                }));
+            } catch (e) {
+                // QuotaExceededError is common for large catalogs; caching is best-effort only.
+                console.warn('Cache write failed (quota?)', e);
+            }
 
-            if (!isBackground || JSON.stringify(data) !== JSON.stringify(this.data)) {
-                 this._processData(data);
+            const prevGenerated = this.data?.generated_at || null;
+            const nextGenerated = data?.generated_at || null;
+
+            if (!isBackground || (nextGenerated && nextGenerated !== prevGenerated) || !this.data) {
+                this._processData(data);
             }
         } catch (err) {
             if (!isBackground) throw err;

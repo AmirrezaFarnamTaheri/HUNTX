@@ -19,8 +19,9 @@ class TestBotConnectorCoverage(unittest.TestCase):
         m.read.return_value = content
         return m
 
+    @patch("huntx.connectors.telegram.connector.time.sleep", return_value=None)
     @patch("urllib.request.urlopen")
-    def test_make_request_retry_success(self, mock_urlopen):
+    def test_make_request_retry_success(self, mock_urlopen, _mock_sleep):
         # Fail twice, then succeed
         mock_error = urllib.error.URLError("Network unreachable")
 
@@ -32,8 +33,9 @@ class TestBotConnectorCoverage(unittest.TestCase):
         self.assertTrue(res["ok"])
         self.assertEqual(mock_urlopen.call_count, 3)
 
+    @patch("huntx.connectors.telegram.connector.time.sleep", return_value=None)
     @patch("urllib.request.urlopen")
-    def test_make_request_retry_failure(self, mock_urlopen):
+    def test_make_request_retry_failure(self, mock_urlopen, _mock_sleep):
         mock_error = urllib.error.URLError("Network unreachable")
         mock_urlopen.side_effect = mock_error
 
@@ -41,8 +43,9 @@ class TestBotConnectorCoverage(unittest.TestCase):
         self.assertFalse(res["ok"])
         self.assertEqual(mock_urlopen.call_count, 7)
 
+    @patch("huntx.connectors.telegram.connector.time.sleep", return_value=None)
     @patch("urllib.request.urlopen")
-    def test_download_file_retry(self, mock_urlopen):
+    def test_download_file_retry(self, mock_urlopen, _mock_sleep):
         mock_error = urllib.error.URLError("Fail")
         mock_success = self._create_mock_response(b"filedata")
 
@@ -52,8 +55,9 @@ class TestBotConnectorCoverage(unittest.TestCase):
         self.assertEqual(data, b"filedata")
         self.assertEqual(mock_urlopen.call_count, 2)
 
+    @patch("huntx.connectors.telegram.connector.time.sleep", return_value=None)
     @patch("urllib.request.urlopen")
-    def test_download_file_fail(self, mock_urlopen):
+    def test_download_file_fail(self, mock_urlopen, _mock_sleep):
         mock_urlopen.side_effect = Exception("Fatal")
         data = self.connector._download_file("path")
         self.assertIsNone(data)
