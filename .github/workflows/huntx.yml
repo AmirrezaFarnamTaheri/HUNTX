@@ -117,7 +117,9 @@ jobs:
         run: mkdir -p persist/data/{raw,output,dist,rejects,archive,state,logs}
 
       - name: Configure AWS credentials (optional OIDC)
-        if: ${{ secrets.AWS_ROLE_ARN != '' }}
+        env:
+          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+        if: ${{ env.AWS_ROLE_ARN != '' }}
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
