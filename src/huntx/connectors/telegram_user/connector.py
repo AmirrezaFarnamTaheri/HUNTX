@@ -45,6 +45,14 @@ class SourceItem:
 
 class TelegramUserConnector:
     _local = threading.local()
+    _session_locks: Dict[str, threading.RLock] = {}
+    _session_locks_lock = threading.Lock()
+
+    def _get_session_lock(self) -> threading.RLock:
+        with self._session_locks_lock:
+            if self.session not in self._session_locks:
+                self._session_locks[self.session] = threading.RLock()
+            return self._session_locks[self.session]
 
     def __init__(self, api_id: int, api_hash: str, session: str, peer: str,
                  state: Optional[Dict[str, Any]] = None, fetch_windows: Optional[Dict[str, Any]] = None):
@@ -74,7 +82,13 @@ class TelegramUserConnector:
         key = (self.api_id, self.session)
         if key not in self._local.clients:
             logger.info(f"Initializing new Telegram User Client for api_id={self.api_id}")
-            self._local.clients[key] = TelegramClient(StringSession(self.session), self.api_id, self.api_hash)
+            lock = self._get_session_lock()
+            lock.acquire()
+            try:
+                self._local.clients[key] = TelegramClient(StringSession(self.session), self.api_id, self.api_hash)
+            except Exception:
+                lock.release()
+                raise
         return self._local.clients[key]
 
     def _ensure_connected(self, client: TelegramClient):
@@ -487,7 +501,7 @@ class TelegramUserConnector:
         """Clean up Telegram client connections to prevent asyncio errors."""
         if hasattr(self._local, "clients"):
             logger.info("[MTProto] Cleaning up client connections...")
-            for key, client in self._local.clients.items():
+            for key, client in list(self._local.clients.items()):
                 try:
                     if client.is_connected():
                         client.disconnect()
@@ -499,6 +513,15 @@ class TelegramUserConnector:
                         logger.warning(f"RuntimeError disconnecting Telegram client for key {key}: {e}")
                 except Exception as e:
                     logger.warning(f"Error disconnecting Telegram client for key {key}: {e}")
+                finally:
+                    session_str = key[1]
+                    lock = self._session_locks.get(session_str)
+                    if lock:
+                        try:
+                            lock.release()
+                            logger.debug(f"Released session lock for key {key}")
+                        except RuntimeError:
+                            pass
             self._local.clients.clear()
 
     def __del__(self):
