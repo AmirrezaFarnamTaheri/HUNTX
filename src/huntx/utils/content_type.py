@@ -50,7 +50,35 @@ def is_executable(data: bytes) -> Tuple[bool, str]:
             return True, "Android Package (APK)"
         
         # Many malware samples are sent as ZIPs with .exe inside.
-        # For now, we'll label it as ZIP and let the connector decide.
+        # Scan inside ZIP archive members against magic-byte executable filters
+        import zipfile
+        import io
+        try:
+            with zipfile.ZipFile(io.BytesIO(data)) as zf:
+                for info in zf.infolist():
+                    if info.is_dir():
+                        continue
+                    
+                    try:
+                        with zf.open(info) as member:
+                            member_header = member.read(4)
+                            if member_header.startswith(_EXE_MAGIC):
+                                return True, f"ZIP contains Windows Executable ({info.filename})"
+                            if member_header.startswith(_ELF_MAGIC):
+                                return True, f"ZIP contains Linux Executable ({info.filename})"
+                            if member_header == _MACHO_MAGIC_32 or member_header == _MACHO_MAGIC_64 or member_header == _MACHO_MAGIC_FAT:
+                                return True, f"ZIP contains macOS Executable ({info.filename})"
+                            if member_header == _ZIP_MAGIC:
+                                member_data_preview = member_header + member.read(4096)
+                                if b"AndroidManifest.xml" in member_data_preview:
+                                    return True, f"ZIP contains APK ({info.filename})"
+                    except Exception as e:
+                        logger.warning(f"Error checking zip member {info.filename}: {e}")
+        except zipfile.BadZipFile:
+            pass
+        except Exception as e:
+            logger.warning(f"Unexpected error parsing ZIP in is_executable: {e}")
+
         return False, "ZIP/Archive"
 
     return False, "unknown"

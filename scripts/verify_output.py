@@ -10,16 +10,10 @@ from typing import List, Dict, Any, Optional
 
 # Paths
 DATA_DIR = Path(os.getenv("HUNTX_DATA_DIR", "persist/data")).resolve()
-OUTPUT_DIR = DATA_DIR / "output"
+OUTPUT_DIR = DATA_DIR / "outputs"
 DIST_DIR = DATA_DIR / "dist"
 
-# All known proxy URI schemes
-_PROXY_SCHEMES = (
-    "vmess://", "vless://", "trojan://", "ss://", "ssr://",
-    "hysteria2://", "hy2://", "hysteria://", "tuic://",
-    "wireguard://", "wg://", "socks://", "socks5://", "socks4://",
-    "anytls://", "juicity://", "warp://", "dns://", "dnstt://",
-)
+from huntx.core.router import _PROXY_SCHEMES
 
 # Known binary format extensions (published as ZIP)
 _ZIP_EXTENSIONS = {".ovpn", ".npv4", ".ehi", ".hc", ".hat", ".sip", ".nm", ".zip"}

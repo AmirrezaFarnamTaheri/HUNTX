@@ -11,11 +11,10 @@ from pathlib import Path
 DATA_DIR = Path(os.getenv("HUNTX_DATA_DIR", "persist/data")).resolve()
 
 # Output directories
-# 1. Latest outputs (user-friendly names) -> DATA_DIR/output
-OUTPUT_DIR = Path(os.getenv("HUNTX_OUTPUT_DIR", DATA_DIR / "output")).resolve()
-# 2. Dev outputs (cumulative) -> CWD/outputs_dev
-#    Note: Orchestrator writes to CWD/outputs_dev. We assume generate_site_data is run from project root or can find it.
-DEV_DIR = Path(os.getenv("HUNTX_DEV_DIR", "outputs_dev")).resolve()
+# 1. Latest outputs (user-friendly names) -> DATA_DIR/outputs
+OUTPUT_DIR = Path(os.getenv("HUNTX_OUTPUT_DIR", DATA_DIR / "outputs")).resolve()
+# 2. Dev outputs (cumulative) -> DATA_DIR/outputs_dev
+DEV_DIR = Path(os.getenv("HUNTX_DEV_DIR", DATA_DIR / "outputs_dev")).resolve()
 # 3. Archive (historical) -> DATA_DIR/archive
 ARCHIVE_DIR = Path(os.getenv("HUNTX_ARCHIVE_DIR", DATA_DIR / "archive")).resolve()
 

@@ -14,9 +14,13 @@ class IngestionPipeline:
 
 
 
-    def _process_batch(self, source_id, buffer, conn):
+    def _process_batch(self, source_id, buffer, conn=None):
         if not buffer:
             return 0, 0, 0, 0, 0  # processed, new_bytes, skipped, text, media
+
+        if conn is None:
+            with self.state_repo.db.connect() as batch_conn:
+                return self._process_batch(source_id, buffer, batch_conn)
 
         # 1. Check seen files in batch
         external_ids = [item.external_id for item in buffer]
@@ -82,60 +86,39 @@ class IngestionPipeline:
             f"type={source_type}  connector={connector_name}"
         )
 
-        # Optimization: Open DB connection once for the entire pipeline run
-        with self.state_repo.db.connect() as conn:
-            state = self.state_repo.get_source_state(source_id, conn=conn) or {}
-            offset = state.get("offset", 0)
-            existing_stats = state.get("stats", {})
-            total_files = existing_stats.get("total_files", 0)
-            last_run = existing_stats.get("last_run", {})
+        state = self.state_repo.get_source_state(source_id) or {}
+        offset = state.get("offset", 0)
+        existing_stats = state.get("stats", {})
+        total_files = existing_stats.get("total_files", 0)
+        last_run = existing_stats.get("last_run", {})
 
-            logger.info(
-                f"[Ingest] State: offset={offset}  total_files_so_far={total_files}  "
-                f"last_run_files={last_run.get('files_ingested', '?')}  "
-                f"last_run_skipped={last_run.get('skipped_files', '?')}"
-            )
+        logger.info(
+            f"[Ingest] State: offset={offset}  total_files_so_far={total_files}  "
+            f"last_run_files={last_run.get('files_ingested', '?')}  "
+            f"last_run_skipped={last_run.get('skipped_files', '?')}"
+        )
 
-            count = 0
-            new_bytes = 0
-            skipped_count = 0
-            text_count = 0
-            media_count = 0
+        count = 0
+        new_bytes = 0
+        skipped_count = 0
+        text_count = 0
+        media_count = 0
 
-            start_time = time.time()
+        start_time = time.time()
 
-            try:
-                logger.info(f"[Ingest] Requesting items from connector for {source_id}...")
-                buffer = []
-                BATCH_SIZE = 100
+        try:
+            logger.info(f"[Ingest] Requesting items from connector for {source_id}...")
+            buffer = []
+            BATCH_SIZE = 100
 
-                for item in connector.list_new(state):
-                    if deadline and time.time() > deadline:
-                        logger.warning(f"[Ingest] Deadline exceeded for {source_id}. Interrupting ingestion.")
-                        break
+            for item in connector.list_new(state):
+                if deadline and time.time() > deadline:
+                    logger.warning(f"[Ingest] Deadline exceeded for {source_id}. Interrupting ingestion.")
+                    break
 
-                    buffer.append(item)
-                    if len(buffer) >= BATCH_SIZE:
-                        c, nb, sc, tc, mc = self._process_batch(source_id, buffer, conn)
-                        count += c
-                        new_bytes += nb
-                        skipped_count += sc
-                        text_count += tc
-                        media_count += mc
-                        buffer = []
-
-                        # Progress logging
-                        if count > 0 and count % 25 == 0: # Approximation for logging frequency
-                             elapsed = time.time() - start_time
-                             rate = count / elapsed if elapsed > 0 else 0
-                             logger.info(
-                                 f"[Ingest] … {source_id}: {count} ingested "
-                                 f"({new_bytes / 1024:.1f} KB, {rate:.1f} items/s)  "
-                                 f"skipped={skipped_count}"
-                             )
-
-                if buffer:
-                    c, nb, sc, tc, mc = self._process_batch(source_id, buffer, conn)
+                buffer.append(item)
+                if len(buffer) >= BATCH_SIZE:
+                    c, nb, sc, tc, mc = self._process_batch(source_id, buffer)
                     count += c
                     new_bytes += nb
                     skipped_count += sc
@@ -143,48 +126,67 @@ class IngestionPipeline:
                     media_count += mc
                     buffer = []
 
-            except Exception as e:
-                logger.exception(
-                    f"[Ingest] Error during ingestion for {source_id} after {count} items: {e}"
+                    # Progress logging
+                    if count > 0 and count % 25 == 0: # Approximation for logging frequency
+                         elapsed = time.time() - start_time
+                         rate = count / elapsed if elapsed > 0 else 0
+                         logger.info(
+                             f"[Ingest] … {source_id}: {count} ingested "
+                             f"({new_bytes / 1024:.1f} KB, {rate:.1f} items/s)  "
+                             f"skipped={skipped_count}"
+                         )
+
+            if buffer:
+                c, nb, sc, tc, mc = self._process_batch(source_id, buffer)
+                count += c
+                new_bytes += nb
+                skipped_count += sc
+                text_count += tc
+                media_count += mc
+                buffer = []
+
+        except Exception as e:
+            logger.exception(
+                f"[Ingest] Error during ingestion for {source_id} after {count} items: {e}"
+            )
+            raise
+
+        duration = time.time() - start_time
+        avg_size = (new_bytes / count) if count > 0 else 0
+        rate = count / duration if duration > 0 else 0
+
+        # Update stats
+        try:
+            new_state = connector.get_state()
+
+            new_state["stats"] = {
+                "total_files": total_files + count,
+                "last_run": {
+                    "timestamp": time.time(),
+                    "files_ingested": count,
+                    "bytes_ingested": new_bytes,
+                    "duration_seconds": round(duration, 2),
+                    "skipped_files": skipped_count,
+                    "text_items": text_count,
+                    "media_items": media_count,
+                },
+            }
+
+            self.state_repo.update_source_state(source_id, new_state, source_type=source_type)
+
+            logger.info(
+                f"[Ingest] ═══ Done {source_id} ═══  "
+                f"new={count} (text={text_count} media={media_count})  "
+                f"size={new_bytes / 1024:.1f} KB (avg={avg_size:.0f} B)  "
+                f"skipped={skipped_count}  rate={rate:.1f}/s  duration={duration:.2f}s"
+            )
+
+            if count == 0 and skipped_count == 0:
+                logger.warning(
+                    f"[Ingest] Zero items from {source_id}. "
+                    f"Check connector logs for filtered/ignored updates."
                 )
-                raise
 
-            duration = time.time() - start_time
-            avg_size = (new_bytes / count) if count > 0 else 0
-            rate = count / duration if duration > 0 else 0
-
-            # Update stats
-            try:
-                new_state = connector.get_state()
-
-                new_state["stats"] = {
-                    "total_files": total_files + count,
-                    "last_run": {
-                        "timestamp": time.time(),
-                        "files_ingested": count,
-                        "bytes_ingested": new_bytes,
-                        "duration_seconds": round(duration, 2),
-                        "skipped_files": skipped_count,
-                        "text_items": text_count,
-                        "media_items": media_count,
-                    },
-                }
-
-                self.state_repo.update_source_state(source_id, new_state, source_type=source_type, conn=conn)
-
-                logger.info(
-                    f"[Ingest] ═══ Done {source_id} ═══  "
-                    f"new={count} (text={text_count} media={media_count})  "
-                    f"size={new_bytes / 1024:.1f} KB (avg={avg_size:.0f} B)  "
-                    f"skipped={skipped_count}  rate={rate:.1f}/s  duration={duration:.2f}s"
-                )
-
-                if count == 0 and skipped_count == 0:
-                    logger.warning(
-                        f"[Ingest] Zero items from {source_id}. "
-                        f"Check connector logs for filtered/ignored updates."
-                    )
-
-            except Exception as e:
-                logger.exception(f"[Ingest] Failed to update state for {source_id}: {e}")
-                raise
+        except Exception as e:
+            logger.exception(f"[Ingest] Failed to update state for {source_id}: {e}")
+            raise

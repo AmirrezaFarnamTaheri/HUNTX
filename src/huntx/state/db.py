@@ -39,16 +39,27 @@ class DBConnection:
     def _check_migrations(self, conn: sqlite3.Connection):
         """
         Manually handle schema migrations that aren't covered by IF NOT EXISTS
+        using user_version tracking.
         """
-        # Check if metadata_json column exists in seen_files
         try:
-            cursor = conn.execute("PRAGMA table_info(seen_files)")
-            columns = [row["name"] for row in cursor.fetchall()]
-            if "metadata_json" not in columns:
-                logger.info("Migrating: Adding metadata_json to seen_files")
-                conn.execute("ALTER TABLE seen_files ADD COLUMN metadata_json TEXT")
+            cursor = conn.execute("PRAGMA user_version")
+            version = cursor.fetchone()[0]
+            logger.info(f"Database schema version: {version}")
+
+            if version < 1:
+                cursor = conn.execute("PRAGMA table_info(seen_files)")
+                columns = [row["name"] for row in cursor.fetchall()]
+                if "metadata_json" not in columns:
+                    logger.info("Migrating (v1): Adding metadata_json to seen_files")
+                    conn.execute("ALTER TABLE seen_files ADD COLUMN metadata_json TEXT")
+                if "filename" not in columns:
+                    logger.info("Migrating (v1): Adding filename to seen_files")
+                    conn.execute("ALTER TABLE seen_files ADD COLUMN filename TEXT")
+                conn.execute("PRAGMA user_version = 1")
+                logger.info("Database schema migrated to version 1.")
         except Exception as e:
             logger.error(f"Migration check failed: {e}")
+            raise
 
     @contextlib.contextmanager
     def connect(self) -> Generator[sqlite3.Connection, None, None]:

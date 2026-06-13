@@ -12,7 +12,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
     <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com/3.4.17" integrity="sha384-igm5BeiBt36UU4gqwWS7imYmelpTsZlQ45FZf+XBn9MuJbn4nQr7yx1yFydocC/K" crossorigin="anonymous"></script>
+
+    <!-- ES Module Preloads with Subresource Integrity (SRI) -->
+    <link rel="modulepreload" href="https://esm.sh/preact@10.19.3" integrity="sha384-dqVmFbphN3oXb/KJvYn7cj2EOPBBIkOLCI3lh4eS8vY3GfjuN09FnQThjREc52jX" crossorigin="anonymous">
+    <link rel="modulepreload" href="https://esm.sh/preact@10.19.3/hooks" integrity="sha384-XL9P6gxQdPryxEKKO0QCxe9W/C7eURngB/I130STuTj34PcMvNr6JJmTQaqPuNHM" crossorigin="anonymous">
+    <link rel="modulepreload" href="https://esm.sh/htm@3.1.1" integrity="sha384-sSiaM0en9Bz57PyCPaF5zeh8OaFdFmSQRw0ynngAWx8Kz51qoisBTGbQRBTrDa6G" crossorigin="anonymous">
+    <link rel="modulepreload" href="https://esm.sh/fuse.js@7.0.0" integrity="sha384-KCj9W5uVay9z0KzO/Sqz25e5duWXw8o8fyq7Zrk5yxh+pikZBCzWz/9czeE6cP8q" crossorigin="anonymous">
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -129,7 +135,7 @@ body {
     </style>
 
     <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide@0.400.0/dist/umd/lucide.min.js" integrity="sha384-8aPDSS8PITpbbP5u/xl0pTc7N8yU/dHjXBQwa2hJzZ2FEFd73n1pK5dSgaIYSZOf" crossorigin="anonymous"></script>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen flex flex-col font-sans antialiased transition-colors duration-300 selection:bg-brand-500 selection:text-white">
 

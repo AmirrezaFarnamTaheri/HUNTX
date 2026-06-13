@@ -15,8 +15,10 @@ logger = logging.getLogger(__name__)
 
 # --- HA Tunnel Plus (happ://) ---
 
+import os
+
 HAPP_KEYS_PEM = {
-    "crypt": (
+    "crypt": os.getenv("HUNTX_HAPP_CRYPT_PEM") or (
         "-----BEGIN RSA PRIVATE KEY-----\n"
         "MIICXwIBAAKBgQCxsS7PUq1biQlVD92rf6eXKr9oG1/SrYx3qWahZP+Jq35m4Wb/\n"
         "Z+mB6eBWrPzJ/zZpZLWLQorcvOKt+sLaCHyH1HLNkti4jlaEQX6x97XgBm8GK08+\n"
@@ -33,7 +35,7 @@ HAPP_KEYS_PEM = {
         "pcM+KDGLnbBhWrvZGy8Zg8vQwNvdvCLvylk0jVTTFqW3ibM=\n"
         "-----END RSA PRIVATE KEY-----"
     ),
-    "crypt2": (
+    "crypt2": os.getenv("HUNTX_HAPP_CRYPT2_PEM") or (
         "-----BEGIN RSA PRIVATE KEY-----\n"
         "MIIJKQIBAAKCAgEA5cL2yu9dZGnNbs4jt222NugIqiuZdXKdTh4IgXZmOX0vdpW+\n"
         "rYWrPd1EObQ3Urt+YBTK5Di98EBjYCPr8tusaVRAn3Vaq41CDisEdX35u1N8jSHQ\n"
@@ -86,7 +88,7 @@ HAPP_KEYS_PEM = {
         "mH0DZwzuaFdWnKPyJWBXddFYaNQxlfzr6IuPy6b213MHGKnFf8l2C5u32Bo+\n"
         "-----END RSA PRIVATE KEY-----"
     ),
-    "crypt3": (
+    "crypt3": os.getenv("HUNTX_HAPP_CRYPT3_PEM") or (
         "-----BEGIN RSA PRIVATE KEY-----\n"
         "MIIJJwIBAAKCAgEAlBetA0wjbaj+h7oJ/d/hpNrXvAcuhOdFGEFcfCxSWyLzWk4S\n"
         "AQ05gtaEGZyetTax2uqagi9HT6lapUSUe2S8nMLJf5K+LEs9TYrhhBdx/B0BGahA\n"
@@ -239,9 +241,9 @@ def decrypt_slipnet_link(link_str: str) -> Optional[str]:
 # --- TutDecryptor (.tut, .sks, .tmt) ---
 
 TUT_PASSWORDS = {
-    ".tut": b"fubvx788b46v",
-    ".sks": b"dyv35224nossas!!",
-    ".tmt": b"fubvx788B4mev",
+    ".tut": os.getenv("HUNTX_TUT_PASS_TUT", "").encode() or b"fubvx788b46v",
+    ".sks": os.getenv("HUNTX_TUT_PASS_SKS", "").encode() or b"dyv35224nossas!!",
+    ".tmt": os.getenv("HUNTX_TUT_PASS_TMT", "").encode() or b"fubvx788B4mev",
 }
 
 def decrypt_tut_data(data_str: str, extension: str = ".tmt") -> Optional[str]:
@@ -350,7 +352,8 @@ def decrypt_netmod_data(data: bytes) -> Optional[str]:
     if not data:
         return None
         
-    key = b"_netsyna_netmod_"
+    key_env = os.getenv("HUNTX_NETMOD_KEY")
+    key = key_env.encode() if key_env else b"_netsyna_netmod_"
     try:
         content_str = data.decode("utf-8", errors="ignore").strip()
         if "://" in content_str:

@@ -77,6 +77,20 @@ class TelegramConnector(SourceConnector):
                     if duration > 1.0:
                         logger.debug(f"API request {method} took {duration:.2f}s")
                     return res
+            except urllib.error.HTTPError as e:
+                if e.code == 409:
+                    logger.critical(f"[Telegram API] 409 Conflict detected for method '{method}'. Another process is polling this bot token!")
+                    raise RuntimeError("409 Conflict: Telegram bot token is already in use by another active getUpdates session.")
+                if attempt < MAX_RETRIES:
+                    sleep_time = BACKOFF_FACTOR * (2**attempt)
+                    logger.warning(
+                        f"Telegram API HTTP error {e.code} (attempt {attempt + 1}/{MAX_RETRIES + 1}): {e.reason}. "
+                        f"Retrying in {sleep_time}s..."
+                    )
+                    time.sleep(sleep_time)
+                else:
+                    logger.error(f"Telegram API HTTP error {e.code} (final attempt) for {method}: {e.reason}")
+                    return {"ok": False}
             except urllib.error.URLError as e:
                 if attempt < MAX_RETRIES:
                     sleep_time = BACKOFF_FACTOR * (2**attempt)
@@ -149,6 +163,10 @@ class TelegramConnector(SourceConnector):
         fetched_updates_count = 0
 
         while has_more:
+            if getattr(self, "deadline", None) and time.time() > self.deadline:
+                logger.warning("[BotAPI] Ingestion deadline exceeded. Aborting.")
+                break
+
             # We request updates starting from the last known biggest update_id + 1
             # Note: Telegram getUpdates offset is "identifier of the first update to be returned".
 
@@ -179,6 +197,11 @@ class TelegramConnector(SourceConnector):
                     shared["updates"][update_id] = update
 
             shared["last_offset"] = current_max_update_id
+
+            # Evict old updates from cache to prevent unbounded growth (F-16)
+            if len(shared["updates"]) > 500:
+                cutoff = current_max_update_id - 500
+                shared["updates"] = {uid: upd for uid, upd in shared["updates"].items() if uid >= cutoff}
 
             # small sleep to be nice to API
             time.sleep(0.5)

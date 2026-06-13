@@ -11,6 +11,7 @@ def acquire_lock(lock_file: Path):
     """Cross-platform exclusive file lock (POSIX fcntl / Windows msvcrt)."""
     lock_file.parent.mkdir(parents=True, exist_ok=True)
     f = open(lock_file, "w")
+    locked = False
     try:
         if sys.platform == "win32":
             import msvcrt
@@ -20,21 +21,22 @@ def acquire_lock(lock_file: Path):
             import fcntl
 
             fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        locked = True
         yield
-    except (IOError, OSError):
-        print("Another instance is running. Exiting.")
-        sys.exit(0)
+    except (IOError, OSError) as e:
+        raise RuntimeError("Another instance of HuntX is already running.") from e
     finally:
-        try:
-            if sys.platform == "win32":
-                import msvcrt
+        if locked:
+            try:
+                if sys.platform == "win32":
+                    import msvcrt
 
-                f.seek(0)
-                msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
-            else:
-                import fcntl
+                    f.seek(0)
+                    msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    import fcntl
 
-                fcntl.lockf(f, fcntl.LOCK_UN)
-        except OSError as e:
-            logger.debug(f"Failed to release lock {lock_file}: {e}")
+                    fcntl.lockf(f, fcntl.LOCK_UN)
+            except OSError as e:
+                logger.debug(f"Failed to release lock {lock_file}: {e}")
         f.close()

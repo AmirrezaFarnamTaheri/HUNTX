@@ -44,6 +44,11 @@ class V2RayCollectorConnector(SourceConnector):
                 logger.warning(f"Could not remove existing configs file: {e}")
 
         # 2. Run the Go scraper
+        import shutil
+        if not shutil.which("go"):
+            logger.error("Go binary ('go') not found in system PATH. Please install Go toolchain to run v2ray_collector.")
+            return
+
         logger.info(f"Executing Go scraper in {self.base_dir}...")
         try:
             res = subprocess.run(

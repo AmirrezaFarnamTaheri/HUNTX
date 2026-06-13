@@ -166,11 +166,10 @@ class TestElevation(unittest.TestCase):
         """Verify _is_admin correctly identifies configured admin users."""
         bot = InteractiveBot("token", 123, "hash")
         
-        with patch.dict(os.environ, {"HUNTX_ADMINS": "12345,admin_user"}):
+        with patch.dict(os.environ, {"HUNTX_ADMINS": "12345,9999"}):
             # Admins
             self.assertTrue(bot._is_admin("12345"))
-            self.assertTrue(bot._is_admin("9999", "admin_user"))
-            self.assertTrue(bot._is_admin("9999", "@admin_user"))
+            self.assertTrue(bot._is_admin("9999", "some_username"))
             
             # Non-admins
             self.assertFalse(bot._is_admin("11111"))

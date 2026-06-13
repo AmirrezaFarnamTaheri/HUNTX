@@ -36,9 +36,7 @@ on:
         default: ""
 
 permissions:
-  contents: write
-  pages: write
-  id-token: write
+  contents: read
 
 concurrency:
   group: huntx
@@ -54,16 +52,19 @@ env:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
         with:
           python-version: "3.12"
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install --require-hashes -r requirements.txt
           pip install flake8 mypy pytest types-requests types-PyYAML
-          pip install -e .
+          pip install --no-deps -e .
       - name: Lint (flake8)
         run: flake8 src/huntx --count --select=E9,F63,F7,F82 --show-source --statistics
       - name: Type Check (mypy)
@@ -74,6 +75,10 @@ jobs:
   run:
     needs: validate
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -85,17 +90,17 @@ jobs:
           docker system prune -af 2>/dev/null || true
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 1
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
         with:
           python-version: "3.12"
 
       - name: Cache pip
-        uses: actions/cache@v4
+        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
@@ -107,20 +112,20 @@ jobs:
           # Retry pip install to handle transient network issues
           n=0
           until [ "$n" -ge 3 ]; do
-            pip install -e . && break
+            pip install --require-hashes -r requirements.txt && pip install --no-deps -e . && break
             n=$((n+1))
             echo "Install failed. Retrying in $((n*5)) seconds..."
             sleep $((n*5))
           done
 
       - name: Prepare directories
-        run: mkdir -p persist/data/{raw,output,dist,rejects,archive,state,logs}
+        run: mkdir -p persist/data/{raw,outputs,outputs_dev,dist,rejects,archive,state,logs}
 
       - name: Configure AWS credentials (optional OIDC)
         env:
           AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
         if: ${{ env.AWS_ROLE_ARN != '' }}
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
@@ -210,14 +215,14 @@ jobs:
         run: python scripts/generate_site_data.py
 
       - name: Upload output
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: huntx-output
           path: persist/data/dist/
           retention-days: 4
 
       - name: Upload logs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: huntx-logs
           path: persist/data/logs/
@@ -227,6 +232,12 @@ jobs:
         run: |
           git config user.name "huntx-bot"
           git config user.email "huntx-bot@users.noreply.github.com"
+
+          # Sync output directories to the repo root before commit
+          rm -rf outputs/* outputs_dev/*
+          mkdir -p outputs outputs_dev
+          cp -r persist/data/outputs/* outputs/ 2>/dev/null || true
+          cp -r persist/data/outputs_dev/* outputs_dev/ 2>/dev/null || true
 
           git add outputs/ outputs_dev/ docs/catalog.json docs/artifacts/ 2>/dev/null || true
 
@@ -268,13 +279,13 @@ jobs:
         run: python scripts/generate_site_data.py
 
       - name: Setup Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@983d626a19e051b50721d2ad484c2877b1f72621 # v5.0.0
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda996908d67 # v3.0.1
         with:
           path: 'docs/'
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164db5ed86f2b6a764531401a52557ae23 # v4.0.5

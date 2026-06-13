@@ -62,34 +62,52 @@ class TelegramPublisher:
 
         req = urllib.request.Request(f"{self.base_url}/sendDocument", data=body, headers=headers)
 
-        try:
-            with urllib.request.urlopen(req, timeout=60) as response:
-                resp_code = response.getcode()
-                resp_body = response.read().decode("utf-8")
-                logger.debug(f"Telegram API Response Code: {resp_code}")
-                
-                payload = json.loads(resp_body)
-                if not payload.get("ok"):
-                    error_msg = payload.get("description", "Unknown Telegram error")
-                    params = payload.get("parameters", {})
-                    retry_after = params.get("retry_after")
-                    if retry_after:
-                        logger.warning(f"Telegram API rate limited. Retry after {retry_after}s: {error_msg}")
-                    else:
-                        logger.error(f"Telegram API rejected publish to {chat_id}: {error_msg}")
-                    raise RuntimeError(f"Telegram API error: {error_msg}")
-                
-                return payload
-        except urllib.error.HTTPError as e:
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
             try:
-                resp_body = e.read().decode("utf-8")
-                payload = json.loads(resp_body)
-                error_msg = payload.get("description", str(e))
-                logger.error(f"Telegram API HTTP error {e.code}: {error_msg}")
-                raise RuntimeError(f"Telegram API HTTP {e.code}: {error_msg}")
-            except Exception:
-                logger.error(f"Telegram API HTTP error {e.code}: {e}")
+                with urllib.request.urlopen(req, timeout=60) as response:
+                    resp_code = response.getcode()
+                    resp_body = response.read().decode("utf-8")
+                    logger.debug(f"Telegram API Response Code: {resp_code}")
+                    
+                    payload = json.loads(resp_body)
+                    if not payload.get("ok"):
+                        error_msg = payload.get("description", "Unknown Telegram error")
+                        params = payload.get("parameters", {})
+                        retry_after = params.get("retry_after")
+                        if retry_after and attempt < max_attempts:
+                            import time
+                            logger.warning(f"Telegram API rate limited (attempt {attempt}/{max_attempts}). Sleeping for {retry_after}s: {error_msg}")
+                            time.sleep(retry_after)
+                            continue
+                        raise RuntimeError(f"Telegram API error: {error_msg}")
+                    
+                    return payload
+            except urllib.error.HTTPError as e:
+                try:
+                    resp_body = e.read().decode("utf-8")
+                    payload = json.loads(resp_body)
+                    error_msg = payload.get("description", str(e))
+                    
+                    if e.code == 429 and attempt < max_attempts:
+                        params = payload.get("parameters", {})
+                        retry_after = params.get("retry_after") or 5
+                        import time
+                        logger.warning(f"Telegram API rate limited with HTTP 429 (attempt {attempt}/{max_attempts}). Sleeping for {retry_after}s: {error_msg}")
+                        time.sleep(retry_after)
+                        continue
+                        
+                    logger.error(f"Telegram API HTTP error {e.code}: {error_msg}")
+                    raise RuntimeError(f"Telegram API HTTP {e.code}: {error_msg}")
+                except RuntimeError:
+                    raise
+                except Exception as ex:
+                    logger.error(f"Telegram API HTTP error {e.code}: {ex}")
+                    raise
+            except Exception as e:
+                logger.error(f"Telegram publish failed for {chat_id} (attempt {attempt}/{max_attempts}): {e}")
+                if attempt < max_attempts:
+                    import time
+                    time.sleep(2 * attempt)
+                    continue
                 raise
-        except Exception as e:
-            logger.error(f"Telegram publish failed for {chat_id}: {e}")
-            raise

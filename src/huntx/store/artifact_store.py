@@ -15,7 +15,7 @@ class ArtifactStore:
         # IMPORTANT: compute default at runtime (after paths.set_paths()).
         self.base_dir = base_dir or paths.DATA_DIR
         self.internal_dir = self.base_dir / "dist" / "internal"
-        self.output_dir = self.base_dir / "output"
+        self.output_dir = self.base_dir / "outputs"
         self.archive_dir = self.base_dir / "archive"
 
         self.internal_dir.mkdir(parents=True, exist_ok=True)

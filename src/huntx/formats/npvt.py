@@ -7,19 +7,7 @@ from .base import FormatHandler
 from .common.normalize_text import normalize_text
 from .common.hashing import hash_string
 
-# All known proxy URI schemes
-_PROXY_SCHEMES = (
-    "vmess://", "vless://", "trojan://",
-    "ss://", "ssr://",
-    "hysteria2://", "hy2://", "hysteria://",
-    "tuic://",
-    "wireguard://", "wg://",
-    "socks://", "socks5://", "socks4://",
-    "anytls://",
-    "juicity://",
-    "warp://",
-    "dns://", "dnstt://",
-)
+from ..core.router import _PROXY_SCHEMES
 
 # Regex to extract proxy URIs from anywhere in text.
 # Matches scheme:// followed by non-whitespace characters.

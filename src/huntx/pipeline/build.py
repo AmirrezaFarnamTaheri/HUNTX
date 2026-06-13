@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import json
 import logging
 import time
@@ -10,19 +11,7 @@ from ..formats.registry import FormatRegistry
 
 logger = logging.getLogger(__name__)
 
-# All proxy URI schemes
-_PROXY_SCHEMES = (
-    "vmess://", "vless://", "trojan://",
-    "ss://", "ssr://",
-    "hysteria2://", "hy2://", "hysteria://",
-    "tuic://",
-    "wireguard://", "wg://",
-    "socks://", "socks5://", "socks4://",
-    "anytls://",
-    "juicity://",
-    "warp://",
-    "dns://", "dnstt://",
-)
+from ..core.router import _PROXY_SCHEMES
 
 
 class BuildPipeline:
@@ -304,11 +293,12 @@ class BuildPipeline:
                             f"[Build] ✓ {route_name}/{fmt}.decoded.json: {dec_size_kb:.1f} KB  "
                             f"(structured JSON of all proxy URIs)"
                         )
+                        decoded_hash = hashlib.sha256(decoded).hexdigest()
                         results.append({
                             "route_name": route_name,
                             "format": f"{fmt}.decoded.json",
                             "unique_id": f"{route_name}:{fmt}.decoded.json",
-                            "artifact_hash": artifact_hash + "_dec",
+                            "artifact_hash": decoded_hash,
                             "data": decoded,
                             "count": record_count,
                         })
@@ -321,11 +311,12 @@ class BuildPipeline:
                             f"[Build] ✓ {route_name}/{fmt}.b64sub: {b64_size_kb:.1f} KB  "
                             f"(base64 subscription for v2rayN/v2rayNG)"
                         )
+                        reencoded_hash = hashlib.sha256(reencoded).hexdigest()
                         results.append({
                             "route_name": route_name,
                             "format": f"{fmt}.b64sub",
                             "unique_id": f"{route_name}:{fmt}.b64sub",
-                            "artifact_hash": artifact_hash + "_b64",
+                            "artifact_hash": reencoded_hash,
                             "data": reencoded,
                             "count": record_count,
                         })

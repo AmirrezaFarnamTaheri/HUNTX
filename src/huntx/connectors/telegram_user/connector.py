@@ -54,6 +54,15 @@ class TelegramUserConnector:
                 self._session_locks[self.session] = threading.RLock()
             return self._session_locks[self.session]
 
+    def __enter__(self):
+        lock = self._get_session_lock()
+        lock.acquire()
+        self._lock_acquired = True
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.cleanup()
+
     def __init__(self, api_id: int, api_hash: str, session: str, peer: str,
                  state: Optional[Dict[str, Any]] = None, fetch_windows: Optional[Dict[str, Any]] = None):
         self.api_id = api_id
@@ -61,6 +70,7 @@ class TelegramUserConnector:
         self.session = session
         self.peer = peer  # "@channel" or "-100123..."
         self.offset = (state or {}).get("offset", 0)
+        self._lock_acquired = False
         fw = fetch_windows or {}
         self._msg_fresh_s = fw.get("msg_fresh_hours", 2) * 3600
         self._file_fresh_s = fw.get("file_fresh_hours", 48) * 3600
@@ -82,12 +92,17 @@ class TelegramUserConnector:
         key = (self.api_id, self.session)
         if key not in self._local.clients:
             logger.info(f"Initializing new Telegram User Client for api_id={self.api_id}")
-            lock = self._get_session_lock()
-            lock.acquire()
+            if not self._lock_acquired:
+                lock = self._get_session_lock()
+                lock.acquire()
+                self._lock_acquired = True
             try:
                 self._local.clients[key] = TelegramClient(StringSession(self.session), self.api_id, self.api_hash)
             except Exception:
-                lock.release()
+                if self._lock_acquired:
+                    lock = self._get_session_lock()
+                    lock.release()
+                    self._lock_acquired = False
                 raise
         return self._local.clients[key]
 
@@ -192,6 +207,9 @@ class TelegramUserConnector:
         while retries <= _MAX_RECONNECT_RETRIES:
           try:
             for msg in client.iter_messages(peer_entity, min_id=resume_after_id, reverse=True):
+                if getattr(self, "deadline", None) and time.time() > self.deadline:
+                    logger.warning(f"[MTProto] Ingestion deadline exceeded during text pass. Aborting.")
+                    break
                 self.offset = max(self.offset, msg.id)
                 resume_after_id = max(resume_after_id, msg.id)
                 scanned += 1
@@ -309,6 +327,9 @@ class TelegramUserConnector:
                 peer_entity, min_id=resume_after_id, reverse=True,
                 filter=InputMessagesFilterDocument,
             ):
+                if getattr(self, "deadline", None) and time.time() > self.deadline:
+                    logger.warning(f"[MTProto] Ingestion deadline exceeded during document pass. Aborting.")
+                    break
                 self.offset = max(self.offset, msg.id)
                 resume_after_id = max(resume_after_id, msg.id)
                 scanned += 1
@@ -514,14 +535,16 @@ class TelegramUserConnector:
                 except Exception as e:
                     logger.warning(f"Error disconnecting Telegram client for key {key}: {e}")
                 finally:
-                    session_str = key[1]
-                    lock = self._session_locks.get(session_str)
-                    if lock:
-                        try:
-                            lock.release()
-                            logger.debug(f"Released session lock for key {key}")
-                        except RuntimeError:
-                            pass
+                    if getattr(self, "_lock_acquired", False):
+                        session_str = key[1]
+                        lock = self._session_locks.get(session_str)
+                        if lock:
+                            try:
+                                lock.release()
+                                logger.debug(f"Released session lock for key {key}")
+                            except RuntimeError:
+                                pass
+                        self._lock_acquired = False
             self._local.clients.clear()
 
     def __del__(self):

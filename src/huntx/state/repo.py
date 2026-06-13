@@ -27,7 +27,7 @@ class StateRepo:
                     return self.get_source_state(source_id, c)
         except Exception as e:
             logger.error(f"Failed to get source state for {source_id}: {e}")
-            return None
+            raise
 
     def update_source_state(
         self,
@@ -68,7 +68,7 @@ class StateRepo:
                     return bool(c.execute(query, args).fetchone())
         except Exception as e:
             logger.error(f"Error checking seen file {external_id} from {source_id}: {e}")
-            return False
+            raise
 
     def record_file(
         self,
@@ -118,7 +118,7 @@ class StateRepo:
                     return {row[0] for row in cursor.fetchall()}
         except Exception as e:
             logger.error(f"Failed to get seen files batch for {source_id}: {e}")
-            return set()
+            raise
 
     def record_files_batch(self, records: List[tuple], conn: Optional[sqlite3.Connection] = None):
         if not records:
@@ -163,7 +163,7 @@ class StateRepo:
                 return [dict(row) for row in cursor.fetchall()]
         except Exception as e:
             logger.error(f"Failed to get pending files: {e}")
-            return []
+            raise
 
     def add_record(self, raw_hash: str, record_type: str, unique_hash: str, data: Dict[str, Any]):
         try:
@@ -259,7 +259,7 @@ class StateRepo:
                 ]
         except Exception as e:
             logger.error(f"Failed to get records for build (types={record_types}): {e}")
-            return []
+            raise
 
     def is_artifact_published(self, route_name: str, artifact_hash: str) -> bool:
         try:
@@ -274,7 +274,7 @@ class StateRepo:
                 return bool(row)
         except Exception as e:
             logger.error(f"Error checking if artifact published: {e}")
-            return False
+            raise
 
     def mark_published(self, route_name: str, artifact_hash: str, metadata: Optional[Dict[str, Any]] = None):
         try:
@@ -320,7 +320,17 @@ class StateRepo:
                 return [row["raw_hash"] for row in cursor.fetchall()]
         except Exception as e:
             logger.error(f"Failed to get processed hashes: {e}")
-            return []
+            raise
+
+    def get_all_known_hashes(self) -> set:
+        """Return all raw hashes tracked in the seen_files table."""
+        try:
+            with self.db.connect() as conn:
+                cursor = conn.execute("SELECT DISTINCT raw_hash FROM seen_files")
+                return {row["raw_hash"] for row in cursor.fetchall()}
+        except Exception as e:
+            logger.error(f"Failed to get all known hashes: {e}")
+            raise
 
     def get_last_published_hash(self, route_name: str) -> Optional[str]:
         try:
@@ -336,7 +346,7 @@ class StateRepo:
                 return row["artifact_hash"] if row else None
         except Exception as e:
             logger.error(f"Failed to get last published hash for {route_name}: {e}")
-            return None
+            raise
 
     def prune_old_data(self, days: int) -> Dict[str, Any]:
         """Purge seen_files, records, and published_artifacts older than N days.

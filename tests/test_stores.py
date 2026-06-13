@@ -27,6 +27,22 @@ class TestRawStore(unittest.TestCase):
         self.assertIsNone(self.store.get("nonexistent"))
         self.assertFalse(self.store.exists("nonexistent"))
 
+    def test_prune_orphans(self):
+        data1 = b"blob 1"
+        h1 = self.store.save(data1)
+        
+        data2 = b"blob 2"
+        h2 = self.store.save(data2)
+        
+        mock_repo = unittest.mock.MagicMock()
+        mock_repo.get_all_known_hashes.return_value = {h1}
+        
+        pruned = self.store.prune_orphans(mock_repo)
+        
+        self.assertEqual(pruned, 1)
+        self.assertTrue(self.store.exists(h1))
+        self.assertFalse(self.store.exists(h2))
+
 
 class TestArtifactStore(unittest.TestCase):
     def setUp(self):

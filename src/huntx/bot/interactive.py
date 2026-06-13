@@ -30,12 +30,12 @@ logger = logging.getLogger(__name__)
 WELCOME_TEXT = (
     "🛰 **GatherX — Free Proxy Configs**\n"
     "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-    "Fresh proxy configs from **49+ sources**, updated every 2 hours.\n"
+    "Fresh proxy configs from **85 sources**, updated every 2 hours.\n"
     "VMess · VLESS · Trojan · SS · Hysteria2 · TUIC · WireGuard and more.\n\n"
     "📥 **Get Proxies**\n"
     "  /get — Download proxies (your default format)\n"
     "  /get `b64sub` — Base64 subscription link\n"
-    "  /latest — All recent proxy files\n"
+    "  /latest — All recent proxy files (max 7 days)\n"
     "  /formats — See all available formats\n"
     "  /protocols — Supported proxy protocols\n"
     "  /count — Proxy count per protocol\n\n"
@@ -44,7 +44,10 @@ WELCOME_TEXT = (
     "  /mute · /unmute — Toggle auto-delivery\n"
     "  /myinfo — Your preferences\n"
     "  /status · /ping — System status\n\n"
-    "Proxies are delivered automatically. Use /mute to stop."
+    "Proxies are delivered automatically. Use /mute to stop.\n"
+    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+    "⚠️ **Disclaimer:** All configurations are aggregated from public channels and are **unverified**. "
+    "Use at your own risk; malicious proxy operators can observe/MITM your traffic."
 )
 
 _BOT_COMMANDS = [
@@ -114,11 +117,15 @@ class InteractiveBot:
         self.api_id = api_id
         self.api_hash = api_hash
 
+        self.data_dir = str(paths.DATA_DIR)
+        self.db_path = str(paths.STATE_DB_PATH)
+
         self.artifact_store = ArtifactStore()
         self.db = open_db(paths.STATE_DB_PATH)
         self.repo = StateRepo(self.db)
 
         self._init_tables()
+        self._user_cooldowns = {}
 
         session_path = paths.DATA_DIR / "bot.session"
         self.client = TelegramClient(str(session_path), self.api_id, self.api_hash)
@@ -343,10 +350,40 @@ class InteractiveBot:
         admins_str = os.environ.get("HUNTX_ADMINS", "")
         if not admins_str:
             return False
-        admins = [a.strip().lower() for a in admins_str.split(",") if a.strip()]
-        user_id_str = str(user_id).lower()
-        username_str = str(username or "").lower().lstrip("@")
-        return user_id_str in admins or username_str in admins
+        admins = [a.strip() for a in admins_str.split(",") if a.strip()]
+        user_id_str = str(user_id).strip()
+        
+        # Security: match numeric IDs only to prevent username spoofing/takeover.
+        # Warn if non-numeric entries are configured in HUNTX_ADMINS.
+        for a in admins:
+            if not a.isdigit():
+                logger.warning(f"[Security] Non-numeric admin ID configured in HUNTX_ADMINS: '{a}'. Insecure and ignored.")
+                
+        numeric_admins = {a for a in admins if a.isdigit()}
+        return user_id_str in numeric_admins
+
+    async def _check_rate_limit(self, event, cooldown_seconds=5) -> bool:
+        """Rate limit check to prevent resource exhaustion / flood-bans.
+        Returns True if the request is allowed, False if it is rate-limited.
+        """
+        user_id = getattr(event, "sender_id", None)
+        if not user_id:
+            return True
+
+        if self._is_admin(str(user_id)):
+            return True
+
+        import time
+        now = time.time()
+        last_time = self._user_cooldowns.get(user_id, 0.0)
+        elapsed = now - last_time
+        if elapsed < cooldown_seconds:
+            wait_time = int(cooldown_seconds - elapsed) + 1
+            await event.respond(f"⚠️ **Slow down!** Please wait {wait_time}s before using this command again.", parse_mode="md")
+            return False
+
+        self._user_cooldowns[user_id] = now
+        return True
 
     @staticmethod
     def _filename_matches_format(name: str, fmt: str) -> bool:
@@ -434,6 +471,8 @@ class InteractiveBot:
 
     async def _on_start(self, event):
         """Register user and send welcome with quick-action buttons."""
+        if not await self._check_rate_limit(event, cooldown_seconds=3):
+            return
         user_id = str(event.sender_id)
         chat_id = str(event.chat_id)
         username = None
@@ -457,6 +496,8 @@ class InteractiveBot:
             logger.info(f"[GatherX] New user registered: {user_id} (@{username})")
 
     async def _on_help(self, event):
+        if not await self._check_rate_limit(event, cooldown_seconds=3):
+            return
         self._register_user(str(event.sender_id), str(event.chat_id))
         buttons = [
             [Button.inline("📥 Get Proxies", b"get:npvt"),
@@ -468,6 +509,8 @@ class InteractiveBot:
 
     async def _on_get(self, event):
         """On-demand file download: /get [format]"""
+        if not await self._check_rate_limit(event, cooldown_seconds=5):
+            return
         user_id = str(event.sender_id)
         self._register_user(user_id, str(event.chat_id))
 
@@ -537,11 +580,13 @@ class InteractiveBot:
 
     async def _on_latest(self, event):
         """Send all recent artifacts: /latest [days]"""
+        if not await self._check_rate_limit(event, cooldown_seconds=15):
+            return
         self._register_user(str(event.sender_id), str(event.chat_id))
 
         args = event.text.split()[1:]
         days = int(args[0]) if args and args[0].isdigit() else 4
-        days = min(days, 30)
+        days = min(days, 7)
 
         await event.respond(f"📦 Fetching artifacts from the last {days} day(s)...")
         sent = await self._send_latest_to_user(event.chat_id, days=days)
@@ -722,13 +767,15 @@ class InteractiveBot:
             for r in rows:
                 counts[r["record_type"]] = r["c"]
             
-            # Dynamically build CASE SQL statement using SQLite native JSON support
+            # Dynamically build CASE SQL statement using SQLite native JSON support with parameterized inputs
             case_clauses = []
+            params = []
             for scheme in _PROXY_SCHEMES:
                 proto = scheme.replace("://", "")
                 case_clauses.append(
-                    f"WHEN json_valid(data_json) = 1 AND LOWER(json_extract(data_json, '$.line')) LIKE '{scheme.lower()}%' THEN '{proto}'"
+                    "WHEN json_valid(data_json) = 1 AND LOWER(json_extract(data_json, '$.line')) LIKE ? THEN ?"
                 )
+                params.extend([f"{scheme.lower()}%", proto])
             
             case_sql = f"""
                 SELECT 
@@ -742,7 +789,7 @@ class InteractiveBot:
                 GROUP BY sub_proto
             """
             
-            rows = conn.execute(case_sql).fetchall()
+            rows = conn.execute(case_sql, params).fetchall()
             for r in rows:
                 sub_proto = r["sub_proto"]
                 counts[sub_proto] = counts.get(sub_proto, 0) + r["c"]
@@ -1002,6 +1049,9 @@ class InteractiveBot:
         from ..config.validate import validate_config
         from ..core.locks import acquire_lock
         import os
+        
+        # Ensure paths match the bot's runtime config
+        paths.set_paths(self.data_dir, self.db_path)
         
         config_path = os.environ.get("HUNTX_CONFIG", "config.yaml")
         config = load_config(config_path)

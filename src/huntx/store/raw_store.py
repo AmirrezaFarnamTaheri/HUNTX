@@ -89,6 +89,48 @@ class RawStore:
             logger.error(f"Failed to prune raw store: {e}")
         return pruned
 
+    def prune_orphans(self, state_repo) -> int:
+        """Scan raw store directory and delete any files that are not tracked in the SQLite DB."""
+        pruned = 0
+        try:
+            known_hashes = state_repo.get_all_known_hashes()
+            
+            # Failsafe check
+            if not known_hashes:
+                with state_repo.db.connect() as conn:
+                    count = conn.execute("SELECT COUNT(*) AS c FROM seen_files").fetchone()["c"]
+                if count > 0:
+                    logger.warning("get_all_known_hashes returned empty but seen_files has rows. Skipping orphan pruning.")
+                    return 0
+
+            # Scan prefix dirs
+            for prefix_dir in self.base_dir.iterdir():
+                if prefix_dir.is_dir() and len(prefix_dir.name) == 2:
+                    for filepath in prefix_dir.iterdir():
+                        if filepath.is_file():
+                            hash_val = filepath.name
+                            if len(hash_val) == 64:
+                                if hash_val not in known_hashes:
+                                    try:
+                                        filepath.unlink()
+                                        pruned += 1
+                                    except Exception as ex:
+                                        logger.error(f"Failed to delete orphan raw blob {hash_val}: {ex}")
+            
+            if pruned > 0:
+                logger.info(f"Pruned {pruned} orphaned raw blobs from disk.")
+                
+            # Clean up empty subdirectories
+            for d in self.base_dir.iterdir():
+                if d.is_dir() and not any(d.iterdir()):
+                    try:
+                        d.rmdir()
+                    except OSError:
+                        pass
+        except Exception as e:
+            logger.error(f"Failed to prune orphaned raw blobs: {e}")
+        return pruned
+
     def prune_by_hashes(self, hashes: List[str]) -> int:
         """Prunes specific raw blobs by list of hashes."""
         pruned = 0

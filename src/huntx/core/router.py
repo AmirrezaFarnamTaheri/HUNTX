@@ -2,7 +2,7 @@ import base64
 import binascii
 
 # All known proxy URI schemes for content-based detection
-_PROXY_URI_PREFIXES = (
+_PROXY_SCHEMES = (
     "vmess://", "vless://", "trojan://",
     "ss://", "ssr://",
     "hysteria2://", "hy2://", "hysteria://",
@@ -14,6 +14,7 @@ _PROXY_URI_PREFIXES = (
     "warp://",
     "dns://", "dnstt://",
 )
+_PROXY_URI_PREFIXES = _PROXY_SCHEMES
 
 
 def decide_format(filename: str, content: bytes) -> str:

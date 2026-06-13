@@ -112,8 +112,12 @@ def _cmd_run(args):
         lock_path = Path(paths.STATE_DIR) / "huntx.lock"
         with acquire_lock(lock_path):
             orchestrator = Orchestrator(config, max_workers=max_workers, fetch_windows=fetch_windows)
-            # 4.5 hours time limit
-            orchestrator.run(timeout=16200, no_publish=args.no_publish)
+            timeout_str = os.getenv("HUNTX_RUN_TIMEOUT", "9000")
+            try:
+                run_timeout = float(timeout_str)
+            except ValueError:
+                run_timeout = 9000.0
+            orchestrator.run(timeout=run_timeout, no_publish=args.no_publish)
     except Exception as e:
         logger.exception(f"Fatal error: {e}")
         sys.exit(1)
@@ -142,6 +146,59 @@ def _cmd_bot(args):
     logger.info("Starting HuntX bot in persistent mode...")
     bot = InteractiveBot(token, api_id, api_hash)
     asyncio.run(bot.start())
+
+
+def _backup_bot_users(db_path):
+    import sqlite3
+    if not Path(db_path).exists():
+        return None
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='bot_users'")
+        if not cursor.fetchone():
+            conn.close()
+            return None
+        rows = cursor.execute("SELECT * FROM bot_users").fetchall()
+        data = [dict(r) for r in rows]
+        conn.close()
+        return data
+    except Exception as e:
+        logger.warning(f"Failed to backup bot_users: {e}")
+        return None
+
+
+def _restore_bot_users(db_path, data):
+    if not data:
+        return
+    import sqlite3
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS bot_users (
+                user_id TEXT PRIMARY KEY,
+                chat_id TEXT NOT NULL,
+                username TEXT,
+                registered_at REAL NOT NULL,
+                muted INTEGER DEFAULT 0,
+                last_delivered_at REAL DEFAULT 0,
+                default_format TEXT DEFAULT 'npvt'
+            )
+            """
+        )
+        if data:
+            columns = data[0].keys()
+            query = f"INSERT OR REPLACE INTO bot_users ({', '.join(columns)}) VALUES ({', '.join('?' for _ in columns)})"
+            for row in data:
+                cursor.execute(query, tuple(row[col] for col in columns))
+        conn.commit()
+        conn.close()
+        logger.info(f"Restored {len(data)} subscribers to bot_users table.")
+    except Exception as e:
+        logger.error(f"Failed to restore bot_users: {e}")
 
 
 def _cmd_clean(args):
@@ -174,6 +231,8 @@ def _cmd_clean(args):
             print("Aborted.")
             return
 
+    bot_users_data = _backup_bot_users(db_path)
+
     for p in existing:
         if p.is_dir():
             shutil.rmtree(p)
@@ -181,6 +240,10 @@ def _cmd_clean(args):
         elif p.is_file():
             p.unlink()
             logger.info(f"Removed file: {p}")
+
+    paths.ensure_dirs()
+    if bot_users_data:
+        _restore_bot_users(db_path, bot_users_data)
 
     print("Cleanup complete.")
 
@@ -231,6 +294,8 @@ def _cmd_reset(args):
         except Exception as e:
             print(f"Warning: Failed to backup state DB: {e}")
 
+    bot_users_data = _backup_bot_users(db_path)
+
     removed = 0
     for p in existing:
         try:
@@ -245,6 +310,9 @@ def _cmd_reset(args):
 
     # Re-ensure standard directories
     paths.ensure_dirs()
+    
+    if bot_users_data:
+        _restore_bot_users(db_path, bot_users_data)
     
     # Add READMEs to outputs so git tracks them
     (paths.OUTPUT_DIR / "README.md").write_text(

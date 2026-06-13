@@ -8,7 +8,8 @@ from huntx.state.repo import StateRepo
 from huntx.cli.main import _cmd_reset
 
 class TestAuditRemediation(unittest.TestCase):
-    def test_telegram_publisher_validation(self):
+    @patch('time.sleep')
+    def test_telegram_publisher_validation(self, mock_sleep):
         # Mock urllib.request.urlopen
         with patch('urllib.request.urlopen') as mock_url:
             # Case 1: ok is True

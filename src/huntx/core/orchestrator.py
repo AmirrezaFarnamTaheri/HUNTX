@@ -218,7 +218,7 @@ class Orchestrator:
             return
 
         # ── Save manifest ─────────────────────────────────────────────
-        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        atomic_write(manifest_path, json.dumps(manifest).encode("utf-8"))
 
         # ── Sort URIs deterministically (newest first, then alpha) ────
         sorted_uris = sorted(manifest.keys(), key=lambda u: (-manifest[u], u))
@@ -299,6 +299,7 @@ class Orchestrator:
         from ..connectors.telegram_user.connector import TelegramUserConnector
 
         try:
+            deadline = getattr(self, "_deadline", None)
             if src_conf.type == "telegram" and src_conf.telegram:
                 if not src_conf.telegram.token:
                     logger.warning(f"[Worker] Skipping {src_conf.id}: Missing Telegram bot token.")
@@ -311,7 +312,8 @@ class Orchestrator:
                     state=self.repo.get_source_state(src_conf.id),
                     fetch_windows=self.fetch_windows,
                 )
-                self.ingest_pipeline.run(src_conf.id, bot_conn, source_type=src_conf.type)
+                bot_conn.deadline = deadline
+                self.ingest_pipeline.run(src_conf.id, bot_conn, source_type=src_conf.type, deadline=deadline)
                 return True
             elif src_conf.type == "telegram_user" and src_conf.telegram_user:
                 if not src_conf.telegram_user.api_id or not src_conf.telegram_user.api_hash:
@@ -327,24 +329,21 @@ class Orchestrator:
                     state=self.repo.get_source_state(src_conf.id),
                     fetch_windows=self.fetch_windows,
                 )
-                # Dedup: resolve canonical channel ID and skip if already seen
-                channel_id = user_conn.resolve_channel_id()
-                if channel_id is not None:
-                    with self._seen_lock:
-                        if channel_id in self._seen_channels:
-                            logger.warning(
-                                f"[Worker] Skipping {src_conf.id} — channel {channel_id} "
-                                f"already ingested by another source"
-                            )
-                            user_conn.cleanup()
-                            return True  # not an error, just a dup
-                        self._seen_channels.add(channel_id)
-                try:
-                    self.ingest_pipeline.run(src_conf.id, user_conn, source_type=src_conf.type)
-                    return True
-                finally:
-                    # Ensure cleanup happens even if ingest fails
-                    user_conn.cleanup()
+                user_conn.deadline = deadline
+                with user_conn:
+                    # Dedup: resolve canonical channel ID and skip if already seen
+                    channel_id = user_conn.resolve_channel_id()
+                    if channel_id is not None:
+                        with self._seen_lock:
+                            if channel_id in self._seen_channels:
+                                logger.warning(
+                                    f"[Worker] Skipping {src_conf.id} — channel {channel_id} "
+                                    f"already ingested by another source"
+                                )
+                                return True  # not an error, just a dup
+                            self._seen_channels.add(channel_id)
+                    self.ingest_pipeline.run(src_conf.id, user_conn, source_type=src_conf.type, deadline=deadline)
+                return True
             elif src_conf.type == "v2ray_collector":
                 logger.info(f"[Worker] Ingesting source {src_conf.id} (Go v2ray_collector)")
                 from ..connectors.v2ray_collector.connector import V2RayCollectorConnector
@@ -355,7 +354,8 @@ class Orchestrator:
                     "v2ray_collector"
                 )
                 collector_conn = V2RayCollectorConnector(base_dir=connector_dir)
-                self.ingest_pipeline.run(src_conf.id, collector_conn, source_type=src_conf.type)
+                collector_conn.deadline = deadline
+                self.ingest_pipeline.run(src_conf.id, collector_conn, source_type=src_conf.type, deadline=deadline)
                 return True
             else:
                 logger.warning(f"[Worker] Skipping {src_conf.id}: unsupported type.")
@@ -394,6 +394,7 @@ class Orchestrator:
 
     def run(self, timeout: float | None = None, no_publish: bool = False):
         start_time = time.time()
+        self._deadline = start_time + timeout if timeout else None
         run_id = int(start_time)
         total_sources = len(self.config.sources)
         total_routes = len(self.config.routes)
@@ -606,6 +607,7 @@ class Orchestrator:
             cleanup_start = time.time()
             logger.info("[Orchestrator] ═══ Phase 4: Cleanup ═══")
             self.raw_store.prune_processed(self.repo)
+            self.raw_store.prune_orphans(self.repo)
             self.artifact_store.prune_archive()
 
             # Auto-prune database records and disk raw store files older than N days (default: 30)
