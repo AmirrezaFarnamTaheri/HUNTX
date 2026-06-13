@@ -1,10 +1,11 @@
+import asyncio
 import logging
 import time
 import threading
 from dataclasses import dataclass
-from typing import Dict, Any, Optional, Iterator, List
+from typing import Dict, Any, Optional, AsyncIterator, List, Union, Iterator
 try:
-    from telethon.sync import TelegramClient
+    from telethon import TelegramClient
     from telethon.sessions import StringSession
     from telethon import utils
     from telethon.tl.types import InputMessagesFilterDocument
@@ -22,6 +23,8 @@ except ModuleNotFoundError:  # pragma: no cover
 
     utils = _UtilsStub()  # type: ignore[assignment]
 
+from ..base import SourceConnector, SourceItem, AsyncSyncIterator, async_iter, maybe_await
+
 logger = logging.getLogger(__name__)
 
 # Media types to drop entirely (not useful for proxy configs)
@@ -36,23 +39,32 @@ _RECONNECT_DELAYS = (2, 2, 4, 4, 8, 8, 16, 16, 32, 32)  # seconds per retry atte
 
 
 @dataclass
-class SourceItem:
+class TelegramUserItem:
     __slots__ = ("external_id", "data", "metadata")
     external_id: str
     data: bytes
     metadata: Dict[str, Any]
 
 
-class TelegramUserConnector:
+class TelegramUserConnector(SourceConnector):
     _local = threading.local()
     _session_locks: Dict[str, threading.RLock] = {}
     _session_locks_lock = threading.Lock()
+
+    _session_locks_async: Dict[str, asyncio.Lock] = {}
+    _session_locks_async_lock = threading.Lock()
 
     def _get_session_lock(self) -> threading.RLock:
         with self._session_locks_lock:
             if self.session not in self._session_locks:
                 self._session_locks[self.session] = threading.RLock()
             return self._session_locks[self.session]
+
+    def _get_session_lock_async(self) -> asyncio.Lock:
+        with self._session_locks_async_lock:
+            if self.session not in self._session_locks_async:
+                self._session_locks_async[self.session] = asyncio.Lock()
+            return self._session_locks_async[self.session]
 
     def __enter__(self):
         lock = self._get_session_lock()
@@ -62,6 +74,15 @@ class TelegramUserConnector:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.cleanup()
+
+    async def __aenter__(self):
+        lock = self._get_session_lock_async()
+        await lock.acquire()
+        self._lock_acquired = True
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.cleanup_async()
 
     def __init__(self, api_id: int, api_hash: str, session: str, peer: str,
                  state: Optional[Dict[str, Any]] = None, fetch_windows: Optional[Dict[str, Any]] = None):
@@ -107,26 +128,35 @@ class TelegramUserConnector:
         return self._local.clients[key]
 
     def _ensure_connected(self, client: TelegramClient):
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        loop.run_until_complete(self._ensure_connected_async(client))
+
+    async def _ensure_connected_async(self, client: TelegramClient):
         if not client.is_connected():
             logger.info("[MTProto] Connecting to Telegram...")
             try:
-                client.connect()
+                await maybe_await(client.connect())
                 logger.info("[MTProto] Connected.")
             except Exception as e:
                 logger.error(f"[MTProto] Connection failed: {e}")
                 raise
 
     def _resolve_peer(self, peer_entity, client: TelegramClient = None):
-        """Resolve a peer identifier to a Telegram entity.
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        return loop.run_until_complete(self._resolve_peer_async(peer_entity, client))
 
-        Uses client.get_entity() for proper API resolution (handles channels
-        the session hasn't seen before). Falls back to raw PeerChannel only
-        if the API call fails.
-        """
+    async def _resolve_peer_async(self, peer_entity, client: TelegramClient = None):
         if client and isinstance(peer_entity, str) and peer_entity.startswith("-100"):
             try:
-                # Use get_entity with the full marked ID — Telethon handles it
-                entity = client.get_entity(int(peer_entity))
+                entity = await maybe_await(client.get_entity(int(peer_entity)))
                 logger.debug(f"[MTProto] Resolved {peer_entity} via API -> {type(entity).__name__}")
                 return entity
             except Exception as e:
@@ -134,7 +164,6 @@ class TelegramUserConnector:
                     f"[MTProto] API resolution failed for {peer_entity}: {e}. "
                     f"Falling back to raw PeerChannel."
                 )
-                # Fallback: construct PeerChannel directly
                 try:
                     real_id, peer_type = utils.resolve_id(int(peer_entity))  # type: ignore[union-attr]
                     return peer_type(real_id)
@@ -149,17 +178,20 @@ class TelegramUserConnector:
         return peer_entity
 
     def resolve_channel_id(self) -> Optional[int]:
-        """Connect and resolve the peer to a canonical numeric channel ID.
-
-        Returns the raw channel ID (without -100 prefix), or None if
-        resolution fails. Used by the orchestrator for dedup.
-        """
-        client = self._client()
-        self._ensure_connected(client)
         try:
-            entity = client.get_entity(
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        return loop.run_until_complete(self.resolve_channel_id_async())
+
+    async def resolve_channel_id_async(self) -> Optional[int]:
+        client = self._client()
+        await self._ensure_connected_async(client)
+        try:
+            entity = await maybe_await(client.get_entity(
                 int(self.peer) if self.peer.lstrip("-").isdigit() else self.peer
-            )
+            ))
             raw_id = getattr(entity, "id", None)
             if raw_id:
                 logger.info(f"[MTProto] Resolved peer {self.peer} -> channel_id={raw_id}")
@@ -172,31 +204,30 @@ class TelegramUserConnector:
     # Pass 1: Text messages (fast, no downloads, batched)
     # ------------------------------------------------------------------
 
-    def _reconnect(self, client, retry_num: int):
+    async def _reconnect_async(self, client, retry_num: int):
         """Reconnect a dropped Telethon client with stepped backoff."""
         delay = _RECONNECT_DELAYS[min(retry_num, len(_RECONNECT_DELAYS) - 1)]
         logger.warning(
             f"[MTProto] Connection lost. Reconnecting in {delay}s "
             f"(attempt {retry_num + 1}/{_MAX_RECONNECT_RETRIES})..."
         )
-        time.sleep(delay)
+        await asyncio.sleep(delay)
         try:
             if client.is_connected():
-                client.disconnect()
+                await maybe_await(client.disconnect())
         except Exception as e:
             logger.debug(f"[MTProto] Disconnect failed during reconnect: {e}")
-        client.connect()
+        await maybe_await(client.connect())
         logger.info("[MTProto] Reconnected.")
 
-    def _fetch_text_pass(self, client, peer_entity, last_id, cutoff_text, stats) -> Iterator[SourceItem]:
-        """Scan all messages, yield only text content. Skip anything with documents
-        (those are handled in pass 2). This is fast because no downloads happen."""
+    async def _fetch_text_pass(self, client, peer_entity, last_id, cutoff_text, stats) -> AsyncIterator[TelegramUserItem]:
+        """Scan all messages, yield only text content. Skip anything with documents."""
         pass_start = time.time()
         scanned = 0
         yielded = 0
         total_bytes = 0
-        batch: List[SourceItem] = []
-        resume_after_id = last_id  # track progress for reconnect resume
+        batch: List[TelegramUserItem] = []
+        resume_after_id = last_id
 
         logger.info(
             f"[MTProto] ── Pass 1: Text messages ──  peer={self.peer}  min_id={last_id}  "
@@ -206,7 +237,7 @@ class TelegramUserConnector:
         retries = 0
         while retries <= _MAX_RECONNECT_RETRIES:
           try:
-            for msg in client.iter_messages(peer_entity, min_id=resume_after_id, reverse=True):
+            async for msg in async_iter(client.iter_messages(peer_entity, min_id=resume_after_id, reverse=True)):
                 if getattr(self, "deadline", None) and time.time() > self.deadline:
                     logger.warning(f"[MTProto] Ingestion deadline exceeded during text pass. Aborting.")
                     break
@@ -214,7 +245,7 @@ class TelegramUserConnector:
                 resume_after_id = max(resume_after_id, msg.id)
                 scanned += 1
 
-                # Progress every 500 messages (text scan is fast)
+                # Progress every 500 messages
                 if scanned % 500 == 0:
                     elapsed = time.time() - pass_start
                     logger.info(
@@ -228,7 +259,7 @@ class TelegramUserConnector:
                     stats["skipped_media_type"] += 1
                     continue
 
-                # Skip documents entirely in this pass (handled in pass 2)
+                # Skip documents entirely in this pass
                 has_document = bool(msg.document)
 
                 # Apply text cutoff
@@ -244,14 +275,12 @@ class TelegramUserConnector:
                         stats["skipped_no_content"] += 1
                     continue
 
-                # Skip if this is a document-only message (text from doc messages
-                # is also captured here as a separate item, which is fine)
                 stats["text_messages"] += 1
                 text_bytes = text.encode("utf-8", errors="ignore")
                 total_bytes += len(text_bytes)
                 yielded += 1
 
-                item = SourceItem(
+                item = TelegramUserItem(
                     external_id=str(msg.id),
                     data=text_bytes,
                     metadata={
@@ -268,22 +297,22 @@ class TelegramUserConnector:
                         f"[MTProto] Pass 1: flushing batch of {len(batch)} text items  "
                         f"(total yielded={yielded})"
                     )
-                    yield from batch
+                    for b_item in batch:
+                        yield b_item
                     batch.clear()
 
-            break  # completed successfully, exit retry loop
+            break
 
           except FloodWaitError as e:
             logger.warning(f"[MTProto] FloodWait for {e.seconds}s. Sleeping...")
-            time.sleep(e.seconds)
-            # Resume after sleep without incrementing retries
+            await asyncio.sleep(e.seconds)
             continue
           except ConnectionError as e:
             retries += 1
             if retries > _MAX_RECONNECT_RETRIES:
                 logger.error(f"[MTProto] Pass 1: exhausted {_MAX_RECONNECT_RETRIES} reconnect retries: {e}")
                 raise
-            self._reconnect(client, retries - 1)
+            await self._reconnect_async(client, retries - 1)
             logger.info(f"[MTProto] Pass 1: resuming from min_id={resume_after_id} after reconnect")
 
         # Flush remaining
@@ -291,7 +320,8 @@ class TelegramUserConnector:
             logger.info(
                 f"[MTProto] Pass 1: flushing final batch of {len(batch)} text items"
             )
-            yield from batch
+            for b_item in batch:
+                yield b_item
             batch.clear()
 
         pass_dur = time.time() - pass_start
@@ -307,14 +337,13 @@ class TelegramUserConnector:
     # Pass 2: Document messages (slow, downloads, one-by-one)
     # ------------------------------------------------------------------
 
-    def _fetch_document_pass(self, client, peer_entity, last_id, cutoff_file, stats) -> Iterator[SourceItem]:
-        """Use Telegram's server-side InputMessagesFilterDocument to iterate
-        only over messages that contain documents. Downloads happen here."""
+    async def _fetch_document_pass(self, client, peer_entity, last_id, cutoff_file, stats) -> AsyncIterator[TelegramUserItem]:
+        """Use Telegram's server-side InputMessagesFilterDocument to iterate only over documents."""
         pass_start = time.time()
         scanned = 0
         yielded = 0
         total_bytes = 0
-        resume_after_id = last_id  # track progress for reconnect resume
+        resume_after_id = last_id
 
         logger.info(
             f"[MTProto] ── Pass 2: Documents (server-filtered) ──  peer={self.peer}  min_id={last_id}"
@@ -323,10 +352,11 @@ class TelegramUserConnector:
         retries = 0
         while retries <= _MAX_RECONNECT_RETRIES:
           try:
-            for msg in client.iter_messages(
+            async for msg in async_iter(client.iter_messages(
                 peer_entity, min_id=resume_after_id, reverse=True,
                 filter=InputMessagesFilterDocument,
-            ):
+            )):
+
                 if getattr(self, "deadline", None) and time.time() > self.deadline:
                     logger.warning(f"[MTProto] Ingestion deadline exceeded during document pass. Aborting.")
                     break
@@ -334,7 +364,7 @@ class TelegramUserConnector:
                 resume_after_id = max(resume_after_id, msg.id)
                 scanned += 1
 
-                # Progress every 50 documents (downloads are slow)
+                # Progress every 50 documents
                 if scanned % 50 == 0:
                     elapsed = time.time() - pass_start
                     logger.info(
@@ -352,8 +382,6 @@ class TelegramUserConnector:
 
                 try:
                     f = msg.file
-
-                    # APK skip
                     if f:
                         is_apk = False
                         if f.name and f.name.lower().endswith(".apk"):
@@ -372,9 +400,8 @@ class TelegramUserConnector:
                         stats["skipped_size_limit"] += 1
                         continue
 
-                    data = client.download_media(msg, file=bytes)
+                    data = await maybe_await(client.download_media(msg, file=bytes))
                     if data:
-                        # Deep inspection
                         from ...utils.content_type import is_executable
                         is_exec, type_desc = is_executable(data)
                         if is_exec:
@@ -395,30 +422,29 @@ class TelegramUserConnector:
                         stats["media_messages"] += 1
                         yielded += 1
 
-                        yield SourceItem(
+                        yield TelegramUserItem(
                             external_id=str(msg.id) + "_media",
                             data=data,
                             metadata={"filename": filename, "timestamp": msg.date.timestamp()},
                         )
                 except ConnectionError:
-                    raise  # let outer handler deal with reconnect
+                    raise
                 except Exception as e:
                     logger.error(f"[MTProto] Download failed msg {msg.id}: {e}")
                     stats["download_errors"] += 1
 
-            break  # completed successfully, exit retry loop
+            break
 
           except FloodWaitError as e:
             logger.warning(f"[MTProto] FloodWait for {e.seconds}s. Sleeping...")
-            time.sleep(e.seconds)
-            # Resume after sleep without incrementing retries
+            await asyncio.sleep(e.seconds)
             continue
           except ConnectionError as e:
             retries += 1
             if retries > _MAX_RECONNECT_RETRIES:
                 logger.error(f"[MTProto] Pass 2: exhausted {_MAX_RECONNECT_RETRIES} reconnect retries: {e}")
                 raise
-            self._reconnect(client, retries - 1)
+            await self._reconnect_async(client, retries - 1)
             logger.info(f"[MTProto] Pass 2: resuming from min_id={resume_after_id} after reconnect")
 
         pass_dur = time.time() - pass_start
@@ -434,7 +460,10 @@ class TelegramUserConnector:
     # Main entry point
     # ------------------------------------------------------------------
 
-    def list_new(self, state: Optional[Dict[str, Any]] = None) -> Iterator[SourceItem]:
+    def list_new(self, state: Optional[Dict[str, Any]] = None):
+        return AsyncSyncIterator(self._list_new_async(state))
+
+    async def _list_new_async(self, state: Optional[Dict[str, Any]] = None):
         if state:
             new_offset = state.get("offset", 0)
             if new_offset > self.offset:
@@ -445,10 +474,10 @@ class TelegramUserConnector:
         client = self._client()
         is_fresh_start = last_id == 0
 
-        self._ensure_connected(client)
+        await self._ensure_connected_async(client)
 
         try:
-            peer_entity = self._resolve_peer(self.peer, client)
+            peer_entity = await self._resolve_peer_async(self.peer, client)
 
             mode = "fresh_start" if is_fresh_start else "subsequent"
             logger.info(
@@ -486,10 +515,12 @@ class TelegramUserConnector:
             overall_start = time.time()
 
             # Pass 1: text (fast, batched in groups of 100)
-            yield from self._fetch_text_pass(client, peer_entity, last_id, cutoff_text, stats)
+            async for item in self._fetch_text_pass(client, peer_entity, last_id, cutoff_text, stats):
+                yield item
 
             # Pass 2: documents (server-filtered, one-by-one with downloads)
-            yield from self._fetch_document_pass(client, peer_entity, last_id, cutoff_file, stats)
+            async for item in self._fetch_document_pass(client, peer_entity, last_id, cutoff_file, stats):
+                yield item
 
             overall_dur = time.time() - overall_start
             total_yielded = stats["text_messages"] + stats["media_messages"]
@@ -519,13 +550,36 @@ class TelegramUserConnector:
         return {"offset": self.offset}
 
     def cleanup(self):
-        """Clean up Telegram client connections to prevent asyncio errors."""
+        """Clean up Telegram client connections synchronously."""
         if hasattr(self._local, "clients"):
             logger.info("[MTProto] Cleaning up client connections...")
             for key, client in list(self._local.clients.items()):
                 try:
                     if client.is_connected():
                         client.disconnect()
+                        logger.debug(f"Disconnected Telegram client for key {key}")
+                except Exception as e:
+                    logger.warning(f"Error disconnecting Telegram client for key {key}: {e}")
+                finally:
+                    if getattr(self, "_lock_acquired", False):
+                        session_str = key[1]
+                        lock = self._session_locks.get(session_str)
+                        if lock:
+                            try:
+                                lock.release()
+                            except RuntimeError:
+                                pass
+                        self._lock_acquired = False
+            self._local.clients.clear()
+
+    async def cleanup_async(self):
+        """Clean up Telegram client connections asynchronously."""
+        if hasattr(self._local, "clients"):
+            logger.info("[MTProto] Cleaning up client connections...")
+            for key, client in list(self._local.clients.items()):
+                try:
+                    if client.is_connected():
+                        await maybe_await(client.disconnect())
                         logger.debug(f"Disconnected Telegram client for key {key}")
                 except RuntimeError as e:
                     if "Event loop is closed" in str(e):
@@ -537,7 +591,7 @@ class TelegramUserConnector:
                 finally:
                     if getattr(self, "_lock_acquired", False):
                         session_str = key[1]
-                        lock = self._session_locks.get(session_str)
+                        lock = self._session_locks_async.get(session_str)
                         if lock:
                             try:
                                 lock.release()

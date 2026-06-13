@@ -72,5 +72,34 @@ class TestAuditRemediation(unittest.TestCase):
             
         self.assertTrue(mock_rmtree.called or mock_unlink.called)
 
+    @patch('huntx.cli.commands.run.load_config')
+    @patch('huntx.cli.commands.run.validate_config')
+    @patch('huntx.cli.commands.run.acquire_lock')
+    @patch('huntx.cli.commands.run.Orchestrator')
+    @patch('pathlib.Path.exists')
+    def test_run_command_health_gate(self, mock_exists, MockOrch, mock_lock, mock_val, mock_load):
+        mock_exists.return_value = True
+        mock_orch_inst = MockOrch.return_value
+        
+        from huntx.cli.commands.run import run_command
+        
+        # Case 1: zero artifacts built
+        mock_orch_inst.run.return_value = {"total_artifacts": 0, "publish_attempts": 0, "publish_failures": 0}
+        with self.assertRaises(RuntimeError) as cm:
+            run_command("dummy_config.yaml")
+        self.assertIn("Zero artifacts were built", str(cm.exception))
+        
+        # Case 2: publish attempted but all failed
+        mock_orch_inst.run.return_value = {"total_artifacts": 1, "publish_attempts": 2, "publish_failures": 2}
+        with self.assertRaises(RuntimeError) as cm:
+            run_command("dummy_config.yaml")
+        self.assertIn("all publish tasks failed", str(cm.exception))
+        
+        # Case 3: successful run
+        mock_orch_inst.run.return_value = {"total_artifacts": 1, "publish_attempts": 2, "publish_failures": 0}
+        run_command("dummy_config.yaml")  # Should not raise any error
+
+
 if __name__ == '__main__':
     unittest.main()
+

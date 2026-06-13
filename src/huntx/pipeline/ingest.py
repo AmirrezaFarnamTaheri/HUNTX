@@ -79,7 +79,7 @@ class IngestionPipeline:
 
         return new_items_count, new_bytes, skipped_count, text_count, media_count
 
-    def run(self, source_id: str, connector: SourceConnector, source_type: str = "telegram", deadline: float = None):
+    async def run(self, source_id: str, connector: SourceConnector, source_type: str = "telegram", deadline: float = None):
         connector_name = connector.__class__.__name__
         logger.info(
             f"[Ingest] ═══ Starting source {source_id} ═══  "
@@ -111,7 +111,16 @@ class IngestionPipeline:
             buffer = []
             BATCH_SIZE = 100
 
-            for item in connector.list_new(state):
+            async def iterate_items():
+                items_iter = connector.list_new(state)
+                if hasattr(items_iter, "__aiter__"):
+                    async for item in items_iter:
+                        yield item
+                else:
+                    for item in items_iter:
+                        yield item
+
+            async for item in iterate_items():
                 if deadline and time.time() > deadline:
                     logger.warning(f"[Ingest] Deadline exceeded for {source_id}. Interrupting ingestion.")
                     break
@@ -131,10 +140,10 @@ class IngestionPipeline:
                          elapsed = time.time() - start_time
                          rate = count / elapsed if elapsed > 0 else 0
                          logger.info(
-                             f"[Ingest] … {source_id}: {count} ingested "
-                             f"({new_bytes / 1024:.1f} KB, {rate:.1f} items/s)  "
-                             f"skipped={skipped_count}"
-                         )
+                              f"[Ingest] … {source_id}: {count} ingested "
+                              f"({new_bytes / 1024:.1f} KB, {rate:.1f} items/s)  "
+                              f"skipped={skipped_count}"
+                          )
 
             if buffer:
                 c, nb, sc, tc, mc = self._process_batch(source_id, buffer)
@@ -190,3 +199,4 @@ class IngestionPipeline:
         except Exception as e:
             logger.exception(f"[Ingest] Failed to update state for {source_id}: {e}")
             raise
+

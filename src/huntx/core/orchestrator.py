@@ -24,6 +24,8 @@ from ..formats.npvt import strip_proxy_remark, add_clean_remark
 from ..config.schema import AppConfig
 from ..utils.safe_names import safe_component
 from ..utils.atomic import atomic_write
+from ..connectors.base import maybe_await
+
 
 logger = logging.getLogger(__name__)
 
@@ -288,13 +290,8 @@ class Orchestrator:
             logger.warning(f"[Orchestrator] Could not read seen_files max id: {e}")
             return 0
 
-    def _ingest_one_source(self, src_conf) -> bool:
-        """Ingest a single source. Designed for thread-pool execution."""
-        loop = None
-        # Always create a new loop for this thread to ensure isolation and avoid deprecation warnings
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
+    async def _ingest_one_source_async(self, src_conf) -> bool:
+        """Ingest a single source asynchronously."""
         from ..connectors.telegram.connector import TelegramConnector
         from ..connectors.telegram_user.connector import TelegramUserConnector
 
@@ -313,7 +310,7 @@ class Orchestrator:
                     fetch_windows=self.fetch_windows,
                 )
                 bot_conn.deadline = deadline
-                self.ingest_pipeline.run(src_conf.id, bot_conn, source_type=src_conf.type, deadline=deadline)
+                await maybe_await(self.ingest_pipeline.run(src_conf.id, bot_conn, source_type=src_conf.type, deadline=deadline))
                 return True
             elif src_conf.type == "telegram_user" and src_conf.telegram_user:
                 if not src_conf.telegram_user.api_id or not src_conf.telegram_user.api_hash:
@@ -330,9 +327,9 @@ class Orchestrator:
                     fetch_windows=self.fetch_windows,
                 )
                 user_conn.deadline = deadline
-                with user_conn:
+                async with user_conn:
                     # Dedup: resolve canonical channel ID and skip if already seen
-                    channel_id = user_conn.resolve_channel_id()
+                    channel_id = await maybe_await(user_conn.resolve_channel_id_async())
                     if channel_id is not None:
                         with self._seen_lock:
                             if channel_id in self._seen_channels:
@@ -342,7 +339,7 @@ class Orchestrator:
                                 )
                                 return True  # not an error, just a dup
                             self._seen_channels.add(channel_id)
-                    self.ingest_pipeline.run(src_conf.id, user_conn, source_type=src_conf.type, deadline=deadline)
+                    await maybe_await(self.ingest_pipeline.run(src_conf.id, user_conn, source_type=src_conf.type, deadline=deadline))
                 return True
             elif src_conf.type == "v2ray_collector":
                 logger.info(f"[Worker] Ingesting source {src_conf.id} (Go v2ray_collector)")
@@ -355,7 +352,7 @@ class Orchestrator:
                 )
                 collector_conn = V2RayCollectorConnector(base_dir=connector_dir)
                 collector_conn.deadline = deadline
-                self.ingest_pipeline.run(src_conf.id, collector_conn, source_type=src_conf.type, deadline=deadline)
+                await maybe_await(self.ingest_pipeline.run(src_conf.id, collector_conn, source_type=src_conf.type, deadline=deadline))
                 return True
             else:
                 logger.warning(f"[Worker] Skipping {src_conf.id}: unsupported type.")
@@ -363,25 +360,17 @@ class Orchestrator:
         except Exception as e:
             logger.exception(f"[Worker] Ingest failed for {src_conf.id}: {e}")
             return False
-        finally:
-            # Clean up the event loop if we created a new one for this thread
-            if loop and not loop.is_closed():
-                loop.close()
 
-    def _worker(self, source_queue: queue.Queue, results: dict, lock: threading.Lock):
-        """
-        Pool worker: pull sources from the shared queue until it is empty.
-        Each source is fully processed before the next one is taken, and
-        no two workers can take the same source (guaranteed by queue).
-        """
-        while True:
+    async def _worker_async(self, source_queue: asyncio.Queue, results: dict, lock: asyncio.Lock):
+        """Async queue worker."""
+        while not source_queue.empty():
             try:
                 src_conf = source_queue.get_nowait()
-            except queue.Empty:
+            except asyncio.QueueEmpty:
                 return  # pool exhausted
 
-            success = self._ingest_one_source(src_conf)
-            with lock:
+            success = await self._ingest_one_source_async(src_conf)
+            async with lock:
                 if success:
                     results["ok"] += 1
                 else:
@@ -393,6 +382,21 @@ class Orchestrator:
     # ------------------------------------------------------------------
 
     def run(self, timeout: float | None = None, no_publish: bool = False):
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(asyncio.run, self._run_async(timeout, no_publish))
+                return future.result()
+        else:
+            return loop.run_until_complete(self._run_async(timeout, no_publish))
+
+    async def _run_async(self, timeout: float | None = None, no_publish: bool = False):
         start_time = time.time()
         self._deadline = start_time + timeout if timeout else None
         run_id = int(start_time)
@@ -432,40 +436,33 @@ class Orchestrator:
             f"delta_seen_files_id>{seen_file_cutoff_id}  timeout={timeout}"
         )
 
-        # ── Phase 1: Ingestion (pool-based) ──────────────────────────
+        # ── Phase 1: Ingestion (async queue-based) ───────────────────
         try:
             ingest_start = time.time()
-            source_queue: queue.Queue = queue.Queue()
+            source_queue = asyncio.Queue()
             for src in self.config.sources:
-                source_queue.put(src)
+                await source_queue.put(src)
 
-            lock = threading.Lock()
+            lock = asyncio.Lock()
 
             logger.info(
                 f"[Orchestrator] ═══ Phase 1: Ingestion ═══  "
                 f"sources={total_sources}  workers={effective_workers}"
             )
 
-            threads = []
+            tasks = []
             for _ in range(effective_workers):
-                t = threading.Thread(target=self._worker, args=(source_queue, results, lock), daemon=True)
-                t.start()
-                threads.append(t)
+                t = asyncio.create_task(self._worker_async(source_queue, results, lock))
+                tasks.append(t)
 
-            for t in threads:
-                if timeout is None:
-                    t.join()
-                    continue
-
-                # Bound join waits so a stuck worker cannot block forever.
-                while t.is_alive():
-                    remaining = timeout - (time.time() - start_time)
-                    if remaining <= 0:
-                        raise TimeoutError(
-                            f"[Orchestrator] Run timed out while waiting for ingestion workers "
-                            f"(timeout={timeout:.1f}s)"
-                        )
-                    t.join(timeout=min(1.0, remaining))
+            if timeout is None:
+                await asyncio.gather(*tasks)
+            else:
+                remaining = timeout - (time.time() - start_time)
+                if remaining > 0:
+                    await asyncio.wait_for(asyncio.gather(*tasks), timeout=remaining)
+                else:
+                    raise TimeoutError("Timeout exceeded before starting ingestion workers.")
 
             ingest_duration = time.time() - ingest_start
             logger.info(
@@ -473,8 +470,9 @@ class Orchestrator:
                 f"duration={ingest_duration:.2f}s"
             )
             _raise_if_timed_out("phase 1 ingestion")
-        except TimeoutError as e:
+        except (TimeoutError, asyncio.TimeoutError) as e:
             logger.warning(f"[Orchestrator] Phase 1 interrupted by timeout: {e}")
+
 
         # ── Phase 2: Transform ───────────────────────────────────────
         try:
@@ -543,7 +541,7 @@ class Orchestrator:
                                 fut = pub_executor.submit(self.publish_pipeline.run, res, dests)
                                 future_to_meta[fut] = {
                                     "route": route.name,
-                                    "artifact": res.get("unique_id", "unknown")
+                                    "artifact": res.get("unique_id", "unknown") if isinstance(res, dict) else str(res)
                                 }
                         else:
                             logger.info(f"[Orchestrator] Skipping publish for route '{route.name}' (--no-publish)")
@@ -644,3 +642,13 @@ class Orchestrator:
             # Resilience: Log error but do not crash the process.
             # This ensures partial success is preserved and CI doesn't mark the whole job as failed.
             logger.error(f"[Orchestrator] Run completed with issues: {build_err} routes had failures.")
+
+        return {
+            "total_artifacts": total_artifacts,
+            "publish_attempts": publish_attempts,
+            "publish_failures": publish_failures,
+            "ingest_ok": results["ok"],
+            "ingest_err": results["err"],
+            "failed_routes": len(failed_routes)
+        }
+

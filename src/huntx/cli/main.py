@@ -117,10 +117,24 @@ def _cmd_run(args):
                 run_timeout = float(timeout_str)
             except ValueError:
                 run_timeout = 9000.0
-            orchestrator.run(timeout=run_timeout, no_publish=args.no_publish)
+            run_summary = orchestrator.run(timeout=run_timeout, no_publish=args.no_publish)
+            
+            # Health Gate check
+            total_artifacts = run_summary.get("total_artifacts", 0)
+            publish_attempts = run_summary.get("publish_attempts", 0)
+            publish_failures = run_summary.get("publish_failures", 0)
+            successful_publishes = publish_attempts - publish_failures
+            
+            if total_artifacts == 0:
+                logger.error("Health Gate FAILED: Zero artifacts were built during this run.")
+                sys.exit(1)
+            elif not args.no_publish and publish_attempts > 0 and successful_publishes == 0:
+                logger.error("Health Gate FAILED: Publishing was attempted but all publish tasks failed.")
+                sys.exit(1)
     except Exception as e:
         logger.exception(f"Fatal error: {e}")
         sys.exit(1)
+
 
     # Auto-deliver subscription updates to all subscribers
     if not args.no_auto_deliver:

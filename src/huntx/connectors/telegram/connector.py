@@ -5,7 +5,8 @@ import urllib.error
 import json
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, Iterator
-from ..base import SourceConnector, SourceItem
+from ..base import SourceConnector, SourceItem, AsyncSyncIterator
+
 
 
 @dataclass
@@ -129,7 +130,21 @@ class TelegramConnector(SourceConnector):
                     return None
         return None
 
-    def list_new(self, state: Optional[Dict[str, Any]] = None) -> Iterator[SourceItem]:
+    async def _make_request_async(self, method: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        import asyncio
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self._make_request, method, params)
+
+    async def _download_file_async(self, file_path: str) -> Optional[bytes]:
+        import asyncio
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self._download_file, file_path)
+
+    def list_new(self, state: Optional[Dict[str, Any]] = None):
+        return AsyncSyncIterator(self._list_new_async(state))
+
+    async def _list_new_async(self, state: Optional[Dict[str, Any]] = None):
+        import asyncio
         # Update offset if provided
         local_offset = state.get("offset", 0) if state else 0
         self.offset = local_offset
@@ -172,7 +187,7 @@ class TelegramConnector(SourceConnector):
 
             req_offset = current_max_update_id + 1 if current_max_update_id > 0 else 0
 
-            resp = self._make_request(
+            resp = await self._make_request_async(
                 "getUpdates",
                 {"offset": req_offset, "timeout": 2, "limit": 100, "allowed_updates": ["channel_post", "message"]},
             )
@@ -204,7 +219,7 @@ class TelegramConnector(SourceConnector):
                 shared["updates"] = {uid: upd for uid, upd in shared["updates"].items() if uid >= cutoff}
 
             # small sleep to be nice to API
-            time.sleep(0.5)
+            await asyncio.sleep(0.5)
 
         cache_size = len(shared["updates"])
         logger.info(
@@ -316,12 +331,12 @@ class TelegramConnector(SourceConnector):
                     logger.info(f"Processing update {update_id}: Found file {file_name} (ID: {file_id})")
 
                     # Get File info
-                    file_info_resp = self._make_request("getFile", {"file_id": file_id})
+                    file_info_resp = await self._make_request_async("getFile", {"file_id": file_id})
                     if not file_info_resp.get("ok"):
                         logger.error(f"Failed to get file info for {file_id}: {file_info_resp}")
                     else:
                         file_path = file_info_resp["result"]["file_path"]
-                        data = self._download_file(file_path)
+                        data = await self._download_file_async(file_path)
                         if data:
                             # Deep inspection
                             from ...utils.content_type import is_executable

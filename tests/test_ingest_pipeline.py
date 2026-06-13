@@ -34,7 +34,8 @@ class TestIngestPipeline(unittest.TestCase):
         self.raw_store.save.return_value = "hash123"
 
         # Run
-        self.pipeline.run("source1", self.connector)
+        import asyncio
+        asyncio.run(self.pipeline.run("source1", self.connector))
 
         # Verify
         self.raw_store.save.assert_called_with(b"test data")
@@ -68,10 +69,12 @@ class TestIngestPipeline(unittest.TestCase):
         self.connector.list_new.return_value = [item]
         self.connector.get_state.return_value = {"offset": 100}
 
-        self.pipeline.run("source1", self.connector)
+        import asyncio
+        asyncio.run(self.pipeline.run("source1", self.connector))
 
         self.raw_store.save.assert_not_called()
         self.state_repo.record_files_batch.assert_not_called()
 
 if __name__ == "__main__":
     unittest.main()
+
