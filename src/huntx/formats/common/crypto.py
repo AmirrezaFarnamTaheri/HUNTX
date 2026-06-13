@@ -1,9 +1,9 @@
 import base64
-import json
 import logging
 import struct
 import urllib.parse
-from typing import Dict, Optional, Tuple
+import os
+from typing import Optional
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -14,8 +14,6 @@ from cryptography.hazmat.primitives import hashes
 logger = logging.getLogger(__name__)
 
 # --- HA Tunnel Plus (happ://) ---
-
-import os
 
 HAPP_KEYS_PEM = {
     "crypt": os.getenv("HUNTX_HAPP_CRYPT_PEM") or (
