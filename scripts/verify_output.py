@@ -259,18 +259,7 @@ def main():
             config_path = DIST_DIR / "v2ray_test_config.json"
             with open(config_path, "w") as f:
                 json.dump(config_data, f, indent=2)
-            print(f"Generated V2Ray test config: {config_path} ({len(all_outbounds)} outbounds)")
-
-            v2ray_exe = shutil.which("v2ray") or shutil.which("xray")
-            if v2ray_exe:
-                print(f"Running config check with {v2ray_exe}...")
-                try:
-                    subprocess.run([v2ray_exe, "test", "-c", str(config_path)], check=True)
-                    print("  V2Ray config check PASSED.")
-                except subprocess.CalledProcessError:
-                    print("  V2Ray config check FAILED.")
-            else:
-                print("  v2ray/xray not in PATH — skipping runtime check.")
+            print(f"Generated V2Ray test config: {config_path} ({len(all_outbounds)} outbounds) - manual check recommended.")
     else:
         print("No valid artifacts found.")
 

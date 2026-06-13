@@ -27,3 +27,6 @@ my_config.yaml
 *.session
 *.log
 huntx-output/
+
+# Go collector generated files
+src/huntx/connectors/v2ray_collector/*.txt

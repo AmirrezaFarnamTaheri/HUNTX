@@ -154,6 +154,28 @@ class TestConfigLoader(unittest.TestCase):
             if "TEST_API_HASH_ENV" in os.environ:
                 del os.environ["TEST_API_HASH_ENV"]
 
+    def test_load_config_missing_env_var(self):
+        config_content = """
+        sources:
+          - id: env_source
+            type: telegram_user
+            telegram_user:
+              api_id: ${MISSING_TEST_ENV_VAR}
+              api_hash: "hash"
+              session: "session"
+              peer: "peer"
+            selector:
+              include_formats: ["all"]
+        publishing:
+          routes: []
+        """
+        with open(self.config_path, "w") as f:
+            f.write(config_content)
+
+        with self.assertRaises(ValueError) as cm:
+            load_config(self.config_path)
+        self.assertIn("Missing required environment variable: MISSING_TEST_ENV_VAR", str(cm.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

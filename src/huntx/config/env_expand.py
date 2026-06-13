@@ -6,7 +6,15 @@ from typing import Any
 def expand_env(text: str) -> str:
     # Use raw string for regex
     pattern = re.compile(r"\$\{([A-Za-z0-9_]+)\}")
-    return pattern.sub(lambda m: os.getenv(m.group(1), ""), text)
+    
+    def replace(m):
+        var_name = m.group(1)
+        val = os.getenv(var_name)
+        if val is None:
+            raise ValueError(f"Missing required environment variable: {var_name}")
+        return val
+
+    return pattern.sub(replace, text)
 
 
 def recursive_expand(data: Any) -> Any:
