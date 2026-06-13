@@ -40,7 +40,6 @@ class TransformPipeline:
         raw_hash = row["raw_hash"]
         source_id = row["source_id"]
         filename = row["filename"] or "unknown"
-        file_size = row.get("file_size", 0)
         result: Dict[str, Any] = {
             "status": "ok", "format": None, "records": 0, "duration": 0.0,
             "record_rows": [],       # (raw_hash, record_type, unique_hash, data_json)

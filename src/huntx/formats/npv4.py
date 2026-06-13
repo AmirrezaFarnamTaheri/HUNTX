@@ -1,6 +1,5 @@
 import logging
 from typing import List, Dict, Any, Optional
-from .base import FormatHandler
 from .opaque_bundle import OpaqueBundleHandler
 from ..store.raw_store import RawStore
 from .common.crypto import decrypt_tut_data

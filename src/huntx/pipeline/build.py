@@ -11,8 +11,6 @@ from ..formats.registry import FormatRegistry
 
 logger = logging.getLogger(__name__)
 
-from ..core.router import _PROXY_SCHEMES
-
 
 class BuildPipeline:
     def __init__(self, state_repo: StateRepo, artifact_store: ArtifactStore, registry: FormatRegistry):

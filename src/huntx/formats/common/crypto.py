@@ -217,12 +217,6 @@ def decrypt_slipnet_link(link_str: str) -> Optional[str]:
         
         key = struct.pack("<QQQQ", s0 ^ m0, s1 ^ m1, s2 ^ m2, s3 ^ m3)
         
-        cipher = Cipher(algorithms.AES(key), modes.GCM(iv), backend=default_backend())
-        # AES-GCM tag is usually the last 16 bytes of ciphertext in many impls, 
-        # but subtle-crypto (JS) appends it.
-        # decrypt = cipher.decryptor()
-        # decrypted = decrypt.update(ciphertext[:-16]) + decrypt.finalize_with_tag(ciphertext[-16:])
-        
         # NOTE: cryptography requires the tag separately. JS's decrypt combines them.
         tag = ciphertext[-16:]
         actual_ciphertext = ciphertext[:-16]
