@@ -25,7 +25,7 @@ class TestTelegramUserConnector(unittest.TestCase):
 
     @patch("huntx.connectors.telegram_user.connector.StringSession")
     @patch("huntx.connectors.telegram_user.connector.TelegramClient")
-    @unittest.skip('Failing due to AsyncMock conversion')
+
     def test_initialization(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -41,7 +41,7 @@ class TestTelegramUserConnector(unittest.TestCase):
 
     @patch("huntx.connectors.telegram_user.connector.StringSession")
     @patch("huntx.connectors.telegram_user.connector.TelegramClient")
-    @unittest.skip('Failing due to AsyncMock conversion')
+
     def test_list_new_text(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -70,7 +70,7 @@ class TestTelegramUserConnector(unittest.TestCase):
 
     @patch("huntx.connectors.telegram_user.connector.StringSession")
     @patch("huntx.connectors.telegram_user.connector.TelegramClient")
-    @unittest.skip('Failing due to AsyncMock conversion')
+
     def test_list_new_media(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -98,7 +98,7 @@ class TestTelegramUserConnector(unittest.TestCase):
 
     @patch("huntx.connectors.telegram_user.connector.StringSession")
     @patch("huntx.connectors.telegram_user.connector.TelegramClient")
-    @unittest.skip('Failing due to AsyncMock conversion')
+
     def test_list_new_skip_large_file(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -120,7 +120,7 @@ class TestTelegramUserConnector(unittest.TestCase):
 
     @patch("huntx.connectors.telegram_user.connector.StringSession")
     @patch("huntx.connectors.telegram_user.connector.TelegramClient")
-    @unittest.skip('Failing due to AsyncMock conversion')
+
     def test_list_new_accept_20mb_file(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -146,7 +146,7 @@ class TestTelegramUserConnector(unittest.TestCase):
 
     @patch("huntx.connectors.telegram_user.connector.StringSession")
     @patch("huntx.connectors.telegram_user.connector.TelegramClient")
-    @unittest.skip('Failing due to AsyncMock conversion')
+
     def test_list_new_mixed_content_with_failures(self, mock_client_cls, mock_session_cls):
         """Test a mix of text, media, skipped media, and download errors."""
         mock_client = MagicMock()
@@ -230,7 +230,7 @@ class TestTelegramUserConnector(unittest.TestCase):
 
     @patch("huntx.connectors.telegram_user.connector.StringSession")
     @patch("huntx.connectors.telegram_user.connector.TelegramClient")
-    @unittest.skip('Failing due to AsyncMock conversion')
+
     def test_state_update_on_list_new(self, mock_client_cls, mock_session_cls):
         """Test that list_new updates internal offset from state if provided."""
         mock_client = MagicMock()
@@ -251,7 +251,7 @@ class TestTelegramUserConnector(unittest.TestCase):
 
     @patch("huntx.connectors.telegram_user.connector.StringSession")
     @patch("huntx.connectors.telegram_user.connector.TelegramClient")
-    @unittest.skip('Failing due to AsyncMock conversion')
+
     def test_connection_handling(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -272,7 +272,7 @@ class TestTelegramUserConnector(unittest.TestCase):
 
     @patch("huntx.connectors.telegram_user.connector.StringSession")
     @patch("huntx.connectors.telegram_user.connector.TelegramClient")
-    @unittest.skip('Failing due to AsyncMock conversion')
+
     def test_list_new_exceptions(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -291,7 +291,7 @@ class TestTelegramUserConnector(unittest.TestCase):
 
     @patch("huntx.connectors.telegram_user.connector.StringSession")
     @patch("huntx.connectors.telegram_user.connector.TelegramClient")
-    @unittest.skip('Failing due to AsyncMock conversion')
+
     def test_resolve_peer_error_handled(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
