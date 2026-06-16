@@ -153,6 +153,15 @@ def _cmd_bot(args):
     if not token:
         logger.error("No bot token. Set PUBLISH_BOT_TOKEN or TELEGRAM_TOKEN or use --token.")
         sys.exit(1)
+
+    ingest_token = os.environ.get("TELEGRAM_TOKEN")
+    if ingest_token and token == ingest_token:
+        logger.warning(
+            "⚠️  WARNING (F-09): The persistent bot and the ingest pipeline are sharing the same TELEGRAM_TOKEN. "
+            "If the pipeline runs while the bot is active, Telegram will return '409 Conflict' errors. "
+            "Please use a distinct PUBLISH_BOT_TOKEN for the GatherX bot."
+        )
+
     if not api_id or not api_hash:
         logger.error("API ID and hash required. Set TELEGRAM_API_ID/TELEGRAM_API_HASH or use --api-id/--api-hash.")
         sys.exit(1)

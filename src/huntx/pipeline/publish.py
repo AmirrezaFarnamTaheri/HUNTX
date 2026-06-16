@@ -59,6 +59,13 @@ class PublishPipeline:
             raise RuntimeError(f"No publish destinations configured for {unique_id}")
 
         default_token = os.getenv("PUBLISH_BOT_TOKEN") or os.getenv("TELEGRAM_TOKEN")
+        ingest_token = os.getenv("TELEGRAM_TOKEN")
+        if default_token and ingest_token and default_token == ingest_token:
+            logger.warning(
+                "⚠️  WARNING (F-09): The publish pipeline is using TELEGRAM_TOKEN because PUBLISH_BOT_TOKEN is unset. "
+                "If the persistent bot is also running, this will cause 409 Conflict errors. "
+                "Please configure a distinct PUBLISH_BOT_TOKEN."
+            )
         published_any = False
         failures: List[str] = []
 
