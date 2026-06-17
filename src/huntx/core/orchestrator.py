@@ -8,6 +8,7 @@ import logging
 import time
 import queue
 import threading
+from typing import Optional, Any
 from pathlib import Path
 from ..store import paths
 from ..store.raw_store import RawStore
@@ -34,7 +35,7 @@ DEFAULT_MAX_WORKERS = 3
 
 
 class Orchestrator:
-    def __init__(self, config: AppConfig, max_workers: int = DEFAULT_MAX_WORKERS, fetch_windows: dict = None):
+    def __init__(self, config: AppConfig, max_workers: int = DEFAULT_MAX_WORKERS, fetch_windows: Optional[dict] = None):
         logger.info("[Orchestrator] Initializing...")
         self.config = config
         self.max_workers = max_workers
@@ -407,15 +408,15 @@ class Orchestrator:
 
         # Initialize results early so they exist even if we timeout early
         results = {"ok": 0, "err": 0}
-        ingest_duration = 0
-        transform_duration = 0
-        build_duration = 0
+        ingest_duration: float = 0.0
+        transform_duration: float = 0.0
+        build_duration: float = 0.0
         total_artifacts = 0
         publish_failures = 0
         publish_attempts = 0
         failed_routes = set()
         all_build_results = []
-        cleanup_duration = 0
+        cleanup_duration: float = 0.0
 
         def _raise_if_timed_out(stage: str):
             if timeout is None:
@@ -439,7 +440,7 @@ class Orchestrator:
         # ── Phase 1: Ingestion (async queue-based) ───────────────────
         try:
             ingest_start = time.time()
-            source_queue = asyncio.Queue()
+            source_queue: asyncio.Queue[Any] = asyncio.Queue()
             for src in self.config.sources:
                 await source_queue.put(src)
 

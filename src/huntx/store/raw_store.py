@@ -12,7 +12,7 @@ class RawStore:
     def __init__(self, base_dir: Optional[Path] = None):
         # IMPORTANT: compute default at runtime (after paths.set_paths()).
         self.base_dir = base_dir or paths.RAW_STORE_DIR
-        self._ensured_dirs = set()
+        self._ensured_dirs: set[Path] = set()
         # Ensure base directory exists
         try:
             self.base_dir.mkdir(parents=True, exist_ok=True)

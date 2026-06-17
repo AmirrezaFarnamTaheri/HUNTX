@@ -231,7 +231,7 @@ class BuildPipeline:
         record_count = len(records)
 
         # Count records per format type for diagnostics
-        type_counts = {}
+        type_counts: dict[str, int] = {}
         for r in records:
             rt = r.get("record_type", "?")
             type_counts[rt] = type_counts.get(rt, 0) + 1

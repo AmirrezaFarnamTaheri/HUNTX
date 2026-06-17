@@ -42,6 +42,7 @@ class TelegramConnector(SourceConnector):
         self._file_fresh_s = fw.get("file_fresh_hours", 48) * 3600
         self._msg_sub_s = fw.get("msg_subsequent_hours", 0) * 3600
         self._file_sub_s = fw.get("file_subsequent_hours", 0) * 3600
+        self.deadline: Optional[float] = None
 
         # Basic validation for Bot Token format
         if ":" in self.token:
@@ -178,7 +179,7 @@ class TelegramConnector(SourceConnector):
         fetched_updates_count = 0
 
         while has_more:
-            if getattr(self, "deadline", None) and time.time() > self.deadline:
+            if getattr(self, "deadline", None) and self.deadline is not None and time.time() > self.deadline:
                 logger.warning("[BotAPI] Ingestion deadline exceeded. Aborting.")
                 break
 

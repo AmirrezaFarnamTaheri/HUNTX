@@ -97,6 +97,7 @@ class TelegramUserConnector(SourceConnector):
         self._file_fresh_s = fw.get("file_fresh_hours", 48) * 3600
         self._msg_sub_s = fw.get("msg_subsequent_hours", 0) * 3600
         self._file_sub_s = fw.get("file_subsequent_hours", 0) * 3600
+        self.deadline: Optional[float] = None
 
     def _client(self) -> TelegramClient:
         # Allow tests to inject a mock client even if Telethon isn't installed.
@@ -238,7 +239,7 @@ class TelegramUserConnector(SourceConnector):
         while retries <= _MAX_RECONNECT_RETRIES:
           try:
             async for msg in async_iter(client.iter_messages(peer_entity, min_id=resume_after_id, reverse=True)):
-                if getattr(self, "deadline", None) and time.time() > self.deadline:
+                if getattr(self, "deadline", None) and self.deadline is not None and time.time() > self.deadline:
                     logger.warning(f"[MTProto] Ingestion deadline exceeded during text pass. Aborting.")
                     break
                 self.offset = max(self.offset, msg.id)
@@ -357,7 +358,7 @@ class TelegramUserConnector(SourceConnector):
                 filter=InputMessagesFilterDocument,
             )):
 
-                if getattr(self, "deadline", None) and time.time() > self.deadline:
+                if getattr(self, "deadline", None) and self.deadline is not None and time.time() > self.deadline:
                     logger.warning(f"[MTProto] Ingestion deadline exceeded during document pass. Aborting.")
                     break
                 self.offset = max(self.offset, msg.id)

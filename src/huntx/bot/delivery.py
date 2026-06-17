@@ -12,13 +12,13 @@ logger = logging.getLogger(__name__)
 
 class DeliveryMixin:
     # These methods are designed to be mixed into InteractiveBot.
-    # The InteractiveBot class will provide self.client, self.db, self.repo, and self.artifact_store.
+    # The InteractiveBot class will provide self.client, self.db, self.repo, and self.artifact_store.  # type: ignore[attr-defined]
 
     async def deliver_updates(self):
         """Connect, auto-send latest outputs to all registered users, disconnect.
         Called automatically after every pipeline run."""
         try:
-            await self.client.start(bot_token=self.token)
+            await self.client.start(bot_token=self.token)  # type: ignore[attr-defined]
             users = self._get_active_users()
             if not users:
                 logger.info("[GatherX] No registered users — skipping delivery.")
@@ -44,14 +44,14 @@ class DeliveryMixin:
                 chat_id = int(user["chat_id"])
                 try:
                     # Send a summary message first
-                    await self.client.send_message(
+                    await self.client.send_message(  # type: ignore[attr-defined]
                         chat_id,
                         "🛰 **GatherX Update**\n"
                         f"Fresh proxy configs — {len(files_to_send)} file(s):",
                         parse_mode="md",
                     )
                     for fpath, caption in files_to_send:
-                        await self.client.send_file(chat_id, fpath, caption=caption, parse_mode="md")
+                        await self.client.send_file(chat_id, fpath, caption=caption, parse_mode="md")  # type: ignore[attr-defined]
                         await asyncio.sleep(0.3)
 
                     # Update last_delivered_at
@@ -70,7 +70,7 @@ class DeliveryMixin:
             logger.error(f"[GatherX] Delivery error: {e}")
         finally:
             try:
-                await self.client.disconnect()
+                await self.client.disconnect()  # type: ignore[attr-defined]
             except Exception as e:
                 logger.debug(f"[GatherX] Failed to disconnect bot client: {e}")
             # Allow Telethon internal tasks to finish cancellation
@@ -99,14 +99,14 @@ class DeliveryMixin:
         for user in users:
             chat_id = int(user["chat_id"])
             try:
-                await self.client.send_message(
+                await self.client.send_message(  # type: ignore[attr-defined]
                     chat_id,
                     "🛰 **GatherX Update**\n"
                     f"Fresh proxy configs — {len(files_to_send)} file(s):",
                     parse_mode="md",
                 )
                 for fpath, caption in files_to_send:
-                    await self.client.send_file(chat_id, fpath, caption=caption, parse_mode="md")
+                    await self.client.send_file(chat_id, fpath, caption=caption, parse_mode="md")  # type: ignore[attr-defined]
                     await asyncio.sleep(0.3)
 
                 with self.db.connect() as conn:
@@ -122,7 +122,7 @@ class DeliveryMixin:
         If formats is given, only include files whose name ends with one of those suffixes.
         If formats is None, uses _AUTO_DELIVER_FORMATS."""
         allowed = formats or _AUTO_DELIVER_FORMATS
-        results = []
+        results: list[tuple] = []
         if not output_dir.exists():
             return results
 
@@ -178,7 +178,7 @@ class DeliveryMixin:
     async def _send_format_to_user(self, chat_id: int, fmt: str):
         """Send files matching a format to a user. Used by both /get and button callbacks."""
         if fmt not in _ALL_VALID_FORMATS:
-            await self.client.send_message(
+            await self.client.send_message(  # type: ignore[attr-defined]
                 chat_id,
                 f"Unknown format `{fmt}`.\nUse /formats to see available formats.",
                 parse_mode="md",
@@ -194,7 +194,7 @@ class DeliveryMixin:
                 if self._filename_matches_format(f.name, fmt):
                     size_kb = f.stat().st_size / 1024
                     label = _FORMAT_LABELS.get(fmt, fmt)
-                    await self.client.send_file(
+                    await self.client.send_file(  # type: ignore[attr-defined]
                         chat_id, f,
                         caption=f"{label}\n`{f.name}` ({size_kb:.0f} KB)",
                         parse_mode="md",
@@ -206,7 +206,7 @@ class DeliveryMixin:
             sent = await self._send_latest_to_user(chat_id, fmt=fmt, days=4)
 
         if sent == 0:
-            await self.client.send_message(
+            await self.client.send_message(  # type: ignore[attr-defined]
                 chat_id,
                 f"No files found for `{fmt}`.\n"
                 f"The pipeline may not have produced this format yet.\n"
@@ -216,9 +216,9 @@ class DeliveryMixin:
 
     async def _send_latest_to_user(self, chat_id: int, fmt: Optional[str] = None, days: int = 4):
         """Send latest artifacts to a user, optionally filtered by format."""
-        files = self.artifact_store.list_archive(days=days)
+        files = self.artifact_store.list_archive(days=days)  # type: ignore[attr-defined]
         if not files:
-            await self.client.send_message(chat_id, f"No artifacts in the last {days} day(s).")
+            await self.client.send_message(chat_id, f"No artifacts in the last {days} day(s).")  # type: ignore[attr-defined]
             return 0
 
         sent = 0
@@ -226,7 +226,7 @@ class DeliveryMixin:
             if fmt and not f.name.endswith(f".{fmt}"):
                 continue
             size_kb = f.stat().st_size / 1024
-            await self.client.send_file(
+            await self.client.send_file(  # type: ignore[attr-defined]
                 chat_id, f,
                 caption=f"`{f.name}` ({size_kb:.0f} KB)",
                 parse_mode="md",
@@ -235,5 +235,5 @@ class DeliveryMixin:
             await asyncio.sleep(0.3)
 
         if sent == 0 and fmt:
-            await self.client.send_message(chat_id, f"No artifacts matching `{fmt}`.")
+            await self.client.send_message(chat_id, f"No artifacts matching `{fmt}`.")  # type: ignore[attr-defined]
         return sent

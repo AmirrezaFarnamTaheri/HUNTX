@@ -351,11 +351,12 @@ class StateRepo:
     def prune_old_data(self, days: int) -> Dict[str, Any]:
         """Purge seen_files, records, and published_artifacts older than N days.
         Returns a dict summarizing the counts of pruned entries and deleted raw_hashes."""
-        res = {
+        raw_hashes: list[str] = []
+        res: Dict[str, Any] = {
             "seen_files": 0,
             "records": 0,
             "published_artifacts": 0,
-            "raw_hashes": []
+            "raw_hashes": raw_hashes
         }
         try:
             with self.db.connect() as conn:
@@ -364,7 +365,8 @@ class StateRepo:
                     "SELECT DISTINCT raw_hash FROM seen_files WHERE ingested_at < datetime('now', ?) AND status != 'pending'",
                     (f"-{days} days",)
                 )
-                res["raw_hashes"] = [row["raw_hash"] for row in cursor.fetchall()]
+                raw_hashes = [row["raw_hash"] for row in cursor.fetchall()]
+                res["raw_hashes"] = raw_hashes
 
                 # 2. Delete seen_files
                 c = conn.execute(

@@ -52,7 +52,7 @@ class PublishPipeline:
         # Check if changed using unique_id (route + format)
         last_hash = self.state_repo.get_last_published_hash(unique_id)
         if last_hash == new_hash:
-            logger.debug(f"[Publish] No change for {unique_id} (hash={last_hash[:12]}), skip.")
+            logger.debug(f"[Publish] No change for {unique_id} (hash={last_hash[:12] if last_hash else 'None'}), skip.")
             return True
 
         if not destinations:
