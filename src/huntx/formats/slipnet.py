@@ -123,6 +123,7 @@ class SlipNetHandler(FormatHandler):
             label = schema[i] if schema and i < len(schema) else f"Field_{i}"
             
             # Convert boolean fields
+            display_value: Any
             if label in BOOLEAN_FIELDS:
                 display_value = True if value == "1" else False
             else:

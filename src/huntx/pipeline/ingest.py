@@ -1,5 +1,6 @@
 import logging
 import time
+from typing import Optional
 from ..connectors.base import SourceConnector
 from ..store.raw_store import RawStore
 from ..state.repo import StateRepo
@@ -79,7 +80,7 @@ class IngestionPipeline:
 
         return new_items_count, new_bytes, skipped_count, text_count, media_count
 
-    async def run(self, source_id: str, connector: SourceConnector, source_type: str = "telegram", deadline: float = None):
+    async def run(self, source_id: str, connector: SourceConnector, source_type: str = "telegram", deadline: Optional[float] = None):
         connector_name = connector.__class__.__name__
         logger.info(
             f"[Ingest] ═══ Starting source {source_id} ═══  "

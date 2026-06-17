@@ -1,4 +1,4 @@
-import yaml
+import yaml  # type: ignore[import-untyped]
 import logging
 from pathlib import Path
 from .schema import AppConfig

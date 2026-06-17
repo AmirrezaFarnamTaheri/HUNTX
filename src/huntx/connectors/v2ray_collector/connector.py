@@ -33,6 +33,7 @@ class V2RayCollectorConnector(SourceConnector):
         else:
             self.base_dir = base_dir
         self.last_run_time = 0
+        self.deadline: Optional[float] = None
 
     def list_new(self, state: Optional[Dict[str, Any]] = None):
         return AsyncSyncIterator(self._list_new_async(state))

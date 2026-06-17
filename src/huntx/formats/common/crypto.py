@@ -32,7 +32,8 @@ for k in ["crypt", "crypt2", "crypt3"]:
             except Exception as e:
                 logger.warning(f"Could not read HAPP key file {key_path}: {e}")
 
-_HAPP_KEYS_CACHE = {}
+from typing import Any
+_HAPP_KEYS_CACHE: dict[str, Any] = {}
 
 def _get_happ_keys():
     if not _HAPP_KEYS_CACHE:
