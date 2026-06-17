@@ -461,7 +461,7 @@ class Orchestrator:
             else:
                 remaining = timeout - (time.time() - start_time)
                 if remaining > 0:
-                    await asyncio.wait_for(asyncio.gather(*tasks), timeout=int(remaining))
+                    await asyncio.wait_for(asyncio.gather(*tasks), timeout=remaining)
                 else:
                     raise TimeoutError("Timeout exceeded before starting ingestion workers.")
 
