@@ -173,8 +173,12 @@ class AdminMixin:
                 raw_store = RawStore()
                 result = self.repo.prune_old_data(days)
                 raw_pruned = 0
-                if result["raw_hashes"]:
-                    raw_pruned = raw_store.prune_by_hashes(result["raw_hashes"])
+                candidate_hashes = set(result["raw_hashes"])
+                if candidate_hashes:
+                    live_hashes = self.repo.get_all_known_hashes()
+                    orphaned_hashes = sorted(candidate_hashes - live_hashes)
+                    if orphaned_hashes:
+                        raw_pruned = raw_store.prune_by_hashes(orphaned_hashes)
                 return result, raw_pruned
 
             result, raw_pruned = await loop.run_in_executor(None, prune_blocking)

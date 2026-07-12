@@ -1,7 +1,7 @@
 import asyncio
 import threading
 import unittest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from huntx.bot.admin import AdminMixin
 
@@ -12,6 +12,7 @@ class _AdminHarness(AdminMixin):
         self.client = MagicMock()
         self.client.send_message = AsyncMock()
         self.deliver_updates_active = AsyncMock()
+        self.repo = MagicMock()
         self.blocking_runs = 0
         self.release_run = threading.Event()
 
@@ -69,6 +70,33 @@ class TestAdminPipelineGuard(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(harness.blocking_runs, 1)
         harness.deliver_updates_active.assert_awaited_once()
         harness.client.send_message.assert_awaited_once()
+
+    async def test_prune_keeps_hash_still_referenced_by_live_row(self):
+        harness = _AdminHarness()
+        harness.repo.prune_old_data.return_value = {
+            "seen_files": 1,
+            "records": 0,
+            "published_artifacts": 0,
+            "raw_hashes": ["shared-hash", "orphan-hash"],
+        }
+        harness.repo.get_all_known_hashes.return_value = {"shared-hash"}
+
+        event = MagicMock()
+        event.answer = AsyncMock()
+        message = MagicMock()
+        message.edit = AsyncMock()
+        event.respond = AsyncMock(return_value=message)
+
+        raw_store = MagicMock()
+        raw_store.prune_by_hashes.return_value = 1
+
+        with patch("huntx.store.raw_store.RawStore", return_value=raw_store):
+            await harness._perform_admin_prune(event, 30)
+
+        harness.repo.prune_old_data.assert_called_once_with(30)
+        harness.repo.get_all_known_hashes.assert_called_once_with()
+        raw_store.prune_by_hashes.assert_called_once_with(["orphan-hash"])
+        message.edit.assert_awaited_once()
 
 
 if __name__ == "__main__":
