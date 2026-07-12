@@ -20,7 +20,7 @@ dependencies = [
 dev = ["pytest", "black", "flake8", "mypy", "types-PyYAML"]
 
 [project.scripts]
-huntx = "huntx.cli.main:main"
+huntx = "huntx.cli.hardened_main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
