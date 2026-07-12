@@ -9,6 +9,7 @@ from ..config.validate import validate_config
 from ..core.hardened_orchestrator import HardenedOrchestrator
 from ..core.locks import acquire_lock
 from ..core.session_lease import session_lease_path
+from ..pipeline.governed_build import GovernedBuildPipeline
 from ..store import paths
 
 logger = logging.getLogger(__name__)
@@ -61,6 +62,19 @@ def _cmd_run(args):
                 config,
                 max_workers=max_workers,
                 fetch_windows=fetch_windows,
+            )
+            route_policies = {
+                route.name: (
+                    route.publication_tier.value,
+                    route.effective_require_fresh_probe,
+                )
+                for route in config.routes
+            }
+            orchestrator.build_pipeline = GovernedBuildPipeline(
+                orchestrator.repo,
+                orchestrator.artifact_store,
+                orchestrator.registry,
+                route_policies,
             )
             summary = orchestrator.run(
                 timeout=run_timeout,
