@@ -31,7 +31,16 @@ class TestPublishPipeline(unittest.TestCase):
             self.pipeline.run(build_result, destinations)
             MockPublisher.assert_not_called()
 
-    @patch.dict("os.environ", {"CI": "0", "HUNTX_STRICT": "0"}, clear=False)
+    @patch.dict(
+        "os.environ",
+        {
+            "CI": "0",
+            "HUNTX_STRICT": "0",
+            "PUBLISH_BOT_TOKEN": "",
+            "TELEGRAM_TOKEN": "",
+        },
+        clear=False,
+    )
     def test_skip_when_destination_has_no_token(self):
         build_result = {"route_name": "route1", "artifact_hash": "new_hash", "format": "fmt1", "data": b"x"}
         destinations = [{"chat_id": "123"}]
@@ -42,7 +51,16 @@ class TestPublishPipeline(unittest.TestCase):
         self.assertTrue(result)
         self.state_repo.mark_published.assert_not_called()
 
-    @patch.dict("os.environ", {"CI": "1", "HUNTX_STRICT": "0"}, clear=False)
+    @patch.dict(
+        "os.environ",
+        {
+            "CI": "1",
+            "HUNTX_STRICT": "0",
+            "PUBLISH_BOT_TOKEN": "",
+            "TELEGRAM_TOKEN": "",
+        },
+        clear=False,
+    )
     def test_missing_destination_token_raises_in_ci(self):
         build_result = {"route_name": "route1", "artifact_hash": "new_hash", "format": "fmt1", "data": b"x"}
         destinations = [{"chat_id": "123"}]
