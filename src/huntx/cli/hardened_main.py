@@ -1,5 +1,6 @@
 import logging
 import os
+from contextlib import nullcontext
 from pathlib import Path
 
 from . import main as legacy
@@ -7,6 +8,7 @@ from ..config.loader import load_config
 from ..config.validate import validate_config
 from ..core.hardened_orchestrator import HardenedOrchestrator
 from ..core.locks import acquire_lock
+from ..core.session_lease import session_lease_path
 from ..store import paths
 
 logger = logging.getLogger(__name__)
@@ -47,8 +49,14 @@ def _cmd_run(args):
             logger.warning("Invalid HUNTX_RUN_TIMEOUT=%r; using 9000", timeout_raw)
             run_timeout = 9000.0
 
-        lock_path = Path(paths.STATE_DIR) / "huntx.lock"
-        with acquire_lock(lock_path):
+        process_lock = Path(paths.STATE_DIR) / "huntx.lock"
+        session_identity = os.environ.get("TELEGRAM_USER_SESSION", "").strip()
+        session_lock = (
+            acquire_lock(session_lease_path(Path(paths.STATE_DIR), session_identity))
+            if session_identity
+            else nullcontext()
+        )
+        with acquire_lock(process_lock), session_lock:
             orchestrator = HardenedOrchestrator(
                 config,
                 max_workers=max_workers,
