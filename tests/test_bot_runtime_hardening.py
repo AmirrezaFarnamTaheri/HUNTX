@@ -9,6 +9,15 @@ from huntx.bot.delivery import DeliveryMixin, FloodWaitError
 from huntx.bot.interactive import InteractiveBot
 
 
+def _flood_wait(seconds: int):
+    try:
+        exc = FloodWaitError(request=None, capture=seconds)
+    except TypeError:
+        exc = FloodWaitError()
+    exc.seconds = seconds
+    return exc
+
+
 class _ConnContext:
     def __init__(self, conn):
         self.conn = conn
@@ -122,9 +131,7 @@ class TestDeliveryRecovery(unittest.IsolatedAsyncioTestCase):
             nonlocal calls
             calls += 1
             if calls == 1:
-                exc = FloodWaitError()
-                exc.seconds = 1
-                raise exc
+                raise _flood_wait(1)
             return "ok"
 
         with patch.dict(
@@ -144,9 +151,7 @@ class TestDeliveryRecovery(unittest.IsolatedAsyncioTestCase):
         async def method():
             nonlocal calls
             calls += 1
-            exc = FloodWaitError()
-            exc.seconds = 30
-            raise exc
+            raise _flood_wait(30)
 
         with patch.dict(
             os.environ,
