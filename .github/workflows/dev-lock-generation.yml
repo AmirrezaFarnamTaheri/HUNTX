@@ -1,0 +1,52 @@
+name: dev-lock-generation
+
+on:
+  pull_request:
+    paths:
+      - "requirements-dev.in"
+      - ".github/workflows/dev-lock-generation.yml"
+  push:
+    branches:
+      - fix/huntx-synthesis-hardening-20260712
+    paths:
+      - "requirements-dev.in"
+      - ".github/workflows/dev-lock-generation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        with:
+          python-version: "3.12"
+      - name: Generate hashed development lock
+        run: |
+          python -m pip install --disable-pip-version-check pip-tools==7.5.2
+          pip-compile --generate-hashes --allow-unsafe --resolver=backtracking --output-file=requirements-dev.txt requirements-dev.in
+      - name: Upload generated lock and source snapshot
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: huntx-dev-lock-and-source
+          path: |
+            requirements-dev.txt
+            .github/
+            configs/
+            docs/
+            scripts/
+            src/
+            tests/
+            pyproject.toml
+            requirements.txt
+            requirements-dev.in
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
