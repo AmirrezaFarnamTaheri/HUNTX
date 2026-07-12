@@ -130,7 +130,10 @@ def _validate_vmess(uri: str) -> bool:
         if not isinstance(payload, dict):
             return False
         uuid.UUID(str(payload.get("id", "")))
-        port = int(payload.get("port"))
+        raw_port = payload.get("port")
+        if not isinstance(raw_port, (str, int)):
+            return False
+        port = int(raw_port)
     except (ValueError, TypeError, json.JSONDecodeError, binascii.Error, UnicodeDecodeError):
         return False
     return _valid_host(str(payload.get("add", ""))) and _valid_port(port)
