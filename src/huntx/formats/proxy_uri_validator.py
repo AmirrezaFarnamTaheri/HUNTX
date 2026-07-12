@@ -21,6 +21,30 @@ _SS_METHODS = {
     "2022-blake3-aes-256-gcm",
     "2022-blake3-chacha20-poly1305",
 }
+_GENERIC_ENDPOINT_SCHEMES = {
+    "hysteria",
+    "wireguard",
+    "wg",
+    "socks",
+    "socks4",
+    "socks5",
+    "anytls",
+    "juicity",
+    "warp",
+    "dns",
+    "dnstt",
+}
+_AUTH_REQUIRED_SCHEMES = {
+    "trojan",
+    "hysteria2",
+    "hy2",
+    "tuic",
+    "hysteria",
+    "anytls",
+    "juicity",
+    "wireguard",
+    "wg",
+}
 
 
 def _decode_base64_text(value: str) -> str:
@@ -33,15 +57,21 @@ def _decode_base64_text(value: str) -> str:
 def _valid_host(host: str | None) -> bool:
     if not host or any(ch.isspace() for ch in host):
         return False
+    normalized = host.rstrip(".").lower()
+    if normalized in {"localhost", "localhost.localdomain"} or normalized.endswith(".local"):
+        return False
     try:
-        address = ipaddress.ip_address(host)
+        address = ipaddress.ip_address(normalized)
         return not (
             address.is_unspecified
             or address.is_loopback
             or address.is_multicast
+            or address.is_private
+            or address.is_link_local
+            or address.is_reserved
         )
     except ValueError:
-        return bool(_HOST_RE.fullmatch(host.rstrip(".")))
+        return bool(_HOST_RE.fullmatch(normalized))
 
 
 def _valid_port(port: int | None) -> bool:
@@ -67,13 +97,38 @@ def _validate_ss(uri: str) -> bool:
     method, password = userinfo.split(":", 1)
     if method not in _SS_METHODS or not password:
         return False
-    parsed = urlsplit(f"ss://placeholder@{endpoint}")
-    return _valid_host(parsed.hostname) and _valid_port(parsed.port)
+    try:
+        parsed = urlsplit(f"ss://placeholder@{endpoint}")
+        port = parsed.port
+    except ValueError:
+        return False
+    query = parse_qs(parsed.query, keep_blank_values=True)
+    if "plugin" in query and not query["plugin"][0].strip():
+        return False
+    return _valid_host(parsed.hostname) and _valid_port(port)
+
+
+def _validate_ssr(uri: str) -> bool:
+    try:
+        decoded = _decode_base64_text(uri[6:].split("#", 1)[0])
+        main, _, _params = decoded.partition("/?")
+        parts = main.split(":")
+        if len(parts) < 6:
+            return False
+        host = ":".join(parts[:-5])
+        port = int(parts[-5])
+        method = parts[-3]
+        password = _decode_base64_text(parts[-1])
+    except (binascii.Error, UnicodeDecodeError, ValueError):
+        return False
+    return _valid_host(host) and _valid_port(port) and bool(method and password)
 
 
 def _validate_vmess(uri: str) -> bool:
     try:
         payload = json.loads(_decode_base64_text(uri[8:].split("#", 1)[0]))
+        if not isinstance(payload, dict):
+            return False
         uuid.UUID(str(payload.get("id", "")))
         port = int(payload.get("port"))
     except (ValueError, TypeError, json.JSONDecodeError, binascii.Error, UnicodeDecodeError):
@@ -91,9 +146,10 @@ def _validate_standard_uri(uri: str) -> bool:
         return False
     scheme = parsed.scheme.lower()
     query = parse_qs(parsed.query, keep_blank_values=True)
+    username = unquote(parsed.username or "")
     if scheme == "vless":
         try:
-            uuid.UUID(unquote(parsed.username or ""))
+            uuid.UUID(username)
         except ValueError:
             return False
         security = query.get("security", [""])[0].lower()
@@ -102,9 +158,8 @@ def _validate_standard_uri(uri: str) -> bool:
             server_name = query.get("sni", [""])[0]
             if not public_key or not server_name:
                 return False
-    elif scheme in {"trojan", "hysteria2", "hy2", "tuic"}:
-        if not unquote(parsed.username or ""):
-            return False
+    elif scheme in _AUTH_REQUIRED_SCHEMES and not username:
+        return False
     if scheme in {"hysteria2", "hy2"}:
         obfs_type = query.get("obfs", [""])[0]
         obfs_password = query.get("obfs-password", query.get("obfs_password", [""]))[0]
@@ -114,13 +169,20 @@ def _validate_standard_uri(uri: str) -> bool:
 
 
 def validate_proxy_uri(uri: str) -> bool:
-    if not uri or uri != uri.strip() or any(ch in uri for ch in "\r\n\t <>'\""):
+    if (
+        not uri
+        or len(uri) > 16384
+        or uri != uri.strip()
+        or any(ch in uri for ch in "\r\n\t <>'\"")
+    ):
         return False
     scheme = uri.split("://", 1)[0].lower() if "://" in uri else ""
     if scheme == "ss":
         return _validate_ss(uri)
+    if scheme == "ssr":
+        return _validate_ssr(uri)
     if scheme == "vmess":
         return _validate_vmess(uri)
-    if scheme in {"vless", "trojan", "hysteria2", "hy2", "tuic"}:
+    if scheme in {"vless", "trojan", "hysteria2", "hy2", "tuic"} | _GENERIC_ENDPOINT_SCHEMES:
         return _validate_standard_uri(uri)
-    return bool(scheme and len(uri) <= 16384)
+    return False
