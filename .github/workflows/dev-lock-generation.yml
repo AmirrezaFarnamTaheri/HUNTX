@@ -5,12 +5,16 @@ on:
     paths:
       - "requirements-dev.in"
       - ".github/workflows/dev-lock-generation.yml"
+      - "src/**"
+      - "tests/**"
   push:
     branches:
       - fix/huntx-synthesis-hardening-20260712
     paths:
       - "requirements-dev.in"
       - ".github/workflows/dev-lock-generation.yml"
+      - "src/**"
+      - "tests/**"
 
 permissions:
   contents: read
@@ -30,14 +34,26 @@ jobs:
           python-version: "3.12"
       - name: Generate hashed development lock
         run: |
-          python -m pip install --disable-pip-version-check pip-tools==7.5.2
+          python -m pip install --disable-pip-version-check pip-tools
           pip-compile --generate-hashes --allow-unsafe --resolver=backtracking --output-file=requirements-dev.txt requirements-dev.in
-      - name: Upload generated lock and source snapshot
+      - name: Capture type diagnostics
+        run: |
+          set +e
+          pip install --require-hashes -r requirements-dev.txt
+          pip install --no-deps -e .
+          mypy src/huntx --show-error-codes --no-pretty > mypy.txt 2>&1
+          echo "$?" > mypy-status.txt
+          cat mypy.txt
+          exit 0
+      - name: Upload generated lock, diagnostics, and source snapshot
+        if: always()
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: huntx-dev-lock-and-source
           path: |
             requirements-dev.txt
+            mypy.txt
+            mypy-status.txt
             .github/
             configs/
             docs/
