@@ -118,10 +118,11 @@ class TestNpvtDedup(unittest.TestCase):
 
     def test_same_vless_different_remarks_deduped(self):
         handler = NpvtHandler()
+        user_id = "11111111-1111-4111-8111-111111111111"
         content = (
-            "vless://uuid@1.2.3.4:443?type=tcp#Channel_A\n"
-            "vless://uuid@1.2.3.4:443?type=tcp#Channel_B\n"
-            "vless://uuid@1.2.3.4:443?type=tcp#Channel_C\n"
+            f"vless://{user_id}@dedup.example.com:443?type=tcp#Channel_A\n"
+            f"vless://{user_id}@dedup.example.com:443?type=tcp#Channel_B\n"
+            f"vless://{user_id}@dedup.example.com:443?type=tcp#Channel_C\n"
         ).encode()
 
         records = handler.parse(content, {})
@@ -129,8 +130,15 @@ class TestNpvtDedup(unittest.TestCase):
 
     def test_same_vmess_different_ps_deduped(self):
         handler = NpvtHandler()
-        base = {"v": "2", "add": "1.2.3.4", "port": "443", "id": "uuid",
-                "aid": "0", "net": "ws", "type": "none"}
+        base = {
+            "v": "2",
+            "add": "vmess-dedup.example.com",
+            "port": "443",
+            "id": "22222222-2222-4222-8222-222222222222",
+            "aid": "0",
+            "net": "ws",
+            "type": "none",
+        }
 
         lines = []
         for name in ["Channel_A", "Channel_B", "Channel_C"]:
@@ -144,18 +152,21 @@ class TestNpvtDedup(unittest.TestCase):
 
     def test_different_proxies_not_deduped(self):
         handler = NpvtHandler()
+        first_id = "33333333-3333-4333-8333-333333333333"
+        second_id = "44444444-4444-4444-8444-444444444444"
         content = (
-            "vless://uuid1@1.2.3.4:443#A\n"
-            "vless://uuid2@5.6.7.8:443#A\n"
+            f"vless://{first_id}@first.example.com:443#A\n"
+            f"vless://{second_id}@second.example.com:443#A\n"
         ).encode()
         records = handler.parse(content, {})
         self.assertEqual(len(records), 2)
 
     def test_build_adds_clean_remarks(self):
         handler = NpvtHandler()
+        user_id = "55555555-5555-4555-8555-555555555555"
         content = (
-            "vless://a@1.2.3.4:443#Old_Remark\n"
-            "trojan://b@5.6.7.8:443#Another_Remark\n"
+            f"vless://{user_id}@build-vless.example.com:443#Old_Remark\n"
+            "trojan://secret@build-trojan.example.com:443#Another_Remark\n"
         ).encode()
         records = handler.parse(content, {})
         built = handler.build(records).decode()
@@ -168,12 +179,14 @@ class TestNpvtDedup(unittest.TestCase):
         """Build should also deduplicate if records from different sources
         happen to contain the same proxy."""
         handler = NpvtHandler()
+        user_id = "66666666-6666-4666-8666-666666666666"
+        line = f"vless://{user_id}@build-dedup.example.com:443"
         records = [
-            {"data": {"line": "vless://uuid@host:443"}},
-            {"data": {"line": "vless://uuid@host:443"}},
+            {"data": {"line": line}},
+            {"data": {"line": line}},
         ]
         built = handler.build(records).decode()
-        lines = [l for l in built.strip().split("\n") if l]
+        lines = [item for item in built.strip().split("\n") if item]
         self.assertEqual(len(lines), 1)
 
 
@@ -183,8 +196,8 @@ class TestNpvtSubDedup(unittest.TestCase):
     def test_same_proxy_different_remarks_deduped(self):
         handler = NpvtSubHandler()
         content = (
-            "trojan://pass@host:443#Channel_X\n"
-            "trojan://pass@host:443#Channel_Y\n"
+            "trojan://pass@sub-dedup.example.com:443#Channel_X\n"
+            "trojan://pass@sub-dedup.example.com:443#Channel_Y\n"
         ).encode()
         records = handler.parse(content, {})
         self.assertEqual(len(records), 1)
