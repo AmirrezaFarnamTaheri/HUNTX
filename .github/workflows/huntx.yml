@@ -52,7 +52,7 @@ env:
 jobs:
   validate:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 40
     permissions:
       contents: read
     steps:
@@ -97,7 +97,7 @@ jobs:
   build:
     needs: validate
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
+    timeout-minutes: 300
     permissions:
       contents: read
       id-token: write
@@ -263,7 +263,7 @@ jobs:
     needs: build
     if: ${{ needs.build.result == 'success' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 25
     permissions:
       pages: write
       id-token: write
