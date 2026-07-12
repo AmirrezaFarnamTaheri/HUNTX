@@ -223,7 +223,7 @@ class DeliveryMixin:
 
         sent = 0
         for f in files:
-            if fmt and not f.name.endswith(f".{fmt}"):
+            if fmt and not self._filename_matches_format(f.name, fmt):
                 continue
             size_kb = f.stat().st_size / 1024
             await self.client.send_file(  # type: ignore[attr-defined]
