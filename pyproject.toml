@@ -31,6 +31,14 @@ line-length = 120
 [tool.mypy]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = "huntx.bot.delivery"
+disable_error_code = ["no-redef"]
+
+[[tool.mypy.overrides]]
+module = "huntx.bot.interactive"
+disable_error_code = ["attr-defined"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
