@@ -46,14 +46,20 @@ class HardenedOrchestrator(Orchestrator):
     ) -> dict[str, Any]:
         start_time = time.monotonic()
         self._deadline = time.time() + timeout if timeout else None
-        total_sources = len(self.config.sources)
+        eligible_sources = [
+            source
+            for source in self.config.sources
+            if getattr(source, "publication_eligible", True)
+        ]
+        excluded_sources = len(self.config.sources) - len(eligible_sources)
+        total_sources = len(eligible_sources)
         total_routes = len(self.config.routes)
-        effective_workers = min(self.max_workers, total_sources)
+        effective_workers = min(self.max_workers, total_sources) if total_sources else 0
         seen_file_cutoff_id = self._get_seen_file_max_id()
 
         status = "completed"
         timed_out_stage: Optional[str] = None
-        results = {"ok": 0, "err": 0}
+        results: dict[str, int] = {"ok": 0, "err": 0}
         failed_routes: set[str] = set()
         total_artifacts = 0
         publish_attempts = 0
@@ -72,15 +78,34 @@ class HardenedOrchestrator(Orchestrator):
             logger.error("[Orchestrator] Deadline exhausted during %s", stage)
 
         logger.info(
-            "[Orchestrator] hardened run start sources=%s routes=%s workers=%s timeout=%s",
+            "[Orchestrator] hardened run start approved_sources=%s excluded_sources=%s routes=%s workers=%s timeout=%s",
             total_sources,
+            excluded_sources,
             total_routes,
             effective_workers,
             timeout,
         )
 
+        if not eligible_sources:
+            return {
+                "status": "failed",
+                "timed_out": False,
+                "timed_out_stage": None,
+                "duration_seconds": time.monotonic() - start_time,
+                "partial_export_enabled": allow_partial_export,
+                "total_artifacts": 0,
+                "publish_attempts": 0,
+                "publish_failures": 0,
+                "ingest_ok": 0,
+                "ingest_err": 0,
+                "failed_routes": 0,
+                "approved_sources": 0,
+                "excluded_sources": excluded_sources,
+                "reason": "no_approved_sources",
+            }
+
         source_queue: asyncio.Queue[Any] = asyncio.Queue()
-        for source in self.config.sources:
+        for source in eligible_sources:
             await source_queue.put(source)
         result_lock = asyncio.Lock()
         ingestion_tasks = [
@@ -227,6 +252,8 @@ class HardenedOrchestrator(Orchestrator):
             "ingest_ok": results["ok"],
             "ingest_err": results["err"],
             "failed_routes": len(failed_routes),
+            "approved_sources": total_sources,
+            "excluded_sources": excluded_sources,
         }
         logger.info("[Orchestrator] Final run summary: %s", summary)
         return summary
