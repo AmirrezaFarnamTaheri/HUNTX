@@ -1,6 +1,6 @@
-import sqlite3
 import contextlib
 import logging
+import sqlite3
 from pathlib import Path
 from typing import Generator
 
@@ -21,30 +21,25 @@ class DBConnection:
             return
 
         with self.connect() as conn:
-            # Enable WAL
+            # Enable WAL for better read/write concurrency.
             conn.execute("PRAGMA journal_mode=WAL;")
             conn.execute("PRAGMA synchronous=NORMAL;")
 
-            # Run basic schema
             try:
-                with open(schema_path, "r") as f:
-                    conn.executescript(f.read())
-            except Exception as e:
-                logger.error(f"Failed to apply schema: {e}")
+                with open(schema_path, "r", encoding="utf-8") as schema_file:
+                    conn.executescript(schema_file.read())
+            except Exception as exc:
+                logger.error("Failed to apply schema: %s", exc)
                 raise
 
-            # Check for migrations
             self._check_migrations(conn)
 
     def _check_migrations(self, conn: sqlite3.Connection):
-        """
-        Manually handle schema migrations that aren't covered by IF NOT EXISTS
-        using user_version tracking.
-        """
+        """Apply incremental schema migrations using ``PRAGMA user_version``."""
         try:
             cursor = conn.execute("PRAGMA user_version")
             version = cursor.fetchone()[0]
-            logger.info(f"Database schema version: {version}")
+            logger.info("Database schema version: %s", version)
 
             if version < 1:
                 cursor = conn.execute("PRAGMA table_info(seen_files)")
@@ -57,15 +52,19 @@ class DBConnection:
                     conn.execute("ALTER TABLE seen_files ADD COLUMN filename TEXT")
                 conn.execute("PRAGMA user_version = 1")
                 logger.info("Database schema migrated to version 1.")
-        except Exception as e:
-            logger.error(f"Migration check failed: {e}")
+        except Exception as exc:
+            logger.error("Migration check failed: %s", exc)
             raise
 
     @contextlib.contextmanager
     def connect(self) -> Generator[sqlite3.Connection, None, None]:
-        # Increase timeout to handle concurrent writes better (default is 5.0)
+        # The sqlite timeout is a connection-open setting. ``busy_timeout`` is
+        # also applied explicitly because every worker opens independent
+        # short-lived connections.
         conn = sqlite3.connect(str(self.db_path), timeout=30.0)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys=ON;")
+        conn.execute("PRAGMA busy_timeout=30000;")
         try:
             yield conn
             conn.commit()
