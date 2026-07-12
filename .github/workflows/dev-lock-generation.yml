@@ -1,89 +1,122 @@
 name: dev-lock-generation
 
 on:
-  pull_request:
-    paths:
-      - "requirements-dev.in"
-      - ".github/workflows/dev-lock-generation.yml"
-      - "src/**"
-      - "tests/**"
   push:
     branches:
       - fix/huntx-synthesis-hardening-20260712
     paths:
-      - "requirements-dev.in"
-      - ".github/workflows/dev-lock-generation.yml"
-      - "src/**"
-      - "tests/**"
+      - .github/workflows/dev-lock-generation.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  generate:
+  finalize:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
-      - name: Checkout
+      - name: Checkout branch
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          persist-credentials: false
-      - name: Set up Python
-        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
-        with:
-          python-version: "3.12"
-      - name: Generate hashed development lock and diagnostics
+          ref: fix/huntx-synthesis-hardening-20260712
+          persist-credentials: true
+
+      - name: Generate permanent lock and evidence tooling
         run: |
-          set +e
-          python -m pip install --disable-pip-version-check pip-tools > pip-tools-install.txt 2>&1
-          install_status=$?
-          if [ "$install_status" -eq 0 ]; then
-            pip-compile --generate-hashes --allow-unsafe --resolver=backtracking --output-file=requirements-dev.txt requirements-dev.in > lock-generation.txt 2>&1
-            echo "$?" > lock-status.txt
-          else
-            echo "$install_status" > lock-status.txt
-            printf '%s\n' 'pip-tools installation failed' > lock-generation.txt
-          fi
-          cat pip-tools-install.txt
-          cat lock-generation.txt
-          exit 0
-      - name: Capture type diagnostics
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install pip-tools
+          pip-compile --allow-unsafe --generate-hashes --resolver=backtracking --output-file=requirements-dev.txt requirements-dev.in
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('.github/workflows/pr-validation.yml')
+          s = p.read_text()
+          s = s.replace('cache-dependency-path: requirements.txt', 'cache-dependency-path: requirements-dev.txt')
+          s = s.replace(
+              'pip install --require-hashes -r requirements.txt\n          pip install flake8 mypy pytest types-requests types-PyYAML',
+              'pip install --require-hashes -r requirements-dev.txt',
+          )
+          marker = '      - name: Upload pytest report\n'
+          supply = '''      - name: Generate SBOM and provenance\n        if: always()\n        run: |\n          python scripts/generate_sbom.py artifacts/sbom.cdx.json\n          python scripts/generate_provenance.py artifacts artifacts/provenance.json\n\n      - name: Upload supply-chain evidence\n        if: always()\n        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3\n        with:\n          name: supply-chain-evidence\n          path: artifacts/\n          if-no-files-found: error\n          retention-days: 30\n\n'''
+          if 'Generate SBOM and provenance' not in s:
+              s = s.replace(marker, supply + marker)
+          p.write_text(s)
+          PY
+          cat > scripts/generate_sbom.py <<'PY'
+          #!/usr/bin/env python3
+          from __future__ import annotations
+          import hashlib
+          import importlib.metadata
+          import json
+          import pathlib
+          import sys
+
+          def main() -> int:
+              out = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else 'artifacts/sbom.cdx.json')
+              components = []
+              for dist in sorted(importlib.metadata.distributions(), key=lambda d: (d.metadata.get('Name', '').lower(), d.version)):
+                  name = dist.metadata.get('Name')
+                  if name:
+                      components.append({'type': 'library', 'name': name, 'version': dist.version, 'purl': f'pkg:pypi/{name.lower()}@{dist.version}'})
+              serial = hashlib.sha256(json.dumps(components, sort_keys=True).encode()).hexdigest()[:32]
+              document = {'bomFormat': 'CycloneDX', 'specVersion': '1.5', 'serialNumber': 'urn:uuid:' + serial, 'version': 1, 'components': components}
+              out.parent.mkdir(parents=True, exist_ok=True)
+              out.write_text(json.dumps(document, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+              return 0
+
+          if __name__ == '__main__':
+              raise SystemExit(main())
+          PY
+          cat > scripts/generate_provenance.py <<'PY'
+          #!/usr/bin/env python3
+          from __future__ import annotations
+          import hashlib
+          import json
+          import os
+          import pathlib
+          import sys
+          import time
+
+          def sha256(path: pathlib.Path) -> str:
+              digest = hashlib.sha256()
+              with path.open('rb') as stream:
+                  for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+                      digest.update(chunk)
+              return digest.hexdigest()
+
+          def main() -> int:
+              root = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else 'artifacts')
+              out = pathlib.Path(sys.argv[2] if len(sys.argv) > 2 else 'artifacts/provenance.json')
+              subjects = [{'name': str(path.relative_to(root)), 'digest': {'sha256': sha256(path)}} for path in sorted(root.rglob('*')) if path.is_file() and path != out]
+              document = {'_type': 'https://in-toto.io/Statement/v1', 'subject': subjects, 'predicateType': 'https://slsa.dev/provenance/v1', 'predicate': {'buildDefinition': {'buildType': 'https://github.com/AmirrezaFarnamTaheri/HUNTX/actions', 'externalParameters': {'ref': os.getenv('GITHUB_REF', ''), 'sha': os.getenv('GITHUB_SHA', '')}}, 'runDetails': {'builder': {'id': 'https://github.com/actions/runner'}, 'metadata': {'invocationId': os.getenv('GITHUB_RUN_ID', 'local'), 'startedOn': int(time.time())}}}}
+              out.parent.mkdir(parents=True, exist_ok=True)
+              out.write_text(json.dumps(document, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+              return 0
+
+          if __name__ == '__main__':
+              raise SystemExit(main())
+          PY
+
+      - name: Verify permanent baseline
         run: |
-          set +e
-          if [ -s requirements-dev.txt ]; then
-            pip install --require-hashes -r requirements-dev.txt > dev-install.txt 2>&1
-          else
-            pip install --require-hashes -r requirements.txt > dev-install.txt 2>&1
-            pip install mypy types-requests types-PyYAML >> dev-install.txt 2>&1
-          fi
-          pip install --no-deps -e . >> dev-install.txt 2>&1
-          mypy src/huntx --show-error-codes --no-pretty > mypy.txt 2>&1
-          echo "$?" > mypy-status.txt
-          cat dev-install.txt
-          cat mypy.txt
-          exit 0
-      - name: Upload generated lock, diagnostics, and source snapshot
-        if: always()
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
-        with:
-          name: huntx-dev-lock-and-source
-          path: |
-            requirements-dev.txt
-            pip-tools-install.txt
-            lock-generation.txt
-            lock-status.txt
-            dev-install.txt
-            mypy.txt
-            mypy-status.txt
-            .github/
-            configs/
-            docs/
-            scripts/
-            src/
-            tests/
-            pyproject.toml
-            requirements.txt
-            requirements-dev.in
-          include-hidden-files: true
-          if-no-files-found: error
-          retention-days: 1
+          set -euo pipefail
+          pip install --require-hashes -r requirements-dev.txt
+          pip install --no-deps -e .
+          python -m compileall -q src tests
+          flake8 src/huntx tests --count --select=E9,F63,F7,F82 --show-source --statistics
+          mypy src/huntx
+          pytest -q tests/
+          python scripts/generate_sbom.py artifacts/sbom.cdx.json
+          python scripts/generate_provenance.py artifacts artifacts/provenance.json
+          python -m json.tool artifacts/sbom.cdx.json >/dev/null
+          python -m json.tool artifacts/provenance.json >/dev/null
+
+      - name: Commit and self-remove
+        run: |
+          set -euo pipefail
+          rm .github/workflows/dev-lock-generation.yml
+          git config user.name 'huntx-ci-fix'
+          git config user.email 'huntx-ci-fix@users.noreply.github.com'
+          git add .github/workflows/dev-lock-generation.yml .github/workflows/pr-validation.yml requirements-dev.txt scripts/generate_sbom.py scripts/generate_provenance.py
+          git commit -m 'ci: lock validation and generate supply-chain evidence'
+          git push origin HEAD:fix/huntx-synthesis-hardening-20260712
