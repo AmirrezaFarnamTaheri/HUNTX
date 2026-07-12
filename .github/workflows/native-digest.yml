@@ -1,0 +1,31 @@
+name: native-digest
+
+on:
+  push:
+    branches:
+      - fix/huntx-synthesis-hardening-20260712
+    paths:
+      - .github/workflows/native-digest.yml
+
+permissions:
+  contents: read
+
+jobs:
+  digest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Download pinned Xray asset
+        run: |
+          set -euo pipefail
+          curl --fail --location --proto '=https' --tlsv1.2 \
+            --output Xray-linux-64.zip \
+            https://github.com/XTLS/Xray-core/releases/download/v26.3.27/Xray-linux-64.zip
+          sha256sum Xray-linux-64.zip | tee native-digest.txt
+      - name: Upload digest
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: native-digest
+          path: native-digest.txt
+          if-no-files-found: error
+          retention-days: 1
