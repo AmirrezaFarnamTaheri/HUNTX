@@ -1,4 +1,5 @@
 import asyncio
+import threading
 import unittest
 from unittest.mock import AsyncMock, MagicMock
 
@@ -12,9 +13,12 @@ class _AdminHarness(AdminMixin):
         self.client.send_message = AsyncMock()
         self.deliver_updates_active = AsyncMock()
         self.blocking_runs = 0
+        self.release_run = threading.Event()
 
     def _run_pipeline_blocking(self):
         self.blocking_runs += 1
+        if not self.release_run.wait(timeout=5):
+            raise TimeoutError("test did not release background pipeline")
 
 
 class TestAdminPipelineGuard(unittest.IsolatedAsyncioTestCase):
@@ -56,6 +60,9 @@ class TestAdminPipelineGuard(unittest.IsolatedAsyncioTestCase):
         started_task = harness._pipeline_task
 
         self.assertIsNotNone(started_task)
+        self.assertFalse(started_task.done())
+
+        harness.release_run.set()
         await started_task
 
         self.assertIsNone(harness._pipeline_task)
