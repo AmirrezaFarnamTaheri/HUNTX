@@ -6,43 +6,32 @@ from typing import List, Dict, Any
 from .base import FormatHandler
 from .common.normalize_text import normalize_text
 from .common.hashing import hash_string
+from .proxy_uri_validator import validate_proxy_uri
 
 from ..core.router import _PROXY_SCHEMES
 
-# Regex to extract proxy URIs from anywhere in text.
-# Matches scheme:// followed by non-whitespace characters.
 _PROXY_URI_RE = re.compile(
-    r'(?:' + '|'.join(re.escape(s) for s in _PROXY_SCHEMES) + r')[^\s<>\"\']+',
+    r'(?:' + '|'.join(re.escape(s) for s in _PROXY_SCHEMES) + r')[^\s<>"\']+',
     re.IGNORECASE,
 )
 
 
 def _is_proxy_line(line: str) -> bool:
-    """Check if a line starts with a known proxy URI scheme."""
     return any(line.startswith(s) for s in _PROXY_SCHEMES)
 
 
 def _extract_proxy_uris(text: str) -> List[str]:
-    """Extract all proxy URIs from text, even if embedded mid-line."""
     return _PROXY_URI_RE.findall(text)
 
 
 def _b64_decode_safe(data: str) -> str:
-    """Base64 decode with auto-padding, supports URL-safe variant."""
-    data = data.replace("-", "+").replace("_", "/")
-    padding = 4 - len(data) % 4
-    if padding != 4:
-        data += "=" * padding
-    return base64.b64decode(data).decode("utf-8", errors="ignore")
+    normalized = data.replace("-", "+").replace("_", "/")
+    normalized += "=" * ((4 - len(normalized) % 4) % 4)
+    decoded = base64.b64decode(normalized, validate=True)
+    return decoded.decode("utf-8")
 
 
 def strip_proxy_remark(uri: str) -> str:
-    """Strip the remark/tag from a proxy URI for deduplication.
-
-    For vmess:// — decode base64 JSON, remove 'ps' field, re-encode
-    deterministically so identical proxies with different remarks hash the same.
-    For all others — strip the #fragment.
-    """
     if uri.startswith("vmess://"):
         try:
             b64 = uri[8:]
@@ -51,9 +40,8 @@ def strip_proxy_remark(uri: str) -> str:
             obj.pop("ps", None)
             canonical = json.dumps(obj, sort_keys=True, separators=(',', ':'))
             return "vmess://" + base64.b64encode(canonical.encode()).decode()
-        except (binascii.Error, ValueError, json.JSONDecodeError):
-            pass
-    # For all other protocols: strip #fragment
+        except (binascii.Error, UnicodeDecodeError, ValueError, json.JSONDecodeError):
+            return uri
     idx = uri.rfind("#")
     if idx > 0:
         return uri[:idx]
@@ -61,11 +49,6 @@ def strip_proxy_remark(uri: str) -> str:
 
 
 def add_clean_remark(uri: str, counter: dict) -> str:
-    """Replace any existing remark with a clean protocol-N tag.
-
-    For vmess:// — set 'ps' field in decoded JSON.
-    For all others — append #protocol-N.
-    """
     scheme = uri.split("://")[0].lower() if "://" in uri else "proxy"
     counter[scheme] = counter.get(scheme, 0) + 1
     tag = f"{scheme}-{counter[scheme]}"
@@ -78,89 +61,82 @@ def add_clean_remark(uri: str, counter: dict) -> str:
             obj["ps"] = tag
             encoded = json.dumps(obj, separators=(',', ':')).encode()
             return "vmess://" + base64.b64encode(encoded).decode()
-        except (binascii.Error, ValueError, json.JSONDecodeError):
+        except (binascii.Error, UnicodeDecodeError, ValueError, json.JSONDecodeError):
             return uri
 
-    # Strip existing fragment, add clean one
     idx = uri.rfind("#")
     base = uri[:idx] if idx > 0 else uri
     return f"{base}#{tag}"
 
 
 class NpvtHandler(FormatHandler):
-    """
-    Handles proxy configs like vmess://, vless://, trojan://, ss://, ssr://,
-    hysteria2://, tuic://, wireguard://, socks://, dns://, juicity://, etc.
-    Input may be plain text lines or a base64-encoded blob.
-    """
+    """Parse validated proxy URI records and build deterministic subscriptions."""
 
     @property
     def format_id(self) -> str:
         return "npvt"
 
-    def parse(self, raw_data: bytes, source_info: Dict[str, Any]) -> List[Dict[str, Any]]:
-        text = raw_data.decode("utf-8", errors="ignore")
+    def _append_uri(
+        self,
+        records: List[Dict[str, Any]],
+        seen_hashes: set[str],
+        candidate: str,
+    ) -> None:
+        uri = candidate.strip()
+        if not validate_proxy_uri(uri):
+            return
+        stripped = strip_proxy_remark(uri)
+        if not validate_proxy_uri(stripped):
+            return
+        digest = hash_string(stripped)
+        if digest in seen_hashes:
+            return
+        seen_hashes.add(digest)
+        records.append({"unique_hash": digest, "data": {"line": stripped}})
 
-        # Try to decode if it looks like base64 (no spaces, no ://)
+    def parse(self, raw_data: bytes, source_info: Dict[str, Any]) -> List[Dict[str, Any]]:
+        try:
+            text = raw_data.decode("utf-8")
+        except UnicodeDecodeError:
+            return []
+
         clean_text = text.strip()
         if "://" not in clean_text and " " not in clean_text and len(clean_text) > 10:
             try:
-                padding = 4 - len(clean_text) % 4
-                if padding != 4:
-                    clean_text += "=" * padding
-                decoded = base64.b64decode(clean_text).decode("utf-8", errors="ignore")
+                decoded = _b64_decode_safe(clean_text)
                 if any(s in decoded for s in _PROXY_SCHEMES):
                     text = decoded
-            except (binascii.Error, ValueError):
-                pass  # Not base64 or failed
+            except (binascii.Error, UnicodeDecodeError, ValueError):
+                pass
 
-        records = []
-        seen_hashes = set()
-
+        records: List[Dict[str, Any]] = []
+        seen_hashes: set[str] = set()
         for line in text.splitlines():
             clean = normalize_text(line)
             if not clean:
                 continue
-
-            # Fast path: line starts with a proxy scheme (most common case)
             if _is_proxy_line(clean):
-                stripped = strip_proxy_remark(clean)
-                h = hash_string(stripped)
-                if h not in seen_hashes:
-                    seen_hashes.add(h)
-                    records.append({"unique_hash": h, "data": {"line": stripped}})
+                self._append_uri(records, seen_hashes, clean)
                 continue
-
-            # Slow path: extract URIs embedded mid-line
-            uris = _extract_proxy_uris(clean)
-            for uri in uris:
-                uri = uri.strip()
-                stripped = strip_proxy_remark(uri)
-                h = hash_string(stripped)
-                if h not in seen_hashes:
-                    seen_hashes.add(h)
-                    records.append({"unique_hash": h, "data": {"line": stripped}})
-
+            for uri in _extract_proxy_uris(clean):
+                self._append_uri(records, seen_hashes, uri)
         return records
 
     def build(self, records: List[Dict[str, Any]]) -> bytes:
         lines = []
         seen = set()
         remark_counter: dict = {}
-        for r in records:
+        for record in records:
             line = None
-            if isinstance(r, dict):
-                if "data" in r and isinstance(r["data"], dict) and "line" in r["data"]:
-                    line = r["data"]["line"]
-                elif "line" in r:
-                    line = r["line"]
-
-            if not line:
+            if isinstance(record, dict):
+                if "data" in record and isinstance(record["data"], dict):
+                    line = record["data"].get("line")
+                elif "line" in record:
+                    line = record["line"]
+            if not isinstance(line, str) or not validate_proxy_uri(line):
                 continue
             stripped = strip_proxy_remark(line)
             if stripped not in seen:
                 seen.add(stripped)
                 lines.append(add_clean_remark(stripped, remark_counter))
-
-        content = "\n".join(lines)
-        return content.encode("utf-8")
+        return "\n".join(lines).encode("utf-8")

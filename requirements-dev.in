@@ -1,0 +1,7 @@
+-r requirements.txt
+
+flake8
+mypy
+pytest
+types-PyYAML
+types-requests

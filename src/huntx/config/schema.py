@@ -1,5 +1,21 @@
+from enum import Enum
 from typing import List, Optional
-from pydantic import BaseModel, field_validator
+
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+class SourceTrustState(str, Enum):
+    CANDIDATE = "candidate"
+    APPROVED = "approved"
+    DEGRADED = "degraded"
+    QUARANTINED = "quarantined"
+    RETIRED = "retired"
+
+
+class PublicationTier(str, Enum):
+    RAW = "raw"
+    COMPATIBLE = "compatible"
+    SECURE = "secure"
 
 
 class TelegramSourceConfig(BaseModel):
@@ -31,6 +47,9 @@ class SourceConfig(BaseModel):
     selector: Optional[SourceSelector] = None
     telegram: Optional[TelegramSourceConfig] = None
     telegram_user: Optional[TelegramUserSourceConfig] = None
+    trust_state: SourceTrustState = SourceTrustState.APPROVED
+    discovered_from: Optional[str] = None
+    approval_evidence: List[str] = Field(default_factory=list)
 
     @field_validator("type")
     @classmethod
@@ -38,6 +57,19 @@ class SourceConfig(BaseModel):
         if v not in ("telegram", "telegram_user", "v2ray_collector"):
             raise ValueError(f"Unknown source type: {v}")
         return v
+
+    @model_validator(mode="after")
+    def validate_source_governance(self) -> "SourceConfig":
+        if self.trust_state == SourceTrustState.APPROVED and self.discovered_from:
+            if not self.approval_evidence:
+                raise ValueError(
+                    "Discovered sources cannot be approved without approval_evidence"
+                )
+        return self
+
+    @property
+    def publication_eligible(self) -> bool:
+        return self.trust_state == SourceTrustState.APPROVED
 
 
 class DestinationConfig(BaseModel):
@@ -52,6 +84,14 @@ class PublishRoute(BaseModel):
     from_sources: List[str]
     formats: List[str]
     destinations: List[DestinationConfig]
+    publication_tier: PublicationTier = PublicationTier.COMPATIBLE
+    require_fresh_probe: Optional[bool] = None
+
+    @property
+    def effective_require_fresh_probe(self) -> bool:
+        if self.require_fresh_probe is not None:
+            return self.require_fresh_probe
+        return self.publication_tier == PublicationTier.SECURE
 
 
 class PublishingConfig(BaseModel):
@@ -60,10 +100,8 @@ class PublishingConfig(BaseModel):
 
 class AppConfig(BaseModel):
     sources: List[SourceConfig]
-    # 'routes' are nested under 'publishing' key in YAML
     publishing: PublishingConfig
 
     @property
     def routes(self) -> List[PublishRoute]:
-        """Helper to access routes directly"""
         return self.publishing.routes

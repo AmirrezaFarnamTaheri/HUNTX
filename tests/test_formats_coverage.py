@@ -12,17 +12,35 @@ from huntx.formats.sip import SipHandler
 
 class TestFormatsCoverage(unittest.TestCase):
     def test_npvt_format(self):
-        fmt = NpvtHandler()
+        import base64
+        import json
 
-        # Test parse normal
-        content = b"vless://uuid@host:443?key=val#remark\nvmess://base64"
+        fmt = NpvtHandler()
+        user_id = "11111111-1111-4111-8111-111111111111"
+        vmess_payload = {
+            "v": "2",
+            "add": "vmess.example.com",
+            "port": "443",
+            "id": "22222222-2222-4222-8222-222222222222",
+            "aid": "0",
+            "net": "ws",
+            "type": "none",
+        }
+        vmess = base64.b64encode(json.dumps(vmess_payload).encode()).decode()
+
+        # Test parse normal with protocol-valid, publicly routable fixtures.
+        content = (
+            f"vless://{user_id}@vless.example.com:443?type=tcp#remark\n"
+            f"vmess://{vmess}"
+        ).encode()
         lines = fmt.parse(content, {})
         self.assertEqual(len(lines), 2)
-        self.assertEqual(lines[0]["data"]["line"], "vless://uuid@host:443?key=val")
+        self.assertEqual(
+            lines[0]["data"]["line"],
+            f"vless://{user_id}@vless.example.com:443?type=tcp",
+        )
 
         # Test parse base64
-        import base64
-
         b64_content = base64.b64encode(content).decode("utf-8")
         lines_b64 = fmt.parse(b64_content.encode("utf-8"), {})
         self.assertEqual(len(lines_b64), 2)
@@ -70,18 +88,40 @@ class TestFormatsCoverage(unittest.TestCase):
             self.assertEqual(zf.read("file.bin"), data)
 
     def test_npvtsub_format(self):
+        import base64
+        import json
+
         fmt = NpvtSubHandler()
         self.assertEqual(fmt.format_id, "npvtsub")
 
-        content = b"vless://uuid@host:443#tag\nvmess://base64\ngarbage"
+        user_id = "33333333-3333-4333-8333-333333333333"
+        vmess_payload = {
+            "v": "2",
+            "add": "vmess-sub.example.com",
+            "port": "443",
+            "id": "44444444-4444-4444-8444-444444444444",
+            "aid": "0",
+            "net": "ws",
+            "type": "none",
+        }
+        vmess = base64.b64encode(json.dumps(vmess_payload).encode()).decode()
+        content = (
+            f"vless://{user_id}@vless-sub.example.com:443#tag\n"
+            f"vmess://{vmess}\n"
+            "garbage"
+        ).encode()
         records = fmt.parse(content, {})
         self.assertEqual(len(records), 2)
-        self.assertEqual(records[0]["data"]["line"], "vless://uuid@host:443")
+        self.assertEqual(
+            records[0]["data"]["line"],
+            f"vless://{user_id}@vless-sub.example.com:443",
+        )
 
         # Test base64 decode path
-        import base64
-
-        plain = b"vless://a@b:1\ntrojan://c@d:2"
+        plain = (
+            f"vless://{user_id}@vless-sub.example.com:443\n"
+            "trojan://secret@trojan-sub.example.com:443"
+        ).encode()
         b64 = base64.b64encode(plain)
         records_b64 = fmt.parse(b64, {})
         self.assertEqual(len(records_b64), 2)
