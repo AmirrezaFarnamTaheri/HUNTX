@@ -1,0 +1,282 @@
+diff --git a/.github/workflows/pr-validation.yml b/.github/workflows/pr-validation.yml
+index 438c9bbad2882b510c58ceb47f23b87214986196..f636e6607beed5cb33907137f13afbccfe13cbf4 100644
+--- a/.github/workflows/pr-validation.yml
++++ b/.github/workflows/pr-validation.yml
+@@ -6,7 +6,8 @@ on:
+       - ".github/workflows/**"
+       - "configs/**"
+       - "pyproject.toml"
+-      - "requirements.txt"
++      - "requirements*.txt"
++      - "requirements-dev.in"
+       - "scripts/**"
+       - "src/**"
+       - "tests/**"
+@@ -18,7 +19,8 @@ on:
+       - ".github/workflows/**"
+       - "configs/**"
+       - "pyproject.toml"
+-      - "requirements.txt"
++      - "requirements*.txt"
++      - "requirements-dev.in"
+       - "scripts/**"
+       - "src/**"
+       - "tests/**"
+@@ -32,7 +34,7 @@ concurrency:
+ 
+ jobs:
+   validate:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     timeout-minutes: 30
+     steps:
+       - name: Checkout
+@@ -45,27 +47,37 @@ jobs:
+         with:
+           python-version: "3.12"
+           cache: pip
+-          cache-dependency-path: requirements.txt
++          cache-dependency-path: requirements-dev.txt
+ 
+-      - name: Install dependencies
++      - name: Install hash-locked dependencies
+         run: |
+-          python -m pip install --upgrade pip
+-          pip install --require-hashes -r requirements.txt
+-          pip install flake8 mypy pytest types-requests types-PyYAML
+-          pip install --no-deps -e .
++          python -m pip install --require-hashes -r requirements-dev.txt
++          python -m pip install --no-deps -e .
+ 
+       - name: Compile
+-        run: python -m compileall -q src tests
++        run: python -m compileall -q src tests scripts
+ 
+       - name: Lint
+-        run: flake8 src/huntx tests --count --select=E9,F63,F7,F82 --show-source --statistics
++        run: flake8 src/huntx tests scripts --count --select=E9,F63,F7,F82 --show-source --statistics
+ 
+       - name: Type check
+-        run: mypy src/huntx
++        run: python -m mypy src/huntx
++
++      - name: Boundary audit
++        run: python scripts/audit_boundaries.py --check
+ 
+       - name: Test
+         run: pytest -q tests/ --junitxml=pytest-results.xml
+ 
++      - name: Generate supply-chain evidence
++        run: |
++          mkdir -p artifacts
++          cp pytest-results.xml artifacts/pytest-results.xml
++          python scripts/generate_sbom.py artifacts/sbom.cdx.json
++          python scripts/generate_provenance.py artifacts artifacts/provenance.json
++          python -m json.tool artifacts/sbom.cdx.json >/dev/null
++          python -m json.tool artifacts/provenance.json >/dev/null
++
+       - name: Upload pytest report
+         if: always()
+         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+@@ -74,3 +86,12 @@ jobs:
+           path: pytest-results.xml
+           if-no-files-found: warn
+           retention-days: 7
++
++      - name: Upload supply-chain evidence
++        if: always()
++        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
++        with:
++          name: supply-chain-evidence
++          path: artifacts/
++          if-no-files-found: warn
++          retention-days: 30
+diff --git a/configs/boundary-baseline.json b/configs/boundary-baseline.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..d039563dfe0b0288a9af9d79736483afe8f90c05
+--- /dev/null
++++ b/configs/boundary-baseline.json
+@@ -0,0 +1,113 @@
++{
++  "policy": {
++    "broad_exception_rule": "No new broad-exception site or increased count without baseline review.",
++    "external_call_rule": "Known network and subprocess calls must declare timeout=."
++  },
++  "reviewed_broad_exceptions": {
++    "scripts/verify_output.py::parse_vmess::Exception": 1,
++    "scripts/verify_output.py::validate_json_file::Exception": 1,
++    "scripts/verify_output.py::validate_text_file::Exception": 2,
++    "scripts/verify_output.py::validate_zip_file::Exception": 1,
++    "src/huntx/bot/admin.py::AdminMixin._perform_admin_prune::Exception": 1,
++    "src/huntx/bot/admin.py::AdminMixin._trigger_background_run.run_pipeline_task::Exception": 1,
++    "src/huntx/bot/delivery.py::DeliveryMixin._deliver_files_to_user::Exception": 2,
++    "src/huntx/bot/delivery.py::DeliveryMixin.deliver_updates::Exception": 2,
++    "src/huntx/bot/handlers.py::HandlersMixin._on_callback::Exception": 1,
++    "src/huntx/bot/handlers.py::HandlersMixin._on_start::Exception": 1,
++    "src/huntx/bot/interactive.py::InteractiveBot._on_callback::Exception": 1,
++    "src/huntx/bot/interactive.py::InteractiveBot.start::Exception": 2,
++    "src/huntx/cli/commands/run.py::run_command::Exception": 1,
++    "src/huntx/cli/hardened_main.py::_cmd_run::Exception": 1,
++    "src/huntx/cli/main.py::_backup_bot_users::Exception": 1,
++    "src/huntx/cli/main.py::_cmd_prune::Exception": 1,
++    "src/huntx/cli/main.py::_cmd_reset::Exception": 2,
++    "src/huntx/cli/main.py::_cmd_run::Exception": 1,
++    "src/huntx/cli/main.py::_deliver_updates::Exception": 2,
++    "src/huntx/cli/main.py::_restore_bot_users::Exception": 1,
++    "src/huntx/config/loader.py::load_config::Exception": 1,
++    "src/huntx/config/validate.py::validate_config::Exception": 1,
++    "src/huntx/connectors/telegram/connector.py::TelegramConnector._download_file::Exception": 1,
++    "src/huntx/connectors/telegram_user/connector.py::TelegramUserConnector.__del__::Exception": 1,
++    "src/huntx/connectors/telegram_user/connector.py::TelegramUserConnector._client::Exception": 1,
++    "src/huntx/connectors/telegram_user/connector.py::TelegramUserConnector._ensure_connected_async::Exception": 1,
++    "src/huntx/connectors/telegram_user/connector.py::TelegramUserConnector._fetch_document_pass::Exception": 1,
++    "src/huntx/connectors/telegram_user/connector.py::TelegramUserConnector._list_new_async::Exception": 1,
++    "src/huntx/connectors/telegram_user/connector.py::TelegramUserConnector._reconnect_async::Exception": 1,
++    "src/huntx/connectors/telegram_user/connector.py::TelegramUserConnector._resolve_peer_async::Exception": 3,
++    "src/huntx/connectors/telegram_user/connector.py::TelegramUserConnector.cleanup::Exception": 1,
++    "src/huntx/connectors/telegram_user/connector.py::TelegramUserConnector.cleanup_async::Exception": 1,
++    "src/huntx/connectors/telegram_user/connector.py::TelegramUserConnector.resolve_channel_id_async::Exception": 1,
++    "src/huntx/connectors/v2ray_collector/connector.py::V2RayCollectorConnector._list_new_async.run_scraper_sync::Exception": 2,
++    "src/huntx/core/hardened_orchestrator.py::HardenedOrchestrator._run_hardened::Exception": 6,
++    "src/huntx/core/orchestrator.py::Orchestrator.__init__::Exception": 1,
++    "src/huntx/core/orchestrator.py::Orchestrator._export_outputs::Exception": 1,
++    "src/huntx/core/orchestrator.py::Orchestrator._get_seen_file_max_id::Exception": 1,
++    "src/huntx/core/orchestrator.py::Orchestrator._ingest_one_source_async::Exception": 1,
++    "src/huntx/core/orchestrator.py::Orchestrator._run_async::Exception": 7,
++    "src/huntx/formats/common/crypto.py::<module>::Exception": 1,
++    "src/huntx/formats/common/crypto.py::_get_happ_keys::Exception": 1,
++    "src/huntx/formats/common/crypto.py::decrypt_happ_link::Exception": 1,
++    "src/huntx/formats/common/crypto.py::decrypt_netmod_data::Exception": 2,
++    "src/huntx/formats/common/crypto.py::decrypt_slipnet_link::Exception": 1,
++    "src/huntx/formats/common/crypto.py::decrypt_tut_data::Exception": 1,
++    "src/huntx/formats/hat.py::HatHandler.detect::Exception": 1,
++    "src/huntx/formats/hat.py::HatHandler.parse::Exception": 2,
++    "src/huntx/formats/nm.py::NmHandler.parse::Exception": 1,
++    "src/huntx/formats/npv4.py::Npv4Handler.parse::Exception": 1,
++    "src/huntx/formats/sks.py::SksHandler.parse::Exception": 1,
++    "src/huntx/formats/slipnet.py::SlipNetHandler.detect::Exception": 1,
++    "src/huntx/formats/slipnet.py::SlipNetHandler.parse::Exception": 1,
++    "src/huntx/formats/tmt.py::TmtHandler.parse::Exception": 1,
++    "src/huntx/formats/tut.py::TutHandler.parse::Exception": 1,
++    "src/huntx/logging_conf.py::_RedactSecretsFilter.filter::Exception": 1,
++    "src/huntx/logging_conf.py::setup_logging::Exception": 1,
++    "src/huntx/pipeline/build.py::BuildPipeline._decode_ss::Exception": 2,
++    "src/huntx/pipeline/build.py::BuildPipeline._decode_ssr::Exception": 2,
++    "src/huntx/pipeline/build.py::BuildPipeline._decode_vmess::Exception": 1,
++    "src/huntx/pipeline/build.py::BuildPipeline._parse_standard_uri::Exception": 1,
++    "src/huntx/pipeline/build.py::BuildPipeline.run::Exception": 1,
++    "src/huntx/pipeline/ingest.py::IngestionPipeline.run::Exception": 2,
++    "src/huntx/pipeline/publish.py::PublishPipeline.run::Exception": 1,
++    "src/huntx/pipeline/transform.py::TransformPipeline._process_single_file::Exception": 2,
++    "src/huntx/pipeline/transform.py::TransformPipeline.process_pending::Exception": 1,
++    "src/huntx/publishers/telegram/publisher.py::TelegramPublisher.publish::Exception": 2,
++    "src/huntx/state/db.py::DBConnection._check_migrations::Exception": 1,
++    "src/huntx/state/db.py::DBConnection._init_db::Exception": 1,
++    "src/huntx/state/db.py::DBConnection.connect::Exception": 1,
++    "src/huntx/state/repo.py::StateRepo.add_record::Exception": 1,
++    "src/huntx/state/repo.py::StateRepo.add_records_batch::Exception": 1,
++    "src/huntx/state/repo.py::StateRepo.get_all_known_hashes::Exception": 1,
++    "src/huntx/state/repo.py::StateRepo.get_last_published_hash::Exception": 1,
++    "src/huntx/state/repo.py::StateRepo.get_pending_files::Exception": 1,
++    "src/huntx/state/repo.py::StateRepo.get_processed_hashes::Exception": 1,
++    "src/huntx/state/repo.py::StateRepo.get_records_for_build::Exception": 1,
++    "src/huntx/state/repo.py::StateRepo.get_seen_files_batch::Exception": 1,
++    "src/huntx/state/repo.py::StateRepo.get_source_state::Exception": 1,
++    "src/huntx/state/repo.py::StateRepo.has_seen_file::Exception": 1,
++    "src/huntx/state/repo.py::StateRepo.is_artifact_published::Exception": 1,
++    "src/huntx/state/repo.py::StateRepo.mark_published::Exception": 1,
++    "src/huntx/state/repo.py::StateRepo.prune_old_data::Exception": 1,
++    "src/huntx/state/repo.py::StateRepo.record_artifact_lineage::Exception": 1,
++    "src/huntx/state/repo.py::StateRepo.record_file::Exception": 1,
++    "src/huntx/state/repo.py::StateRepo.record_files_batch::Exception": 1,
++    "src/huntx/state/repo.py::StateRepo.update_file_status::Exception": 1,
++    "src/huntx/state/repo.py::StateRepo.update_file_status_batch::Exception": 1,
++    "src/huntx/state/repo.py::StateRepo.update_source_state::Exception": 1,
++    "src/huntx/store/artifact_store.py::ArtifactStore.get_artifact::Exception": 1,
++    "src/huntx/store/artifact_store.py::ArtifactStore.list_archive::Exception": 1,
++    "src/huntx/store/artifact_store.py::ArtifactStore.prune_archive::Exception": 1,
++    "src/huntx/store/artifact_store.py::ArtifactStore.save_artifact::Exception": 2,
++    "src/huntx/store/artifact_store.py::ArtifactStore.save_output::Exception": 2,
++    "src/huntx/store/artifact_store.py::ArtifactStore.save_to_archive::Exception": 2,
++    "src/huntx/store/raw_store.py::RawStore.__init__::Exception": 1,
++    "src/huntx/store/raw_store.py::RawStore.get::Exception": 1,
++    "src/huntx/store/raw_store.py::RawStore.prune_by_hashes::Exception": 1,
++    "src/huntx/store/raw_store.py::RawStore.prune_orphans::Exception": 2,
++    "src/huntx/store/raw_store.py::RawStore.prune_processed::Exception": 1,
++    "src/huntx/store/raw_store.py::RawStore.save::Exception": 1,
++    "src/huntx/store/release_manifest.py::write_manifest_atomic::Exception": 1,
++    "src/huntx/utils/atomic.py::atomic_write::Exception": 1,
++    "src/huntx/utils/content_type.py::is_executable.scan_zip_recursive::Exception": 2
++  },
++  "schema_version": 1
++}
+diff --git a/configs/native-validators.example.json b/configs/native-validators.example.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..2def8447be24e36e319c7632bc9f56f62a161047
+--- /dev/null
++++ b/configs/native-validators.example.json
+@@ -0,0 +1,11 @@
++{
++  "validators": [
++    {
++      "name": "xray",
++      "formats": ["npvt", "npvtsub"],
++      "command": ["/opt/huntx/bin/xray-validated-subscription", "{artifact}"],
++      "executable_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
++      "timeout_seconds": 30
++    }
++  ]
++}
+diff --git a/docs/DEVELOPMENT.md b/docs/DEVELOPMENT.md
+index 6e49676ac60ff64f273c7f7fbc0d91810985d11d..59e2988e8d8c0c14f3d1e970fde916c3288f84a4 100644
+--- a/docs/DEVELOPMENT.md
++++ b/docs/DEVELOPMENT.md
+@@ -134,3 +134,48 @@ User state is stored in the `bot_users` SQLite table:
+ 3. Add `BotCommand(...)` entry to `_BOT_COMMANDS` list
+ 4. Update `WELCOME_TEXT` help string
+ 5. Add test in `tests/test_bot_interactive.py`
++
++## Reproducible validation and supply-chain evidence
++
++Install the committed development lock without resolving mutable versions:
++
++```bash
++python -m pip install --require-hashes -r requirements-dev.txt
++python -m pip install --no-deps -e .
++python -m compileall -q src tests scripts
++flake8 src/huntx tests scripts --count --select=E9,F63,F7,F82 --show-source --statistics
++python -m mypy src/huntx
++python scripts/audit_boundaries.py --check
++pytest -q tests/
++```
++
++CI generates `artifacts/sbom.cdx.json` in CycloneDX 1.5 format and `artifacts/provenance.json` as an in-toto statement with a SLSA provenance predicate. Regenerate the broad-exception baseline only after reviewing each new or increased site:
++
++```bash
++python scripts/audit_boundaries.py --write-baseline
++```
++
++## Source governance operations
++
++Configured static sources default to `approved` for compatibility. Sources carrying `discovered_from` default to `candidate`; candidates may be ingested for observation but cannot be published. Persistent decisions are not overwritten by subsequent config loads.
++
++```bash
++huntx --config configs/config.prod.yaml source-list
++huntx --config configs/config.prod.yaml source-transition SOURCE_ID approved \
++  --actor reviewer@example.com \
++  --reason "ownership and content review completed" \
++  --evidence review:123 --evidence probe:456
++```
++
++Approval requires at least one evidence reference. Retired sources cannot transition back to active states.
++
++## Native client release gates
++
++Secure publication routes default to `native_validation: required`. Set `HUNTX_NATIVE_VALIDATORS` to a JSON registry based on `configs/native-validators.example.json`. Replace the example executable and all-zero digest with the exact installed binary path and SHA-256 digest. HUNTX verifies the executable digest before every invocation, passes the artifact through a temporary file, enforces the configured timeout, and rejects nonzero exits.
++
++A registry can be tested independently:
++
++```bash
++python scripts/validate_native_artifact.py \
++  /etc/huntx/native-validators.json npvt persist/data/dist/route.npvt
++```
