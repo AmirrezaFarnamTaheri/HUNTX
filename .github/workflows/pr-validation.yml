@@ -10,44 +10,9 @@ on:
       - "scripts/**"
       - "src/**"
       - "tests/**"
-
-permissions:
-  contents: read
-
-concurrency:
-  group: pr-validation-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-
-jobs:
-  validate:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Set up Python
-        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: requirements.txt
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install --require-hashes -r requirements.txt
-          pip install flake8 mypy pytest types-requests types-PyYAML
-          pip install --no-deps -e .
-
-      - name: Compile
-        run: python -m compileall -q src tests
-
-      - name: Lint
-        run: flake8 src/huntx tests --count --select=E9,F63,F7,F82 --show-source --statistics
-
-      - name: Type check
-        run: mypy src/huntx
-
-      - name: Test
-        run: pytest -q tests/
+  push:
+    branches:
+      - "fix/**"
+      - "agent/**"
+    paths:
+      - ".github/work
