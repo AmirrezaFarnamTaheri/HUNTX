@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class HardenedOrchestrator(Orchestrator):
     """Run-control replacement with explicit outcomes and bounded publish waits."""
 
-    def run(
+    def run(  # type: ignore[override]
         self,
         timeout: float | None = None,
         no_publish: bool = False,
@@ -58,7 +58,7 @@ class HardenedOrchestrator(Orchestrator):
         total_artifacts = 0
         publish_attempts = 0
         publish_failures = 0
-        all_build_results: list = []
+        all_build_results: list[Any] = []
 
         def remaining() -> Optional[float]:
             if timeout is None:
@@ -91,10 +91,10 @@ class HardenedOrchestrator(Orchestrator):
             left = remaining()
             if left is not None and left <= 0:
                 raise asyncio.TimeoutError
-            await asyncio.wait_for(
-                asyncio.gather(*ingestion_tasks),
-                timeout=left,
-            ) if left is not None else await asyncio.gather(*ingestion_tasks)
+            if left is not None:
+                await asyncio.wait_for(asyncio.gather(*ingestion_tasks), timeout=left)
+            else:
+                await asyncio.gather(*ingestion_tasks)
         except asyncio.TimeoutError:
             mark_timeout("ingestion")
             for task in ingestion_tasks:
@@ -113,16 +113,18 @@ class HardenedOrchestrator(Orchestrator):
             except Exception:
                 status = "failed"
                 logger.exception("[Orchestrator] Transformation failed")
-            if remaining() is not None and remaining() <= 0:
+            time_left = remaining()
+            if time_left is not None and time_left <= 0:
                 mark_timeout("transformation")
 
         publisher: Optional[concurrent.futures.ThreadPoolExecutor] = None
-        pending_publish: dict[concurrent.futures.Future, str] = {}
+        pending_publish: dict[concurrent.futures.Future[Any], str] = {}
         if status == "completed":
             publisher = concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers)
             try:
                 for route in self.config.routes:
-                    if remaining() is not None and remaining() <= 0:
+                    time_left = remaining()
+                    if time_left is not None and time_left <= 0:
                         mark_timeout("build")
                         break
                     try:
