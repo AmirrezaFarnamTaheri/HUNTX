@@ -1,3 +1,4 @@
+# One-shot finalizer. This workflow removes itself after a verified commit.
 name: dev-lock-generation
 
 on:
@@ -37,7 +38,22 @@ jobs:
               'pip install --require-hashes -r requirements-dev.txt',
           )
           marker = '      - name: Upload pytest report\n'
-          supply = '''      - name: Generate SBOM and provenance\n        if: always()\n        run: |\n          python scripts/generate_sbom.py artifacts/sbom.cdx.json\n          python scripts/generate_provenance.py artifacts artifacts/provenance.json\n\n      - name: Upload supply-chain evidence\n        if: always()\n        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3\n        with:\n          name: supply-chain-evidence\n          path: artifacts/\n          if-no-files-found: error\n          retention-days: 30\n\n'''
+          supply = '''      - name: Generate SBOM and provenance
+        if: always()
+        run: |
+          python scripts/generate_sbom.py artifacts/sbom.cdx.json
+          python scripts/generate_provenance.py artifacts artifacts/provenance.json
+
+      - name: Upload supply-chain evidence
+        if: always()
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: supply-chain-evidence
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30
+
+'''
           if 'Generate SBOM and provenance' not in s:
               s = s.replace(marker, supply + marker)
           p.write_text(s)
