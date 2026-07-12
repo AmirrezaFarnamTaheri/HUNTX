@@ -32,17 +32,34 @@ jobs:
         uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
         with:
           python-version: "3.12"
-      - name: Generate hashed development lock
+      - name: Generate hashed development lock and diagnostics
         run: |
-          python -m pip install --disable-pip-version-check pip-tools
-          pip-compile --generate-hashes --allow-unsafe --resolver=backtracking --output-file=requirements-dev.txt requirements-dev.in
+          set +e
+          python -m pip install --disable-pip-version-check pip-tools > pip-tools-install.txt 2>&1
+          install_status=$?
+          if [ "$install_status" -eq 0 ]; then
+            pip-compile --generate-hashes --allow-unsafe --resolver=backtracking --output-file=requirements-dev.txt requirements-dev.in > lock-generation.txt 2>&1
+            echo "$?" > lock-status.txt
+          else
+            echo "$install_status" > lock-status.txt
+            printf '%s\n' 'pip-tools installation failed' > lock-generation.txt
+          fi
+          cat pip-tools-install.txt
+          cat lock-generation.txt
+          exit 0
       - name: Capture type diagnostics
         run: |
           set +e
-          pip install --require-hashes -r requirements-dev.txt
-          pip install --no-deps -e .
+          if [ -s requirements-dev.txt ]; then
+            pip install --require-hashes -r requirements-dev.txt > dev-install.txt 2>&1
+          else
+            pip install --require-hashes -r requirements.txt > dev-install.txt 2>&1
+            pip install mypy types-requests types-PyYAML >> dev-install.txt 2>&1
+          fi
+          pip install --no-deps -e . >> dev-install.txt 2>&1
           mypy src/huntx --show-error-codes --no-pretty > mypy.txt 2>&1
           echo "$?" > mypy-status.txt
+          cat dev-install.txt
           cat mypy.txt
           exit 0
       - name: Upload generated lock, diagnostics, and source snapshot
@@ -52,6 +69,10 @@ jobs:
           name: huntx-dev-lock-and-source
           path: |
             requirements-dev.txt
+            pip-tools-install.txt
+            lock-generation.txt
+            lock-status.txt
+            dev-install.txt
             mypy.txt
             mypy-status.txt
             .github/
