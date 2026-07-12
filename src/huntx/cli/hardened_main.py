@@ -1,6 +1,5 @@
 import logging
 import os
-import sys
 from pathlib import Path
 
 from . import main as legacy
@@ -90,7 +89,7 @@ def _cmd_run(args):
 
 
 def main():
-    legacy._cmd_run = _cmd_run
+    legacy._cmd_run = _cmd_run  # type: ignore[assignment]
     legacy.main()
 
 
