@@ -116,10 +116,11 @@ branch/repository.
 
 Tracked in [issue #47](../issues/47).
 
-Inline callbacks bypass command rate limiting; archive delivery does not reuse
-the centralized filename matcher; persistent bot mode only warns when it shares
-the ingestion token; cooldown state is unbounded; and delivery lacks explicit
-FloodWait checkpoint behavior.
+PR #43 resolves archive fallback filename matching by reusing the centralized
+matcher. Remaining work is limited to inline callbacks bypassing command rate
+limiting, persistent bot mode only warning when it shares the ingestion token,
+unbounded cooldown state, and delivery lacking explicit FloodWait checkpoint
+behavior.
 
 ## Production workflow findings
 
@@ -154,8 +155,8 @@ Confirmed concerns:
 1. Merge PR #43 only after all validation checks pass.
 2. Fix MTProto ownership and lock lifecycle with dedicated concurrency tests.
 3. Correct orchestrator timeout status and executor shutdown semantics.
-4. Harden callback throttling, archive matching, token isolation, and FloodWait
-   delivery behavior.
+4. Harden callback throttling, token isolation, bounded cooldown state, and
+   FloodWait delivery behavior.
 5. Replace source-branch output commits with artifact/object-storage publication.
 6. Stop tracking generated output, then perform repository-history cleanup as a
    separately backed-up maintenance operation.
