@@ -12,6 +12,12 @@ class SourceTrustState(str, Enum):
     RETIRED = "retired"
 
 
+class PublicationTier(str, Enum):
+    RAW = "raw"
+    COMPATIBLE = "compatible"
+    SECURE = "secure"
+
+
 class TelegramSourceConfig(BaseModel):
     token: str
     chat_id: str
@@ -78,6 +84,14 @@ class PublishRoute(BaseModel):
     from_sources: List[str]
     formats: List[str]
     destinations: List[DestinationConfig]
+    publication_tier: PublicationTier = PublicationTier.COMPATIBLE
+    require_fresh_probe: Optional[bool] = None
+
+    @property
+    def effective_require_fresh_probe(self) -> bool:
+        if self.require_fresh_probe is not None:
+            return self.require_fresh_probe
+        return self.publication_tier == PublicationTier.SECURE
 
 
 class PublishingConfig(BaseModel):
