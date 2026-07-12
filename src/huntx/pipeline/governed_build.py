@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from .build import BuildPipeline
 from ..state.verdict_store import get_records_for_governed_build
@@ -54,11 +54,11 @@ class GovernedBuildPipeline(BuildPipeline):
             route_name, ("compatible", False)
         )
         original_repo = self.state_repo
-        self.state_repo = _GovernedRepoProxy(
+        self.state_repo = cast(Any, _GovernedRepoProxy(
             original_repo,
             publication_tier=tier,
             require_fresh_probe=require_fresh_probe,
-        )
+        ))
         try:
             return super().run(route_config)
         finally:
