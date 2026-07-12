@@ -1,0 +1,172 @@
+egration and secure-tier scan remain required. |
+-| D-08 documentation/output path drift | Integrated | Site catalog is generated from a verified SHA-256 release manifest and preserves artifact-relative paths. |
+-| D-09 output coordinate collision | Implemented | Release manifest rejects duplicate coordinates; site generation rejects duplicate destinations. Build-stage pre-write collision detection remains desirable. |
+-| D-10 fail-open workflow | Integrated | PR validation is required before build; production CLI returns explicit run outcomes; build/deploy jobs are separated. |
+-| D-11 recursive source-branch publication | Integrated | Production workflow no longer commits generated outputs to `main`; Pages consumes an artifact. |
+-| D-12 permissive lexical validator | Open | Current NPVT URI extraction remains lexical. Protocol-aware full-record validation is required. |
+-| D-13 uncontrolled source discovery/trust | Partial | Candidate/approved/degraded/quarantined/retired states and approval evidence are validated; only approved sources enter hardened runs. Registry persistence and promotion command remain open. |
+-| D-14 geolocation request amplification | Not directly applicable | No equivalent inline provider-pattern fan-out was identified in HUNTX. External-call budgets should still be enforced connector-wide. |
+-| D-15 no automated tests | Implemented | HUNTX already had a substantial suite; PR #49 adds runtime, governance, manifest, verdict, and lease tests. |
+-| D-16 unauthenticated wildcard listener | Not applicable | HUNTX publishes configuration artifacts and does not generate the cited sing-box listener by default. |
+-| D-17 subscriber-count inflation | Not applicable | No equivalent ranking parser was identified. |
+-| D-18 non-atomic JSON state | Existing HUNTX mechanism | HUNTX uses SQLite/WAL and atomic file utilities. S3 state promotion still needs generation/checksum semantics. |
+-| D-19 fragment-based duplicate inflation | Partial | HUNTX strips nonsemantic remarks for dedup and has regression tests. Corpus-level duplicate-ratio SLI remains open. |
+-| D-20 browser secret persistence | Not applicable | HUNTX does not include the cited Abzar browser workflow. |
+-| D-21 placeholder Clash conversion | Not applicable | No equivalent placeholder UI renderer was identified. Renderer-native conformance remains a general requirement. |
+-| D-22 unbounded legacy HTTP calls | Partial | HUNTX connectors have retry/freshness controls; connector-wide byte/redirect/global-deadline contracts require a dedicated audit. |
+-| D-23 unescaped MTProto HTML | Not applicable | HUNTX does not use the cited static MTProto HTML generator. |
+-| D-24 mutable CI/dependency inputs | Partial | Actions and runtime dependencies are immutable/hash-locked. Development dependency hash lock, SBOM, and provenance remain open. |
+-| D-25 duplicated legacy scraper forks | Not applicable | HUNTX centralizes connector and pipeline logic. |
++| D-01 invalid JSON caused by metadata preambles | Integrated | JSON artifacts are strict-parsed by the release manifest, site generation rebuilds and verifies the manifest before copying, and secure routes execute configured native validators before artifacts are stored. |
++| D-02 SIP002 plaintext credential corruption | Implemented | Protocol admission accepts SIP002 plaintext and encoded userinfo forms without reinterpreting the credential; regression fixtures cover accepted and rejected forms. |
++| D-03 ineffective cross-run dedup | Integrated | SQLite state, canonical record hashes, remark-insensitive URI canonicalization, manifest history, and artifact lineage provide replay-stable deduplication. |
++| D-04 stale-source timestamp conflation | Integrated | `source_lifecycle` stores separate attempt, transport-success, nonempty, valid, and published timestamps plus failures and metadata; ingestion, transformation, and publication write them. |
++| D-05 Hysteria2 obfuscation field aliasing | Implemented | Admission requires obfuscation type/password fields together and preserves query fields in typed proxy IR. |
++| D-06 fabricated empty-category endpoints | Not applicable | No fake endpoint generator exists; health gates reject zero-artifact runs. |
++| D-07 TLS verification bypass in default feeds | Integrated | Independent compatible/secure verdicts are persisted per record, governed selection requires passing verdicts, and secure release scans reject insecure overrides or missing secure transport. |
++| D-08 documentation/output path drift | Integrated | Site catalog entries are generated only from a verified SHA-256 manifest and preserve artifact-relative paths; integration coverage copies nested artifacts. |
++| D-09 output coordinate collision | Implemented | Manifest construction and site generation reject duplicate coordinates; artifact lineage keys route, format, and digest. |
++| D-10 fail-open workflow | Integrated | PR validation is required; compile, lint, type, boundary, and full test gates fail closed; production CLI emits explicit run outcomes. |
++| D-11 recursive source-branch publication | Integrated | Production output is distributed as immutable workflow artifacts and Pages input rather than recursive generated commits to `main`. |
++| D-12 permissive lexical validator | Integrated | Protocol-discriminated admission validates host, port, UUIDs, credentials, Reality requirements, obfuscation pairs, and unsafe address classes before NPVT records enter output. |
++| D-13 uncontrolled source discovery/trust | Integrated | Persistent candidate/approved/degraded/quarantined/retired governance preserves operator decisions, requires evidence for approval, permits candidate observation, and excludes candidates from publication. CLI list/transition commands are available. |
++| D-14 geolocation request amplification | Not directly applicable | No equivalent provider fan-out exists. Connector network/subprocess calls are timeout-audited by an executable boundary ratchet. |
++| D-15 no automated tests | Implemented | The suite covers runtime, governance, lifecycle, protocol admission, verdicts, lineage, native gates, manifests, supply-chain evidence, and workflow contracts. |
++| D-16 unauthenticated wildcard listener | Not applicable | HUNTX does not generate the cited listener by default. |
++| D-17 subscriber-count inflation | Not applicable | No equivalent ranking parser exists. |
++| D-18 non-atomic JSON state | Integrated baseline | Runtime state uses SQLite/WAL and atomic file writes; release manifests are written atomically and verified before use. |
++| D-19 fragment-based duplicate inflation | Implemented | Standard URI fragments and VMess `ps` remarks are stripped from dedup keys and rebuilt deterministically. |
++| D-20 browser secret persistence | Not applicable | HUNTX has no cited browser-secret workflow. |
++| D-21 placeholder Clash conversion | Not applicable | No placeholder UI renderer exists; secure output compatibility is delegated to checksum-pinned native gates. |
++| D-22 unbounded legacy HTTP calls | Integrated baseline | Known urllib and subprocess boundaries declare timeouts; `audit_boundaries.py` blocks new timeout-free calls and unreviewed broad exception sites. |
++| D-23 unescaped MTProto HTML | Not applicable | HUNTX does not generate the cited static HTML. |
++| D-24 mutable CI/dependency inputs | Integrated | Actions use immutable SHAs; runtime and development dependencies are hash-locked; CI emits CycloneDX SBOM and in-toto/SLSA-style provenance. |
++| D-25 duplicated legacy scraper forks | Not applicable | Connectors and pipeline behavior are centralized. |
+ 
+ ## Synthesis architecture status
+ 
+ | Synthesis item | Status | HUNTX implementation |
+ |---|---|---|
+-| SYN-01 typed proxy IR | Open | Existing record model remains format/dictionary oriented. |
+-| SYN-02 governed source registry | Partial | Source lifecycle enum, approval evidence, and execution exclusion implemented. |
+-| SYN-03 transactional lineage state | Partial | SQLite/WAL and repositories exist; explicit artifact/source lineage schema needs expansion. |
+-| SYN-04 syntax/probe/policy separation | Implemented contract, integration open | `core/verdicts.py` and tests. |
+-| SYN-05 pure renderers/manifest publication | Partial | Strict release manifest and manifest-driven catalog implemented; renderer purity audit remains. |
+-| SYN-06 native client gates | Open | Pin/checksum and invoke required client validators before release. |
+-| SYN-07 durable orchestration | Integrated baseline | Explicit run states, deadlines, cancellation, partial-export policy, and health gates. |
+-| SYN-08 observability contract | Open | Structured IDs, metrics, and trace propagation remain. |
+-| SYN-09 supply-chain boundary | Partial | Full-SHA actions and hashed runtime lock; dev lock/SBOM/provenance remain. |
+-| SYN-10 immutable distribution | Integrated | Build artifact and Pages deployment replace source-branch output commits. |
+-| SYN-11 thin safe client UI | Not applicable | No equivalent local browser tool in HUNTX. |
+-| SYN-12 contract-generated catalog | Integrated | Site catalog derives from verified release records. |
++| SYN-01 typed proxy IR | Implemented | `core/proxy_ir.py` converts validated protocol URIs into a typed minimum IR used by policy evaluation. |
++| SYN-02 governed source registry | Integrated | `SourceGovernanceRegistry` persists trust independently of config refreshes and enforces ingestion/publication policy. |
++| SYN-03 transactional lineage state | Integrated | SQLite/WAL stores source lifecycle, records, verdicts, and artifact-to-source/record lineage. |
++| SYN-04 syntax/probe/policy separation | Integrated | Syntax, probe, and policy fields are independently stored; compatible/secure build queries select passing, optionally fresh verdicts. |
++| SYN-05 pure renderers/manifest publication | Integrated baseline | Build output is validated before storage; publication/site generation consume verified manifest coordinates. |
++| SYN-06 native client gates | Integrated policy | Secure routes default to required native validation. Executables and commands are operator-configured, SHA-256 pinned, bounded by timeout, and fail closed. |
++| SYN-07 durable orchestration | Integrated | Explicit outcomes, bounded waits, cancellation, run IDs, partial-export policy, and health gates are in the production entrypoint. |
++| SYN-08 observability contract | Integrated baseline | Run IDs, final summaries, per-source lifecycle timestamps, and failure codes are persisted transactionally; external metrics/tracing export remains an optional operational extension. |
++| SYN-09 supply-chain boundary | Integrated | Immutable action pins, hash-locked dependency sets, boundary audit, SBOM, and provenance are CI gates. |
++| SYN-10 immutable distribution | Integrated | Build artifacts and Pages deployment replace source-branch output commits. |
++| SYN-11 thin safe client UI | Not applicable | No equivalent local browser client is shipped. |
++| SYN-12 contract-generated catalog | Integrated | Catalog data derives from verified release records and has an end-to-end nested-path fixture. |
+ 
+-## Merge-blocking items
++## Merge evidence
+ 
+-PR #49 must remain draft until:
++The repository-owned merge gate requires all of the following and has executable coverage for each:
+ 
+-1. PR validation is green.
+-2. Production site generation proves manifest verification and artifact copying in an integration fixture.
+-3. Source-state defaults in `config.prod.yaml` are reviewed so legacy sources are not accidentally treated as newly approved discoveries.
+-4. Protocol admission fixtures cover SIP002, Hysteria2 obfuscation, VLESS/Reality, VMess, Trojan, and MTProto.
+-5. Secure-tier policy is enforced at build selection and scanned in release artifacts.
+-6. Native client validation policy is implemented or explicitly scoped out with a release-blocking follow-up.
+-7. Development dependency locking, SBOM, and provenance have executable checks.
+-8. Remaining broad exception and external-call boundaries are reviewed.
++1. Compile, fatal lint, mypy, boundary audit, and full pytest pass.
++2. Site generation verifies the manifest and copies only verified artifact coordinates.
++3. Static configured sources retain backward-compatible approved defaults; discovered sources default candidate and require evidence to become approved.
++4. Protocol admission covers SIP002, SSR, VMess, VLESS/Reality, Trojan, Hysteria2, TUIC, and unsafe endpoints.
++5. Compatible/secure verdicts are persisted and secure-tier policy is enforced at record selection and artifact scan.
++6. Secure routes default to checksum-pinned, timeout-bounded, fail-closed native validation.
++7. `requirements-dev.txt`, CycloneDX SBOM generation, and provenance generation are executable CI inputs/outputs.
++8. New broad exceptions or timeout-free external calls fail the boundary audit.
+ 
+ ## Explicit non-claims
+ 
+-This PR does not claim that live remote endpoints are trustworthy, reachable, or secure. It does not treat source popularity as approval. It does not claim native client compatibility until client checks run against promoted artifacts.
+\ No newline at end of file
++HUNTX does not claim that live remote endpoints are reachable, trustworthy, private, or secure. Candidate ingestion is observation, not approval. A secure route is releasable only when its configured native validator actually runs successfully against the promoted artifact. The boundary baseline is a ratchet for reviewed legacy catch-all sites, not a claim that every legacy catch-all is ideal.
+diff --git a/docs/USER_GUIDE.md b/docs/USER_GUIDE.md
+index 36c7a56a539160a7dc1727d09a7ffb48c1184bdc..7d67f592eb67110e166a21286fc4a5c5ccad4d3c 100644
+--- a/docs/USER_GUIDE.md
++++ b/docs/USER_GUIDE.md
+@@ -318,3 +318,15 @@ python scripts/verify_output.py
+ ```
+ 
+ Validates output files, decodes proxy links, and optionally runs V2Ray config checks.
++
++## Source trust administration
++
++Use `source-list` to inspect persisted trust decisions and `source-transition` to change them. Discovered sources begin as candidates and are observed without being published. Approval requires evidence:
++
++```bash
++huntx --config configs/config.prod.yaml source-list
++huntx --config configs/config.prod.yaml source-transition SOURCE_ID approved \
++  --actor operator --reason "review complete" --evidence ticket:123
++```
++
++Secure routes require a checksum-pinned native validator by default. Configure its registry with `HUNTX_NATIVE_VALIDATORS`; see `configs/native-validators.example.json` and `docs/DEVELOPMENT.md`.
+diff --git a/requirements-dev.txt b/requirements-dev.txt
+new file mode 100644
+index 0000000000000000000000000000000000000000..7488e9b8b076543a7df10fc1e9b671a8dda6ca97
+--- /dev/null
++++ b/requirements-dev.txt
+@@ -0,0 +1,626 @@
++#
++# This file is autogenerated by pip-compile with Python 3.12
++# by the following command:
++#
++#    pip-compile --allow-unsafe --generate-hashes --output-file=requirements-dev.txt requirements-dev.in
++#
++annotated-types==0.7.0 \
++    --hash=sha256:1f02e8b43a8fbbc3f3e0d4f0f4bfc8131bcb4eebe8849b8e5c773f3a1c582a53 \
++    --hash=sha256:aff07c09a53a08bc8cfccb9c85b05f1aa9a2a6f23728d790723543408344ce89
++    # via
++    #   -r requirements.txt
++    #   pydantic
++ast-serialize==0.6.0 \
++    --hash=sha256:0067b25fce104eaae5b88383de9ab803faeb671831e14ca698b771b356e2600f \
++    --hash=sha256:085de7f62dc9cc247eb01e965a362707d1d90b1d89a82c5bf78301a60a3c417b \
++    --hash=sha256:093cb8bb91b720d8523580498d031791bb1bbaa048599c3d21085d380e11a596 \
++    --hash=sha256:113b58346f9ceb664352032770caca817d4a3c86f611c6088e6ef65ddaa70f0e \
++    --hash=sha256:13b7769970a39983b0adf2f38917b1cd3b8946f76df045756c3d741bc689f089 \
++    --hash=sha256:2d947e45cafc4b09bd7528917fa84c517654a43de173c79785574b7b3068ac24 \
++    --hash=sha256:305802f2ce2a7c4e87835078ea85c58b586ddda8095b92fe2ead9364ae19c80a \
++    --hash=sha256:32ef62ec34cf6be20ad77d4799556638fbdf187f3ae10698dfb20ef9f2c89516 \
++    --hash=sha256:3ae22a366b752ab4496191525b78b097b5b72d531752e3c1dd7e383a8f2c8a1a \
++    --hash=sha256:4d6ef91590258ada18909b9caea344dac4de2013906b035473cd674a43f4b790 \
++    --hash=sha256:4ed29121da8b3fdc291002801a1de0f76248fa07dce89157a5f277842cf6126e \
++    --hash=sha256:5337cb256dcea3df9288205213d1601581536526b8f4da44b6974f1180f3252a \
++    --hash=sha256:577a6c189068686869f5f1ddc38363f3ae1808a4753b577266f9202071a7bb66 \
++    --hash=sha256:6e15ec740436e1a0d62de848641abe5f3a2f89a7f94907d534795ac91bbacf14 \
++    --hash=sha256:6f7a408601bb3edaefb3bc67a4c01f5235e3253653b6a5729a2ee2382b35341c \
++    --hash=sha256:82c312a7844d2fdeb4d5c48bd3d215bf940dafd4704e1a9bcf252a99010a99b1 \
++    --hash=sha256:8670bfa51208a2c0c8d138928e40e998fab158f9200d53bb80c088b5b8eda7b8 \
++    --hash=sha256:897ac47b5637be41c0c07061c8a912fafa967ef1dc73fa115e4bfa70882a093b \
++    --hash=sha256:9f8a8b78b13173de6a9ec22111d9be674874cd5bdccda04f14ae5ebc2bef403a \
++    --hash=sha256:a14191beec7e0c078d2fc1f6edc0aee88bcd4db9f18e1bc9f8052b559c22dddc \
++    --hash=sha256:a4826809eb8597a8cd59fd924b6d7c285b8969a1e0007e2cb652cab62376270f \
++    --hash=sha256:a7520b672827885bafeae7501f684d14d47d17e5f45256f9df547686cca52264 \
++    --hash=sha256:aadd3ffcf4858c9726bf3515f7b199c7eadbe504f96028e4a87172c0da65a8fe \
++    --hash=sha256:b1dac4e09d341c1300ba69cdcbe62867b32a8c75d90db9bf4d083bec3b039f0b \
++    --hash=sha256:c4af9a1386166e40ed01464991806f89038a2d89782576c7774876fa77034e32 \
++    --hash=sha256:c617417f9cbb0cb144f6283c3cbe0d2e0f01beaf9f608f662b21191058a626ec \
++    --hash=sha256:c7b8b8f0c42f752ea00b2b7d7c090b3f80d9c1c5c75cadf16423790a0cc74081 \
++    --hash=sha256:c901adbd750029b9ac4ad3d6aa56853e0ad4875119fbf52b7b8298afc223828b \
++    --hash=sha256:ccd132fe8db56f61fe743b1f644d01b8d65b83248a8da506f3132bda86d6ed5e \
++    --hash=sha256:cd5b91b9e6f2356ace3a556963b0cd783b395fbbb0bb17b4defc283415466e77 \
++    --hash=sha256:cdc4e6f930b9090c2f92c9036ad12ffb8e6e44d4a5ba06f1458a05d60f203f7b
