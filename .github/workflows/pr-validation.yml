@@ -62,4 +62,13 @@ jobs:
         run: mypy src/huntx
 
       - name: Test
-        run: pytest -q tests/
+        run: pytest -q tests/ --junitxml=pytest-results.xml
+
+      - name: Upload pytest report
+        if: always()
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: pytest-results
+          path: pytest-results.xml
+          if-no-files-found: warn
+          retention-days: 7
