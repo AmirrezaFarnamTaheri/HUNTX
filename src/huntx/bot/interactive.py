@@ -1,7 +1,9 @@
 import asyncio
 import datetime
 import logging
+import os
 import time
+from collections import OrderedDict
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -41,6 +43,19 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
     def __init__(self, token: str, api_id: int, api_hash: str):
         if TelegramClient is None:
             raise RuntimeError("Telethon is required to run the bot. Install dependencies (pip install -e .).")
+
+        ingest_token = os.environ.get("TELEGRAM_TOKEN")
+        allow_shared = os.environ.get("HUNTX_ALLOW_SHARED_BOT_TOKEN", "").strip().lower()
+        if ingest_token and token == ingest_token and allow_shared not in {"1", "true", "yes"}:
+            raise RuntimeError(
+                "Persistent bot mode cannot share TELEGRAM_TOKEN with ingestion. "
+                "Configure PUBLISH_BOT_TOKEN or explicitly set HUNTX_ALLOW_SHARED_BOT_TOKEN=true."
+            )
+        if ingest_token and token == ingest_token:
+            logger.warning(
+                "[GatherX] Shared bot/ingest token explicitly allowed; Telegram 409 conflicts remain possible."
+            )
+
         self.token = token
         self.api_id = api_id
         self.api_hash = api_hash
@@ -53,7 +68,7 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
         self.repo = StateRepo(self.db)
 
         self._init_tables()
-        self._user_cooldowns: Dict[int, float] = {}
+        self._user_cooldowns: Dict[int, float] = OrderedDict()
 
         session_path = paths.DATA_DIR / "bot.session"
         self.client = TelegramClient(str(session_path), self.api_id, self.api_hash)
@@ -72,6 +87,18 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
                     muted INTEGER DEFAULT 0,
                     last_delivered_at REAL DEFAULT 0,
                     default_format TEXT DEFAULT 'npvt'
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS bot_delivery_checkpoint (
+                    user_id TEXT PRIMARY KEY,
+                    attempted INTEGER NOT NULL DEFAULT 0,
+                    sent INTEGER NOT NULL DEFAULT 0,
+                    failed INTEGER NOT NULL DEFAULT 0,
+                    last_error TEXT,
+                    updated_at REAL NOT NULL DEFAULT 0
                 )
                 """
             )
@@ -135,16 +162,9 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
     # ── Entry points ──────────────────────────────────────────────────
 
     async def start(self):
-        """Start the bot in persistent interactive mode (long-polling).
-
-        This is designed to run as a standalone process, e.g.:
-            huntx bot
-        It connects via Telethon, registers the command menu with Telegram,
-        sets up event handlers, and blocks on run_until_disconnected().
-        """
+        """Start the bot in persistent interactive mode (long-polling)."""
         await self.client.start(bot_token=self.token)
 
-        # Register command menu with Telegram
         try:
             if SetBotCommandsRequest is not None and BotCommandScopeDefault is not None:
                 await self.client(SetBotCommandsRequest(
@@ -182,17 +202,15 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
     def _get_protocol_counts(self) -> Dict[str, int]:
         """Query DB and parse JSON to get counts per protocol."""
         from ..formats.npvt import _PROXY_SCHEMES
-        
+
         counts: Dict[str, int] = {}
         with self.db.connect() as conn:
-            # First, count non-npvt record types
             rows = conn.execute(
                 "SELECT record_type, COUNT(*) as c FROM records WHERE is_active=1 AND record_type != 'npvt' GROUP BY record_type"
             ).fetchall()
             for r in rows:
                 counts[r["record_type"]] = r["c"]
-            
-            # Dynamically build CASE SQL statement using SQLite native JSON support with parameterized inputs
+
             case_clauses = []
             params = []
             for scheme in _PROXY_SCHEMES:
@@ -201,24 +219,24 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
                     "WHEN json_valid(data_json) = 1 AND LOWER(json_extract(data_json, '$.line')) LIKE ? THEN ?"
                 )
                 params.extend([f"{scheme.lower()}%", proto])
-            
+
             case_sql = f"""
-                SELECT 
-                    CASE 
-                        {" ".join(case_clauses)}
+                SELECT
+                    CASE
+                        {' '.join(case_clauses)}
                         ELSE 'other'
                     END as sub_proto,
                     COUNT(*) as c
-                FROM records 
+                FROM records
                 WHERE is_active=1 AND record_type = 'npvt'
                 GROUP BY sub_proto
             """
-            
+
             rows = conn.execute(case_sql, params).fetchall()
             for r in rows:
                 sub_proto = r["sub_proto"]
                 counts[sub_proto] = counts.get(sub_proto, 0) + r["c"]
-                
+
         return counts
 
 
