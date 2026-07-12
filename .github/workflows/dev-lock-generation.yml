@@ -2,6 +2,9 @@
 name: dev-lock-generation
 
 on:
+  pull_request:
+    paths:
+      - .github/workflows/dev-lock-generation.yml
   push:
     branches:
       - fix/huntx-synthesis-hardening-20260712
