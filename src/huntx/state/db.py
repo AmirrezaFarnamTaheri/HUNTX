@@ -6,13 +6,17 @@ from typing import Generator
 
 logger = logging.getLogger(__name__)
 
+_BUSY_TIMEOUT_MS = 30_000
+_CACHE_SIZE_KIB = 32 * 1024
+_MMAP_SIZE_BYTES = 256 * 1024 * 1024
+
 
 class DBConnection:
     def __init__(self, db_path: Path):
         self.db_path = db_path
         self._init_db()
 
-    def _init_db(self):
+    def _init_db(self) -> None:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
         schema_path = Path(__file__).parent / "schema.sql"
@@ -21,29 +25,29 @@ class DBConnection:
             return
 
         with self.connect() as conn:
-            # Enable WAL for better read/write concurrency.
             conn.execute("PRAGMA journal_mode=WAL;")
             conn.execute("PRAGMA synchronous=NORMAL;")
+            conn.execute("PRAGMA wal_autocheckpoint=1000;")
 
             try:
-                with open(schema_path, "r", encoding="utf-8") as schema_file:
-                    conn.executescript(schema_file.read())
+                conn.executescript(schema_path.read_text(encoding="utf-8"))
             except Exception as exc:
                 logger.error("Failed to apply schema: %s", exc)
                 raise
 
             self._check_migrations(conn)
+            # Refresh planner statistics after schema/index changes. optimize is
+            # intentionally lightweight and becomes a no-op when unnecessary.
+            conn.execute("PRAGMA optimize;")
 
-    def _check_migrations(self, conn: sqlite3.Connection):
+    def _check_migrations(self, conn: sqlite3.Connection) -> None:
         """Apply incremental schema migrations using ``PRAGMA user_version``."""
         try:
-            cursor = conn.execute("PRAGMA user_version")
-            version = cursor.fetchone()[0]
+            version = conn.execute("PRAGMA user_version").fetchone()[0]
             logger.info("Database schema version: %s", version)
 
             if version < 1:
-                cursor = conn.execute("PRAGMA table_info(seen_files)")
-                columns = [row["name"] for row in cursor.fetchall()]
+                columns = [row["name"] for row in conn.execute("PRAGMA table_info(seen_files)").fetchall()]
                 if "metadata_json" not in columns:
                     logger.info("Migrating (v1): Adding metadata_json to seen_files")
                     conn.execute("ALTER TABLE seen_files ADD COLUMN metadata_json TEXT")
@@ -58,13 +62,13 @@ class DBConnection:
 
     @contextlib.contextmanager
     def connect(self) -> Generator[sqlite3.Connection, None, None]:
-        # The sqlite timeout is a connection-open setting. ``busy_timeout`` is
-        # also applied explicitly because every worker opens independent
-        # short-lived connections.
-        conn = sqlite3.connect(str(self.db_path), timeout=30.0)
+        conn = sqlite3.connect(str(self.db_path), timeout=_BUSY_TIMEOUT_MS / 1000)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys=ON;")
-        conn.execute("PRAGMA busy_timeout=30000;")
+        conn.execute(f"PRAGMA busy_timeout={_BUSY_TIMEOUT_MS};")
+        conn.execute("PRAGMA temp_store=MEMORY;")
+        conn.execute(f"PRAGMA cache_size=-{_CACHE_SIZE_KIB};")
+        conn.execute(f"PRAGMA mmap_size={_MMAP_SIZE_BYTES};")
         try:
             yield conn
             conn.commit()

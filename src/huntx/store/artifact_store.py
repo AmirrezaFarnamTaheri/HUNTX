@@ -2,9 +2,10 @@ import hashlib
 import logging
 import time
 from pathlib import Path
-from ..utils.atomic import atomic_write
+from typing import List, Optional
+
+from ..utils.atomic import atomic_write, atomic_write_if_changed
 from ..utils.safe_names import safe_component
-from typing import Optional, List
 from . import paths
 
 logger = logging.getLogger(__name__)
@@ -23,56 +24,47 @@ class ArtifactStore:
         self.archive_dir.mkdir(parents=True, exist_ok=True)
 
     def save_artifact(self, route_name: str, format_id: str, data: bytes) -> Optional[str]:
-        """
-        Saves an internal artifact named by hash.
-        Returns the hash of the data.
-        """
+        """Save immutable content-addressed artifact data and return its hash."""
         safe_route = safe_component(route_name, default="route")
         safe_fmt = safe_component(format_id, default="fmt")
+        artifact_hash = hashlib.sha256(data).hexdigest()
 
-        h = hashlib.sha256(data).hexdigest()
-        
-        # Robust path traversal validation
         try:
             target_dir = (self.internal_dir / safe_route).resolve()
             if not target_dir.is_relative_to(self.internal_dir.resolve()):
                 raise ValueError(f"Path traversal detected in route name: {route_name}")
-            
-            target_path = (target_dir / f"{h}.{safe_fmt}").resolve()
+            target_path = (target_dir / f"{artifact_hash}.{safe_fmt}").resolve()
             if not target_path.is_relative_to(self.internal_dir.resolve()):
                 raise ValueError(f"Path traversal detected in format ID: {format_id}")
-        except Exception as e:
-            logger.error(f"Path validation failed in save_artifact for '{route_name}': {e}")
-            raise ValueError(f"Invalid path or path traversal: {e}")
+        except Exception as exc:
+            logger.error("Path validation failed in save_artifact for %r: %s", route_name, exc)
+            raise ValueError(f"Invalid path or path traversal: {exc}") from exc
 
         try:
             target_dir.mkdir(parents=True, exist_ok=True)
-            atomic_write(target_path, data)
-            return h
-        except Exception as e:
-            logger.error(f"Failed to save internal artifact for '{safe_route}': {e}")
+            if not target_path.exists():
+                atomic_write(target_path, data)
+            return artifact_hash
+        except Exception as exc:
+            logger.error("Failed to save internal artifact for %r: %s", safe_route, exc)
             raise
 
     def get_artifact(self, route_name: str, artifact_hash: str, format_id: str) -> Optional[bytes]:
         safe_route = safe_component(route_name, default="route")
         safe_fmt = safe_component(format_id, default="fmt")
-        
+
         try:
             path = (self.internal_dir / safe_route / f"{artifact_hash}.{safe_fmt}").resolve()
             if not path.is_relative_to(self.internal_dir.resolve()):
                 raise ValueError(f"Path traversal detected in get_artifact: {route_name}")
-        except Exception as e:
-            logger.error(f"Path validation failed in get_artifact: {e}")
+        except Exception as exc:
+            logger.error("Path validation failed in get_artifact: %s", exc)
             return None
 
-        if path.exists():
-            return path.read_bytes()
-        return None
+        return path.read_bytes() if path.exists() else None
 
     def save_output(self, route_name: str, format_id: str, data: bytes) -> Optional[str]:
-        """
-        Saves the user-facing output file (overwriting previous).
-        """
+        """Save a user-facing output, archiving it only when content changed."""
         safe_route = safe_component(route_name, default="route")
         safe_fmt = safe_component(format_id, default="fmt")
 
@@ -80,78 +72,69 @@ class ArtifactStore:
             target_path = (self.output_dir / f"{safe_route}.{safe_fmt}").resolve()
             if not target_path.is_relative_to(self.output_dir.resolve()):
                 raise ValueError(f"Path traversal detected in save_output: {route_name}")
-        except Exception as e:
-            logger.error(f"Path validation failed in save_output for '{route_name}.{format_id}': {e}")
-            raise ValueError(f"Invalid path or path traversal: {e}")
+        except Exception as exc:
+            logger.error("Path validation failed in save_output for %r.%r: %s", route_name, format_id, exc)
+            raise ValueError(f"Invalid path or path traversal: {exc}") from exc
 
         try:
-            atomic_write(target_path, data)
-            logger.info(f"Saved output artifact: {target_path}")
-
-            # Also save to archive
-            self.save_to_archive(safe_route, safe_fmt, data)
+            changed = atomic_write_if_changed(target_path, data)
+            if changed:
+                logger.info("Saved changed output artifact: %s", target_path)
+                self.save_to_archive(safe_route, safe_fmt, data)
+            else:
+                logger.debug("Output artifact unchanged; skipped write/archive: %s", target_path)
             return str(target_path)
-        except Exception as e:
-            logger.error(f"Failed to save output artifact '{target_path.name}': {e}")
+        except Exception as exc:
+            logger.error("Failed to save output artifact %r: %s", target_path.name, exc)
             raise
 
-    def save_to_archive(self, route_name: str, format_id: str, data: bytes):
-        """
-        Saves a copy to the archive directory with a timestamp.
-        """
+    def save_to_archive(self, route_name: str, format_id: str, data: bytes) -> None:
+        """Save a timestamped archive copy for changed output content."""
         safe_route = safe_component(route_name, default="route")
         safe_fmt = safe_component(format_id, default="fmt")
-
-        timestamp = int(time.time())
+        timestamp = time.time_ns()
         filename = f"{safe_route}_{timestamp}.{safe_fmt}"
-        
+
         try:
             target_path = (self.archive_dir / filename).resolve()
             if not target_path.is_relative_to(self.archive_dir.resolve()):
                 raise ValueError(f"Path traversal detected in save_to_archive: {filename}")
-        except Exception as e:
-            logger.error(f"Path validation failed in save_to_archive: {e}")
-            raise ValueError(f"Invalid path or path traversal: {e}")
+        except Exception as exc:
+            logger.error("Path validation failed in save_to_archive: %s", exc)
+            raise ValueError(f"Invalid path or path traversal: {exc}") from exc
 
         try:
             atomic_write(target_path, data)
-            logger.info(f"Archived artifact: {target_path}")
-        except Exception as e:
-            logger.error(f"Failed to archive artifact '{filename}': {e}")
+            logger.info("Archived changed artifact: %s", target_path)
+        except Exception as exc:
+            logger.error("Failed to archive artifact %r: %s", filename, exc)
             raise
 
-    def prune_archive(self, retention_days: int = 4):
-        """
-        Removes files from archive older than retention_days.
-        """
-        now = time.time()
-        cutoff = now - (retention_days * 86400)
+    def prune_archive(self, retention_days: int = 4) -> None:
+        """Remove archive files older than ``retention_days``."""
+        cutoff = time.time() - (retention_days * 86400)
         count = 0
         try:
             for item in self.archive_dir.iterdir():
-                if item.is_file():
-                    if item.stat().st_mtime < cutoff:
-                        item.unlink()
-                        count += 1
-            if count > 0:
-                logger.info(f"Pruned {count} old files from archive.")
-        except Exception as e:
-            logger.error(f"Failed to prune archive: {e}")
+                if item.is_file() and item.stat().st_mtime < cutoff:
+                    item.unlink()
+                    count += 1
+            if count:
+                logger.info("Pruned %s old files from archive.", count)
+        except Exception as exc:
+            logger.error("Failed to prune archive: %s", exc)
 
     def list_archive(self, days: int = 4) -> List[Path]:
-        """
-        Returns list of files in archive from the last N days.
-        """
-        now = time.time()
-        cutoff = now - (days * 86400)
-        files = []
+        """Return archive files from the last ``days`` days, newest first."""
+        cutoff = time.time() - (days * 86400)
         try:
-            for item in self.archive_dir.iterdir():
-                if item.is_file() and item.stat().st_mtime >= cutoff:
-                    files.append(item)
-            # Sort by time desc
-            files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+            files = [
+                item
+                for item in self.archive_dir.iterdir()
+                if item.is_file() and item.stat().st_mtime >= cutoff
+            ]
+            files.sort(key=lambda item: item.stat().st_mtime, reverse=True)
             return files
-        except Exception as e:
-            logger.error(f"Failed to list archive: {e}")
+        except Exception as exc:
+            logger.error("Failed to list archive: %s", exc)
             return []

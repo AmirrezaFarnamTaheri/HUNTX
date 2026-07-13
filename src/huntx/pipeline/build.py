@@ -1,43 +1,82 @@
+from __future__ import annotations
+
 import base64
 import hashlib
 import json
 import logging
+import threading
 import time
-from typing import List, Dict, Any, Optional
-from urllib.parse import urlparse, parse_qs, unquote
+from collections import defaultdict
+from typing import Any, Optional
+from urllib.parse import parse_qs, unquote, urlparse
+
+from ..formats.registry import FormatRegistry
 from ..state.repo import StateRepo
 from ..store.artifact_store import ArtifactStore
-from ..formats.registry import FormatRegistry
 
 logger = logging.getLogger(__name__)
 
+_STANDARD_PROTOCOLS = {
+    "vless": "vless",
+    "trojan": "trojan",
+    "hysteria2": "hysteria2",
+    "hy2": "hysteria2",
+    "hysteria": "hysteria",
+    "tuic": "tuic",
+    "wireguard": "wireguard",
+    "wg": "wireguard",
+    "socks": "socks",
+    "socks5": "socks5",
+    "socks4": "socks4",
+    "anytls": "anytls",
+    "juicity": "juicity",
+    "warp": "warp",
+    "dns": "dns",
+    "dnstt": "dnstt",
+}
+_DERIVED_PROXY_FORMATS = frozenset({"npvt", "npvtsub"})
+
 
 class BuildPipeline:
-    def __init__(self, state_repo: StateRepo, artifact_store: ArtifactStore, registry: FormatRegistry):
+    def __init__(
+        self,
+        state_repo: StateRepo,
+        artifact_store: ArtifactStore,
+        registry: FormatRegistry,
+        *,
+        format_locks: Optional[dict[str, threading.Lock]] = None,
+        format_locks_guard: Optional[threading.Lock] = None,
+    ) -> None:
         self.state_repo = state_repo
         self.artifact_store = artifact_store
         self.registry = registry
+        self._format_locks = format_locks if format_locks is not None else {}
+        self._format_locks_guard = format_locks_guard or threading.Lock()
 
-    # ------------------------------------------------------------------
-    # Protocol decoders
-    # ------------------------------------------------------------------
+    def _format_lock(self, format_id: str) -> threading.Lock:
+        with self._format_locks_guard:
+            lock = self._format_locks.get(format_id)
+            if lock is None:
+                lock = threading.Lock()
+                self._format_locks[format_id] = lock
+            return lock
 
     @staticmethod
     def _b64_decode(data: str) -> str:
-        """Base64 decode with auto-padding, supports URL-safe variant."""
-        data = data.replace("-", "+").replace("_", "/")
-        padding = 4 - len(data) % 4
-        if padding != 4:
-            data += "=" * padding
-        return base64.b64decode(data).decode("utf-8", errors="ignore")
+        """Base64 decode with auto-padding, including URL-safe variants."""
+        normalized = data.replace("-", "+").replace("_", "/")
+        normalized += "=" * ((4 - len(normalized) % 4) % 4)
+        return base64.b64decode(normalized).decode("utf-8", errors="ignore")
 
     @staticmethod
-    def _parse_standard_uri(line: str, protocol: str) -> Dict[str, Any]:
-        """Parse a standard proxy URI: scheme://userinfo@host:port?params#tag"""
+    def _parse_standard_uri(line: str, protocol: str) -> dict[str, Any]:
         try:
             parsed = urlparse(line)
-            params = {k: v[0] if len(v) == 1 else v for k, v in parse_qs(parsed.query).items()}
-            result: Dict[str, Any] = {"protocol": protocol}
+            params = {
+                key: values[0] if len(values) == 1 else values
+                for key, values in parse_qs(parsed.query).items()
+            }
+            result: dict[str, Any] = {"protocol": protocol}
             if parsed.username:
                 result["user"] = unquote(parsed.username)
             if parsed.password:
@@ -55,20 +94,17 @@ class BuildPipeline:
             return {"protocol": protocol}
 
     @staticmethod
-    def _decode_vmess(line: str) -> Dict[str, Any]:
+    def _decode_vmess(line: str) -> dict[str, Any]:
         try:
-            b64 = line[8:]
-            raw = BuildPipeline._b64_decode(b64)
-            obj = json.loads(raw)
+            obj = json.loads(BuildPipeline._b64_decode(line[8:]))
             return {"protocol": "vmess", "decoded": obj, "raw": line}
         except Exception:
             return {"protocol": "vmess", "raw": line, "error": "decode_failed"}
 
     @staticmethod
-    def _decode_ss(line: str) -> Dict[str, Any]:
-        """Decode ss:// — SIP002 or legacy format."""
+    def _decode_ss(line: str) -> dict[str, Any]:
         try:
-            rest = line[5:]  # strip "ss://"
+            rest = line[5:]
             tag = ""
             if "#" in rest:
                 rest, tag = rest.rsplit("#", 1)
@@ -76,267 +112,306 @@ class BuildPipeline:
 
             if "@" in rest:
                 userinfo, hostport = rest.rsplit("@", 1)
-                # SIP002: userinfo is base64(method:password) or plain method:password
                 try:
                     decoded_ui = BuildPipeline._b64_decode(userinfo)
-                    if ":" in decoded_ui:
-                        method, password = decoded_ui.split(":", 1)
-                    else:
-                        method, password = decoded_ui, ""
+                    method, password = (
+                        decoded_ui.split(":", 1)
+                        if ":" in decoded_ui
+                        else (decoded_ui, "")
+                    )
                 except Exception:
                     parts = unquote(userinfo).split(":", 1)
                     method = parts[0]
                     password = parts[1] if len(parts) > 1 else ""
-                host_parts = hostport.split("?")[0]
-                if ":" in host_parts:
-                    host, port_s = host_parts.rsplit(":", 1)
-                    port = int(port_s)
-                else:
-                    host, port = host_parts, 0
-                return {"protocol": "shadowsocks", "method": method, "password": password,
-                        "address": host, "port": port, "tag": tag, "raw": line}
-            else:
-                # Legacy: entire thing is base64
-                decoded = BuildPipeline._b64_decode(rest.split("?")[0])
-                if "@" in decoded:
-                    mp, hp = decoded.rsplit("@", 1)
-                    method, password = mp.split(":", 1) if ":" in mp else (mp, "")
-                    host, port_s = hp.rsplit(":", 1) if ":" in hp else (hp, "0")
-                    return {"protocol": "shadowsocks", "method": method, "password": password,
-                            "address": host, "port": int(port_s), "tag": tag, "raw": line}
-                return {"protocol": "shadowsocks", "raw": line, "decoded_text": decoded}
+                host_parts = hostport.split("?", 1)[0]
+                host, port_s = (
+                    host_parts.rsplit(":", 1)
+                    if ":" in host_parts
+                    else (host_parts, "0")
+                )
+                return {
+                    "protocol": "shadowsocks",
+                    "method": method,
+                    "password": password,
+                    "address": host,
+                    "port": int(port_s),
+                    "tag": tag,
+                    "raw": line,
+                }
+
+            decoded = BuildPipeline._b64_decode(rest.split("?", 1)[0])
+            if "@" in decoded:
+                method_password, host_port = decoded.rsplit("@", 1)
+                method, password = (
+                    method_password.split(":", 1)
+                    if ":" in method_password
+                    else (method_password, "")
+                )
+                host, port_s = (
+                    host_port.rsplit(":", 1)
+                    if ":" in host_port
+                    else (host_port, "0")
+                )
+                return {
+                    "protocol": "shadowsocks",
+                    "method": method,
+                    "password": password,
+                    "address": host,
+                    "port": int(port_s),
+                    "tag": tag,
+                    "raw": line,
+                }
+            return {
+                "protocol": "shadowsocks",
+                "raw": line,
+                "decoded_text": decoded,
+            }
         except Exception:
             return {"protocol": "shadowsocks", "raw": line, "error": "decode_failed"}
 
     @staticmethod
-    def _decode_ssr(line: str) -> Dict[str, Any]:
-        """Decode ssr:// — base64 of host:port:protocol:method:obfs:base64(password)/?params"""
+    def _decode_ssr(line: str) -> dict[str, Any]:
         try:
             decoded = BuildPipeline._b64_decode(line[6:])
             main_part, _, param_part = decoded.partition("/?")
             parts = main_part.split(":")
             if len(parts) >= 6:
-                server = ":".join(parts[:-5])  # handle IPv6
-                port, protocol, method, obfs, b64pass = parts[-5], parts[-4], parts[-3], parts[-2], parts[-1]
-                password = BuildPipeline._b64_decode(b64pass)
-                result: Dict[str, Any] = {
-                    "protocol": "shadowsocksr", "server": server, "port": int(port),
-                    "ssr_protocol": protocol, "method": method, "obfs": obfs, "password": password,
+                server = ":".join(parts[:-5])
+                port, protocol, method, obfs, b64pass = parts[-5:]
+                result: dict[str, Any] = {
+                    "protocol": "shadowsocksr",
+                    "server": server,
+                    "port": int(port),
+                    "ssr_protocol": protocol,
+                    "method": method,
+                    "obfs": obfs,
+                    "password": BuildPipeline._b64_decode(b64pass),
                 }
                 if param_part:
-                    for kv in param_part.split("&"):
-                        if "=" in kv:
-                            k, v = kv.split("=", 1)
-                            try:
-                                result[k] = BuildPipeline._b64_decode(v)
-                            except Exception:
-                                result[k] = v
+                    for item in param_part.split("&"):
+                        if "=" not in item:
+                            continue
+                        key, value = item.split("=", 1)
+                        try:
+                            result[key] = BuildPipeline._b64_decode(value)
+                        except Exception:
+                            result[key] = value
                 result["raw"] = line
                 return result
-            return {"protocol": "shadowsocksr", "raw": line, "decoded_text": decoded}
+            return {
+                "protocol": "shadowsocksr",
+                "raw": line,
+                "decoded_text": decoded,
+            }
         except Exception:
             return {"protocol": "shadowsocksr", "raw": line, "error": "decode_failed"}
 
-    def _decode_single_line(self, line: str) -> Optional[Dict[str, Any]]:
-        """Decode a single proxy URI line into structured JSON."""
-        if line.startswith("vmess://"):
+    def _decode_single_line(self, line: str) -> Optional[dict[str, Any]]:
+        scheme, separator, _ = line.partition("://")
+        if not separator:
+            return None
+        normalized_scheme = scheme.lower()
+        if normalized_scheme == "vmess":
             return self._decode_vmess(line)
-        if line.startswith("ss://") and not line.startswith("ssr://"):
+        if normalized_scheme == "ss":
             return self._decode_ss(line)
-        if line.startswith("ssr://"):
+        if normalized_scheme == "ssr":
             return self._decode_ssr(line)
+        protocol = _STANDARD_PROTOCOLS.get(normalized_scheme)
+        if protocol is None:
+            return None
+        result = self._parse_standard_uri(line, protocol)
+        result["raw"] = line
+        return result
 
-        # Standard URI protocols — parse with urlparse
-        _STANDARD_PROTOS = {
-            "vless://": "vless", "trojan://": "trojan",
-            "hysteria2://": "hysteria2", "hy2://": "hysteria2", "hysteria://": "hysteria",
-            "tuic://": "tuic",
-            "wireguard://": "wireguard", "wg://": "wireguard",
-            "socks://": "socks", "socks5://": "socks5", "socks4://": "socks4",
-            "anytls://": "anytls", "juicity://": "juicity",
-            "warp://": "warp",
-            "dns://": "dns", "dnstt://": "dnstt",
-        }
-        for prefix, proto in _STANDARD_PROTOS.items():
-            if line.startswith(prefix):
-                result = self._parse_standard_uri(line, proto)
-                result["raw"] = line
-                return result
-        return None
-
-    def _decode_proxy_links(self, artifact_bytes: bytes) -> bytes:
-        """Decode proxy URI lines into a human-readable JSON artifact."""
-        try:
-            text = artifact_bytes.decode("utf-8", errors="ignore")
-        except (AttributeError, UnicodeDecodeError):
-            return b""
-
-        decoded_entries: List[Dict[str, Any]] = []
-        protocols: Dict[str, int] = {}
-
-        for line in text.splitlines():
-            line = line.strip()
+    def _decode_proxy_text(self, text: str) -> bytes:
+        decoded_entries: list[dict[str, Any]] = []
+        protocols: dict[str, int] = {}
+        for raw_line in text.splitlines():
+            line = raw_line.strip()
             if not line:
                 continue
             entry = self._decode_single_line(line)
-            if entry:
-                proto = entry.get("protocol", "unknown")
-                decoded_entries.append(entry)
-                protocols[proto] = protocols.get(proto, 0) + 1
-
+            if entry is None:
+                continue
+            protocol = str(entry.get("protocol", "unknown"))
+            decoded_entries.append(entry)
+            protocols[protocol] = protocols.get(protocol, 0) + 1
         if not decoded_entries:
             return b""
-
-        result: Dict[str, Any] = {
+        payload = {
             "total": len(decoded_entries),
             "protocols": protocols,
             "entries": decoded_entries,
         }
-        return json.dumps(result, indent=2, ensure_ascii=False).encode("utf-8")
+        return json.dumps(payload, indent=2, ensure_ascii=False).encode("utf-8")
+
+    def _decode_proxy_links(self, artifact_bytes: bytes) -> bytes:
+        try:
+            text = artifact_bytes.decode("utf-8", errors="ignore")
+        except (AttributeError, UnicodeDecodeError):
+            return b""
+        return self._decode_proxy_text(text)
 
     @staticmethod
     def _reencode_as_base64_sub(artifact_bytes: bytes) -> bytes:
-        """Re-encode proxy URI lines as a base64 blob (standard subscription format)."""
         try:
             text = artifact_bytes.decode("utf-8", errors="ignore").strip()
-            if not text:
-                return b""
-            return base64.b64encode(text.encode("utf-8"))
         except (AttributeError, UnicodeDecodeError):
             return b""
+        return base64.b64encode(text.encode("utf-8")) if text else b""
 
-    # ------------------------------------------------------------------
+    def _proxy_derivatives(self, artifact_bytes: bytes) -> tuple[bytes, bytes]:
+        """Create decoded JSON and base64 output from one UTF-8 decode."""
+        try:
+            text = artifact_bytes.decode("utf-8", errors="ignore")
+        except (AttributeError, UnicodeDecodeError):
+            return b"", b""
+        stripped = text.strip()
+        if not stripped:
+            return b"", b""
+        return self._decode_proxy_text(text), base64.b64encode(stripped.encode("utf-8"))
 
-    def run(self, route_config: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Build artifacts for a route. Returns list of build results (one per format)."""
-        route_start = time.time()
-        route_name = route_config["name"]
-        formats = route_config["formats"]
-        allowed_source_ids = route_config.get("from_sources", [])
+    def run(
+        self,
+        route_config: dict[str, Any],
+        *,
+        records: Optional[list[dict[str, Any]]] = None,
+    ) -> list[dict[str, Any]]:
+        """Build one route with a single record grouping pass."""
+        route_start = time.monotonic()
+        route_name = str(route_config["name"])
+        formats = list(dict.fromkeys(str(fmt) for fmt in route_config["formats"]))
+        allowed_source_ids = list(dict.fromkeys(route_config.get("from_sources", [])))
         min_seen_file_id = route_config.get("min_seen_file_id")
 
         logger.info(
-            f"[Build] ═══ Route '{route_name}' ═══  "
-            f"formats={formats}  sources={len(allowed_source_ids)}  "
-            f"delta_seen_files_id>{min_seen_file_id if min_seen_file_id is not None else 'all'}"
+            "[Build] route=%s formats=%s sources=%s delta_seen_files_id>%s",
+            route_name,
+            formats,
+            len(allowed_source_ids),
+            min_seen_file_id if min_seen_file_id is not None else "all",
         )
 
-        fetch_start = time.time()
-        records = self.state_repo.get_records_for_build(
-            formats,
-            allowed_source_ids,
-            min_seen_file_id=min_seen_file_id,
-        )
-        fetch_duration = time.time() - fetch_start
+        fetch_start = time.monotonic()
+        if records is None:
+            records = self.state_repo.get_records_for_build(
+                formats,
+                allowed_source_ids,
+                min_seen_file_id=min_seen_file_id,
+            )
+        fetch_duration = time.monotonic() - fetch_start
+
+        records_by_type: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for record in records:
+            record_type = record.get("record_type")
+            if isinstance(record_type, str):
+                records_by_type[record_type].append(record)
+        type_counts = {key: len(value) for key, value in records_by_type.items()}
         record_count = len(records)
 
-        # Count records per format type for diagnostics
-        type_counts: dict[str, int] = {}
-        for r in records:
-            rt = r.get("record_type", "?")
-            type_counts[rt] = type_counts.get(rt, 0) + 1
-
         logger.info(
-            f"[Build] Fetched {record_count} records in {fetch_duration:.2f}s "
-            f"from {len(allowed_source_ids)} sources  types={type_counts}"
+            "[Build] route=%s fetched=%s fetch_seconds=%.3f types=%s",
+            route_name,
+            record_count,
+            fetch_duration,
+            type_counts,
         )
-
         if not records:
-            logger.info(f"[Build] No records for route '{route_name}' — nothing to build.")
             return []
 
-        results: List[Dict[str, Any]] = []
-        built_formats = []
-        empty_formats = []
+        results: list[dict[str, Any]] = []
+        built_formats: list[str] = []
+        empty_formats: list[str] = []
+        total_build_seconds = 0.0
 
-        for fmt in formats:
+        for format_id in formats:
+            format_records = records_by_type.get(format_id, [])
+            if not format_records:
+                empty_formats.append(format_id)
+                continue
+            handler = self.registry.get(format_id)
+            if handler is None:
+                logger.error("[Build] No handler for format=%s", format_id)
+                continue
+
             try:
-                build_start = time.time()
-                handler = self.registry.get(fmt)
-                if not handler:
-                    logger.error(f"[Build] No handler for format={fmt}, skipping.")
-                    continue
-
-                # Filter records to only those matching this format's record_type
-                fmt_records = [r for r in records if r.get("record_type") == fmt]
-                if not fmt_records:
-                    empty_formats.append(fmt)
-                    logger.debug(f"[Build] No records of type '{fmt}' for route '{route_name}'")
-                    continue
-
-                artifact_bytes = handler.build(fmt_records)
-                build_duration = time.time() - build_start
-                artifact_size_kb = len(artifact_bytes) / 1024
-
+                build_start = time.monotonic()
+                with self._format_lock(format_id):
+                    artifact_bytes = handler.build(format_records)
+                build_duration = time.monotonic() - build_start
+                total_build_seconds += build_duration
                 if not artifact_bytes:
-                    empty_formats.append(fmt)
-                    logger.debug(f"[Build] Empty artifact for '{route_name}/{fmt}' — no matching records")
+                    empty_formats.append(format_id)
                     continue
 
-                artifact_hash = self.artifact_store.save_artifact(route_name, fmt, artifact_bytes)
-                self.artifact_store.save_output(route_name, fmt, artifact_bytes)
-                built_formats.append(fmt)
-                logger.info(
-                    f"[Build] ✓ {route_name}/{fmt}: {artifact_size_kb:.1f} KB  "
-                    f"build={build_duration:.2f}s  hash={artifact_hash[:12] if artifact_hash else 'N/A'}"
+                artifact_hash = self.artifact_store.save_artifact(
+                    route_name, format_id, artifact_bytes
                 )
+                self.artifact_store.save_output(route_name, format_id, artifact_bytes)
+                built_formats.append(format_id)
+                format_count = len(format_records)
 
-                # Decode proxy links → decoded JSON artifact + base64 re-encoded subscription
-                if fmt in ("npvt", "npvtsub"):
-                    decoded = self._decode_proxy_links(artifact_bytes)
+                if format_id in _DERIVED_PROXY_FORMATS:
+                    decoded, reencoded = self._proxy_derivatives(artifact_bytes)
                     if decoded:
-                        self.artifact_store.save_output(route_name, f"{fmt}.decoded.json", decoded)
-                        dec_size_kb = len(decoded) / 1024
-                        logger.info(
-                            f"[Build] ✓ {route_name}/{fmt}.decoded.json: {dec_size_kb:.1f} KB  "
-                            f"(structured JSON of all proxy URIs)"
+                        derived_format = f"{format_id}.decoded.json"
+                        self.artifact_store.save_output(route_name, derived_format, decoded)
+                        results.append(
+                            {
+                                "route_name": route_name,
+                                "format": derived_format,
+                                "unique_id": f"{route_name}:{derived_format}",
+                                "artifact_hash": hashlib.sha256(decoded).hexdigest(),
+                                "data": decoded,
+                                "count": format_count,
+                            }
                         )
-                        decoded_hash = hashlib.sha256(decoded).hexdigest()
-                        results.append({
-                            "route_name": route_name,
-                            "format": f"{fmt}.decoded.json",
-                            "unique_id": f"{route_name}:{fmt}.decoded.json",
-                            "artifact_hash": decoded_hash,
-                            "data": decoded,
-                            "count": record_count,
-                        })
-
-                    reencoded = self._reencode_as_base64_sub(artifact_bytes)
                     if reencoded:
-                        self.artifact_store.save_output(route_name, f"{fmt}.b64sub", reencoded)
-                        b64_size_kb = len(reencoded) / 1024
-                        logger.info(
-                            f"[Build] ✓ {route_name}/{fmt}.b64sub: {b64_size_kb:.1f} KB  "
-                            f"(base64 subscription for v2rayN/v2rayNG)"
+                        derived_format = f"{format_id}.b64sub"
+                        self.artifact_store.save_output(route_name, derived_format, reencoded)
+                        results.append(
+                            {
+                                "route_name": route_name,
+                                "format": derived_format,
+                                "unique_id": f"{route_name}:{derived_format}",
+                                "artifact_hash": hashlib.sha256(reencoded).hexdigest(),
+                                "data": reencoded,
+                                "count": format_count,
+                            }
                         )
-                        reencoded_hash = hashlib.sha256(reencoded).hexdigest()
-                        results.append({
-                            "route_name": route_name,
-                            "format": f"{fmt}.b64sub",
-                            "unique_id": f"{route_name}:{fmt}.b64sub",
-                            "artifact_hash": reencoded_hash,
-                            "data": reencoded,
-                            "count": record_count,
-                        })
 
-                unique_id = f"{route_name}:{fmt}"
                 results.append(
                     {
                         "route_name": route_name,
-                        "format": fmt,
-                        "unique_id": unique_id,
+                        "format": format_id,
+                        "unique_id": f"{route_name}:{format_id}",
                         "artifact_hash": artifact_hash,
                         "data": artifact_bytes,
-                        "count": record_count,
+                        "count": format_count,
                     }
                 )
-            except Exception as e:
-                logger.exception(f"[Build] Failed for {route_name}/{fmt}: {e}")
+                logger.info(
+                    "[Build] route=%s format=%s records=%s bytes=%s build_seconds=%.3f hash=%s",
+                    route_name,
+                    format_id,
+                    format_count,
+                    len(artifact_bytes),
+                    build_duration,
+                    artifact_hash[:12] if artifact_hash else "N/A",
+                )
+            except Exception:
+                logger.exception("[Build] Failed for %s/%s", route_name, format_id)
 
-        route_dur = time.time() - route_start
+        route_duration = time.monotonic() - route_start
         logger.info(
-            f"[Build] ═══ Route '{route_name}' done ═══  "
-            f"artifacts={len(results)}  built=[{', '.join(built_formats)}]  "
-            f"empty=[{', '.join(empty_formats) or 'none'}]  duration={route_dur:.2f}s"
+            "[Build] route=%s artifacts=%s built=%s empty=%s fetch_seconds=%.3f build_seconds=%.3f total_seconds=%.3f",
+            route_name,
+            len(results),
+            built_formats,
+            empty_formats,
+            fetch_duration,
+            total_build_seconds,
+            route_duration,
         )
         return results
