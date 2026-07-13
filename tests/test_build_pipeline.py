@@ -1,7 +1,9 @@
+import concurrent.futures
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from huntx.pipeline.build import BuildPipeline
+from huntx.pipeline.governed_build import GovernedBuildPipeline
 
 
 class TestBuildPipeline(unittest.TestCase):
@@ -143,6 +145,53 @@ class TestBuildPipeline(unittest.TestCase):
 
         self.state_repo.get_records_for_build.assert_not_called()
         self.assertEqual(results[0]["count"], 1)
+
+
+class TestGovernedBuildPipeline(unittest.TestCase):
+    @patch("huntx.pipeline.governed_build.get_records_for_governed_build")
+    def test_equivalent_routes_share_one_governed_query(self, governed_query):
+        state_repo = Mock()
+        state_repo.db = Mock()
+        artifact_store = Mock()
+        artifact_store.save_artifact.side_effect = lambda route, fmt, data: f"{route}-{fmt}"
+        registry = Mock()
+        handler = Mock()
+        handler.build.return_value = b"artifact"
+        registry.get.return_value = handler
+        governed_query.return_value = [{"record_type": "fmt1", "data": "a"}]
+        pipeline = GovernedBuildPipeline(
+            state_repo,
+            artifact_store,
+            registry,
+            {"route1": ("compatible", False), "route2": ("compatible", False)},
+        )
+        routes = [
+            {
+                "name": "route1",
+                "formats": ["fmt1"],
+                "from_sources": ["src1"],
+                "min_seen_file_id": 7,
+            },
+            {
+                "name": "route2",
+                "formats": ["fmt1"],
+                "from_sources": ["src1"],
+                "min_seen_file_id": 7,
+            },
+        ]
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            results = list(executor.map(pipeline.run, routes))
+
+        governed_query.assert_called_once_with(
+            state_repo.db,
+            ["fmt1"],
+            ["src1"],
+            min_seen_file_id=7,
+            publication_tier="compatible",
+            require_fresh_probe=False,
+        )
+        self.assertEqual([items[0]["route_name"] for items in results], ["route1", "route2"])
 
 
 if __name__ == "__main__":
