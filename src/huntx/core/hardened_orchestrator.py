@@ -176,8 +176,8 @@ class HardenedOrchestrator(Orchestrator):
                 for route in self.config.routes:
                     route_dict, destinations = route_payload(route)
                     route_destinations[route.name] = destinations
-                    future = build_executor.submit(self.build_pipeline.run, route_dict)
-                    build_futures[future] = route.name
+                    build_future = build_executor.submit(self.build_pipeline.run, route_dict)
+                    build_futures[build_future] = route.name
 
                 left = remaining()
                 if left is not None and left <= 0:
@@ -187,10 +187,10 @@ class HardenedOrchestrator(Orchestrator):
                 else:
                     done, not_done = concurrent.futures.wait(build_futures, timeout=left)
 
-                for future in done:
-                    route_name = build_futures[future]
+                for completed_build in done:
+                    route_name = build_futures[completed_build]
                     try:
-                        build_results = future.result() or []
+                        build_results = completed_build.result() or []
                         total_artifacts += len(build_results)
                         all_build_results.extend(build_results)
                     except Exception:
@@ -199,8 +199,8 @@ class HardenedOrchestrator(Orchestrator):
 
                 if not_done:
                     mark_timeout("build")
-                    for future in not_done:
-                        future.cancel()
+                    for pending_build in not_done:
+                        pending_build.cancel()
             finally:
                 build_executor.shutdown(wait=False, cancel_futures=True)
                 stage_seconds["build"] = time.monotonic() - build_start
@@ -212,12 +212,12 @@ class HardenedOrchestrator(Orchestrator):
             try:
                 for build_result in all_build_results:
                     route_name = str(build_result["route_name"])
-                    future = publisher.submit(
+                    publish_future = publisher.submit(
                         self.publish_pipeline.run,
                         build_result,
                         route_destinations.get(route_name, []),
                     )
-                    pending_publish[future] = route_name
+                    pending_publish[publish_future] = route_name
 
                 left = remaining()
                 if left is not None and left <= 0:
@@ -230,10 +230,10 @@ class HardenedOrchestrator(Orchestrator):
                         timeout=left,
                     )
                 publish_attempts = len(done)
-                for future in done:
-                    route_name = pending_publish[future]
+                for completed_publish in done:
+                    route_name = pending_publish[completed_publish]
                     try:
-                        future.result()
+                        completed_publish.result()
                     except Exception:
                         publish_failures += 1
                         failed_routes.add(route_name)
@@ -242,8 +242,8 @@ class HardenedOrchestrator(Orchestrator):
                         )
                 if not_done:
                     mark_timeout("publishing")
-                    for future in not_done:
-                        future.cancel()
+                    for pending_item in not_done:
+                        pending_item.cancel()
             finally:
                 publisher.shutdown(wait=False, cancel_futures=True)
                 stage_seconds["publishing"] = time.monotonic() - publish_start
