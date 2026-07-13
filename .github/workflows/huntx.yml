@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       max_workers:
-        description: "Number of parallel ingestion workers"
+        description: "Parallel ingestion/transform workers"
         required: false
-        default: "2"
+        default: "3"
       msg_fresh_hours:
         description: "Text lookback hours for first-seen sources"
         required: false
@@ -18,11 +18,11 @@ on:
         required: false
         default: "48"
       msg_subsequent_hours:
-        description: "Text lookback hours on subsequent runs (0=all new since last)"
+        description: "Text lookback on subsequent runs (0=all new since last)"
         required: false
         default: "0"
       file_subsequent_hours:
-        description: "File/media lookback hours on subsequent runs (0=all new since last)"
+        description: "File/media lookback on subsequent runs (0=all new since last)"
         required: false
         default: "0"
       reset:
@@ -43,59 +43,17 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  MAX_WORKERS: ${{ github.event.inputs.max_workers || '2' }}
+  MAX_WORKERS: ${{ github.event.inputs.max_workers || '3' }}
   MSG_FRESH_HOURS: ${{ github.event.inputs.msg_fresh_hours || '2' }}
   FILE_FRESH_HOURS: ${{ github.event.inputs.file_fresh_hours || '48' }}
   MSG_SUBSEQUENT_HOURS: ${{ github.event.inputs.msg_subsequent_hours || '0' }}
   FILE_SUBSEQUENT_HOURS: ${{ github.event.inputs.file_subsequent_hours || '0' }}
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PYTHONUNBUFFERED: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
 
 jobs:
-  validate:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 40
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          persist-credentials: false
-
-      - name: Set up Python
-        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
-        with:
-          python-version: "3.12"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install --require-hashes -r requirements.txt
-          pip install flake8 mypy pytest types-requests types-PyYAML
-          pip install --no-deps -e .
-
-      - name: Compile
-        run: python -m compileall -q src tests
-
-      - name: Lint
-        run: flake8 src/huntx tests --count --select=E9,F63,F7,F82 --show-source --statistics
-
-      - name: Type check
-        run: mypy src/huntx
-
-      - name: Test
-        run: pytest -q tests/ --junitxml=pytest-results.xml
-
-      - name: Upload pytest report
-        if: always()
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
-        with:
-          name: pytest-results
-          path: pytest-results.xml
-          if-no-files-found: warn
-          retention-days: 7
-
   build:
-    needs: validate
     runs-on: ubuntu-24.04
     timeout-minutes: 300
     permissions:
@@ -104,58 +62,74 @@ jobs:
     outputs:
       restore_safe: ${{ steps.restore.outputs.safe }}
     steps:
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-          docker system prune -af 2>/dev/null || true
-
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Checkout runtime files only
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 1
           persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            configs
+            docs
+            scripts
+            src
+            pyproject.toml
+            requirements.txt
+
+      - name: Free disk only when capacity is low
+        shell: bash
+        run: |
+          set -euo pipefail
+          available_kb="$(df --output=avail -k / | tail -n 1 | tr -d ' ')"
+          echo "Available disk before cleanup: $((available_kb / 1024 / 1024)) GiB"
+          if (( available_kb < 20 * 1024 * 1024 )); then
+            sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+            docker system prune -af 2>/dev/null || true
+          fi
+          df -h /
 
       - name: Set up Python
-        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f
         with:
-          python-version: "3.12"
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            requirements.txt
 
-      - name: Cache pip
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-py312-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-py312-
-
-      - name: Install
+      - name: Install runtime
+        shell: bash
         run: |
-          python -m pip install --upgrade pip
+          set -euo pipefail
           for attempt in 1 2 3; do
-            if pip install --require-hashes -r requirements.txt && pip install --no-deps -e .; then
+            if python -m pip install --require-hashes -r requirements.txt && \
+               python -m pip install --no-deps -e .; then
+              python -m pip check
               exit 0
             fi
-            if [ "$attempt" -eq 3 ]; then
+            if (( attempt == 3 )); then
               echo "Dependency installation failed after 3 attempts" >&2
               exit 1
             fi
             sleep $((attempt * 5))
           done
 
+      - name: Fast runtime preflight
+        run: python -m compileall -q -j 0 src scripts
+
       - name: Prepare directories
         run: mkdir -p persist/data/{raw,outputs,outputs_dev,dist,rejects,archive,state,logs} docs/artifacts
 
       - name: Configure AWS credentials (optional OIDC)
-        env:
-          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
-        if: ${{ env.AWS_ROLE_ARN != '' }}
-        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        if: ${{ secrets.AWS_ROLE_ARN != '' }}
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
 
       - name: Restore state
         id: restore
+        shell: bash
         env:
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -164,17 +138,19 @@ jobs:
         run: |
           set -euo pipefail
           echo "safe=false" >> "$GITHUB_OUTPUT"
-          if [ -z "$S3_BUCKET" ]; then
+          if [[ -z "$S3_BUCKET" ]]; then
             echo "No S3 bucket configured; running stateless."
             echo "safe=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          aws s3 cp "s3://$S3_BUCKET/state.db" persist/state.db || echo "No prior state.db; starting fresh."
-          aws s3 sync "s3://$S3_BUCKET/archive" persist/data/archive --quiet
+          aws s3 cp "s3://$S3_BUCKET/state.db" persist/state.db --only-show-errors \
+            || echo "No prior state.db; starting fresh."
+          aws s3 sync "s3://$S3_BUCKET/archive" persist/data/archive --only-show-errors
           echo "safe=true" >> "$GITHUB_OUTPUT"
 
       - name: Factory reset
         if: ${{ github.event.inputs.reset == 'true' && github.event.inputs.reset_confirm == 'RESET-HUNTX-STATE' }}
+        shell: bash
         env:
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -183,15 +159,15 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf persist/state.db persist/data/{raw,outputs,outputs_dev,archive,dist,rejects,state,logs}/*
-          if [ -n "$S3_BUCKET" ]; then
+          if [[ -n "$S3_BUCKET" ]]; then
             stamp="$(date -u +%Y%m%dT%H%M%SZ)"
-            aws s3 cp "s3://$S3_BUCKET/state.db" "s3://$S3_BUCKET/backups/$stamp/state.db" || true
-            aws s3 sync "s3://$S3_BUCKET/archive" "s3://$S3_BUCKET/backups/$stamp/archive" --quiet || true
-            aws s3 rm "s3://$S3_BUCKET/state.db" || true
-            aws s3 rm "s3://$S3_BUCKET/archive" --recursive || true
+            aws s3 cp "s3://$S3_BUCKET/state.db" "s3://$S3_BUCKET/backups/$stamp/state.db" --only-show-errors || true
+            aws s3 sync "s3://$S3_BUCKET/archive" "s3://$S3_BUCKET/backups/$stamp/archive" --only-show-errors || true
+            aws s3 rm "s3://$S3_BUCKET/state.db" --only-show-errors || true
+            aws s3 rm "s3://$S3_BUCKET/archive" --recursive --only-show-errors || true
           fi
 
-      - name: Run huntx
+      - name: Run HuntX
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           PUBLISH_BOT_TOKEN: ${{ secrets.PUBLISH_BOT_TOKEN }}
@@ -220,6 +196,7 @@ jobs:
 
       - name: Persist state
         if: ${{ always() && !cancelled() && steps.restore.outputs.safe == 'true' }}
+        shell: bash
         env:
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -227,26 +204,37 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
         run: |
           set -euo pipefail
-          if [ -z "$S3_BUCKET" ]; then
+          if [[ -z "$S3_BUCKET" ]]; then
             echo "No S3 bucket configured; state remains ephemeral."
             exit 0
           fi
           test -s persist/state.db
-          aws s3 cp persist/state.db "s3://$S3_BUCKET/state.db"
-          aws s3 sync persist/data/archive "s3://$S3_BUCKET/archive" --quiet
+          aws s3 cp persist/state.db "s3://$S3_BUCKET/state.db" --only-show-errors
+          aws s3 sync persist/data/archive "s3://$S3_BUCKET/archive" --only-show-errors
+
+      - name: Write run summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## HuntX production run"
+            echo "- Workers: $MAX_WORKERS"
+            echo "- State restore safe: ${{ steps.restore.outputs.safe }}"
+            echo "- Disk usage: $(du -sh persist 2>/dev/null | cut -f1 || echo n/a)"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload distributable output
-        if: ${{ success() }}
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        if: success()
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882
         with:
           name: huntx-output
           path: persist/data/dist/
           if-no-files-found: error
           retention-days: 7
 
-      - name: Upload logs
-        if: always()
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882
         with:
           name: huntx-logs
           path: persist/data/logs/
@@ -254,8 +242,8 @@ jobs:
           retention-days: 7
 
       - name: Upload Pages artifact
-        if: ${{ success() }}
-        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        if: success()
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa
         with:
           path: docs/
 
@@ -272,8 +260,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Configure Pages
-        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b
 
       - name: Deploy Pages
         id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e

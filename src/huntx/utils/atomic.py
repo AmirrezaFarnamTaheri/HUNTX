@@ -1,38 +1,80 @@
+import logging
 import os
 import threading
-import logging
 from pathlib import Path
 from typing import Union
 
 logger = logging.getLogger(__name__)
 
+PathLike = Union[str, Path]
+Payload = Union[str, bytes]
+_COMPARE_CHUNK_SIZE = 1024 * 1024
 
-def atomic_write(target_path: Union[str, Path], data: Union[str, bytes], mode: str = "wb") -> None:
-    """Write data atomically via temp-file + os.replace (works on POSIX & Windows)."""
+
+def _coerce_payload(data: Payload, mode: str) -> Payload:
+    if isinstance(data, str) and "b" in mode:
+        return data.encode("utf-8")
+    if isinstance(data, bytes) and "b" not in mode:
+        return data.decode("utf-8")
+    return data
+
+
+def _content_matches(path: Path, data: Payload, mode: str) -> bool:
+    """Return True when *path* already contains *data* without loading it twice."""
+    if not path.is_file():
+        return False
+
+    payload = _coerce_payload(data, mode)
+    try:
+        if "b" not in mode:
+            return path.read_text(encoding="utf-8") == payload
+
+        assert isinstance(payload, bytes)
+        if path.stat().st_size != len(payload):
+            return False
+
+        view = memoryview(payload)
+        offset = 0
+        with path.open("rb") as stream:
+            while offset < len(payload):
+                chunk = stream.read(_COMPARE_CHUNK_SIZE)
+                if not chunk or chunk != view[offset : offset + len(chunk)]:
+                    return False
+                offset += len(chunk)
+            return stream.read(1) == b""
+    except OSError:
+        return False
+
+
+def atomic_write(target_path: PathLike, data: Payload, mode: str = "wb") -> None:
+    """Write data atomically via temp-file + os.replace (POSIX and Windows)."""
     path = Path(target_path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    payload = _coerce_payload(data, mode)
 
-    # Unique tmp suffix avoids collisions from concurrent threads / processes
+    # The process/thread suffix prevents collisions between concurrent writers.
     suffix = f".tmp.{os.getpid()}.{threading.get_ident()}"
     tmp_path = path.with_name(path.name + suffix)
 
-    if isinstance(data, str) and "b" in mode:
-        data = data.encode("utf-8")
-
     try:
-        with open(tmp_path, mode) as f:
-            f.write(data)
-            f.flush()
-            os.fsync(f.fileno())
-
-        # os.replace is atomic and overwrites on both POSIX and Windows
+        with open(tmp_path, mode) as stream:
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
         os.replace(str(tmp_path), str(path))
-
-    except Exception as e:
-        logger.error(f"Failed to atomically write to {path}: {e}")
-        if tmp_path.exists():
-            try:
-                tmp_path.unlink()
-            except OSError:
-                pass
+    except Exception as exc:
+        logger.error("Failed to atomically write to %s: %s", path, exc)
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
         raise
+
+
+def atomic_write_if_changed(target_path: PathLike, data: Payload, mode: str = "wb") -> bool:
+    """Atomically write only when bytes differ; return whether a write occurred."""
+    path = Path(target_path)
+    if _content_matches(path, data, mode):
+        return False
+    atomic_write(path, data, mode=mode)
+    return True

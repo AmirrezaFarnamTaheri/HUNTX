@@ -60,11 +60,6 @@ CREATE TABLE IF NOT EXISTS record_verdicts (
     PRIMARY KEY (unique_hash, record_type, policy_tier)
 );
 
-CREATE INDEX IF NOT EXISTS idx_records_type ON records(record_type);
-CREATE INDEX IF NOT EXISTS idx_records_unique ON records(unique_hash);
-CREATE INDEX IF NOT EXISTS idx_record_verdicts_eligibility
-    ON record_verdicts(record_type, policy_tier, syntax_status, policy_status, probe_status, probe_expires_at);
-
 CREATE TABLE IF NOT EXISTS published_artifacts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     route_name TEXT NOT NULL,
@@ -73,8 +68,21 @@ CREATE TABLE IF NOT EXISTS published_artifacts (
     metadata_json TEXT
 );
 
+CREATE INDEX IF NOT EXISTS idx_records_type ON records(record_type);
+CREATE INDEX IF NOT EXISTS idx_records_unique ON records(unique_hash);
 CREATE INDEX IF NOT EXISTS idx_pub_route ON published_artifacts(route_name, artifact_hash);
 CREATE INDEX IF NOT EXISTS idx_seen_files_hash ON seen_files(raw_hash);
 CREATE INDEX IF NOT EXISTS idx_records_hash ON records(source_file_hash);
 CREATE INDEX IF NOT EXISTS idx_seen_files_status ON seen_files(status);
 CREATE INDEX IF NOT EXISTS idx_source_lifecycle_trust ON source_lifecycle(trust_state);
+CREATE INDEX IF NOT EXISTS idx_record_verdicts_eligibility
+    ON record_verdicts(record_type, policy_tier, syntax_status, policy_status, probe_status, probe_expires_at);
+
+CREATE INDEX IF NOT EXISTS idx_seen_files_pending
+    ON seen_files(status, id);
+CREATE INDEX IF NOT EXISTS idx_seen_files_source_delta
+    ON seen_files(source_id, id, raw_hash);
+CREATE INDEX IF NOT EXISTS idx_records_build
+    ON records(record_type, is_active, source_file_hash, unique_hash, id);
+CREATE INDEX IF NOT EXISTS idx_published_route_latest
+    ON published_artifacts(route_name, published_at DESC, id DESC);
