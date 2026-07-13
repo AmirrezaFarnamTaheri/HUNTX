@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class HardenedOrchestrator(Orchestrator):
-    """Run-control replacement with explicit outcomes and bounded publish waits."""
+    """Run control with bounded stage concurrency and explicit outcomes."""
 
     def run(  # type: ignore[override]
         self,
@@ -25,15 +25,11 @@ class HardenedOrchestrator(Orchestrator):
             asyncio.set_event_loop(loop)
 
         if loop.is_running():
-            executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-            try:
-                future = executor.submit(
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                return executor.submit(
                     asyncio.run,
                     self._run_hardened(timeout, no_publish, allow_partial_export),
-                )
-                return future.result()
-            finally:
-                executor.shutdown(wait=False, cancel_futures=True)
+                ).result()
         return loop.run_until_complete(
             self._run_hardened(timeout, no_publish, allow_partial_export)
         )
@@ -54,7 +50,9 @@ class HardenedOrchestrator(Orchestrator):
         excluded_sources = len(self.config.sources) - len(eligible_sources)
         total_sources = len(eligible_sources)
         total_routes = len(self.config.routes)
-        effective_workers = min(self.max_workers, total_sources) if total_sources else 0
+        ingestion_workers = min(self.max_workers, total_sources) if total_sources else 0
+        build_workers = min(self.max_workers, total_routes) if total_routes else 0
+        publish_workers = max(1, self.max_workers)
         seen_file_cutoff_id = self._get_seen_file_max_id()
 
         status = "completed"
@@ -65,6 +63,7 @@ class HardenedOrchestrator(Orchestrator):
         publish_attempts = 0
         publish_failures = 0
         all_build_results: list[Any] = []
+        stage_seconds: dict[str, float] = {}
 
         def remaining() -> Optional[float]:
             if timeout is None:
@@ -77,12 +76,33 @@ class HardenedOrchestrator(Orchestrator):
             timed_out_stage = stage
             logger.error("[Orchestrator] Deadline exhausted during %s", stage)
 
+        def route_payload(route: Any) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+            route_dict = {
+                "name": route.name,
+                "formats": route.formats,
+                "from_sources": route.from_sources,
+                "min_seen_file_id": seen_file_cutoff_id,
+            }
+            destinations = [
+                {
+                    "chat_id": destination.chat_id,
+                    "mode": destination.mode,
+                    "caption_template": destination.caption_template,
+                    "token": destination.token,
+                }
+                for destination in route.destinations
+            ]
+            return route_dict, destinations
+
         logger.info(
-            "[Orchestrator] hardened run start approved_sources=%s excluded_sources=%s routes=%s workers=%s timeout=%s",
+            "[Orchestrator] start approved_sources=%s excluded_sources=%s routes=%s "
+            "ingestion_workers=%s build_workers=%s publish_workers=%s timeout=%s",
             total_sources,
             excluded_sources,
             total_routes,
-            effective_workers,
+            ingestion_workers,
+            build_workers,
+            publish_workers,
             timeout,
         )
 
@@ -92,6 +112,7 @@ class HardenedOrchestrator(Orchestrator):
                 "timed_out": False,
                 "timed_out_stage": None,
                 "duration_seconds": time.monotonic() - start_time,
+                "stage_seconds": stage_seconds,
                 "partial_export_enabled": allow_partial_export,
                 "total_artifacts": 0,
                 "publish_attempts": 0,
@@ -104,22 +125,21 @@ class HardenedOrchestrator(Orchestrator):
                 "reason": "no_approved_sources",
             }
 
+        ingestion_start = time.monotonic()
         source_queue: asyncio.Queue[Any] = asyncio.Queue()
         for source in eligible_sources:
             await source_queue.put(source)
         result_lock = asyncio.Lock()
         ingestion_tasks = [
             asyncio.create_task(self._worker_async(source_queue, results, result_lock))
-            for _ in range(effective_workers)
+            for _ in range(ingestion_workers)
         ]
         try:
             left = remaining()
             if left is not None and left <= 0:
                 raise asyncio.TimeoutError
-            if left is not None:
-                await asyncio.wait_for(asyncio.gather(*ingestion_tasks), timeout=left)
-            else:
-                await asyncio.gather(*ingestion_tasks)
+            gather = asyncio.gather(*ingestion_tasks)
+            await asyncio.wait_for(gather, timeout=left) if left is not None else await gather
         except asyncio.TimeoutError:
             mark_timeout("ingestion")
             for task in ingestion_tasks:
@@ -131,90 +151,107 @@ class HardenedOrchestrator(Orchestrator):
             for task in ingestion_tasks:
                 task.cancel()
             await asyncio.gather(*ingestion_tasks, return_exceptions=True)
+        finally:
+            stage_seconds["ingestion"] = time.monotonic() - ingestion_start
 
         if status == "completed":
+            transform_start = time.monotonic()
             try:
                 self.transform_pipeline.process_pending()
             except Exception:
                 status = "failed"
                 logger.exception("[Orchestrator] Transformation failed")
+            finally:
+                stage_seconds["transformation"] = time.monotonic() - transform_start
             time_left = remaining()
             if time_left is not None and time_left <= 0:
                 mark_timeout("transformation")
 
-        publisher: Optional[concurrent.futures.ThreadPoolExecutor] = None
-        pending_publish: dict[concurrent.futures.Future[Any], str] = {}
-        if status == "completed":
-            publisher = concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers)
+        route_destinations: dict[str, list[dict[str, Any]]] = {}
+        if status == "completed" and total_routes:
+            build_start = time.monotonic()
+            build_executor = concurrent.futures.ThreadPoolExecutor(max_workers=build_workers)
+            build_futures: dict[concurrent.futures.Future[Any], str] = {}
             try:
                 for route in self.config.routes:
-                    time_left = remaining()
-                    if time_left is not None and time_left <= 0:
-                        mark_timeout("build")
-                        break
-                    try:
-                        route_dict = {
-                            "name": route.name,
-                            "formats": route.formats,
-                            "from_sources": route.from_sources,
-                            "min_seen_file_id": seen_file_cutoff_id,
-                        }
-                        build_results = self.build_pipeline.run(route_dict)
-                        total_artifacts += len(build_results or [])
-                        all_build_results.extend(build_results or [])
-                        if no_publish:
-                            continue
-                        destinations = [
-                            {
-                                "chat_id": destination.chat_id,
-                                "mode": destination.mode,
-                                "caption_template": destination.caption_template,
-                                "token": destination.token,
-                            }
-                            for destination in route.destinations
-                        ]
-                        for build_result in build_results or []:
-                            future = publisher.submit(
-                                self.publish_pipeline.run,
-                                build_result,
-                                destinations,
-                            )
-                            pending_publish[future] = route.name
-                    except Exception:
-                        failed_routes.add(route.name)
-                        logger.exception("[Orchestrator] Route build failed: %s", route.name)
+                    route_dict, destinations = route_payload(route)
+                    route_destinations[route.name] = destinations
+                    future = build_executor.submit(self.build_pipeline.run, route_dict)
+                    build_futures[future] = route.name
 
-                if status == "completed" and pending_publish:
-                    left = remaining()
-                    if left is not None and left <= 0:
-                        mark_timeout("publishing")
-                    else:
-                        done, not_done = concurrent.futures.wait(
-                            pending_publish,
-                            timeout=left,
+                left = remaining()
+                if left is not None and left <= 0:
+                    mark_timeout("build")
+                    done: set[concurrent.futures.Future[Any]] = set()
+                    not_done = set(build_futures)
+                else:
+                    done, not_done = concurrent.futures.wait(build_futures, timeout=left)
+
+                for future in done:
+                    route_name = build_futures[future]
+                    try:
+                        build_results = future.result() or []
+                        total_artifacts += len(build_results)
+                        all_build_results.extend(build_results)
+                    except Exception:
+                        failed_routes.add(route_name)
+                        logger.exception("[Orchestrator] Route build failed: %s", route_name)
+
+                if not_done:
+                    mark_timeout("build")
+                    for future in not_done:
+                        future.cancel()
+            finally:
+                build_executor.shutdown(wait=False, cancel_futures=True)
+                stage_seconds["build"] = time.monotonic() - build_start
+
+        pending_publish: dict[concurrent.futures.Future[Any], str] = {}
+        if status == "completed" and not no_publish and all_build_results:
+            publish_start = time.monotonic()
+            publisher = concurrent.futures.ThreadPoolExecutor(max_workers=publish_workers)
+            try:
+                for build_result in all_build_results:
+                    route_name = str(build_result["route_name"])
+                    future = publisher.submit(
+                        self.publish_pipeline.run,
+                        build_result,
+                        route_destinations.get(route_name, []),
+                    )
+                    pending_publish[future] = route_name
+
+                left = remaining()
+                if left is not None and left <= 0:
+                    mark_timeout("publishing")
+                    done = set()
+                    not_done = set(pending_publish)
+                else:
+                    done, not_done = concurrent.futures.wait(
+                        pending_publish,
+                        timeout=left,
+                    )
+                publish_attempts = len(done)
+                for future in done:
+                    route_name = pending_publish[future]
+                    try:
+                        future.result()
+                    except Exception:
+                        publish_failures += 1
+                        failed_routes.add(route_name)
+                        logger.exception(
+                            "[Orchestrator] Publish failed for route %s", route_name
                         )
-                        for future in done:
-                            publish_attempts += 1
-                            route_name = pending_publish[future]
-                            try:
-                                future.result()
-                            except Exception:
-                                publish_failures += 1
-                                failed_routes.add(route_name)
-                                logger.exception(
-                                    "[Orchestrator] Publish failed for route %s",
-                                    route_name,
-                                )
-                        if not_done:
-                            mark_timeout("publishing")
-                            for future in not_done:
-                                future.cancel()
+                if not_done:
+                    mark_timeout("publishing")
+                    for future in not_done:
+                        future.cancel()
             finally:
                 publisher.shutdown(wait=False, cancel_futures=True)
+                stage_seconds["publishing"] = time.monotonic() - publish_start
 
         should_export = status == "completed" or (
             status == "timed_out" and allow_partial_export
         )
+        export_start = time.monotonic()
         if should_export:
             try:
                 self._export_outputs(all_build_results)
@@ -226,7 +263,9 @@ class HardenedOrchestrator(Orchestrator):
             logger.warning(
                 "[Orchestrator] Partial artifacts were not exported because partial export is disabled"
             )
+        stage_seconds["export"] = time.monotonic() - export_start
 
+        cleanup_start = time.monotonic()
         try:
             self.raw_store.prune_processed(self.repo)
             self.raw_store.prune_orphans(self.repo)
@@ -235,6 +274,8 @@ class HardenedOrchestrator(Orchestrator):
             if status == "completed":
                 status = "partial"
             logger.exception("[Orchestrator] Cleanup failed")
+        finally:
+            stage_seconds["cleanup"] = time.monotonic() - cleanup_start
 
         if status == "completed" and (results["err"] or failed_routes or publish_failures):
             status = "partial"
@@ -245,6 +286,7 @@ class HardenedOrchestrator(Orchestrator):
             "timed_out": status == "timed_out",
             "timed_out_stage": timed_out_stage,
             "duration_seconds": duration,
+            "stage_seconds": {key: round(value, 3) for key, value in stage_seconds.items()},
             "partial_export_enabled": allow_partial_export,
             "total_artifacts": total_artifacts,
             "publish_attempts": publish_attempts,
@@ -254,6 +296,9 @@ class HardenedOrchestrator(Orchestrator):
             "failed_routes": len(failed_routes),
             "approved_sources": total_sources,
             "excluded_sources": excluded_sources,
+            "ingestion_workers": ingestion_workers,
+            "build_workers": build_workers,
+            "publish_workers": publish_workers,
         }
         logger.info("[Orchestrator] Final run summary: %s", summary)
         return summary
