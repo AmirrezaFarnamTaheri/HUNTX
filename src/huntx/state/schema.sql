@@ -76,6 +76,8 @@ CREATE INDEX IF NOT EXISTS idx_records_build
 CREATE INDEX IF NOT EXISTS idx_record_verdicts_eligibility
     ON record_verdicts(record_type, policy_tier, syntax_status, policy_status, probe_status, probe_expires_at);
 CREATE INDEX IF NOT EXISTS idx_pub_route ON published_artifacts(route_name, artifact_hash);
+CREATE INDEX IF NOT EXISTS idx_published_route_latest
+    ON published_artifacts(route_name, published_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_seen_files_hash ON seen_files(raw_hash);
 CREATE INDEX IF NOT EXISTS idx_seen_files_status ON seen_files(status);
 CREATE INDEX IF NOT EXISTS idx_seen_files_pending ON seen_files(status, id);
