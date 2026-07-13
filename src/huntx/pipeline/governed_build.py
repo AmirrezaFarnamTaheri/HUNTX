@@ -40,9 +40,9 @@ class _GovernedRepoProxy:
 class GovernedBuildPipeline(BuildPipeline):
     """Thread-safe governed build facade.
 
-    Each route receives an immutable repository proxy and an isolated
-    ``BuildPipeline`` instance. This avoids mutating ``self.state_repo`` while
-    allowing routes to be constructed concurrently.
+    Each route receives an immutable repository proxy and an isolated pipeline
+    facade. Handler locks remain shared across route facades because registry
+    handlers are singleton instances and are not assumed to be re-entrant.
     """
 
     def __init__(
@@ -69,5 +69,7 @@ class GovernedBuildPipeline(BuildPipeline):
             governed_repo,
             self.artifact_store,
             self.registry,
+            format_locks=self._format_locks,
+            format_locks_guard=self._format_locks_guard,
         )
         return route_pipeline.run(route_config)
