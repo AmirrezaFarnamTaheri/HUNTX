@@ -42,8 +42,6 @@ class ArtifactStore:
 
         try:
             target_dir.mkdir(parents=True, exist_ok=True)
-            # Content-addressed files are immutable. Avoid an fsync when this exact
-            # artifact was already materialized by an earlier run.
             if not target_path.exists():
                 atomic_write(target_path, data)
             return artifact_hash
@@ -117,11 +115,10 @@ class ArtifactStore:
         cutoff = time.time() - (retention_days * 86400)
         count = 0
         try:
-            with self.archive_dir.iterdir() as entries:
-                for item in entries:
-                    if item.is_file() and item.stat().st_mtime < cutoff:
-                        item.unlink()
-                        count += 1
+            for item in self.archive_dir.iterdir():
+                if item.is_file() and item.stat().st_mtime < cutoff:
+                    item.unlink()
+                    count += 1
             if count:
                 logger.info("Pruned %s old files from archive.", count)
         except Exception as exc:
