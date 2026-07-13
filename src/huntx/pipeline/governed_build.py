@@ -30,8 +30,8 @@ class _GovernedRepoProxy(StateRepo):
         self,
         record_types: list[str],
         allowed_source_ids: list[str],
-        min_seen_file_id: int | None = None,
-    ) -> _RecordList:
+        min_seen_file_id: Optional[int] = None,
+    ) -> list[dict[str, Any]]:
         return get_records_for_governed_build(
             self.db,
             record_types,
@@ -113,11 +113,11 @@ class GovernedBuildPipeline(BuildPipeline):
                 raise
         return future.result()
 
-    def run(
+    def run(  # type: ignore[override]
         self,
         route_config: dict[str, Any],
         *,
-        records: Optional[_RecordList] = None,
+        records: Optional[list[dict[str, Any]]] = None,
     ) -> list[dict[str, Any]]:
         if records is None:
             route_name = str(route_config["name"])
