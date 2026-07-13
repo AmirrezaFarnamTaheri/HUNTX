@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
 from .build import BuildPipeline
 from ..state.verdict_store import get_records_for_governed_build
@@ -38,6 +38,13 @@ class _GovernedRepoProxy:
 
 
 class GovernedBuildPipeline(BuildPipeline):
+    """Thread-safe governed build facade.
+
+    Each route receives an immutable repository proxy and an isolated
+    ``BuildPipeline`` instance. This avoids mutating ``self.state_repo`` while
+    allowing routes to be constructed concurrently.
+    """
+
     def __init__(
         self,
         state_repo: Any,
@@ -53,13 +60,14 @@ class GovernedBuildPipeline(BuildPipeline):
         tier, require_fresh_probe = self._route_policies.get(
             route_name, ("compatible", False)
         )
-        original_repo = self.state_repo
-        self.state_repo = cast(Any, _GovernedRepoProxy(
-            original_repo,
+        governed_repo = _GovernedRepoProxy(
+            self.state_repo,
             publication_tier=tier,
             require_fresh_probe=require_fresh_probe,
-        ))
-        try:
-            return super().run(route_config)
-        finally:
-            self.state_repo = original_repo
+        )
+        route_pipeline = BuildPipeline(
+            governed_repo,
+            self.artifact_store,
+            self.registry,
+        )
+        return route_pipeline.run(route_config)
