@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import threading
-from typing import Any
+from typing import Any, Optional
 
 from .build import BuildPipeline
 from ..state.repo import StateRepo
@@ -106,23 +106,29 @@ class GovernedBuildPipeline(BuildPipeline):
                     min_seen_file_id=key[4],
                 )
                 future.set_result(records)
-            except BaseException as exc:
+            except Exception as exc:
                 future.set_exception(exc)
                 with self._query_lock:
                     self._query_futures.pop(key, None)
                 raise
         return future.result()
 
-    def run(self, route_config: dict[str, Any]) -> list[dict[str, Any]]:
-        route_name = str(route_config["name"])
-        tier, require_fresh_probe = self._route_policies.get(
-            route_name, ("compatible", False)
-        )
-        records = self._records_for_route(
-            route_config,
-            tier=tier,
-            require_fresh_probe=require_fresh_probe,
-        )
+    def run(
+        self,
+        route_config: dict[str, Any],
+        *,
+        records: Optional[_RecordList] = None,
+    ) -> list[dict[str, Any]]:
+        if records is None:
+            route_name = str(route_config["name"])
+            tier, require_fresh_probe = self._route_policies.get(
+                route_name, ("compatible", False)
+            )
+            records = self._records_for_route(
+                route_config,
+                tier=tier,
+                require_fresh_probe=require_fresh_probe,
+            )
         route_pipeline = BuildPipeline(
             self.state_repo,
             self.artifact_store,
