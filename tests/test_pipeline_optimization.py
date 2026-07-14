@@ -23,15 +23,37 @@ def test_transform_batch_size_can_be_bounded(monkeypatch):
 def test_source_timeout_is_isolated(monkeypatch):
     async def exercise() -> None:
         orchestrator = object.__new__(OptimizedHardenedOrchestrator)
-        orchestrator._ingest_one_source_async = AsyncMock(
-            side_effect=asyncio.TimeoutError
-        )
-        monkeypatch.setenv("HUNTX_SOURCE_TIMEOUT", "30")
+
+        # Initialize required attributes that would normally be set in __init__
+        orchestrator._ingestion_stop_monotonic = None
+        orchestrator._ingestion_budget_exhausted = False
+
+        # Stub _source_timeout to return a short duration (0.05s)
+        orchestrator._source_timeout = lambda: 0.05
+
+        # Mock _ingest_one_source_async to sleep based on source id
+        async def mock_ingest(source):
+            if source.id == "slow-source":
+                # Sleep longer than timeout to trigger asyncio.wait_for TimeoutError
+                await asyncio.sleep(0.2)
+                return True
+            else:
+                # Healthy source completes quickly
+                await asyncio.sleep(0.01)
+                return True
+
+        orchestrator._ingest_one_source_async = mock_ingest
+
         queue: asyncio.Queue[SimpleNamespace] = asyncio.Queue()
         queue.put_nowait(SimpleNamespace(id="slow-source"))
+        queue.put_nowait(SimpleNamespace(id="healthy-source"))
+
         results = {"ok": 0, "err": 0}
         await orchestrator._worker_async(queue, results, asyncio.Lock())
-        assert results == {"ok": 0, "err": 1}
+
+        # Assert one error (slow source timed out) and one success (healthy source)
+        assert results == {"ok": 1, "err": 1}
+        # Assert queue is fully drained
         assert queue.empty()
 
     asyncio.run(exercise())
