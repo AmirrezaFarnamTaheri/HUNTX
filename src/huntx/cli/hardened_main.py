@@ -39,12 +39,12 @@ def _cmd_run(args):
     try:
         config = load_config(args.config)
         validate_config(config)
-        timeout_raw = os.environ.get("HUNTX_RUN_TIMEOUT", "9000")
+        timeout_raw = os.environ.get("HUNTX_RUN_TIMEOUT", "12600")
         try:
             run_timeout = float(timeout_raw)
         except ValueError:
-            logger.warning("Invalid HUNTX_RUN_TIMEOUT=%r; using 9000", timeout_raw)
-            run_timeout = 9000.0
+            logger.warning("Invalid HUNTX_RUN_TIMEOUT=%r; using 12600", timeout_raw)
+            run_timeout = 12600.0
 
         process_lock = Path(paths.STATE_DIR) / "huntx.lock"
         session_identity = os.environ.get("TELEGRAM_USER_SESSION", "").strip()
@@ -79,18 +79,32 @@ def _cmd_run(args):
             )
 
         status = summary.get("status", "failed")
+        budget_partial = bool(summary.get("ingestion_budget_exhausted"))
         if status in {"failed", "timed_out"}:
             logger.error("Health Gate FAILED: run status=%s summary=%s", status, summary)
             raise SystemExit(1)
-        if status == "partial" and not allow_partial:
+        if status == "partial" and not allow_partial and not budget_partial:
             logger.error(
-                "Health Gate FAILED: partial run requires HUNTX_ALLOW_PARTIAL_SUCCESS=true; summary=%s",
+                "Health Gate FAILED: partial run requires "
+                "HUNTX_ALLOW_PARTIAL_SUCCESS=true; summary=%s",
                 summary,
             )
             raise SystemExit(1)
+        if status == "partial" and budget_partial:
+            logger.warning(
+                "Health Gate accepted deadline-bounded partial run; completed work "
+                "was built, published, exported, and persisted: %s",
+                summary,
+            )
         if summary.get("total_artifacts", 0) == 0:
-            logger.error("Health Gate FAILED: zero artifacts were built; summary=%s", summary)
-            raise SystemExit(1)
+            if budget_partial:
+                logger.warning(
+                    "Deadline-bounded partial run produced no new artifacts; "
+                    "preserving previously published outputs"
+                )
+            else:
+                logger.error("Health Gate FAILED: zero artifacts were built; summary=%s", summary)
+                raise SystemExit(1)
         publish_attempts = int(summary.get("publish_attempts", 0))
         publish_failures = int(summary.get("publish_failures", 0))
         if not args.no_publish and publish_attempts > 0 and publish_failures >= publish_attempts:
