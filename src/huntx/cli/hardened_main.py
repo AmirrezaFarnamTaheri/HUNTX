@@ -6,7 +6,7 @@ from pathlib import Path
 from . import main as legacy
 from ..config.loader import load_config
 from ..config.validate import validate_config
-from ..core.hardened_orchestrator import HardenedOrchestrator
+from ..core.optimized_orchestrator import OptimizedHardenedOrchestrator
 from ..core.locks import acquire_lock
 from ..core.session_lease import session_lease_path
 from ..pipeline.governed_build import GovernedBuildPipeline
@@ -15,10 +15,14 @@ from ..store import paths
 logger = logging.getLogger(__name__)
 
 
+def _enabled(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes"}
+
+
 def _cmd_run(args):
     max_workers_raw = os.environ.get("HUNTX_MAX_WORKERS") or "3"
     try:
-        max_workers = int(max_workers_raw)
+        max_workers = max(1, int(max_workers_raw))
     except ValueError:
         logger.warning("Invalid HUNTX_MAX_WORKERS=%r; using 3", max_workers_raw)
         max_workers = 3
@@ -29,16 +33,8 @@ def _cmd_run(args):
         "msg_subsequent_hours": args.msg_subsequent_hours,
         "file_subsequent_hours": args.file_subsequent_hours,
     }
-    allow_partial = os.environ.get("HUNTX_ALLOW_PARTIAL_SUCCESS", "").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-    }
-    allow_partial_export = os.environ.get("HUNTX_ALLOW_PARTIAL_EXPORT", "").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-    }
+    allow_partial = _enabled("HUNTX_ALLOW_PARTIAL_SUCCESS")
+    allow_partial_export = _enabled("HUNTX_ALLOW_PARTIAL_EXPORT")
 
     try:
         config = load_config(args.config)
@@ -58,7 +54,7 @@ def _cmd_run(args):
             else nullcontext()
         )
         with acquire_lock(process_lock), session_lock:
-            orchestrator = HardenedOrchestrator(
+            orchestrator = OptimizedHardenedOrchestrator(
                 config,
                 max_workers=max_workers,
                 fetch_windows=fetch_windows,
