@@ -1,6 +1,6 @@
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 from huntx.core.optimized_orchestrator import OptimizedHardenedOrchestrator
 from huntx.pipeline.optimized_transform import OptimizedTransformPipeline
@@ -20,27 +20,22 @@ def test_transform_batch_size_can_be_bounded(monkeypatch):
     assert pipeline._effective_batch_size() == 2000
 
 
-def test_source_timeout_is_isolated(monkeypatch):
+def test_source_timeout_is_isolated():
     async def exercise() -> None:
         orchestrator = object.__new__(OptimizedHardenedOrchestrator)
-
-        # Initialize required attributes that would normally be set in __init__
         orchestrator._ingestion_stop_monotonic = None
         orchestrator._ingestion_budget_exhausted = False
-
-        # Stub _source_timeout to return a short duration (0.05s)
         orchestrator._source_timeout = lambda: 0.05
 
-        # Mock _ingest_one_source_async to sleep based on source id
+        observed: list[str] = []
+
         async def mock_ingest(source):
+            observed.append(source.id)
             if source.id == "slow-source":
-                # Sleep longer than timeout to trigger asyncio.wait_for TimeoutError
                 await asyncio.sleep(0.2)
-                return True
             else:
-                # Healthy source completes quickly
                 await asyncio.sleep(0.01)
-                return True
+            return True
 
         orchestrator._ingest_one_source_async = mock_ingest
 
@@ -51,9 +46,8 @@ def test_source_timeout_is_isolated(monkeypatch):
         results = {"ok": 0, "err": 0}
         await orchestrator._worker_async(queue, results, asyncio.Lock())
 
-        # Assert one error (slow source timed out) and one success (healthy source)
+        assert observed == ["slow-source", "healthy-source"]
         assert results == {"ok": 1, "err": 1}
-        # Assert queue is fully drained
         assert queue.empty()
 
     asyncio.run(exercise())
