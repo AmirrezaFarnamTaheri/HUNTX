@@ -50,7 +50,7 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Checkout validation surface
-        uses: actions/checkout@9f265659d3bb64ab1440b03b12f4d47a24320917 # Node 24
+        uses: actions/checkout@v7.0.0 # Node 24
         with:
           fetch-depth: 1
           persist-credentials: false
@@ -65,7 +65,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Set up Python
-        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # Node 24
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # Node 24
         with:
           python-version: "3.12"
 
@@ -105,7 +105,7 @@ jobs:
 
       - name: Upload diagnostics on failure
         if: failure()
-        uses: actions/upload-artifact@615b319bd27bb32c3d64dca6b6ed6974d5fbe653 # v6, Node 24
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v6, Node 24
         with:
           name: validation-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
