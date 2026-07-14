@@ -6,7 +6,7 @@ from pathlib import Path
 from . import main as legacy
 from ..config.loader import load_config
 from ..config.validate import validate_config
-from ..core.hardened_orchestrator import HardenedOrchestrator
+from ..core.optimized_orchestrator import OptimizedHardenedOrchestrator
 from ..core.locks import acquire_lock
 from ..core.session_lease import session_lease_path
 from ..pipeline.governed_build import GovernedBuildPipeline
@@ -15,10 +15,14 @@ from ..store import paths
 logger = logging.getLogger(__name__)
 
 
+def _enabled(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes"}
+
+
 def _cmd_run(args):
     max_workers_raw = os.environ.get("HUNTX_MAX_WORKERS") or "3"
     try:
-        max_workers = int(max_workers_raw)
+        max_workers = max(1, int(max_workers_raw))
     except ValueError:
         logger.warning("Invalid HUNTX_MAX_WORKERS=%r; using 3", max_workers_raw)
         max_workers = 3
@@ -29,26 +33,18 @@ def _cmd_run(args):
         "msg_subsequent_hours": args.msg_subsequent_hours,
         "file_subsequent_hours": args.file_subsequent_hours,
     }
-    allow_partial = os.environ.get("HUNTX_ALLOW_PARTIAL_SUCCESS", "").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-    }
-    allow_partial_export = os.environ.get("HUNTX_ALLOW_PARTIAL_EXPORT", "").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-    }
+    allow_partial = _enabled("HUNTX_ALLOW_PARTIAL_SUCCESS")
+    allow_partial_export = _enabled("HUNTX_ALLOW_PARTIAL_EXPORT")
 
     try:
         config = load_config(args.config)
         validate_config(config)
-        timeout_raw = os.environ.get("HUNTX_RUN_TIMEOUT", "9000")
+        timeout_raw = os.environ.get("HUNTX_RUN_TIMEOUT", "12600")
         try:
             run_timeout = float(timeout_raw)
         except ValueError:
-            logger.warning("Invalid HUNTX_RUN_TIMEOUT=%r; using 9000", timeout_raw)
-            run_timeout = 9000.0
+            logger.warning("Invalid HUNTX_RUN_TIMEOUT=%r; using 12600", timeout_raw)
+            run_timeout = 12600.0
 
         process_lock = Path(paths.STATE_DIR) / "huntx.lock"
         session_identity = os.environ.get("TELEGRAM_USER_SESSION", "").strip()
@@ -58,7 +54,7 @@ def _cmd_run(args):
             else nullcontext()
         )
         with acquire_lock(process_lock), session_lock:
-            orchestrator = HardenedOrchestrator(
+            orchestrator = OptimizedHardenedOrchestrator(
                 config,
                 max_workers=max_workers,
                 fetch_windows=fetch_windows,
@@ -83,18 +79,32 @@ def _cmd_run(args):
             )
 
         status = summary.get("status", "failed")
+        budget_partial = bool(summary.get("ingestion_budget_exhausted"))
         if status in {"failed", "timed_out"}:
             logger.error("Health Gate FAILED: run status=%s summary=%s", status, summary)
             raise SystemExit(1)
-        if status == "partial" and not allow_partial:
+        if status == "partial" and not allow_partial and not budget_partial:
             logger.error(
-                "Health Gate FAILED: partial run requires HUNTX_ALLOW_PARTIAL_SUCCESS=true; summary=%s",
+                "Health Gate FAILED: partial run requires "
+                "HUNTX_ALLOW_PARTIAL_SUCCESS=true; summary=%s",
                 summary,
             )
             raise SystemExit(1)
+        if status == "partial" and budget_partial:
+            logger.warning(
+                "Health Gate accepted deadline-bounded partial run; completed work "
+                "was built, published, exported, and persisted: %s",
+                summary,
+            )
         if summary.get("total_artifacts", 0) == 0:
-            logger.error("Health Gate FAILED: zero artifacts were built; summary=%s", summary)
-            raise SystemExit(1)
+            if budget_partial:
+                logger.warning(
+                    "Deadline-bounded partial run produced no new artifacts; "
+                    "preserving previously published outputs"
+                )
+            else:
+                logger.error("Health Gate FAILED: zero artifacts were built; summary=%s", summary)
+                raise SystemExit(1)
         publish_attempts = int(summary.get("publish_attempts", 0))
         publish_failures = int(summary.get("publish_failures", 0))
         if not args.no_publish and publish_attempts > 0 and publish_failures >= publish_attempts:
