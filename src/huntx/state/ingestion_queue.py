@@ -22,10 +22,11 @@ class IngestionWorkItem:
 class PersistentIngestionQueue:
     """SQLite-backed newest-window-first ingestion queue.
 
-    Windows are LIFO by ``window_end_ts``. Within the same hour, the least
-    recently updated source is selected first so dense sources cannot starve
-    their peers. Every claim is leased and every page checkpoint can share the
-    same transaction as raw observation inserts.
+    Windows are strict LIFO by ``window_end_ts``. No older hour can be claimed
+    while any work in the newest incomplete hour remains pending, leased, or
+    retryable. Within that hour, the least recently updated source is selected
+    first so dense sources rotate behind their peers. Every claim is leased and
+    every page checkpoint can share the same transaction as raw inserts.
     """
 
     def __init__(self, db: Any) -> None:
@@ -137,10 +138,18 @@ class PersistentIngestionQueue:
             conn.execute("BEGIN IMMEDIATE")
             row = conn.execute(
                 """
-                SELECT * FROM ingestion_work_items
-                WHERE status IN ('pending', 'partial', 'retry_wait')
-                  AND (next_retry_at IS NULL OR next_retry_at <= ?)
-                ORDER BY window_end_ts DESC, updated_at ASC, id ASC
+                WITH newest_incomplete AS (
+                    SELECT MAX(window_end_ts) AS window_end_ts
+                    FROM ingestion_work_items
+                    WHERE status IN ('pending', 'partial', 'retry_wait', 'leased')
+                )
+                SELECT work.*
+                FROM ingestion_work_items AS work
+                JOIN newest_incomplete AS newest
+                  ON work.window_end_ts = newest.window_end_ts
+                WHERE work.status IN ('pending', 'partial', 'retry_wait')
+                  AND (work.next_retry_at IS NULL OR work.next_retry_at <= ?)
+                ORDER BY work.updated_at ASC, work.id ASC
                 LIMIT 1
                 """,
                 (current,),
