@@ -99,7 +99,7 @@ CREATE TABLE IF NOT EXISTS ingestion_work_items (
     updated_at INTEGER NOT NULL,
     completed_at INTEGER,
     FOREIGN KEY (campaign_id) REFERENCES ingestion_campaigns(id) ON DELETE CASCADE,
-    UNIQUE(campaign_id, source_id, window_start_ts, window_end_ts)
+    UNIQUE(source_id, window_start_ts, window_end_ts)
 );
 
 CREATE INDEX IF NOT EXISTS idx_records_type ON records(record_type);
