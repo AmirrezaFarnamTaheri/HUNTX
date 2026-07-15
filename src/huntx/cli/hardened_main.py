@@ -2,6 +2,7 @@ import logging
 import os
 from contextlib import nullcontext
 from pathlib import Path
+from typing import Any
 
 from . import main as legacy
 from ..config.loader import load_config
@@ -17,6 +18,18 @@ logger = logging.getLogger(__name__)
 
 def _enabled(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in {"1", "true", "yes"}
+
+
+def _all_publish_failures_are_fatal(
+    summary: dict[str, Any],
+    *,
+    no_publish: bool,
+) -> bool:
+    if no_publish or bool(summary.get("ingestion_budget_exhausted")):
+        return False
+    attempts = int(summary.get("publish_attempts", 0))
+    failures = int(summary.get("publish_failures", 0))
+    return attempts > 0 and failures >= attempts
 
 
 def _cmd_run(args):
@@ -93,7 +106,8 @@ def _cmd_run(args):
         if status == "partial" and budget_partial:
             logger.warning(
                 "Health Gate accepted deadline-bounded partial run; completed work "
-                "was built, published, exported, and persisted: %s",
+                "was built, exported, and persisted. External publication may be "
+                "degraded: %s",
                 summary,
             )
         if summary.get("total_artifacts", 0) == 0:
@@ -105,11 +119,16 @@ def _cmd_run(args):
             else:
                 logger.error("Health Gate FAILED: zero artifacts were built; summary=%s", summary)
                 raise SystemExit(1)
-        publish_attempts = int(summary.get("publish_attempts", 0))
-        publish_failures = int(summary.get("publish_failures", 0))
-        if not args.no_publish and publish_attempts > 0 and publish_failures >= publish_attempts:
+        if _all_publish_failures_are_fatal(summary, no_publish=args.no_publish):
             logger.error("Health Gate FAILED: all publish attempts failed; summary=%s", summary)
             raise SystemExit(1)
+        publish_attempts = int(summary.get("publish_attempts", 0))
+        publish_failures = int(summary.get("publish_failures", 0))
+        if budget_partial and publish_attempts > 0 and publish_failures >= publish_attempts:
+            logger.warning(
+                "All Telegram publish attempts failed during an accepted deadline-bounded "
+                "partial run; local outputs and durable state remain valid"
+            )
     except SystemExit:
         raise
     except Exception:
