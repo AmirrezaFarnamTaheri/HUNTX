@@ -2,6 +2,14 @@
 
 HuntX processes MTProto (`telegram_user`) history as durable, non-overlapping UTC time windows. The default window is one hour and the default rolling horizon is 48 hours.
 
+## Window boundary contract
+
+Every window is half-open: `[window_start_ts, window_end_ts)`. A message exactly at the start belongs to that window; a message exactly at the end belongs to the next newer window. Boundaries are aligned using UTC epoch seconds, so daylight-saving changes do not affect partitioning.
+
+The newest window ends at the next aligned boundary. It therefore includes the current partial hour and may have an end timestamp in the near future. Telethon is queried newest-to-oldest with exclusive `offset_date=window_end_ts`; messages with timestamps at or beyond the end are ignored defensively. The lower boundary is enforced in application code.
+
+Continuation uses exclusive `offset_id`. When a page ends on message ID `N`, the residue cursor is `N`, and the next page starts with messages older than `N`. This prevents the boundary message from being replayed.
+
 ## Ordering contract
 
 1. The newest incomplete hour is selected first.
@@ -29,6 +37,15 @@ It cannot advance past data that was not committed.
 
 Incomplete pages return to `partial` state and are available to the next worker or session. Claimed items use expiring leases. At startup, expired leases are recovered; at orderly shutdown, leases owned by the current run are returned to residue.
 
+### Crash and lease states
+
+- **Crash before the page transaction begins:** the row remains `leased`; the next session recovers it after lease expiry.
+- **Crash during the transaction:** SQLite rolls back both observations and cursor advancement; the recovered item safely replays the uncommitted page.
+- **Crash after commit but before process shutdown:** observations and cursor are both durable; the expired lease is recovered from the committed `partial` or `completed` state.
+- **Slow valid request:** workers do not reclaim leased rows during the same run. Recovery runs only at startup, and the repository process lock prevents concurrent HuntX sessions from sharing the state database. Lease duration is the page timeout plus a safety margin.
+
+Lease timestamps use the host's UTC epoch clock. Large backwards clock corrections can delay recovery; large forward corrections can make a lease appear expired at the next startup. Idempotent observation IDs and atomic cursor checkpoints keep either case safe, though operators should keep runner clocks synchronized.
+
 ## Deduplication layers
 
 HuntX uses independent idempotency layers:
@@ -39,6 +56,14 @@ HuntX uses independent idempotency layers:
 - **Record/build deduplication:** build queries retain one active record per logical unique hash.
 
 The window reader preserves the existing external-ID scheme (`message_id` for text and `message_id_media` for documents), so retries and migration from offset-based ingestion do not create duplicate observations.
+
+## Schema migration and rollback
+
+No manual migration command is required. `DBConnection` applies `schema.sql` at startup with `CREATE TABLE IF NOT EXISTS`, creating the campaign and work-item tables alongside the existing state tables. Existing `source_state` offsets, `seen_files`, records, and publication history are retained.
+
+On first execution, the queue seeds source/hour work rows for the configured horizon. Existing observations are skipped by the current `seen_files` uniqueness constraint, making the transition from source offsets idempotent.
+
+Rolling back the application code does not require dropping the new tables: older code ignores them. To remove the scheduler state after rollback, operators may back up the database and drop only `ingestion_work_items` and `ingestion_campaigns`; existing observations and source offsets remain independent.
 
 ## Runtime budget
 
@@ -52,15 +77,15 @@ When the ingestion budget expires, workers stop claiming pages, release unfinish
 
 ## Configuration
 
-| Environment variable | Default | Meaning |
+| Environment variable | Default | Recommended use |
 |---|---:|---|
-| `HUNTX_LIFO_LOOKBACK_HOURS` | `file_fresh_hours` (normally `48`) | Rolling MTProto history horizon |
-| `HUNTX_INGEST_WINDOW_SECONDS` | `3600` | Durable time-window size; bounded to 300 seconds through 24 hours |
-| `HUNTX_INGEST_PAGE_SIZE` | `100` | Maximum messages scanned per source/window page; bounded to 10 through 1,000 |
+| `HUNTX_LIFO_LOOKBACK_HOURS` | `file_fresh_hours` (normally `48`) | Keep at `48` for the production acquisition horizon; raise only with a larger durable-state budget |
+| `HUNTX_INGEST_WINDOW_SECONDS` | `3600` | One hour balances fairness and queue size; reduce for exceptionally dense channels |
+| `HUNTX_INGEST_PAGE_SIZE` | `100` | Increase moderately for sparse channels; smaller pages checkpoint more often |
 | `HUNTX_SOURCE_TIMEOUT` | `600` | Maximum duration for one direct source or one MTProto page |
-| `HUNTX_COMPLETION_BUFFER` | `1800` | Time reserved for downstream stages |
+| `HUNTX_COMPLETION_BUFFER` | `1800` | Keep enough time for transform, build, publication, export, and state persistence |
 
-All boundaries and persisted timestamps are UTC epoch seconds. Telethon pages are read newest-to-oldest using exclusive `offset_date` and `offset_id` values.
+`HUNTX_INGEST_WINDOW_SECONDS` is bounded to 300 seconds through 24 hours. `HUNTX_INGEST_PAGE_SIZE` is bounded to 10 through 1,000. All boundaries and persisted timestamps are UTC epoch seconds.
 
 ## Operational fields
 
