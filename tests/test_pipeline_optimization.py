@@ -1,6 +1,5 @@
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import MagicMock
 
 from huntx.core.optimized_orchestrator import OptimizedHardenedOrchestrator
 from huntx.pipeline.optimized_transform import OptimizedTransformPipeline
@@ -37,11 +36,15 @@ def test_source_timeout_is_isolated():
                 await asyncio.sleep(0.01)
             return True
 
+        async def no_persistent_work(*args, **kwargs):
+            return None
+
         orchestrator._ingest_one_source_async = mock_ingest
+        orchestrator._run_persistent_windows = no_persistent_work
 
         queue: asyncio.Queue[SimpleNamespace] = asyncio.Queue()
-        queue.put_nowait(SimpleNamespace(id="slow-source"))
-        queue.put_nowait(SimpleNamespace(id="healthy-source"))
+        queue.put_nowait(SimpleNamespace(id="slow-source", type="telegram"))
+        queue.put_nowait(SimpleNamespace(id="healthy-source", type="telegram"))
 
         results = {"ok": 0, "err": 0}
         await orchestrator._worker_async(queue, results, asyncio.Lock())
@@ -53,33 +56,14 @@ def test_source_timeout_is_isolated():
     asyncio.run(exercise())
 
 
-def test_incremental_sources_are_prioritized():
-    async def exercise() -> None:
-        orchestrator = object.__new__(OptimizedHardenedOrchestrator)
-        incremental = SimpleNamespace(id="incremental")
-        fresh = SimpleNamespace(id="fresh")
-        orchestrator.config = SimpleNamespace(sources=[fresh, incremental])
-        orchestrator.repo = MagicMock()
-        orchestrator.repo.get_source_state.side_effect = lambda source_id: (
-            {"offset": 42} if source_id == "incremental" else {}
-        )
+def test_lifo_controls_are_bounded(monkeypatch):
+    orchestrator = object.__new__(OptimizedHardenedOrchestrator)
+    orchestrator.fetch_windows = {"file_fresh_hours": 48}
 
-        observed = []
+    monkeypatch.setenv("HUNTX_INGEST_WINDOW_SECONDS", "1")
+    monkeypatch.setenv("HUNTX_INGEST_PAGE_SIZE", "99999")
+    monkeypatch.setenv("HUNTX_LIFO_LOOKBACK_HOURS", "10000")
 
-        async def base_run(*args, **kwargs):
-            observed.extend(source.id for source in orchestrator.config.sources)
-            return {"status": "completed"}
-
-        parent = OptimizedHardenedOrchestrator.__mro__[1]
-        original = parent._run_hardened
-        parent._run_hardened = base_run
-        try:
-            result = await orchestrator._run_hardened(None, True, False)
-        finally:
-            parent._run_hardened = original
-
-        assert result["status"] == "completed"
-        assert observed == ["incremental", "fresh"]
-        assert orchestrator.config.sources == [fresh, incremental]
-
-    asyncio.run(exercise())
+    assert orchestrator._window_seconds() == 300
+    assert orchestrator._window_page_size() == 1000
+    assert orchestrator._lookback_seconds() == 30 * 24 * 3600
