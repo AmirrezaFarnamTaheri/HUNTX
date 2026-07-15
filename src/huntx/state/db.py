@@ -36,8 +36,6 @@ class DBConnection:
                 raise
 
             self._check_migrations(conn)
-            # Refresh planner statistics after schema/index changes. optimize is
-            # intentionally lightweight and becomes a no-op when unnecessary.
             conn.execute("PRAGMA optimize;")
 
     def _check_migrations(self, conn: sqlite3.Connection) -> None:
@@ -55,7 +53,22 @@ class DBConnection:
                     logger.info("Migrating (v1): Adding filename to seen_files")
                     conn.execute("ALTER TABLE seen_files ADD COLUMN filename TEXT")
                 conn.execute("PRAGMA user_version = 1")
+                version = 1
                 logger.info("Database schema migrated to version 1.")
+
+            if version < 2:
+                work_columns = [
+                    row["name"]
+                    for row in conn.execute("PRAGMA table_info(ingestion_work_items)").fetchall()
+                ]
+                if work_columns and "rotation_seq" not in work_columns:
+                    logger.info("Migrating (v2): Adding rotation_seq to ingestion_work_items")
+                    conn.execute(
+                        "ALTER TABLE ingestion_work_items "
+                        "ADD COLUMN rotation_seq INTEGER NOT NULL DEFAULT 0"
+                    )
+                conn.execute("PRAGMA user_version = 2")
+                logger.info("Database schema migrated to version 2.")
         except Exception as exc:
             logger.error("Migration check failed: %s", exc)
             raise
