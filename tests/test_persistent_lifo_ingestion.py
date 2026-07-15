@@ -16,7 +16,7 @@ def _sources(*ids: str):
     return [SimpleNamespace(id=source_id, type="telegram_user") for source_id in ids]
 
 
-def test_seed_is_idempotent_and_claims_newest_hour_first(tmp_path):
+def test_seed_is_idempotent_and_claims_newest_closed_hour_first(tmp_path):
     queue = PersistentIngestionQueue(open_db(tmp_path / "state.db"))
     first = queue.seed_rolling_horizon(
         _sources("a", "b"),
@@ -31,15 +31,61 @@ def test_seed_is_idempotent_and_claims_newest_hour_first(tmp_path):
         window_seconds=3600,
     )
 
+    assert first["anchor_ts"] == 7200
     assert first["inserted"] == 4
     assert second["inserted"] == 0
 
     item = queue.claim_next("run", lease_seconds=60, now=10_000)
     assert item is not None
     assert item.window_end_ts == first["anchor_ts"]
+    assert item.window_end_ts <= 10_000
 
 
-def test_partial_page_rotates_sources_within_newest_hour(tmp_path):
+def test_exact_boundary_excludes_new_active_window(tmp_path):
+    db = open_db(tmp_path / "state.db")
+    queue = PersistentIngestionQueue(db)
+    seed = queue.seed_rolling_horizon(
+        _sources("a"),
+        now=10_800,
+        lookback_seconds=3600,
+        window_seconds=3600,
+    )
+
+    assert seed["anchor_ts"] == 10_800
+    assert seed["target_start_ts"] == 7200
+    with db.connect() as conn:
+        rows = conn.execute(
+            "SELECT window_start_ts, window_end_ts FROM ingestion_work_items"
+        ).fetchall()
+    assert [(row["window_start_ts"], row["window_end_ts"]) for row in rows] == [
+        (7200, 10_800)
+    ]
+
+
+def test_non_divisible_lookback_rounds_outward_to_aligned_closed_windows(tmp_path):
+    db = open_db(tmp_path / "state.db")
+    queue = PersistentIngestionQueue(db)
+    seed = queue.seed_rolling_horizon(
+        _sources("a"),
+        now=10_000,
+        lookback_seconds=5400,
+        window_seconds=3600,
+    )
+
+    assert seed["anchor_ts"] == 7200
+    assert seed["target_start_ts"] == 0
+    with db.connect() as conn:
+        rows = conn.execute(
+            "SELECT window_start_ts, window_end_ts FROM ingestion_work_items ORDER BY window_start_ts"
+        ).fetchall()
+    assert [(row["window_start_ts"], row["window_end_ts"]) for row in rows] == [
+        (0, 3600),
+        (3600, 7200),
+    ]
+    assert all(row["window_end_ts"] <= seed["anchor_ts"] for row in rows)
+
+
+def test_partial_page_rotates_sources_within_same_second(tmp_path):
     db = open_db(tmp_path / "state.db")
     queue = PersistentIngestionQueue(db)
     seed = queue.seed_rolling_horizon(
@@ -60,10 +106,10 @@ def test_partial_page_rotates_sources_within_newest_hour(tmp_path):
             bytes_ingested=12,
             completed=False,
             conn=conn,
-            now=10_001,
+            now=10_000,
         )
 
-    second = queue.claim_next("run-b", lease_seconds=60, now=10_002)
+    second = queue.claim_next("run-b", lease_seconds=60, now=10_000)
     assert second is not None
     assert second.window_end_ts == seed["anchor_ts"]
     assert second.source_id != first.source_id
@@ -88,6 +134,24 @@ def test_leased_newest_hour_blocks_older_hour(tmp_path):
     resumed = queue.claim_next("worker-b", lease_seconds=60, now=10_003)
     assert resumed is not None
     assert resumed.id == newest.id
+
+
+def test_terminal_stale_work_does_not_block_older_windows(tmp_path):
+    db = open_db(tmp_path / "state.db")
+    queue = PersistentIngestionQueue(db)
+    queue.seed_rolling_horizon(
+        _sources("removed"),
+        now=10_000,
+        lookback_seconds=2 * 3600,
+        window_seconds=3600,
+    )
+    newest = queue.claim_next("run", lease_seconds=60, now=10_000)
+    assert newest is not None
+    queue.mark_terminal(newest.id, "run", "source removed", now=10_000)
+
+    older = queue.claim_next("run", lease_seconds=60, now=10_000)
+    assert older is not None
+    assert older.window_end_ts < newest.window_end_ts
 
 
 def test_expired_lease_is_recovered_with_cursor_intact(tmp_path):
