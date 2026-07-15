@@ -37,11 +37,15 @@ def test_source_timeout_is_isolated():
                 await asyncio.sleep(0.01)
             return True
 
+        async def no_persistent_work(*args, **kwargs):
+            return None
+
         orchestrator._ingest_one_source_async = mock_ingest
+        orchestrator._run_persistent_windows = no_persistent_work
 
         queue: asyncio.Queue[SimpleNamespace] = asyncio.Queue()
-        queue.put_nowait(SimpleNamespace(id="slow-source"))
-        queue.put_nowait(SimpleNamespace(id="healthy-source"))
+        queue.put_nowait(SimpleNamespace(id="slow-source", type="telegram"))
+        queue.put_nowait(SimpleNamespace(id="healthy-source", type="telegram"))
 
         results = {"ok": 0, "err": 0}
         await orchestrator._worker_async(queue, results, asyncio.Lock())
@@ -53,21 +57,91 @@ def test_source_timeout_is_isolated():
     asyncio.run(exercise())
 
 
-def test_incremental_sources_are_prioritized():
-    async def exercise() -> None:
-        orchestrator = object.__new__(OptimizedHardenedOrchestrator)
-        incremental = SimpleNamespace(id="incremental")
-        fresh = SimpleNamespace(id="fresh")
-        orchestrator.config = SimpleNamespace(sources=[fresh, incremental])
-        orchestrator.repo = MagicMock()
-        orchestrator.repo.get_source_state.side_effect = lambda source_id: (
-            {"offset": 42} if source_id == "incremental" else {}
-        )
+def test_lifo_controls_are_bounded(monkeypatch):
+    orchestrator = object.__new__(OptimizedHardenedOrchestrator)
+    orchestrator.fetch_windows = {"file_fresh_hours": 48}
 
-        observed = []
+    monkeypatch.setenv("HUNTX_INGEST_WINDOW_SECONDS", "1")
+    monkeypatch.setenv("HUNTX_INGEST_PAGE_SIZE", "99999")
+    monkeypatch.setenv("HUNTX_LIFO_LOOKBACK_HOURS", "10000")
+
+    assert orchestrator._window_seconds() == 300
+    assert orchestrator._window_page_size() == 1000
+    assert orchestrator._lookback_seconds() == 30 * 24 * 3600
+
+
+def test_non_finite_lifo_lookback_falls_back(monkeypatch):
+    orchestrator = object.__new__(OptimizedHardenedOrchestrator)
+    orchestrator.fetch_windows = {"file_fresh_hours": 12}
+
+    for value in ("nan", "inf", "-inf"):
+        monkeypatch.setenv("HUNTX_LIFO_LOOKBACK_HOURS", value)
+        assert orchestrator._lookback_seconds() == 12 * 3600
+
+
+def test_canonical_channel_alias_is_not_seeded(monkeypatch):
+    class FakeConnector:
+        def __init__(self, *, peer, **kwargs):
+            self.peer = peer
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def resolve_channel_id_async(self):
+            return {"primary": 42, "alias": 42}[self.peer]
+
+    monkeypatch.setattr(
+        "huntx.core.optimized_orchestrator.WindowedTelegramUserConnector",
+        FakeConnector,
+    )
+    orchestrator = object.__new__(OptimizedHardenedOrchestrator)
+    orchestrator._work_queue = MagicMock()
+    config = lambda peer: SimpleNamespace(
+        api_id=1,
+        api_hash="hash",
+        session="session",
+        peer=peer,
+    )
+    sources = [
+        SimpleNamespace(id="primary", type="telegram_user", telegram_user=config("primary")),
+        SimpleNamespace(id="alias", type="telegram_user", telegram_user=config("alias")),
+    ]
+
+    accepted = asyncio.run(orchestrator._canonical_ingestion_sources(sources))
+
+    assert [source.id for source in accepted] == ["primary"]
+    orchestrator._work_queue.terminalize_source.assert_called_once()
+    assert orchestrator._work_queue.terminalize_source.call_args.args[0] == "alias"
+
+
+def test_residue_is_budget_skipped_only_after_budget_exhaustion():
+    async def exercise(exhausted: bool) -> int:
+        orchestrator = object.__new__(OptimizedHardenedOrchestrator)
+        orchestrator.config = SimpleNamespace(sources=[])
+        orchestrator._work_queue = MagicMock()
+        orchestrator._work_queue.recover_expired_leases.return_value = 0
+        orchestrator._work_queue.seed_rolling_horizon.return_value = {
+            "campaign_id": 1,
+            "anchor_ts": 7200,
+            "target_start_ts": 3600,
+            "inserted": 0,
+        }
+        orchestrator._work_queue.release_owner.return_value = 0
+        orchestrator._work_queue.summary.return_value = {"pending": 4, "remaining": 4}
+        orchestrator._completion_buffer = lambda timeout: 0.0
+        orchestrator._lookback_seconds = lambda: 3600
+        orchestrator._window_seconds = lambda: 3600
+
+        async def canonical(sources):
+            return sources
+
+        orchestrator._canonical_ingestion_sources = canonical
 
         async def base_run(*args, **kwargs):
-            observed.extend(source.id for source in orchestrator.config.sources)
+            orchestrator._ingestion_budget_exhausted = exhausted
             return {"status": "completed"}
 
         parent = OptimizedHardenedOrchestrator.__mro__[1]
@@ -77,9 +151,7 @@ def test_incremental_sources_are_prioritized():
             result = await orchestrator._run_hardened(None, True, False)
         finally:
             parent._run_hardened = original
+        return int(result["ingest_skipped_due_to_budget"])
 
-        assert result["status"] == "completed"
-        assert observed == ["incremental", "fresh"]
-        assert orchestrator.config.sources == [fresh, incremental]
-
-    asyncio.run(exercise())
+    assert asyncio.run(exercise(False)) == 0
+    assert asyncio.run(exercise(True)) == 4
