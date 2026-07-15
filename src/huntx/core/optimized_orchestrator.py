@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import os
 import time
 import uuid
 from typing import Any, Optional
 
 from .hardened_orchestrator import HardenedOrchestrator
+from ..connectors.telegram_user.windowed import WindowedTelegramUserConnector
 from ..pipeline.optimized_transform import OptimizedTransformPipeline
 from ..pipeline.windowed_ingest import WindowedIngestionPipeline
 from ..state.ingestion_queue import PersistentIngestionQueue
@@ -76,23 +78,96 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
             logger.warning("Invalid HUNTX_INGEST_PAGE_SIZE=%r; using 100", raw)
             return 100
 
+    @staticmethod
+    def _bounded_lookback_hours(value: Any) -> Optional[int]:
+        try:
+            hours = float(value)
+            if not math.isfinite(hours):
+                return None
+            return max(3600, min(int(hours * 3600), 30 * 24 * 3600))
+        except (OverflowError, TypeError, ValueError):
+            return None
+
     def _lookback_seconds(self) -> int:
         raw = os.environ.get("HUNTX_LIFO_LOOKBACK_HOURS", "").strip()
         if raw:
-            try:
-                hours = float(raw)
-            except ValueError:
-                logger.warning("Invalid HUNTX_LIFO_LOOKBACK_HOURS=%r", raw)
-            else:
-                return max(3600, min(int(hours * 3600), 30 * 24 * 3600))
-        configured = float(self.fetch_windows.get("file_fresh_hours", 48) or 48)
-        return max(3600, min(int(configured * 3600), 30 * 24 * 3600))
+            parsed = self._bounded_lookback_hours(raw)
+            if parsed is not None:
+                return parsed
+            logger.warning("Invalid HUNTX_LIFO_LOOKBACK_HOURS=%r", raw)
+
+        configured = self.fetch_windows.get("file_fresh_hours", 48) or 48
+        parsed = self._bounded_lookback_hours(configured)
+        if parsed is not None:
+            return parsed
+        logger.warning("Invalid file_fresh_hours=%r; using 48", configured)
+        return 48 * 3600
 
     def _remaining_ingestion_budget(self) -> Optional[float]:
         stop = self._ingestion_stop_monotonic
         if stop is None:
             return None
         return stop - time.monotonic()
+
+    async def _canonical_ingestion_sources(self, sources: list[Any]) -> list[Any]:
+        """Return direct sources plus one MTProto source per canonical channel."""
+        accepted: list[Any] = []
+        canonical_owner: dict[int, str] = {}
+
+        for source in sources:
+            if getattr(source, "type", None) != "telegram_user":
+                accepted.append(source)
+                continue
+
+            config = getattr(source, "telegram_user", None)
+            if config is None:
+                self._work_queue.terminalize_source(
+                    str(source.id),
+                    "source is no longer configured as telegram_user",
+                )
+                continue
+
+            connector = WindowedTelegramUserConnector(
+                api_id=config.api_id,
+                api_hash=config.api_hash,
+                session=config.session,
+                peer=config.peer,
+                state=None,
+                fetch_windows=None,
+            )
+            try:
+                async with connector:
+                    channel_id = await connector.resolve_channel_id_async()
+            except Exception:
+                logger.exception(
+                    "[LIFO] Could not resolve canonical channel for %s; preserving source",
+                    source.id,
+                )
+                accepted.append(source)
+                continue
+
+            if channel_id is None:
+                accepted.append(source)
+                continue
+
+            existing = canonical_owner.get(int(channel_id))
+            if existing is None:
+                canonical_owner[int(channel_id)] = str(source.id)
+                accepted.append(source)
+                continue
+
+            reason = f"duplicate canonical Telegram channel {channel_id}; owned by {existing}"
+            terminalized = self._work_queue.terminalize_source(str(source.id), reason)
+            logger.warning(
+                "[LIFO] Skipping alias source %s for canonical channel %s already owned by %s; "
+                "terminalized=%s",
+                source.id,
+                channel_id,
+                existing,
+                terminalized,
+            )
+
+        return accepted
 
     async def _run_direct_source(
         self,
@@ -154,11 +229,10 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
             source = self._source_by_id.get(item.source_id)
             if source is None or getattr(source, "telegram_user", None) is None:
                 self._window_failures += 1
-                self._work_queue.fail(
+                self._work_queue.mark_terminal(
                     item.id,
                     self._run_owner,
                     f"source configuration {item.source_id!r} is unavailable",
-                    retry_delay=3600,
                 )
                 async with lock:
                     results["err"] += 1
@@ -253,7 +327,8 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
         allow_partial_export: bool,
     ) -> dict[str, Any]:
         original = list(self.config.sources)
-        self._source_by_id = {str(source.id): source for source in original}
+        ingestion_sources = await self._canonical_ingestion_sources(original)
+        self._source_by_id = {str(source.id): source for source in ingestion_sources}
         self._ingestion_budget_exhausted = False
         self._window_pages = 0
         self._window_completions = 0
@@ -270,7 +345,7 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
 
         recovered = self._work_queue.recover_expired_leases()
         seed = self._work_queue.seed_rolling_horizon(
-            original,
+            ingestion_sources,
             lookback_seconds=self._lookback_seconds(),
             window_seconds=self._window_seconds(),
         )
@@ -299,6 +374,7 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
             self._ingestion_stop_monotonic = None
 
         residue = self._work_queue.summary()
+        remaining_residue = int(residue.get("remaining", 0))
         summary["completion_buffer_seconds"] = self._completion_buffer_seconds
         summary["ingestion_budget_seconds"] = ingestion_budget
         summary["ingestion_budget_exhausted"] = self._ingestion_budget_exhausted
@@ -310,13 +386,15 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
         summary["lifo_windows_completed"] = self._window_completions
         summary["lifo_window_failures"] = self._window_failures
         summary["lifo_residue"] = residue
-        summary["ingest_skipped_due_to_budget"] = int(residue.get("remaining", 0))
+        summary["ingest_skipped_due_to_budget"] = (
+            remaining_residue if self._ingestion_budget_exhausted else 0
+        )
 
         if self._ingestion_budget_exhausted and summary.get("status") == "completed":
             summary["status"] = "partial"
         if self._ingestion_budget_exhausted:
             summary["partial_reason"] = "ingestion_budget_exhausted"
-        elif int(residue.get("remaining", 0)) > 0 and summary.get("status") == "completed":
+        elif remaining_residue > 0 and summary.get("status") == "completed":
             summary["status"] = "partial"
             summary["partial_reason"] = "ingestion_residue_remaining"
 
