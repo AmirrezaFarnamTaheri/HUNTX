@@ -8,12 +8,15 @@ from . import main as legacy
 from ..config.loader import load_config
 from ..config.validate import validate_config
 from ..core.optimized_orchestrator import OptimizedHardenedOrchestrator
+from ..core.runtime_resilience import apply_runtime_resilience
 from ..core.locks import acquire_lock
 from ..core.session_lease import session_lease_path
 from ..pipeline.governed_build import GovernedBuildPipeline
 from ..store import paths
 
 logger = logging.getLogger(__name__)
+
+apply_runtime_resilience()
 
 
 def _enabled(name: str) -> bool:
