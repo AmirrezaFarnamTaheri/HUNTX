@@ -113,6 +113,7 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
           sparse-checkout: |
+            .github/workflows
             configs
             docs
             scripts
@@ -305,9 +306,6 @@ jobs:
             exit 0
           fi
 
-          # Raw content-addressed blobs must exist remotely before the database
-          # that references them is published. Do not use --delete here: remote
-          # blobs may still be referenced by older recoverable checkpoints.
           aws s3 sync persist/data/raw "s3://$S3_BUCKET/raw" --size-only --only-show-errors
           aws s3 sync persist/data/archive "s3://$S3_BUCKET/archive" --size-only --delete --only-show-errors
           aws s3 sync persist/data/outputs "s3://$S3_BUCKET/outputs" --size-only --delete --only-show-errors
