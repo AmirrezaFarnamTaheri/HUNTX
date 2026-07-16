@@ -1,6 +1,15 @@
 name: huntx
 
 on:
+  pull_request:
+    paths:
+      - ".github/workflows/huntx.yml"
+      - "configs/**"
+      - "scripts/**"
+      - "src/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - "requirements.txt"
   schedule:
     - cron: "0 */2 * * *"
   workflow_dispatch:
@@ -52,6 +61,11 @@ env:
   FILE_FRESH_HOURS: ${{ github.event.inputs.file_fresh_hours || '48' }}
   MSG_SUBSEQUENT_HOURS: ${{ github.event.inputs.msg_subsequent_hours || '0' }}
   FILE_SUBSEQUENT_HOURS: ${{ github.event.inputs.file_subsequent_hours || '0' }}
+  HUNTX_RUN_TIMEOUT: "5400"
+  HUNTX_COMPLETION_BUFFER: "900"
+  HUNTX_CANONICAL_RESOLVE_TIMEOUT: "20"
+  HUNTX_TELEGRAM_CLEANUP_TIMEOUT: "10"
+  HUNTX_SOURCE_TIMEOUT: "600"
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
   PIP_NO_INPUT: "1"
   PIP_PREFER_BINARY: "1"
@@ -63,7 +77,7 @@ jobs:
   build:
     name: validate-build-publish
     runs-on: ubuntu-24.04
-    timeout-minutes: 300
+    timeout-minutes: 115
     permissions:
       contents: read
       id-token: write
@@ -94,7 +108,7 @@ jobs:
           fi
 
       - name: Checkout runtime and validation surface
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 1
           persist-credentials: false
@@ -109,7 +123,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Set up Python
-        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f
         with:
           python-version: "3.12"
           cache: pip
@@ -135,10 +149,10 @@ jobs:
           done
 
       - name: Compile
-        run: python -m compileall -q -j 0 src tests
+        run: python -m compileall -q -j 0 src tests scripts
 
       - name: Lint
-        run: python -m flake8 src/huntx tests --count --select=E9,F63,F7,F82 --show-source --statistics
+        run: python -m flake8 src/huntx tests scripts --count --select=E9,F63,F7,F82 --show-source --statistics
 
       - name: Type check
         run: python -m mypy src/huntx
@@ -148,7 +162,7 @@ jobs:
 
       - name: Upload pytest report on failure
         if: failure()
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882
         with:
           name: pytest-results-${{ github.run_id }}-${{ github.run_attempt }}
           path: pytest-results.xml
@@ -156,18 +170,18 @@ jobs:
           retention-days: 7
 
       - name: Prepare runtime directories
+        if: github.event_name != 'pull_request'
         run: mkdir -p persist/data/{raw,outputs,outputs_dev,dist,rejects,archive,state,logs} docs/artifacts
 
       - name: Configure AWS credentials (optional OIDC)
-        env:
-          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
-        if: ${{ env.AWS_ROLE_ARN != '' }}
-        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        if: ${{ github.event_name != 'pull_request' && secrets.AWS_ROLE_ARN != '' }}
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
 
       - name: Restore durable runtime state
+        if: github.event_name != 'pull_request'
         id: restore
         env:
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
@@ -182,13 +196,11 @@ jobs:
             echo "safe=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-
           aws sts get-caller-identity --no-cli-pager >/dev/null
           if aws s3 cp "s3://$S3_BUCKET/state.db" persist/state.db --only-show-errors; then
             python - <<'PY'
           import sqlite3
           from pathlib import Path
-
           path = Path("persist/state.db")
           if not path.is_file() or path.stat().st_size == 0:
               raise SystemExit("restored state.db is empty")
@@ -201,33 +213,15 @@ jobs:
             echo "No prior state.db; starting fresh."
             rm -f persist/state.db
           fi
-
+          aws s3 sync "s3://$S3_BUCKET/raw" persist/data/raw --size-only --only-show-errors
           aws s3 sync "s3://$S3_BUCKET/archive" persist/data/archive --size-only --only-show-errors
           aws s3 sync "s3://$S3_BUCKET/outputs" persist/data/outputs --size-only --only-show-errors
           aws s3 sync "s3://$S3_BUCKET/outputs_dev" persist/data/outputs_dev --size-only --only-show-errors
           echo "safe=true" >> "$GITHUB_OUTPUT"
 
-      - name: Factory reset
-        if: ${{ github.event.inputs.reset == 'true' }}
-        env:
-          S3_BUCKET: ${{ secrets.S3_BUCKET }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
-        run: |
-          set -euo pipefail
-          rm -rf persist/state.db persist/data/{raw,outputs,outputs_dev,archive,dist,rejects,state,logs}/*
-          if [[ -n "$S3_BUCKET" ]]; then
-            stamp="$(date -u +%Y%m%dT%H%M%SZ)"
-            aws s3 cp "s3://$S3_BUCKET/state.db" "s3://$S3_BUCKET/backups/$stamp/state.db" --only-show-errors || true
-            for prefix in archive outputs outputs_dev; do
-              aws s3 sync "s3://$S3_BUCKET/$prefix" "s3://$S3_BUCKET/backups/$stamp/$prefix" --only-show-errors || true
-              aws s3 rm "s3://$S3_BUCKET/$prefix" --recursive --only-show-errors || true
-            done
-            aws s3 rm "s3://$S3_BUCKET/state.db" --only-show-errors || true
-          fi
-
-      - name: Run huntx
+      - name: Run huntx with controlled watchdog
+        if: github.event_name != 'pull_request'
+        id: runtime
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           PUBLISH_BOT_TOKEN: ${{ secrets.PUBLISH_BOT_TOKEN }}
@@ -237,17 +231,29 @@ jobs:
           HUNTX_MAX_WORKERS: ${{ env.MAX_WORKERS }}
           LOG_LEVEL: INFO
         run: |
-          huntx \
-            --config configs/config.prod.yaml \
-            --data-dir persist/data \
-            --db-path persist/state.db \
-            run \
-            --msg-fresh-hours "$MSG_FRESH_HOURS" \
-            --file-fresh-hours "$FILE_FRESH_HOURS" \
-            --msg-subsequent-hours "$MSG_SUBSEQUENT_HOURS" \
-            --file-subsequent-hours "$FILE_SUBSEQUENT_HOURS"
+          set +e
+          timeout --signal=TERM --kill-after=60s 105m \
+            huntx \
+              --config configs/config.prod.yaml \
+              --data-dir persist/data \
+              --db-path persist/state.db \
+              run \
+              --msg-fresh-hours "$MSG_FRESH_HOURS" \
+              --file-fresh-hours "$FILE_FRESH_HOURS" \
+              --msg-subsequent-hours "$MSG_SUBSEQUENT_HOURS" \
+              --file-subsequent-hours "$FILE_SUBSEQUENT_HOURS"
+          rc=$?
+          set -e
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          if (( rc == 124 || rc == 137 )); then
+            echo "::warning title=Runtime watchdog::HuntX exceeded the controlled watchdog; durable checkpoint will still run"
+          elif (( rc != 0 )); then
+            echo "::error title=HuntX runtime failed::exit code $rc; durable checkpoint will run before the job fails"
+          fi
+          exit 0
 
       - name: Verify and package output
+        if: ${{ github.event_name != 'pull_request' && steps.runtime.outputs.exit_code == '0' }}
         env:
           HUNTX_DATA_DIR: persist/data
         run: |
@@ -255,7 +261,8 @@ jobs:
           python scripts/generate_site_data.py
 
       - name: Checkpoint and persist durable state
-        if: ${{ always() && !cancelled() && steps.restore.outputs.safe == 'true' }}
+        if: ${{ always() && github.event_name != 'pull_request' && steps.restore.outputs.safe == 'true' }}
+        id: checkpoint
         env:
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -263,82 +270,47 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
         run: |
           set -euo pipefail
+          test -s persist/state.db
+          python scripts/checkpoint_runtime_state.py --db persist/state.db --raw-dir persist/data/raw
           if [[ -z "$S3_BUCKET" ]]; then
-            echo "No S3 bucket configured; state remains ephemeral."
+            echo "No S3 bucket configured; validated state remains ephemeral."
             exit 0
           fi
-          test -s persist/state.db
-          python - <<'PY'
-          import sqlite3
-          from pathlib import Path
-
-          path = Path("persist/state.db")
-          with sqlite3.connect(path, timeout=30) as conn:
-              checkpoint = conn.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
-              conn.execute("PRAGMA optimize")
-              result = conn.execute("PRAGMA quick_check").fetchone()
-          if not result or result[0] != "ok":
-              raise SystemExit(f"state.db failed quick_check: {result}")
-          print(f"SQLite checkpoint={checkpoint} quick_check={result[0]}")
-          PY
-          aws s3 cp persist/state.db "s3://$S3_BUCKET/state.db" --only-show-errors
+          aws s3 sync persist/data/raw "s3://$S3_BUCKET/raw" --size-only --only-show-errors
           aws s3 sync persist/data/archive "s3://$S3_BUCKET/archive" --size-only --delete --only-show-errors
           aws s3 sync persist/data/outputs "s3://$S3_BUCKET/outputs" --size-only --delete --only-show-errors
           aws s3 sync persist/data/outputs_dev "s3://$S3_BUCKET/outputs_dev" --size-only --delete --only-show-errors
+          next_key="state.db.next-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          aws s3 cp persist/state.db "s3://$S3_BUCKET/$next_key" --only-show-errors
+          aws s3 cp "s3://$S3_BUCKET/$next_key" "s3://$S3_BUCKET/state.db" --only-show-errors
+          aws s3 rm "s3://$S3_BUCKET/$next_key" --only-show-errors
 
-      - name: Upload distributable output
-        if: ${{ success() }}
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
-        with:
-          name: huntx-output-${{ github.run_id }}-${{ github.run_attempt }}
-          path: persist/data/dist/
-          if-no-files-found: error
-          retention-days: 7
-          compression-level: 0
-
-      - name: Upload logs
-        if: always()
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
-        with:
-          name: huntx-logs-${{ github.run_id }}-${{ github.run_attempt }}
-          path: persist/data/logs/
-          if-no-files-found: warn
-          retention-days: 7
+      - name: Enforce runtime result after checkpoint
+        if: ${{ always() && github.event_name != 'pull_request' }}
+        run: |
+          set -euo pipefail
+          rc="${{ steps.runtime.outputs.exit_code || '1' }}"
+          if [[ "${{ steps.restore.outputs.safe || 'false' }}" != "true" ]]; then
+            echo "Durable restore was not safe" >&2
+            exit 1
+          fi
+          if [[ "${{ steps.checkpoint.outcome || 'skipped' }}" != "success" ]]; then
+            echo "Durable checkpoint did not succeed" >&2
+            exit 1
+          fi
+          if (( rc != 0 )); then
+            echo "HuntX runtime failed with exit code $rc after state was checkpointed" >&2
+            exit "$rc"
+          fi
 
       - name: Publish workflow summary
         if: always()
         run: |
           {
-            echo "### HuntX production run"
+            echo "### HuntX workflow"
             echo "- Result: **${{ job.status }}**"
-            echo "- Workers: \`$MAX_WORKERS\`"
-            echo "- Fresh windows: messages \`$MSG_FRESH_HOURS h\`, files \`$FILE_FRESH_HOURS h\`"
-            echo "- Subsequent windows: messages \`$MSG_SUBSEQUENT_HOURS h\`, files \`$FILE_SUBSEQUENT_HOURS h\`"
-            echo "- State restore safe: \`${{ steps.restore.outputs.safe || 'not-run' }}\`"
-            echo "- Disk remaining: \`$(df -h / | awk 'NR==2 {print $4}')\`"
+            echo "- Event: ${{ github.event_name }}"
+            echo "- Application budget: $HUNTX_RUN_TIMEOUT seconds"
+            echo "- Runtime exit: ${{ steps.runtime.outputs.exit_code || 'validation-only' }}"
+            echo "- Checkpoint outcome: ${{ steps.checkpoint.outcome || 'not-run' }}"
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload Pages artifact
-        if: ${{ success() }}
-        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
-        with:
-          path: docs/
-
-  deploy-pages:
-    needs: build
-    if: ${{ needs.build.result == 'success' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Configure Pages
-        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
-
-      - name: Deploy Pages
-        id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
