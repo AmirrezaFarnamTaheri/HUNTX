@@ -9,6 +9,7 @@ import uuid
 from typing import Any, Optional
 
 from .hardened_orchestrator import HardenedOrchestrator
+from . import optimized_orchestrator as optimized_module
 from .optimized_orchestrator import OptimizedHardenedOrchestrator
 from ..connectors.telegram_user.windowed import WindowedTelegramUserConnector
 
@@ -52,7 +53,7 @@ async def _close_canonical_connector(
     try:
         await asyncio.wait_for(
             connector.__aexit__(None, None, None),
-            timeout=self._cleanup_timeout(),
+            timeout=_cleanup_timeout(self),
         )
     except asyncio.TimeoutError:
         logger.error("[LIFO] Timed out closing canonical Telegram client")
@@ -91,14 +92,15 @@ async def _canonical_ingestion_sources(
                     accepted.append(source)
                     continue
 
-                operation_timeout = self._canonical_timeout()
+                operation_timeout = _canonical_timeout(self)
                 if remaining is not None:
                     operation_timeout = max(0.01, min(operation_timeout, remaining))
 
                 key = (int(config.api_id), str(config.api_hash), str(config.session))
                 if connector is None or connector_key != key:
-                    await self._close_canonical_connector(connector)
-                    connector = WindowedTelegramUserConnector(
+                    await _close_canonical_connector(self, connector)
+                    connector_class = optimized_module.WindowedTelegramUserConnector
+                    connector = connector_class(
                         api_id=config.api_id,
                         api_hash=config.api_hash,
                         session=config.session,
@@ -146,7 +148,7 @@ async def _canonical_ingestion_sources(
                         source.id,
                         operation_timeout,
                     )
-                    await self._close_canonical_connector(connector)
+                    await _close_canonical_connector(self, connector)
                     connector = None
                     connector_key = None
                     accepted.append(source)
@@ -157,7 +159,7 @@ async def _canonical_ingestion_sources(
                         "preserving source",
                         source.id,
                     )
-                    await self._close_canonical_connector(connector)
+                    await _close_canonical_connector(self, connector)
                     connector = None
                     connector_key = None
                     accepted.append(source)
@@ -184,7 +186,7 @@ async def _canonical_ingestion_sources(
                 terminalized,
             )
     finally:
-        await self._close_canonical_connector(connector)
+        await _close_canonical_connector(self, connector)
 
     return accepted
 
@@ -255,7 +257,7 @@ async def _run_hardened(
     finally:
         windowed = getattr(self, "_windowed_ingestion", None)
         if windowed is not None:
-            await windowed.close(self._cleanup_timeout())
+            await windowed.close(_cleanup_timeout(self))
         released = self._work_queue.release_owner(self._run_owner)
         if released:
             logger.warning("[LIFO] Released %s unfinished lease(s) to residue", released)
