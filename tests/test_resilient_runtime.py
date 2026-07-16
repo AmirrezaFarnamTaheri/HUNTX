@@ -4,7 +4,10 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 from huntx.core.optimized_orchestrator import OptimizedHardenedOrchestrator
+from huntx.core.runtime_resilience import apply_runtime_resilience
 from huntx.pipeline.windowed_ingest import WindowedIngestionPipeline
+
+apply_runtime_resilience()
 
 
 def _telegram_source(source_id: str, peer: str):
