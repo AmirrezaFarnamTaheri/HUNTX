@@ -86,7 +86,8 @@ async def _canonical_ingestion_sources(
 
             channel_id = _numeric_channel_id(config.peer)
             if channel_id is None:
-                remaining = self._remaining_ingestion_budget()
+                stop = getattr(self, "_ingestion_stop_monotonic", None)
+                remaining = None if stop is None else stop - time.monotonic()
                 if remaining is not None and remaining <= 0:
                     self._ingestion_budget_exhausted = True
                     accepted.append(source)
