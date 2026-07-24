@@ -2,7 +2,7 @@ import asyncio
 import logging
 import time
 import datetime
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 from telethon import events, Button
 from .constants import WELCOME_TEXT, _BOT_COMMANDS, _ALL_VALID_FORMATS, _FORMAT_LABELS, SUPPORTED_FORMATS
 
@@ -11,6 +11,11 @@ logger = logging.getLogger(__name__)
 
 class HandlersMixin:
     # These methods are designed to be mixed into InteractiveBot.
+    client: Any
+    _user_cooldowns: Dict[Any, float]
+    _get_user_pref: Any
+    _is_admin: Any
+    _get_user_info: Any
 
     def _register_handlers(self):
         """Register all event handlers and the callback query handler."""

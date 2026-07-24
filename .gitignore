@@ -30,3 +30,10 @@ huntx-output/
 
 # Go collector generated files
 src/huntx/connectors/v2ray_collector/*.txt
+
+# Agent index artifacts
+.codegraph/
+.serena/
+graphify-out/
+.cocoindex_code/
+.smart-coding-cache/

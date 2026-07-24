@@ -62,6 +62,8 @@ class SourceItem(Protocol):
 
 
 class SourceConnector(Protocol):
+    deadline: Optional[float] = None
+
     def list_new(self, state: Optional[Dict[str, Any]]) -> Union[AsyncIterator[SourceItem], Iterator[SourceItem]]:
         """
         Yields new items since the last state.
