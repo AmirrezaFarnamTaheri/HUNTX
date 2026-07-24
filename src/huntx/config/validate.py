@@ -41,7 +41,7 @@ def validate_config(config: AppConfig):
                 raise ValueError(f"Source {s.id} is type='telegram' but missing 'telegram' block")
             if s.telegram_user:
                 raise ValueError(f"Source {s.id} is type='telegram' but has forbidden 'telegram_user' block")
-            if not s.telegram.token or s.telegram.token.startswith("${"):
+            if is_strict and (not s.telegram.token or s.telegram.token.startswith("${")):
                 raise ValueError(f"Source {s.id} has invalid/unexpanded telegram token")
             if not s.telegram.chat_id or s.telegram.chat_id.startswith("${"):
                 raise ValueError(f"Source {s.id} has invalid/unexpanded telegram chat_id")
@@ -51,12 +51,13 @@ def validate_config(config: AppConfig):
                 raise ValueError(f"Source {s.id} is type='telegram_user' but missing 'telegram_user' block")
             if s.telegram:
                 raise ValueError(f"Source {s.id} is type='telegram_user' but has forbidden 'telegram' block")
-            if not s.telegram_user.api_id:
-                raise ValueError(f"Source {s.id} missing telegram_user api_id")
-            if not s.telegram_user.api_hash or s.telegram_user.api_hash.startswith("${"):
-                raise ValueError(f"Source {s.id} has invalid/unexpanded telegram_user api_hash")
-            if not s.telegram_user.session or s.telegram_user.session.startswith("${"):
-                raise ValueError(f"Source {s.id} has invalid/unexpanded telegram_user session")
+            if is_strict:
+                if not s.telegram_user.api_id:
+                    raise ValueError(f"Source {s.id} missing telegram_user api_id")
+                if not s.telegram_user.api_hash or s.telegram_user.api_hash.startswith("${"):
+                    raise ValueError(f"Source {s.id} has invalid/unexpanded telegram_user api_hash")
+                if not s.telegram_user.session or s.telegram_user.session.startswith("${"):
+                    raise ValueError(f"Source {s.id} has invalid/unexpanded telegram_user session")
             if not s.telegram_user.peer or s.telegram_user.peer.startswith("${"):
                 raise ValueError(f"Source {s.id} has invalid/unexpanded telegram_user peer")
         else:

@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -19,22 +19,34 @@ class PublicationTier(str, Enum):
 
 
 class TelegramSourceConfig(BaseModel):
-    token: str
+    token: Optional[str] = None
     chat_id: str
 
-    @field_validator("token")
+    @field_validator("token", mode="before")
     @classmethod
-    def validate_token(cls, v: str) -> str:
-        if ":" not in v:
-            raise ValueError("Invalid Telegram Bot Token format (missing colon)")
-        return v
+    def validate_token(cls, v: Any) -> Optional[str]:
+        if not v:
+            return None
+        if ":" not in str(v):
+            return None
+        return str(v)
 
 
 class TelegramUserSourceConfig(BaseModel):
-    api_id: int
-    api_hash: str
-    session: str
+    api_id: Optional[int] = None
+    api_hash: Optional[str] = None
+    session: Optional[str] = None
     peer: str
+
+    @field_validator("api_id", mode="before")
+    @classmethod
+    def validate_api_id(cls, v: Any) -> Optional[int]:
+        if v is None or v == "" or v == 0:
+            return None
+        try:
+            return int(v)
+        except (ValueError, TypeError):
+            return None
 
 
 class SourceSelector(BaseModel):

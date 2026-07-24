@@ -4,15 +4,18 @@ from typing import Any
 
 
 def expand_env(text: str) -> str:
-    # Use raw string for regex
-    pattern = re.compile(r"\$\{([A-Za-z0-9_]+)\}")
+    # Match ${VAR} or ${VAR:-default}
+    pattern = re.compile(r"\$\{([A-Za-z0-9_]+)(?::-([^}]*))?\}")
     
-    def replace(m):
+    def replace(m: re.Match[str]) -> str:
         var_name = m.group(1)
+        default_val = m.group(2)
         val = os.getenv(var_name)
-        if val is None:
-            raise ValueError(f"Missing required environment variable: {var_name}")
-        return val
+        if val is not None:
+            return val
+        if default_val is not None:
+            return default_val
+        return ""
 
     return pattern.sub(replace, text)
 
