@@ -12,6 +12,9 @@ from typing import Any, Optional
 from .orchestrator import Orchestrator
 from .resilience import AsyncCircuitBreaker
 from .scoring import ProxyScoringEngine
+from .geo_routing import GeoRoutingEngine
+from .self_healing import SelfHealingDaemon
+from ..formats.streaming import StreamingChunkParser
 from ..connectors.telegram_user.windowed import WindowedTelegramUserConnector
 from ..pipeline.optimized_transform import OptimizedTransformPipeline
 from ..pipeline.windowed_ingest import WindowedIngestionPipeline
@@ -24,7 +27,7 @@ logger = logging.getLogger(__name__)
 class UnifiedOrchestrator(Orchestrator):
     """
     Unified Orchestrator combining resilience, windowed ingestion, optimized transform,
-    latency benchmarking, and production rate limits into a single consolidated engine.
+    latency benchmarking, zero-copy streaming, geo-routing, and self-healing.
     """
 
     def __init__(self, *args: Any, enable_benchmarking: bool = True, max_proxy_latency_ms: int = 1500, **kwargs: Any) -> None:
@@ -33,7 +36,11 @@ class UnifiedOrchestrator(Orchestrator):
         self.max_proxy_latency_ms = max_proxy_latency_ms
         self.circuit_breaker = AsyncCircuitBreaker()
         self.scoring_engine = ProxyScoringEngine()
+        self.streaming_parser = StreamingChunkParser()
+        self.geo_routing = GeoRoutingEngine()
+        self.self_healing = SelfHealingDaemon()
         self.transform_pipeline = OptimizedTransformPipeline(
+
             self.raw_store,
             self.repo,
             self.registry,
