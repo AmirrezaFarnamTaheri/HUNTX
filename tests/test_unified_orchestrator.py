@@ -64,6 +64,8 @@ class TestUnifiedOrchestrator(unittest.TestCase):
         mock_raw_store,
     ):
         orch = UnifiedOrchestrator(self.config, enable_benchmarking=True)
+        assert hasattr(orch, "circuit_breaker")
+        assert hasattr(orch, "scoring_engine")
         res = orch.run(no_publish=True)
 
         assert res["status"] == "completed"

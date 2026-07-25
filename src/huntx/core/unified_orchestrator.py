@@ -10,6 +10,8 @@ import uuid
 from typing import Any, Optional
 
 from .orchestrator import Orchestrator
+from .resilience import AsyncCircuitBreaker
+from .scoring import ProxyScoringEngine
 from ..connectors.telegram_user.windowed import WindowedTelegramUserConnector
 from ..pipeline.optimized_transform import OptimizedTransformPipeline
 from ..pipeline.windowed_ingest import WindowedIngestionPipeline
@@ -29,6 +31,8 @@ class UnifiedOrchestrator(Orchestrator):
         super().__init__(*args, **kwargs)
         self.enable_benchmarking = enable_benchmarking
         self.max_proxy_latency_ms = max_proxy_latency_ms
+        self.circuit_breaker = AsyncCircuitBreaker()
+        self.scoring_engine = ProxyScoringEngine()
         self.transform_pipeline = OptimizedTransformPipeline(
             self.raw_store,
             self.repo,
