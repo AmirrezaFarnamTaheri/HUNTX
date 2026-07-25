@@ -53,12 +53,16 @@ class Orchestrator:
         self.repo = StateRepo(self.db)
         logger.debug(f"[Orchestrator] State DB at {paths.STATE_DB_PATH}")
 
-        # Optimization: Enable WAL mode for better concurrency (readers don't block writers)
+        # SQLite performance tuning: WAL mode + optimized PRAGMA settings
         try:
             with self.db.connect() as conn:
                 conn.execute("PRAGMA journal_mode=WAL;")
+                conn.execute("PRAGMA synchronous=NORMAL;")   # safe with WAL, ~3x faster than FULL
+                conn.execute("PRAGMA cache_size=-65536;")    # 64 MB page cache
+                conn.execute("PRAGMA temp_store=MEMORY;")    # avoid temp-file I/O
+                conn.execute("PRAGMA mmap_size=268435456;")  # 256 MB memory-mapped I/O
         except Exception as e:
-            logger.warning(f"[Orchestrator] Could not set WAL mode: {e}")
+            logger.warning("[Orchestrator] Could not apply SQLite PRAGMAs: %s", e)
 
         self.registry = FormatRegistry.get_instance()
         register_all_formats(self.registry, self.raw_store)

@@ -19,18 +19,17 @@ class HardenedOrchestrator(Orchestrator):
         allow_partial_export: bool = False,
     ) -> dict[str, Any]:
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
         except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            loop = None
 
-        if loop.is_running():
+        if loop is not None and loop.is_running():
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 return executor.submit(
                     asyncio.run,
                     self._run_hardened(timeout, no_publish, allow_partial_export),
                 ).result()
-        return loop.run_until_complete(
+        return asyncio.run(
             self._run_hardened(timeout, no_publish, allow_partial_export)
         )
 

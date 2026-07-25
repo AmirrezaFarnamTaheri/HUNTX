@@ -129,12 +129,7 @@ class TelegramUserConnector(SourceConnector):
         return self._local.clients[key]
 
     def _ensure_connected(self, client: TelegramClient):
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        loop.run_until_complete(self._ensure_connected_async(client))
+        asyncio.run(self._ensure_connected_async(client))
 
     async def _ensure_connected_async(self, client: TelegramClient):
         if not client.is_connected():
@@ -147,12 +142,7 @@ class TelegramUserConnector(SourceConnector):
                 raise
 
     def _resolve_peer(self, peer_entity, client: TelegramClient = None):
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        return loop.run_until_complete(self._resolve_peer_async(peer_entity, client))
+        return asyncio.run(self._resolve_peer_async(peer_entity, client))
 
     async def _resolve_peer_async(self, peer_entity, client: TelegramClient = None):
         if client and isinstance(peer_entity, str) and peer_entity.startswith("-100"):
@@ -179,12 +169,7 @@ class TelegramUserConnector(SourceConnector):
         return peer_entity
 
     def resolve_channel_id(self) -> Optional[int]:
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        return loop.run_until_complete(self.resolve_channel_id_async())
+        return asyncio.run(self.resolve_channel_id_async())
 
     async def resolve_channel_id_async(self) -> Optional[int]:
         client = self._client()
