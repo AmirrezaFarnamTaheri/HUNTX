@@ -178,3 +178,21 @@ class TestFormatsCoverage(unittest.TestCase):
         parsed = fmt.parse(data, {"filename": "account.sip"})
         self.assertEqual(len(parsed), 1)
         self.assertEqual(parsed[0]["data"]["filename"], "account.sip")
+
+    def test_malformed_payload_handling(self):
+        # NPVT malformed Base64 handling
+        fmt_npvt = NpvtHandler()
+        corrupt_b64 = b"!!!NotValidBase64!!!"
+        parsed_corrupt = fmt_npvt.parse(corrupt_b64, {})
+        self.assertEqual(len(parsed_corrupt), 0)
+
+        # ConfLines empty & all-comment handling
+        fmt_conf = ConfLinesHandler()
+        empty_conf = b"# Only comments\n# Another comment\n\n"
+        self.assertEqual(len(fmt_conf.parse(empty_conf, {})), 0)
+
+        # NPVTSub malformed lines handling
+        fmt_sub = NpvtSubHandler()
+        mixed_corrupt = b"invalid_protocol://bad@url\n\n  \n"
+        self.assertEqual(len(fmt_sub.parse(mixed_corrupt, {})), 0)
+

@@ -15,7 +15,7 @@ def expand_env(text: str) -> str:
             return val
         if default_val is not None:
             return default_val
-        return ""
+        raise ValueError(f"Missing required environment variable: {var_name}")
 
     return pattern.sub(replace, text)
 

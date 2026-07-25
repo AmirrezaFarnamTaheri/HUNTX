@@ -43,10 +43,11 @@ class TelegramUserSourceConfig(BaseModel):
     def validate_api_id(cls, v: Any) -> Optional[int]:
         if v is None or v == "" or v == 0:
             return None
-        try:
+        if isinstance(v, int):
+            return v
+        if isinstance(v, str) and (v.isdigit() or (v.startswith("-") and v[1:].isdigit())):
             return int(v)
-        except (ValueError, TypeError):
-            return None
+        raise ValueError(f"Invalid api_id: {v}")
 
 
 class SourceSelector(BaseModel):
