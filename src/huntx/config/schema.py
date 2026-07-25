@@ -41,6 +41,8 @@ class TelegramUserSourceConfig(BaseModel):
     @field_validator("api_id", mode="before")
     @classmethod
     def validate_api_id(cls, v: Any) -> Optional[int]:
+        if isinstance(v, bool):
+            raise ValueError(f"Invalid api_id: {v}")
         if v is None or v == "" or v == 0:
             return None
         if isinstance(v, int):
