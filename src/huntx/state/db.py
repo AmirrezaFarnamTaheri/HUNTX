@@ -12,9 +12,21 @@ _MMAP_SIZE_BYTES = 256 * 1024 * 1024
 
 
 class DBConnection:
+    """Create consistently configured, fully durable SQLite connections."""
+
     def __init__(self, db_path: Path):
         self.db_path = db_path
         self._init_db()
+
+    @staticmethod
+    def _configure_connection(conn: sqlite3.Connection) -> None:
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys=ON;")
+        conn.execute("PRAGMA synchronous=FULL;")
+        conn.execute(f"PRAGMA busy_timeout={_BUSY_TIMEOUT_MS};")
+        conn.execute("PRAGMA temp_store=MEMORY;")
+        conn.execute(f"PRAGMA cache_size=-{_CACHE_SIZE_KIB};")
+        conn.execute(f"PRAGMA mmap_size={_MMAP_SIZE_BYTES};")
 
     def _init_db(self) -> None:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -26,7 +38,7 @@ class DBConnection:
 
         with self.connect() as conn:
             conn.execute("PRAGMA journal_mode=WAL;")
-            conn.execute("PRAGMA synchronous=NORMAL;")
+            conn.execute("PRAGMA synchronous=FULL;")
             conn.execute("PRAGMA wal_autocheckpoint=1000;")
 
             try:
@@ -74,12 +86,7 @@ class DBConnection:
     @contextlib.contextmanager
     def connect(self) -> Generator[sqlite3.Connection, None, None]:
         conn = sqlite3.connect(str(self.db_path), timeout=_BUSY_TIMEOUT_MS / 1000)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA foreign_keys=ON;")
-        conn.execute(f"PRAGMA busy_timeout={_BUSY_TIMEOUT_MS};")
-        conn.execute("PRAGMA temp_store=MEMORY;")
-        conn.execute(f"PRAGMA cache_size=-{_CACHE_SIZE_KIB};")
-        conn.execute(f"PRAGMA mmap_size={_MMAP_SIZE_BYTES};")
+        self._configure_connection(conn)
         try:
             yield conn
             conn.commit()
