@@ -41,9 +41,10 @@ disable_error_code = ["attr-defined"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "auto"
 markers = [
-    "perf: marks performance regression benchmarks (exclude with '-m not perf')",
     "asyncio: marks asynchronous pytest tests",
+    "perf: marks performance regression benchmarks (exclude with '-m not perf')",
 ]
 
 [tool.flake8]
