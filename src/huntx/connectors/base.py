@@ -40,10 +40,6 @@ class AsyncSyncIterator:
 
         if loop and loop.is_running():
             import concurrent.futures
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 return iter(executor.submit(asyncio.run, collect()).result())
         else:

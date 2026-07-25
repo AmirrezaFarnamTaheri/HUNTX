@@ -29,13 +29,7 @@ class HardenedOrchestrator(Orchestrator):
                     asyncio.run,
                     self._run_hardened(timeout, no_publish, allow_partial_export),
                 ).result()
-<<<<<<< Updated upstream
-        return asyncio.run(
-            self._run_hardened(timeout, no_publish, allow_partial_export)
-        )
-=======
         return asyncio.run(self._run_hardened(timeout, no_publish, allow_partial_export))
->>>>>>> Stashed changes
 
     async def _run_hardened(
         self,

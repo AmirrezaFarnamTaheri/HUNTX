@@ -2,10 +2,6 @@ import time
 import sqlite3
 from typing import Dict, Any, List, Optional, Tuple
 
-<<<<<<< Updated upstream
-
-=======
->>>>>>> Stashed changes
 DEFAULT_BACKOFF_SCHEDULE = [300, 900, 3600, 21600]  # 5m, 15m, 1h, 6h in seconds
 
 
@@ -52,10 +48,6 @@ class SelfHealingDaemon:
         cursor.execute("SELECT fail_count, first_failed_at FROM degraded_proxies WHERE unique_hash = ?", (unique_hash,))
         row = cursor.fetchone()
 
-<<<<<<< Updated upstream
-
-=======
->>>>>>> Stashed changes
         if row:
             fail_count = row[0] + 1
             first_failed_at = row[1]
@@ -68,32 +60,20 @@ class SelfHealingDaemon:
         interval = self.backoff_schedule[backoff_idx]
         next_check = now + interval
 
-<<<<<<< Updated upstream
-        cursor.execute("""
-=======
         cursor.execute(
             """
->>>>>>> Stashed changes
             INSERT INTO degraded_proxies (unique_hash, raw_uri, fail_count, first_failed_at, next_check_at, status)
             VALUES (?, ?, ?, ?, ?, 'degraded')
             ON CONFLICT(unique_hash) DO UPDATE SET
                 fail_count = excluded.fail_count,
                 next_check_at = excluded.next_check_at,
                 status = 'degraded'
-<<<<<<< Updated upstream
-        """, (unique_hash, raw_uri, fail_count, first_failed_at, next_check))
-        conn.commit()
-        return fail_count, next_check
-
-
-=======
         """,
             (unique_hash, raw_uri, fail_count, first_failed_at, next_check),
         )
         conn.commit()
         return fail_count, next_check
 
->>>>>>> Stashed changes
     def reinstate_proxy(self, unique_hash: str) -> bool:
         """
         Reinstates a recovered proxy to active status by removing it from degraded state.
@@ -111,13 +91,6 @@ class SelfHealingDaemon:
         now = current_time or time.time()
         conn = self._get_conn()
         cursor = conn.cursor()
-<<<<<<< Updated upstream
-        cursor.execute("""
-            SELECT unique_hash, raw_uri, fail_count, first_failed_at, next_check_at
-            FROM degraded_proxies
-            WHERE next_check_at <= ? AND status = 'degraded'
-        """, (now,))
-=======
         cursor.execute(
             """
             SELECT unique_hash, raw_uri, fail_count, first_failed_at, next_check_at
@@ -126,7 +99,6 @@ class SelfHealingDaemon:
         """,
             (now,),
         )
->>>>>>> Stashed changes
         rows = cursor.fetchall()
         return [
             {
@@ -150,7 +122,3 @@ class SelfHealingDaemon:
         cursor.execute("DELETE FROM degraded_proxies WHERE first_failed_at <= ?", (cutoff,))
         conn.commit()
         return cursor.rowcount
-<<<<<<< Updated upstream
-
-=======
->>>>>>> Stashed changes

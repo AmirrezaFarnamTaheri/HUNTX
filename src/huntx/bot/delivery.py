@@ -32,13 +32,9 @@ class DeliveryMixin:
         """
         try:
             alert_prefix = "⚠️ [LOW FRESHNESS WARNING]" if proxy_count < min_threshold else "✅ [PIPELINE REPORT]"
-<<<<<<< Updated upstream
-            message = f"{alert_prefix} {status_msg}\nFresh Proxies Available: {proxy_count} (Min Threshold: {min_threshold})"
-=======
             message = (
                 f"{alert_prefix} {status_msg}\nFresh Proxies Available: {proxy_count} (Min Threshold: {min_threshold})"
             )
->>>>>>> Stashed changes
             if hasattr(self, "client") and self.client:
                 await self._send_with_floodwait(self.client.send_message, admin_chat_id, message)
                 return True

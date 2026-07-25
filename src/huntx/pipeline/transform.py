@@ -137,7 +137,12 @@ class TransformPipeline:
 
         return len(all_record_rows), processed, failed, skipped
 
-    def process_pending(self, *args: Any, **kwargs: Any) -> Any:
+    def process_pending(
+        self,
+        *,
+        deadline: Optional[float] = None,
+        max_batches: Optional[int] = None,
+    ) -> Any:
         """
         Finds pending files, determines format, parses, and saves records.
         Processes in batches of TRANSFORM_BATCH_SIZE for efficient DB writes.

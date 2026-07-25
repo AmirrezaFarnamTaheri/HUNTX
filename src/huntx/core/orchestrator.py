@@ -54,15 +54,9 @@ class Orchestrator:
         try:
             with self.db.connect() as conn:
                 conn.execute("PRAGMA journal_mode=WAL;")
-<<<<<<< Updated upstream
-                conn.execute("PRAGMA synchronous=NORMAL;")   # safe with WAL, ~3x faster than FULL
-                conn.execute("PRAGMA cache_size=-65536;")    # 64 MB page cache
-                conn.execute("PRAGMA temp_store=MEMORY;")    # avoid temp-file I/O
-=======
                 conn.execute("PRAGMA synchronous=NORMAL;")  # safe with WAL, ~3x faster than FULL
                 conn.execute("PRAGMA cache_size=-65536;")  # 64 MB page cache
                 conn.execute("PRAGMA temp_store=MEMORY;")  # avoid temp-file I/O
->>>>>>> Stashed changes
                 conn.execute("PRAGMA mmap_size=268435456;")  # 256 MB memory-mapped I/O
         except Exception as e:
             logger.warning("[Orchestrator] Could not apply SQLite PRAGMAs: %s", e)
