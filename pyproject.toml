@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "black", "flake8", "mypy", "ruff", "types-PyYAML"]
+dev = ["pytest", "pytest-asyncio", "black", "flake8", "mypy", "ruff", "types-PyYAML"]
 
 [project.scripts]
 huntx = "huntx.cli.hardened_main:main"
@@ -43,8 +43,9 @@ disable_error_code = ["attr-defined"]
 testpaths = ["tests"]
 markers = [
     "perf: marks performance regression benchmarks (exclude with '-m not perf')",
+    "asyncio: marks asynchronous pytest tests",
 ]
 
 [tool.flake8]
 max-line-length = 120
-extend-ignore = ["E203", "E501"]
+extend-ignore = ["E203"]
