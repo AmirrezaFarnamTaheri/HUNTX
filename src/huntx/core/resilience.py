@@ -1,4 +1,7 @@
+<<<<<<< Updated upstream
 import asyncio
+=======
+>>>>>>> Stashed changes
 import time
 from typing import Callable, Any, TypeVar
 
@@ -7,6 +10,10 @@ T = TypeVar("T")
 
 class CircuitBreakerOpenError(Exception):
     """Raised when circuit breaker is OPEN and rejecting calls."""
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
     pass
 
 

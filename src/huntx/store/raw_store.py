@@ -47,17 +47,16 @@ class RawStore:
             raise
 
     def get(self, sha256: str) -> Optional[bytes]:
-        """Retrieves data by hash."""
+        """Retrieves data by hash using a 64 KB read buffer."""
         try:
             prefix = sha256[:2]
             path = self.base_dir / prefix / sha256
-            if path.exists():
-                data = path.read_bytes()
-                # logger.debug(f"Retrieved raw blob: {sha256} ({len(data)} bytes)")
-                return data
-            logger.warning(f"Raw blob not found: {sha256}")
-            return None
-        except Exception as e:
+            if not path.exists():
+                logger.warning(f"Raw blob not found: {sha256}")
+                return None
+            with path.open("rb", buffering=65536) as fh:
+                return fh.read()
+        except OSError as e:
             logger.exception(f"Failed to retrieve raw blob {sha256}: {e}")
             return None
 
@@ -94,13 +93,15 @@ class RawStore:
         pruned = 0
         try:
             known_hashes = state_repo.get_all_known_hashes()
-            
+
             # Failsafe check
             if not known_hashes:
                 with state_repo.db.connect() as conn:
                     count = conn.execute("SELECT COUNT(*) AS c FROM seen_files").fetchone()["c"]
                 if count > 0:
-                    logger.warning("get_all_known_hashes returned empty but seen_files has rows. Skipping orphan pruning.")
+                    logger.warning(
+                        "get_all_known_hashes returned empty but seen_files has rows. Skipping orphan pruning."
+                    )
                     return 0
 
             # Scan prefix dirs
@@ -116,10 +117,10 @@ class RawStore:
                                         pruned += 1
                                     except Exception as ex:
                                         logger.error(f"Failed to delete orphan raw blob {hash_val}: {ex}")
-            
+
             if pruned > 0:
                 logger.info(f"Pruned {pruned} orphaned raw blobs from disk.")
-                
+
             # Clean up empty subdirectories
             for d in self.base_dir.iterdir():
                 if d.is_dir() and not any(d.iterdir()):

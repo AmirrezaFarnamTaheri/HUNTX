@@ -3,7 +3,8 @@ import logging
 import time
 import threading
 from dataclasses import dataclass
-from typing import Dict, Any, Optional, AsyncIterator, List, Union, Iterator
+from typing import Dict, Any, Optional, AsyncIterator, List
+
 try:
     from telethon import TelegramClient
     from telethon.sessions import StringSession
@@ -23,7 +24,7 @@ except ModuleNotFoundError:  # pragma: no cover
 
     utils = _UtilsStub()  # type: ignore[assignment]
 
-from ..base import SourceConnector, SourceItem, AsyncSyncIterator, async_iter, maybe_await
+from ..base import SourceConnector, AsyncSyncIterator, async_iter, maybe_await
 
 logger = logging.getLogger(__name__)
 
@@ -84,8 +85,15 @@ class TelegramUserConnector(SourceConnector):
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.cleanup_async()
 
-    def __init__(self, api_id: int, api_hash: str, session: str, peer: str,
-                 state: Optional[Dict[str, Any]] = None, fetch_windows: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        api_id: int,
+        api_hash: str,
+        session: str,
+        peer: str,
+        state: Optional[Dict[str, Any]] = None,
+        fetch_windows: Optional[Dict[str, Any]] = None,
+    ):
         self.api_id = api_id
         self.api_hash = api_hash
         self.session = session
@@ -107,7 +115,9 @@ class TelegramUserConnector(SourceConnector):
                 return self._local.clients[key]
 
         if TelegramClient is None or StringSession is None:
-            raise RuntimeError("Telethon is required for telegram_user sources. Install dependencies (pip install -e .).")
+            raise RuntimeError(
+                "Telethon is required for telegram_user sources. Install dependencies (pip install -e .)."
+            )
         if not hasattr(self._local, "clients"):
             self._local.clients = {}
 
@@ -152,8 +162,7 @@ class TelegramUserConnector(SourceConnector):
                 return entity
             except Exception as e:
                 logger.warning(
-                    f"[MTProto] API resolution failed for {peer_entity}: {e}. "
-                    f"Falling back to raw PeerChannel."
+                    f"[MTProto] API resolution failed for {peer_entity}: {e}. " f"Falling back to raw PeerChannel."
                 )
                 try:
                     real_id, peer_type = utils.resolve_id(int(peer_entity))  # type: ignore[union-attr]
@@ -175,9 +184,9 @@ class TelegramUserConnector(SourceConnector):
         client = self._client()
         await self._ensure_connected_async(client)
         try:
-            entity = await maybe_await(client.get_entity(
-                int(self.peer) if self.peer.lstrip("-").isdigit() else self.peer
-            ))
+            entity = await maybe_await(
+                client.get_entity(int(self.peer) if self.peer.lstrip("-").isdigit() else self.peer)
+            )
             raw_id = getattr(entity, "id", None)
             if raw_id:
                 logger.info(f"[MTProto] Resolved peer {self.peer} -> channel_id={raw_id}")
@@ -206,7 +215,9 @@ class TelegramUserConnector(SourceConnector):
         await maybe_await(client.connect())
         logger.info("[MTProto] Reconnected.")
 
-    async def _fetch_text_pass(self, client, peer_entity, last_id, cutoff_text, stats) -> AsyncIterator[TelegramUserItem]:
+    async def _fetch_text_pass(
+        self, client, peer_entity, last_id, cutoff_text, stats
+    ) -> AsyncIterator[TelegramUserItem]:
         """Scan all messages, yield only text content. Skip anything with documents."""
         pass_start = time.time()
         scanned = 0
@@ -222,90 +233,88 @@ class TelegramUserConnector(SourceConnector):
 
         retries = 0
         while retries <= _MAX_RECONNECT_RETRIES:
-          try:
-            async for msg in async_iter(client.iter_messages(peer_entity, min_id=resume_after_id, reverse=True)):
-                if getattr(self, "deadline", None) and self.deadline is not None and time.time() > self.deadline:
-                    logger.warning(f"[MTProto] Ingestion deadline exceeded during text pass. Aborting.")
-                    break
-                self.offset = max(self.offset, msg.id)
-                resume_after_id = max(resume_after_id, msg.id)
-                scanned += 1
+            try:
+                async for msg in async_iter(client.iter_messages(peer_entity, min_id=resume_after_id, reverse=True)):
+                    if getattr(self, "deadline", None) and self.deadline is not None and time.time() > self.deadline:
+                        logger.warning("[MTProto] Ingestion deadline exceeded during text pass. Aborting.")
+                        break
+                    self.offset = max(self.offset, msg.id)
+                    resume_after_id = max(resume_after_id, msg.id)
+                    scanned += 1
 
-                # Progress every 500 messages
-                if scanned % 500 == 0:
-                    elapsed = time.time() - pass_start
-                    logger.info(
-                        f"[MTProto] Pass 1: scanned={scanned}  yielded={yielded}  "
-                        f"batches_flushed={yielded // _TEXT_BATCH_SIZE}  elapsed={elapsed:.1f}s"
+                    # Progress every 500 messages
+                    if scanned % 500 == 0:
+                        elapsed = time.time() - pass_start
+                        logger.info(
+                            f"[MTProto] Pass 1: scanned={scanned}  yielded={yielded}  "
+                            f"batches_flushed={yielded // _TEXT_BATCH_SIZE}  elapsed={elapsed:.1f}s"
+                        )
+
+                    # Drop unwanted media types
+                    has_unwanted = any(getattr(msg, attr, None) for attr in _UNWANTED_MEDIA_ATTRS)
+                    if has_unwanted:
+                        stats["skipped_media_type"] += 1
+                        continue
+
+                    # Skip documents entirely in this pass
+                    has_document = bool(msg.document)
+
+                    # Apply text cutoff
+                    if cutoff_text > 0 and msg.date.timestamp() < cutoff_text:
+                        if not has_document:
+                            stats["skipped_cutoff"] += 1
+                        continue
+
+                    # Extract text content
+                    text = msg.message or ""
+                    if not text:
+                        if not has_document:
+                            stats["skipped_no_content"] += 1
+                        continue
+
+                    stats["text_messages"] += 1
+                    text_bytes = text.encode("utf-8", errors="ignore")
+                    total_bytes += len(text_bytes)
+                    yielded += 1
+
+                    item = TelegramUserItem(
+                        external_id=str(msg.id),
+                        data=text_bytes,
+                        metadata={
+                            "filename": f"msg_{msg.id}.txt",
+                            "timestamp": msg.date.timestamp(),
+                            "is_text": True,
+                        },
                     )
+                    batch.append(item)
 
-                # Drop unwanted media types
-                has_unwanted = any(getattr(msg, attr, None) for attr in _UNWANTED_MEDIA_ATTRS)
-                if has_unwanted:
-                    stats["skipped_media_type"] += 1
-                    continue
+                    # Flush batch
+                    if len(batch) >= _TEXT_BATCH_SIZE:
+                        logger.info(
+                            f"[MTProto] Pass 1: flushing batch of {len(batch)} text items  "
+                            f"(total yielded={yielded})"
+                        )
+                        for b_item in batch:
+                            yield b_item
+                        batch.clear()
 
-                # Skip documents entirely in this pass
-                has_document = bool(msg.document)
+                break
 
-                # Apply text cutoff
-                if cutoff_text > 0 and msg.date.timestamp() < cutoff_text:
-                    if not has_document:
-                        stats["skipped_cutoff"] += 1
-                    continue
-
-                # Extract text content
-                text = msg.message or ""
-                if not text:
-                    if not has_document:
-                        stats["skipped_no_content"] += 1
-                    continue
-
-                stats["text_messages"] += 1
-                text_bytes = text.encode("utf-8", errors="ignore")
-                total_bytes += len(text_bytes)
-                yielded += 1
-
-                item = TelegramUserItem(
-                    external_id=str(msg.id),
-                    data=text_bytes,
-                    metadata={
-                        "filename": f"msg_{msg.id}.txt",
-                        "timestamp": msg.date.timestamp(),
-                        "is_text": True,
-                    },
-                )
-                batch.append(item)
-
-                # Flush batch
-                if len(batch) >= _TEXT_BATCH_SIZE:
-                    logger.info(
-                        f"[MTProto] Pass 1: flushing batch of {len(batch)} text items  "
-                        f"(total yielded={yielded})"
-                    )
-                    for b_item in batch:
-                        yield b_item
-                    batch.clear()
-
-            break
-
-          except FloodWaitError as e:
-            logger.warning(f"[MTProto] FloodWait for {e.seconds}s. Sleeping...")
-            await asyncio.sleep(e.seconds)
-            continue
-          except ConnectionError as e:
-            retries += 1
-            if retries > _MAX_RECONNECT_RETRIES:
-                logger.error(f"[MTProto] Pass 1: exhausted {_MAX_RECONNECT_RETRIES} reconnect retries: {e}")
-                raise
-            await self._reconnect_async(client, retries - 1)
-            logger.info(f"[MTProto] Pass 1: resuming from min_id={resume_after_id} after reconnect")
+            except FloodWaitError as e:
+                logger.warning(f"[MTProto] FloodWait for {e.seconds}s. Sleeping...")
+                await asyncio.sleep(e.seconds)
+                continue
+            except ConnectionError as e:
+                retries += 1
+                if retries > _MAX_RECONNECT_RETRIES:
+                    logger.error(f"[MTProto] Pass 1: exhausted {_MAX_RECONNECT_RETRIES} reconnect retries: {e}")
+                    raise
+                await self._reconnect_async(client, retries - 1)
+                logger.info(f"[MTProto] Pass 1: resuming from min_id={resume_after_id} after reconnect")
 
         # Flush remaining
         if batch:
-            logger.info(
-                f"[MTProto] Pass 1: flushing final batch of {len(batch)} text items"
-            )
+            logger.info(f"[MTProto] Pass 1: flushing final batch of {len(batch)} text items")
             for b_item in batch:
                 yield b_item
             batch.clear()
@@ -323,7 +332,9 @@ class TelegramUserConnector(SourceConnector):
     # Pass 2: Document messages (slow, downloads, one-by-one)
     # ------------------------------------------------------------------
 
-    async def _fetch_document_pass(self, client, peer_entity, last_id, cutoff_file, stats) -> AsyncIterator[TelegramUserItem]:
+    async def _fetch_document_pass(
+        self, client, peer_entity, last_id, cutoff_file, stats
+    ) -> AsyncIterator[TelegramUserItem]:
         """Use Telegram's server-side InputMessagesFilterDocument to iterate only over documents."""
         pass_start = time.time()
         scanned = 0
@@ -331,107 +342,112 @@ class TelegramUserConnector(SourceConnector):
         total_bytes = 0
         resume_after_id = last_id
 
-        logger.info(
-            f"[MTProto] ── Pass 2: Documents (server-filtered) ──  peer={self.peer}  min_id={last_id}"
-        )
+        logger.info(f"[MTProto] ── Pass 2: Documents (server-filtered) ──  peer={self.peer}  min_id={last_id}")
 
         retries = 0
         while retries <= _MAX_RECONNECT_RETRIES:
-          try:
-            async for msg in async_iter(client.iter_messages(
-                peer_entity, min_id=resume_after_id, reverse=True,
-                filter=InputMessagesFilterDocument,
-            )):
-
-                if getattr(self, "deadline", None) and self.deadline is not None and time.time() > self.deadline:
-                    logger.warning(f"[MTProto] Ingestion deadline exceeded during document pass. Aborting.")
-                    break
-                self.offset = max(self.offset, msg.id)
-                resume_after_id = max(resume_after_id, msg.id)
-                scanned += 1
-
-                # Progress every 50 documents
-                if scanned % 50 == 0:
-                    elapsed = time.time() - pass_start
-                    logger.info(
-                        f"[MTProto] Pass 2: scanned={scanned}  yielded={yielded}  "
-                        f"bytes={total_bytes / 1024:.1f} KB  elapsed={elapsed:.1f}s"
+            try:
+                async for msg in async_iter(
+                    client.iter_messages(
+                        peer_entity,
+                        min_id=resume_after_id,
+                        reverse=True,
+                        filter=InputMessagesFilterDocument,
                     )
+                ):
 
-                # Apply file cutoff
-                if cutoff_file > 0 and msg.date.timestamp() < cutoff_file:
-                    stats["skipped_cutoff"] += 1
-                    continue
+                    if getattr(self, "deadline", None) and self.deadline is not None and time.time() > self.deadline:
+                        logger.warning("[MTProto] Ingestion deadline exceeded during document pass. Aborting.")
+                        break
+                    self.offset = max(self.offset, msg.id)
+                    resume_after_id = max(resume_after_id, msg.id)
+                    scanned += 1
 
-                if not msg.document:
-                    continue
+                    # Progress every 50 documents
+                    if scanned % 50 == 0:
+                        elapsed = time.time() - pass_start
+                        logger.info(
+                            f"[MTProto] Pass 2: scanned={scanned}  yielded={yielded}  "
+                            f"bytes={total_bytes / 1024:.1f} KB  elapsed={elapsed:.1f}s"
+                        )
 
-                try:
-                    f = msg.file
-                    if f:
-                        is_apk = False
-                        if f.name and f.name.lower().endswith(".apk"):
-                            is_apk = True
-                        elif f.ext and f.ext.lower() == ".apk":
-                            is_apk = True
-                        if is_apk:
-                            logger.debug(f"[MTProto] Skipping APK in msg {msg.id}: {f.name or '?'}")
-                            stats["skipped_apk"] += 1
-                            continue
-
-                    # Size limit (25 MB)
-                    if f and f.size and f.size > 25 * 1024 * 1024:
-                        size_mb = f.size / (1024 * 1024)
-                        logger.info(f"[MTProto] Skipping oversized file msg {msg.id} ({size_mb:.1f} MB)")
-                        stats["skipped_size_limit"] += 1
+                    # Apply file cutoff
+                    if cutoff_file > 0 and msg.date.timestamp() < cutoff_file:
+                        stats["skipped_cutoff"] += 1
                         continue
 
-                    data = await maybe_await(client.download_media(msg, file=bytes))
-                    if data:
-                        from ...utils.content_type import is_executable
-                        is_exec, type_desc = is_executable(data)
-                        if is_exec:
-                            logger.info(f"[MTProto] Skipping executable in msg {msg.id}: {f.name or '?'} ({type_desc})")
-                            stats["skipped_apk"] += 1
+                    if not msg.document:
+                        continue
+
+                    try:
+                        f = msg.file
+                        if f:
+                            is_apk = False
+                            if f.name and f.name.lower().endswith(".apk"):
+                                is_apk = True
+                            elif f.ext and f.ext.lower() == ".apk":
+                                is_apk = True
+                            if is_apk:
+                                logger.debug(f"[MTProto] Skipping APK in msg {msg.id}: {f.name or '?'}")
+                                stats["skipped_apk"] += 1
+                                continue
+
+                        # Size limit (25 MB)
+                        if f and f.size and f.size > 25 * 1024 * 1024:
+                            size_mb = f.size / (1024 * 1024)
+                            logger.info(f"[MTProto] Skipping oversized file msg {msg.id} ({size_mb:.1f} MB)")
+                            stats["skipped_size_limit"] += 1
                             continue
 
-                        filename = "unknown"
-                        if f and f.name:
-                            filename = f.name
-                        else:
-                            ext = ""
-                            if f and f.ext:
-                                ext = f.ext
-                            filename = f"media_{msg.id}{ext}"
+                        data = await maybe_await(client.download_media(msg, file=bytes))
+                        if data:
+                            from ...utils.content_type import is_executable
 
-                        total_bytes += len(data)
-                        stats["media_messages"] += 1
-                        yielded += 1
+                            is_exec, type_desc = is_executable(data)
+                            if is_exec:
+                                logger.info(
+                                    f"[MTProto] Skipping executable in msg {msg.id}: {f.name or '?'} ({type_desc})"
+                                )
+                                stats["skipped_apk"] += 1
+                                continue
 
-                        yield TelegramUserItem(
-                            external_id=str(msg.id) + "_media",
-                            data=data,
-                            metadata={"filename": filename, "timestamp": msg.date.timestamp()},
-                        )
-                except ConnectionError:
+                            filename = "unknown"
+                            if f and f.name:
+                                filename = f.name
+                            else:
+                                ext = ""
+                                if f and f.ext:
+                                    ext = f.ext
+                                filename = f"media_{msg.id}{ext}"
+
+                            total_bytes += len(data)
+                            stats["media_messages"] += 1
+                            yielded += 1
+
+                            yield TelegramUserItem(
+                                external_id=str(msg.id) + "_media",
+                                data=data,
+                                metadata={"filename": filename, "timestamp": msg.date.timestamp()},
+                            )
+                    except ConnectionError:
+                        raise
+                    except Exception as e:
+                        logger.error(f"[MTProto] Download failed msg {msg.id}: {e}")
+                        stats["download_errors"] += 1
+
+                break
+
+            except FloodWaitError as e:
+                logger.warning(f"[MTProto] FloodWait for {e.seconds}s. Sleeping...")
+                await asyncio.sleep(e.seconds)
+                continue
+            except ConnectionError as e:
+                retries += 1
+                if retries > _MAX_RECONNECT_RETRIES:
+                    logger.error(f"[MTProto] Pass 2: exhausted {_MAX_RECONNECT_RETRIES} reconnect retries: {e}")
                     raise
-                except Exception as e:
-                    logger.error(f"[MTProto] Download failed msg {msg.id}: {e}")
-                    stats["download_errors"] += 1
-
-            break
-
-          except FloodWaitError as e:
-            logger.warning(f"[MTProto] FloodWait for {e.seconds}s. Sleeping...")
-            await asyncio.sleep(e.seconds)
-            continue
-          except ConnectionError as e:
-            retries += 1
-            if retries > _MAX_RECONNECT_RETRIES:
-                logger.error(f"[MTProto] Pass 2: exhausted {_MAX_RECONNECT_RETRIES} reconnect retries: {e}")
-                raise
-            await self._reconnect_async(client, retries - 1)
-            logger.info(f"[MTProto] Pass 2: resuming from min_id={resume_after_id} after reconnect")
+                await self._reconnect_async(client, retries - 1)
+                logger.info(f"[MTProto] Pass 2: resuming from min_id={resume_after_id} after reconnect")
 
         pass_dur = time.time() - pass_start
         rate = scanned / pass_dur if pass_dur > 0 else 0
@@ -524,8 +540,7 @@ class TelegramUserConnector(SourceConnector):
 
             if total_yielded == 0 and is_fresh_start:
                 logger.warning(
-                    f"[MTProto] Zero items from {self.peer} on fresh start. "
-                    f"Verify access and channel content."
+                    f"[MTProto] Zero items from {self.peer} on fresh start. " f"Verify access and channel content."
                 )
 
         except Exception as e:

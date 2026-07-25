@@ -66,9 +66,7 @@ def record_source_event(
 
 def get_source_lifecycle(db: Any, source_id: str) -> Optional[dict[str, Any]]:
     with db.connect() as conn:
-        row = conn.execute(
-            "SELECT * FROM source_lifecycle WHERE source_id = ?", (source_id,)
-        ).fetchone()
+        row = conn.execute("SELECT * FROM source_lifecycle WHERE source_id = ?", (source_id,)).fetchone()
     if not row:
         return None
     result = dict(row)

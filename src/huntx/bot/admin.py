@@ -25,8 +25,7 @@ class AdminMixin:
         for admin_id in admins:
             if not admin_id.isdigit():
                 logger.warning(
-                    "[Security] Non-numeric admin ID configured in "
-                    "HUNTX_ADMINS: %r. Insecure and ignored.",
+                    "[Security] Non-numeric admin ID configured in " "HUNTX_ADMINS: %r. Insecure and ignored.",
                     admin_id,
                 )
 
@@ -110,8 +109,7 @@ class AdminMixin:
                 await self.deliver_updates_active()
                 await self.client.send_message(
                     event.chat_id,
-                    "✅ **Pipeline execution and subscription delivery "
-                    "completed successfully!**",
+                    "✅ **Pipeline execution and subscription delivery " "completed successfully!**",
                     parse_mode="md",
                 )
             except Exception as exc:
@@ -129,8 +127,7 @@ class AdminMixin:
         if hasattr(event, "answer"):
             await event.answer("Starting pipeline run...")
         await event.respond(
-            "⚡ **Pipeline execution started in background...**\n"
-            "An update will be sent when complete.",
+            "⚡ **Pipeline execution started in background...**\n" "An update will be sent when complete.",
             parse_mode="md",
         )
 
@@ -149,9 +146,7 @@ class AdminMixin:
         lock_path = paths.STATE_DIR / "huntx.lock"
         with acquire_lock(lock_path):
             orchestrator = Orchestrator(config)
-            no_publish = (
-                os.environ.get("HUNTX_BOT_NO_PUBLISH", "false").lower() == "true"
-            )
+            no_publish = os.environ.get("HUNTX_BOT_NO_PUBLISH", "false").lower() == "true"
             orchestrator.run(timeout=16200, no_publish=no_publish)
 
     async def _perform_admin_prune(self, event, days):

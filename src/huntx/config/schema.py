@@ -75,9 +75,7 @@ class SourceConfig(BaseModel):
     def validate_source_governance(self) -> "SourceConfig":
         if self.trust_state == SourceTrustState.APPROVED and self.discovered_from:
             if not self.approval_evidence:
-                raise ValueError(
-                    "Discovered sources cannot be approved without approval_evidence"
-                )
+                raise ValueError("Discovered sources cannot be approved without approval_evidence")
         return self
 
     @property

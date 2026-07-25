@@ -71,9 +71,7 @@ async def acquire_session_lease(
             break
         _remove_if_stale(path, stale_after_seconds, time.time())
         if time.monotonic() >= deadline:
-            raise SessionLeaseTimeout(
-                f"Timed out waiting for exclusive Telegram session ownership: {path.name}"
-            )
+            raise SessionLeaseTimeout(f"Timed out waiting for exclusive Telegram session ownership: {path.name}")
         await asyncio.sleep(max(0.01, poll_seconds))
     try:
         yield path

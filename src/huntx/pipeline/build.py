@@ -72,10 +72,7 @@ class BuildPipeline:
     def _parse_standard_uri(line: str, protocol: str) -> dict[str, Any]:
         try:
             parsed = urlparse(line)
-            params = {
-                key: values[0] if len(values) == 1 else values
-                for key, values in parse_qs(parsed.query).items()
-            }
+            params = {key: values[0] if len(values) == 1 else values for key, values in parse_qs(parsed.query).items()}
             result: dict[str, Any] = {"protocol": protocol}
             if parsed.username:
                 result["user"] = unquote(parsed.username)
@@ -114,21 +111,13 @@ class BuildPipeline:
                 userinfo, hostport = rest.rsplit("@", 1)
                 try:
                     decoded_ui = BuildPipeline._b64_decode(userinfo)
-                    method, password = (
-                        decoded_ui.split(":", 1)
-                        if ":" in decoded_ui
-                        else (decoded_ui, "")
-                    )
+                    method, password = decoded_ui.split(":", 1) if ":" in decoded_ui else (decoded_ui, "")
                 except Exception:
                     parts = unquote(userinfo).split(":", 1)
                     method = parts[0]
                     password = parts[1] if len(parts) > 1 else ""
                 host_parts = hostport.split("?", 1)[0]
-                host, port_s = (
-                    host_parts.rsplit(":", 1)
-                    if ":" in host_parts
-                    else (host_parts, "0")
-                )
+                host, port_s = host_parts.rsplit(":", 1) if ":" in host_parts else (host_parts, "0")
                 return {
                     "protocol": "shadowsocks",
                     "method": method,
@@ -142,16 +131,8 @@ class BuildPipeline:
             decoded = BuildPipeline._b64_decode(rest.split("?", 1)[0])
             if "@" in decoded:
                 method_password, host_port = decoded.rsplit("@", 1)
-                method, password = (
-                    method_password.split(":", 1)
-                    if ":" in method_password
-                    else (method_password, "")
-                )
-                host, port_s = (
-                    host_port.rsplit(":", 1)
-                    if ":" in host_port
-                    else (host_port, "0")
-                )
+                method, password = method_password.split(":", 1) if ":" in method_password else (method_password, "")
+                host, port_s = host_port.rsplit(":", 1) if ":" in host_port else (host_port, "0")
                 return {
                     "protocol": "shadowsocks",
                     "method": method,
@@ -345,9 +326,7 @@ class BuildPipeline:
                     empty_formats.append(format_id)
                     continue
 
-                artifact_hash = self.artifact_store.save_artifact(
-                    route_name, format_id, artifact_bytes
-                )
+                artifact_hash = self.artifact_store.save_artifact(route_name, format_id, artifact_bytes)
                 self.artifact_store.save_output(route_name, format_id, artifact_bytes)
                 built_formats.append(format_id)
                 format_count = len(format_records)

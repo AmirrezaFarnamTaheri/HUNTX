@@ -12,6 +12,7 @@ class TutHandler(OpaqueBundleHandler):
     """
     Handler for .tut files.
     """
+
     def __init__(self, raw_store: RawStore):
         super().__init__(raw_store, "tut")
 
@@ -23,14 +24,13 @@ class TutHandler(OpaqueBundleHandler):
             if "." in text and len(text) > 50:
                 decrypted = decrypt_tut_data(text, extension=".tut")
                 if decrypted:
-                    return [{
-                        "type": self.format_id,
-                        "unique_hash": hash_string(text),
-                        "data": {
-                            "content": text,
-                            "decrypted": decrypted
+                    return [
+                        {
+                            "type": self.format_id,
+                            "unique_hash": hash_string(text),
+                            "data": {"content": text, "decrypted": decrypted},
                         }
-                    }]
+                    ]
         except Exception as e:
             logger.debug(f"TUT deep parsing failed: {e}")
 

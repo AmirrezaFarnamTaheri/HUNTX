@@ -14,7 +14,7 @@ class _RedactSecretsFilter(logging.Filter):
     _bot_token_generic = re.compile(r"\b(bot)?(\d+):([A-Za-z0-9_-]{30,})\b")
     _kv_secrets = re.compile(
         r"\b(TELEGRAM_TOKEN|PUBLISH_BOT_TOKEN|AWS_SECRET_ACCESS_KEY|AWS_ACCESS_KEY_ID|TELEGRAM_API_HASH|TELEGRAM_USER_SESSION|AWS_SESSION_TOKEN)\s*[:=]\s*([^\s]+)\b",
-        re.IGNORECASE
+        re.IGNORECASE,
     )
 
     def filter(self, record: logging.LogRecord) -> bool:

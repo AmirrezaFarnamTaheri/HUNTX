@@ -117,8 +117,7 @@ async def _canonical_ingestion_sources(
                         )
                     except asyncio.TimeoutError:
                         logger.error(
-                            "[LIFO] Timed out acquiring Telegram session for %s; "
-                            "preserving source",
+                            "[LIFO] Timed out acquiring Telegram session for %s; " "preserving source",
                             source.id,
                         )
                         connector = None
@@ -127,8 +126,7 @@ async def _canonical_ingestion_sources(
                         continue
                     except Exception:
                         logger.exception(
-                            "[LIFO] Failed acquiring Telegram session for %s; "
-                            "preserving source",
+                            "[LIFO] Failed acquiring Telegram session for %s; " "preserving source",
                             source.id,
                         )
                         connector = None
@@ -144,8 +142,7 @@ async def _canonical_ingestion_sources(
                     )
                 except asyncio.TimeoutError:
                     logger.error(
-                        "[LIFO] Canonical resolution timed out for %s after %.2fs; "
-                        "preserving source",
+                        "[LIFO] Canonical resolution timed out for %s after %.2fs; " "preserving source",
                         source.id,
                         operation_timeout,
                     )
@@ -156,8 +153,7 @@ async def _canonical_ingestion_sources(
                     continue
                 except Exception:
                     logger.exception(
-                        "[LIFO] Could not resolve canonical channel for %s; "
-                        "preserving source",
+                        "[LIFO] Could not resolve canonical channel for %s; " "preserving source",
                         source.id,
                     )
                     await _close_canonical_connector(self, connector)
@@ -179,8 +175,7 @@ async def _canonical_ingestion_sources(
             reason = f"duplicate canonical Telegram channel {channel_id}; owned by {existing}"
             terminalized = self._work_queue.terminalize_source(str(source.id), reason)
             logger.warning(
-                "[LIFO] Skipping alias source %s for canonical channel %s already "
-                "owned by %s; terminalized=%s",
+                "[LIFO] Skipping alias source %s for canonical channel %s already " "owned by %s; terminalized=%s",
                 source.id,
                 channel_id,
                 existing,
@@ -233,9 +228,7 @@ async def _run_hardened(
             window_seconds=self._window_seconds(),
         )
         preflight_seconds = time.monotonic() - run_started
-        remaining_total = (
-            None if timeout is None else max(0.0, timeout - preflight_seconds)
-        )
+        remaining_total = None if timeout is None else max(0.0, timeout - preflight_seconds)
         logger.info(
             "[Orchestrator] budgets total=%s remaining_after_preflight=%s "
             "ingestion=%s completion_buffer=%s preflight_seconds=%.3f "
@@ -267,9 +260,7 @@ async def _run_hardened(
 
     residue = self._work_queue.summary()
     remaining_residue = int(residue.get("remaining", 0))
-    summary["duration_seconds"] = (
-        float(summary.get("duration_seconds", 0.0)) + preflight_seconds
-    )
+    summary["duration_seconds"] = float(summary.get("duration_seconds", 0.0)) + preflight_seconds
     summary["preflight_seconds"] = preflight_seconds
     summary["completion_buffer_seconds"] = self._completion_buffer_seconds
     summary["ingestion_budget_seconds"] = ingestion_budget
@@ -282,9 +273,7 @@ async def _run_hardened(
     summary["lifo_windows_completed"] = self._window_completions
     summary["lifo_window_failures"] = self._window_failures
     summary["lifo_residue"] = residue
-    summary["ingest_skipped_due_to_budget"] = (
-        remaining_residue if self._ingestion_budget_exhausted else 0
-    )
+    summary["ingest_skipped_due_to_budget"] = remaining_residue if self._ingestion_budget_exhausted else 0
 
     if self._ingestion_budget_exhausted and summary.get("status") == "completed":
         summary["status"] = "partial"

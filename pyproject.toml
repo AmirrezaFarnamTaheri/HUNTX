@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "black", "flake8", "mypy", "types-PyYAML"]
+dev = ["pytest", "black", "flake8", "mypy", "ruff", "types-PyYAML"]
 
 [project.scripts]
 huntx = "huntx.cli.hardened_main:main"
@@ -41,7 +41,10 @@ disable_error_code = ["attr-defined"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "perf: marks performance regression benchmarks (exclude with '-m not perf')",
+]
 
 [tool.flake8]
 max-line-length = 120
-extend-ignore = ["E203"]
+extend-ignore = ["E203", "E501"]

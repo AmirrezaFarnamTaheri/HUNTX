@@ -27,9 +27,7 @@ def run_command(config_path: str):
     try:
         max_workers = int(max_workers_str)
     except ValueError:
-        logging.warning(
-            f"Invalid HUNTX_MAX_WORKERS value '{max_workers_str}', defaulting to 3."
-        )
+        logging.warning(f"Invalid HUNTX_MAX_WORKERS value '{max_workers_str}', defaulting to 3.")
         max_workers = 3
 
     try:
@@ -40,12 +38,12 @@ def run_command(config_path: str):
         with acquire_lock(lock_path):
             orch = Orchestrator(config, max_workers=max_workers)
             run_summary = orch.run()
-            
+
             total_artifacts = run_summary.get("total_artifacts", 0)
             publish_attempts = run_summary.get("publish_attempts", 0)
             publish_failures = run_summary.get("publish_failures", 0)
             successful_publishes = publish_attempts - publish_failures
-            
+
             if total_artifacts == 0:
                 raise RuntimeError("Health Gate FAILED: Zero artifacts were built during this run.")
             elif publish_attempts > 0 and successful_publishes == 0:
@@ -53,4 +51,3 @@ def run_command(config_path: str):
     except Exception as e:
         logging.exception(f"Fatal error during run: {e}")
         raise
-

@@ -12,6 +12,7 @@ class SksHandler(OpaqueBundleHandler):
     """
     Handler for .sks files.
     """
+
     def __init__(self, raw_store: RawStore):
         super().__init__(raw_store, "sks")
 
@@ -23,14 +24,13 @@ class SksHandler(OpaqueBundleHandler):
             if "." in text and len(text) > 50:
                 decrypted = decrypt_tut_data(text, extension=".sks")
                 if decrypted:
-                    return [{
-                        "type": self.format_id,
-                        "unique_hash": hash_string(text),
-                        "data": {
-                            "content": text,
-                            "decrypted": decrypted
+                    return [
+                        {
+                            "type": self.format_id,
+                            "unique_hash": hash_string(text),
+                            "data": {"content": text, "decrypted": decrypted},
                         }
-                    }]
+                    ]
         except Exception as e:
             logger.debug(f"SKS deep parsing failed: {e}")
 

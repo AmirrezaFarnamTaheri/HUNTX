@@ -152,8 +152,7 @@ class PublishPipeline:
 
         if failures:
             raise RuntimeError(
-                f"Publish failed for {unique_id}: {len(failures)} destination error(s): "
-                + "; ".join(failures)
+                f"Publish failed for {unique_id}: {len(failures)} destination error(s): " + "; ".join(failures)
             )
 
         if published_any:

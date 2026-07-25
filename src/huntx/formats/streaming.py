@@ -8,6 +8,7 @@ class StreamingChunkParser:
     Zero-copy streaming parser for multi-gigabyte subscription bundles.
     Processes stream chunks in 64KB blocks without accumulating full payloads in memory.
     """
+
     def __init__(self, chunk_size: int = 65536):
         self.chunk_size = chunk_size
 

@@ -123,9 +123,7 @@ class WindowedTelegramUserConnector(TelegramUserConnector):
                 )
             )
 
-        completed = not interrupted and (
-            crossed_lower_boundary or scanned < page_limit or scanned == 0
-        )
+        completed = not interrupted and (crossed_lower_boundary or scanned < page_limit or scanned == 0)
         next_cursor = None if completed else last_message_id
         return WindowPage(
             items=items,

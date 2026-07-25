@@ -1,10 +1,9 @@
-import asyncio
+import datetime
 import logging
 import time
-import datetime
-from typing import Optional, Dict, Any
-from telethon import events, Button
-from .constants import WELCOME_TEXT, _BOT_COMMANDS, _ALL_VALID_FORMATS, _FORMAT_LABELS, SUPPORTED_FORMATS
+from typing import Any, Dict
+from telethon import Button, events
+from .constants import WELCOME_TEXT, _ALL_VALID_FORMATS, _FORMAT_LABELS
 
 logger = logging.getLogger(__name__)
 
@@ -19,21 +18,23 @@ class HandlersMixin:
 
     def _register_handlers(self):
         """Register all event handlers and the callback query handler."""
-        self.client.add_event_handler(self._on_start, events.NewMessage(pattern=r"(?i)/start"))  # type: ignore[attr-defined]
-        self.client.add_event_handler(self._on_help, events.NewMessage(pattern=r"(?i)/help"))  # type: ignore[attr-defined]
-        self.client.add_event_handler(self._on_get, events.NewMessage(pattern=r"(?i)/get"))  # type: ignore[attr-defined]
-        self.client.add_event_handler(self._on_latest, events.NewMessage(pattern=r"(?i)/latest"))  # type: ignore[attr-defined]
-        self.client.add_event_handler(self._on_formats, events.NewMessage(pattern=r"(?i)/formats"))  # type: ignore[attr-defined]
-        self.client.add_event_handler(self._on_setformat, events.NewMessage(pattern=r"(?i)/setformat"))  # type: ignore[attr-defined]
-        self.client.add_event_handler(self._on_myinfo, events.NewMessage(pattern=r"(?i)/myinfo"))  # type: ignore[attr-defined]
-        self.client.add_event_handler(self._on_status, events.NewMessage(pattern=r"(?i)/status"))  # type: ignore[attr-defined]
-        self.client.add_event_handler(self._on_protocols, events.NewMessage(pattern=r"(?i)/protocols"))  # type: ignore[attr-defined]
-        self.client.add_event_handler(self._on_count, events.NewMessage(pattern=r"(?i)/count"))  # type: ignore[attr-defined]
-        self.client.add_event_handler(self._on_ping, events.NewMessage(pattern=r"(?i)/ping"))  # type: ignore[attr-defined]
-        self.client.add_event_handler(self._on_mute, events.NewMessage(pattern=r"(?i)/mute"))  # type: ignore[attr-defined]
-        self.client.add_event_handler(self._on_unmute, events.NewMessage(pattern=r"(?i)/unmute"))  # type: ignore[attr-defined]
-        self.client.add_event_handler(self._on_admin, events.NewMessage(pattern=r"(?i)/admin"))  # type: ignore[attr-defined]
-        self.client.add_event_handler(self._on_callback, events.CallbackQuery())  # type: ignore[attr-defined]
+        reg = self.client.add_event_handler  # type: ignore[attr-defined]
+        NM = events.NewMessage
+        reg(self._on_start, NM(pattern=r"(?i)/start"))
+        reg(self._on_help, NM(pattern=r"(?i)/help"))
+        reg(self._on_get, NM(pattern=r"(?i)/get"))
+        reg(self._on_latest, NM(pattern=r"(?i)/latest"))
+        reg(self._on_formats, NM(pattern=r"(?i)/formats"))
+        reg(self._on_setformat, NM(pattern=r"(?i)/setformat"))
+        reg(self._on_myinfo, NM(pattern=r"(?i)/myinfo"))
+        reg(self._on_status, NM(pattern=r"(?i)/status"))
+        reg(self._on_protocols, NM(pattern=r"(?i)/protocols"))
+        reg(self._on_count, NM(pattern=r"(?i)/count"))
+        reg(self._on_ping, NM(pattern=r"(?i)/ping"))
+        reg(self._on_mute, NM(pattern=r"(?i)/mute"))
+        reg(self._on_unmute, NM(pattern=r"(?i)/unmute"))
+        reg(self._on_admin, NM(pattern=r"(?i)/admin"))
+        reg(self._on_callback, events.CallbackQuery())
 
     def _build_setformat_keyboard(self, user_id: str):
         current = self._get_user_pref(user_id)  # type: ignore[attr-defined]
@@ -69,7 +70,9 @@ class HandlersMixin:
         elapsed = now - last_time
         if elapsed < cooldown_seconds:
             wait_time = int(cooldown_seconds - elapsed) + 1
-            await event.respond(f"⚠️ **Slow down!** Please wait {wait_time}s before using this command again.", parse_mode="md")
+            await event.respond(
+                f"⚠️ **Slow down!** Please wait {wait_time}s before using this command again.", parse_mode="md"
+            )
             return False
 
         self._user_cooldowns[user_id] = now  # type: ignore[attr-defined]
@@ -91,10 +94,8 @@ class HandlersMixin:
         is_new = self._register_user(user_id, chat_id, username)
 
         buttons = [
-            [Button.inline("📥 Get Proxies", b"get:npvt"),
-             Button.inline("🔗 Base64 Sub", b"get:b64sub")],
-            [Button.inline("📋 All Formats", b"cmd:formats"),
-             Button.inline("⚙️ Settings", b"cmd:myinfo")],
+            [Button.inline("📥 Get Proxies", b"get:npvt"), Button.inline("🔗 Base64 Sub", b"get:b64sub")],
+            [Button.inline("📋 All Formats", b"cmd:formats"), Button.inline("⚙️ Settings", b"cmd:myinfo")],
         ]
         await event.respond(WELCOME_TEXT, parse_mode="md", buttons=buttons)
 
@@ -106,10 +107,8 @@ class HandlersMixin:
             return
         self._register_user(str(event.sender_id), str(event.chat_id))
         buttons = [
-            [Button.inline("📥 Get Proxies", b"get:npvt"),
-             Button.inline("🔗 Base64 Sub", b"get:b64sub")],
-            [Button.inline("📋 All Formats", b"cmd:formats"),
-             Button.inline("⚙️ Settings", b"cmd:myinfo")],
+            [Button.inline("📥 Get Proxies", b"get:npvt"), Button.inline("🔗 Base64 Sub", b"get:b64sub")],
+            [Button.inline("📋 All Formats", b"cmd:formats"), Button.inline("⚙️ Settings", b"cmd:myinfo")],
         ]
         await event.respond(WELCOME_TEXT, parse_mode="md", buttons=buttons)
 
@@ -124,13 +123,10 @@ class HandlersMixin:
         if not args:
             # No format specified → show quick-pick buttons
             buttons = [
-                [Button.inline("📋 Proxy List (npvt)", b"get:npvt"),
-                 Button.inline("🔗 Base64 Sub", b"get:b64sub")],
+                [Button.inline("📋 Proxy List (npvt)", b"get:npvt"), Button.inline("🔗 Base64 Sub", b"get:b64sub")],
                 [Button.inline("📊 Decoded JSON", b"get:decoded.json")],
-                [Button.inline("🔐 OpenVPN", b"get:ovpn"),
-                 Button.inline("📱 HTTP Injector", b"get:ehi")],
-                [Button.inline("📱 HTTP Custom", b"get:hc"),
-                 Button.inline("📱 HA Tunnel", b"get:hat")],
+                [Button.inline("🔐 OpenVPN", b"get:ovpn"), Button.inline("📱 HTTP Injector", b"get:ehi")],
+                [Button.inline("📱 HTTP Custom", b"get:hc"), Button.inline("📱 HA Tunnel", b"get:hat")],
             ]
             current = self._get_user_pref(user_id)  # type: ignore[attr-defined]
             await event.respond(
@@ -159,8 +155,7 @@ class HandlersMixin:
         sent = await self._send_latest_to_user(event.chat_id, days=days)
         if sent == 0:
             await event.respond(
-                f"No artifacts in the last {days} day(s).\n"
-                f"Try a larger window: `/latest 7`",
+                f"No artifacts in the last {days} day(s).\n" f"Try a larger window: `/latest 7`",
                 parse_mode="md",
             )
         else:
@@ -185,8 +180,7 @@ class HandlersMixin:
         lines.append("\nUse `/get <format>` to download.")
 
         buttons = [
-            [Button.inline("📋 Get npvt", b"get:npvt"),
-             Button.inline("🔗 Get b64sub", b"get:b64sub")],
+            [Button.inline("📋 Get npvt", b"get:npvt"), Button.inline("🔗 Get b64sub", b"get:b64sub")],
             [Button.inline("📊 Get decoded.json", b"get:decoded.json")],
         ]
         await event.respond("\n".join(lines), parse_mode="md", buttons=buttons)
@@ -221,8 +215,7 @@ class HandlersMixin:
         self._set_user_pref(user_id, fmt)
         label = _FORMAT_LABELS.get(fmt, fmt)
         await event.respond(
-            f"✅ Default format set to `{fmt}` ({label})\n"
-            f"`/get` will now download `{fmt}` files by default.",
+            f"✅ Default format set to `{fmt}` ({label})\n" f"`/get` will now download `{fmt}` files by default.",
             parse_mode="md",
         )
 
@@ -250,14 +243,14 @@ class HandlersMixin:
         with self.db.connect() as conn:
             conn.execute("UPDATE bot_users SET muted = 0 WHERE user_id = ?", (user_id,))
         await event.respond(
-            "🔔 Auto-delivery **resumed**.\n\n"
-            "You'll receive updates after each pipeline run.",
+            "🔔 Auto-delivery **resumed**.\n\n" "You'll receive updates after each pipeline run.",
             parse_mode="md",
         )
 
     async def _on_protocols(self, event):
         """Show supported proxy protocols."""
         from ..formats.npvt import _PROXY_SCHEMES
+
         schemes = sorted([s.replace("://", "") for s in _PROXY_SCHEMES])
         msg = (
             "🔗 **Supported Protocols**\n"
@@ -277,18 +270,18 @@ class HandlersMixin:
 
         total = sum(counts.values())
         lines = [f"📊 **Proxy Counts (Total: {total})**\n"]
-        
+
         # Sort by count descending
         sorted_counts = sorted(counts.items(), key=lambda x: x[1], reverse=True)
         max_count = sorted_counts[0][1] if sorted_counts else 1
-        
+
         for proto, count in sorted_counts:
             pct = count / total * 100
             # Simple bar chart using unicode blocks
             bar_len = int((count / max_count) * 10)
             bar = "▇" * bar_len + "░" * (10 - bar_len)
             lines.append(f"`{proto:<10}` {bar} `{count:>4}` ({pct:>2.0f}%)")
-        
+
         await event.respond("\n".join(lines), parse_mode="md")
 
     async def _on_ping(self, event):
@@ -302,7 +295,7 @@ class HandlersMixin:
         """Show system/pipeline statistics."""
         stats = self._get_system_stats()
         users = self._get_user_count()
-        
+
         msg = (
             "📈 **System Status**\n"
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -312,7 +305,6 @@ class HandlersMixin:
             f"💎 **Records:** `{stats['records']}` unique proxy configs\n"
         )
         await event.respond(msg, parse_mode="md")
-
 
     async def _on_callback(self, event):
         """Handle inline button presses."""
@@ -379,7 +371,7 @@ class HandlersMixin:
                 if not self._is_admin(user_id, username):  # type: ignore[attr-defined]
                     await event.answer("❌ Access Denied", alert=True)
                     return
-                
+
                 action = data.split(":", 1)[1]
                 if action == "run":
                     await event.answer("Starting pipeline run...")
@@ -408,7 +400,8 @@ class HandlersMixin:
             lines.append(f"  `{f}` — {_FORMAT_LABELS.get(f, f)}")
         lines.append("\nUse `/get <format>` to download.")
         buttons = [[Button.inline("📋 Get npvt", b"get:npvt"), Button.inline("🔗 Get b64sub", b"get:b64sub")]]
-        await self.client.send_message(chat_id, "\n".join(lines), parse_mode="md", buttons=buttons)  # type: ignore[attr-defined]
+        send_msg = self.client.send_message  # type: ignore[attr-defined]
+        await send_msg(chat_id, "\n".join(lines), parse_mode="md", buttons=buttons)
 
     async def _respond_myinfo(self, chat_id: int, user_id: str, event=None):
         """Send or edit user settings to a chat."""
@@ -434,8 +427,7 @@ class HandlersMixin:
         toggle_text = "🔇 Pause Delivery" if not info["muted"] else "🔔 Resume Delivery"
         toggle_data = b"cmd:mute" if not info["muted"] else b"cmd:unmute"
         buttons = [
-            [Button.inline("⚙️ Change Format", b"cmd:setformat"),
-             Button.inline(toggle_text, toggle_data)],
+            [Button.inline("⚙️ Change Format", b"cmd:setformat"), Button.inline(toggle_text, toggle_data)],
             [Button.inline("📥 Get Proxies", b"get:npvt")],
         ]
         if event:

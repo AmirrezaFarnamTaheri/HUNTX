@@ -2,8 +2,13 @@
 Async Proxy Latency Benchmarker module for HuntX.
 Tests proxy endpoint reachability and latency via socket / HTTP probes.
 """
+<<<<<<< Updated upstream
 import asyncio
 import socket
+=======
+
+import asyncio
+>>>>>>> Stashed changes
 import time
 from typing import Dict, Any, List, Optional
 from urllib.parse import urlparse
@@ -45,8 +50,13 @@ async def check_proxy_latency(proxy_url: str, timeout: float = 3.0) -> Optional[
         reader, writer = await asyncio.wait_for(conn, timeout=timeout)
         elapsed_ms = (time.monotonic() - start_time) * 1000.0
 
+<<<<<<< Updated upstream
         res = writer.close()
         if asyncio.iscoroutine(res):
+=======
+        res: Any = writer.close()  # type: ignore[func-returns-value]
+        if res is not None and asyncio.iscoroutine(res):
+>>>>>>> Stashed changes
             await res
         if hasattr(writer, "wait_closed"):
             res_wait = writer.wait_closed()

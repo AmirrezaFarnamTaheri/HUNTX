@@ -39,8 +39,7 @@ class PersistentIngestionQueue:
     @staticmethod
     def _next_rotation_seq(conn: Any) -> int:
         row = conn.execute(
-            "SELECT COALESCE(MAX(rotation_seq), 0) + 1 AS next_seq "
-            "FROM ingestion_work_items"
+            "SELECT COALESCE(MAX(rotation_seq), 0) + 1 AS next_seq " "FROM ingestion_work_items"
         ).fetchone()
         return int(row["next_seq"] if row else 1)
 
@@ -192,9 +191,7 @@ class PersistentIngestionQueue:
                 window_start_ts=int(row["window_start_ts"]),
                 window_end_ts=int(row["window_end_ts"]),
                 continuation_cursor=(
-                    int(row["continuation_cursor"])
-                    if row["continuation_cursor"] is not None
-                    else None
+                    int(row["continuation_cursor"]) if row["continuation_cursor"] is not None else None
                 ),
                 attempt_count=int(row["attempt_count"]) + 1,
                 items_ingested=int(row["items_ingested"]),
@@ -332,17 +329,13 @@ class PersistentIngestionQueue:
 
     def summary(self) -> dict[str, int]:
         with self.db.connect() as conn:
-            rows = conn.execute(
-                """
+            rows = conn.execute("""
                 SELECT status, COUNT(*) AS count
                 FROM ingestion_work_items
                 GROUP BY status
-                """
-            ).fetchall()
+                """).fetchall()
         result = {str(row["status"]): int(row["count"]) for row in rows}
         result["remaining"] = sum(
-            count
-            for status, count in result.items()
-            if status in {"pending", "partial", "leased", "retry_wait"}
+            count for status, count in result.items() if status in {"pending", "partial", "leased", "retry_wait"}
         )
         return result

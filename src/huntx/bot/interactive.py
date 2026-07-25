@@ -1,11 +1,9 @@
 import asyncio
-import datetime
 import logging
 import os
 import time
 from collections import OrderedDict
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 try:
     from telethon import TelegramClient, events, Button
@@ -24,12 +22,12 @@ from ..state.repo import StateRepo
 from ..state.db import open_db
 from ..store import paths
 
-from .constants import (
-    WELCOME_TEXT,
+from .constants import (  # noqa: F401
+    WELCOME_TEXT as WELCOME_TEXT,
+    SUPPORTED_FORMATS as SUPPORTED_FORMATS,
     _BOT_COMMANDS,
-    SUPPORTED_FORMATS,
     _ALL_VALID_FORMATS,
-    _AUTO_DELIVER_FORMATS,
+    _AUTO_DELIVER_FORMATS as _AUTO_DELIVER_FORMATS,
     _FORMAT_LABELS,
 )
 from .handlers import HandlersMixin
@@ -78,8 +76,7 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
 
     def _init_tables(self):
         with self.db.connect() as conn:
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS bot_users (
                     user_id TEXT PRIMARY KEY,
                     chat_id TEXT NOT NULL,
@@ -89,10 +86,8 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
                     last_delivered_at REAL DEFAULT 0,
                     default_format TEXT DEFAULT 'npvt'
                 )
-                """
-            )
-            conn.execute(
-                """
+                """)
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS bot_delivery_checkpoint (
                     user_id TEXT PRIMARY KEY,
                     attempted INTEGER NOT NULL DEFAULT 0,
@@ -101,14 +96,11 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
                     last_error TEXT,
                     updated_at REAL NOT NULL DEFAULT 0
                 )
-                """
-            )
+                """)
 
     def _register_user(self, user_id: str, chat_id: str, username: Optional[str] = None) -> bool:
         with self.db.connect() as conn:
-            existing = conn.execute(
-                "SELECT 1 FROM bot_users WHERE user_id = ?", (user_id,)
-            ).fetchone()
+            existing = conn.execute("SELECT 1 FROM bot_users WHERE user_id = ?", (user_id,)).fetchone()
             if existing:
                 conn.execute(
                     "UPDATE bot_users SET chat_id = ?, username = ? WHERE user_id = ?",
@@ -123,9 +115,7 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
 
     def _get_active_users(self) -> list:
         with self.db.connect() as conn:
-            return conn.execute(
-                "SELECT user_id, chat_id FROM bot_users WHERE muted = 0"
-            ).fetchall()
+            return conn.execute("SELECT user_id, chat_id FROM bot_users WHERE muted = 0").fetchall()
 
     def _get_user_count(self) -> dict:
         with self.db.connect() as conn:
@@ -135,9 +125,7 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
 
     def _get_user_pref(self, user_id: str) -> str:
         with self.db.connect() as conn:
-            row = conn.execute(
-                "SELECT default_format FROM bot_users WHERE user_id = ?", (user_id,)
-            ).fetchone()
+            row = conn.execute("SELECT default_format FROM bot_users WHERE user_id = ?", (user_id,)).fetchone()
             return row["default_format"] if row and row["default_format"] else "npvt"
 
     def _set_user_pref(self, user_id: str, fmt: str):
@@ -149,9 +137,7 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
 
     def _get_user_info(self, user_id: str) -> Optional[dict]:
         with self.db.connect() as conn:
-            row = conn.execute(
-                "SELECT * FROM bot_users WHERE user_id = ?", (user_id,)
-            ).fetchone()
+            row = conn.execute("SELECT * FROM bot_users WHERE user_id = ?", (user_id,)).fetchone()
             return dict(row) if row else None
 
     def _prune_cooldowns(self, now: float) -> None:
@@ -288,11 +274,13 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
 
         try:
             if SetBotCommandsRequest is not None and BotCommandScopeDefault is not None:
-                await self.client(SetBotCommandsRequest(
-                    scope=BotCommandScopeDefault(),
-                    lang_code="",
-                    commands=_BOT_COMMANDS,
-                ))
+                await self.client(
+                    SetBotCommandsRequest(
+                        scope=BotCommandScopeDefault(),
+                        lang_code="",
+                        commands=_BOT_COMMANDS,
+                    )
+                )
             logger.info("[GatherX] Bot commands menu registered.")
         except Exception as e:
             logger.warning(f"[GatherX] Failed to register commands: {e}")

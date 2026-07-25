@@ -13,13 +13,13 @@ async def maybe_await(val):
     return val
 
 
-
 class AsyncSyncIterator:
     """
     Helper wrapper that implements both __iter__ (sync) and __aiter__ (async).
     Allows connector methods to yield values asynchronously while maintaining
     full compatibility with synchronous iteration (like in existing unit tests).
     """
+
     def __init__(self, async_gen):
         self.async_gen = async_gen
 
@@ -40,6 +40,10 @@ class AsyncSyncIterator:
 
         if loop and loop.is_running():
             import concurrent.futures
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 return iter(executor.submit(asyncio.run, collect()).result())
         else:

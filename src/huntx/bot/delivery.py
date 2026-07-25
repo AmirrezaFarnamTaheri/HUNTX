@@ -8,8 +8,10 @@ from typing import Any, List, Optional
 try:
     from telethon.errors import FloodWaitError
 except ModuleNotFoundError:  # pragma: no cover
+
     class FloodWaitError(Exception):
         seconds = 0
+
 
 from ..store import paths
 from .constants import _AUTO_DELIVER_FORMATS, _FORMAT_LABELS, _ALL_VALID_FORMATS
@@ -30,7 +32,13 @@ class DeliveryMixin:
         """
         try:
             alert_prefix = "⚠️ [LOW FRESHNESS WARNING]" if proxy_count < min_threshold else "✅ [PIPELINE REPORT]"
+<<<<<<< Updated upstream
             message = f"{alert_prefix} {status_msg}\nFresh Proxies Available: {proxy_count} (Min Threshold: {min_threshold})"
+=======
+            message = (
+                f"{alert_prefix} {status_msg}\nFresh Proxies Available: {proxy_count} (Min Threshold: {min_threshold})"
+            )
+>>>>>>> Stashed changes
             if hasattr(self, "client") and self.client:
                 await self._send_with_floodwait(self.client.send_message, admin_chat_id, message)
                 return True
@@ -100,8 +108,7 @@ class DeliveryMixin:
             await self._send_with_floodwait(
                 self.client.send_message,  # type: ignore[attr-defined]
                 chat_id,
-                "🛰 **GatherX Update**\n"
-                f"Fresh proxy configs — {len(files_to_send)} file(s):",
+                "🛰 **GatherX Update**\n" f"Fresh proxy configs — {len(files_to_send)} file(s):",
                 parse_mode="md",
             )
             for fpath, caption in files_to_send:
@@ -213,12 +220,7 @@ class DeliveryMixin:
             return ".b64sub" in n or n.endswith("_b64sub.txt")
         if f in ("decoded.json", "npvt.decoded.json", "npvtsub.decoded.json"):
             return ".decoded.json" in n or n.endswith("_decoded.json")
-        return (
-            n.endswith(f".{f}")
-            or n.endswith(f"_{f}.txt")
-            or n.endswith(f"_{f}.json")
-            or n.endswith(f"_{f}.zip")
-        )
+        return n.endswith(f".{f}") or n.endswith(f"_{f}.txt") or n.endswith(f"_{f}.json") or n.endswith(f"_{f}.zip")
 
     async def _send_format_to_user(self, chat_id: int, fmt: str):
         if fmt not in _ALL_VALID_FORMATS:

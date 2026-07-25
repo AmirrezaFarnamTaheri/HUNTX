@@ -10,7 +10,15 @@ class StateRepo:
     # Formats whose records reference raw blobs at build time (via blob_hash).
     # These must NOT have their raw blobs pruned while active records exist.
     _BLOB_DEPENDENT_FORMATS = (
-        "opaque_bundle", "ovpn", "npv4", "ehi", "hc", "hat", "sip", "nm", "dark",
+        "opaque_bundle",
+        "ovpn",
+        "npv4",
+        "ehi",
+        "hc",
+        "hat",
+        "sip",
+        "nm",
+        "dark",
     )
 
     def __init__(self, db_connection):
@@ -100,7 +108,10 @@ class StateRepo:
         except Exception as e:
             logger.exception(f"Failed to record file {filename}: {e}")
             raise
-    def get_seen_files_batch(self, source_id: str, external_ids: List[str], conn: Optional[sqlite3.Connection] = None) -> Set[str]:
+
+    def get_seen_files_batch(
+        self, source_id: str, external_ids: List[str], conn: Optional[sqlite3.Connection] = None
+    ) -> Set[str]:
         if not external_ids:
             return set()
 
@@ -314,9 +325,7 @@ class StateRepo:
                         list(self._BLOB_DEPENDENT_FORMATS),
                     )
                 else:
-                    cursor = conn.execute(
-                        "SELECT DISTINCT raw_hash FROM seen_files WHERE status != 'pending'"
-                    )
+                    cursor = conn.execute("SELECT DISTINCT raw_hash FROM seen_files WHERE status != 'pending'")
                 return [row["raw_hash"] for row in cursor.fetchall()]
         except Exception as e:
             logger.error(f"Failed to get processed hashes: {e}")
@@ -352,18 +361,13 @@ class StateRepo:
         """Purge seen_files, records, and published_artifacts older than N days.
         Returns a dict summarizing the counts of pruned entries and deleted raw_hashes."""
         raw_hashes: list[str] = []
-        res: Dict[str, Any] = {
-            "seen_files": 0,
-            "records": 0,
-            "published_artifacts": 0,
-            "raw_hashes": raw_hashes
-        }
+        res: Dict[str, Any] = {"seen_files": 0, "records": 0, "published_artifacts": 0, "raw_hashes": raw_hashes}
         try:
             with self.db.connect() as conn:
                 # 1. Get raw hashes of seen files that are older than N days and not pending
                 cursor = conn.execute(
                     "SELECT DISTINCT raw_hash FROM seen_files WHERE ingested_at < datetime('now', ?) AND status != 'pending'",
-                    (f"-{days} days",)
+                    (f"-{days} days",),
                 )
                 raw_hashes = [row["raw_hash"] for row in cursor.fetchall()]
                 res["raw_hashes"] = raw_hashes
@@ -371,21 +375,17 @@ class StateRepo:
                 # 2. Delete seen_files
                 c = conn.execute(
                     "DELETE FROM seen_files WHERE ingested_at < datetime('now', ?) AND status != 'pending'",
-                    (f"-{days} days",)
+                    (f"-{days} days",),
                 )
                 res["seen_files"] = c.rowcount
 
                 # 3. Delete records
-                c = conn.execute(
-                    "DELETE FROM records WHERE created_at < datetime('now', ?)",
-                    (f"-{days} days",)
-                )
+                c = conn.execute("DELETE FROM records WHERE created_at < datetime('now', ?)", (f"-{days} days",))
                 res["records"] = c.rowcount
 
                 # 4. Delete published_artifacts
                 c = conn.execute(
-                    "DELETE FROM published_artifacts WHERE published_at < datetime('now', ?)",
-                    (f"-{days} days",)
+                    "DELETE FROM published_artifacts WHERE published_at < datetime('now', ?)", (f"-{days} days",)
                 )
                 res["published_artifacts"] = c.rowcount
 
@@ -398,4 +398,3 @@ class StateRepo:
             logger.error(f"Failed to prune old database records: {e}")
             raise
         return res
-

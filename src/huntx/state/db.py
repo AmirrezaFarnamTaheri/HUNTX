@@ -58,14 +58,12 @@ class DBConnection:
 
             if version < 2:
                 work_columns = [
-                    row["name"]
-                    for row in conn.execute("PRAGMA table_info(ingestion_work_items)").fetchall()
+                    row["name"] for row in conn.execute("PRAGMA table_info(ingestion_work_items)").fetchall()
                 ]
                 if work_columns and "rotation_seq" not in work_columns:
                     logger.info("Migrating (v2): Adding rotation_seq to ingestion_work_items")
                     conn.execute(
-                        "ALTER TABLE ingestion_work_items "
-                        "ADD COLUMN rotation_seq INTEGER NOT NULL DEFAULT 0"
+                        "ALTER TABLE ingestion_work_items " "ADD COLUMN rotation_seq INTEGER NOT NULL DEFAULT 0"
                     )
                 conn.execute("PRAGMA user_version = 2")
                 logger.info("Database schema migrated to version 2.")

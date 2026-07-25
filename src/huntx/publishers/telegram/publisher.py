@@ -69,7 +69,7 @@ class TelegramPublisher:
                     resp_code = response.getcode()
                     resp_body = response.read().decode("utf-8")
                     logger.debug(f"Telegram API Response Code: {resp_code}")
-                    
+
                     payload = json.loads(resp_body)
                     if not payload.get("ok"):
                         error_msg = payload.get("description", "Unknown Telegram error")
@@ -77,26 +77,32 @@ class TelegramPublisher:
                         retry_after = params.get("retry_after")
                         if retry_after and attempt < max_attempts:
                             import time
-                            logger.warning(f"Telegram API rate limited (attempt {attempt}/{max_attempts}). Sleeping for {retry_after}s: {error_msg}")
+
+                            logger.warning(
+                                f"Telegram API rate limited (attempt {attempt}/{max_attempts}). Sleeping for {retry_after}s: {error_msg}"
+                            )
                             time.sleep(retry_after)
                             continue
                         raise RuntimeError(f"Telegram API error: {error_msg}")
-                    
+
                     return payload
             except urllib.error.HTTPError as e:
                 try:
                     resp_body = e.read().decode("utf-8")
                     payload = json.loads(resp_body)
                     error_msg = payload.get("description", str(e))
-                    
+
                     if e.code == 429 and attempt < max_attempts:
                         params = payload.get("parameters", {})
                         retry_after = params.get("retry_after") or 5
                         import time
-                        logger.warning(f"Telegram API rate limited with HTTP 429 (attempt {attempt}/{max_attempts}). Sleeping for {retry_after}s: {error_msg}")
+
+                        logger.warning(
+                            f"Telegram API rate limited with HTTP 429 (attempt {attempt}/{max_attempts}). Sleeping for {retry_after}s: {error_msg}"
+                        )
                         time.sleep(retry_after)
                         continue
-                        
+
                     logger.error(f"Telegram API HTTP error {e.code}: {error_msg}")
                     raise RuntimeError(f"Telegram API HTTP {e.code}: {error_msg}")
                 except RuntimeError:
@@ -108,6 +114,7 @@ class TelegramPublisher:
                 logger.error(f"Telegram publish failed for {chat_id} (attempt {attempt}/{max_attempts}): {e}")
                 if attempt < max_attempts:
                     import time
+
                     time.sleep(2 * attempt)
                     continue
                 raise

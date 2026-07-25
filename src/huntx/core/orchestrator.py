@@ -6,10 +6,8 @@ import datetime
 import json
 import logging
 import time
-import queue
 import threading
 from typing import Optional, Any
-from pathlib import Path
 from ..store import paths
 from ..store.raw_store import RawStore
 from ..store.artifact_store import ArtifactStore
@@ -26,7 +24,6 @@ from ..config.schema import AppConfig
 from ..utils.safe_names import safe_component
 from ..utils.atomic import atomic_write
 from ..connectors.base import maybe_await
-
 
 logger = logging.getLogger(__name__)
 
@@ -57,9 +54,15 @@ class Orchestrator:
         try:
             with self.db.connect() as conn:
                 conn.execute("PRAGMA journal_mode=WAL;")
+<<<<<<< Updated upstream
                 conn.execute("PRAGMA synchronous=NORMAL;")   # safe with WAL, ~3x faster than FULL
                 conn.execute("PRAGMA cache_size=-65536;")    # 64 MB page cache
                 conn.execute("PRAGMA temp_store=MEMORY;")    # avoid temp-file I/O
+=======
+                conn.execute("PRAGMA synchronous=NORMAL;")  # safe with WAL, ~3x faster than FULL
+                conn.execute("PRAGMA cache_size=-65536;")  # 64 MB page cache
+                conn.execute("PRAGMA temp_store=MEMORY;")  # avoid temp-file I/O
+>>>>>>> Stashed changes
                 conn.execute("PRAGMA mmap_size=268435456;")  # 256 MB memory-mapped I/O
         except Exception as e:
             logger.warning("[Orchestrator] Could not apply SQLite PRAGMAs: %s", e)
@@ -70,10 +73,12 @@ class Orchestrator:
         source_configs = {s.id: s for s in self.config.sources}
 
         self.ingest_pipeline = IngestionPipeline(self.raw_store, self.repo)
-        self.transform_pipeline = TransformPipeline(self.raw_store, self.repo, self.registry, source_configs, max_workers=self.max_workers)
+        self.transform_pipeline = TransformPipeline(
+            self.raw_store, self.repo, self.registry, source_configs, max_workers=self.max_workers
+        )
         self.build_pipeline = BuildPipeline(self.repo, self.artifact_store, self.registry)
         self.publish_pipeline = PublishPipeline(self.repo)
-        self._seen_channels: set = set()   # canonical channel IDs for dedup
+        self._seen_channels: set = set()  # canonical channel IDs for dedup
         self._seen_lock = threading.Lock()
         logger.info(
             f"[Orchestrator] Ready — {len(self.config.sources)} sources, "
@@ -150,8 +155,7 @@ class Orchestrator:
             logger.warning("[Export] No artifacts produced — outputs/ not updated.")
         else:
             logger.info(
-                f"[Export] Exported {files_written} file(s) to {out_dir} "
-                f"({total_bytes / 1024:.1f} KB total)"
+                f"[Export] Exported {files_written} file(s) to {out_dir} " f"({total_bytes / 1024:.1f} KB total)"
             )
 
     @staticmethod
@@ -216,8 +220,7 @@ class Orchestrator:
                 added += 1
 
         logger.info(
-            f"[DevExport] Manifest: {len(manifest) - added} existing + {added} added "
-            f"= {len(manifest)} total"
+            f"[DevExport] Manifest: {len(manifest) - added} existing + {added} added " f"= {len(manifest)} total"
         )
 
         if not manifest:
@@ -253,10 +256,7 @@ class Orchestrator:
         plain = "\n".join(remarked_uris)
         b64_payload = base64.b64encode(plain.encode("utf-8")).decode("ascii")
         b64_path.write_text(b64_payload + "\n", encoding="utf-8")
-        logger.info(
-            f"[DevExport] Written {b64_path.name} "
-            f"({b64_path.stat().st_size / 1024:.1f} KB)"
-        )
+        logger.info(f"[DevExport] Written {b64_path.name} " f"({b64_path.stat().st_size / 1024:.1f} KB)")
 
         # ── proxies.json ─────────────────────────────────────────────
         json_path = dev_dir / "proxies.json"
@@ -265,17 +265,11 @@ class Orchestrator:
             "_scope": "all_time_cumulative",
             "_count": len(sorted_uris),
             "proxies": [
-                {"uri": remarked, "first_seen": manifest[raw]}
-                for raw, remarked in zip(sorted_uris, remarked_uris)
+                {"uri": remarked, "first_seen": manifest[raw]} for raw, remarked in zip(sorted_uris, remarked_uris)
             ],
         }
-        json_path.write_text(
-            json.dumps(wrapped, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
-        logger.info(
-            f"[DevExport] Written {json_path.name} "
-            f"({json_path.stat().st_size / 1024:.1f} KB)"
-        )
+        json_path.write_text(json.dumps(wrapped, indent=2, ensure_ascii=False), encoding="utf-8")
+        logger.info(f"[DevExport] Written {json_path.name} " f"({json_path.stat().st_size / 1024:.1f} KB)")
 
         logger.info(f"[DevExport] Exported 3 file(s) to {dev_dir}")
 
@@ -315,7 +309,9 @@ class Orchestrator:
                     fetch_windows=self.fetch_windows,
                 )
                 bot_conn.deadline = deadline
-                await maybe_await(self.ingest_pipeline.run(src_conf.id, bot_conn, source_type=src_conf.type, deadline=deadline))
+                await maybe_await(
+                    self.ingest_pipeline.run(src_conf.id, bot_conn, source_type=src_conf.type, deadline=deadline)
+                )
                 return True
             elif src_conf.type == "telegram_user" and src_conf.telegram_user:
                 if not src_conf.telegram_user.api_id or not src_conf.telegram_user.api_hash:
@@ -344,20 +340,23 @@ class Orchestrator:
                                 )
                                 return True  # not an error, just a dup
                             self._seen_channels.add(channel_id)
-                    await maybe_await(self.ingest_pipeline.run(src_conf.id, user_conn, source_type=src_conf.type, deadline=deadline))
+                    await maybe_await(
+                        self.ingest_pipeline.run(src_conf.id, user_conn, source_type=src_conf.type, deadline=deadline)
+                    )
                 return True
             elif src_conf.type == "v2ray_collector":
                 logger.info(f"[Worker] Ingesting source {src_conf.id} (Go v2ray_collector)")
                 from ..connectors.v2ray_collector.connector import V2RayCollectorConnector
+
                 # Determine absolute path to the v2ray_collector connector directory
                 connector_dir = os.path.join(
-                    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                    "connectors",
-                    "v2ray_collector"
+                    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "connectors", "v2ray_collector"
                 )
                 collector_conn = V2RayCollectorConnector(base_dir=connector_dir)
                 collector_conn.deadline = deadline
-                await maybe_await(self.ingest_pipeline.run(src_conf.id, collector_conn, source_type=src_conf.type, deadline=deadline))
+                await maybe_await(
+                    self.ingest_pipeline.run(src_conf.id, collector_conn, source_type=src_conf.type, deadline=deadline)
+                )
                 return True
             else:
                 logger.warning(f"[Worker] Skipping {src_conf.id}: unsupported type.")
@@ -394,6 +393,7 @@ class Orchestrator:
 
         if loop and loop.is_running():
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(asyncio.run, self._run_async(timeout, no_publish))
                 return future.result()
@@ -427,8 +427,7 @@ class Orchestrator:
             elapsed = time.time() - start_time
             if elapsed > timeout:
                 raise TimeoutError(
-                    f"[Orchestrator] Run timed out after {elapsed:.1f}s during {stage} "
-                    f"(timeout={timeout:.1f}s)"
+                    f"[Orchestrator] Run timed out after {elapsed:.1f}s during {stage} " f"(timeout={timeout:.1f}s)"
                 )
 
         logger.info(
@@ -450,8 +449,7 @@ class Orchestrator:
             lock = asyncio.Lock()
 
             logger.info(
-                f"[Orchestrator] ═══ Phase 1: Ingestion ═══  "
-                f"sources={total_sources}  workers={effective_workers}"
+                f"[Orchestrator] ═══ Phase 1: Ingestion ═══  " f"sources={total_sources}  workers={effective_workers}"
             )
 
             tasks = []
@@ -477,7 +475,6 @@ class Orchestrator:
         except (TimeoutError, asyncio.TimeoutError) as e:
             logger.warning(f"[Orchestrator] Phase 1 interrupted by timeout: {e}")
 
-
         # ── Phase 2: Transform ───────────────────────────────────────
         try:
             transform_start = time.time()
@@ -499,9 +496,7 @@ class Orchestrator:
         # ── Phase 3: Build & Publish ─────────────────────────────────
         # We proceed to Phase 3 even if timed out, to generate artifacts from whatever data we have.
         build_start = time.time()
-        logger.info(
-            f"[Orchestrator] ═══ Phase 3: Build & Publish ═══  routes={total_routes}"
-        )
+        logger.info(f"[Orchestrator] ═══ Phase 3: Build & Publish ═══  routes={total_routes}")
 
         try:
             # Create executor once for all routes to reduce overhead
@@ -545,7 +540,7 @@ class Orchestrator:
                                 fut = pub_executor.submit(self.publish_pipeline.run, res, dests)
                                 future_to_meta[fut] = {
                                     "route": route.name,
-                                    "artifact": res.get("unique_id", "unknown") if isinstance(res, dict) else str(res)
+                                    "artifact": res.get("unique_id", "unknown") if isinstance(res, dict) else str(res),
                                 }
                         else:
                             logger.info(f"[Orchestrator] Skipping publish for route '{route.name}' (--no-publish)")
@@ -626,7 +621,7 @@ class Orchestrator:
                 logger.info(f"[Orchestrator] Pruned {raw_pruned} raw store files from disk during auto-prune.")
             cleanup_duration = time.time() - cleanup_start
         except Exception as e:
-             logger.error(f"[Orchestrator] Cleanup failed: {e}")
+            logger.error(f"[Orchestrator] Cleanup failed: {e}")
 
         duration = time.time() - start_time
 
@@ -653,6 +648,5 @@ class Orchestrator:
             "publish_failures": publish_failures,
             "ingest_ok": results["ok"],
             "ingest_err": results["err"],
-            "failed_routes": len(failed_routes)
+            "failed_routes": len(failed_routes),
         }
-

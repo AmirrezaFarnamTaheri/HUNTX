@@ -6,7 +6,7 @@ from typing import Any
 def expand_env(text: str) -> str:
     # Match ${VAR} or ${VAR:-default}
     pattern = re.compile(r"\$\{([A-Za-z0-9_]+)(?::-([^}]*))?\}")
-    
+
     def replace(m: re.Match[str]) -> str:
         var_name = m.group(1)
         default_val = m.group(2)

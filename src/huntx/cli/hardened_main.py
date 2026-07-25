@@ -101,8 +101,7 @@ def _cmd_run(args):
             raise SystemExit(1)
         if status == "partial" and not allow_partial and not budget_partial:
             logger.error(
-                "Health Gate FAILED: partial run requires "
-                "HUNTX_ALLOW_PARTIAL_SUCCESS=true; summary=%s",
+                "Health Gate FAILED: partial run requires " "HUNTX_ALLOW_PARTIAL_SUCCESS=true; summary=%s",
                 summary,
             )
             raise SystemExit(1)
@@ -116,8 +115,7 @@ def _cmd_run(args):
         if summary.get("total_artifacts", 0) == 0:
             if budget_partial:
                 logger.warning(
-                    "Deadline-bounded partial run produced no new artifacts; "
-                    "preserving previously published outputs"
+                    "Deadline-bounded partial run produced no new artifacts; " "preserving previously published outputs"
                 )
             else:
                 logger.error("Health Gate FAILED: zero artifacts were built; summary=%s", summary)

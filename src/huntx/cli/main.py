@@ -23,18 +23,36 @@ def main():
 
     # run subcommand
     run_parser = subparsers.add_parser("run", help="Run the huntx pipeline")
-    run_parser.add_argument("--msg-fresh-hours", type=float, default=2,
-                            help="Text message lookback hours for first-seen source (default: 2)")
-    run_parser.add_argument("--file-fresh-hours", type=float, default=48,
-                            help="File/media lookback hours for first-seen source (default: 48)")
-    run_parser.add_argument("--msg-subsequent-hours", type=float, default=0,
-                            help="Text message lookback hours on subsequent runs (0=all new, default: 0)")
-    run_parser.add_argument("--file-subsequent-hours", type=float, default=0,
-                            help="File/media lookback hours on subsequent runs (0=all new, default: 0)")
-    run_parser.add_argument("--no-auto-deliver", action="store_true",
-                            help="Skip automatic subscription delivery after pipeline")
-    run_parser.add_argument("--no-publish", action="store_true",
-                            help="Skip publishing artifacts to destination channels")
+    run_parser.add_argument(
+        "--msg-fresh-hours",
+        type=float,
+        default=2,
+        help="Text message lookback hours for first-seen source (default: 2)",
+    )
+    run_parser.add_argument(
+        "--file-fresh-hours",
+        type=float,
+        default=48,
+        help="File/media lookback hours for first-seen source (default: 48)",
+    )
+    run_parser.add_argument(
+        "--msg-subsequent-hours",
+        type=float,
+        default=0,
+        help="Text message lookback hours on subsequent runs (0=all new, default: 0)",
+    )
+    run_parser.add_argument(
+        "--file-subsequent-hours",
+        type=float,
+        default=0,
+        help="File/media lookback hours on subsequent runs (0=all new, default: 0)",
+    )
+    run_parser.add_argument(
+        "--no-auto-deliver", action="store_true", help="Skip automatic subscription delivery after pipeline"
+    )
+    run_parser.add_argument(
+        "--no-publish", action="store_true", help="Skip publishing artifacts to destination channels"
+    )
 
     # bot subcommand — persistent standalone bot
     bot_parser = subparsers.add_parser("bot", help="Run the interactive bot persistently")
@@ -84,7 +102,6 @@ def main():
         _cmd_prune(args)
 
 
-
 def _cmd_run(args):
     from ..core.orchestrator import Orchestrator
     from ..core.locks import acquire_lock
@@ -93,9 +110,7 @@ def _cmd_run(args):
     try:
         max_workers = int(max_workers_str)
     except ValueError:
-        logger.warning(
-            f"Invalid HUNTX_MAX_WORKERS value '{max_workers_str}', defaulting to 3."
-        )
+        logger.warning(f"Invalid HUNTX_MAX_WORKERS value '{max_workers_str}', defaulting to 3.")
         max_workers = 3
     logger.info(f"Starting HuntX — config={args.config}, workers={max_workers}")
 
@@ -118,13 +133,13 @@ def _cmd_run(args):
             except ValueError:
                 run_timeout = 9000.0
             run_summary = orchestrator.run(timeout=run_timeout, no_publish=args.no_publish)
-            
+
             # Health Gate check
             total_artifacts = run_summary.get("total_artifacts", 0)
             publish_attempts = run_summary.get("publish_attempts", 0)
             publish_failures = run_summary.get("publish_failures", 0)
             successful_publishes = publish_attempts - publish_failures
-            
+
             if total_artifacts == 0:
                 logger.error("Health Gate FAILED: Zero artifacts were built during this run.")
                 sys.exit(1)
@@ -134,7 +149,6 @@ def _cmd_run(args):
     except Exception as e:
         logger.exception(f"Fatal error: {e}")
         sys.exit(1)
-
 
     # Auto-deliver subscription updates to all subscribers
     if not args.no_auto_deliver:
@@ -173,6 +187,7 @@ def _cmd_bot(args):
 
 def _backup_bot_users(db_path):
     import sqlite3
+
     if not Path(db_path).exists():
         return None
     try:
@@ -196,11 +211,11 @@ def _restore_bot_users(db_path, data):
     if not data:
         return
     import sqlite3
+
     try:
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS bot_users (
                 user_id TEXT PRIMARY KEY,
                 chat_id TEXT NOT NULL,
@@ -210,11 +225,12 @@ def _restore_bot_users(db_path, data):
                 last_delivered_at REAL DEFAULT 0,
                 default_format TEXT DEFAULT 'npvt'
             )
-            """
-        )
+            """)
         if data:
             columns = data[0].keys()
-            query = f"INSERT OR REPLACE INTO bot_users ({', '.join(columns)}) VALUES ({', '.join('?' for _ in columns)})"
+            query = (
+                f"INSERT OR REPLACE INTO bot_users ({', '.join(columns)}) VALUES ({', '.join('?' for _ in columns)})"
+            )
             for row in data:
                 cursor.execute(query, tuple(row[col] for col in columns))
         conn.commit()
@@ -226,7 +242,6 @@ def _restore_bot_users(db_path, data):
 
 def _cmd_clean(args):
     """Delete all data, state, cache for a fresh start."""
-    data_dir = Path(paths.DATA_DIR)
     db_path = Path(paths.STATE_DB_PATH)
 
     items = [
@@ -333,10 +348,10 @@ def _cmd_reset(args):
 
     # Re-ensure standard directories
     paths.ensure_dirs()
-    
+
     if bot_users_data:
         _restore_bot_users(db_path, bot_users_data)
-    
+
     # Add READMEs to outputs so git tracks them
     (paths.OUTPUT_DIR / "README.md").write_text(
         "# huntx Outputs\n\nAuto-generated build output. Do not edit manually.\n",
@@ -412,7 +427,7 @@ def _cmd_prune(args):
     published_artifacts_pruned = res.get("published_artifacts", 0)
     raw_hashes = res.get("raw_hashes", [])
 
-    print(f"Database statistics:")
+    print("Database statistics:")
     print(f"  - Seen files pruned: {seen_files_pruned}")
     print(f"  - Records pruned: {records_pruned}")
     print(f"  - Published artifacts pruned: {published_artifacts_pruned}")
@@ -430,4 +445,3 @@ def _cmd_prune(args):
 
 if __name__ == "__main__":
     main()
-

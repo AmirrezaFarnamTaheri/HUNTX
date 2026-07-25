@@ -159,8 +159,7 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
             reason = f"duplicate canonical Telegram channel {channel_id}; owned by {existing}"
             terminalized = self._work_queue.terminalize_source(str(source.id), reason)
             logger.warning(
-                "[LIFO] Skipping alias source %s for canonical channel %s already owned by %s; "
-                "terminalized=%s",
+                "[LIFO] Skipping alias source %s for canonical channel %s already owned by %s; " "terminalized=%s",
                 source.id,
                 channel_id,
                 existing,
@@ -257,8 +256,7 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                     async with lock:
                         results["ok"] += 1
                 logger.info(
-                    "[LIFO] source=%s window=[%s,%s) scanned=%s ingested=%s "
-                    "cursor=%s completed=%s",
+                    "[LIFO] source=%s window=[%s,%s) scanned=%s ingested=%s " "cursor=%s completed=%s",
                     item.source_id,
                     item.window_start_ts,
                     item.window_end_ts,
@@ -386,9 +384,7 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
         summary["lifo_windows_completed"] = self._window_completions
         summary["lifo_window_failures"] = self._window_failures
         summary["lifo_residue"] = residue
-        summary["ingest_skipped_due_to_budget"] = (
-            remaining_residue if self._ingestion_budget_exhausted else 0
-        )
+        summary["ingest_skipped_due_to_budget"] = remaining_residue if self._ingestion_budget_exhausted else 0
 
         if self._ingestion_budget_exhausted and summary.get("status") == "completed":
             summary["status"] = "partial"

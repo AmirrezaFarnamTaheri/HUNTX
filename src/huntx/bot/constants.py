@@ -50,9 +50,21 @@ _BOT_COMMANDS = [
 ]
 
 SUPPORTED_FORMATS = [
-    "npvt", "npvtsub", "ovpn", "npv4", "conf_lines",
-    "ehi", "hc", "hat", "sip", "nm", "dark",
-    "tut", "sks", "tmt", "opaque_bundle",
+    "npvt",
+    "npvtsub",
+    "ovpn",
+    "npv4",
+    "conf_lines",
+    "ehi",
+    "hc",
+    "hat",
+    "sip",
+    "nm",
+    "dark",
+    "tut",
+    "sks",
+    "tmt",
+    "opaque_bundle",
 ]
 
 _ALL_VALID_FORMATS = SUPPORTED_FORMATS + ["b64sub", "decoded.json"]

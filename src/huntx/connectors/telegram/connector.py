@@ -4,14 +4,14 @@ import urllib.request
 import urllib.error
 import json
 from dataclasses import dataclass
-from typing import Dict, Any, Optional, Iterator
-from ..base import SourceConnector, SourceItem, AsyncSyncIterator
-
+from typing import Dict, Any, Optional
+from ..base import SourceConnector, AsyncSyncIterator
 
 
 @dataclass
 class TelegramItem:
     """Concrete SourceItem for Bot API connector."""
+
     __slots__ = ("external_id", "data", "metadata")
     external_id: str
     data: bytes
@@ -30,8 +30,13 @@ class TelegramConnector(SourceConnector):
     # Structure: { token: { 'updates': {update_id: update_obj}, 'last_offset': int } }
     _shared_state: Dict[str, Any] = {}
 
-    def __init__(self, token: str, chat_id: str, state: Optional[Dict[str, Any]] = None,
-                 fetch_windows: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        token: str,
+        chat_id: str,
+        state: Optional[Dict[str, Any]] = None,
+        fetch_windows: Optional[Dict[str, Any]] = None,
+    ):
         self.token = token
         self.target_chat_id = str(chat_id)
         # If state is None or offset is 0, it is effectively a fresh start.
@@ -81,8 +86,13 @@ class TelegramConnector(SourceConnector):
                     return res
             except urllib.error.HTTPError as e:
                 if e.code == 409:
-                    logger.critical(f"[Telegram API] 409 Conflict detected for method '{method}'. Another process is polling this bot token!")
-                    raise RuntimeError("409 Conflict: Telegram bot token is already in use by another active getUpdates session.")
+                    logger.critical(
+                        f"[Telegram API] 409 Conflict detected for method '{method}'. "
+                        "Another process is polling this bot token!"
+                    )
+                    raise RuntimeError(
+                        "409 Conflict: Telegram bot token is already in use by another active getUpdates session."
+                    )
                 if attempt < MAX_RETRIES:
                     sleep_time = BACKOFF_FACTOR * (2**attempt)
                     logger.warning(
@@ -133,11 +143,13 @@ class TelegramConnector(SourceConnector):
 
     async def _make_request_async(self, method: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         import asyncio
+
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self._make_request, method, params)
 
     async def _download_file_async(self, file_path: str) -> Optional[bytes]:
         import asyncio
+
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self._download_file, file_path)
 
@@ -146,15 +158,14 @@ class TelegramConnector(SourceConnector):
 
     async def _list_new_async(self, state: Optional[Dict[str, Any]] = None):
         import asyncio
+
         # Update offset if provided
         local_offset = state.get("offset", 0) if state else 0
         self.offset = local_offset
 
         is_fresh_start = local_offset == 0
         mode = "fresh_start" if is_fresh_start else "subsequent"
-        logger.info(
-            f"[BotAPI] Fetching updates  chat={self.target_chat_id}  offset={self.offset}  mode={mode}"
-        )
+        logger.info(f"[BotAPI] Fetching updates  chat={self.target_chat_id}  offset={self.offset}  mode={mode}")
 
         # Determine if this is a fresh start (no previous offset)
         # Configurable cutoffs from fetch_windows
@@ -224,8 +235,7 @@ class TelegramConnector(SourceConnector):
 
         cache_size = len(shared["updates"])
         logger.info(
-            f"[BotAPI] Fetched {fetched_updates_count} new updates  "
-            f"cache_total={cache_size}  processing..."
+            f"[BotAPI] Fetched {fetched_updates_count} new updates  " f"cache_total={cache_size}  processing..."
         )
 
         if fetched_updates_count == 0 and is_fresh_start:
@@ -341,9 +351,12 @@ class TelegramConnector(SourceConnector):
                         if data:
                             # Deep inspection
                             from ...utils.content_type import is_executable
+
                             is_exec, type_desc = is_executable(data)
                             if is_exec:
-                                logger.info(f"Skipping executable file in update {update_id}: {file_name} ({type_desc})")
+                                logger.info(
+                                    f"Skipping executable file in update {update_id}: {file_name} ({type_desc})"
+                                )
                                 stats["skipped_apk"] += 1
                                 continue
 

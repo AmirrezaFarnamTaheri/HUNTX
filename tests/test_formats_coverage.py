@@ -11,6 +11,24 @@ from huntx.formats.sip import SipHandler
 
 
 class TestFormatsCoverage(unittest.TestCase):
+    def test_b64_decode_shared_helper(self):
+        import base64
+        import binascii
+        from huntx.formats.common.b64 import b64_decode
+
+        payload = "hello:world"
+        enc_padded = base64.b64encode(payload.encode()).decode()
+        self.assertEqual(b64_decode(enc_padded), payload)
+
+        enc_stripped = enc_padded.rstrip("=")
+        self.assertEqual(b64_decode(enc_stripped), payload)
+
+        enc_urlsafe = base64.urlsafe_b64encode(payload.encode()).decode().rstrip("=")
+        self.assertEqual(b64_decode(enc_urlsafe), payload)
+
+        with self.assertRaises((binascii.Error, ValueError)):
+            b64_decode("!@#$%^&*()")
+
     def test_npvt_format(self):
         import base64
         import json

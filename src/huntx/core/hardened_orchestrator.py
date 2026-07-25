@@ -29,9 +29,13 @@ class HardenedOrchestrator(Orchestrator):
                     asyncio.run,
                     self._run_hardened(timeout, no_publish, allow_partial_export),
                 ).result()
+<<<<<<< Updated upstream
         return asyncio.run(
             self._run_hardened(timeout, no_publish, allow_partial_export)
         )
+=======
+        return asyncio.run(self._run_hardened(timeout, no_publish, allow_partial_export))
+>>>>>>> Stashed changes
 
     async def _run_hardened(
         self,
@@ -41,11 +45,7 @@ class HardenedOrchestrator(Orchestrator):
     ) -> dict[str, Any]:
         start_time = time.monotonic()
         self._deadline = time.time() + timeout if timeout else None
-        eligible_sources = [
-            source
-            for source in self.config.sources
-            if getattr(source, "publication_eligible", True)
-        ]
+        eligible_sources = [source for source in self.config.sources if getattr(source, "publication_eligible", True)]
         excluded_sources = len(self.config.sources) - len(eligible_sources)
         total_sources = len(eligible_sources)
         total_routes = len(self.config.routes)
@@ -236,9 +236,7 @@ class HardenedOrchestrator(Orchestrator):
                     except Exception:
                         publish_failures += 1
                         failed_routes.add(route_name)
-                        logger.exception(
-                            "[Orchestrator] Publish failed for route %s", route_name
-                        )
+                        logger.exception("[Orchestrator] Publish failed for route %s", route_name)
                 if not_done:
                     mark_timeout("publishing")
                     for pending_item in not_done:
@@ -247,9 +245,7 @@ class HardenedOrchestrator(Orchestrator):
                 publisher.shutdown(wait=False, cancel_futures=True)
                 stage_seconds["publishing"] = time.monotonic() - publish_start
 
-        should_export = status == "completed" or (
-            status == "timed_out" and allow_partial_export
-        )
+        should_export = status == "completed" or (status == "timed_out" and allow_partial_export)
         export_start = time.monotonic()
         if should_export:
             try:
@@ -259,9 +255,7 @@ class HardenedOrchestrator(Orchestrator):
                 status = "failed"
                 logger.exception("[Orchestrator] Output export failed")
         elif all_build_results:
-            logger.warning(
-                "[Orchestrator] Partial artifacts were not exported because partial export is disabled"
-            )
+            logger.warning("[Orchestrator] Partial artifacts were not exported because partial export is disabled")
         stage_seconds["export"] = time.monotonic() - export_start
 
         cleanup_start = time.monotonic()

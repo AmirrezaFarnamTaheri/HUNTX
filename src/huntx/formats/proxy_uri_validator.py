@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-import base64
 import binascii
 import ipaddress
 import json
 import re
 import uuid
 from urllib.parse import parse_qs, unquote, urlsplit
+
+from .common.b64 import b64_decode as _decode_base64_text
 
 _HOST_RE = re.compile(
     r"^(?=.{1,253}\.?$)(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.?$"
@@ -45,13 +46,6 @@ _AUTH_REQUIRED_SCHEMES = {
     "wireguard",
     "wg",
 }
-
-
-def _decode_base64_text(value: str) -> str:
-    normalized = value.replace("-", "+").replace("_", "/")
-    normalized += "=" * ((4 - len(normalized) % 4) % 4)
-    decoded = base64.b64decode(normalized, validate=True)
-    return decoded.decode("utf-8")
 
 
 def _valid_host(host: str | None) -> bool:
@@ -172,12 +166,7 @@ def _validate_standard_uri(uri: str) -> bool:
 
 
 def validate_proxy_uri(uri: str) -> bool:
-    if (
-        not uri
-        or len(uri) > 16384
-        or uri != uri.strip()
-        or any(ch in uri for ch in "\r\n\t <>'\"")
-    ):
+    if not uri or len(uri) > 16384 or uri != uri.strip() or any(ch in uri for ch in "\r\n\t <>'\""):
         return False
     scheme = uri.split("://", 1)[0].lower() if "://" in uri else ""
     if scheme == "ss":

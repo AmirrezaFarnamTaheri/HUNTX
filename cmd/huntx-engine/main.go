@@ -13,6 +13,7 @@ import (
 	"huntx-engine/benchmark"
 	"huntx-engine/georoute"
 	"huntx-engine/healing"
+	"huntx-engine/internal/parse"
 	"huntx-engine/stream"
 )
 
@@ -42,22 +43,15 @@ func main() {
 			os.Exit(1)
 		}
 
-		sp := stream.NewStreamParser(65536)
-		var r *os.File
-		var err error
-
+		var (
+			records []stream.Record
+			err     error
+		)
 		if *fileFlag != "" {
-			r, err = os.Open(*fileFlag)
-			if err != nil {
-				slog.Error("failed to open file", "path", *fileFlag, "error", err)
-				os.Exit(1)
-			}
-			defer r.Close()
+			records, err = parse.ParseFile(*fileFlag)
 		} else {
-			r = os.Stdin
+			records, err = parse.ParseReader(os.Stdin)
 		}
-
-		records, err := sp.ParseStream(r)
 		if err != nil {
 			slog.Error("failed to parse stream", "error", err)
 			os.Exit(1)
@@ -147,7 +141,6 @@ func main() {
 		os.Exit(1)
 	}
 }
-
 
 func printUsage() {
 	fmt.Println(`HUNTX Next-Gen Go High-Performance Engine

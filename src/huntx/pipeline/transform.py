@@ -41,9 +41,12 @@ class TransformPipeline:
         source_id = row["source_id"]
         filename = row["filename"] or "unknown"
         result: Dict[str, Any] = {
-            "status": "ok", "format": None, "records": 0, "duration": 0.0,
-            "record_rows": [],       # (raw_hash, record_type, unique_hash, data_json)
-            "status_update": None,   # (status, error_msg, raw_hash)
+            "status": "ok",
+            "format": None,
+            "records": 0,
+            "duration": 0.0,
+            "record_rows": [],  # (raw_hash, record_type, unique_hash, data_json)
+            "status_update": None,  # (status, error_msg, raw_hash)
             "raw_hash": raw_hash,
             "filename": filename,
         }
@@ -134,7 +137,7 @@ class TransformPipeline:
 
         return len(all_record_rows), processed, failed, skipped
 
-    def process_pending(self):
+    def process_pending(self, *args: Any, **kwargs: Any) -> Any:
         """
         Finds pending files, determines format, parses, and saves records.
         Processes in batches of TRANSFORM_BATCH_SIZE for efficient DB writes.
@@ -167,7 +170,7 @@ class TransformPipeline:
                 # Parallel parse within batch
                 batch_results: List[Dict[str, Any]] = []
                 future_to_row = {executor.submit(self._process_single_file, row): row for row in batch}
-                
+
                 for future in concurrent.futures.as_completed(future_to_row):
                     try:
                         res = future.result()

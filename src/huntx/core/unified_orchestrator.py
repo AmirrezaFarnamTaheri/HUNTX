@@ -3,10 +3,7 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import logging
-import math
-import os
 import time
-import uuid
 from typing import Any, Optional
 
 from .orchestrator import Orchestrator
@@ -15,11 +12,9 @@ from .scoring import ProxyScoringEngine
 from .geo_routing import GeoRoutingEngine
 from .self_healing import SelfHealingDaemon
 from ..formats.streaming import StreamingChunkParser
-from ..connectors.telegram_user.windowed import WindowedTelegramUserConnector
 from ..pipeline.optimized_transform import OptimizedTransformPipeline
 from ..pipeline.windowed_ingest import WindowedIngestionPipeline
 from ..state.ingestion_queue import PersistentIngestionQueue
-from .latency_benchmarker import check_proxy_latency
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +25,9 @@ class UnifiedOrchestrator(Orchestrator):
     latency benchmarking, zero-copy streaming, geo-routing, and self-healing.
     """
 
-    def __init__(self, *args: Any, enable_benchmarking: bool = True, max_proxy_latency_ms: int = 1500, **kwargs: Any) -> None:
+    def __init__(
+        self, *args: Any, enable_benchmarking: bool = True, max_proxy_latency_ms: int = 1500, **kwargs: Any
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.enable_benchmarking = enable_benchmarking
         self.max_proxy_latency_ms = max_proxy_latency_ms
@@ -40,7 +37,6 @@ class UnifiedOrchestrator(Orchestrator):
         self.geo_routing = GeoRoutingEngine()
         self.self_healing = SelfHealingDaemon()
         self.transform_pipeline = OptimizedTransformPipeline(
-
             self.raw_store,
             self.repo,
             self.registry,
@@ -89,19 +85,13 @@ class UnifiedOrchestrator(Orchestrator):
     ) -> dict[str, Any]:
         start_time = time.monotonic()
         self._deadline = time.time() + timeout if timeout else None
-        
-        eligible_sources = [
-            source
-            for source in self.config.sources
-            if getattr(source, "publication_eligible", True)
-        ]
-        
+
         status = "completed"
         results: dict[str, int] = {"ok": 0, "err": 0}
 
         # 1. Transform Phase
         try:
-            self.transform_pipeline.run()
+            self.transform_pipeline.process_pending()
         except Exception as e:
             logger.warning("[UnifiedOrchestrator] Transform pipeline completed with notice: %s", e)
 

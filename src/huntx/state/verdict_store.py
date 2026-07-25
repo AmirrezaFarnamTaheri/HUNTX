@@ -90,9 +90,7 @@ def get_records_for_governed_build(
         verdict_where = " AND v.syntax_status = 'pass' AND v.policy_status = 'pass'"
         if require_fresh_probe:
             verdict_where += (
-                " AND v.probe_status = 'pass'"
-                " AND v.probe_expires_at IS NOT NULL"
-                " AND v.probe_expires_at > ?"
+                " AND v.probe_status = 'pass'" " AND v.probe_expires_at IS NOT NULL" " AND v.probe_expires_at > ?"
             )
             args.append(float(now_epoch if now_epoch is not None else time.time()))
     query = f"""
