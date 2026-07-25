@@ -5,9 +5,11 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"strings"
 )
+
 
 type Record struct {
 	UniqueHash string `json:"unique_hash"`
@@ -64,18 +66,23 @@ func (sp *StreamParser) ParseStream(r io.Reader) ([]Record, error) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return records, err
+		return records, fmt.Errorf("read stream buffer: %w", err)
 	}
 
 	// Process base64 payload if accumulated
 	if base64Accumulator.Len() > 0 {
 		decoded, err := base64.StdEncoding.DecodeString(base64Accumulator.String())
-		if err == nil {
-			decodedReader := strings.NewReader(string(decoded))
-			b64Records, _ := sp.ParseStream(decodedReader)
-			records = append(records, b64Records...)
+		if err != nil {
+			return records, fmt.Errorf("decode base64 payload: %w", err)
 		}
+		decodedReader := strings.NewReader(string(decoded))
+		b64Records, err := sp.ParseStream(decodedReader)
+		if err != nil {
+			return records, fmt.Errorf("parse base64 stream payload: %w", err)
+		}
+		records = append(records, b64Records...)
 	}
 
 	return records, nil
+
 }

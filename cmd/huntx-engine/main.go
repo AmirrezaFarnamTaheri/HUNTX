@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
@@ -20,6 +21,9 @@ var (
 )
 
 func main() {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	slog.SetDefault(logger)
+
 	if len(os.Args) < 2 {
 		printUsage()
 		os.Exit(0)
@@ -33,7 +37,10 @@ func main() {
 	case "parse":
 		fs := flag.NewFlagSet("parse", flag.ExitOnError)
 		fileFlag := fs.String("file", "", "Path to subscription file or raw payload")
-		_ = fs.Parse(os.Args[2:])
+		if err := fs.Parse(os.Args[2:]); err != nil {
+			slog.Error("failed to parse flags", "error", err)
+			os.Exit(1)
+		}
 
 		sp := stream.NewStreamParser(65536)
 		var r *os.File
@@ -42,7 +49,7 @@ func main() {
 		if *fileFlag != "" {
 			r, err = os.Open(*fileFlag)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error opening file: %v\n", err)
+				slog.Error("failed to open file", "path", *fileFlag, "error", err)
 				os.Exit(1)
 			}
 			defer r.Close()
@@ -52,11 +59,15 @@ func main() {
 
 		records, err := sp.ParseStream(r)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error parsing stream: %v\n", err)
+			slog.Error("failed to parse stream", "error", err)
 			os.Exit(1)
 		}
 
-		out, _ := json.MarshalIndent(records, "", "  ")
+		out, err := json.MarshalIndent(records, "", "  ")
+		if err != nil {
+			slog.Error("failed to marshal json records", "error", err)
+			os.Exit(1)
+		}
 		fmt.Println(string(out))
 
 	case "benchmark":
@@ -64,10 +75,13 @@ func main() {
 		targetsFlag := fs.String("targets", "", "Comma-separated host:port targets")
 		concurrencyFlag := fs.Int("concurrency", 50, "Max concurrent TCP workers")
 		timeoutFlag := fs.Duration("timeout", 2*time.Second, "Dial timeout duration")
-		_ = fs.Parse(os.Args[2:])
+		if err := fs.Parse(os.Args[2:]); err != nil {
+			slog.Error("failed to parse flags", "error", err)
+			os.Exit(1)
+		}
 
 		if *targetsFlag == "" {
-			fmt.Fprintln(os.Stderr, "Error: --targets flag is required (e.g. --targets '1.1.1.1:443,8.8.8.8:53')")
+			slog.Error("missing required flag", "flag", "--targets")
 			os.Exit(1)
 		}
 
@@ -78,17 +92,28 @@ func main() {
 		defer cancel()
 
 		results := bm.CheckBatch(ctx, targets)
-		out, _ := json.MarshalIndent(results, "", "  ")
+		out, err := json.MarshalIndent(results, "", "  ")
+		if err != nil {
+			slog.Error("failed to marshal benchmark results", "error", err)
+			os.Exit(1)
+		}
 		fmt.Println(string(out))
 
 	case "georoute":
 		fs := flag.NewFlagSet("georoute", flag.ExitOnError)
 		regionFlag := fs.String("region", "US", "ISO country code to filter by")
-		_ = fs.Parse(os.Args[2:])
+		if err := fs.Parse(os.Args[2:]); err != nil {
+			slog.Error("failed to parse flags", "error", err)
+			os.Exit(1)
+		}
 
 		engine := georoute.NewEngine()
 		sp := stream.NewStreamParser(65536)
-		records, _ := sp.ParseStream(os.Stdin)
+		records, err := sp.ParseStream(os.Stdin)
+		if err != nil {
+			slog.Error("failed to parse stdin stream for georoute", "error", err)
+			os.Exit(1)
+		}
 
 		var classified []georoute.ProxyRecord
 		for _, rec := range records {
@@ -101,7 +126,11 @@ func main() {
 		}
 
 		filtered := georoute.FilterByRegion(classified, *regionFlag)
-		out, _ := json.MarshalIndent(filtered, "", "  ")
+		out, err := json.MarshalIndent(filtered, "", "  ")
+		if err != nil {
+			slog.Error("failed to marshal georoute results", "error", err)
+			os.Exit(1)
+		}
 		fmt.Println(string(out))
 
 	case "heal":
@@ -110,14 +139,15 @@ func main() {
 		daemon.RecordFailure("demo_hash", "vless://user@host:443", now)
 		purged := daemon.PurgeStale(48*time.Hour, now)
 
-		fmt.Printf("Self-Healing Daemon initialized. Purged stale nodes: %d\n", purged)
+		slog.Info("self-healing daemon status check", "purged_stale_nodes", purged)
 
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", command)
+		slog.Error("unknown command", "command", command)
 		printUsage()
 		os.Exit(1)
 	}
 }
+
 
 func printUsage() {
 	fmt.Println(`HUNTX Next-Gen Go High-Performance Engine
