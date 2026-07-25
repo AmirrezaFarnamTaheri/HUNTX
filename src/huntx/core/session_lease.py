@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import time
+import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncIterator
@@ -19,6 +20,10 @@ def session_lease_path(root: Path, session_identity: str) -> Path:
     return root / "session-leases" / f"{digest}.lock"
 
 
+def _serialise_owner(owner: dict) -> bytes:
+    return json.dumps(owner, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
 def _try_create(path: Path, owner: dict) -> bool:
     path.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -26,11 +31,30 @@ def _try_create(path: Path, owner: dict) -> bool:
     except FileExistsError:
         return False
     try:
-        payload = json.dumps(owner, sort_keys=True).encode("utf-8")
-        os.write(descriptor, payload)
+        os.write(descriptor, _serialise_owner(owner))
         os.fsync(descriptor)
     finally:
         os.close(descriptor)
+    return True
+
+
+def _read_owner_token(path: Path) -> str | None:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    token = payload.get("lease_token")
+    return token if isinstance(token, str) else None
+
+
+def _remove_if_owned(path: Path, lease_token: str) -> bool:
+    """Delete the lease only while it still carries this holder's token."""
+    if _read_owner_token(path) != lease_token:
+        return False
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        return False
     return True
 
 
@@ -41,7 +65,7 @@ def _remove_if_stale(path: Path, stale_after_seconds: float, now: float) -> bool
         return False
     if now - stat.st_mtime <= stale_after_seconds:
         return False
-    stale_path = path.with_name(f"{path.name}.stale-{int(now)}-{os.getpid()}")
+    stale_path = path.with_name(f"{path.name}.stale-{int(now)}-{os.getpid()}-{uuid.uuid4().hex}")
     try:
         os.replace(path, stale_path)
     except FileNotFoundError:
@@ -61,10 +85,12 @@ async def acquire_session_lease(
 ) -> AsyncIterator[Path]:
     path = session_lease_path(root, session_identity)
     deadline = time.monotonic() + max(0.0, timeout_seconds)
+    lease_token = uuid.uuid4().hex
     owner = {
         "pid": os.getpid(),
         "created_at": time.time(),
         "session_sha256": hashlib.sha256(session_identity.encode("utf-8")).hexdigest(),
+        "lease_token": lease_token,
     }
     while True:
         if _try_create(path, owner):
@@ -76,4 +102,4 @@ async def acquire_session_lease(
     try:
         yield path
     finally:
-        path.unlink(missing_ok=True)
+        _remove_if_owned(path, lease_token)
