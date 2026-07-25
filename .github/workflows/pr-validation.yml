@@ -5,7 +5,6 @@ on:
   pull_request:
     paths:
       - ".github/workflows/**"
-      - "cmd/**"
       - "configs/**"
       - "pyproject.toml"
       - "requirements*.txt"
@@ -16,10 +15,8 @@ on:
     branches:
       - "fix/**"
       - "agent/**"
-      - "feat/**"
     paths:
       - ".github/workflows/**"
-      - "cmd/**"
       - "configs/**"
       - "pyproject.toml"
       - "requirements*.txt"
@@ -59,7 +56,6 @@ jobs:
           persist-credentials: false
           sparse-checkout: |
             .github/workflows
-            cmd
             configs
             scripts
             src
@@ -73,11 +69,6 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.26"
-
       - name: Install dependencies
         run: |
           set -euo pipefail
@@ -86,25 +77,19 @@ jobs:
           python -m pip install --no-deps -e .
           python -m pip check
 
-      - name: Compile Python
+      - name: Compile
         run: python -m compileall -q -j 0 src tests
 
-      - name: Lint Python
+      - name: Lint
         run: python -m flake8 src/huntx tests --count --select=E9,F63,F7,F82 --show-source --statistics
 
-      - name: Type check Python
+      - name: Type check
         run: |
           set -o pipefail
           python -m mypy src/huntx 2>&1 | tee mypy-results.txt
 
-      - name: Test Python
+      - name: Test
         run: python -m pytest -q --strict-config --strict-markers --durations=20 --junitxml=pytest-results.xml
-
-      - name: Test Go Engine
-        run: |
-          cd cmd/huntx-engine
-          go test -v ./...
-
 
       - name: Publish validation summary
         if: always()
