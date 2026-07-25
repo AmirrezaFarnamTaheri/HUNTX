@@ -27,19 +27,23 @@ class AsyncSyncIterator:
         return self.async_gen
 
     def __iter__(self):
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
         async def collect():
             items = []
             async for item in self.async_gen:
                 items.append(item)
             return items
-            
-        return iter(loop.run_until_complete(collect()))
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                return iter(executor.submit(asyncio.run, collect()).result())
+        else:
+            return iter(asyncio.run(collect()))
 
 
 async def async_iter(iterable):

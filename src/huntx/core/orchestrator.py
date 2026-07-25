@@ -384,18 +384,17 @@ class Orchestrator:
 
     def run(self, timeout: float | None = None, no_publish: bool = False):
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
         except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        
-        if loop.is_running():
+            loop = None
+
+        if loop and loop.is_running():
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(asyncio.run, self._run_async(timeout, no_publish))
                 return future.result()
         else:
-            return loop.run_until_complete(self._run_async(timeout, no_publish))
+            return asyncio.run(self._run_async(timeout, no_publish))
 
     async def _run_async(self, timeout: float | None = None, no_publish: bool = False):
         start_time = time.time()
