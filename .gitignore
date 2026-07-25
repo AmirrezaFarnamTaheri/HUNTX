@@ -26,8 +26,12 @@ persist/
 my_config.yaml
 *.session
 *.log
+*.tmp
+*.bak
+.aris/
 huntx-output/
 temp_*
+
 
 
 # Go collector generated files
