@@ -17,13 +17,13 @@ def wall_clock(fn: Callable[..., T], *args: Any, **kwargs: Any) -> tuple[T, floa
 
 
 def rss_mb() -> float:
-    """Return current process RSS in MB. Returns 0.0 on unsupported platforms."""
+    """Return current process RSS in MiB, or 0.0 when unavailable."""
     try:
-        import resource  # type: ignore[import]
-        return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024  # type: ignore[attr-defined]
+        import psutil  # type: ignore[import]
     except ImportError:
-        try:
-            import psutil  # type: ignore[import]
-            return psutil.Process(os.getpid()).memory_info().rss / (1024 * 1024)
-        except ImportError:
-            return 0.0
+        return 0.0
+
+    try:
+        return psutil.Process(os.getpid()).memory_info().rss / (1024 * 1024)
+    except (OSError, psutil.Error):
+        return 0.0
