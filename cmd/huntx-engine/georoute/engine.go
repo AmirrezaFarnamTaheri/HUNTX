@@ -6,8 +6,10 @@ import (
 	"sync"
 )
 
+const maxCacheEntries = 4096
+
 var (
-	countryTagRegex = regexp.MustCompile(`\b([A-Z]{2})\b`)
+	countryTagRegex = regexp.MustCompile(`(?:^|[^A-Za-z0-9])([A-Z]{2})(?:$|[^A-Za-z0-9])`)
 	tldCountryMap   = map[string]string{
 		".de": "DE", ".fr": "FR", ".uk": "GB", ".us": "US", ".jp": "JP",
 		".nl": "NL", ".sg": "SG", ".ca": "CA", ".au": "AU", ".ir": "IR",
@@ -34,9 +36,7 @@ type Engine struct {
 }
 
 func NewEngine() *Engine {
-	return &Engine{
-		cache: make(map[string]string),
-	}
+	return &Engine{cache: make(map[string]string)}
 }
 
 func (e *Engine) InferCountryCode(uri string) string {
@@ -48,34 +48,33 @@ func (e *Engine) InferCountryCode(uri string) string {
 	e.mu.RUnlock()
 
 	code := "XX"
-
-	// 1. Check hashtag remark
 	if idx := strings.Index(uri, "#"); idx != -1 {
 		remark := uri[idx+1:]
-		matches := countryTagRegex.FindAllString(remark, -1)
-		for _, m := range matches {
-			if validCountries[m] {
-				code = m
+		matches := countryTagRegex.FindAllStringSubmatch(remark, -1)
+		for _, match := range matches {
+			if len(match) > 1 && validCountries[match[1]] {
+				code = match[1]
 				break
 			}
 		}
 	}
 
-	// 2. Check TLD from hostname if not found
 	if code == "XX" {
 		lower := strings.ToLower(uri)
-		for tld, c := range tldCountryMap {
+		for tld, country := range tldCountryMap {
 			if strings.Contains(lower, tld) {
-				code = c
+				code = country
 				break
 			}
 		}
 	}
 
 	e.mu.Lock()
+	if len(e.cache) >= maxCacheEntries {
+		clear(e.cache)
+	}
 	e.cache[uri] = code
 	e.mu.Unlock()
-
 	return code
 }
 
@@ -111,9 +110,9 @@ func (e *Engine) Classify(rec ProxyRecord) ProxyRecord {
 func FilterByRegion(records []ProxyRecord, country string) []ProxyRecord {
 	target := strings.ToUpper(country)
 	var filtered []ProxyRecord
-	for _, r := range records {
-		if r.CountryCode == target {
-			filtered = append(filtered, r)
+	for _, record := range records {
+		if record.CountryCode == target {
+			filtered = append(filtered, record)
 		}
 	}
 	return filtered
