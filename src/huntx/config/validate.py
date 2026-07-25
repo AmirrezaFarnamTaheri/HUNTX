@@ -1,6 +1,10 @@
+import logging
 import os
+
 from .schema import AppConfig
 from ..formats.registry import FormatRegistry
+
+logger = logging.getLogger(__name__)
 
 
 def validate_config(config: AppConfig):
@@ -15,18 +19,25 @@ def validate_config(config: AppConfig):
     - If strict mode is active (HUNTX_STRICT=1 or CI=true), missing/unexpanded destination tokens are fatal
     """
     registry = FormatRegistry.get_instance()
-    # Populates registry dynamically if empty to validate formats during loader phase
+    # Populate the registry dynamically when validation runs before app startup.
     if not registry.list_formats():
+        from ..formats.register_builtin import register_all_formats
+        from ..store.raw_store import RawStore
+
         try:
-            from ..store.raw_store import RawStore
-            from ..formats.register_builtin import register_all_formats
+            raw_store = RawStore()
+        except OSError as exc:
+            # Dry tests may intentionally run without a writable data directory.
+            logger.warning("Raw store unavailable during config validation: %s", exc)
+        else:
+            # Registration errors are programming/configuration failures and must propagate.
+            register_all_formats(registry, raw_store)
 
-            register_all_formats(registry, RawStore())
-        except Exception:
-            # Fallback if raw store cannot be created (e.g. inside dry tests)
-            pass
-
-    is_strict = os.getenv("HUNTX_STRICT", "0") in ("1", "true", "TRUE") or os.getenv("CI", "0") in ("1", "true", "TRUE")
+    is_strict = os.getenv("HUNTX_STRICT", "0") in ("1", "true", "TRUE") or os.getenv("CI", "0") in (
+        "1",
+        "true",
+        "TRUE",
+    )
 
     seen_ids = set()
     for s in config.sources:
