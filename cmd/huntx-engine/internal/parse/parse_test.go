@@ -34,6 +34,8 @@ func BenchmarkParseReader_1000Lines(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		_, _ = parse.ParseReader(strings.NewReader(input))
+		if _, err := parse.ParseReader(strings.NewReader(input)); err != nil {
+			b.Fatalf("ParseReader failed during benchmark: %v", err)
+		}
 	}
 }
