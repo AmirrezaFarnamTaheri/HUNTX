@@ -14,6 +14,14 @@ class SessionLeaseTimeout(RuntimeError):
     pass
 
 
+# Upper bound on how long a stale-lease reclamation can legitimately take.
+# Reclamation is a few filesystem syscalls (microseconds); a ``.reap`` marker
+# older than this can only mean the reaping process died mid-operation, so it
+# is safe to force-remove and retry. Kept far longer than any real reap to
+# guarantee we never yank a marker out from under a live reaper.
+_REAP_LOCK_TTL_SECONDS = 60.0
+
+
 def session_lease_path(root: Path, session_identity: str) -> Path:
     digest = hashlib.sha256(session_identity.encode("utf-8")).hexdigest()[:24]
     return root / "session-leases" / f"{digest}.lock"
@@ -34,20 +42,77 @@ def _try_create(path: Path, owner: dict) -> bool:
     return True
 
 
-def _remove_if_stale(path: Path, stale_after_seconds: float, now: float) -> bool:
+def _is_stale(path: Path, stale_after_seconds: float, now: float) -> bool:
     try:
         stat = path.stat()
     except FileNotFoundError:
         return False
-    if now - stat.st_mtime <= stale_after_seconds:
-        return False
-    stale_path = path.with_name(f"{path.name}.stale-{int(now)}-{os.getpid()}")
+    return (now - stat.st_mtime) > stale_after_seconds
+
+
+def _acquire_reap_lock(reap_path: Path) -> bool:
+    """Acquire the exclusive reap marker, force-removing a crashed one.
+
+    Only the holder of this marker may reclaim a stale lease, which serializes
+    reapers so at most one removes the stale file at a time. Returns True if
+    this caller now owns the marker.
+    """
     try:
-        os.replace(path, stale_path)
-    except FileNotFoundError:
-        return False
-    stale_path.unlink(missing_ok=True)
+        descriptor = os.open(reap_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        try:
+            age = time.time() - reap_path.stat().st_mtime
+        except FileNotFoundError:
+            return False
+        if age <= _REAP_LOCK_TTL_SECONDS:
+            return False  # another reaper is active; do not disturb it
+        # The prior reaper is long dead: reclaim its marker, then retry once.
+        try:
+            os.unlink(reap_path)
+        except FileNotFoundError:
+            pass
+        try:
+            descriptor = os.open(reap_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            return False  # lost the race to another reaper — let them proceed
+    os.close(descriptor)
     return True
+
+
+def _remove_if_stale(path: Path, stale_after_seconds: float, now: float) -> bool:
+    """Reclaim ``path`` iff it is a genuinely stale lease.
+
+    Reclamation is guarded by an ``O_EXCL`` reap marker so that only one
+    process removes the stale file. Because a fresh lease can only be created
+    while ``path`` does *not* exist (holders use ``O_EXCL``), the stale file
+    is guaranteed to remain the same inode from the re-check under the marker
+    through ``os.replace`` — closing the race where a late ``os.replace`` from
+    one waiter could clobber a live lease freshly created by another.
+    """
+    if not _is_stale(path, stale_after_seconds, now):
+        return False
+
+    reap_path = path.with_name(f"{path.name}.reap")
+    if not _acquire_reap_lock(reap_path):
+        return False
+    try:
+        # Re-verify under the reap marker with a fresh clock reading. If the
+        # file vanished or is no longer stale (i.e. was reclaimed and a fresh
+        # lease took its place after the marker was released), do nothing.
+        if not _is_stale(path, stale_after_seconds, time.time()):
+            return False
+        stale_path = path.with_name(f"{path.name}.stale-{int(now)}-{os.getpid()}")
+        try:
+            os.replace(path, stale_path)
+        except FileNotFoundError:
+            return False
+        Path(stale_path).unlink(missing_ok=True)
+        return True
+    finally:
+        try:
+            os.unlink(reap_path)
+        except FileNotFoundError:
+            pass
 
 
 @asynccontextmanager
