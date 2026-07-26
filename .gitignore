@@ -32,9 +32,9 @@ my_config.yaml
 huntx-output/
 temp_*
 
-
-
-# Go collector generated files
+# Go generated files
+*.exe
+*.out
 src/huntx/connectors/v2ray_collector/*.txt
 
 # Agent index artifacts
