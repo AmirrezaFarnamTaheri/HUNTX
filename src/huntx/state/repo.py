@@ -360,18 +360,46 @@ class StateRepo:
         }
         try:
             with self.db.connect() as conn:
-                # 1. Get raw hashes of seen files that are older than N days and not pending
+                # A raw blob must NOT be pruned while an active blob-dependent
+                # record (ovpn/ehi/hc/…) still reads it at build time. This is
+                # the same guard get_processed_hashes() applies; without it,
+                # prune deletes a live-referenced blob (and its seen_files
+                # tracking row) and the next route build yields a corrupt or
+                # empty artifact with no recovery. The reference timelines
+                # legitimately diverge — e.g. a file ingested >N days ago but
+                # transformed recently has an old seen_files.ingested_at yet a
+                # fresh, still-active record.
+                blob_formats = list(self._BLOB_DEPENDENT_FORMATS)
+                placeholders = ",".join("?" for _ in blob_formats)
+                if placeholders:
+                    still_referenced = (
+                        f"raw_hash NOT IN ("
+                        f"SELECT DISTINCT r.source_file_hash FROM records r "
+                        f"WHERE r.record_type IN ({placeholders}) AND r.is_active = 1)"
+                    )
+                    ref_params = blob_formats
+                else:
+                    still_referenced = "1=1"
+                    ref_params = []
+
+                age_clause = "ingested_at < datetime('now', ?) AND status != 'pending'"
+
+                # 1. Raw hashes eligible for blob deletion: old, non-pending,
+                #    and not still referenced by an active blob-dependent record.
                 cursor = conn.execute(
-                    "SELECT DISTINCT raw_hash FROM seen_files WHERE ingested_at < datetime('now', ?) AND status != 'pending'",
-                    (f"-{days} days",)
+                    f"SELECT DISTINCT raw_hash FROM seen_files "
+                    f"WHERE {age_clause} AND {still_referenced}",
+                    (f"-{days} days", *ref_params),
                 )
                 raw_hashes = [row["raw_hash"] for row in cursor.fetchall()]
                 res["raw_hashes"] = raw_hashes
 
-                # 2. Delete seen_files
+                # 2. Delete seen_files — but keep the tracking row for any blob
+                #    still referenced by an active record, so get_all_known_hashes
+                #    continues to protect it from prune_orphans.
                 c = conn.execute(
-                    "DELETE FROM seen_files WHERE ingested_at < datetime('now', ?) AND status != 'pending'",
-                    (f"-{days} days",)
+                    f"DELETE FROM seen_files WHERE {age_clause} AND {still_referenced}",
+                    (f"-{days} days", *ref_params),
                 )
                 res["seen_files"] = c.rowcount
 
