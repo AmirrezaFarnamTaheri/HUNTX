@@ -59,6 +59,9 @@ class OpaqueBundleHandler(FormatHandler):
 
         buffer = io.BytesIO()
         seen_names: set = set()
+        # base sanitized name -> next suffix to try, so collision resolution
+        # never rescans from 1 (see the collision block below).
+        name_counters: Dict[str, int] = {}
         total_bytes = 0
         entries = 0
         dropped = 0
@@ -102,12 +105,27 @@ class OpaqueBundleHandler(FormatHandler):
                     dropped += 1
                     continue
 
-                # Handle name collisions
-                name = safe_zip_entry_name(original_name, default="file.bin")
-                counter = 1
-                while name in seen_names:
-                    name = f"{counter}_{safe_zip_entry_name(original_name, default='file.bin')}"
-                    counter += 1
+                # Handle name collisions in O(1) per entry.
+                #
+                # The previous implementation rescanned from counter=1 on every
+                # collision AND re-ran safe_zip_entry_name (three regex passes)
+                # inside the loop, making this O(n^2) in the number of entries
+                # sharing a sanitized name. That is easy to trigger because
+                # safe_zip_entry_name collapses everything outside
+                # [A-Za-z0-9._-] to "_", so many distinct real-world names
+                # (e.g. any all-non-ASCII filename) map to the same token.
+                # Measured on the old code: 500 collisions 0.5s, 1500 -> 4.3s,
+                # 3000 -> 18s. Since build() holds the per-format lock, that
+                # stalls the route entirely. Remembering the next free suffix
+                # per base name keeps it linear.
+                base_name = safe_zip_entry_name(original_name, default="file.bin")
+                name = base_name
+                if name in seen_names:
+                    counter = name_counters.get(base_name, 1)
+                    while name in seen_names:
+                        name = f"{counter}_{base_name}"
+                        counter += 1
+                    name_counters[base_name] = counter
                 seen_names.add(name)
 
                 zf.writestr(name, content)

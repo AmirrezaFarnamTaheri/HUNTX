@@ -7,6 +7,7 @@ from ...config.validate import validate_config
 from ...core.orchestrator import Orchestrator
 from ...core.locks import acquire_lock
 from ...store import paths
+from ...utils.env import env_int
 
 
 def run_command(config_path: str):
@@ -20,17 +21,13 @@ def run_command(config_path: str):
 
     cfg_path = Path(config_path)
     if not cfg_path.exists():
+        # Raise rather than return: a bare `return` exits 0, so a scheduler or
+        # CI job treats a misconfigured run as a success. Every other failure
+        # path in this function raises, so returning here was also inconsistent.
         logging.error(f"Config file not found: {cfg_path}")
-        return
+        raise FileNotFoundError(f"Config file not found: {cfg_path}")
 
-    max_workers_str = os.getenv("HUNTX_MAX_WORKERS") or "3"
-    try:
-        max_workers = int(max_workers_str)
-    except ValueError:
-        logging.warning(
-            f"Invalid HUNTX_MAX_WORKERS value '{max_workers_str}', defaulting to 3."
-        )
-        max_workers = 3
+    max_workers = env_int("HUNTX_MAX_WORKERS", 3, min_value=1, max_value=64)
 
     try:
         config = load_config(cfg_path)
