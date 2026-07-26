@@ -23,7 +23,7 @@ except ModuleNotFoundError:  # pragma: no cover
 
     utils = _UtilsStub()  # type: ignore[assignment]
 
-from ..base import SourceConnector, AsyncSyncIterator, async_iter, maybe_await
+from ..base import SourceConnector, AsyncSyncIterator, async_iter, maybe_await, run_sync
 
 logger = logging.getLogger(__name__)
 
@@ -129,12 +129,7 @@ class TelegramUserConnector(SourceConnector):
         return self._local.clients[key]
 
     def _ensure_connected(self, client: TelegramClient):
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        loop.run_until_complete(self._ensure_connected_async(client))
+        run_sync(self._ensure_connected_async(client))
 
     async def _ensure_connected_async(self, client: TelegramClient):
         if not client.is_connected():
@@ -147,12 +142,7 @@ class TelegramUserConnector(SourceConnector):
                 raise
 
     def _resolve_peer(self, peer_entity, client: TelegramClient = None):
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        return loop.run_until_complete(self._resolve_peer_async(peer_entity, client))
+        return run_sync(self._resolve_peer_async(peer_entity, client))
 
     async def _resolve_peer_async(self, peer_entity, client: TelegramClient = None):
         if client and isinstance(peer_entity, str) and peer_entity.startswith("-100"):
@@ -179,12 +169,7 @@ class TelegramUserConnector(SourceConnector):
         return peer_entity
 
     def resolve_channel_id(self) -> Optional[int]:
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        return loop.run_until_complete(self.resolve_channel_id_async())
+        return run_sync(self.resolve_channel_id_async())
 
     async def resolve_channel_id_async(self) -> Optional[int]:
         client = self._client()
@@ -612,9 +597,39 @@ class TelegramUserConnector(SourceConnector):
                         self._lock_acquired = False
             self._local.clients.clear()
 
+    def _release_session_locks(self) -> None:
+        """Release any held session lock without performing I/O."""
+        if not getattr(self, "_lock_acquired", False):
+            return
+        for key in list(getattr(self._local, "clients", {})):
+            lock = self._session_locks.get(key[1])
+            if lock is not None:
+                try:
+                    lock.release()
+                except RuntimeError:
+                    pass
+        self._lock_acquired = False
+
     def __del__(self):
-        """Ensure cleanup on object destruction."""
+        """Release the in-process session lock on destruction.
+
+        Deliberately does NOT disconnect clients. ``__del__`` runs at
+        arbitrary GC time and during interpreter shutdown, where the event
+        loop may be closed or absent and module globals may already be torn
+        down to ``None``; driving Telethon's network disconnect from here is
+        unreliable and can raise or hang (exceptions in ``__del__`` are
+        swallowed and merely printed to stderr, so failures are invisible).
+
+        The session lock is a pure in-process resource that would otherwise
+        leak and deadlock later acquisitions, so releasing it is both safe
+        and necessary. Socket teardown is left to the explicit
+        ``cleanup()`` / ``cleanup_async()`` paths (the latter used by the
+        async context manager), with the OS reclaiming any socket whose
+        client object is garbage-collected.
+        """
         try:
-            self.cleanup()
-        except Exception as e:
-            logger.debug(f"[MTProto] Cleanup error on __del__: {e}")
+            self._release_session_locks()
+        except Exception:
+            # Never raise from __del__; there is no caller to handle it and
+            # logging may itself be unavailable during interpreter shutdown.
+            pass

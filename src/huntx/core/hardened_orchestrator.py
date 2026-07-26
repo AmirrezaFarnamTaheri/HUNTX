@@ -4,6 +4,7 @@ import logging
 import time
 from typing import Any, Optional
 
+from ..connectors.base import run_sync
 from .orchestrator import Orchestrator
 
 logger = logging.getLogger(__name__)
@@ -18,21 +19,10 @@ class HardenedOrchestrator(Orchestrator):
         no_publish: bool = False,
         allow_partial_export: bool = False,
     ) -> dict[str, Any]:
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        if loop.is_running():
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                return executor.submit(
-                    asyncio.run,
-                    self._run_hardened(timeout, no_publish, allow_partial_export),
-                ).result()
-        return loop.run_until_complete(
-            self._run_hardened(timeout, no_publish, allow_partial_export)
-        )
+        # See Orchestrator.run: run_sync covers both the no-loop and
+        # already-running-loop cases without the deprecated get_event_loop()
+        # and without leaking an unclosed loop.
+        return run_sync(self._run_hardened(timeout, no_publish, allow_partial_export))
 
     async def _run_hardened(
         self,

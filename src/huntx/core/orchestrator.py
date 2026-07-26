@@ -8,6 +8,7 @@ import logging
 import time
 import threading
 from typing import Optional, Any
+from ..connectors.base import run_sync
 from ..store import paths
 from ..store.raw_store import RawStore
 from ..store.artifact_store import ArtifactStore
@@ -381,19 +382,12 @@ class Orchestrator:
     # ------------------------------------------------------------------
 
     def run(self, timeout: float | None = None, no_publish: bool = False):
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        if loop.is_running():
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(asyncio.run, self._run_async(timeout, no_publish))
-                return future.result()
-        else:
-            return loop.run_until_complete(self._run_async(timeout, no_publish))
+        # run_sync handles both cases: a fresh loop via asyncio.run when none
+        # is running, or a dedicated worker thread when called from inside a
+        # running loop. It avoids the deprecated get_event_loop() (which
+        # raises on Python 3.12+ when no loop was ever set) and does not leak
+        # an unclosed loop from new_event_loop().
+        return run_sync(self._run_async(timeout, no_publish))
 
     async def _run_async(self, timeout: float | None = None, no_publish: bool = False):
         start_time = time.time()

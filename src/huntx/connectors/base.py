@@ -1,7 +1,9 @@
 import asyncio
 import concurrent.futures
 import inspect
-from typing import Protocol, Dict, Any, Optional, AsyncIterator, Union, Iterator
+from typing import Protocol, Dict, Any, Optional, AsyncIterator, Union, Iterator, TypeVar, Coroutine
+
+_T = TypeVar("_T")
 
 
 async def maybe_await(val):
@@ -13,6 +15,30 @@ async def maybe_await(val):
         return await val
     return val
 
+
+def run_sync(coro: "Coroutine[Any, Any, _T]") -> _T:
+    """Run an async coroutine from synchronous code, safely either way.
+
+    ``asyncio.run`` (not the deprecated ``get_event_loop`` +
+    ``run_until_complete``) creates and tears down its own loop, so this is
+    safe on Python 3.12+, where ``get_event_loop`` raises once no loop has
+    ever been set on the thread. When a loop is *already running* on this
+    thread, ``asyncio.run`` would itself raise ``RuntimeError``; in that case
+    the coroutine is driven to completion on a dedicated worker thread with
+    its own fresh loop, which avoids the re-entrancy crash the old
+    ``get_event_loop`` + ``run_until_complete`` pattern was prone to.
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        running = False
+    else:
+        running = True
+
+    if running:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(lambda: asyncio.run(coro)).result()
+    return asyncio.run(coro)
 
 
 class AsyncSyncIterator:
@@ -35,26 +61,7 @@ class AsyncSyncIterator:
 
     def __iter__(self):
         # Drive the async generator to completion and return a plain iterator.
-        #
-        # ``asyncio.run`` (not the deprecated ``get_event_loop`` +
-        # ``run_until_complete``) creates and tears down its own loop, so this
-        # is safe on Python 3.12+. When a loop is *already running* on this
-        # thread, ``asyncio.run`` would raise ``RuntimeError``; in that case we
-        # collect on a dedicated worker thread with its own fresh loop, which
-        # avoids the re-entrancy crash the old code was prone to.
-        try:
-            asyncio.get_running_loop()
-        except RuntimeError:
-            running = False
-        else:
-            running = True
-
-        if running:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                items = pool.submit(lambda: asyncio.run(self._collect())).result()
-        else:
-            items = asyncio.run(self._collect())
-        return iter(items)
+        return iter(run_sync(self._collect()))
 
 
 async def async_iter(iterable):
