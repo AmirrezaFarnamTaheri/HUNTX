@@ -14,18 +14,19 @@ STATE_DB_PATH = Path(os.getenv("HUNTX_STATE_DB_PATH", str(STATE_DIR / "state.db"
 
 def ensure_dirs():
     """Create all necessary directories including custom DB parents."""
+    db_parent = Path(STATE_DB_PATH).parent
     for directory in [
         DATA_DIR,
         RAW_STORE_DIR,
         ARTIFACT_STORE_DIR,
         REJECTS_DIR,
         STATE_DIR,
-        STATE_DB_PATH.parent,
+        db_parent,
         LOGS_DIR,
         OUTPUT_DIR,
         DEV_OUTPUT_DIR,
     ]:
-        directory.mkdir(parents=True, exist_ok=True)
+        Path(directory).mkdir(parents=True, exist_ok=True)
 
 
 def set_paths(data_dir: str, db_path: str):
