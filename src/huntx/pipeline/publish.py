@@ -150,6 +150,16 @@ class PublishPipeline:
                 failures.append(msg)
                 logger.error("[Publish] Failed to publish to %s", msg)
 
+        # Record success *before* raising on any failure. Otherwise a single
+        # failing destination (e.g. rate-limited) prevents mark_published from
+        # ever running, so `last_hash` never advances and every destination —
+        # including the ones that already succeeded — gets the same content
+        # resent on every subsequent run until that one destination recovers.
+        if published_any:
+            self.state_repo.mark_published(unique_id, new_hash)
+            self._remember_published_hash(unique_id, new_hash)
+            logger.info("[Publish] Published %s (%s) successfully.", unique_id, new_hash)
+
         if failures:
             raise RuntimeError(
                 f"Publish failed for {unique_id}: {len(failures)} destination error(s): "
@@ -157,9 +167,6 @@ class PublishPipeline:
             )
 
         if published_any:
-            self.state_repo.mark_published(unique_id, new_hash)
-            self._remember_published_hash(unique_id, new_hash)
-            logger.info("[Publish] Published %s (%s) successfully.", unique_id, new_hash)
             return True
 
         logger.warning("[Publish] No destinations successfully published for %s", unique_id)

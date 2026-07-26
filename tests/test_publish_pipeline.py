@@ -71,6 +71,64 @@ class TestPublishPipeline(unittest.TestCase):
 
         self.state_repo.mark_published.assert_not_called()
 
+    @patch("huntx.pipeline.publish.TelegramPublisher")
+    def test_partial_destination_failure_still_marks_published(self, MockPublisher):
+        # Regression: a failing destination must not prevent mark_published
+        # from recording the destinations that DID succeed. Otherwise
+        # last_hash never advances and every destination — including the
+        # ones that already got the artifact — is resent on every subsequent
+        # run for as long as the one failing destination stays broken.
+        build_result = {
+            "route_name": "route1",
+            "artifact_hash": "new_hash",
+            "format": "fmt1",
+            "data": b"data",
+            "unique_id": "route1:fmt1",
+        }
+        destinations = [
+            {"chat_id": "good", "token": "tok-good"},
+            {"chat_id": "bad", "token": "tok-bad"},
+        ]
+        self.state_repo.get_last_published_hash.return_value = "old_hash"
+
+        good_instance = Mock()
+        bad_instance = Mock()
+        bad_instance.publish.side_effect = RuntimeError("rate limited")
+
+        def _make_publisher(token):
+            return {"tok-good": good_instance, "tok-bad": bad_instance}[token]
+
+        MockPublisher.side_effect = _make_publisher
+
+        with self.assertRaises(RuntimeError):
+            self.pipeline.run(build_result, destinations)
+
+        good_instance.publish.assert_called_once()
+        bad_instance.publish.assert_called_once()
+        # The key assertion: success was recorded despite the later failure.
+        self.state_repo.mark_published.assert_called_once_with("route1:fmt1", "new_hash")
+
+    @patch("huntx.pipeline.publish.TelegramPublisher")
+    def test_all_destinations_fail_does_not_mark_published(self, MockPublisher):
+        build_result = {
+            "route_name": "route1",
+            "artifact_hash": "new_hash",
+            "format": "fmt1",
+            "data": b"data",
+            "unique_id": "route1:fmt1",
+        }
+        destinations = [{"chat_id": "bad", "token": "tok-bad"}]
+        self.state_repo.get_last_published_hash.return_value = "old_hash"
+
+        bad_instance = Mock()
+        bad_instance.publish.side_effect = RuntimeError("down")
+        MockPublisher.return_value = bad_instance
+
+        with self.assertRaises(RuntimeError):
+            self.pipeline.run(build_result, destinations)
+
+        self.state_repo.mark_published.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
