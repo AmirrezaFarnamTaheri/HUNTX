@@ -402,6 +402,16 @@ class TelegramUserConnector(SourceConnector):
                         continue
 
                     data = await maybe_await(client.download_media(msg, file=bytes))
+                    # Enforce the size cap on actual bytes too: the pre-check
+                    # above trusts server-reported metadata, which can differ
+                    # from what download_media buffers.
+                    if data and len(data) > 25 * 1024 * 1024:
+                        logger.warning(
+                            f"[MTProto] Discarding msg {msg.id}: downloaded "
+                            f"{len(data)} bytes exceeds 25MB cap (metadata under-reported)"
+                        )
+                        stats["skipped_size_limit"] += 1
+                        continue
                     if data:
                         from ...utils.content_type import is_executable
                         is_exec, type_desc = is_executable(data)

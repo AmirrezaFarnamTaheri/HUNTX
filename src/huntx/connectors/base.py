@@ -1,4 +1,5 @@
 import asyncio
+import concurrent.futures
 import inspect
 from typing import Protocol, Dict, Any, Optional, AsyncIterator, Union, Iterator
 
@@ -26,20 +27,34 @@ class AsyncSyncIterator:
     def __aiter__(self):
         return self.async_gen
 
+    async def _collect(self):
+        items = []
+        async for item in self.async_gen:
+            items.append(item)
+        return items
+
     def __iter__(self):
+        # Drive the async generator to completion and return a plain iterator.
+        #
+        # ``asyncio.run`` (not the deprecated ``get_event_loop`` +
+        # ``run_until_complete``) creates and tears down its own loop, so this
+        # is safe on Python 3.12+. When a loop is *already running* on this
+        # thread, ``asyncio.run`` would raise ``RuntimeError``; in that case we
+        # collect on a dedicated worker thread with its own fresh loop, which
+        # avoids the re-entrancy crash the old code was prone to.
         try:
-            loop = asyncio.get_event_loop()
+            asyncio.get_running_loop()
         except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            running = False
+        else:
+            running = True
 
-        async def collect():
-            items = []
-            async for item in self.async_gen:
-                items.append(item)
-            return items
-
-        return iter(loop.run_until_complete(collect()))
+        if running:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                items = pool.submit(lambda: asyncio.run(self._collect())).result()
+        else:
+            items = asyncio.run(self._collect())
+        return iter(items)
 
 
 async def async_iter(iterable):

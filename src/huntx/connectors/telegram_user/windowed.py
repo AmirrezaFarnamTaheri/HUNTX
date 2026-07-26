@@ -102,6 +102,10 @@ class WindowedTelegramUserConnector(TelegramUserConnector):
             data = await maybe_await(client.download_media(msg, file=bytes))
             if not data:
                 continue
+            # Enforce the cap on actual bytes as well — the pre-check above
+            # trusts server-reported metadata, which may under-report.
+            if len(data) > 25 * 1024 * 1024:
+                continue
 
             from ...utils.content_type import is_executable
 

@@ -24,6 +24,12 @@ logger = logging.getLogger(__name__)
 MAX_RETRIES = 6
 BACKOFF_FACTOR = 1
 
+# Hard ceiling for any single file download. The pre-download check uses the
+# *self-reported* file_size from the API payload; this constant is also
+# enforced during the actual read so a document that under-reports its size
+# cannot force an unbounded in-memory buffer.
+MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024
+
 
 class TelegramConnector(SourceConnector):
     # Shared state to coordinate updates across multiple instances with the same token
@@ -115,7 +121,19 @@ class TelegramConnector(SourceConnector):
             try:
                 start_time = time.time()
                 with urllib.request.urlopen(url, timeout=60) as response:
-                    data = response.read()
+                    # Bounded read: the pre-download size check trusts
+                    # API-reported metadata, so the cap must also be enforced
+                    # on the bytes actually received. read(amt) returns at
+                    # most amt bytes, so memory is hard-capped; receiving
+                    # more than MAX_DOWNLOAD_BYTES proves the file exceeds
+                    # the limit and the download is discarded.
+                    data = response.read(MAX_DOWNLOAD_BYTES + 1)
+                    if len(data) > MAX_DOWNLOAD_BYTES:
+                        logger.warning(
+                            f"Aborting download of {file_path}: exceeded "
+                            f"{MAX_DOWNLOAD_BYTES} byte cap (reported size was smaller)"
+                        )
+                        return None
                     duration = time.time() - start_time
                     logger.debug(f"Downloaded {len(data)} bytes in {duration:.2f}s")
                     return data
@@ -322,7 +340,7 @@ class TelegramConnector(SourceConnector):
                     # Do not treat as content found, unless text was found
                     # If text was found, we yield text but skip file.
                 # Check file size (25MB limit)
-                elif file_size > 25 * 1024 * 1024:
+                elif file_size > MAX_DOWNLOAD_BYTES:
                     logger.warning(f"Skipping file {file_name} (Size: {file_size} > 25MB limit)")
                     stats["skipped_size_limit"] += 1
                 else:
