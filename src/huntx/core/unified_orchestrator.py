@@ -6,13 +6,10 @@ import time
 import uuid
 from typing import Any, Optional
 
-from .geo_routing import GeoRoutingEngine
 from .latency_benchmarker import filter_proxies_by_latency
 from .optimized_orchestrator import OptimizedHardenedOrchestrator
 from .resilience import AsyncCircuitBreaker, CircuitBreakerOpenError
 from .scoring import ProxyScoringEngine
-from .self_healing import SelfHealingDaemon
-from ..formats.streaming import StreamingChunkParser
 
 logger = logging.getLogger(__name__)
 
@@ -39,9 +36,6 @@ class UnifiedOrchestrator(OptimizedHardenedOrchestrator):
         self.min_proxy_quality_score = min_proxy_quality_score
         self.circuit_breaker = AsyncCircuitBreaker()
         self.scoring_engine = ProxyScoringEngine()
-        self.streaming_parser = StreamingChunkParser()
-        self.geo_routing = GeoRoutingEngine()
-        self.self_healing = SelfHealingDaemon()
         self._deadline: Optional[float] = None
 
     def run(
@@ -97,6 +91,12 @@ class UnifiedOrchestrator(OptimizedHardenedOrchestrator):
         tasks = [asyncio.create_task(self._worker_async(source_queue, results, lock)) for _ in range(worker_count)]
         try:
             await asyncio.gather(*tasks)
+        except BaseException:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            raise
         finally:
             released = self._work_queue.release_owner(self._run_owner)
             if released:
@@ -126,6 +126,9 @@ class UnifiedOrchestrator(OptimizedHardenedOrchestrator):
             route.from_sources,
             min_seen_file_id=min_seen_file_id,
         )
+        if not self.enable_benchmarking:
+            return records
+
         proxy_records: list[dict[str, Any]] = []
         passthrough_records: list[dict[str, Any]] = []
         for record in records:
@@ -135,7 +138,7 @@ class UnifiedOrchestrator(OptimizedHardenedOrchestrator):
                 passthrough_records.append(record)
 
         benchmarked = proxy_records
-        if self.enable_benchmarking and proxy_records:
+        if proxy_records:
             try:
                 benchmarked = await self.circuit_breaker.call(
                     filter_proxies_by_latency,
