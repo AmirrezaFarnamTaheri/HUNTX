@@ -73,7 +73,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --require-hashes --prefer-binary -r requirements.txt
-          python -m pip install --prefer-binary flake8 mypy pytest types-requests types-PyYAML
+          python -m pip install --prefer-binary flake8 mypy pytest pytest-asyncio types-requests types-PyYAML
           python -m pip install --no-deps -e .
           python -m pip check
 
