@@ -12,7 +12,6 @@ import (
 
 	"huntx-engine/benchmark"
 	"huntx-engine/georoute"
-	"huntx-engine/healing"
 	"huntx-engine/internal/parse"
 	"huntx-engine/stream"
 )
@@ -58,12 +57,12 @@ func main() {
 		if err := fs.Parse(os.Args[2:]); err != nil {
 			os.Exit(1)
 		}
-		if *targetsFlag == "" {
-			slog.Error("missing required flag", "flag", "--targets")
+		targets, err := parseBenchmarkTargets(*targetsFlag)
+		if err != nil {
+			slog.Error("invalid benchmark targets", "error", err)
 			os.Exit(1)
 		}
 
-		targets := strings.Split(*targetsFlag, ",")
 		bm := benchmark.NewBenchmarker(*timeoutFlag, *concurrencyFlag)
 		workers := *concurrencyFlag
 		if workers <= 0 || workers > len(targets) {
@@ -89,6 +88,7 @@ func main() {
 		sp := stream.NewStreamParser(65536)
 		records, err := sp.ParseStream(os.Stdin)
 		if err != nil {
+			slog.Error("failed to parse stream", "error", err)
 			os.Exit(1)
 		}
 		classified := make([]georoute.ProxyRecord, 0, len(records))
@@ -97,11 +97,6 @@ func main() {
 		}
 		out, _ := json.MarshalIndent(georoute.FilterByRegion(classified, *regionFlag), "", "  ")
 		fmt.Println(string(out))
-	case "heal":
-		daemon := healing.NewDaemon(nil)
-		now := time.Now()
-		daemon.RecordFailure("demo_hash", "vless://user@host:443", now)
-		slog.Info("self-healing daemon status check", "purged_stale_nodes", daemon.PurgeStale(48*time.Hour, now))
 	default:
 		slog.Error("unknown command", "command", os.Args[1])
 		printUsage()
@@ -109,6 +104,26 @@ func main() {
 	}
 }
 
+func parseBenchmarkTargets(raw string) ([]string, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, fmt.Errorf("--targets is required")
+	}
+	parts := strings.Split(raw, ",")
+	targets := make([]string, 0, len(parts))
+	for _, part := range parts {
+		target := strings.TrimSpace(part)
+		if target == "" {
+			return nil, fmt.Errorf("--targets must not contain empty entries")
+		}
+		targets = append(targets, target)
+	}
+	return targets, nil
+}
+
 func printUsage() {
-	fmt.Println("HUNTX Next-Gen Go High-Performance Engine")
+	fmt.Println("Usage: huntx-engine <version|parse|benchmark|georoute> [options]")
+	fmt.Println("  version                         Print the engine version")
+	fmt.Println("  parse [-file PATH]              Parse a file or stdin subscription stream")
+	fmt.Println("  benchmark --targets HOST:PORT   Benchmark comma-separated TCP targets")
+	fmt.Println("  georoute [-region ISO]          Classify stdin records and filter by region")
 }
