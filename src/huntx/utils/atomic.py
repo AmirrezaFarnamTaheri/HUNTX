@@ -47,7 +47,12 @@ def _content_matches(path: Path, data: Payload, mode: str) -> bool:
 
 
 def atomic_write(target_path: PathLike, data: Payload, mode: str = "wb") -> None:
-    """Write data atomically via temp-file + os.replace (POSIX and Windows)."""
+    """Write data atomically via temp-file + os.replace (POSIX and Windows).
+
+    Text modes always encode as UTF-8: relying on the platform default
+    encoding would corrupt or reject non-ASCII payloads on non-UTF-8 locales,
+    and ``_content_matches`` already compares text content as UTF-8.
+    """
     path = Path(target_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = _coerce_payload(data, mode)
@@ -55,8 +60,9 @@ def atomic_write(target_path: PathLike, data: Payload, mode: str = "wb") -> None
     suffix = f".tmp.{os.getpid()}.{threading.get_ident()}"
     tmp_path = path.with_name(path.name + suffix)
 
+    encoding = None if "b" in mode else "utf-8"
     try:
-        with open(tmp_path, mode) as stream:
+        with open(tmp_path, mode, encoding=encoding) as stream:
             stream.write(payload)
             stream.flush()
             os.fsync(stream.fileno())
