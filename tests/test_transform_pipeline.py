@@ -7,6 +7,13 @@ class TestTransformPipeline(unittest.TestCase):
     def setUp(self):
         self.raw_store = Mock()
         self.state_repo = Mock()
+        # _flush_batch writes records and status updates inside ONE
+        # caller-owned transaction, so db.connect() must behave as a context
+        # manager here. self.mock_conn is the connection both batch calls
+        # should receive.
+        self.mock_conn = Mock()
+        self.state_repo.db.connect.return_value.__enter__ = Mock(return_value=self.mock_conn)
+        self.state_repo.db.connect.return_value.__exit__ = Mock(return_value=False)
         self.registry = Mock()
         self.source_configs = {"src1": Mock(selector=Mock(include_formats=["fmt1"]))}
         self.pipeline = TransformPipeline(self.raw_store, self.state_repo, self.registry, self.source_configs)
@@ -110,6 +117,19 @@ class TestTransformPipeline(unittest.TestCase):
         self.assertEqual(skipped, 1)
         self.state_repo.add_records_batch.assert_called_once()
         self.state_repo.update_file_status_batch.assert_called_once()
+
+        # Both writes must share a single transaction, otherwise a crash
+        # between them leaves records durable while their files still look
+        # pending, and the next run re-parses and re-inserts them.
+        self.state_repo.db.connect.assert_called_once()
+        self.assertIs(
+            self.state_repo.add_records_batch.call_args.kwargs["conn"],
+            self.mock_conn,
+        )
+        self.assertIs(
+            self.state_repo.update_file_status_batch.call_args.kwargs["conn"],
+            self.mock_conn,
+        )
 
     def test_process_pending_empty(self):
         """No pending files should exit early."""

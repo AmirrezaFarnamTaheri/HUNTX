@@ -126,11 +126,22 @@ class TransformPipeline:
             elif res["status"] == "skipped":
                 skipped += 1
 
-        # Batch DB writes
-        if all_record_rows:
-            self.state_repo.add_records_batch(all_record_rows)
-        if status_updates:
-            self.state_repo.update_file_status_batch(status_updates)
+        # Batch DB writes — both in ONE transaction.
+        #
+        # These previously ran through two separate connections, so each
+        # committed independently. If the process died (or the status update
+        # raised) after records committed but before the files left 'pending',
+        # the next run re-fetched those files via get_pending_files, re-parsed
+        # them, and inserted the same records again under new ids. Build-time
+        # dedup hid the output impact, but `records` grew without bound and the
+        # transform stage repeated that work every single run. Sharing one
+        # connection makes the pair atomic: either both land or neither does.
+        if all_record_rows or status_updates:
+            with self.state_repo.db.connect() as conn:
+                if all_record_rows:
+                    self.state_repo.add_records_batch(all_record_rows, conn=conn)
+                if status_updates:
+                    self.state_repo.update_file_status_batch(status_updates, conn=conn)
 
         return len(all_record_rows), processed, failed, skipped
 

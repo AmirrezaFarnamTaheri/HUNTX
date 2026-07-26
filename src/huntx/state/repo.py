@@ -179,34 +179,49 @@ class StateRepo:
             logger.exception(f"Failed to add record {unique_hash}: {e}")
             raise
 
-    def add_records_batch(self, rows: List[tuple]):
-        """Batch insert records. Each row is (raw_hash, record_type, unique_hash, data_json_str)."""
+    def add_records_batch(self, rows: List[tuple], conn: Optional[sqlite3.Connection] = None):
+        """Batch insert records. Each row is (raw_hash, record_type, unique_hash, data_json_str).
+
+        Pass ``conn`` to enlist in a caller-owned transaction. The transform
+        pipeline must do so: inserting records and flipping the source files out
+        of 'pending' has to be atomic, or a crash between the two commits leaves
+        records durable while their files still look unprocessed, so the next
+        run re-parses and re-inserts them (unbounded `records` growth).
+        """
         if not rows:
             return
         try:
-            with self.db.connect() as conn:
-                conn.executemany(
-                    """
-                    INSERT INTO records (source_file_hash, record_type, unique_hash, data_json)
-                    VALUES (?, ?, ?, ?)
-                    """,
-                    rows,
-                )
+            sql = """
+                INSERT INTO records (source_file_hash, record_type, unique_hash, data_json)
+                VALUES (?, ?, ?, ?)
+            """
+            if conn:
+                conn.executemany(sql, rows)
+            else:
+                with self.db.connect() as c:
+                    c.executemany(sql, rows)
             logger.debug(f"Batch-inserted {len(rows)} records.")
         except Exception as e:
             logger.exception(f"Failed to batch-insert {len(rows)} records: {e}")
             raise  # Re-raise so the pipeline knows it failed
 
-    def update_file_status_batch(self, updates: List[tuple]):
-        """Batch update file statuses. Each item is (status, error_msg, raw_hash)."""
+    def update_file_status_batch(
+        self, updates: List[tuple], conn: Optional[sqlite3.Connection] = None
+    ):
+        """Batch update file statuses. Each item is (status, error_msg, raw_hash).
+
+        Pass ``conn`` to enlist in a caller-owned transaction — see
+        :meth:`add_records_batch` for why the transform pipeline requires it.
+        """
         if not updates:
             return
         try:
-            with self.db.connect() as conn:
-                conn.executemany(
-                    "UPDATE seen_files SET status = ?, error_msg = ? WHERE raw_hash = ?",
-                    updates,
-                )
+            sql = "UPDATE seen_files SET status = ?, error_msg = ? WHERE raw_hash = ?"
+            if conn:
+                conn.executemany(sql, updates)
+            else:
+                with self.db.connect() as c:
+                    c.executemany(sql, updates)
             logger.debug(f"Batch-updated status for {len(updates)} files.")
         except Exception as e:
             logger.error(f"Failed to batch-update file statuses: {e}")
@@ -230,9 +245,18 @@ class StateRepo:
                 where_extra = " AND s.id > ?"
                 args.append(int(min_seen_file_id))
 
+            # DISTINCT is required, not cosmetic: seen_files.raw_hash is NOT
+            # unique (only UNIQUE(source_id, external_id) is enforced), so the
+            # same content seen in N allowed sources produces N seen_files rows
+            # and this JOIN fans one record out to N identical rows. The dedup
+            # CTE below groups by (record_type, unique_hash) and keeps MAX(id),
+            # but the final join then re-matches every fanned-out row carrying
+            # that id — re-emitting the record N times into the built artifact
+            # (duplicate proxy lines and inflated counts). Every selected column
+            # comes from `records`, so DISTINCT collapses the fan-out exactly.
             query = f"""
                 WITH filtered AS (
-                    SELECT r.id, r.record_type, r.unique_hash, r.data_json
+                    SELECT DISTINCT r.id, r.record_type, r.unique_hash, r.data_json
                     FROM records r
                     JOIN seen_files s ON r.source_file_hash = s.raw_hash
                     WHERE r.record_type IN ({placeholders_types})
