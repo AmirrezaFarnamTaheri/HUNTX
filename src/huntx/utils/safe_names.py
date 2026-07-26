@@ -47,4 +47,3 @@ def safe_zip_entry_name(original_name: str, *, default: str = "file.bin") -> str
 
     # ZIP tools can treat empty names strangely; ensure we always have something.
     return base or default
-

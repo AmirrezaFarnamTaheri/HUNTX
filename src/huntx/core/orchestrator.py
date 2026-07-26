@@ -6,10 +6,8 @@ import datetime
 import json
 import logging
 import time
-import queue
 import threading
 from typing import Optional, Any
-from pathlib import Path
 from ..store import paths
 from ..store.raw_store import RawStore
 from ..store.artifact_store import ArtifactStore
@@ -238,7 +236,7 @@ class Orchestrator:
             f"# All-time cumulative history \u2014 {len(remarked_uris)} unique URIs\n"
             f"# One proxy URI per line\n\n"
         )
-        txt_path.write_text(header + "\n".join(remarked_uris) + "\n", encoding="utf-8")
+        atomic_write(txt_path, header + "\n".join(remarked_uris) + "\n", mode="w")
         logger.info(
             f"[DevExport] Written {txt_path.name} "
             f"({len(sorted_uris)} URIs, {txt_path.stat().st_size / 1024:.1f} KB)"
@@ -248,7 +246,7 @@ class Orchestrator:
         b64_path = dev_dir / "proxies_b64sub.txt"
         plain = "\n".join(remarked_uris)
         b64_payload = base64.b64encode(plain.encode("utf-8")).decode("ascii")
-        b64_path.write_text(b64_payload + "\n", encoding="utf-8")
+        atomic_write(b64_path, b64_payload + "\n", mode="w")
         logger.info(
             f"[DevExport] Written {b64_path.name} "
             f"({b64_path.stat().st_size / 1024:.1f} KB)"
@@ -265,8 +263,8 @@ class Orchestrator:
                 for raw, remarked in zip(sorted_uris, remarked_uris)
             ],
         }
-        json_path.write_text(
-            json.dumps(wrapped, indent=2, ensure_ascii=False), encoding="utf-8"
+        atomic_write(
+            json_path, json.dumps(wrapped, indent=2, ensure_ascii=False), mode="w"
         )
         logger.info(
             f"[DevExport] Written {json_path.name} "
@@ -388,7 +386,7 @@ class Orchestrator:
         except RuntimeError:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-        
+
         if loop.is_running():
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
@@ -652,4 +650,3 @@ class Orchestrator:
             "ingest_err": results["err"],
             "failed_routes": len(failed_routes)
         }
-

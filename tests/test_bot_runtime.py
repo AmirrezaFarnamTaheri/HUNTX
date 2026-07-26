@@ -1,7 +1,6 @@
 import unittest
 from unittest.mock import MagicMock, patch, AsyncMock
 from pathlib import Path
-import os
 import asyncio
 from huntx.bot.interactive import InteractiveBot
 
@@ -25,22 +24,22 @@ class TestBotRuntime(unittest.TestCase):
         """Verify that _send_format_to_user uses paths.OUTPUT_DIR correctly."""
         temp_dir = Path("./temp_test_output")
         temp_dir.mkdir(exist_ok=True)
-        
+
         output_dir = temp_dir / "output"
         output_dir.mkdir(exist_ok=True)
-        
+
         # Create a dummy file
         test_file = output_dir / "all_sources.npvt"
         test_file.write_text("vmess://test")
-        
+
         # We need to make the async call
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        
+
         try:
             with patch('huntx.store.paths.OUTPUT_DIR', output_dir):
                 loop.run_until_complete(self.bot._send_format_to_user(12345, "npvt"))
-            
+
             # Verify send_file was called with the correct path
             self.bot.client.send_file.assert_called()
             call_args = self.bot.client.send_file.call_args
@@ -61,21 +60,21 @@ class TestBotRuntime(unittest.TestCase):
 
         output_dir = temp_dir / "output"
         output_dir.mkdir(exist_ok=True)
-        
+
         # Create a dummy file
         test_file = output_dir / "all_sources.npvt"
         test_file.write_text("vmess://test")
-        
+
         # Mock _get_active_users
         self.bot._get_active_users = MagicMock(return_value=[{"user_id": "1", "chat_id": "10"}])
-        
+
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        
+
         try:
             with patch('huntx.store.paths.OUTPUT_DIR', output_dir):
                 loop.run_until_complete(self.bot.deliver_updates())
-            
+
             # Verify send_file was called
             self.bot.client.send_file.assert_called()
         finally:

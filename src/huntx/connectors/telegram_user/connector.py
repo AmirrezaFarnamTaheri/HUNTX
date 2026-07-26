@@ -3,7 +3,7 @@ import logging
 import time
 import threading
 from dataclasses import dataclass
-from typing import Dict, Any, Optional, AsyncIterator, List, Union, Iterator
+from typing import Dict, Any, Optional, AsyncIterator, List
 try:
     from telethon import TelegramClient
     from telethon.sessions import StringSession
@@ -23,7 +23,7 @@ except ModuleNotFoundError:  # pragma: no cover
 
     utils = _UtilsStub()  # type: ignore[assignment]
 
-from ..base import SourceConnector, SourceItem, AsyncSyncIterator, async_iter, maybe_await
+from ..base import SourceConnector, AsyncSyncIterator, async_iter, maybe_await
 
 logger = logging.getLogger(__name__)
 
@@ -240,7 +240,7 @@ class TelegramUserConnector(SourceConnector):
           try:
             async for msg in async_iter(client.iter_messages(peer_entity, min_id=resume_after_id, reverse=True)):
                 if getattr(self, "deadline", None) and self.deadline is not None and time.time() > self.deadline:
-                    logger.warning(f"[MTProto] Ingestion deadline exceeded during text pass. Aborting.")
+                    logger.warning("[MTProto] Ingestion deadline exceeded during text pass. Aborting.")
                     break
                 self.offset = max(self.offset, msg.id)
                 resume_after_id = max(resume_after_id, msg.id)
@@ -359,7 +359,7 @@ class TelegramUserConnector(SourceConnector):
             )):
 
                 if getattr(self, "deadline", None) and self.deadline is not None and time.time() > self.deadline:
-                    logger.warning(f"[MTProto] Ingestion deadline exceeded during document pass. Aborting.")
+                    logger.warning("[MTProto] Ingestion deadline exceeded during document pass. Aborting.")
                     break
                 self.offset = max(self.offset, msg.id)
                 resume_after_id = max(resume_after_id, msg.id)

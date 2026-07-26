@@ -200,4 +200,3 @@ class IngestionPipeline:
         except Exception as e:
             logger.exception(f"[Ingest] Failed to update state for {source_id}: {e}")
             raise
-

@@ -5,8 +5,8 @@ import subprocess
 import time
 import logging
 import hashlib
-from typing import Dict, Any, Iterator, Optional
-from ..base import SourceConnector, SourceItem, AsyncSyncIterator
+from typing import Dict, Any, Optional
+from ..base import SourceConnector, AsyncSyncIterator
 
 logger = logging.getLogger("huntx.connectors.v2ray_collector")
 
@@ -97,7 +97,7 @@ class V2RayCollectorConnector(SourceConnector):
             # Stable unique external ID derived from line content
             h = hashlib.sha256(line.encode('utf-8')).hexdigest()[:16]
             ext_id = f"goscrap_{h}_{idx}"
-            
+
             yield V2RayCollectorItem(
                 external_id=ext_id,
                 data=line.encode('utf-8'),

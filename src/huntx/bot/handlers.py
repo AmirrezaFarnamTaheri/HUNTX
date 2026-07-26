@@ -1,10 +1,9 @@
-import asyncio
 import logging
 import time
 import datetime
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 from telethon import events, Button
-from .constants import WELCOME_TEXT, _BOT_COMMANDS, _ALL_VALID_FORMATS, _FORMAT_LABELS, SUPPORTED_FORMATS
+from .constants import WELCOME_TEXT, _ALL_VALID_FORMATS, _FORMAT_LABELS
 
 logger = logging.getLogger(__name__)
 
@@ -277,18 +276,18 @@ class HandlersMixin:
 
         total = sum(counts.values())
         lines = [f"📊 **Proxy Counts (Total: {total})**\n"]
-        
+
         # Sort by count descending
         sorted_counts = sorted(counts.items(), key=lambda x: x[1], reverse=True)
         max_count = sorted_counts[0][1] if sorted_counts else 1
-        
+
         for proto, count in sorted_counts:
             pct = count / total * 100
             # Simple bar chart using unicode blocks
             bar_len = int((count / max_count) * 10)
             bar = "▇" * bar_len + "░" * (10 - bar_len)
             lines.append(f"`{proto:<10}` {bar} `{count:>4}` ({pct:>2.0f}%)")
-        
+
         await event.respond("\n".join(lines), parse_mode="md")
 
     async def _on_ping(self, event):
@@ -302,7 +301,7 @@ class HandlersMixin:
         """Show system/pipeline statistics."""
         stats = self._get_system_stats()
         users = self._get_user_count()
-        
+
         msg = (
             "📈 **System Status**\n"
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -379,7 +378,7 @@ class HandlersMixin:
                 if not self._is_admin(user_id, username):  # type: ignore[attr-defined]
                     await event.answer("❌ Access Denied", alert=True)
                     return
-                
+
                 action = data.split(":", 1)[1]
                 if action == "run":
                     await event.answer("Starting pipeline run...")

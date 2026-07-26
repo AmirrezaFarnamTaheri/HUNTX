@@ -167,7 +167,7 @@ class TransformPipeline:
                 # Parallel parse within batch
                 batch_results: List[Dict[str, Any]] = []
                 future_to_row = {executor.submit(self._process_single_file, row): row for row in batch}
-                
+
                 for future in concurrent.futures.as_completed(future_to_row):
                     try:
                         res = future.result()

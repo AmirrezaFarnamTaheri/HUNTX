@@ -211,7 +211,15 @@ class HardenedOrchestrator(Orchestrator):
             publisher = concurrent.futures.ThreadPoolExecutor(max_workers=publish_workers)
             try:
                 for build_result in all_build_results:
-                    route_name = str(build_result["route_name"])
+                    # Mirror the base Orchestrator's defensiveness: a single
+                    # malformed build result must not abort the entire publish
+                    # stage and discard otherwise-successful work.
+                    if not isinstance(build_result, dict):
+                        logger.warning(
+                            "[Orchestrator] Skipping non-dict build result: %r", build_result
+                        )
+                        continue
+                    route_name = str(build_result.get("route_name", "unknown"))
                     publish_future = publisher.submit(
                         self.publish_pipeline.run,
                         build_result,

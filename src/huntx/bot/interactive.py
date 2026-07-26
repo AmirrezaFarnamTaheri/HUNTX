@@ -1,11 +1,9 @@
 import asyncio
-import datetime
 import logging
 import os
 import time
 from collections import OrderedDict
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 try:
     from telethon import TelegramClient, events, Button
@@ -25,13 +23,16 @@ from ..state.db import open_db
 from ..store import paths
 
 from .constants import (
-    WELCOME_TEXT,
     _BOT_COMMANDS,
-    SUPPORTED_FORMATS,
     _ALL_VALID_FORMATS,
-    _AUTO_DELIVER_FORMATS,
     _FORMAT_LABELS,
 )
+
+# Re-exported as part of this module's public surface (consumed by the test
+# suite and downstream importers); imported here rather than referenced.
+from .constants import WELCOME_TEXT as WELCOME_TEXT  # noqa: F401
+from .constants import SUPPORTED_FORMATS as SUPPORTED_FORMATS  # noqa: F401
+
 from .handlers import HandlersMixin
 from .delivery import DeliveryMixin
 from .admin import AdminMixin

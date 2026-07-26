@@ -1,14 +1,11 @@
 import unittest
-import sqlite3
-import time
 import os
 import shutil
 import tempfile
-import asyncio
 from pathlib import Path
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch
 
-from huntx.state.db import DBConnection, open_db
+from huntx.state.db import open_db
 from huntx.state.repo import StateRepo
 from huntx.store.raw_store import RawStore
 from huntx.bot.interactive import InteractiveBot
@@ -19,7 +16,7 @@ class TestElevation(unittest.TestCase):
         self.db_path = self.temp_dir / "test.db"
         self.raw_dir = self.temp_dir / "raw"
         self.raw_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Override paths to use our temp dirs
         self.patch_data_dir = patch("huntx.store.paths.DATA_DIR", self.temp_dir)
         self.patch_db_path = patch("huntx.store.paths.STATE_DB_PATH", self.db_path)
@@ -27,7 +24,7 @@ class TestElevation(unittest.TestCase):
         self.patch_data_dir.start()
         self.patch_db_path.start()
         self.patch_raw_dir.start()
-        
+
         self.db = open_db(self.db_path)
         self.repo = StateRepo(self.db)
         self.raw_store = RawStore(base_dir=self.raw_dir)
@@ -66,7 +63,7 @@ class TestElevation(unittest.TestCase):
                 "INSERT INTO published_artifacts (route_name, artifact_hash, published_at) VALUES (?, ?, datetime('now', '-31 days'))",
                 ("route1", "arthash1")
             )
-            
+
             # 2. New seen file and record (ingested 1 day ago)
             conn.execute(
                 "INSERT INTO seen_files (source_id, external_id, raw_hash, ingested_at, status) VALUES (?, ?, ?, datetime('now', '-1 days'), 'success')",
@@ -105,18 +102,18 @@ class TestElevation(unittest.TestCase):
     def test_settings_keyboard_checkmarks(self, mock_client):
         """Verify _build_setformat_keyboard returns inline checkmark next to chosen format."""
         bot = InteractiveBot("token", 123, "hash")
-        
+
         # Register user1 first so preference update works
         bot._register_user("user1", "chat1")
-        
+
         # Test when default is npvt
         bot._set_user_pref("user1", "npvt")
         buttons = bot._build_setformat_keyboard("user1")
-        
+
         # npvt is the first button in first row
         npvt_btn = buttons[0][0]
         self.assertTrue(npvt_btn.text.startswith("✅"))
-        
+
         # Change preferred format to b64sub
         bot._set_user_pref("user1", "b64sub")
         buttons = bot._build_setformat_keyboard("user1")
@@ -128,11 +125,11 @@ class TestElevation(unittest.TestCase):
     def test_optimized_protocol_counts(self, mock_client):
         """Verify _get_protocol_counts gets the correct counts per protocol."""
         bot = InteractiveBot("token", 123, "hash")
-        
+
         # Insert mock npvt records with json line payloads matching various schemes
         with bot.db.connect() as conn:
             conn.execute("DELETE FROM records") # Clear existing
-            
+
             # vmess
             conn.execute(
                 "INSERT INTO records (source_file_hash, record_type, unique_hash, data_json, is_active) VALUES ('h1', 'npvt', 'u1', '{\"line\":\"vmess://a\"}', 1)"
@@ -153,7 +150,7 @@ class TestElevation(unittest.TestCase):
             conn.execute(
                 "INSERT INTO records (source_file_hash, record_type, unique_hash, data_json, is_active) VALUES ('h1', 'npvt', 'u5', '{\"line\":\"vmess://d\"}', 0)"
             )
-            
+
         counts = bot._get_protocol_counts()
         self.assertEqual(counts.get("vmess"), 1)
         self.assertEqual(counts.get("vless"), 1)
@@ -165,12 +162,12 @@ class TestElevation(unittest.TestCase):
     def test_admin_checking_logic(self, mock_client):
         """Verify _is_admin correctly identifies configured admin users."""
         bot = InteractiveBot("token", 123, "hash")
-        
+
         with patch.dict(os.environ, {"HUNTX_ADMINS": "12345,9999"}):
             # Admins
             self.assertTrue(bot._is_admin("12345"))
             self.assertTrue(bot._is_admin("9999", "some_username"))
-            
+
             # Non-admins
             self.assertFalse(bot._is_admin("11111"))
             self.assertFalse(bot._is_admin("22222", "regular_user"))

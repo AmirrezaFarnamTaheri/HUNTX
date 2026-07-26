@@ -1,11 +1,21 @@
 import hashlib
 import logging
+import re
 from pathlib import Path
 from typing import Optional, List
 from ..utils.atomic import atomic_write
 from . import paths
 
 logger = logging.getLogger(__name__)
+
+# A SHA-256 hex digest: exactly 64 lowercase hex characters. Used to reject
+# any value before it is joined into a filesystem path, so that a malformed or
+# adversarial ``blob_hash`` coming from stored records cannot escape base_dir.
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+
+
+def _is_valid_sha256(value: str) -> bool:
+    return isinstance(value, str) and bool(_SHA256_RE.match(value))
 
 
 class RawStore:
@@ -49,6 +59,9 @@ class RawStore:
     def get(self, sha256: str) -> Optional[bytes]:
         """Retrieves data by hash."""
         try:
+            if not _is_valid_sha256(sha256):
+                logger.warning(f"Rejected raw blob lookup for non-hex hash: {sha256!r}")
+                return None
             prefix = sha256[:2]
             path = self.base_dir / prefix / sha256
             if path.exists():
@@ -63,6 +76,8 @@ class RawStore:
 
     def exists(self, sha256: str) -> bool:
         try:
+            if not _is_valid_sha256(sha256):
+                return False
             prefix = sha256[:2]
             return (self.base_dir / prefix / sha256).exists()
         except (OSError, ValueError):
@@ -94,7 +109,7 @@ class RawStore:
         pruned = 0
         try:
             known_hashes = state_repo.get_all_known_hashes()
-            
+
             # Failsafe check
             if not known_hashes:
                 with state_repo.db.connect() as conn:
@@ -116,10 +131,10 @@ class RawStore:
                                         pruned += 1
                                     except Exception as ex:
                                         logger.error(f"Failed to delete orphan raw blob {hash_val}: {ex}")
-            
+
             if pruned > 0:
                 logger.info(f"Pruned {pruned} orphaned raw blobs from disk.")
-                
+
             # Clean up empty subdirectories
             for d in self.base_dir.iterdir():
                 if d.is_dir() and not any(d.iterdir()):

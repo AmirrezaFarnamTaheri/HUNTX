@@ -118,13 +118,13 @@ def _cmd_run(args):
             except ValueError:
                 run_timeout = 9000.0
             run_summary = orchestrator.run(timeout=run_timeout, no_publish=args.no_publish)
-            
+
             # Health Gate check
             total_artifacts = run_summary.get("total_artifacts", 0)
             publish_attempts = run_summary.get("publish_attempts", 0)
             publish_failures = run_summary.get("publish_failures", 0)
             successful_publishes = publish_attempts - publish_failures
-            
+
             if total_artifacts == 0:
                 logger.error("Health Gate FAILED: Zero artifacts were built during this run.")
                 sys.exit(1)
@@ -226,7 +226,6 @@ def _restore_bot_users(db_path, data):
 
 def _cmd_clean(args):
     """Delete all data, state, cache for a fresh start."""
-    data_dir = Path(paths.DATA_DIR)
     db_path = Path(paths.STATE_DB_PATH)
 
     items = [
@@ -333,10 +332,10 @@ def _cmd_reset(args):
 
     # Re-ensure standard directories
     paths.ensure_dirs()
-    
+
     if bot_users_data:
         _restore_bot_users(db_path, bot_users_data)
-    
+
     # Add READMEs to outputs so git tracks them
     (paths.OUTPUT_DIR / "README.md").write_text(
         "# huntx Outputs\n\nAuto-generated build output. Do not edit manually.\n",
@@ -412,7 +411,7 @@ def _cmd_prune(args):
     published_artifacts_pruned = res.get("published_artifacts", 0)
     raw_hashes = res.get("raw_hashes", [])
 
-    print(f"Database statistics:")
+    print("Database statistics:")
     print(f"  - Seen files pruned: {seen_files_pruned}")
     print(f"  - Records pruned: {records_pruned}")
     print(f"  - Published artifacts pruned: {published_artifacts_pruned}")
@@ -430,4 +429,3 @@ def _cmd_prune(args):
 
 if __name__ == "__main__":
     main()
-

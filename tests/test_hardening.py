@@ -146,7 +146,7 @@ class TestHardening(unittest.TestCase):
         mock_repo = MagicMock(spec=StateRepo)
         mock_repo.get_last_published_hash.return_value = None
         pipeline = PublishPipeline(mock_repo)
-        
+
         build_result = {
             "route_name": "r1",
             "artifact_hash": "hash123",
@@ -156,7 +156,7 @@ class TestHardening(unittest.TestCase):
         destinations = [
             {"chat_id": "123", "mode": "telegram", "token": ""}
         ]
-        
+
         with self.assertRaises(RuntimeError) as ctx:
             pipeline.run(build_result, destinations)
         self.assertIn("strict mode active: no token configured", str(ctx.exception).lower())

@@ -80,7 +80,7 @@ class SlipNetHandler(FormatHandler):
             text = raw_data.decode("utf-8", "ignore")
             # Extract links
             links = re.findall(r"slipnet-enc://[a-zA-Z0-9+/=_\-]+", text)
-            
+
             records = []
             for link in links:
                 decrypted = decrypt_slipnet_link(link)
@@ -113,22 +113,22 @@ class SlipNetHandler(FormatHandler):
 
         version_str = parts[0]
         schema = SCHEMAS.get(version_str)
-        
+
         profile = {"Version": version_str}
-        
+
         for i, value in enumerate(parts):
             if i == 0:
                 continue # Already handled Version
-            
+
             label = schema[i] if schema and i < len(schema) else f"Field_{i}"
-            
+
             # Convert boolean fields
             display_value: Any
             if label in BOOLEAN_FIELDS:
                 display_value = True if value == "1" else False
             else:
                 display_value = value if value else ""
-            
+
             profile[label] = display_value
-            
+
         return profile

@@ -24,9 +24,9 @@ def validate_config(config: AppConfig):
         except Exception:
             # Fallback if raw store cannot be created (e.g. inside dry tests)
             pass
-    
+
     is_strict = os.getenv("HUNTX_STRICT", "0") in ("1", "true", "TRUE") or os.getenv("CI", "0") in ("1", "true", "TRUE")
-    
+
     seen_ids = set()
     for s in config.sources:
         if not s.id or s.id.startswith("${"):
@@ -45,7 +45,7 @@ def validate_config(config: AppConfig):
                 raise ValueError(f"Source {s.id} has invalid/unexpanded telegram token")
             if not s.telegram.chat_id or s.telegram.chat_id.startswith("${"):
                 raise ValueError(f"Source {s.id} has invalid/unexpanded telegram chat_id")
-        
+
         elif s.type == "telegram_user":
             if not s.telegram_user:
                 raise ValueError(f"Source {s.id} is type='telegram_user' but missing 'telegram_user' block")
@@ -66,21 +66,21 @@ def validate_config(config: AppConfig):
     for r in config.routes:
         if not r.name or r.name.startswith("${"):
             raise ValueError(f"Route name cannot be empty or unexpanded: {r.name}")
-        
+
         if not r.from_sources:
             raise ValueError(f"Route {r.name} has no sources specified")
-            
+
         for src_ref in r.from_sources:
             if src_ref not in seen_ids:
                 raise ValueError(f"Route {r.name} references unknown source {src_ref}")
-        
+
         if not r.formats:
             raise ValueError(f"Route {r.name} has no formats specified")
 
         for fmt in r.formats:
             if not fmt:
                 raise ValueError(f"Route {r.name} has empty format ID")
-            
+
             is_valid_fmt = False
             # Check if format is registered or a valid derived/known format
             if fmt in registry.list_formats() or fmt in ["b64sub", "decoded.json"]:
@@ -99,11 +99,11 @@ def validate_config(config: AppConfig):
         for d in r.destinations:
             if not d.mode:
                 raise ValueError(f"Route {r.name} destination missing mode")
-                
+
             if d.mode == "telegram":
                 if not d.chat_id or d.chat_id.startswith("${"):
                     raise ValueError(f"Route {r.name} destination missing or invalid chat_id: {d.chat_id}")
-                
+
                 # Token validation
                 if is_strict:
                     if not d.token or d.token.startswith("${"):

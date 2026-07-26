@@ -1,6 +1,5 @@
 import unittest
-import json
-from unittest.mock import Mock, patch, call
+from unittest.mock import Mock, patch
 from huntx.pipeline.transform import TransformPipeline
 
 

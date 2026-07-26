@@ -99,12 +99,13 @@ def test_canonical_channel_alias_is_not_seeded(monkeypatch):
     )
     orchestrator = object.__new__(OptimizedHardenedOrchestrator)
     orchestrator._work_queue = MagicMock()
-    config = lambda peer: SimpleNamespace(
-        api_id=1,
-        api_hash="hash",
-        session="session",
-        peer=peer,
-    )
+    def config(peer):
+        return SimpleNamespace(
+            api_id=1,
+            api_hash="hash",
+            session="session",
+            peer=peer,
+        )
     sources = [
         SimpleNamespace(id="primary", type="telegram_user", telegram_user=config("primary")),
         SimpleNamespace(id="alias", type="telegram_user", telegram_user=config("alias")),

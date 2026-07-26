@@ -38,4 +38,3 @@ class Npv4Handler(OpaqueBundleHandler):
 
         # Fallback to opaque bundle (ZIP)
         return super().parse(raw_data, source_info)
-

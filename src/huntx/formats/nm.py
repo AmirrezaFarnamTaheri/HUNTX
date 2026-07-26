@@ -40,9 +40,8 @@ class NmHandler(FormatHandler):
                 }]
         except Exception as e:
             logger.debug(f"NetMod parsing failed: {e}")
-            
+
         return []
 
     def build(self, records: List[Dict[str, Any]]) -> bytes:
         raise NotImplementedError("Building .nm files is not supported.")
-

@@ -4,8 +4,8 @@ import urllib.request
 import urllib.error
 import json
 from dataclasses import dataclass
-from typing import Dict, Any, Optional, Iterator
-from ..base import SourceConnector, SourceItem, AsyncSyncIterator
+from typing import Dict, Any, Optional
+from ..base import SourceConnector, AsyncSyncIterator
 
 
 
@@ -321,7 +321,6 @@ class TelegramConnector(SourceConnector):
                     stats["skipped_apk"] += 1
                     # Do not treat as content found, unless text was found
                     # If text was found, we yield text but skip file.
-                    pass
                 # Check file size (25MB limit)
                 elif file_size > 25 * 1024 * 1024:
                     logger.warning(f"Skipping file {file_name} (Size: {file_size} > 25MB limit)")

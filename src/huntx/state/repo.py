@@ -398,4 +398,3 @@ class StateRepo:
             logger.error(f"Failed to prune old database records: {e}")
             raise
         return res
-
