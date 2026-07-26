@@ -219,7 +219,21 @@ class HardenedOrchestrator(Orchestrator):
                             "[Orchestrator] Skipping non-dict build result: %r", build_result
                         )
                         continue
-                    route_name = str(build_result.get("route_name", "unknown"))
+                    route_name_val = build_result.get("route_name")
+                    artifact_hash_val = build_result.get("artifact_hash")
+                    if not isinstance(route_name_val, str) or not route_name_val or not artifact_hash_val:
+                        # PublishPipeline.run indexes build_result["route_name"]
+                        # and ["artifact_hash"] directly (no .get), so a dict
+                        # missing either would only fail with a KeyError inside
+                        # the submitted future. Skip it here instead: a clear
+                        # log beats a wasted thread-pool slot and a KeyError
+                        # buried in publish_failures.
+                        logger.warning(
+                            "[Orchestrator] Skipping build result missing route_name/artifact_hash: %r",
+                            build_result,
+                        )
+                        continue
+                    route_name = route_name_val
                     publish_future = publisher.submit(
                         self.publish_pipeline.run,
                         build_result,

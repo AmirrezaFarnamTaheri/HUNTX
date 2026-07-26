@@ -25,16 +25,23 @@ def _records_for(store, blobs):
 
 
 class TestOpaqueBundleBounds(unittest.TestCase):
+    _LIMIT_VARS = ("HUNTX_OPAQUE_BUNDLE_MAX_BYTES", "HUNTX_OPAQUE_BUNDLE_MAX_ENTRIES")
+
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.store = RawStore(base_dir=Path(self._tmp.name))
         self.handler = OpaqueBundleHandler(self.store)
-        for var in ("HUNTX_OPAQUE_BUNDLE_MAX_BYTES", "HUNTX_OPAQUE_BUNDLE_MAX_ENTRIES"):
+        # Save and clear so tests run against known defaults, then restore
+        # whatever was actually present (or absent) — an unconditional pop in
+        # tearDown would erase a value CI or another test had configured.
+        self._saved_env = {var: os.environ[var] for var in self._LIMIT_VARS if var in os.environ}
+        for var in self._LIMIT_VARS:
             os.environ.pop(var, None)
 
     def tearDown(self):
-        for var in ("HUNTX_OPAQUE_BUNDLE_MAX_BYTES", "HUNTX_OPAQUE_BUNDLE_MAX_ENTRIES"):
+        for var in self._LIMIT_VARS:
             os.environ.pop(var, None)
+        os.environ.update(self._saved_env)
         self._tmp.cleanup()
 
     def _names_in(self, blob):

@@ -89,6 +89,9 @@ class RawStore:
         try:
             processed_hashes = state_repo.get_processed_hashes()
             for h in processed_hashes:
+                if not _is_valid_sha256(h):
+                    logger.warning(f"Skipping prune for non-hex hash from state repo: {h!r}")
+                    continue
                 prefix = h[:2]
                 path = self.base_dir / prefix / h
                 if path.exists():
@@ -150,6 +153,9 @@ class RawStore:
         """Prunes specific raw blobs by list of hashes."""
         pruned = 0
         for h in hashes:
+            if not _is_valid_sha256(h):
+                logger.warning(f"Skipping prune for non-hex hash: {h!r}")
+                continue
             prefix = h[:2]
             path = self.base_dir / prefix / h
             if path.exists():

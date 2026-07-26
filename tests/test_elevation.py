@@ -53,11 +53,11 @@ class TestElevation(unittest.TestCase):
             # 1. Old seen file and record (ingested 31 days ago)
             conn.execute(
                 "INSERT INTO seen_files (source_id, external_id, raw_hash, ingested_at, status) VALUES (?, ?, ?, datetime('now', '-31 days'), 'success')",
-                ("s1", "ext1", "oldhash1",)
+                ("s1", "ext1", "a" * 64,)
             )
             conn.execute(
                 "INSERT INTO records (source_file_hash, record_type, unique_hash, created_at, data_json) VALUES (?, 'npvt', 'uniq1', datetime('now', '-31 days'), '{\"line\":\"vmess://foo\"}')",
-                ("oldhash1",)
+                ("a" * 64,)
             )
             conn.execute(
                 "INSERT INTO published_artifacts (route_name, artifact_hash, published_at) VALUES (?, ?, datetime('now', '-31 days'))",
@@ -67,21 +67,21 @@ class TestElevation(unittest.TestCase):
             # 2. New seen file and record (ingested 1 day ago)
             conn.execute(
                 "INSERT INTO seen_files (source_id, external_id, raw_hash, ingested_at, status) VALUES (?, ?, ?, datetime('now', '-1 days'), 'success')",
-                ("s1", "ext2", "newhash2",)
+                ("s1", "ext2", "b" * 64,)
             )
             conn.execute(
                 "INSERT INTO records (source_file_hash, record_type, unique_hash, created_at, data_json) VALUES (?, 'npvt', 'uniq2', datetime('now', '-1 days'), '{\"line\":\"vless://bar\"}')",
-                ("newhash2",)
+                ("b" * 64,)
             )
             conn.execute(
                 "INSERT INTO published_artifacts (route_name, artifact_hash, published_at) VALUES (?, ?, datetime('now', '-1 days'))",
                 ("route1", "arthash2")
             )
 
-        # Create old raw blob file on disk
-        old_blob_dir = self.raw_dir / "ol"
+        # Create old raw blob file on disk (sharded by the hash's first 2 chars)
+        old_blob_dir = self.raw_dir / "aa"
         old_blob_dir.mkdir(parents=True, exist_ok=True)
-        old_blob_path = old_blob_dir / "oldhash1"
+        old_blob_path = old_blob_dir / ("a" * 64)
         old_blob_path.write_bytes(b"old blob content")
         self.assertTrue(old_blob_path.exists())
 
@@ -90,7 +90,7 @@ class TestElevation(unittest.TestCase):
         self.assertEqual(prune_res["seen_files"], 1)
         self.assertEqual(prune_res["records"], 1)
         self.assertEqual(prune_res["published_artifacts"], 1)
-        self.assertEqual(prune_res["raw_hashes"], ["oldhash1"])
+        self.assertEqual(prune_res["raw_hashes"], ["a" * 64])
 
         # Prune raw store files
         raw_pruned = self.raw_store.prune_by_hashes(prune_res["raw_hashes"])

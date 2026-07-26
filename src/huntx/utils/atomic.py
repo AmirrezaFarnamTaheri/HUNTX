@@ -1,5 +1,6 @@
 import logging
 import os
+import stat
 import threading
 from pathlib import Path
 from typing import Union
@@ -60,12 +61,22 @@ def atomic_write(target_path: PathLike, data: Payload, mode: str = "wb") -> None
     suffix = f".tmp.{os.getpid()}.{threading.get_ident()}"
     tmp_path = path.with_name(path.name + suffix)
 
+    # Preserve an existing target's permission bits. The temp file is created
+    # with the current umask-derived mode, so without this, os.replace would
+    # silently narrow (or widen) the file's permissions on every atomic write.
+    try:
+        existing_mode = stat.S_IMODE(path.stat().st_mode)
+    except OSError:
+        existing_mode = None
+
     encoding = None if "b" in mode else "utf-8"
     try:
         with open(tmp_path, mode, encoding=encoding) as stream:
             stream.write(payload)
             stream.flush()
             os.fsync(stream.fileno())
+        if existing_mode is not None:
+            os.chmod(tmp_path, existing_mode)
         os.replace(str(tmp_path), str(path))
     except Exception as exc:
         logger.error("Failed to atomically write to %s: %s", path, exc)

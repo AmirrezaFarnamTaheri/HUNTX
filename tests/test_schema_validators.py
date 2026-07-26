@@ -26,6 +26,12 @@ class TestApiIdValidator(unittest.TestCase):
             cfg = TelegramUserSourceConfig(api_id=absent, peer="@c")
             self.assertIsNone(cfg.api_id, f"expected None for {absent!r}")
 
+    def test_string_zero_maps_to_none(self):
+        # "0" fails the `v == 0` fast-path (str != int in Python) and must be
+        # normalized to None *after* parsing, not just before.
+        cfg = TelegramUserSourceConfig(api_id="0", peer="@c")
+        self.assertIsNone(cfg.api_id)
+
     def test_omitted_api_id_is_none(self):
         cfg = TelegramUserSourceConfig(peer="@c")
         self.assertIsNone(cfg.api_id)

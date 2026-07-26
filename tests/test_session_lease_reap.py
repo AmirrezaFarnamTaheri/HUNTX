@@ -72,9 +72,15 @@ class TestReapLogic(unittest.TestCase):
         reap_marker.unlink(missing_ok=True)
 
     def test_is_stale_boundary(self):
-        self._write_lease(age_seconds=100)
-        now = time.time()
-        self.assertFalse(_is_stale(self.path, stale_after_seconds=1000, now=now))
+        # Deterministic now + mtime set to exactly `now - stale_after_seconds`
+        # so this actually exercises the equality boundary of `_is_stale`'s
+        # strict `>` comparison — a fuzzier now/mtime pairing (e.g. writing at
+        # one time.time() call and reading at another) can't catch a `>` to
+        # `>=` regression, since a small elapsed gap masks the true boundary.
+        now = 10_000.0
+        self.path.write_text("owner", encoding="utf-8")
+        os.utime(self.path, (now - 100, now - 100))
+        self.assertFalse(_is_stale(self.path, stale_after_seconds=100, now=now))
         self.assertTrue(_is_stale(self.path, stale_after_seconds=10, now=now))
 
 

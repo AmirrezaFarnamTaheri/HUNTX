@@ -53,9 +53,14 @@ class TelegramUserSourceConfig(BaseModel):
         if v is None or v == "" or v == 0:
             return None
         try:
-            return int(v)
+            parsed = int(v)
         except (ValueError, TypeError) as exc:
             raise ValueError(f"Invalid api_id (must be an integer): {v!r}") from exc
+        # A string like "0" fails the `v == 0` check above (str != int in
+        # Python), so it reaches int() and must be normalized here too —
+        # otherwise the documented "zero maps to None" contract is broken
+        # for any zero value that arrives as text (env var, YAML string).
+        return None if parsed == 0 else parsed
 
 
 class SourceSelector(BaseModel):

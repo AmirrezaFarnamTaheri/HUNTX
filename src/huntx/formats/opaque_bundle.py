@@ -71,6 +71,23 @@ class OpaqueBundleHandler(FormatHandler):
                     continue
                 original_name = data.get("filename", "file.bin")
 
+                if entries >= max_entries:
+                    dropped += 1
+                    continue
+
+                # Reject on the record's own declared size *before* reading the
+                # blob, so one oversized blob isn't fully loaded into memory
+                # only to be dropped afterward. This is a pre-filter, not the
+                # authoritative check: the declared size comes from our own
+                # parse()-time metadata (trustworthy, but not re-verified
+                # against disk), so the post-read len(content) check below
+                # remains as the race-safe fallback that actually enforces
+                # the ceiling against real bytes.
+                declared_size = data.get("size")
+                if isinstance(declared_size, int) and total_bytes + declared_size > max_bytes:
+                    dropped += 1
+                    continue
+
                 # Retrieve content
                 content = self.raw_store.get(blob_hash)
                 if not content:
@@ -80,8 +97,8 @@ class OpaqueBundleHandler(FormatHandler):
                     )
                     continue
 
-                # Enforce bounded-resource ceilings before allocating the entry.
-                if entries >= max_entries or total_bytes + len(content) > max_bytes:
+                # Authoritative enforcement against the real bytes read.
+                if total_bytes + len(content) > max_bytes:
                     dropped += 1
                     continue
 
