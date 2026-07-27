@@ -35,6 +35,24 @@ def install_telegram_connector_hardening(connector_type: Type[Any]) -> None:
         self._acknowledged_item_keys: Set[ItemKey] = set()
         self._pending_ack_update_id = int(self.offset)
 
+    def recalculate_acknowledgement(self: Any) -> None:
+        unacknowledged = self._yielded_item_keys - self._acknowledged_item_keys
+        if unacknowledged:
+            candidate = min(update_id for update_id, _ in unacknowledged) - 1
+        elif self._scan_completed and not self._scan_failed:
+            candidate = int(self.offset)
+        elif self._last_yielded_update_id is not None:
+            # An interrupted generator may have another item for the same update
+            # that has not been yielded yet, so keep that update replayable.
+            candidate = self._last_yielded_update_id - 1
+        else:
+            candidate = self._scan_start_offset
+
+        self._pending_ack_update_id = max(
+            self._scan_start_offset,
+            min(int(self.offset), int(candidate)),
+        )
+
     async def hardened_make_request_async(
         self: Any,
         method: str,
@@ -83,29 +101,17 @@ def install_telegram_connector_hardening(connector_type: Type[Any]) -> None:
             completed = True
         finally:
             self._scan_completed = completed
+            recalculate_acknowledgement(self)
 
     def acknowledge(self: Any, items: Iterable[Any]) -> None:
         for item in items:
             update_id = int(item.metadata.get("update_id", 0))
             if update_id > 0:
                 self._acknowledged_item_keys.add((update_id, str(item.external_id)))
-
-        unacknowledged = self._yielded_item_keys - self._acknowledged_item_keys
-        if unacknowledged:
-            candidate = min(update_id for update_id, _ in unacknowledged) - 1
-        elif self._scan_completed and not self._scan_failed:
-            candidate = int(self.offset)
-        elif self._last_yielded_update_id is not None:
-            candidate = self._last_yielded_update_id - 1
-        else:
-            candidate = self._scan_start_offset
-
-        self._pending_ack_update_id = max(
-            self._scan_start_offset,
-            min(int(self.offset), int(candidate)),
-        )
+        recalculate_acknowledgement(self)
 
     def hardened_get_state(self: Any) -> Dict[str, Any]:
+        recalculate_acknowledgement(self)
         state = dict(original_get_state(self))
         state["offset"] = int(self._pending_ack_update_id)
         return state
