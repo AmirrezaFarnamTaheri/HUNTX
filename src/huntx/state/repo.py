@@ -358,13 +358,13 @@ class StateRepo:
             raise
 
     def prune_old_data(self, days: int) -> Dict[str, Any]:
-        """Purge old state and return only raw blobs no active record needs."""
-        raw_hashes: list[str] = []
+        """Purge expired inactive state while preserving ownership for active records."""
+        cutoff = f"-{days} days"
         res: Dict[str, Any] = {
             "seen_files": 0,
             "records": 0,
             "published_artifacts": 0,
-            "raw_hashes": raw_hashes,
+            "raw_hashes": [],
         }
         try:
             with self.db.connect() as conn:
@@ -375,36 +375,53 @@ class StateRepo:
                     FROM seen_files sf
                     WHERE sf.ingested_at < datetime('now', ?)
                       AND sf.status != 'pending'
-                      AND sf.raw_hash NOT IN (
-                          SELECT DISTINCT r.source_file_hash
+                      AND NOT EXISTS (
+                          SELECT 1
                           FROM records r
-                          WHERE r.record_type IN ({placeholders})
+                          WHERE r.source_file_hash = sf.raw_hash
+                            AND r.record_type IN ({placeholders})
                             AND r.is_active = 1
                       )
                     """,
-                    [f"-{days} days", *self._BLOB_DEPENDENT_FORMATS],
+                    [cutoff, *self._BLOB_DEPENDENT_FORMATS],
                 )
-                raw_hashes = [row["raw_hash"] for row in cursor.fetchall()]
-                res["raw_hashes"] = raw_hashes
+                res["raw_hashes"] = [row["raw_hash"] for row in cursor.fetchall()]
 
                 c = conn.execute(
-                    "DELETE FROM seen_files WHERE ingested_at < datetime('now', ?) AND status != 'pending'",
-                    (f"-{days} days",),
+                    """
+                    DELETE FROM records
+                    WHERE created_at < datetime('now', ?)
+                      AND is_active = 0
+                    """,
+                    (cutoff,),
                 )
-                res["seen_files"] = c.rowcount
-
-                c = conn.execute("DELETE FROM records WHERE created_at < datetime('now', ?)", (f"-{days} days",))
                 res["records"] = c.rowcount
 
                 c = conn.execute(
+                    """
+                    DELETE FROM seen_files
+                    WHERE ingested_at < datetime('now', ?)
+                      AND status != 'pending'
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM records r
+                          WHERE r.source_file_hash = seen_files.raw_hash
+                            AND r.is_active = 1
+                      )
+                    """,
+                    (cutoff,),
+                )
+                res["seen_files"] = c.rowcount
+
+                c = conn.execute(
                     "DELETE FROM published_artifacts WHERE published_at < datetime('now', ?)",
-                    (f"-{days} days",),
+                    (cutoff,),
                 )
                 res["published_artifacts"] = c.rowcount
 
             logger.info(
                 f"Database auto-pruned records older than {days} days: "
-                f"{res['seen_files']} seen_files, {res['records']} records, "
+                f"{res['seen_files']} seen_files, {res['records']} inactive records, "
                 f"{res['published_artifacts']} artifacts, {len(res['raw_hashes'])} potential raw blobs."
             )
         except Exception as e:
