@@ -29,10 +29,10 @@ def install_telegram_connector_hardening(connector_type: Type[Any]) -> None:
         self._consumer_id = f"chat:{self.target_chat_id}"
         self._scan_start_offset = int(self.offset)
         self._scan_completed = False
-        self._last_yielded_update_id: Optional[int] = None
-        self._yielded_item_keys: Set[ItemKey] = set()
-        self._acknowledged_item_keys: Set[ItemKey] = set()
-        self._failed_update_ids: Set[int] = set()
+        self._last_yielded_update_id = None
+        self._yielded_item_keys = set()
+        self._acknowledged_item_keys = set()
+        self._failed_update_ids = set()
         self._pending_ack_update_id = int(self.offset)
 
     def mark_current_update_failed(self: Any) -> None:
