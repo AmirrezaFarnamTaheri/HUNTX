@@ -206,7 +206,46 @@ class DBConnection:
                 if v8_work_columns and "lease_token" not in v8_work_columns:
                     conn.execute("ALTER TABLE ingestion_work_items ADD COLUMN lease_token TEXT")
                 conn.execute("PRAGMA user_version = 8")
+                version = 8
                 logger.info("Database schema migrated to version 8.")
+
+            if version < 9:
+                conn.executescript("""
+                    CREATE TABLE IF NOT EXISTS telegram_bot_consumers (
+                        token_fingerprint TEXT NOT NULL,
+                        consumer_id TEXT NOT NULL,
+                        acknowledged_update_id INTEGER NOT NULL DEFAULT 0,
+                        active INTEGER NOT NULL DEFAULT 1,
+                        updated_at REAL NOT NULL,
+                        PRIMARY KEY (token_fingerprint, consumer_id),
+                        CHECK(length(token_fingerprint) = 64),
+                        CHECK(acknowledged_update_id >= 0),
+                        CHECK(active IN (0, 1))
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_telegram_bot_consumers_watermark
+                        ON telegram_bot_consumers(
+                            token_fingerprint,
+                            active,
+                            acknowledged_update_id
+                        );
+                    """)
+                consumer_columns = {
+                    row["name"] for row in conn.execute("PRAGMA table_info(telegram_bot_consumers)").fetchall()
+                }
+                required = {
+                    "token_fingerprint",
+                    "consumer_id",
+                    "acknowledged_update_id",
+                    "active",
+                    "updated_at",
+                }
+                if consumer_columns != required:
+                    raise RuntimeError(
+                        "v9 Telegram consumer migration postcondition failed: " f"{sorted(consumer_columns)}"
+                    )
+                conn.execute("PRAGMA user_version = 9")
+                version = 9
+                logger.info("Database schema migrated to version 9.")
         except Exception as exc:
             logger.error("Migration check failed: %s", exc)
             raise
