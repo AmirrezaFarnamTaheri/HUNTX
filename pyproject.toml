@@ -17,7 +17,15 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "black", "flake8", "mypy", "types-PyYAML"]
+dev = [
+  "pytest>=8",
+  "pytest-asyncio>=0.24",
+  "black",
+  "flake8",
+  "mypy",
+  "types-PyYAML",
+  "types-requests",
+]
 
 [project.scripts]
 huntx = "huntx.cli.hardened_main:main"
@@ -45,11 +53,12 @@ disable_error_code = ["attr-defined"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+markers = [
+  "asyncio: run the test in an asyncio event loop",
+]
 
 # NOTE: there is deliberately no [tool.flake8] section here. flake8 does not
 # read pyproject.toml (it only supports setup.cfg / tox.ini / .flake8), so such
-# a section is silently inert — verified against flake8 7.3.0, which ignored a
-# max-line-length set only in pyproject and fell back to the 79-char default.
-# Keeping a duplicate here invited edits that appear to work but change nothing.
-# The single source of truth for flake8 is the .flake8 file.
+# a section is silently inert. The single source of truth is .flake8.
