@@ -50,9 +50,6 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Checkout validation surface
-        # Pinned to a full-length commit SHA, not the mutable v7.0.1 tag: a tag
-        # can be repointed at new code, so a tag reference is not a supply-chain
-        # guarantee. Verified against the upstream v7.0.1 tag.
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
@@ -76,7 +73,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --require-hashes --prefer-binary -r requirements.txt
-          python -m pip install --prefer-binary flake8 mypy pytest types-requests types-PyYAML
+          python -m pip install --prefer-binary flake8 mypy pytest pytest-asyncio types-requests types-PyYAML
           python -m pip install --no-deps -e .
           python -m pip check
 
