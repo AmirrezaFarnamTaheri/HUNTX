@@ -29,21 +29,31 @@ def install_telegram_connector_hardening(connector_type: Type[Any]) -> None:
         self._consumer_id = f"chat:{self.target_chat_id}"
         self._scan_start_offset = int(self.offset)
         self._scan_completed = False
-        self._scan_failed = False
         self._last_yielded_update_id: Optional[int] = None
         self._yielded_item_keys: Set[ItemKey] = set()
         self._acknowledged_item_keys: Set[ItemKey] = set()
+        self._failed_update_ids: Set[int] = set()
         self._pending_ack_update_id = int(self.offset)
 
+    def mark_current_update_failed(self: Any) -> None:
+        update_id = int(getattr(self, "offset", 0))
+        if update_id > self._scan_start_offset:
+            self._failed_update_ids.add(update_id)
+
     def recalculate_acknowledgement(self: Any) -> None:
-        unacknowledged = self._yielded_item_keys - self._acknowledged_item_keys
-        if unacknowledged:
-            candidate = min(update_id for update_id, _ in unacknowledged) - 1
-        elif self._scan_completed and not self._scan_failed:
+        blocking_update_ids = {
+            update_id
+            for update_id, _ in self._yielded_item_keys - self._acknowledged_item_keys
+        }
+        blocking_update_ids.update(self._failed_update_ids)
+
+        if blocking_update_ids:
+            candidate = min(blocking_update_ids) - 1
+        elif self._scan_completed:
             candidate = int(self.offset)
         elif self._last_yielded_update_id is not None:
-            # An interrupted generator may have another item for the same update
-            # that has not been yielded yet, so keep that update replayable.
+            # An interrupted generator may still have another item for the same
+            # update, so that update must remain replayable.
             candidate = self._last_yielded_update_id - 1
         else:
             candidate = self._scan_start_offset
@@ -59,14 +69,14 @@ def install_telegram_connector_hardening(connector_type: Type[Any]) -> None:
         params: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         response = await original_make_request_async(self, method, params)
-        if not response.get("ok"):
-            self._scan_failed = True
+        if method != "getUpdates" and not response.get("ok"):
+            mark_current_update_failed(self)
         return response
 
     async def hardened_download_file_async(self: Any, file_path: str) -> Optional[bytes]:
         data = await original_download_file_async(self, file_path)
         if data is None:
-            self._scan_failed = True
+            mark_current_update_failed(self)
         return data
 
     async def hardened_list_new_async(
@@ -76,10 +86,10 @@ def install_telegram_connector_hardening(connector_type: Type[Any]) -> None:
         local_offset = int(state.get("offset", 0)) if state else 0
         self._scan_start_offset = local_offset
         self._scan_completed = False
-        self._scan_failed = False
         self._last_yielded_update_id = None
         self._yielded_item_keys.clear()
         self._acknowledged_item_keys.clear()
+        self._failed_update_ids.clear()
         self._pending_ack_update_id = local_offset
 
         if self._inbox is not None and hasattr(self._inbox, "register_bot_consumer"):
