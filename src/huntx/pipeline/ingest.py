@@ -200,6 +200,10 @@ class IngestionPipeline:
 
             self.state_repo.update_source_state(source_id, new_state, source_type=source_type)
 
+            commit_acknowledgement = getattr(connector, "commit_acknowledgement", None)
+            if commit_acknowledgement is not None:
+                await maybe_await(commit_acknowledgement())
+
             logger.info(
                 f"[Ingest] ═══ Done {source_id} ═══  "
                 f"new={count} (text={text_count} media={media_count})  "
