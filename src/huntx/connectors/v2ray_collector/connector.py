@@ -5,8 +5,8 @@ import subprocess
 import time
 import logging
 import hashlib
-from typing import Dict, Any, Iterator, Optional
-from ..base import SourceConnector, SourceItem, AsyncSyncIterator
+from typing import Dict, Any, Optional
+from ..base import SourceConnector, AsyncSyncIterator
 
 logger = logging.getLogger("huntx.connectors.v2ray_collector")
 
@@ -40,6 +40,7 @@ class V2RayCollectorConnector(SourceConnector):
 
     async def _list_new_async(self, state: Optional[Dict[str, Any]]):
         import asyncio
+
         loop = asyncio.get_running_loop()
 
         def run_scraper_sync():
@@ -52,8 +53,11 @@ class V2RayCollectorConnector(SourceConnector):
 
             # 2. Run the Go scraper
             import shutil
+
             if not shutil.which("go"):
-                logger.error("Go binary ('go') not found in system PATH. Please install Go toolchain to run v2ray_collector.")
+                logger.error(
+                    "Go binary ('go') not found in system PATH. Please install Go toolchain to run v2ray_collector."
+                )
                 return []
 
             logger.info(f"Executing Go scraper in {self.base_dir}...")
@@ -64,7 +68,7 @@ class V2RayCollectorConnector(SourceConnector):
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True,
-                    timeout=300  # 5 minutes safety limit
+                    timeout=300,  # 5 minutes safety limit
                 )
                 if res.stdout:
                     logger.debug(f"Go scraper stdout: {res.stdout}")
@@ -80,7 +84,7 @@ class V2RayCollectorConnector(SourceConnector):
                 return []
 
             try:
-                with open(output_file, 'r', encoding='utf-8', errors='ignore') as f:
+                with open(output_file, "r", encoding="utf-8", errors="ignore") as f:
                     return f.readlines()
             except Exception as e:
                 logger.error(f"Failed to read output file: {e}")
@@ -95,17 +99,16 @@ class V2RayCollectorConnector(SourceConnector):
             if not line:
                 continue
             # Stable unique external ID derived from line content
-            h = hashlib.sha256(line.encode('utf-8')).hexdigest()[:16]
+            h = hashlib.sha256(line.encode("utf-8")).hexdigest()[:16]
             ext_id = f"goscrap_{h}_{idx}"
-            
+
             yield V2RayCollectorItem(
                 external_id=ext_id,
-                data=line.encode('utf-8'),
-                metadata={"filename": "collected_configs.txt", "is_text": True}
+                data=line.encode("utf-8"),
+                metadata={"filename": "collected_configs.txt", "is_text": True},
             )
 
         self.last_run_time = int(time.time())
-
 
     def get_state(self) -> Dict[str, Any]:
         return {"last_run_time": self.last_run_time}

@@ -5,6 +5,10 @@ import logging
 from huntx.connectors.telegram_user.connector import TelegramUserConnector
 
 
+async def _download_chunks(data):
+    yield data
+
+
 class TestTelegramUserConnector(unittest.TestCase):
     def setUp(self):
         self.api_id = 12345
@@ -25,7 +29,6 @@ class TestTelegramUserConnector(unittest.TestCase):
 
     @patch("huntx.connectors.telegram_user.connector.StringSession")
     @patch("huntx.connectors.telegram_user.connector.TelegramClient")
-
     def test_initialization(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -41,7 +44,6 @@ class TestTelegramUserConnector(unittest.TestCase):
 
     @patch("huntx.connectors.telegram_user.connector.StringSession")
     @patch("huntx.connectors.telegram_user.connector.TelegramClient")
-
     def test_list_new_text(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -61,6 +63,7 @@ class TestTelegramUserConnector(unittest.TestCase):
         mock_client.iter_messages.return_value = [msg1]
 
         items = list(self.connector.list_new())
+        self.connector.acknowledge(items)
 
         self.assertEqual(len(items), 1)
         self.assertEqual(items[0].external_id, "100")
@@ -70,7 +73,6 @@ class TestTelegramUserConnector(unittest.TestCase):
 
     @patch("huntx.connectors.telegram_user.connector.StringSession")
     @patch("huntx.connectors.telegram_user.connector.TelegramClient")
-
     def test_list_new_media(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -86,9 +88,10 @@ class TestTelegramUserConnector(unittest.TestCase):
         msg2.date = datetime.datetime.now()
 
         mock_client.iter_messages.return_value = [msg2]
-        mock_client.download_media.return_value = b"fake_image_bytes"
+        mock_client.iter_download.side_effect = lambda message, request_size: _download_chunks(b"fake_image_bytes")
 
         items = list(self.connector.list_new())
+        self.connector.acknowledge(items)
 
         self.assertEqual(len(items), 1)
         self.assertEqual(items[0].external_id, "101_media")
@@ -98,7 +101,6 @@ class TestTelegramUserConnector(unittest.TestCase):
 
     @patch("huntx.connectors.telegram_user.connector.StringSession")
     @patch("huntx.connectors.telegram_user.connector.TelegramClient")
-
     def test_list_new_skip_large_file(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -120,7 +122,6 @@ class TestTelegramUserConnector(unittest.TestCase):
 
     @patch("huntx.connectors.telegram_user.connector.StringSession")
     @patch("huntx.connectors.telegram_user.connector.TelegramClient")
-
     def test_list_new_accept_20mb_file(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -136,9 +137,10 @@ class TestTelegramUserConnector(unittest.TestCase):
         msg.date = datetime.datetime.now()
 
         mock_client.iter_messages.return_value = [msg]
-        mock_client.download_media.return_value = b"config content"
+        mock_client.iter_download.side_effect = lambda message, request_size: _download_chunks(b"config content")
 
         items = list(self.connector.list_new())
+        self.connector.acknowledge(items)
         self.assertEqual(len(items), 1)
         self.assertEqual(items[0].external_id, "103_media")
         self.assertEqual(items[0].metadata["filename"], "valid_config.txt")
@@ -146,7 +148,6 @@ class TestTelegramUserConnector(unittest.TestCase):
 
     @patch("huntx.connectors.telegram_user.connector.StringSession")
     @patch("huntx.connectors.telegram_user.connector.TelegramClient")
-
     def test_list_new_mixed_content_with_failures(self, mock_client_cls, mock_session_cls):
         """Test a mix of text, media, skipped media, and download errors."""
         mock_client = MagicMock()
@@ -205,32 +206,43 @@ class TestTelegramUserConnector(unittest.TestCase):
         mock_client.iter_messages.return_value = [msg4, msg3, msg2, msg1]
 
         # Setup download behavior
-        def download_side_effect(message, file):
+        def download_side_effect(message, request_size):
             if message.id == 202:
                 raise Exception("Download timeout")
-            return b"content"
+            return _download_chunks(b"content")
 
-        mock_client.download_media.side_effect = download_side_effect
+        mock_client.iter_download.side_effect = download_side_effect
 
-        items = list(self.connector.list_new())
+        with self.assertRaisesRegex(Exception, "Download timeout"):
+            list(self.connector.list_new())
 
-        # Pass 1 yields text from msg1; pass 2 processes documents (msg2 too large, msg3 fails download)
-        self.assertEqual(len(items), 1)
-        self.assertEqual(items[0].external_id, "200")
-
-        # Offset should update to the last processed message
-        self.assertEqual(self.connector.offset, 203)
+        # The failed document and the unacknowledged text remain replayable.
+        state = self.connector.get_state()
+        self.assertLess(state["text_offset"], 200)
+        self.assertEqual(state["document_offset"], 201)
 
     @patch("huntx.connectors.telegram_user.connector.StringSession")
     @patch("huntx.connectors.telegram_user.connector.TelegramClient")
     def test_get_state(self, mock_client_cls, mock_session_cls):
-        self.connector.offset = 500
-        state = self.connector.get_state()
-        self.assertEqual(state, {"offset": 500})
+        connector = TelegramUserConnector(
+            self.api_id,
+            self.api_hash,
+            self.session,
+            self.peer,
+            state={"offset": 500},
+        )
+        state = connector.get_state()
+        self.assertEqual(
+            state,
+            {
+                "offset": 500,
+                "text_offset": 500,
+                "document_offset": 500,
+            },
+        )
 
     @patch("huntx.connectors.telegram_user.connector.StringSession")
     @patch("huntx.connectors.telegram_user.connector.TelegramClient")
-
     def test_state_update_on_list_new(self, mock_client_cls, mock_session_cls):
         """Test that list_new updates internal offset from state if provided."""
         mock_client = MagicMock()
@@ -251,7 +263,6 @@ class TestTelegramUserConnector(unittest.TestCase):
 
     @patch("huntx.connectors.telegram_user.connector.StringSession")
     @patch("huntx.connectors.telegram_user.connector.TelegramClient")
-
     def test_connection_handling(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -272,7 +283,6 @@ class TestTelegramUserConnector(unittest.TestCase):
 
     @patch("huntx.connectors.telegram_user.connector.StringSession")
     @patch("huntx.connectors.telegram_user.connector.TelegramClient")
-
     def test_list_new_exceptions(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -291,7 +301,6 @@ class TestTelegramUserConnector(unittest.TestCase):
 
     @patch("huntx.connectors.telegram_user.connector.StringSession")
     @patch("huntx.connectors.telegram_user.connector.TelegramClient")
-
     def test_resolve_peer_error_handled(self, mock_client_cls, mock_session_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client

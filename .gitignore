@@ -15,6 +15,7 @@ build/
 # Testing & QA
 .coverage
 .pytest_cache/
+.tmp/
 .mypy_cache/
 htmlcov/
 *.db-shm
@@ -37,3 +38,9 @@ src/huntx/connectors/v2ray_collector/*.txt
 graphify-out/
 .cocoindex_code/
 .smart-coding-cache/
+
+# Runtime state DBs and test scratch artifacts
+*.db
+temp_state.db
+temp_bot_init/
+temp_test_output/

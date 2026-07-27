@@ -167,6 +167,7 @@ def test_window_pipeline_reuses_connector(monkeypatch):
         window_start_ts=0,
         window_end_ts=3600,
         continuation_cursor=None,
+        lease_token="lease-token",
     )
 
     async def exercise():

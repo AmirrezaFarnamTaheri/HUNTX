@@ -50,7 +50,10 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Checkout validation surface
-        uses: actions/checkout@v7.0.0 # Node 24
+        # Pinned to a full-length commit SHA, not the mutable v7.0.1 tag: a tag
+        # can be repointed at new code, so a tag reference is not a supply-chain
+        # guarantee. Verified against the upstream v7.0.1 tag.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
           persist-credentials: false
@@ -65,7 +68,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Set up Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # Node 24
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
 
@@ -93,19 +96,21 @@ jobs:
 
       - name: Publish validation summary
         if: always()
+        env:
+          VALIDATION_REF: ${{ github.head_ref || github.ref_name }}
         run: |
           {
             echo "### Validation"
             echo "- Result: **${{ job.status }}**"
             echo "- Commit: \`${GITHUB_SHA}\`"
             echo "- Python: 3.12"
-            echo "- Concurrency key: \`${{ github.head_ref || github.ref_name }}\`"
+            echo "- Concurrency key: \`${VALIDATION_REF}\`"
             echo "- Slowest test durations are included in the job log."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload diagnostics on failure
         if: failure()
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v6, Node 24
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: validation-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
           path: |

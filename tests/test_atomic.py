@@ -64,3 +64,32 @@ class TestAtomicWrite(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestAtomicWriteEncoding(unittest.TestCase):
+    """Text-mode atomic_write must always encode UTF-8, independent of locale."""
+
+    def test_text_mode_writes_utf8(self):
+        import tempfile
+        from pathlib import Path
+        from huntx.utils.atomic import atomic_write
+
+        payload = "header — em dash and café\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "out.txt"
+            atomic_write(target, payload, mode="w")
+            self.assertEqual(target.read_bytes(), payload.encode("utf-8"))
+            self.assertEqual(target.read_text(encoding="utf-8"), payload)
+
+    def test_text_mode_roundtrip_with_if_changed(self):
+        import tempfile
+        from pathlib import Path
+        from huntx.utils.atomic import atomic_write_if_changed
+
+        payload = "café — ümläut"
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "out.txt"
+            self.assertTrue(atomic_write_if_changed(target, payload, mode="w"))
+            # Second write with identical content must detect a match (the
+            # comparison also reads UTF-8) and skip rewriting.
+            self.assertFalse(atomic_write_if_changed(target, payload, mode="w"))

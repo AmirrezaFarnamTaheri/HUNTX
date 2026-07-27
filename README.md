@@ -10,14 +10,16 @@
 - **20+ proxy protocols** — vmess, vless, trojan, ss, ssr, hysteria2, tuic, wireguard, socks, juicity, anytls, warp, dns, and more
 - **Full protocol decoding** — all proxy URIs decoded to structured JSON; base64 subscription re-encoding
 - **Incremental & deduplicated** — SHA-256 content hashing, only new files processed
+- **Crash-safe ingestion** — durable Bot API inbox plus content-addressed raw storage
 - **Media filtering** — images, videos, GIFs, stickers, voice, audio automatically dropped
 - **APK safety filter** — `.apk` files automatically rejected
 - **Batch transform** — files processed in batches of 200 with batch DB writes
-- **GatherX bot** — DM-based interactive Telegram bot with 13 commands, user preferences, auto-delivery
+- **GatherX bot** — approval-gated DM bot with 13 commands, user preferences, and resumable delivery
 - **4 CLI commands** — `run` (pipeline + auto-deliver), `bot` (persistent bot), `clean`, `reset`
 - **Quality Gates** — CI/CD enforces linting, typing, and tests before any run or deployment
 - **Auto-Deploy** — GitHub Pages frontend automatically updated with fresh catalog data on every run
-- **Security-First** — Magic-byte APK filtering, secret redaction, and atomic-write protection
+- **Security-First** — deny-by-default bot access, magic-byte filtering, secret redaction, and atomic writes
+- **Resumable publication** — per-destination delivery ledger prevents replay after partial failure
 - **Configurable fetch windows** — separate lookback for text/files on fresh vs subsequent runs (tunable from CI)
 - **Factory reset** — full wipe of state, data, outputs, and source offsets (CLI + CI trigger)
 - **Cumulative dev output** — deduplicated proxy URIs accumulated across all runs in `outputs_dev/`
@@ -73,7 +75,7 @@ Run the full pipeline (ingest → transform → build → publish → auto-deliv
 | `--no-auto-deliver` | Skip automatic subscription delivery after pipeline | — |
 | `--no-publish` | Skip publishing artifacts to destination channels | — |
 
-After the pipeline completes, all output files are automatically sent to every registered GatherX bot user (unless `--no-auto-deliver` is passed).
+After the pipeline completes, output files are sent to approved, unmuted GatherX users unless `--no-auto-deliver` is passed.
 
 ### `huntx bot`
 
@@ -103,14 +105,15 @@ Full factory reset — wipes ALL data, state, caches, outputs, and source offset
 
 ## GatherX Bot
 
-**GatherX** is the user-facing Telegram bot. Anyone can DM it to register and receive proxy configs.
+**GatherX** is the user-facing Telegram bot. A DM can create a pending registration, but an administrator must approve the user before commands or deliveries are enabled.
 
 ### How It Works
 
-1. User sends `/start` → auto-registered + receives latest proxy list
-2. After every pipeline run → bot auto-sends all outputs to every registered user
-3. Users can request specific formats on demand with `/get`
-4. Users can `/mute` to opt out, `/unmute` to opt back in
+1. User sends `/start` → pending registration is created
+2. Administrator approves the user in the bot-user database/admin workflow
+3. After every pipeline run → bot sends outputs to approved, unmuted users
+4. Approved users can request specific formats on demand with `/get`
+5. Approved users can `/mute` to opt out, `/unmute` to opt back in
 
 ### Bot Commands
 
@@ -146,7 +149,7 @@ Sources (49+ Telegram channels)
                 │
           ┌─────┴──────────────────────┐
      Publish       Decode          Re-encode        GatherX Bot
-     (Telegram)    (JSON artifact)  (base64 sub)    (auto-deliver DMs)
+     (ledgered)    (JSON artifact)  (base64 sub)    (approved DMs)
 ```
 
 **Pipeline phases:**
@@ -154,7 +157,7 @@ Sources (49+ Telegram channels)
 2. **Transform** — batch format detection + parse into records, batch DB writes
 3. **Build** — merge records per route/format, decode proxy URIs to JSON, re-encode as base64 subscription
 4. **Publish** — send changed artifacts to destination channels
-5. **Deliver** — auto-send outputs to all registered GatherX bot users
+5. **Deliver** — resume per-user delivery to approved, unmuted GatherX users
 6. **Cleanup** — prune processed raw blobs and old archives
 
 ## Supported Formats

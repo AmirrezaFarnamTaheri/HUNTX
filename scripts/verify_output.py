@@ -2,18 +2,17 @@ import os
 import base64
 import json
 import shutil
-import subprocess
 import zipfile
 from collections import Counter
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
+from huntx.core.router import _PROXY_SCHEMES
+
 # Paths
 DATA_DIR = Path(os.getenv("HUNTX_DATA_DIR", "persist/data")).resolve()
 OUTPUT_DIR = DATA_DIR / "outputs"
 DIST_DIR = DATA_DIR / "dist"
-
-from huntx.core.router import _PROXY_SCHEMES
 
 # Known binary format extensions (published as ZIP)
 _ZIP_EXTENSIONS = {".ovpn", ".npv4", ".ehi", ".hc", ".hat", ".sip", ".nm", ".zip"}
@@ -22,7 +21,7 @@ _ZIP_EXTENSIONS = {".ovpn", ".npv4", ".ehi", ".hc", ".hat", ".sip", ".nm", ".zip
 def decode_base64_safe(data: str) -> str:
     missing_padding = len(data) % 4
     if missing_padding:
-        data += '=' * (4 - missing_padding)
+        data += "=" * (4 - missing_padding)
     return base64.b64decode(data).decode("utf-8", errors="ignore")
 
 
@@ -42,7 +41,7 @@ def generate_v2ray_config(outbounds: List[Dict[str, Any]]) -> Dict[str, Any]:
     return {
         "log": {"loglevel": "warning"},
         "inbounds": [{"port": 1080, "protocol": "socks", "settings": {"auth": "noauth"}}],
-        "outbounds": outbounds
+        "outbounds": outbounds,
     }
 
 
@@ -51,22 +50,18 @@ def convert_vmess_to_outbound(vdata: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "protocol": "vmess",
         "settings": {
-            "vnext": [{
-                "address": vdata.get("add"),
-                "port": int(vdata.get("port", 443)),
-                "users": [{
-                    "id": vdata.get("id"),
-                    "alterId": int(vdata.get("aid", 0)),
-                    "security": "auto",
-                    "level": 0
-                }]
-            }]
+            "vnext": [
+                {
+                    "address": vdata.get("add"),
+                    "port": int(vdata.get("port", 443)),
+                    "users": [
+                        {"id": vdata.get("id"), "alterId": int(vdata.get("aid", 0)), "security": "auto", "level": 0}
+                    ],
+                }
+            ]
         },
-        "streamSettings": {
-            "network": vdata.get("net", "tcp"),
-            "security": vdata.get("tls", "none")
-        },
-        "tag": vdata.get("ps", "proxy")
+        "streamSettings": {"network": vdata.get("net", "tcp"), "security": vdata.get("tls", "none")},
+        "tag": vdata.get("ps", "proxy"),
     }
 
 
@@ -91,7 +86,7 @@ def validate_text_file(path: Path) -> Dict[str, Any]:
         except Exception:
             pass
 
-    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
     stats["lines"] = len(lines)
 
     for line in lines:
@@ -176,7 +171,9 @@ def validate_file(path: Path) -> Dict[str, Any]:
         stats = validate_zip_file(path)
         if stats["entries"]:
             exts = ", ".join(f"{k}:{v}" for k, v in stats["extensions"].most_common(10))
-            print(f"    ZIP: {stats['entries']} files  {stats['total_size'] / 1024:.1f} KB uncompressed  types=[{exts}]")
+            print(
+                f"    ZIP: {stats['entries']} files  {stats['total_size'] / 1024:.1f} KB uncompressed  types=[{exts}]"
+            )
         return stats
 
     # Default: treat as text
@@ -190,7 +187,7 @@ def validate_file(path: Path) -> Dict[str, Any]:
 
 
 def main():
-    print(f"═══ HUNTX Output Verification ═══")
+    print("═══ HUNTX Output Verification ═══")
     print(f"Output: {OUTPUT_DIR}")
     print(f"Dist:   {DIST_DIR}")
 
@@ -214,7 +211,7 @@ def main():
     total_size = 0
     format_counts: Counter = Counter()
 
-    print(f"\n── Validating output files ──")
+    print("\n── Validating output files ──")
 
     for item in sorted(OUTPUT_DIR.rglob("*")):
         if not item.is_file():
@@ -242,7 +239,7 @@ def main():
         if fsize > 0:
             shutil.copy2(item, DIST_DIR / item.name)
 
-    print(f"\n── Summary ──")
+    print("\n── Summary ──")
     print(f"Files: {file_count}  Total size: {total_size / 1024:.1f} KB")
     fmts = ", ".join(f"{k}:{v}" for k, v in format_counts.most_common())
     print(f"Formats: [{fmts}]")
@@ -257,9 +254,11 @@ def main():
         if all_outbounds:
             config_data = generate_v2ray_config(all_outbounds)
             config_path = DIST_DIR / "v2ray_test_config.json"
-            with open(config_path, "w") as f:
-                json.dump(config_data, f, indent=2)
-            print(f"Generated V2Ray test config: {config_path} ({len(all_outbounds)} outbounds) - manual check recommended.")
+            with open(config_path, "w") as stream:
+                json.dump(config_data, stream, indent=2)
+            print(
+                f"Generated V2Ray test config: {config_path} ({len(all_outbounds)} outbounds) - manual check recommended."
+            )
     else:
         print("No valid artifacts found.")
 

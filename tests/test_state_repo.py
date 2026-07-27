@@ -12,8 +12,7 @@ class TestStateRepo(unittest.TestCase):
         self.conn.row_factory = sqlite3.Row
 
         # Apply schema manually since DBConnection usually does it from file
-        self.conn.executescript(
-            """
+        self.conn.executescript("""
         CREATE TABLE source_state (
             source_id TEXT PRIMARY KEY,
             source_type TEXT NOT NULL,
@@ -37,6 +36,7 @@ class TestStateRepo(unittest.TestCase):
         CREATE TABLE records (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             source_file_hash TEXT NOT NULL,
+            source_observation_id INTEGER,
             record_type TEXT NOT NULL,
             unique_hash TEXT NOT NULL,
             data_json TEXT NOT NULL,
@@ -50,8 +50,7 @@ class TestStateRepo(unittest.TestCase):
             metadata_json TEXT,
             published_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
-        """
-        )
+        """)
 
         # Mock DBConnection to return our memory connection
         # StateRepo calls db.connect() which returns a context manager yielding the connection

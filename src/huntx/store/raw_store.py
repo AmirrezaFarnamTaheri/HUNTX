@@ -1,11 +1,34 @@
 import hashlib
 import logging
+import re
 from pathlib import Path
 from typing import Optional, List
 from ..utils.atomic import atomic_write
 from . import paths
 
 logger = logging.getLogger(__name__)
+
+# A SHA-256 hex digest: exactly 64 lowercase hex characters. Used to reject
+# any value before it is joined into a filesystem path, so that a malformed or
+# adversarial ``blob_hash`` coming from stored records cannot escape base_dir.
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+
+
+def _is_valid_sha256(value: str) -> bool:
+    return isinstance(value, str) and bool(_SHA256_RE.match(value))
+
+
+def _path_matches_digest(path: Path, digest: str) -> bool:
+    if not path.is_file():
+        return False
+    computed = hashlib.sha256()
+    try:
+        with path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                computed.update(chunk)
+    except OSError:
+        return False
+    return computed.hexdigest() == digest
 
 
 class RawStore:
@@ -34,8 +57,8 @@ class RawStore:
 
             target_path = target_dir / sha256
 
-            # Atomic write if not exists
-            if not target_path.exists():
+            # A filename is not proof that its bytes still match the digest.
+            if not _path_matches_digest(target_path, sha256):
                 atomic_write(target_path, data)
                 logger.debug(f"Saved new raw blob: {sha256} ({len(data)} bytes)")
             else:
@@ -49,11 +72,16 @@ class RawStore:
     def get(self, sha256: str) -> Optional[bytes]:
         """Retrieves data by hash."""
         try:
+            if not _is_valid_sha256(sha256):
+                logger.warning(f"Rejected raw blob lookup for non-hex hash: {sha256!r}")
+                return None
             prefix = sha256[:2]
             path = self.base_dir / prefix / sha256
             if path.exists():
                 data = path.read_bytes()
-                # logger.debug(f"Retrieved raw blob: {sha256} ({len(data)} bytes)")
+                if hashlib.sha256(data).hexdigest() != sha256:
+                    logger.error("Raw blob failed digest verification: %s", sha256)
+                    return None
                 return data
             logger.warning(f"Raw blob not found: {sha256}")
             return None
@@ -63,8 +91,10 @@ class RawStore:
 
     def exists(self, sha256: str) -> bool:
         try:
+            if not _is_valid_sha256(sha256):
+                return False
             prefix = sha256[:2]
-            return (self.base_dir / prefix / sha256).exists()
+            return _path_matches_digest(self.base_dir / prefix / sha256, sha256)
         except (OSError, ValueError):
             return False
 
@@ -74,6 +104,9 @@ class RawStore:
         try:
             processed_hashes = state_repo.get_processed_hashes()
             for h in processed_hashes:
+                if not _is_valid_sha256(h):
+                    logger.warning(f"Skipping prune for non-hex hash from state repo: {h!r}")
+                    continue
                 prefix = h[:2]
                 path = self.base_dir / prefix / h
                 if path.exists():
@@ -94,13 +127,15 @@ class RawStore:
         pruned = 0
         try:
             known_hashes = state_repo.get_all_known_hashes()
-            
+
             # Failsafe check
             if not known_hashes:
                 with state_repo.db.connect() as conn:
                     count = conn.execute("SELECT COUNT(*) AS c FROM seen_files").fetchone()["c"]
                 if count > 0:
-                    logger.warning("get_all_known_hashes returned empty but seen_files has rows. Skipping orphan pruning.")
+                    logger.warning(
+                        "get_all_known_hashes returned empty but seen_files has rows. Skipping orphan pruning."
+                    )
                     return 0
 
             # Scan prefix dirs
@@ -116,10 +151,10 @@ class RawStore:
                                         pruned += 1
                                     except Exception as ex:
                                         logger.error(f"Failed to delete orphan raw blob {hash_val}: {ex}")
-            
+
             if pruned > 0:
                 logger.info(f"Pruned {pruned} orphaned raw blobs from disk.")
-                
+
             # Clean up empty subdirectories
             for d in self.base_dir.iterdir():
                 if d.is_dir() and not any(d.iterdir()):
@@ -135,6 +170,9 @@ class RawStore:
         """Prunes specific raw blobs by list of hashes."""
         pruned = 0
         for h in hashes:
+            if not _is_valid_sha256(h):
+                logger.warning(f"Skipping prune for non-hex hash: {h!r}")
+                continue
             prefix = h[:2]
             path = self.base_dir / prefix / h
             if path.exists():

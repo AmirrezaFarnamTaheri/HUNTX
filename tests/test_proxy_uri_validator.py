@@ -11,11 +11,7 @@ def _b64(value: str) -> str:
 
 class TestAcceptedProxyUris(unittest.TestCase):
     def test_plaintext_sip002(self) -> None:
-        self.assertTrue(
-            validate_proxy_uri(
-                "ss://chacha20-ietf-poly1305:secret@example.com:443#node"
-            )
-        )
+        self.assertTrue(validate_proxy_uri("ss://chacha20-ietf-poly1305:secret@example.com:443#node"))
 
     def test_encoded_userinfo_sip002(self) -> None:
         userinfo = _b64("aes-256-gcm:secret")
@@ -26,11 +22,7 @@ class TestAcceptedProxyUris(unittest.TestCase):
         self.assertTrue(validate_proxy_uri(f"ss://{payload}"))
 
     def test_sip002_plugin_is_preserved_as_a_valid_extension(self) -> None:
-        self.assertTrue(
-            validate_proxy_uri(
-                "ss://aes-256-gcm:secret@example.com:443?plugin=v2ray-plugin%3Btls"
-            )
-        )
+        self.assertTrue(validate_proxy_uri("ss://aes-256-gcm:secret@example.com:443?plugin=v2ray-plugin%3Btls"))
 
     def test_ssr(self) -> None:
         password = _b64("secret")
@@ -69,11 +61,7 @@ class TestAcceptedProxyUris(unittest.TestCase):
         self.assertTrue(validate_proxy_uri("trojan://secret@example.com:443?security=tls"))
 
     def test_hysteria2_with_obfuscation_pair(self) -> None:
-        self.assertTrue(
-            validate_proxy_uri(
-                "hysteria2://secret@example.com:443?obfs=salamander&obfs-password=cover"
-            )
-        )
+        self.assertTrue(validate_proxy_uri("hysteria2://secret@example.com:443?obfs=salamander&obfs-password=cover"))
 
     def test_hysteria2_without_obfuscation(self) -> None:
         self.assertTrue(validate_proxy_uri("hy2://secret@example.com:443"))
@@ -155,12 +143,8 @@ class TestRejectedProxyUris(unittest.TestCase):
                 self.assertFalse(validate_proxy_uri(fixture))
 
     def test_hysteria2_requires_complete_obfuscation_pair(self) -> None:
-        self.assertFalse(
-            validate_proxy_uri("hysteria2://secret@example.com:443?obfs=salamander")
-        )
-        self.assertFalse(
-            validate_proxy_uri("hysteria2://secret@example.com:443?obfs-password=cover")
-        )
+        self.assertFalse(validate_proxy_uri("hysteria2://secret@example.com:443?obfs=salamander"))
+        self.assertFalse(validate_proxy_uri("hysteria2://secret@example.com:443?obfs-password=cover"))
 
     def test_authentication_required_protocols_reject_empty_identity(self) -> None:
         fixtures = (

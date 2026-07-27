@@ -5,13 +5,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from scripts.checkpoint_runtime_state import checkpoint_state
+from scripts.checkpoint_runtime_state import checkpoint_state  # noqa: E402
 
 
 def _create_db(path: Path) -> None:
     with sqlite3.connect(path) as conn:
-        conn.executescript(
-            """
+        conn.executescript("""
             CREATE TABLE source_state (
                 source_id TEXT PRIMARY KEY,
                 source_type TEXT NOT NULL,
@@ -40,8 +39,7 @@ def _create_db(path: Path) -> None:
                 updated_at INTEGER NOT NULL,
                 completed_at INTEGER
             );
-            """
-        )
+            """)
 
 
 def test_checkpoint_rewinds_missing_window_blob(tmp_path):
@@ -50,14 +48,12 @@ def test_checkpoint_rewinds_missing_window_blob(tmp_path):
     _create_db(db)
     missing_hash = "a" * 64
     with sqlite3.connect(db) as conn:
-        conn.execute(
-            """
+        conn.execute("""
             INSERT INTO ingestion_work_items
                 (id, source_id, window_start_ts, window_end_ts,
                  continuation_cursor, status, updated_at)
             VALUES (1, 'source', 0, 3600, 99, 'completed', 1)
-            """
-        )
+            """)
         conn.execute(
             """
             INSERT INTO seen_files
@@ -71,9 +67,7 @@ def test_checkpoint_rewinds_missing_window_blob(tmp_path):
     result = checkpoint_state(db, raw)
 
     with sqlite3.connect(db) as conn:
-        work = conn.execute(
-            "SELECT status, continuation_cursor FROM ingestion_work_items WHERE id=1"
-        ).fetchone()
+        work = conn.execute("SELECT status, continuation_cursor FROM ingestion_work_items WHERE id=1").fetchone()
         seen = conn.execute("SELECT COUNT(*) FROM seen_files").fetchone()[0]
     assert work == ("pending", None)
     assert seen == 0
@@ -91,14 +85,12 @@ def test_checkpoint_releases_leases_and_accepts_present_blob(tmp_path):
     blob.parent.mkdir(parents=True)
     blob.write_bytes(data)
     with sqlite3.connect(db) as conn:
-        conn.execute(
-            """
+        conn.execute("""
             INSERT INTO ingestion_work_items
                 (id, source_id, window_start_ts, window_end_ts,
                  continuation_cursor, status, lease_owner, lease_expires_at, updated_at)
             VALUES (1, 'source', 0, 3600, 99, 'leased', 'dead-run', 9999999999, 1)
-            """
-        )
+            """)
         conn.execute(
             """
             INSERT INTO seen_files
@@ -111,9 +103,7 @@ def test_checkpoint_releases_leases_and_accepts_present_blob(tmp_path):
     result = checkpoint_state(db, raw)
 
     with sqlite3.connect(db) as conn:
-        work = conn.execute(
-            "SELECT status, lease_owner FROM ingestion_work_items WHERE id=1"
-        ).fetchone()
+        work = conn.execute("SELECT status, lease_owner FROM ingestion_work_items WHERE id=1").fetchone()
     assert work == ("partial", None)
     assert result["released_leases"] == 1
     assert result["quick_check"] == "ok"

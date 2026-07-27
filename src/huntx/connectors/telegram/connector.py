@@ -3,15 +3,16 @@ import time
 import urllib.request
 import urllib.error
 import json
+import hashlib
 from dataclasses import dataclass
-from typing import Dict, Any, Optional, Iterator
-from ..base import SourceConnector, SourceItem, AsyncSyncIterator
-
+from typing import Dict, Any, Optional
+from ..base import SourceConnector, AsyncSyncIterator
 
 
 @dataclass
 class TelegramItem:
     """Concrete SourceItem for Bot API connector."""
+
     __slots__ = ("external_id", "data", "metadata")
     external_id: str
     data: bytes
@@ -24,19 +25,33 @@ logger = logging.getLogger(__name__)
 MAX_RETRIES = 6
 BACKOFF_FACTOR = 1
 
+# Hard ceiling for any single file download. The pre-download check uses the
+# *self-reported* file_size from the API payload; this constant is also
+# enforced during the actual read so a document that under-reports its size
+# cannot force an unbounded in-memory buffer.
+MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024
+
 
 class TelegramConnector(SourceConnector):
     # Shared state to coordinate updates across multiple instances with the same token
     # Structure: { token: { 'updates': {update_id: update_obj}, 'last_offset': int } }
     _shared_state: Dict[str, Any] = {}
 
-    def __init__(self, token: str, chat_id: str, state: Optional[Dict[str, Any]] = None,
-                 fetch_windows: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        token: str,
+        chat_id: str,
+        state: Optional[Dict[str, Any]] = None,
+        fetch_windows: Optional[Dict[str, Any]] = None,
+        inbox: Optional[Any] = None,
+    ):
         self.token = token
         self.target_chat_id = str(chat_id)
         # If state is None or offset is 0, it is effectively a fresh start.
         self.offset = state.get("offset", 0) if state else 0
         self.base_url = f"https://api.telegram.org/bot{self.token}"
+        self._inbox = inbox
+        self._token_fingerprint = hashlib.sha256(self.token.encode("utf-8")).hexdigest()
         fw = fetch_windows or {}
         self._msg_fresh_s = fw.get("msg_fresh_hours", 2) * 3600
         self._file_fresh_s = fw.get("file_fresh_hours", 48) * 3600
@@ -81,8 +96,12 @@ class TelegramConnector(SourceConnector):
                     return res
             except urllib.error.HTTPError as e:
                 if e.code == 409:
-                    logger.critical(f"[Telegram API] 409 Conflict detected for method '{method}'. Another process is polling this bot token!")
-                    raise RuntimeError("409 Conflict: Telegram bot token is already in use by another active getUpdates session.")
+                    logger.critical(
+                        f"[Telegram API] 409 Conflict detected for method '{method}'. Another process is polling this bot token!"
+                    )
+                    raise RuntimeError(
+                        "409 Conflict: Telegram bot token is already in use by another active getUpdates session."
+                    )
                 if attempt < MAX_RETRIES:
                     sleep_time = BACKOFF_FACTOR * (2**attempt)
                     logger.warning(
@@ -115,7 +134,19 @@ class TelegramConnector(SourceConnector):
             try:
                 start_time = time.time()
                 with urllib.request.urlopen(url, timeout=60) as response:
-                    data = response.read()
+                    # Bounded read: the pre-download size check trusts
+                    # API-reported metadata, so the cap must also be enforced
+                    # on the bytes actually received. read(amt) returns at
+                    # most amt bytes, so memory is hard-capped; receiving
+                    # more than MAX_DOWNLOAD_BYTES proves the file exceeds
+                    # the limit and the download is discarded.
+                    data = response.read(MAX_DOWNLOAD_BYTES + 1)
+                    if len(data) > MAX_DOWNLOAD_BYTES:
+                        logger.warning(
+                            f"Aborting download of {file_path}: exceeded "
+                            f"{MAX_DOWNLOAD_BYTES} byte cap (reported size was smaller)"
+                        )
+                        return None
                     duration = time.time() - start_time
                     logger.debug(f"Downloaded {len(data)} bytes in {duration:.2f}s")
                     return data
@@ -133,11 +164,13 @@ class TelegramConnector(SourceConnector):
 
     async def _make_request_async(self, method: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         import asyncio
+
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self._make_request, method, params)
 
     async def _download_file_async(self, file_path: str) -> Optional[bytes]:
         import asyncio
+
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self._download_file, file_path)
 
@@ -146,15 +179,14 @@ class TelegramConnector(SourceConnector):
 
     async def _list_new_async(self, state: Optional[Dict[str, Any]] = None):
         import asyncio
+
         # Update offset if provided
         local_offset = state.get("offset", 0) if state else 0
         self.offset = local_offset
 
         is_fresh_start = local_offset == 0
         mode = "fresh_start" if is_fresh_start else "subsequent"
-        logger.info(
-            f"[BotAPI] Fetching updates  chat={self.target_chat_id}  offset={self.offset}  mode={mode}"
-        )
+        logger.info(f"[BotAPI] Fetching updates  chat={self.target_chat_id}  offset={self.offset}  mode={mode}")
 
         # Determine if this is a fresh start (no previous offset)
         # Configurable cutoffs from fetch_windows
@@ -166,16 +198,26 @@ class TelegramConnector(SourceConnector):
             cutoff_time_media = now - self._file_sub_s if self._file_sub_s > 0 else 0
             cutoff_time_text = now - self._msg_sub_s if self._msg_sub_s > 0 else 0
 
-        # Initialize shared state for this token if needed
-        if self.token not in self._shared_state:
-            self._shared_state[self.token] = {"updates": {}, "last_offset": 0}
-
-        shared = self._shared_state[self.token]
+        # Production uses a durable inbox. The bounded in-process cache remains
+        # only as a compatibility fallback for direct connector consumers that
+        # do not provide a StateRepo.
+        shared: Dict[str, Any] = {}
+        if self._inbox is None:
+            if self._token_fingerprint not in self._shared_state:
+                self._shared_state[self._token_fingerprint] = {
+                    "updates": {},
+                    "last_offset": 0,
+                }
+            shared = self._shared_state[self._token_fingerprint]
 
         # Fetch new updates from Telegram into shared cache
         has_more = True
 
-        current_max_update_id = shared["last_offset"]
+        current_max_update_id = (
+            self._inbox.get_bot_update_max_id(self._token_fingerprint)
+            if self._inbox is not None
+            else shared["last_offset"]
+        )
         fetched_updates_count = 0
 
         while has_more:
@@ -198,34 +240,52 @@ class TelegramConnector(SourceConnector):
                 break
 
             updates = resp.get("result", [])
+            if not isinstance(updates, list):
+                raise RuntimeError("Telegram getUpdates result must be a list")
             fetched_updates_count += len(updates)
 
             if not updates:
                 has_more = False
                 break
 
+            validated_updates = []
             for update in updates:
                 update_id = update["update_id"]
+                if not isinstance(update_id, int) or isinstance(update_id, bool):
+                    raise RuntimeError("Telegram update_id must be an integer")
                 current_max_update_id = max(current_max_update_id, update_id)
+                validated_updates.append(update)
 
-                # Cache the update if not present
-                if update_id not in shared["updates"]:
-                    shared["updates"][update_id] = update
-
-            shared["last_offset"] = current_max_update_id
-
-            # Evict old updates from cache to prevent unbounded growth (F-16)
-            if len(shared["updates"]) > 500:
-                cutoff = current_max_update_id - 500
-                shared["updates"] = {uid: upd for uid, upd in shared["updates"].items() if uid >= cutoff}
+            if self._inbox is not None:
+                # This commit must precede the next getUpdates call: a request
+                # with offset=N+1 confirms N at Telegram and makes it
+                # unavailable after a crash.
+                self._inbox.store_bot_updates(
+                    self._token_fingerprint,
+                    validated_updates,
+                )
+            else:
+                for update in validated_updates:
+                    shared["updates"].setdefault(update["update_id"], update)
+                shared["last_offset"] = current_max_update_id
+                if len(shared["updates"]) > 500:
+                    cutoff = current_max_update_id - 500
+                    shared["updates"] = {uid: upd for uid, upd in shared["updates"].items() if uid >= cutoff}
 
             # small sleep to be nice to API
             await asyncio.sleep(0.5)
 
-        cache_size = len(shared["updates"])
+        if self._inbox is not None:
+            cached_updates = self._inbox.get_bot_updates_after(
+                self._token_fingerprint,
+                local_offset,
+            )
+            cache_size = len(cached_updates)
+        else:
+            cached_updates = list(shared["updates"].values())
+            cache_size = len(cached_updates)
         logger.info(
-            f"[BotAPI] Fetched {fetched_updates_count} new updates  "
-            f"cache_total={cache_size}  processing..."
+            f"[BotAPI] Fetched {fetched_updates_count} new updates  " f"cache_total={cache_size}  processing..."
         )
 
         if fetched_updates_count == 0 and is_fresh_start:
@@ -235,7 +295,7 @@ class TelegramConnector(SourceConnector):
             )
 
         # Now yield items from cache relevant to THIS source
-        sorted_ids = sorted(shared["updates"].keys())
+        cached_updates.sort(key=lambda update: update["update_id"])
 
         # Statistics counters
         # Media types to drop entirely (not useful for proxy configs)
@@ -252,7 +312,8 @@ class TelegramConnector(SourceConnector):
             "yielded_items": 0,
         }
 
-        for update_id in sorted_ids:
+        for update in cached_updates:
+            update_id = update["update_id"]
             if update_id <= local_offset:
                 continue
 
@@ -261,7 +322,6 @@ class TelegramConnector(SourceConnector):
             # Update local offset tracking
             self.offset = max(self.offset, update_id)
 
-            update = shared["updates"][update_id]
             msg = update.get("channel_post") or update.get("message")
             if not msg:
                 logger.debug(f"Update {update_id} has no message/channel_post")
@@ -321,9 +381,8 @@ class TelegramConnector(SourceConnector):
                     stats["skipped_apk"] += 1
                     # Do not treat as content found, unless text was found
                     # If text was found, we yield text but skip file.
-                    pass
                 # Check file size (25MB limit)
-                elif file_size > 25 * 1024 * 1024:
+                elif file_size > MAX_DOWNLOAD_BYTES:
                     logger.warning(f"Skipping file {file_name} (Size: {file_size} > 25MB limit)")
                     stats["skipped_size_limit"] += 1
                 else:
@@ -341,9 +400,12 @@ class TelegramConnector(SourceConnector):
                         if data:
                             # Deep inspection
                             from ...utils.content_type import is_executable
+
                             is_exec, type_desc = is_executable(data)
                             if is_exec:
-                                logger.info(f"Skipping executable file in update {update_id}: {file_name} ({type_desc})")
+                                logger.info(
+                                    f"Skipping executable file in update {update_id}: {file_name} ({type_desc})"
+                                )
                                 stats["skipped_apk"] += 1
                                 continue
 

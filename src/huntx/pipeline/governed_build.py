@@ -60,9 +60,7 @@ class GovernedBuildPipeline(BuildPipeline):
         super().__init__(state_repo, artifact_store, registry)
         self._route_policies = route_policies
         self._query_lock = threading.Lock()
-        self._query_futures: dict[
-            _QueryKey, concurrent.futures.Future[_RecordList]
-        ] = {}
+        self._query_futures: dict[_QueryKey, concurrent.futures.Future[_RecordList]] = {}
 
     @staticmethod
     def _query_key(
@@ -71,9 +69,7 @@ class GovernedBuildPipeline(BuildPipeline):
         route_config: dict[str, Any],
     ) -> _QueryKey:
         formats = tuple(sorted({str(value) for value in route_config["formats"]}))
-        sources = tuple(
-            sorted({str(value) for value in route_config.get("from_sources", [])})
-        )
+        sources = tuple(sorted({str(value) for value in route_config.get("from_sources", [])}))
         min_seen_file_id = route_config.get("min_seen_file_id")
         return tier, require_fresh_probe, formats, sources, min_seen_file_id
 
@@ -121,9 +117,7 @@ class GovernedBuildPipeline(BuildPipeline):
     ) -> list[dict[str, Any]]:
         if records is None:
             route_name = str(route_config["name"])
-            tier, require_fresh_probe = self._route_policies.get(
-                route_name, ("compatible", False)
-            )
+            tier, require_fresh_probe = self._route_policies.get(route_name, ("compatible", False))
             records = self._records_for_route(
                 route_config,
                 tier=tier,

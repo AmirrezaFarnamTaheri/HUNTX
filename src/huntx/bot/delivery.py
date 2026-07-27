@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import logging
 import os
 import time
@@ -8,8 +9,10 @@ from typing import Any, List, Optional
 try:
     from telethon.errors import FloodWaitError
 except ModuleNotFoundError:  # pragma: no cover
+
     class FloodWaitError(Exception):
         seconds = 0
+
 
 from ..store import paths
 from .constants import _AUTO_DELIVER_FORMATS, _FORMAT_LABELS, _ALL_VALID_FORMATS
@@ -18,6 +21,54 @@ logger = logging.getLogger(__name__)
 
 
 class DeliveryMixin:
+    @staticmethod
+    def _artifact_hash(path: Path) -> str:
+        digest = hashlib.sha256()
+        with path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+
+    def _pending_delivery_files(
+        self,
+        user_id: str,
+        files_to_send: List[tuple],
+    ) -> list[tuple[Path, str, str]]:
+        candidates = [(Path(path), caption, self._artifact_hash(Path(path))) for path, caption in files_to_send]
+        if not candidates:
+            return []
+        with self.db.connect() as conn:  # type: ignore[attr-defined]
+            delivered = {
+                row["artifact_hash"]
+                for row in conn.execute(
+                    """
+                    SELECT artifact_hash FROM bot_delivery_items
+                    WHERE user_id = ?
+                    """,
+                    (user_id,),
+                ).fetchall()
+            }
+        return [item for item in candidates if item[2] not in delivered]
+
+    def _record_delivered_item(
+        self,
+        user_id: str,
+        path: Path,
+        artifact_hash: str,
+    ) -> None:
+        with self.db.connect() as conn:  # type: ignore[attr-defined]
+            conn.execute(
+                """
+                INSERT INTO bot_delivery_items
+                    (user_id, artifact_hash, artifact_name, delivered_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(user_id, artifact_hash) DO UPDATE SET
+                    artifact_name=excluded.artifact_name,
+                    delivered_at=excluded.delivered_at
+                """,
+                (user_id, artifact_hash, path.name, time.time()),
+            )
+
     async def _send_with_floodwait(self, method: Any, *args: Any, **kwargs: Any) -> Any:
         max_wait = max(0, int(os.environ.get("HUNTX_FLOODWAIT_MAX_SECONDS", "60")))
         max_retries = max(0, int(os.environ.get("HUNTX_FLOODWAIT_MAX_RETRIES", "2")))
@@ -75,16 +126,24 @@ class DeliveryMixin:
         sent = 0
         failed = 0
         last_error: Optional[str] = None
+        pending = self._pending_delivery_files(user_id, files_to_send)
 
         try:
+            if not pending:
+                self._record_delivery_checkpoint(
+                    user_id,
+                    attempted=0,
+                    sent=0,
+                    failed=0,
+                )
+                return 0, 0
             await self._send_with_floodwait(
                 self.client.send_message,  # type: ignore[attr-defined]
                 chat_id,
-                "🛰 **GatherX Update**\n"
-                f"Fresh proxy configs — {len(files_to_send)} file(s):",
+                "🛰 **GatherX Update**\n" f"Fresh proxy configs — {len(pending)} file(s):",
                 parse_mode="md",
             )
-            for fpath, caption in files_to_send:
+            for fpath, caption, artifact_hash in pending:
                 try:
                     await self._send_with_floodwait(
                         self.client.send_file,  # type: ignore[attr-defined]
@@ -94,6 +153,7 @@ class DeliveryMixin:
                         parse_mode="md",
                     )
                     sent += 1
+                    self._record_delivered_item(user_id, fpath, artifact_hash)
                 except Exception as exc:
                     failed += 1
                     last_error = type(exc).__name__
@@ -105,13 +165,13 @@ class DeliveryMixin:
                     )
                 await asyncio.sleep(0.3)
         except Exception as exc:
-            failed += max(1, len(files_to_send) - sent)
+            failed += max(1, len(pending) - sent)
             last_error = type(exc).__name__
             logger.warning("[GatherX] Delivery failed user=%s error=%s", user_id, exc)
         finally:
             self._record_delivery_checkpoint(
                 user_id,
-                attempted=len(files_to_send),
+                attempted=len(pending),
                 sent=sent,
                 failed=failed,
                 error=last_error,
@@ -193,12 +253,7 @@ class DeliveryMixin:
             return ".b64sub" in n or n.endswith("_b64sub.txt")
         if f in ("decoded.json", "npvt.decoded.json", "npvtsub.decoded.json"):
             return ".decoded.json" in n or n.endswith("_decoded.json")
-        return (
-            n.endswith(f".{f}")
-            or n.endswith(f"_{f}.txt")
-            or n.endswith(f"_{f}.json")
-            or n.endswith(f"_{f}.zip")
-        )
+        return n.endswith(f".{f}") or n.endswith(f"_{f}.txt") or n.endswith(f"_{f}.json") or n.endswith(f"_{f}.zip")
 
     async def _send_format_to_user(self, chat_id: int, fmt: str):
         if fmt not in _ALL_VALID_FORMATS:

@@ -160,7 +160,9 @@ huntx --config my_config.yaml run [OPTIONS]
 | `--no-auto-deliver` | Skip automatic subscription delivery after pipeline | — |
 | `--no-publish` | Skip publishing artifacts to destination channels | — |
 
-After the pipeline completes, all output files are automatically sent to every registered GatherX bot user (unless `--no-auto-deliver` is passed).
+After the pipeline completes, output files are automatically sent only to
+operator-approved, non-muted GatherX bot users (unless `--no-auto-deliver` is
+passed).
 
 ### `huntx bot`
 
@@ -231,15 +233,18 @@ Unlocks history access, public channel reading, and text content ingestion.
 
 ## GatherX Bot
 
-**GatherX** is the user-facing Telegram bot. Anyone can DM it to register and receive proxy configs.
+**GatherX** is the user-facing Telegram bot. Anyone may create a pending
+registration by messaging it, but automatic delivery is deny-by-default until
+an operator approves that user in the state database.
 
 ### How It Works
 
-1. User sends `/start` → auto-registered + receives latest proxy list
-2. After every `huntx run` → bot auto-sends all outputs to every registered user
-3. Users can request specific formats on demand with `/get`
-4. Users can set a preferred format with `/setformat`
-5. Users can `/mute` to opt out, `/unmute` to opt back in
+1. User sends `/start` → a pending registration is created
+2. An operator explicitly approves the user (`bot_users.approved = 1`)
+3. After every `huntx run` → the bot sends outputs only to approved, non-muted users
+4. Users can request specific formats on demand with `/get`
+5. Users can set a preferred format with `/setformat`
+6. Users can `/mute` to opt out, `/unmute` to opt back in
 
 ### Running the Bot
 
@@ -270,6 +275,7 @@ The bot registers its command menu via `setMyCommands` on startup, so commands a
 
 User data is stored in the `bot_users` SQLite table:
 - `user_id`, `chat_id`, `username` — identity
+- `approved` — operator-controlled automatic-delivery authorization (default: denied)
 - `default_format` — preferred format for `/get` (default: `npvt`)
 - `muted` — opt-out of auto-delivery
 - `last_delivered_at` — timestamp of last delivery

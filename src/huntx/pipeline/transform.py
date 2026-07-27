@@ -38,12 +38,16 @@ class TransformPipeline:
         """
         file_start = time.time()
         raw_hash = row["raw_hash"]
+        observation_id = int(row["id"])
         source_id = row["source_id"]
         filename = row["filename"] or "unknown"
         result: Dict[str, Any] = {
-            "status": "ok", "format": None, "records": 0, "duration": 0.0,
-            "record_rows": [],       # (raw_hash, record_type, unique_hash, data_json)
-            "status_update": None,   # (status, error_msg, raw_hash)
+            "status": "ok",
+            "format": None,
+            "records": 0,
+            "duration": 0.0,
+            "record_rows": [],  # (raw_hash, observation_id, type, unique_hash, json)
+            "status_update": None,  # (status, error_msg, observation_id)
             "raw_hash": raw_hash,
             "filename": filename,
         }
@@ -53,7 +57,7 @@ class TransformPipeline:
             if not data:
                 logger.warning(f"[Transform] Raw data missing for hash={raw_hash[:12]} file={filename}")
                 result["status"] = "failed"
-                result["status_update"] = ("failed", "Raw data missing", raw_hash)
+                result["status_update"] = ("failed", "Raw data missing", observation_id)
                 return result
 
             # Decide format
@@ -70,7 +74,11 @@ class TransformPipeline:
                         f"format '{fmt_id}' not in allowed={allowed}"
                     )
                     result["status"] = "skipped"
-                    result["status_update"] = ("ignored", f"Format {fmt_id} not allowed", raw_hash)
+                    result["status_update"] = (
+                        "ignored",
+                        f"Format {fmt_id} not allowed",
+                        observation_id,
+                    )
                     return result
 
             # Check handler availability
@@ -78,7 +86,7 @@ class TransformPipeline:
             if not handler:
                 logger.debug(f"[Transform] No handler for format={fmt_id} file={filename}")
                 result["status"] = "failed"
-                result["status_update"] = ("failed", f"No handler for {fmt_id}", raw_hash)
+                result["status_update"] = ("failed", f"No handler for {fmt_id}", observation_id)
                 return result
 
             # Parse
@@ -87,25 +95,37 @@ class TransformPipeline:
             except Exception as e:
                 logger.warning(f"[Transform] Parse error file={filename} fmt={fmt_id}: {e}")
                 result["status"] = "failed"
-                result["status_update"] = ("failed", f"Parse error: {str(e)}", raw_hash)
+                result["status_update"] = (
+                    "failed",
+                    f"Parse error: {str(e)}",
+                    observation_id,
+                )
                 return result
 
             # Accumulate record rows for batch insert (no DB call here)
             record_rows = []
             for rec in records:
                 # Use default=str to safely handle non-serializable types (e.g. datetime)
-                record_rows.append((raw_hash, fmt_id, rec["unique_hash"], json.dumps(rec["data"], default=str)))
+                record_rows.append(
+                    (
+                        raw_hash,
+                        observation_id,
+                        fmt_id,
+                        rec["unique_hash"],
+                        json.dumps(rec["data"], default=str),
+                    )
+                )
 
             result["record_rows"] = record_rows
             result["records"] = len(record_rows)
-            result["status_update"] = ("processed", None, raw_hash)
+            result["status_update"] = ("processed", None, observation_id)
             result["duration"] = time.time() - file_start
             return result
 
         except Exception as e:
             logger.error(f"[Transform] Unexpected error hash={raw_hash[:12]} file={filename}: {e}")
             result["status"] = "failed"
-            result["status_update"] = ("failed", str(e), raw_hash)
+            result["status_update"] = ("failed", str(e), observation_id)
             return result
 
     def _flush_batch(self, results: List[Dict[str, Any]]) -> Tuple[int, int, int, int]:
@@ -126,11 +146,22 @@ class TransformPipeline:
             elif res["status"] == "skipped":
                 skipped += 1
 
-        # Batch DB writes
-        if all_record_rows:
-            self.state_repo.add_records_batch(all_record_rows)
-        if status_updates:
-            self.state_repo.update_file_status_batch(status_updates)
+        # Batch DB writes — both in ONE transaction.
+        #
+        # These previously ran through two separate connections, so each
+        # committed independently. If the process died (or the status update
+        # raised) after records committed but before the files left 'pending',
+        # the next run re-fetched those files via get_pending_files, re-parsed
+        # them, and inserted the same records again under new ids. Build-time
+        # dedup hid the output impact, but `records` grew without bound and the
+        # transform stage repeated that work every single run. Sharing one
+        # connection makes the pair atomic: either both land or neither does.
+        if all_record_rows or status_updates:
+            with self.state_repo.db.connect() as conn:
+                if all_record_rows:
+                    self.state_repo.add_records_batch(all_record_rows, conn=conn)
+                if status_updates:
+                    self.state_repo.update_observation_status_batch(status_updates, conn=conn)
 
         return len(all_record_rows), processed, failed, skipped
 
@@ -167,7 +198,7 @@ class TransformPipeline:
                 # Parallel parse within batch
                 batch_results: List[Dict[str, Any]] = []
                 future_to_row = {executor.submit(self._process_single_file, row): row for row in batch}
-                
+
                 for future in concurrent.futures.as_completed(future_to_row):
                     try:
                         res = future.result()
