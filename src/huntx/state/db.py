@@ -1,15 +1,37 @@
+import base64
+import binascii
 import contextlib
+import hashlib
+import json
 import logging
 import sqlite3
 from importlib import resources
 from pathlib import Path
-from typing import Generator
+from typing import Generator, Optional
 
 logger = logging.getLogger(__name__)
 
 _BUSY_TIMEOUT_MS = 30_000
 _CACHE_SIZE_KIB = 32 * 1024
 _MMAP_SIZE_BYTES = 256 * 1024 * 1024
+
+
+def _canonicalize_vmess_line(line: str) -> Optional[str]:
+    """Return the current canonical VMess URI or ``None`` for non-VMess/invalid data."""
+    if not line.startswith("vmess://"):
+        return None
+    encoded = line[8:].replace("-", "+").replace("_", "/")
+    encoded += "=" * ((4 - len(encoded) % 4) % 4)
+    try:
+        payload = base64.b64decode(encoded, validate=True).decode("utf-8")
+        value = json.loads(payload)
+    except (binascii.Error, UnicodeDecodeError, json.JSONDecodeError, ValueError):
+        return None
+    if not isinstance(value, dict):
+        return None
+    value.pop("ps", None)
+    canonical = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return "vmess://" + base64.b64encode(canonical.encode("utf-8")).decode("ascii")
 
 
 class DBConnection:
@@ -27,7 +49,10 @@ class DBConnection:
 
         with self.connect() as conn:
             conn.execute("PRAGMA journal_mode=WAL;")
-            conn.execute("PRAGMA synchronous=NORMAL;")
+            # State transitions, source offsets and publication receipts must
+            # survive host/OS crashes. WAL+NORMAL can lose acknowledged commits
+            # after power loss, so FULL is the non-optional durability contract.
+            conn.execute("PRAGMA synchronous=FULL;")
             conn.execute("PRAGMA wal_autocheckpoint=1000;")
 
             try:
@@ -246,6 +271,66 @@ class DBConnection:
                 conn.execute("PRAGMA user_version = 9")
                 version = 9
                 logger.info("Database schema migrated to version 9.")
+
+            if version < 10:
+                # VMess canonicalisation began sorting JSON keys. Re-key legacy
+                # records in place so the old and new representation cannot
+                # coexist as distinct identities after an upgrade.
+                rows = conn.execute(
+                    """
+                    SELECT id, unique_hash, data_json
+                    FROM records
+                    WHERE record_type IN ('npvt', 'npvtsub')
+                      AND data_json IS NOT NULL
+                    """
+                ).fetchall()
+                migrated = 0
+                for row in rows:
+                    try:
+                        data = json.loads(row["data_json"])
+                    except (TypeError, json.JSONDecodeError):
+                        continue
+                    if not isinstance(data, dict) or not isinstance(data.get("line"), str):
+                        continue
+                    canonical = _canonicalize_vmess_line(data["line"])
+                    if canonical is None:
+                        continue
+                    new_hash = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+                    old_hash = str(row["unique_hash"])
+                    if data["line"] == canonical and old_hash == new_hash:
+                        continue
+                    data["line"] = canonical
+                    conn.execute(
+                        "UPDATE records SET unique_hash = ?, data_json = ? WHERE id = ?",
+                        (new_hash, json.dumps(data, ensure_ascii=False, sort_keys=True), int(row["id"])),
+                    )
+                    conn.execute(
+                        """
+                        INSERT OR IGNORE INTO record_verdicts (
+                            unique_hash, record_type, syntax_status,
+                            parser_version, probe_status, probe_checked_at,
+                            probe_expires_at, policy_status, policy_version,
+                            policy_tier, reason_codes_json, updated_at
+                        )
+                        SELECT ?, record_type, syntax_status, parser_version,
+                               probe_status, probe_checked_at, probe_expires_at,
+                               policy_status, policy_version, policy_tier,
+                               reason_codes_json, updated_at
+                        FROM record_verdicts
+                        WHERE unique_hash = ?
+                        """,
+                        (new_hash, old_hash),
+                    )
+                    migrated += 1
+                conn.execute(
+                    """
+                    DELETE FROM record_verdicts
+                    WHERE unique_hash NOT IN (SELECT DISTINCT unique_hash FROM records)
+                    """
+                )
+                conn.execute("PRAGMA user_version = 10")
+                version = 10
+                logger.info("Database schema migrated to version 10; canonicalised %s VMess record(s).", migrated)
         except Exception as exc:
             logger.error("Migration check failed: %s", exc)
             raise
@@ -255,6 +340,7 @@ class DBConnection:
         conn = sqlite3.connect(str(self.db_path), timeout=_BUSY_TIMEOUT_MS / 1000)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys=ON;")
+        conn.execute("PRAGMA synchronous=FULL;")
         conn.execute(f"PRAGMA busy_timeout={_BUSY_TIMEOUT_MS};")
         conn.execute("PRAGMA temp_store=MEMORY;")
         conn.execute(f"PRAGMA cache_size=-{_CACHE_SIZE_KIB};")
