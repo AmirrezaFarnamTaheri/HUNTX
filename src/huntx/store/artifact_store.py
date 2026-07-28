@@ -128,11 +128,7 @@ class ArtifactStore:
         """Return archive files from the last ``days`` days, newest first."""
         cutoff = time.time() - (days * 86400)
         try:
-            files = [
-                item
-                for item in self.archive_dir.iterdir()
-                if item.is_file() and item.stat().st_mtime >= cutoff
-            ]
+            files = [item for item in self.archive_dir.iterdir() if item.is_file() and item.stat().st_mtime >= cutoff]
             files.sort(key=lambda item: item.stat().st_mtime, reverse=True)
             return files
         except Exception as exc:

@@ -1,11 +1,15 @@
 import datetime
+import hashlib
 import logging
 import os
 import threading
 import time
 from typing import Any, Dict, List
 
-from ..publishers.telegram.publisher import TelegramPublisher
+from ..publishers.telegram.publisher import (
+    TelegramPublisher,
+    UnknownPublicationOutcome,
+)
 from ..state.repo import StateRepo
 from ..utils.safe_names import safe_component
 
@@ -59,19 +63,14 @@ class PublishPipeline:
         data = build_result.get("data", b"")
         if not isinstance(data, (bytes, bytearray)):
             data = str(data).encode("utf-8")
+        data = bytes(data)
+        actual_hash = hashlib.sha256(data).hexdigest()
+        if new_hash != actual_hash:
+            raise ValueError(f"Artifact digest does not match publication payload for {unique_id}")
         data_size_kb = len(data) / 1024
 
         if fmt in _ZIP_FORMATS and len(data) <= _EMPTY_ZIP_THRESHOLD:
             logger.debug("[Publish] Skipping minimal artifact %s (%s bytes)", unique_id, len(data))
-            return True
-
-        last_hash = self._last_published_hash(unique_id)
-        if last_hash == new_hash:
-            logger.debug(
-                "[Publish] No change for %s (hash=%s), skip.",
-                unique_id,
-                last_hash[:12] if last_hash else "None",
-            )
             return True
 
         if not destinations:
@@ -86,12 +85,21 @@ class PublishPipeline:
                 "PUBLISH_BOT_TOKEN is unset; configure a distinct token to avoid conflicts."
             )
 
+        generation = str(build_result.get("generation") or new_hash)
+        intent_id = self.state_repo.ensure_publication_intent(
+            unique_id,
+            new_hash,
+            generation=generation,
+        )
         published_any = False
         failures: List[str] = []
+        destination_coordinates: list[str] = []
+        confirmed_this_run: set[str] = set()
+        stable_destination_ids: set[str] = set()
         logger.info(
             "[Publish] Content changed for %s hash=%s -> %s size=%.1f KB destinations=%s",
             unique_id,
-            last_hash[:12] if last_hash else "NEW",
+            "LEDGER",
             new_hash[:12],
             data_size_kb,
             len(destinations),
@@ -108,37 +116,92 @@ class PublishPipeline:
         filename = f"{safe_route}_{safe_fmt}_{new_hash[:8]}{ext}"
 
         for dest in destinations:
-            chat_id = dest["chat_id"]
+            if not isinstance(dest, dict):
+                raise ValueError("Publish destination must be a mapping")
+            chat_id = str(dest.get("chat_id") or "").strip()
+            if not chat_id:
+                raise ValueError("Publish destination requires chat_id")
+            mode = str(dest.get("mode") or "telegram").strip().lower()
+            if mode != "telegram":
+                raise ValueError(f"Unsupported destination mode: {mode}")
+            stable_id = str(dest.get("id") or f"{mode}:{chat_id}").strip()
+            if stable_id in stable_destination_ids:
+                raise ValueError(f"Duplicate destination identity: {stable_id}")
+            stable_destination_ids.add(stable_id)
             template = dest.get("caption_template", "Update: {timestamp}")
+            if not isinstance(template, str):
+                raise ValueError(f"Caption template for {stable_id} must be a string")
             token = dest.get("token") or default_token
+            required = dest.get("required", True)
             if not token:
-                msg = f"No token configured for destination chat_id={chat_id}. Skipping publish."
-                strict = os.getenv("HUNTX_STRICT", "0") in ("1", "true", "TRUE")
-                strict = strict or os.getenv("CI", "0") in ("1", "true", "TRUE")
-                if strict:
-                    raise RuntimeError(f"Strict Mode Active: {msg}")
+                msg = f"No token configured for destination {stable_id}"
+                if required:
+                    if os.getenv("HUNTX_STRICT", "0").strip().lower() in {
+                        "1",
+                        "true",
+                        "yes",
+                    }:
+                        raise RuntimeError(f"Strict Mode Active: {msg}")
+                    raise RuntimeError(msg)
                 logger.warning("[Publish] %s", msg)
                 continue
 
-            masked_token = f"{token[:5]}...{token[-5:]}" if len(token) > 10 else "***"
-            publisher, publisher_lock = self._publisher_for(token)
-            caption = template.format(
-                timestamp=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                sha12=new_hash[:12],
-                count=build_result.get("count", "?"),
-                format=fmt,
+            config_material = "\0".join(
+                [
+                    stable_id,
+                    mode,
+                    chat_id,
+                    hashlib.sha256(str(token).encode("utf-8")).hexdigest(),
+                    template,
+                    str(bool(required)),
+                ]
             )
+            destination_id = f"{stable_id}@" f"{hashlib.sha256(config_material.encode('utf-8')).hexdigest()[:16]}"
+            destination_coordinates.append(destination_id)
+            delivery_state = self.state_repo.get_delivery_state(
+                intent_id,
+                destination_id,
+            )
+            if delivery_state == "confirmed":
+                logger.debug(
+                    "[Publish] Destination already confirmed intent=%s destination=%s",
+                    intent_id,
+                    stable_id,
+                )
+                continue
+            if delivery_state == "unknown_outcome":
+                failures.append(f"destination={stable_id} error=UnknownPublicationOutcome")
+                logger.error(
+                    "[Publish] Refusing automatic resend to %s because the "
+                    "previous outcome is unknown; reconcile the remote receipt "
+                    "before retrying",
+                    stable_id,
+                )
+                continue
 
+            publisher, publisher_lock = self._publisher_for(token)
             try:
+                caption = template.format(
+                    timestamp=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    sha12=new_hash[:12],
+                    count=build_result.get("count", "?"),
+                    format=fmt,
+                )
                 started = time.monotonic()
                 logger.info(
-                    "[Publish] Publishing '%s' to chat %s (token %s)",
+                    "[Publish] Publishing '%s' to destination %s",
                     filename,
-                    chat_id,
-                    masked_token,
+                    stable_id,
                 )
+                self.state_repo.mark_delivery_sending(intent_id, destination_id)
                 with publisher_lock:
-                    publisher.publish(chat_id, data, filename, caption)
+                    receipt = publisher.publish(chat_id, data, filename, caption)
+                self.state_repo.mark_delivery_confirmed(
+                    intent_id,
+                    destination_id,
+                    remote_receipt=str(receipt) if receipt is not None else None,
+                )
+                confirmed_this_run.add(destination_id)
                 published_any = True
                 logger.info(
                     "[Publish] Successfully published to %s (%.2fs)",
@@ -146,21 +209,35 @@ class PublishPipeline:
                     time.monotonic() - started,
                 )
             except Exception as exc:
-                msg = f"chat_id={chat_id} error={exc}"
+                self.state_repo.mark_delivery_failed(
+                    intent_id,
+                    destination_id,
+                    error_class=type(exc).__name__,
+                    unknown_outcome=isinstance(
+                        exc,
+                        UnknownPublicationOutcome,
+                    ),
+                )
+                msg = f"destination={stable_id} error={type(exc).__name__}"
                 failures.append(msg)
                 logger.error("[Publish] Failed to publish to %s", msg)
 
+        all_confirmed = bool(destination_coordinates) and all(
+            destination_id in confirmed_this_run or self.state_repo.is_delivery_confirmed(intent_id, destination_id)
+            for destination_id in destination_coordinates
+        )
+        if all_confirmed:
+            self.state_repo.complete_publication_intent(intent_id)
+            self.state_repo.mark_published(unique_id, new_hash)
+            logger.info("[Publish] Published %s (%s) successfully.", unique_id, new_hash)
+
         if failures:
             raise RuntimeError(
-                f"Publish failed for {unique_id}: {len(failures)} destination error(s): "
-                + "; ".join(failures)
+                f"Publish failed for {unique_id}: {len(failures)} destination error(s): " + "; ".join(failures)
             )
 
-        if published_any:
-            self.state_repo.mark_published(unique_id, new_hash)
-            self._remember_published_hash(unique_id, new_hash)
-            logger.info("[Publish] Published %s (%s) successfully.", unique_id, new_hash)
+        if all_confirmed:
             return True
 
         logger.warning("[Publish] No destinations successfully published for %s", unique_id)
-        return True
+        return published_any

@@ -1,11 +1,9 @@
 import asyncio
-import datetime
 import logging
 import os
 import time
 from collections import OrderedDict
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 try:
     from telethon import TelegramClient, events, Button
@@ -25,13 +23,16 @@ from ..state.db import open_db
 from ..store import paths
 
 from .constants import (
-    WELCOME_TEXT,
     _BOT_COMMANDS,
-    SUPPORTED_FORMATS,
     _ALL_VALID_FORMATS,
-    _AUTO_DELIVER_FORMATS,
     _FORMAT_LABELS,
 )
+
+# Re-exported as part of this module's public surface (consumed by the test
+# suite and downstream importers); imported here rather than referenced.
+from .constants import WELCOME_TEXT as WELCOME_TEXT  # noqa: F401
+from .constants import SUPPORTED_FORMATS as SUPPORTED_FORMATS  # noqa: F401
+
 from .handlers import HandlersMixin
 from .delivery import DeliveryMixin
 from .admin import AdminMixin
@@ -78,21 +79,22 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
 
     def _init_tables(self):
         with self.db.connect() as conn:
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS bot_users (
                     user_id TEXT PRIMARY KEY,
                     chat_id TEXT NOT NULL,
                     username TEXT,
                     registered_at REAL NOT NULL,
+                    approved INTEGER NOT NULL DEFAULT 0,
                     muted INTEGER DEFAULT 0,
                     last_delivered_at REAL DEFAULT 0,
                     default_format TEXT DEFAULT 'npvt'
                 )
-                """
-            )
-            conn.execute(
-                """
+                """)
+            columns = {row["name"] for row in conn.execute("PRAGMA table_info(bot_users)").fetchall()}
+            if "approved" not in columns:
+                conn.execute("ALTER TABLE bot_users " "ADD COLUMN approved INTEGER NOT NULL DEFAULT 0")
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS bot_delivery_checkpoint (
                     user_id TEXT PRIMARY KEY,
                     attempted INTEGER NOT NULL DEFAULT 0,
@@ -101,14 +103,22 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
                     last_error TEXT,
                     updated_at REAL NOT NULL DEFAULT 0
                 )
-                """
-            )
+                """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS bot_delivery_items (
+                    user_id TEXT NOT NULL,
+                    artifact_hash TEXT NOT NULL,
+                    artifact_name TEXT NOT NULL,
+                    delivered_at REAL NOT NULL,
+                    PRIMARY KEY (user_id, artifact_hash),
+                    FOREIGN KEY (user_id)
+                        REFERENCES bot_users(user_id) ON DELETE CASCADE
+                )
+                """)
 
     def _register_user(self, user_id: str, chat_id: str, username: Optional[str] = None) -> bool:
         with self.db.connect() as conn:
-            existing = conn.execute(
-                "SELECT 1 FROM bot_users WHERE user_id = ?", (user_id,)
-            ).fetchone()
+            existing = conn.execute("SELECT 1 FROM bot_users WHERE user_id = ?", (user_id,)).fetchone()
             if existing:
                 conn.execute(
                     "UPDATE bot_users SET chat_id = ?, username = ? WHERE user_id = ?",
@@ -123,21 +133,22 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
 
     def _get_active_users(self) -> list:
         with self.db.connect() as conn:
-            return conn.execute(
-                "SELECT user_id, chat_id FROM bot_users WHERE muted = 0"
-            ).fetchall()
+            return conn.execute("""
+                SELECT user_id, chat_id FROM bot_users
+                WHERE approved = 1 AND muted = 0
+                """).fetchall()
 
     def _get_user_count(self) -> dict:
         with self.db.connect() as conn:
             total = conn.execute("SELECT COUNT(*) AS c FROM bot_users").fetchone()["c"]
-            active = conn.execute("SELECT COUNT(*) AS c FROM bot_users WHERE muted = 0").fetchone()["c"]
+            active = conn.execute("SELECT COUNT(*) AS c FROM bot_users " "WHERE approved = 1 AND muted = 0").fetchone()[
+                "c"
+            ]
             return {"total": total, "active": active, "muted": total - active}
 
     def _get_user_pref(self, user_id: str) -> str:
         with self.db.connect() as conn:
-            row = conn.execute(
-                "SELECT default_format FROM bot_users WHERE user_id = ?", (user_id,)
-            ).fetchone()
+            row = conn.execute("SELECT default_format FROM bot_users WHERE user_id = ?", (user_id,)).fetchone()
             return row["default_format"] if row and row["default_format"] else "npvt"
 
     def _set_user_pref(self, user_id: str, fmt: str):
@@ -149,9 +160,7 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
 
     def _get_user_info(self, user_id: str) -> Optional[dict]:
         with self.db.connect() as conn:
-            row = conn.execute(
-                "SELECT * FROM bot_users WHERE user_id = ?", (user_id,)
-            ).fetchone()
+            row = conn.execute("SELECT * FROM bot_users WHERE user_id = ?", (user_id,)).fetchone()
             return dict(row) if row else None
 
     def _prune_cooldowns(self, now: float) -> None:
@@ -288,11 +297,13 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
 
         try:
             if SetBotCommandsRequest is not None and BotCommandScopeDefault is not None:
-                await self.client(SetBotCommandsRequest(
-                    scope=BotCommandScopeDefault(),
-                    lang_code="",
-                    commands=_BOT_COMMANDS,
-                ))
+                await self.client(
+                    SetBotCommandsRequest(
+                        scope=BotCommandScopeDefault(),
+                        lang_code="",
+                        commands=_BOT_COMMANDS,
+                    )
+                )
             logger.info("[GatherX] Bot commands menu registered.")
         except Exception as e:
             logger.warning(f"[GatherX] Failed to register commands: {e}")

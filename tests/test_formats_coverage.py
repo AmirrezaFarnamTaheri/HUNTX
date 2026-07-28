@@ -29,10 +29,7 @@ class TestFormatsCoverage(unittest.TestCase):
         vmess = base64.b64encode(json.dumps(vmess_payload).encode()).decode()
 
         # Test parse normal with protocol-valid, publicly routable fixtures.
-        content = (
-            f"vless://{user_id}@vless.example.com:443?type=tcp#remark\n"
-            f"vmess://{vmess}"
-        ).encode()
+        content = (f"vless://{user_id}@vless.example.com:443?type=tcp#remark\n" f"vmess://{vmess}").encode()
         lines = fmt.parse(content, {})
         self.assertEqual(len(lines), 2)
         self.assertEqual(
@@ -105,11 +102,7 @@ class TestFormatsCoverage(unittest.TestCase):
             "type": "none",
         }
         vmess = base64.b64encode(json.dumps(vmess_payload).encode()).decode()
-        content = (
-            f"vless://{user_id}@vless-sub.example.com:443#tag\n"
-            f"vmess://{vmess}\n"
-            "garbage"
-        ).encode()
+        content = (f"vless://{user_id}@vless-sub.example.com:443#tag\n" f"vmess://{vmess}\n" "garbage").encode()
         records = fmt.parse(content, {})
         self.assertEqual(len(records), 2)
         self.assertEqual(
@@ -118,10 +111,7 @@ class TestFormatsCoverage(unittest.TestCase):
         )
 
         # Test base64 decode path
-        plain = (
-            f"vless://{user_id}@vless-sub.example.com:443\n"
-            "trojan://secret@trojan-sub.example.com:443"
-        ).encode()
+        plain = (f"vless://{user_id}@vless-sub.example.com:443\n" "trojan://secret@trojan-sub.example.com:443").encode()
         b64 = base64.b64encode(plain)
         records_b64 = fmt.parse(b64, {})
         self.assertEqual(len(records_b64), 2)

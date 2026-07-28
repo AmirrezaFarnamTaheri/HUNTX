@@ -13,6 +13,7 @@ class Npv4Handler(OpaqueBundleHandler):
     Handler for NapsternetV v4 (.npv4).
     Moves beyond opaque bundling by attempting deep inspection via decryption.
     """
+
     def __init__(self, raw_store: RawStore):
         super().__init__(raw_store, "npv4")
 
@@ -23,19 +24,17 @@ class Npv4Handler(OpaqueBundleHandler):
         try:
             text = raw_data.decode("utf-8", "ignore")
             if "." in text and len(text) > 50:
-                decrypted = decrypt_tut_data(text, extension=".sks") # sks often shares logic with npv4
+                decrypted = decrypt_tut_data(text, extension=".sks")  # sks often shares logic with npv4
                 if decrypted:
-                    return [{
-                        "type": self.format_id,
-                        "unique_hash": hash_string(text),
-                        "data": {
-                            "content": text,
-                            "decrypted": decrypted
+                    return [
+                        {
+                            "type": self.format_id,
+                            "unique_hash": hash_string(text),
+                            "data": {"content": text, "decrypted": decrypted},
                         }
-                    }]
+                    ]
         except Exception:
             pass
 
         # Fallback to opaque bundle (ZIP)
         return super().parse(raw_data, source_info)
-

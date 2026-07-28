@@ -71,3 +71,37 @@ def test_manifest_rejects_invalid_json(tmp_path: Path) -> None:
     artifact.write_text("not-json", encoding="utf-8")
     with pytest.raises(json.JSONDecodeError):
         build_release_manifest(tmp_path, [artifact])
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda manifest: manifest.update({"unexpected": True}),
+        lambda manifest: manifest.update({"schema_version": 2}),
+        lambda manifest: manifest["artifacts"][0].update({"extra": True}),
+        lambda manifest: manifest["artifacts"][0].update({"sha256": "not-a-digest"}),
+        lambda manifest: manifest["artifacts"][0].update({"size": True}),
+        lambda manifest: manifest["artifacts"][0].update({"path": "../escape.txt"}),
+    ],
+)
+def test_manifest_verifier_rejects_noncanonical_schema(tmp_path: Path, mutate) -> None:
+    artifact = tmp_path / "feed.txt"
+    artifact.write_text("artifact", encoding="utf-8")
+    manifest = build_release_manifest(tmp_path, [artifact])
+    mutate(manifest)
+
+    with pytest.raises(ValueError):
+        verify_release_manifest(tmp_path, manifest)
+
+
+def test_manifest_rejects_symlink_before_resolution(tmp_path: Path) -> None:
+    artifact = tmp_path / "feed.txt"
+    artifact.write_text("artifact", encoding="utf-8")
+    link = tmp_path / "alias.txt"
+    try:
+        link.symlink_to(artifact)
+    except OSError:
+        pytest.skip("symlink creation is unavailable")
+
+    with pytest.raises(ValueError, match="Symlink"):
+        build_release_manifest(tmp_path, [link])

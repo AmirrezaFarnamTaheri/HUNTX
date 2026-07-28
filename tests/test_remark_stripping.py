@@ -1,4 +1,5 @@
 """Tests for proxy URI remark stripping and deduplication."""
+
 import base64
 import json
 import unittest
@@ -34,8 +35,16 @@ class TestStripProxyRemark(unittest.TestCase):
         self.assertEqual(strip_proxy_remark(uri), uri)
 
     def test_strip_vmess_ps_field(self):
-        obj = {"v": "2", "ps": "ChannelXYZ", "add": "1.2.3.4", "port": "443",
-               "id": "uuid", "aid": "0", "net": "ws", "type": "none"}
+        obj = {
+            "v": "2",
+            "ps": "ChannelXYZ",
+            "add": "1.2.3.4",
+            "port": "443",
+            "id": "uuid",
+            "aid": "0",
+            "net": "ws",
+            "type": "none",
+        }
         b64 = base64.b64encode(json.dumps(obj).encode()).decode()
         uri = f"vmess://{b64}"
 
@@ -53,8 +62,7 @@ class TestStripProxyRemark(unittest.TestCase):
 
     def test_vmess_same_proxy_different_remark_dedup(self):
         """Two vmess URIs differing only in ps field should strip to the same string."""
-        base = {"v": "2", "add": "1.2.3.4", "port": "443", "id": "uuid",
-                "aid": "0", "net": "ws", "type": "none"}
+        base = {"v": "2", "add": "1.2.3.4", "port": "443", "id": "uuid", "aid": "0", "net": "ws", "type": "none"}
 
         obj1 = {**base, "ps": "Channel_A"}
         obj2 = {**base, "ps": "Channel_B_Free"}
@@ -155,8 +163,7 @@ class TestNpvtDedup(unittest.TestCase):
         first_id = "33333333-3333-4333-8333-333333333333"
         second_id = "44444444-4444-4444-8444-444444444444"
         content = (
-            f"vless://{first_id}@first.example.com:443#A\n"
-            f"vless://{second_id}@second.example.com:443#A\n"
+            f"vless://{first_id}@first.example.com:443#A\n" f"vless://{second_id}@second.example.com:443#A\n"
         ).encode()
         records = handler.parse(content, {})
         self.assertEqual(len(records), 2)
@@ -196,8 +203,7 @@ class TestNpvtSubDedup(unittest.TestCase):
     def test_same_proxy_different_remarks_deduped(self):
         handler = NpvtSubHandler()
         content = (
-            "trojan://pass@sub-dedup.example.com:443#Channel_X\n"
-            "trojan://pass@sub-dedup.example.com:443#Channel_Y\n"
+            "trojan://pass@sub-dedup.example.com:443#Channel_X\n" "trojan://pass@sub-dedup.example.com:443#Channel_Y\n"
         ).encode()
         records = handler.parse(content, {})
         self.assertEqual(len(records), 1)

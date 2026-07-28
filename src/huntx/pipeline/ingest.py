@@ -1,7 +1,8 @@
 import logging
+import hashlib
 import time
 from typing import Optional
-from ..connectors.base import SourceConnector
+from ..connectors.base import SourceConnector, maybe_await
 from ..store.raw_store import RawStore
 from ..state.repo import StateRepo
 
@@ -13,8 +14,6 @@ class IngestionPipeline:
         self.raw_store = raw_store
         self.state_repo = state_repo
 
-
-
     def _process_batch(self, source_id, buffer, conn=None):
         if not buffer:
             return 0, 0, 0, 0, 0  # processed, new_bytes, skipped, text, media
@@ -25,7 +24,7 @@ class IngestionPipeline:
 
         # 1. Check seen files in batch
         external_ids = [item.external_id for item in buffer]
-        seen_ids = self.state_repo.get_seen_files_batch(source_id, external_ids, conn=conn)
+        seen_hashes = self.state_repo.get_seen_file_hashes_batch(source_id, external_ids, conn=conn)
 
         records_to_insert = []
         new_items_count = 0
@@ -35,7 +34,8 @@ class IngestionPipeline:
         media_count = 0
 
         for item in buffer:
-            if item.external_id in seen_ids:
+            item_hash = hashlib.sha256(item.data).hexdigest()
+            if seen_hashes.get(str(item.external_id)) == item_hash:
                 skipped_count += 1
                 continue
 
@@ -50,15 +50,17 @@ class IngestionPipeline:
 
             raw_hash = self.raw_store.save(item.data)
 
-            records_to_insert.append((
-                source_id,
-                item.external_id,
-                raw_hash,
-                file_size,
-                filename,
-                "pending",
-                item.metadata,  # metadata will be json.dumps inside record_files_batch
-            ))
+            records_to_insert.append(
+                (
+                    source_id,
+                    item.external_id,
+                    raw_hash,
+                    file_size,
+                    filename,
+                    "pending",
+                    item.metadata,  # metadata will be json.dumps inside record_files_batch
+                )
+            )
             new_items_count += 1
             new_bytes += file_size
 
@@ -69,23 +71,25 @@ class IngestionPipeline:
             # But StateRepo.record_files_batch we added does NOT call json.dumps on the tuple item.
             # We need to serialize here.
             import json
+
             serialized_records = []
             for r in records_to_insert:
                 # r is (source_id, external_id, raw_hash, file_size, filename, status, metadata)
-                serialized_records.append((
-                    r[0], r[1], r[2], r[3], r[4], r[5], json.dumps(r[6] or {})
-                ))
+                serialized_records.append((r[0], r[1], r[2], r[3], r[4], r[5], json.dumps(r[6] or {})))
 
             self.state_repo.record_files_batch(serialized_records, conn=conn)
 
         return new_items_count, new_bytes, skipped_count, text_count, media_count
 
-    async def run(self, source_id: str, connector: SourceConnector, source_type: str = "telegram", deadline: Optional[float] = None):
+    async def run(
+        self,
+        source_id: str,
+        connector: SourceConnector,
+        source_type: str = "telegram",
+        deadline: Optional[float] = None,
+    ):
         connector_name = connector.__class__.__name__
-        logger.info(
-            f"[Ingest] ═══ Starting source {source_id} ═══  "
-            f"type={source_type}  connector={connector_name}"
-        )
+        logger.info(f"[Ingest] ═══ Starting source {source_id} ═══  " f"type={source_type}  connector={connector_name}")
 
         state = self.state_repo.get_source_state(source_id) or {}
         offset = state.get("offset", 0)
@@ -128,7 +132,14 @@ class IngestionPipeline:
 
                 buffer.append(item)
                 if len(buffer) >= BATCH_SIZE:
-                    c, nb, sc, tc, mc = self._process_batch(source_id, buffer)
+                    committed = buffer
+                    c, nb, sc, tc, mc = self._process_batch(
+                        source_id,
+                        committed,
+                    )
+                    acknowledge = getattr(connector, "acknowledge", None)
+                    if acknowledge is not None:
+                        await maybe_await(acknowledge(committed))
                     count += c
                     new_bytes += nb
                     skipped_count += sc
@@ -137,17 +148,24 @@ class IngestionPipeline:
                     buffer = []
 
                     # Progress logging
-                    if count > 0 and count % 25 == 0: # Approximation for logging frequency
-                         elapsed = time.time() - start_time
-                         rate = count / elapsed if elapsed > 0 else 0
-                         logger.info(
-                              f"[Ingest] … {source_id}: {count} ingested "
-                              f"({new_bytes / 1024:.1f} KB, {rate:.1f} items/s)  "
-                              f"skipped={skipped_count}"
-                          )
+                    if count > 0 and count % 25 == 0:  # Approximation for logging frequency
+                        elapsed = time.time() - start_time
+                        rate = count / elapsed if elapsed > 0 else 0
+                        logger.info(
+                            f"[Ingest] … {source_id}: {count} ingested "
+                            f"({new_bytes / 1024:.1f} KB, {rate:.1f} items/s)  "
+                            f"skipped={skipped_count}"
+                        )
 
             if buffer:
-                c, nb, sc, tc, mc = self._process_batch(source_id, buffer)
+                committed = buffer
+                c, nb, sc, tc, mc = self._process_batch(
+                    source_id,
+                    committed,
+                )
+                acknowledge = getattr(connector, "acknowledge", None)
+                if acknowledge is not None:
+                    await maybe_await(acknowledge(committed))
                 count += c
                 new_bytes += nb
                 skipped_count += sc
@@ -156,9 +174,7 @@ class IngestionPipeline:
                 buffer = []
 
         except Exception as e:
-            logger.exception(
-                f"[Ingest] Error during ingestion for {source_id} after {count} items: {e}"
-            )
+            logger.exception(f"[Ingest] Error during ingestion for {source_id} after {count} items: {e}")
             raise
 
         duration = time.time() - start_time
@@ -184,6 +200,10 @@ class IngestionPipeline:
 
             self.state_repo.update_source_state(source_id, new_state, source_type=source_type)
 
+            commit_acknowledgement = getattr(connector, "commit_acknowledgement", None)
+            if commit_acknowledgement is not None:
+                await maybe_await(commit_acknowledgement())
+
             logger.info(
                 f"[Ingest] ═══ Done {source_id} ═══  "
                 f"new={count} (text={text_count} media={media_count})  "
@@ -193,11 +213,9 @@ class IngestionPipeline:
 
             if count == 0 and skipped_count == 0:
                 logger.warning(
-                    f"[Ingest] Zero items from {source_id}. "
-                    f"Check connector logs for filtered/ignored updates."
+                    f"[Ingest] Zero items from {source_id}. " f"Check connector logs for filtered/ignored updates."
                 )
 
         except Exception as e:
             logger.exception(f"[Ingest] Failed to update state for {source_id}: {e}")
             raise
-

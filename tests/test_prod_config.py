@@ -44,8 +44,7 @@ class TestProdConfig(unittest.TestCase):
 
         # Validate from_sources matches sources count
         self.assertEqual(
-            len(route.from_sources), len(config.sources),
-            "from_sources count should match total sources count"
+            len(route.from_sources), len(config.sources), "from_sources count should match total sources count"
         )
 
         # Validate logic (duplicate IDs etc)

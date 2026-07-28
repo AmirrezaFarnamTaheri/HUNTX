@@ -19,11 +19,7 @@ CATALOG_FILE = DOCS_DIR / "catalog.json"
 
 def _load_verified_manifest() -> dict:
     manifest_path = DIST_DIR / "manifest.json"
-    files = [
-        path
-        for path in DIST_DIR.rglob("*")
-        if path.is_file() and path != manifest_path
-    ]
+    files = [path for path in DIST_DIR.rglob("*") if path.is_file() and path != manifest_path]
     manifest = build_release_manifest(DIST_DIR, files)
     write_manifest_atomic(manifest_path, manifest)
     loaded = json.loads(manifest_path.read_text(encoding="utf-8"))

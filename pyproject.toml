@@ -12,12 +12,20 @@ dependencies = [
   "pydantic>=2.0",
   "pyaes>=1.6.1",
   "rsa>=4.9.1",
-  "pyasn1>=0.6.0",
+  "pyasn1>=0.6.4",
   "cryptography>=41.0.0",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "black", "flake8", "mypy", "types-PyYAML"]
+dev = [
+  "pytest>=8",
+  "pytest-asyncio>=0.24",
+  "black",
+  "flake8",
+  "mypy",
+  "types-PyYAML",
+  "types-requests",
+]
 
 [project.scripts]
 huntx = "huntx.cli.hardened_main:main"
@@ -25,8 +33,12 @@ huntx = "huntx.cli.hardened_main:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"huntx.state" = ["schema.sql"]
+
 [tool.black]
 line-length = 120
+target-version = ["py311"]
 
 [tool.mypy]
 ignore_missing_imports = true
@@ -41,7 +53,12 @@ disable_error_code = ["attr-defined"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+  "asyncio: run the test in an asyncio event loop",
+]
 
-[tool.flake8]
-max-line-length = 120
-extend-ignore = ["E203"]
+# NOTE: there is deliberately no [tool.flake8] section here. flake8 does not
+# read pyproject.toml (it only supports setup.cfg / tox.ini / .flake8), so such
+# a section is silently inert. The single source of truth is .flake8.

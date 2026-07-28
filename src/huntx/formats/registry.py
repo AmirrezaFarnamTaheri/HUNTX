@@ -6,20 +6,21 @@ logger = logging.getLogger(__name__)
 
 
 class FormatRegistry:
-    _instance = None
-    _handlers: Dict[str, FormatHandler] = {}
+    _shared_instance = None
 
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(FormatRegistry, cls).__new__(cls)
-            cls._handlers = {}
-        return cls._instance
+    def __init__(self):
+        self._handlers: Dict[str, FormatHandler] = {}
 
     @classmethod
     def get_instance(cls):
-        if cls._instance is None:
-            cls._instance = cls()
-        return cls._instance
+        """Return the compatibility registry used by config validation.
+
+        Runtime owners should construct ``FormatRegistry()`` directly so one
+        orchestrator cannot overwrite another orchestrator's handlers.
+        """
+        if cls._shared_instance is None:
+            cls._shared_instance = cls()
+        return cls._shared_instance
 
     def register(self, handler: FormatHandler):
         if handler.format_id in self._handlers:

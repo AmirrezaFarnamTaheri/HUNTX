@@ -3,16 +3,25 @@ import binascii
 
 # All known proxy URI schemes for content-based detection
 _PROXY_SCHEMES = (
-    "vmess://", "vless://", "trojan://",
-    "ss://", "ssr://",
-    "hysteria2://", "hy2://", "hysteria://",
+    "vmess://",
+    "vless://",
+    "trojan://",
+    "ss://",
+    "ssr://",
+    "hysteria2://",
+    "hy2://",
+    "hysteria://",
     "tuic://",
-    "wireguard://", "wg://",
-    "socks://", "socks5://", "socks4://",
+    "wireguard://",
+    "wg://",
+    "socks://",
+    "socks5://",
+    "socks4://",
     "anytls://",
     "juicity://",
     "warp://",
-    "dns://", "dnstt://",
+    "dns://",
+    "dnstt://",
 )
 _PROXY_URI_PREFIXES = _PROXY_SCHEMES
 

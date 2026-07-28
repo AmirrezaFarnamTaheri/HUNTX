@@ -11,7 +11,7 @@ from .proxy_uri_validator import validate_proxy_uri
 from ..core.router import _PROXY_SCHEMES
 
 _PROXY_URI_RE = re.compile(
-    r'(?:' + '|'.join(re.escape(s) for s in _PROXY_SCHEMES) + r')[^\s<>"\']+',
+    r"(?:" + "|".join(re.escape(s) for s in _PROXY_SCHEMES) + r')[^\s<>"\']+',
     re.IGNORECASE,
 )
 
@@ -38,7 +38,7 @@ def strip_proxy_remark(uri: str) -> str:
             raw = _b64_decode_safe(b64)
             obj = json.loads(raw)
             obj.pop("ps", None)
-            canonical = json.dumps(obj, sort_keys=True, separators=(',', ':'))
+            canonical = json.dumps(obj, sort_keys=True, separators=(",", ":"))
             return "vmess://" + base64.b64encode(canonical.encode()).decode()
         except (binascii.Error, UnicodeDecodeError, ValueError, json.JSONDecodeError):
             return uri
@@ -59,7 +59,7 @@ def add_clean_remark(uri: str, counter: dict) -> str:
             raw = _b64_decode_safe(b64)
             obj = json.loads(raw)
             obj["ps"] = tag
-            encoded = json.dumps(obj, separators=(',', ':')).encode()
+            encoded = json.dumps(obj, separators=(",", ":")).encode()
             return "vmess://" + base64.b64encode(encoded).decode()
         except (binascii.Error, UnicodeDecodeError, ValueError, json.JSONDecodeError):
             return uri

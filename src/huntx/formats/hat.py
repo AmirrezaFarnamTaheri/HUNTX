@@ -14,6 +14,7 @@ class HatHandler(OpaqueBundleHandler):
     Handler for HA Tunnel Plus (.hat) and HA Tunnel (.happ) links.
     Moves beyond opaque bundling by decrypting happ:// links found in text.
     """
+
     def __init__(self, raw_store: RawStore):
         super().__init__(raw_store, "hat")
 
@@ -42,14 +43,13 @@ class HatHandler(OpaqueBundleHandler):
                     decrypted = decrypt_happ_link(link)
                     if decrypted:
                         # Decrypted HAT links often contain JSON or structured text
-                        records.append({
-                            "type": self.format_id,
-                            "unique_hash": hash_string(link),
-                            "data": {
-                                "line": link,
-                                "decrypted": decrypted
+                        records.append(
+                            {
+                                "type": self.format_id,
+                                "unique_hash": hash_string(link),
+                                "data": {"line": link, "decrypted": decrypted},
                             }
-                        })
+                        )
                 if records:
                     return records
         except Exception:
@@ -57,18 +57,23 @@ class HatHandler(OpaqueBundleHandler):
 
         # Try decrypting as a .tut/.tmt format (some .hat are actually these)
         try:
-            text = raw_data.decode("utf-8", "strip")
+            # "strip" is not a registered codec error handler; because handlers
+            # are resolved lazily, any .hat containing a single invalid UTF-8
+            # byte raised LookupError here, which the broad `except Exception`
+            # below swallowed — silently disabling this entire .tut/.tmt
+            # fallback branch for exactly the binary-ish files it exists to
+            # handle. "ignore" is the intended behavior.
+            text = raw_data.decode("utf-8", "ignore")
             if "." in text and len(text) > 50:
                 decrypted = decrypt_tut_data(text, extension=".tmt")
                 if decrypted:
-                    return [{
-                        "type": self.format_id,
-                        "unique_hash": hash_string(text),
-                        "data": {
-                            "content": text,
-                            "decrypted": decrypted
+                    return [
+                        {
+                            "type": self.format_id,
+                            "unique_hash": hash_string(text),
+                            "data": {"content": text, "decrypted": decrypted},
                         }
-                    }]
+                    ]
         except Exception:
             pass
 

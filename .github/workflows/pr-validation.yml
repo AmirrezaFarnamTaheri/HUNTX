@@ -6,6 +6,10 @@ on:
     paths:
       - ".github/workflows/**"
       - "configs/**"
+      - "docs/**"
+      - "go.mod"
+      - "cmd/**"
+      - "internal/**"
       - "pyproject.toml"
       - "requirements*.txt"
       - "scripts/**"
@@ -18,6 +22,10 @@ on:
     paths:
       - ".github/workflows/**"
       - "configs/**"
+      - "docs/**"
+      - "go.mod"
+      - "cmd/**"
+      - "internal/**"
       - "pyproject.toml"
       - "requirements*.txt"
       - "scripts/**"
@@ -27,89 +35,43 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
-
-defaults:
-  run:
-    shell: bash
-
-env:
-  PIP_DISABLE_PIP_VERSION_CHECK: "1"
-  PIP_NO_INPUT: "1"
-  PIP_PREFER_BINARY: "1"
-  PYTHONDONTWRITEBYTECODE: "1"
-  PYTHONHASHSEED: "0"
-  PYTHONUNBUFFERED: "1"
-
 jobs:
   validate:
     name: quality-gate
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
-      - name: Checkout validation surface
-        uses: actions/checkout@v7.0.0 # Node 24
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
           persist-credentials: false
-          sparse-checkout: |
-            .github/workflows
-            configs
-            scripts
-            src
-            tests
-            pyproject.toml
-            requirements.txt
-          sparse-checkout-cone-mode: false
 
-      - name: Set up Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # Node 24
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version: "1.23"
+          cache: true
+
+      - name: Go quality gate
+        run: |
+          set -euo pipefail
+          gofmt -w -l .
+          test -z "$(gofmt -l .)"
+          go test -race ./...
+          go vet ./...
+          go build ./cmd/huntx-tools
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
 
-      - name: Install dependencies
+      - name: Python quality gate
         run: |
           set -euo pipefail
           python -m pip install --require-hashes --prefer-binary -r requirements.txt
-          python -m pip install --prefer-binary flake8 mypy pytest types-requests types-PyYAML
+          python -m pip install --prefer-binary flake8 mypy pytest pytest-asyncio types-requests types-PyYAML
           python -m pip install --no-deps -e .
           python -m pip check
-
-      - name: Compile
-        run: python -m compileall -q -j 0 src tests
-
-      - name: Lint
-        run: python -m flake8 src/huntx tests --count --select=E9,F63,F7,F82 --show-source --statistics
-
-      - name: Type check
-        run: |
-          set -o pipefail
-          python -m mypy src/huntx 2>&1 | tee mypy-results.txt
-
-      - name: Test
-        run: python -m pytest -q --strict-config --strict-markers --durations=20 --junitxml=pytest-results.xml
-
-      - name: Publish validation summary
-        if: always()
-        run: |
-          {
-            echo "### Validation"
-            echo "- Result: **${{ job.status }}**"
-            echo "- Commit: \`${GITHUB_SHA}\`"
-            echo "- Python: 3.12"
-            echo "- Concurrency key: \`${{ github.head_ref || github.ref_name }}\`"
-            echo "- Slowest test durations are included in the job log."
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload diagnostics on failure
-        if: failure()
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v6, Node 24
-        with:
-          name: validation-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            mypy-results.txt
-            pytest-results.xml
-          if-no-files-found: ignore
-          retention-days: 7
+          python -m compileall -q -j 0 src tests scripts
+          python -m flake8 src/huntx tests scripts --count --statistics
+          python -m mypy src/huntx
+          python -m pytest -q --strict-config --strict-markers --durations=20 --junitxml=pytest-results.xml

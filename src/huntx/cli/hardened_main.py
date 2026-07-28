@@ -1,17 +1,19 @@
 import logging
 import os
+import sys
 from contextlib import nullcontext
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 from . import main as legacy
 from ..config.loader import load_config
 from ..config.validate import validate_config
+from ..core.locks import acquire_lock
 from ..core.optimized_orchestrator import OptimizedHardenedOrchestrator
 from ..core.runtime_resilience import apply_runtime_resilience
-from ..core.locks import acquire_lock
 from ..core.session_lease import session_lease_path
 from ..pipeline.governed_build import GovernedBuildPipeline
+from ..state.consumer_reconciliation import reconcile_configured_bot_consumers
 from ..store import paths
 
 logger = logging.getLogger(__name__)
@@ -21,6 +23,44 @@ apply_runtime_resilience()
 
 def _enabled(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in {"1", "true", "yes"}
+
+
+def _option_value(argv: Sequence[str], option: str) -> str | None:
+    for index, value in enumerate(argv[1:], start=1):
+        if value == option:
+            if index + 1 < len(argv):
+                return argv[index + 1]
+            return None
+        prefix = option + "="
+        if value.startswith(prefix):
+            return value[len(prefix) :]
+    return None
+
+
+def _has_option(argv: Sequence[str], option: str) -> bool:
+    return any(value == option or value.startswith(option + "=") for value in argv[1:])
+
+
+def _inject_runtime_path_arguments(argv: Sequence[str]) -> list[str]:
+    """Apply CLI > environment > default precedence for runtime paths.
+
+    The legacy parser historically gave both path options unconditional defaults,
+    which overwrote environment configuration even when the caller did not pass
+    either option. The public entry point injects only missing global options so
+    argparse still validates explicit CLI syntax and explicit values always win.
+    """
+
+    resolved = list(argv)
+    explicit_data = _option_value(resolved, "--data-dir")
+    data_dir = explicit_data or os.environ.get("HUNTX_DATA_DIR") or "data"
+
+    additions: list[str] = []
+    if not _has_option(resolved, "--data-dir"):
+        additions.extend(["--data-dir", data_dir])
+    if not _has_option(resolved, "--db-path"):
+        db_path = os.environ.get("HUNTX_STATE_DB_PATH") or str(Path(data_dir) / "state" / "state.db")
+        additions.extend(["--db-path", db_path])
+    return [resolved[0], *additions, *resolved[1:]]
 
 
 def _all_publish_failures_are_fatal(
@@ -75,6 +115,8 @@ def _cmd_run(args):
                 max_workers=max_workers,
                 fetch_windows=fetch_windows,
             )
+            reconciliation = reconcile_configured_bot_consumers(orchestrator.repo, config)
+            logger.info("Telegram consumer reconciliation: %s", reconciliation)
             route_policies = {
                 route.name: (
                     route.publication_tier.value,
@@ -101,8 +143,7 @@ def _cmd_run(args):
             raise SystemExit(1)
         if status == "partial" and not allow_partial and not budget_partial:
             logger.error(
-                "Health Gate FAILED: partial run requires "
-                "HUNTX_ALLOW_PARTIAL_SUCCESS=true; summary=%s",
+                "Health Gate FAILED: partial run requires HUNTX_ALLOW_PARTIAL_SUCCESS=true; summary=%s",
                 summary,
             )
             raise SystemExit(1)
@@ -144,6 +185,7 @@ def _cmd_run(args):
 
 def main():
     legacy._cmd_run = _cmd_run  # type: ignore[assignment]
+    sys.argv = _inject_runtime_path_arguments(sys.argv)
     legacy.main()
 
 

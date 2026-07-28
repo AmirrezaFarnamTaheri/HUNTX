@@ -1,7 +1,6 @@
 import re
 from pathlib import PurePosixPath
 
-
 _SAFE_CHARS_RE = re.compile(r"[^A-Za-z0-9._-]+")
 
 
@@ -47,4 +46,3 @@ def safe_zip_entry_name(original_name: str, *, default: str = "file.bin") -> str
 
     # ZIP tools can treat empty names strangely; ensure we always have something.
     return base or default
-
