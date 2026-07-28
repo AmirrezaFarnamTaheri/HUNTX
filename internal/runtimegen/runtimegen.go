@@ -1,6 +1,7 @@
 package runtimegen
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -66,10 +67,24 @@ func digestFile(filePath string) (string, int64, error) {
 		return "", 0, err
 	}
 	defer file.Close()
+	infoBefore, err := file.Stat()
+	if err != nil {
+		return "", 0, err
+	}
+	if !infoBefore.Mode().IsRegular() {
+		return "", 0, fmt.Errorf("not a regular file: %s", filePath)
+	}
 	hash := sha256.New()
 	written, err := io.Copy(hash, file)
 	if err != nil {
 		return "", 0, err
+	}
+	infoAfter, err := file.Stat()
+	if err != nil {
+		return "", 0, err
+	}
+	if infoBefore.Size() != infoAfter.Size() || written != infoAfter.Size() || !infoAfter.ModTime().Equal(infoBefore.ModTime()) {
+		return "", 0, fmt.Errorf("file changed while hashing: %s", filePath)
 	}
 	return hex.EncodeToString(hash.Sum(nil)), written, nil
 }
@@ -93,7 +108,6 @@ func Build(root, generation string) (Manifest, error) {
 	if !info.IsDir() {
 		return Manifest{}, fmt.Errorf("generation root is not a directory: %s", resolvedRoot)
 	}
-
 	manifest := Manifest{SchemaVersion: 1, Generation: generation, Files: map[string]FileRecord{}}
 	err = filepath.WalkDir(resolvedRoot, func(filePath string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -113,7 +127,7 @@ func Build(root, generation string) (Manifest, error) {
 			return err
 		}
 		if !entryInfo.Mode().IsRegular() {
-			return nil
+			return fmt.Errorf("generation contains non-regular file: %s", filePath)
 		}
 		relative, err := filepath.Rel(resolvedRoot, filePath)
 		if err != nil {
@@ -154,7 +168,6 @@ func Verify(root string, manifest Manifest) error {
 	if err != nil {
 		return err
 	}
-
 	expected := make(map[string]struct{}, len(manifest.Files))
 	for relative, metadata := range manifest.Files {
 		if err := safeRelativePath(relative); err != nil {
@@ -183,7 +196,6 @@ func Verify(root string, manifest Manifest) error {
 			return fmt.Errorf("digest mismatch for %s", relative)
 		}
 	}
-
 	actual := map[string]struct{}{}
 	err = filepath.WalkDir(resolvedRoot, func(filePath string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -198,12 +210,12 @@ func Verify(root string, manifest Manifest) error {
 		if entry.IsDir() {
 			return nil
 		}
-		entryInfo, err := entry.Info()
+		info, err := entry.Info()
 		if err != nil {
 			return err
 		}
-		if !entryInfo.Mode().IsRegular() {
-			return nil
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("generation contains non-regular file: %s", filePath)
 		}
 		relative, err := filepath.Rel(resolvedRoot, filePath)
 		if err != nil {
@@ -286,7 +298,7 @@ func ValidatePointer(pointer Pointer, manifest *Manifest) (string, error) {
 }
 
 func CanonicalBytes(value any) ([]byte, error) {
-	var canonical any
+	var canonical any = value
 	switch typed := value.(type) {
 	case Manifest:
 		files := make(map[string]any, len(typed.Files))
@@ -308,14 +320,14 @@ func CanonicalBytes(value any) ([]byte, error) {
 		}
 	case *Pointer:
 		return CanonicalBytes(*typed)
-	default:
-		canonical = value
 	}
-	payload, err := json.Marshal(canonical)
-	if err != nil {
+	var buffer bytes.Buffer
+	encoder := json.NewEncoder(&buffer)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(canonical); err != nil {
 		return nil, err
 	}
-	return append(payload, '\n'), nil
+	return buffer.Bytes(), nil
 }
 
 func WriteAtomic(filePath string, value any) error {
@@ -323,6 +335,10 @@ func WriteAtomic(filePath string, value any) error {
 	if err != nil {
 		return err
 	}
+	return WriteBytesAtomic(filePath, payload, 0o600)
+}
+
+func WriteBytesAtomic(filePath string, payload []byte, mode os.FileMode) error {
 	directory := filepath.Dir(filePath)
 	if err := os.MkdirAll(directory, 0o755); err != nil {
 		return err
@@ -339,6 +355,9 @@ func WriteAtomic(filePath string, value any) error {
 			_ = os.Remove(temporaryName)
 		}
 	}()
+	if err := temporary.Chmod(mode); err != nil {
+		return err
+	}
 	if _, err := temporary.Write(payload); err != nil {
 		return err
 	}
@@ -352,11 +371,15 @@ func WriteAtomic(filePath string, value any) error {
 		return err
 	}
 	committed = true
-	if directoryHandle, err := os.Open(directory); err == nil {
-		_ = directoryHandle.Sync()
-		_ = directoryHandle.Close()
-	}
+	syncDirectory(directory)
 	return nil
+}
+
+func syncDirectory(directory string) {
+	if handle, err := os.Open(directory); err == nil {
+		_ = handle.Sync()
+		_ = handle.Close()
+	}
 }
 
 func ReadManifest(filePath string) (Manifest, error) {
@@ -364,12 +387,12 @@ func ReadManifest(filePath string) (Manifest, error) {
 	if err != nil {
 		return Manifest{}, err
 	}
-	var root any
-	if err := json.Unmarshal(payload, &root); err != nil {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &raw); err != nil {
 		return Manifest{}, err
 	}
-	if _, ok := root.(map[string]any); !ok {
-		return Manifest{}, fmt.Errorf("JSON root must be an object: %s", filePath)
+	if len(raw) != 3 || raw["schema_version"] == nil || raw["generation"] == nil || raw["files"] == nil {
+		return Manifest{}, errors.New("runtime manifest has unexpected or missing fields")
 	}
 	var manifest Manifest
 	if err := json.Unmarshal(payload, &manifest); err != nil {
@@ -383,12 +406,12 @@ func ReadPointer(filePath string) (Pointer, error) {
 	if err != nil {
 		return Pointer{}, err
 	}
-	var root any
-	if err := json.Unmarshal(payload, &root); err != nil {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &raw); err != nil {
 		return Pointer{}, err
 	}
-	if _, ok := root.(map[string]any); !ok {
-		return Pointer{}, fmt.Errorf("JSON root must be an object: %s", filePath)
+	if len(raw) != 3 || raw["schema_version"] == nil || raw["generation"] == nil || raw["manifest_sha256"] == nil {
+		return Pointer{}, errors.New("runtime pointer has unexpected or missing fields")
 	}
 	var pointer Pointer
 	if err := json.Unmarshal(payload, &pointer); err != nil {
