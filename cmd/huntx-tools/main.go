@@ -1,164 +1,178 @@
 package main
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
-	"sort"
-	"strings"
+
+	"github.com/AmirrezaFarnamTaheri/HUNTX/internal/outputverify"
+	"github.com/AmirrezaFarnamTaheri/HUNTX/internal/releasemanifest"
+	"github.com/AmirrezaFarnamTaheri/HUNTX/internal/runtimegen"
 )
 
-type FileRecord struct {
-	SHA256 string `json:"sha256"`
-	Size   int64  `json:"size"`
-}
-
-type RuntimeManifest struct {
-	SchemaVersion int                   `json:"schema_version"`
-	Generation     string                `json:"generation"`
-	Files          map[string]FileRecord `json:"files"`
-}
-
-type RuntimePointer struct {
-	SchemaVersion  int    `json:"schema_version"`
-	Generation     string `json:"generation"`
-	ManifestSHA256 string `json:"manifest_sha256"`
-}
-
-func canonical(v any) ([]byte, error) {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return nil, err
+func main() {
+	if err := run(os.Args[1:]); err != nil {
+		fmt.Fprintln(os.Stderr, "huntx-tools:", err)
+		os.Exit(1)
 	}
-	return append(b, '\n'), nil
 }
 
-func digestFile(path string) (string, int64, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return "", 0, err
+func run(args []string) error {
+	if len(args) == 0 {
+		return errors.New("subcommand required: runtime-generation, release-manifest, or verify-output")
 	}
-	defer f.Close()
-	h := sha256.New()
-	n, err := io.Copy(h, f)
-	if err != nil {
-		return "", 0, err
+	switch args[0] {
+	case "runtime-generation":
+		return runRuntimeGeneration(args[1:])
+	case "release-manifest":
+		return runReleaseManifest(args[1:])
+	case "verify-output":
+		return runVerifyOutput(args[1:])
+	default:
+		return fmt.Errorf("unsupported subcommand: %s", args[0])
 	}
-	return hex.EncodeToString(h.Sum(nil)), n, nil
 }
 
-func safeGeneration(v string) error {
-	if v == "" || len(v) > 128 {
-		return errors.New("invalid generation")
+func runRuntimeGeneration(args []string) error {
+	if len(args) == 0 {
+		return errors.New("runtime-generation operation required: build, verify, or validate-pointer")
 	}
-	for _, r := range v {
-		if !(r == '-' || r == '_' || r == '.' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9') {
-			return errors.New("invalid generation")
+	switch args[0] {
+	case "build":
+		flags := flag.NewFlagSet("runtime-generation build", flag.ContinueOnError)
+		root := flags.String("root", "", "generation payload root")
+		generation := flags.String("generation", "", "generation identifier")
+		manifestPath := flags.String("manifest", "", "manifest output path")
+		pointerPath := flags.String("pointer", "", "pointer output path")
+		if err := flags.Parse(args[1:]); err != nil {
+			return err
 		}
-	}
-	return nil
-}
-
-func manifest(root, generation string) (RuntimeManifest, error) {
-	if err := safeGeneration(generation); err != nil {
-		return RuntimeManifest{}, err
-	}
-	result := RuntimeManifest{SchemaVersion: 1, Generation: generation, Files: map[string]FileRecord{}}
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if *root == "" || *generation == "" || *manifestPath == "" || *pointerPath == "" {
+			return errors.New("--root, --generation, --manifest, and --pointer are required")
+		}
+		manifest, err := runtimegen.Build(*root, *generation)
 		if err != nil {
 			return err
 		}
-		if info.Mode()&os.ModeSymlink != 0 {
-			return errors.New("symlink in generation")
-		}
-		if info.IsDir() {
-			return nil
-		}
-		rel, err := filepath.Rel(root, path)
+		pointer, err := runtimegen.BuildPointer(*generation, manifest)
 		if err != nil {
 			return err
 		}
-		d, size, err := digestFile(path)
+		if err := runtimegen.WriteAtomic(*manifestPath, manifest); err != nil {
+			return err
+		}
+		return runtimegen.WriteAtomic(*pointerPath, pointer)
+	case "verify":
+		flags := flag.NewFlagSet("runtime-generation verify", flag.ContinueOnError)
+		root := flags.String("root", "", "generation payload root")
+		manifestPath := flags.String("manifest", "", "manifest path")
+		if err := flags.Parse(args[1:]); err != nil {
+			return err
+		}
+		if *root == "" || *manifestPath == "" {
+			return errors.New("--root and --manifest are required")
+		}
+		manifest, err := runtimegen.ReadManifest(*manifestPath)
 		if err != nil {
 			return err
 		}
-		result.Files[filepath.ToSlash(rel)] = FileRecord{SHA256: d, Size: size}
+		return runtimegen.Verify(*root, manifest)
+	case "validate-pointer":
+		flags := flag.NewFlagSet("runtime-generation validate-pointer", flag.ContinueOnError)
+		pointerPath := flags.String("pointer", "", "pointer path")
+		manifestPath := flags.String("manifest", "", "optional manifest path")
+		if err := flags.Parse(args[1:]); err != nil {
+			return err
+		}
+		if *pointerPath == "" {
+			return errors.New("--pointer is required")
+		}
+		pointer, err := runtimegen.ReadPointer(*pointerPath)
+		if err != nil {
+			return err
+		}
+		var manifest *runtimegen.Manifest
+		if *manifestPath != "" {
+			loaded, err := runtimegen.ReadManifest(*manifestPath)
+			if err != nil {
+				return err
+			}
+			manifest = &loaded
+		}
+		generation, err := runtimegen.ValidatePointer(pointer, manifest)
+		if err != nil {
+			return err
+		}
+		fmt.Println(generation)
 		return nil
-	})
-	if err != nil {
-		return RuntimeManifest{}, err
+	default:
+		return fmt.Errorf("unsupported runtime-generation operation: %s", args[0])
 	}
-	if _, ok := result.Files["state.db"]; !ok {
-		return RuntimeManifest{}, errors.New("generation missing state.db")
-	}
-	return result, nil
 }
 
-func writeJSON(path string, value any) error {
-	b, err := canonical(value)
+func runReleaseManifest(args []string) error {
+	flags := flag.NewFlagSet("release-manifest", flag.ContinueOnError)
+	root := flags.String("root", "", "release root")
+	manifestPath := flags.String("manifest", "", "manifest output path")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if *root == "" {
+		return errors.New("--root is required")
+	}
+	if *manifestPath == "" {
+		*manifestPath = filepath.Join(*root, "manifest.json")
+	}
+	candidates, err := releasemanifest.Discover(*root, *manifestPath)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, b, 0644)
-}
-
-func verify(root, manifestPath string) error {
-	b, err := os.ReadFile(manifestPath)
-	if err != nil { return err }
-	var m RuntimeManifest
-	if err := json.Unmarshal(b, &m); err != nil { return err }
-	for p, expected := range m.Files {
-		d, size, err := digestFile(filepath.Join(root, filepath.FromSlash(p)))
-		if err != nil { return err }
-		if d != expected.SHA256 || size != expected.Size {
-			return fmt.Errorf("digest mismatch: %s", p)
-		}
+	manifest, err := releasemanifest.Build(*root, candidates)
+	if err != nil {
+		return err
 	}
+	if err := releasemanifest.WriteAtomic(*manifestPath, manifest); err != nil {
+		return err
+	}
+	loaded, err := releasemanifest.Read(*manifestPath)
+	if err != nil {
+		return err
+	}
+	if err := releasemanifest.Verify(*root, loaded); err != nil {
+		return err
+	}
+	fmt.Printf("Validated %d release artifacts\n", loaded.ArtifactCount)
 	return nil
 }
 
-func main() {
-	if len(os.Args) < 2 { panic("subcommand required") }
-	switch os.Args[1] {
-	case "runtime-generation":
-		runGeneration(os.Args[2:])
-	default:
-		panic("unsupported command")
+func runVerifyOutput(args []string) error {
+	flags := flag.NewFlagSet("verify-output", flag.ContinueOnError)
+	dataDir := flags.String("data-dir", "", "HUNTX data directory")
+	jsonSummary := flags.Bool("json", false, "emit machine-readable summary")
+	if err := flags.Parse(args); err != nil {
+		return err
 	}
-}
-
-func runGeneration(args []string) {
-	if len(args) < 1 { panic("operation required") }
-	switch args[0] {
-	case "build":
-		f := flag.NewFlagSet("build", flag.ExitOnError)
-		root := f.String("root", "", "root")
-		gen := f.String("generation", "", "generation")
-		manifestPath := f.String("manifest", "", "manifest")
-		pointerPath := f.String("pointer", "", "pointer")
-		f.Parse(args[1:])
-		m, err := manifest(*root, *gen)
-		if err != nil { panic(err) }
-		mb, _ := canonical(m)
-		p := RuntimePointer{SchemaVersion:1, Generation:*gen, ManifestSHA256:fmt.Sprintf("%x", sha256.Sum256(mb))}
-		if err := writeJSON(*manifestPath, m); err != nil { panic(err) }
-		if err := writeJSON(*pointerPath, p); err != nil { panic(err) }
-	case "verify":
-		f := flag.NewFlagSet("verify", flag.ExitOnError)
-		root := f.String("root", "", "root")
-		m := f.String("manifest", "", "manifest")
-		f.Parse(args[1:])
-		if err := verify(*root, *m); err != nil { panic(err) }
-	case "validate-pointer":
-		fmt.Println("validation delegated during shadow phase")
+	if *dataDir == "" {
+		*dataDir = os.Getenv("HUNTX_DATA_DIR")
 	}
+	if *dataDir == "" {
+		*dataDir = "persist/data"
+	}
+	summary, err := outputverify.Verify(*dataDir)
+	if err != nil {
+		return err
+	}
+	if *jsonSummary {
+		payload, err := json.Marshal(summary)
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(payload))
+	} else {
+		fmt.Printf("Verified %d output files (%d bytes); vmess outbounds=%d\n", summary.Files, summary.TotalSize, summary.VmessCount)
+	}
+	return nil
 }
-
-var _ = sort.Strings
-var _ = strings.Contains
