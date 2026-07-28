@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, AsyncIterator, Dict, Iterable, Optional, Set, Tuple, Type
+from typing import Any, AsyncIterator, Dict, Iterable, Optional, Tuple, Type
 
 ItemKey = Tuple[int, str]
 
