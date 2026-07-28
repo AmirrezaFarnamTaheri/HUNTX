@@ -8,54 +8,88 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
+
+	"github.com/AmirrezaFarnamTaheri/HUNTX/internal/releasemanifest"
 )
 
 type Summary struct {
-	Files       int            `json:"files"`
-	TotalSize   int64          `json:"total_size"`
-	Protocols   map[string]int `json:"protocols"`
-	Formats     map[string]int `json:"formats"`
-	VmessCount  int            `json:"vmess_count"`
+	Files int `json:"files"`
+	TotalSize int64 `json:"total_size"`
+	Protocols map[string]int `json:"protocols"`
+	Formats map[string]int `json:"formats"`
+	VmessCount int `json:"vmess_count"`
 }
 
-var proxySchemes = []string{"vmess://", "vless://", "trojan://", "ss://", "ssr://", "hysteria2://", "hy2://", "tuic://", "wireguard://"}
+var proxySchemes = []string{"vmess://", "vless://", "trojan://", "ss://", "ssr://", "hysteria2://", "hy2://", "tuic://", "wireguard://", "socks://", "juicity://", "anytls://"}
 
 func Verify(dataDir string) (Summary, error) {
 	outputDir := filepath.Join(dataDir, "outputs")
-	if info, err := os.Stat(outputDir); err != nil || !info.IsDir() {
-		return Summary{}, errors.New("output directory does not exist")
-	}
-	summary := Summary{Protocols: map[string]int{}, Formats: map[string]int{}}
-	return summary, walk(outputDir, dataDir, summary)
-}
-
-func walk(outputDir, dataDir string, summary Summary) (Summary, error) {
-	dist := filepath.Join(dataDir, "dist")
+	info, err := os.Stat(outputDir)
+	if err != nil || !info.IsDir() { return Summary{}, errors.New("output directory does not exist") }
 	stage, err := os.MkdirTemp(dataDir, ".dist-stage-")
-	if err != nil { return summary, err }
+	if err != nil { return Summary{}, err }
 	defer os.RemoveAll(stage)
-	err = filepath.Walk(outputDir, func(name string, info os.FileInfo, err error) error {
-		if err != nil { return err }
-		if info.IsDir() { return nil }
-		if info.Mode()&os.ModeSymlink != 0 { return fmt.Errorf("symlink: %s", name) }
+	summary := Summary{Protocols: map[string]int{}, Formats: map[string]int{}}
+	paths := []string{}
+	if err := filepath.WalkDir(outputDir, func(name string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil { return walkErr }
+		if name == outputDir { return nil }
+		if entry.Type()&os.ModeSymlink != 0 { return fmt.Errorf("symlink output forbidden: %s", name) }
+		if entry.IsDir() { return nil }
+		paths = append(paths, name)
+		return nil
+	}); err != nil { return Summary{}, err }
+	sort.Strings(paths)
+	if len(paths) == 0 { return Summary{}, errors.New("no output artifacts found") }
+	for _, name := range paths {
 		payload, err := os.ReadFile(name)
-		if err != nil { return err }
+		if err != nil { return Summary{}, err }
+		if len(payload) == 0 { return Summary{}, fmt.Errorf("empty output artifact: %s", name) }
+		if err := validate(name, payload, &summary); err != nil { return Summary{}, err }
+		rel, err := filepath.Rel(outputDir, name)
+		if err != nil { return Summary{}, err }
+		dest := filepath.Join(stage, rel)
+		if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil { return Summary{}, err }
+		if err := os.WriteFile(dest, payload, 0600); err != nil { return Summary{}, err }
 		summary.Files++
 		summary.TotalSize += int64(len(payload))
-		summary.Formats[filepath.Ext(name)]++
-		text := string(payload)
+	}
+	candidates, err := releasemanifest.Discover(stage, filepath.Join(stage, "manifest.json"))
+	if err != nil { return Summary{}, err }
+	manifest, err := releasemanifest.Build(stage, candidates)
+	if err != nil { return Summary{}, err }
+	if err := releasemanifest.WriteAtomic(filepath.Join(stage, "manifest.json"), manifest); err != nil { return Summary{}, err }
+	if err := releasemanifest.Verify(stage, manifest); err != nil { return Summary{}, err }
+	return summary, promoteDirectory(stage, filepath.Join(dataDir, "dist"))
+}
+
+func validate(name string, payload []byte, summary *Summary) error {
+	lower := strings.ToLower(name)
+	if strings.HasSuffix(lower, ".json") { var value any; if err := json.Unmarshal(payload, &value); err != nil { return err } }
+	if strings.HasSuffix(lower, ".zip") { if _, err := zip.OpenReader(name); err != nil { return err } }
+	text := strings.TrimSpace(string(payload))
+	if decoded, err := decodeBase64(text); err == nil && strings.Contains(string(decoded), "://") { text = string(decoded) }
+	for _, line := range strings.Split(text, "\n") {
 		for _, scheme := range proxySchemes {
-			if strings.Contains(text, scheme) { summary.Protocols[strings.TrimSuffix(scheme, "://")]++ }
+			if strings.HasPrefix(strings.TrimSpace(line), scheme) { summary.Protocols[strings.TrimSuffix(scheme, "://")]++; if scheme == "vmess://" { summary.VmessCount++ }; break }
 		}
-		if strings.HasPrefix(text, "vmess://") { summary.VmessCount++ }
-		if filepath.Ext(name)==".zip" { if _, err := zip.OpenReader(name); err != nil { return err } }
-		if filepath.Ext(name)==".json" { var v any; if err:=json.Unmarshal(payload,&v); err!=nil{return err} }
-		if filepath.Ext(name)==".b64sub" { _,err:=base64.StdEncoding.DecodeString(strings.TrimSpace(text)); if err!=nil{return err} }
-		return os.WriteFile(filepath.Join(stage, filepath.Base(name)), payload, 0600)
-	})
-	if err != nil { return summary, err }
-	_ = os.RemoveAll(dist)
-	if err:=os.Rename(stage, dist); err!=nil{return summary,err}
-	return summary,nil
+	}
+	return nil
+}
+
+func decodeBase64(value string) ([]byte, error) {
+	value = strings.TrimSpace(value)
+	return base64.StdEncoding.DecodeString(value + strings.Repeat("=", (4-len(value)%4)%4))
+}
+
+func promoteDirectory(stage, target string) error {
+	backup := target + ".backup"
+	_ = os.RemoveAll(backup)
+	hadOld := false
+	if _, err := os.Stat(target); err == nil { if err := os.Rename(target, backup); err != nil { return err }; hadOld = true }
+	if err := os.Rename(stage, target); err != nil { if hadOld { _ = os.Rename(backup, target) }; return err }
+	if hadOld { _ = os.RemoveAll(backup) }
+	return nil
 }
