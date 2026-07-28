@@ -6,56 +6,166 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"time"
 
 	"github.com/AmirrezaFarnamTaheri/HUNTX/internal/releasemanifest"
+	"github.com/AmirrezaFarnamTaheri/HUNTX/internal/runtimegen"
 )
 
+type Entry struct {
+	Filename   string   `json:"filename"`
+	Path       string   `json:"path"`
+	Size       int64    `json:"size"`
+	SizeString string   `json:"size_str"`
+	MediaType  string   `json:"media_type"`
+	SHA256     string   `json:"sha256"`
+	Tags       []string `json:"tags"`
+}
+
 type Catalog struct {
-	SchemaVersion int `json:"schema_version"`
-	GeneratedAt string `json:"generated_at"`
-	ReleaseManifest string `json:"release_manifest"`
-	TotalFiles int `json:"total_files"`
-	TotalSize int64 `json:"total_size"`
-	Files []map[string]any `json:"files"`
+	SchemaVersion   int     `json:"schema_version"`
+	GeneratedAt     string  `json:"generated_at"`
+	ReleaseManifest string  `json:"release_manifest"`
+	TotalFiles      int     `json:"total_files"`
+	TotalSize       int64   `json:"total_size"`
+	TotalSizeString string  `json:"total_size_str"`
+	Files           []Entry `json:"files"`
 }
 
 func Generate(dataDir, docsDir string, generatedAt time.Time) (Catalog, error) {
 	dist := filepath.Join(dataDir, "dist")
 	manifestPath := filepath.Join(dist, "manifest.json")
-	files, err := releasemanifest.Discover(dist, manifestPath)
-	if err != nil { return Catalog{}, err }
-	manifest, err := releasemanifest.Build(dist, files)
-	if err != nil { return Catalog{}, err }
-	if err := releasemanifest.Verify(dist, manifest); err != nil { return Catalog{}, err }
-	artifacts := filepath.Join(docsDir, "artifacts")
-	stage := artifacts + ".stage"
-	_ = os.RemoveAll(stage)
-	if err := os.MkdirAll(stage, 0755); err != nil { return Catalog{}, err }
-	entries := make([]map[string]any, 0, len(manifest.Artifacts))
-	sorted := append([]releasemanifest.Artifact(nil), manifest.Artifacts...)
-	sort.Slice(sorted, func(i,j int) bool { return sorted[i].Path < sorted[j].Path })
-	for _, artifact := range sorted {
-		src := filepath.Join(dist, filepath.FromSlash(artifact.Path))
-		dst := filepath.Join(stage, filepath.FromSlash(artifact.Path))
-		if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil { return Catalog{}, err }
-		data, err := os.ReadFile(src)
-		if err != nil { return Catalog{}, err }
-		if err := os.WriteFile(dst, data, 0600); err != nil { return Catalog{}, err }
-		entries = append(entries, map[string]any{"filename": filepath.Base(artifact.Path), "path": filepath.ToSlash(filepath.Join("artifacts", artifact.Path)), "size": artifact.Size, "media_type": artifact.MediaType, "sha256": artifact.SHA256, "tags": []string{"release"}})
+	manifest, err := releasemanifest.Read(manifestPath)
+	if err != nil {
+		return Catalog{}, err
 	}
-	if err := os.Rename(stage, artifacts); err != nil { return Catalog{}, err }
-	catalog := Catalog{SchemaVersion: 1, GeneratedAt: generatedAt.UTC().Format(time.RFC3339Nano), ReleaseManifest: "artifacts/manifest.json", TotalFiles: len(entries), TotalSize: 0, Files: entries}
-	for _, item := range manifest.Artifacts { catalog.TotalSize += item.Size }
+	if err := releasemanifest.Verify(dist, manifest); err != nil {
+		return Catalog{}, err
+	}
+	if err := os.MkdirAll(docsDir, 0o755); err != nil {
+		return Catalog{}, err
+	}
+	stage, err := os.MkdirTemp(docsDir, ".artifacts-stage-")
+	if err != nil {
+		return Catalog{}, err
+	}
+	defer os.RemoveAll(stage)
+
+	entries := make([]Entry, 0, len(manifest.Artifacts))
+	var total int64
+	for _, record := range manifest.Artifacts {
+		source := filepath.Join(dist, filepath.FromSlash(record.Path))
+		destination := filepath.Join(stage, filepath.FromSlash(record.Path))
+		if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
+			return Catalog{}, err
+		}
+		payload, err := os.ReadFile(source)
+		if err != nil {
+			return Catalog{}, err
+		}
+		if err := runtimegen.WriteBytesAtomic(destination, payload, 0o600); err != nil {
+			return Catalog{}, err
+		}
+		entries = append(entries, Entry{
+			Filename:   filepath.Base(record.Path),
+			Path:       filepath.ToSlash(filepath.Join("artifacts", record.Path)),
+			Size:       record.Size,
+			SizeString: formatSize(record.Size),
+			MediaType:  record.MediaType,
+			SHA256:     record.SHA256,
+			Tags:       []string{"release"},
+		})
+		total += record.Size
+	}
+
+	manifestBytes, err := os.ReadFile(manifestPath)
+	if err != nil {
+		return Catalog{}, err
+	}
+	if err := runtimegen.WriteBytesAtomic(filepath.Join(stage, "manifest.json"), manifestBytes, 0o600); err != nil {
+		return Catalog{}, err
+	}
+
+	catalog := Catalog{
+		SchemaVersion:   1,
+		GeneratedAt:     generatedAt.UTC().Format(time.RFC3339Nano),
+		ReleaseManifest: "artifacts/manifest.json",
+		TotalFiles:      len(entries),
+		TotalSize:       total,
+		TotalSizeString: formatSize(total),
+		Files:           entries,
+	}
+	if err := ValidateCatalog(catalog); err != nil {
+		return Catalog{}, err
+	}
 	payload, err := json.MarshalIndent(catalog, "", "  ")
-	if err != nil { return Catalog{}, err }
-	if err := os.WriteFile(filepath.Join(docsDir, "catalog.json"), append(payload, '\n'), 0644); err != nil { return Catalog{}, err }
+	if err != nil {
+		return Catalog{}, err
+	}
+	catalogStage := filepath.Join(docsDir, ".catalog.json.stage")
+	if err := runtimegen.WriteBytesAtomic(catalogStage, append(payload, '\n'), 0o600); err != nil {
+		return Catalog{}, err
+	}
+
+	target := filepath.Join(docsDir, "artifacts")
+	backup := target + ".backup"
+	_ = os.RemoveAll(backup)
+	hadOld := false
+	if _, err := os.Stat(target); err == nil {
+		if err := os.Rename(target, backup); err != nil {
+			return Catalog{}, err
+		}
+		hadOld = true
+	} else if !os.IsNotExist(err) {
+		return Catalog{}, err
+	}
+	if err := os.Rename(stage, target); err != nil {
+		if hadOld {
+			_ = os.Rename(backup, target)
+		}
+		return Catalog{}, err
+	}
+	if err := os.Rename(catalogStage, filepath.Join(docsDir, "catalog.json")); err != nil {
+		_ = os.RemoveAll(target)
+		if hadOld {
+			_ = os.Rename(backup, target)
+		}
+		return Catalog{}, err
+	}
+	if hadOld {
+		_ = os.RemoveAll(backup)
+	}
 	return catalog, nil
 }
 
-func ValidateCatalog(c Catalog) error {
-	if c.SchemaVersion != 1 || c.TotalFiles != len(c.Files) || c.TotalFiles == 0 { return errors.New("invalid catalog") }
-	for _, file := range c.Files { if file["sha256"] == nil { return fmt.Errorf("catalog entry missing digest") } }
+func ValidateCatalog(catalog Catalog) error {
+	if catalog.SchemaVersion != 1 {
+		return errors.New("unsupported catalog schema")
+	}
+	if catalog.TotalFiles <= 0 || catalog.TotalFiles != len(catalog.Files) {
+		return errors.New("catalog file count mismatch")
+	}
+	var total int64
+	seen := map[string]bool{}
+	for _, entry := range catalog.Files {
+		if entry.Path == "" || entry.SHA256 == "" || entry.Size <= 0 || seen[entry.Path] {
+			return fmt.Errorf("invalid catalog entry: %s", entry.Path)
+		}
+		seen[entry.Path] = true
+		total += entry.Size
+	}
+	if total != catalog.TotalSize {
+		return errors.New("catalog size mismatch")
+	}
 	return nil
+}
+
+func formatSize(size int64) string {
+	if size < 1024 {
+		return fmt.Sprintf("%d B", size)
+	}
+	if size < 1024*1024 {
+		return fmt.Sprintf("%.1f KB", float64(size)/1024)
+	}
+	return fmt.Sprintf("%.1f MB", float64(size)/(1024*1024))
 }
