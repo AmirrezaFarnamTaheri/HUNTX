@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/AmirrezaFarnamTaheri/HUNTX/internal/outputverify"
 	"github.com/AmirrezaFarnamTaheri/HUNTX/internal/releasemanifest"
 	"github.com/AmirrezaFarnamTaheri/HUNTX/internal/runtimegen"
+	"github.com/AmirrezaFarnamTaheri/HUNTX/internal/sitegen"
 )
 
 func main() {
@@ -22,7 +24,7 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("subcommand required: runtime-generation, release-manifest, or verify-output")
+		return errors.New("subcommand required: runtime-generation, release-manifest, verify-output, or site-data")
 	}
 	switch args[0] {
 	case "runtime-generation":
@@ -31,6 +33,8 @@ func run(args []string) error {
 		return runReleaseManifest(args[1:])
 	case "verify-output":
 		return runVerifyOutput(args[1:])
+	case "site-data":
+		return runSiteData(args[1:])
 	default:
 		return fmt.Errorf("unsupported subcommand: %s", args[0])
 	}
@@ -117,6 +121,7 @@ func runReleaseManifest(args []string) error {
 	flags := flag.NewFlagSet("release-manifest", flag.ContinueOnError)
 	root := flags.String("root", "", "release root")
 	manifestPath := flags.String("manifest", "", "manifest output path")
+	jsonSummary := flags.Bool("json", false, "emit machine-readable summary")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -144,7 +149,15 @@ func runReleaseManifest(args []string) error {
 	if err := releasemanifest.Verify(*root, loaded); err != nil {
 		return err
 	}
-	fmt.Printf("Validated %d release artifacts\n", loaded.ArtifactCount)
+	if *jsonSummary {
+		payload, err := json.Marshal(loaded)
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(payload))
+	} else {
+		fmt.Printf("Validated %d release artifacts\n", loaded.ArtifactCount)
+	}
 	return nil
 }
 
@@ -173,6 +186,48 @@ func runVerifyOutput(args []string) error {
 		fmt.Println(string(payload))
 	} else {
 		fmt.Printf("Verified %d output files (%d bytes); vmess outbounds=%d\n", summary.Files, summary.TotalSize, summary.VmessCount)
+	}
+	return nil
+}
+
+func runSiteData(args []string) error {
+	flags := flag.NewFlagSet("site-data", flag.ContinueOnError)
+	dataDir := flags.String("data-dir", "", "HUNTX data directory")
+	docsDir := flags.String("docs-dir", "docs", "site documentation directory")
+	generatedAt := flags.String("generated-at", "", "RFC3339 timestamp override for reproducible testing")
+	jsonSummary := flags.Bool("json", false, "emit machine-readable catalog")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if *dataDir == "" {
+		*dataDir = os.Getenv("HUNTX_DATA_DIR")
+	}
+	if *dataDir == "" {
+		*dataDir = "persist/data"
+	}
+	timestamp := time.Now().UTC()
+	if *generatedAt != "" {
+		parsed, err := time.Parse(time.RFC3339Nano, *generatedAt)
+		if err != nil {
+			return fmt.Errorf("invalid --generated-at: %w", err)
+		}
+		timestamp = parsed
+	}
+	catalog, err := sitegen.Generate(*dataDir, *docsDir, timestamp)
+	if err != nil {
+		return err
+	}
+	if err := sitegen.ValidateCatalog(catalog); err != nil {
+		return err
+	}
+	if *jsonSummary {
+		payload, err := json.Marshal(catalog)
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(payload))
+	} else {
+		fmt.Printf("Catalog written to %s with %d verified artifacts\n", filepath.Join(*docsDir, "catalog.json"), catalog.TotalFiles)
 	}
 	return nil
 }
