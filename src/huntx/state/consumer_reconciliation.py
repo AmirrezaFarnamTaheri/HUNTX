@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import os
 import time
 from collections.abc import Mapping, Set as AbstractSet
 from typing import Any, Dict, Set, Type
@@ -135,6 +137,33 @@ def reconcile_bot_consumers(
         "deactivated": deactivated,
         "deleted_updates": deleted_updates,
     }
+
+
+def reconcile_configured_bot_consumers(repo: Any, config: Any) -> Dict[str, int]:
+    """Reconcile durable consumers from the fully validated runtime config."""
+
+    desired: Dict[str, Set[str]] = {}
+    authoritative = True
+    configured_sources = 0
+    resolved_sources = 0
+
+    for source in config.sources:
+        telegram = getattr(source, "telegram", None)
+        if getattr(source, "type", None) != "telegram" or telegram is None:
+            continue
+        configured_sources += 1
+        token = (getattr(telegram, "token", None) or os.environ.get("TELEGRAM_TOKEN", "")).strip()
+        if not token or ":" not in token:
+            authoritative = False
+            continue
+        fingerprint = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        desired.setdefault(fingerprint, set()).add(f"chat:{telegram.chat_id}")
+        resolved_sources += 1
+
+    result = repo.reconcile_bot_consumers(desired, authoritative=authoritative)
+    result["configured_sources"] = configured_sources
+    result["resolved_sources"] = resolved_sources
+    return result
 
 
 def install_consumer_reconciliation(state_repo_type: Type[Any]) -> None:
