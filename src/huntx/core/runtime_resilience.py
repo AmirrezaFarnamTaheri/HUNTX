@@ -8,15 +8,17 @@ import time
 import uuid
 from typing import Any, Optional
 
+from .dev_manifest_contract import install_dev_manifest_contract
 from .hardened_orchestrator import HardenedOrchestrator
-from . import optimized_orchestrator as optimized_module
 from .optimized_orchestrator import OptimizedHardenedOrchestrator
+from .orchestrator import Orchestrator
 from .transform_contract import install_transform_contract
 from ..connectors.telegram_user.windowed import WindowedTelegramUserConnector
 
 logger = logging.getLogger(__name__)
 
 install_transform_contract()
+install_dev_manifest_contract(Orchestrator)
 
 
 def _bounded_float(name: str, default: float, minimum: float, maximum: float) -> float:
@@ -71,7 +73,6 @@ async def _canonical_ingestion_sources(
     accepted: list[Any] = []
     canonical_owner: dict[int, str] = {}
     connector: Optional[WindowedTelegramUserConnector] = None
-    connector_key: Optional[tuple[int, str, str]] = None
     try:
         for source in sources:
             if getattr(source, "type", None) != "telegram_user":
