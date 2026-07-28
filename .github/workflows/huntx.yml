@@ -76,6 +76,25 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      - name: Set up Go
+        uses: actions/setup-go@8f19afcc704763637be6b1718da0af52ca05785d # v6.4.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Validate Go release plane
+        run: |
+          set -euo pipefail
+          formatting="$(gofmt -l .)"
+          test -z "$formatting" || {
+            printf 'Unformatted Go files:\n%s\n' "$formatting"
+            exit 1
+          }
+          go test -race ./...
+          go vet ./...
+          mkdir -p .bin
+          go build -o .bin/huntx-tools ./cmd/huntx-tools
+
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -123,13 +142,18 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-          sparse-checkout: scripts/runtime_generation.py
-          sparse-checkout-cone-mode: false
 
-      - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - name: Set up Go
+        uses: actions/setup-go@8f19afcc704763637be6b1718da0af52ca05785d # v6.4.0
         with:
-          python-version: "3.12"
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build integrity verifier
+        run: |
+          set -euo pipefail
+          mkdir -p .bin
+          go build -o .bin/huntx-tools ./cmd/huntx-tools
 
       - name: Configure AWS credentials
         if: env.AWS_ROLE_ARN != ''
@@ -159,11 +183,11 @@ jobs:
             exit 0
           fi
 
-          generation="$(python scripts/runtime_generation.py validate-pointer --pointer current.json)"
+          generation="$(.bin/huntx-tools runtime-generation validate-pointer --pointer current.json)"
           aws s3 cp \
             "s3://$S3_BUCKET/generations/$generation/manifest.json" \
             generation-manifest.json --only-show-errors
-          python scripts/runtime_generation.py validate-pointer \
+          .bin/huntx-tools runtime-generation validate-pointer \
             --pointer current.json \
             --manifest generation-manifest.json >/dev/null
           rm -rf state-input
@@ -171,7 +195,7 @@ jobs:
           aws s3 sync \
             "s3://$S3_BUCKET/generations/$generation/payload" \
             state-input --only-show-errors
-          python scripts/runtime_generation.py verify \
+          .bin/huntx-tools runtime-generation verify \
             --root state-input \
             --manifest generation-manifest.json
           mkdir -p state-input/data/{raw,outputs,outputs_dev,dist,rejects,archive,state,logs}
@@ -247,6 +271,18 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      - name: Set up Go
+        uses: actions/setup-go@8f19afcc704763637be6b1718da0af52ca05785d # v6.4.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build release tools
+        run: |
+          set -euo pipefail
+          mkdir -p .bin
+          go build -o .bin/huntx-tools ./cmd/huntx-tools
+
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -298,12 +334,10 @@ jobs:
 
       - name: Verify and package output
         if: steps.runtime.outputs.exit_code == '0'
-        env:
-          HUNTX_DATA_DIR: persist/data
         run: |
           set -euo pipefail
-          python scripts/verify_output.py
-          python scripts/generate_site_data.py
+          .bin/huntx-tools verify-output --data-dir persist/data
+          .bin/huntx-tools site-data --data-dir persist/data --docs-dir docs
 
       - name: Build verified checkpoint handoff
         if: always()
@@ -323,12 +357,12 @@ jobs:
               cp -a "persist/data/$directory" checkpoint-package/payload/data/
             fi
           done
-          python scripts/runtime_generation.py build \
+          .bin/huntx-tools runtime-generation build \
             --root checkpoint-package/payload \
             --generation "$generation" \
             --manifest checkpoint-package/generation-manifest.json \
             --pointer checkpoint-package/next-current.json
-          python scripts/runtime_generation.py verify \
+          .bin/huntx-tools runtime-generation verify \
             --root checkpoint-package/payload \
             --manifest checkpoint-package/generation-manifest.json
           echo "ready=true" >> "$GITHUB_OUTPUT"
@@ -394,13 +428,18 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-          sparse-checkout: scripts/runtime_generation.py
-          sparse-checkout-cone-mode: false
 
-      - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - name: Set up Go
+        uses: actions/setup-go@8f19afcc704763637be6b1718da0af52ca05785d # v6.4.0
         with:
-          python-version: "3.12"
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build integrity verifier
+        run: |
+          set -euo pipefail
+          mkdir -p .bin
+          go build -o .bin/huntx-tools ./cmd/huntx-tools
 
       - name: Download checkpoint handoff
         uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
@@ -412,10 +451,10 @@ jobs:
         id: generation
         run: |
           set -euo pipefail
-          generation="$(python scripts/runtime_generation.py validate-pointer \
+          generation="$(.bin/huntx-tools runtime-generation validate-pointer \
             --pointer checkpoint-package/next-current.json \
             --manifest checkpoint-package/generation-manifest.json)"
-          python scripts/runtime_generation.py verify \
+          .bin/huntx-tools runtime-generation verify \
             --root checkpoint-package/payload \
             --manifest checkpoint-package/generation-manifest.json
           echo "id=$generation" >> "$GITHUB_OUTPUT"
