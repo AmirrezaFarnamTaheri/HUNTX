@@ -1,4 +1,7 @@
 import asyncio
+import base64
+import hashlib
+import json
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import Mock
@@ -27,7 +30,6 @@ def test_pipeline_commits_acknowledgement_after_source_state():
             events.append("ack")
 
     asyncio.run(IngestionPipeline(Mock(), state_repo).run("source", Connector()))
-
     assert events == ["state", "ack"]
 
 
@@ -78,7 +80,7 @@ def test_v9_migration_preserves_staged_telegram_updates(tmp_path):
             for row in conn.execute("PRAGMA table_info(telegram_bot_consumers)").fetchall()
         }
 
-    assert version == 9
+    assert version == 10
     assert [row["update_id"] for row in staged] == [42]
     assert columns == {
         "token_fingerprint",
@@ -87,6 +89,82 @@ def test_v9_migration_preserves_staged_telegram_updates(tmp_path):
         "active",
         "updated_at",
     }
+
+
+def test_v10_migration_preserves_unrelated_verdict_cache(tmp_path):
+    db_path = tmp_path / "vmess-v9.db"
+    DBConnection(db_path)
+
+    legacy_value = {"v": "2", "add": "example.com", "port": "443", "ps": "legacy"}
+    legacy_json = json.dumps(legacy_value, separators=(",", ":"))
+    legacy_uri = "vmess://" + base64.b64encode(legacy_json.encode()).decode()
+    old_hash = hashlib.sha256(legacy_uri.encode()).hexdigest()
+
+    canonical_value = dict(legacy_value)
+    canonical_value.pop("ps")
+    canonical_json = json.dumps(canonical_value, sort_keys=True, separators=(",", ":"))
+    canonical_uri = "vmess://" + base64.b64encode(canonical_json.encode()).decode()
+    new_hash = hashlib.sha256(canonical_uri.encode()).hexdigest()
+    unrelated_hash = "f" * 64
+
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO records (
+                source_file_hash, record_type, unique_hash, data_json, is_active
+            ) VALUES (?, ?, ?, ?, 1)
+            """,
+            ("s" * 64, "npvt", old_hash, json.dumps({"line": legacy_uri})),
+        )
+        verdict = (
+            "npvt",
+            "valid",
+            "1",
+            "unknown",
+            "allow",
+            "1",
+            "default",
+            "[]",
+            1.0,
+        )
+        conn.execute(
+            """
+            INSERT INTO record_verdicts (
+                unique_hash, record_type, syntax_status, parser_version,
+                probe_status, policy_status, policy_version, policy_tier,
+                reason_codes_json, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (old_hash, *verdict),
+        )
+        conn.execute(
+            """
+            INSERT INTO record_verdicts (
+                unique_hash, record_type, syntax_status, parser_version,
+                probe_status, policy_status, policy_version, policy_tier,
+                reason_codes_json, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (unrelated_hash, *verdict),
+        )
+        conn.execute("PRAGMA user_version = 9")
+
+    db = DBConnection(db_path)
+    with db.connect() as conn:
+        record = conn.execute(
+            "SELECT unique_hash, data_json FROM records WHERE source_file_hash = ?",
+            ("s" * 64,),
+        ).fetchone()
+        verdict_hashes = {
+            row["unique_hash"]
+            for row in conn.execute("SELECT DISTINCT unique_hash FROM record_verdicts").fetchall()
+        }
+
+    assert record["unique_hash"] == new_hash
+    assert json.loads(record["data_json"])["line"] == canonical_uri
+    assert old_hash not in verdict_hashes
+    assert new_hash in verdict_hashes
+    assert unrelated_hash in verdict_hashes
 
 
 def test_bot_inbox_pruning_is_fenced_by_slowest_active_consumer(tmp_path):
