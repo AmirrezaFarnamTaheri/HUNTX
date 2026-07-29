@@ -122,8 +122,8 @@ def validate_config(config: AppConfig):
             if is_strict:
                 if not resolved_token or resolved_token.startswith("${"):
                     raise ValueError(
-                        f"Route {r.name} destination has no usable token; configure destination.token, "
-                        "PUBLISH_BOT_TOKEN, or TELEGRAM_TOKEN"
+                        f"Route {r.name} destination missing/unexpanded token in strict mode; "
+                        "configure destination.token, PUBLISH_BOT_TOKEN, or TELEGRAM_TOKEN"
                     )
             elif d.token and d.token.startswith("${"):
                 raise ValueError(f"Route {r.name} destination has invalid unexpanded token: {d.token}")
