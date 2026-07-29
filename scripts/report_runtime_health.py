@@ -42,7 +42,7 @@ def _load_report(path: Path) -> tuple[dict[str, Any] | None, str | None]:
 
 def _fallback_disposition(exit_code: int, checkpoint_ready: bool) -> tuple[str, list[str]]:
     if exit_code == 0:
-        return "success", ["runtime exited successfully without a structured report"]
+        return "degraded", ["runtime exited successfully but did not produce a structured report"]
     if exit_code in _TIMEOUT_EXIT_CODES and checkpoint_ready:
         return "degraded", ["watchdog interrupted runtime after a recoverable checkpoint"]
     return "fatal", [f"runtime exited with code {exit_code} without a trustworthy structured report"]
