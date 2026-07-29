@@ -28,7 +28,7 @@ jobs:
           git fetch origin generated-outputs || true
           git checkout -B generated-outputs origin/generated-outputs || git checkout -B generated-outputs
 
-      - name: Download latest workflow artifact
+      - name: Download distributable output artifact
         uses: actions/github-script@v7
         with:
           script: |
@@ -37,28 +37,41 @@ jobs:
               repo: context.repo.repo,
               run_id: context.payload.workflow_run.id
             });
-            const candidates = artifacts.data.artifacts.filter(a => !a.expired);
-            if (!candidates.length) {
-              core.setFailed('No workflow artifacts available');
+
+            const artifact = artifacts.data.artifacts.find(
+              a => a.name === 'distributable-output' && !a.expired
+            );
+
+            if (!artifact) {
+              core.setFailed('Required distributable-output artifact was not found');
               return;
             }
-            const artifact = candidates[0];
+
             const response = await github.rest.actions.downloadArtifact({
               owner: context.repo.owner,
               repo: context.repo.repo,
               artifact_id: artifact.id,
               archive_format: 'zip'
             });
+
             require('fs').writeFileSync('generated-output.zip', Buffer.from(response.data));
 
       - name: Extract and publish outputs
         run: |
-          rm -rf outputs outputs_dev manifests run-summary
+          set -euo pipefail
+          rm -rf outputs outputs_dev manifests run-summary artifact
           mkdir -p outputs outputs_dev manifests run-summary
+
           unzip -q generated-output.zip -d artifact
-          find artifact -type d -name outputs -exec cp -a {}/. outputs/ \; || true
-          find artifact -type d -name outputs_dev -exec cp -a {}/. outputs_dev/ \; || true
+
+          find artifact -type d -name outputs -exec cp -a {}/. outputs/ \;
+          find artifact -type d -name outputs_dev -exec cp -a {}/. outputs_dev/ \;
+
+          test -n "$(find outputs -type f -size +0c -print -quit)"
+          test -n "$(find outputs_dev -type f -size +0c -print -quit)"
+
           date -u +%Y-%m-%dT%H:%M:%SZ > manifests/published-at.txt
+          echo "${{ github.event.workflow_run.id }}" > manifests/workflow-run-id.txt
 
       - name: Commit generated snapshot
         run: |
