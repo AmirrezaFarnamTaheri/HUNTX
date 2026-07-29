@@ -177,6 +177,10 @@ def _cmd_run(args):
             legacy._deliver_updates()
         except (Exception, SystemExit):
             logger.exception("Post-run auto-delivery failed; durable run output is preserved")
+            if summary is not None:
+                summary["post_run_delivery_failures"] = int(summary.get("post_run_delivery_failures", 0)) + 1
+                delivery_health = evaluate_run_health(summary, no_publish=args.no_publish)
+                emit_run_health(summary, delivery_health, logger=logger)
 
 
 def main():
