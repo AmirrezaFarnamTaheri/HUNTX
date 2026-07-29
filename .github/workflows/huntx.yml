@@ -299,6 +299,7 @@ jobs:
     outputs:
       checkpoint_ready: ${{ steps.checkpoint.outputs.ready }}
       package_ready: ${{ steps.package.outputs.ready }}
+      package_source: ${{ steps.package.outputs.source }}
       runtime_disposition: ${{ steps.diagnostics.outputs.disposition }}
     steps:
       - name: Validate dispatch inputs
@@ -358,6 +359,21 @@ jobs:
         with:
           name: runtime-state-input-${{ github.run_id }}-${{ github.run_attempt }}
           path: persist
+
+      - name: Snapshot last verified outputs
+        run: |
+          set -euo pipefail
+          rm -rf safety-net
+          mkdir -p safety-net/data
+          for directory in outputs outputs_dev; do
+            if [[ -d "persist/data/$directory" ]]; then
+              cp -a "persist/data/$directory" safety-net/data/
+            fi
+          done
+          if [[ -f persist/state.db ]]; then
+            cp -a persist/state.db safety-net/state.db
+          fi
+          find safety-net -maxdepth 3 -type f -printf '%s\t%p\n' | sort -nr | head -200 || true
 
       - name: Describe runtime context
         run: |
@@ -419,19 +435,46 @@ jobs:
         run: |
           set -u
           echo "ready=false" >> "$GITHUB_OUTPUT"
-          if ! find persist/data/outputs -type f -size +0c -print -quit 2>/dev/null | grep -q .; then
-            echo "::warning title=No packageable output::No non-empty output artifact was available; preserving checkpoint and previous release."
+          echo "source=none" >> "$GITHUB_OUTPUT"
+
+          try_package() {
+            local candidate_dir="$1"
+            if ! find persist/data/outputs -type f -size +0c -print -quit 2>/dev/null | grep -q .; then
+              return 1
+            fi
+            .bin/huntx-tools verify-output --data-dir persist/data || return 1
+            rm -rf "$candidate_dir"
+            .bin/huntx-tools site-data --data-dir persist/data --docs-dir "$candidate_dir" || return 1
+            rm -rf docs
+            mv "$candidate_dir" docs
+          }
+
+          restore_previous_outputs() {
+            rm -rf persist/data/outputs persist/data/outputs_dev
+            for directory in outputs outputs_dev; do
+              if [[ -d "safety-net/data/$directory" ]]; then
+                cp -a "safety-net/data/$directory" persist/data/
+              fi
+            done
+          }
+
+          if try_package docs-candidate; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "source=current" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          if ! .bin/huntx-tools verify-output --data-dir persist/data; then
-            echo "::warning title=Output verification degraded::Generated output was not packageable; checkpoint and diagnostics will still persist."
+
+          echo "::warning title=Current output degraded::New output could not be verified or materialized; attempting last verified output."
+          restore_previous_outputs
+          if try_package docs-candidate; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "source=restored" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Release safenet activated::Publishing the last verified output while preserving newly checkpointed ingestion state."
             exit 0
           fi
-          if ! .bin/huntx-tools site-data --data-dir persist/data --docs-dir docs; then
-            echo "::warning title=Site generation degraded::Verified output exists, but Pages materialization failed."
-            exit 0
-          fi
-          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+          rm -rf docs-candidate
+          echo "::warning title=No packageable output::Neither current nor restored output could be independently verified; checkpoint and diagnostics will still persist."
 
       - name: Build verified checkpoint handoff
         if: always()
@@ -471,7 +514,8 @@ jobs:
             --exit-code "${{ steps.runtime.outputs.exit_code || '1' }}" \
             --data-dir persist/data \
             --checkpoint-ready "${{ steps.checkpoint.outputs.ready || 'false' }}" \
-            --package-ready "${{ steps.package.outputs.ready || 'false' }}"
+            --package-ready "${{ steps.package.outputs.ready || 'false' }}" \
+            --package-source "${{ steps.package.outputs.source || 'none' }}"
 
       - name: Upload checkpoint handoff
         if: steps.checkpoint.outputs.ready == 'true'
@@ -632,6 +676,7 @@ jobs:
             echo
             echo "- Generation: \`${{ steps.generation.outputs.id || 'unavailable' }}\`"
             echo "- Runtime disposition: \`${{ needs.run.outputs.runtime_disposition || 'unknown' }}\`"
+            echo "- Package source: \`${{ needs.run.outputs.package_source || 'none' }}\`"
             echo "- Job status: **${{ job.status }}**"
           } >> "$GITHUB_STEP_SUMMARY"
 
