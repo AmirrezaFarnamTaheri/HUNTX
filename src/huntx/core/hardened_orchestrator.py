@@ -10,6 +10,29 @@ from .orchestrator import Orchestrator
 logger = logging.getLogger(__name__)
 
 
+def _classify_completed_status(
+    *,
+    ingest_ok: int,
+    ingest_err: int,
+    failed_routes: int,
+    publish_failures: int,
+) -> str:
+    """Classify a run that reached the end of every bounded stage.
+
+    HUNTX aggregates many independently volatile external sources. A minority of
+    source failures is therefore degraded input coverage, not a failed release,
+    when at least one source completed and all build/publish routes succeeded.
+    Route or publication failures still make the run partial, and a run where
+    every ingestion attempt failed is a hard failure.
+    """
+
+    if failed_routes or publish_failures:
+        return "partial"
+    if ingest_err and ingest_ok == 0:
+        return "failed"
+    return "completed"
+
+
 class HardenedOrchestrator(Orchestrator):
     """Run control with bounded stage concurrency and explicit outcomes."""
 
@@ -112,6 +135,7 @@ class HardenedOrchestrator(Orchestrator):
                 "publish_cancelled": 0,
                 "ingest_ok": 0,
                 "ingest_err": 0,
+                "degraded_source_failures": 0,
                 "ingestion_cancelled": 0,
                 "build_pending": 0,
                 "build_cancelled": 0,
@@ -292,8 +316,20 @@ class HardenedOrchestrator(Orchestrator):
         finally:
             stage_seconds["cleanup"] = time.monotonic() - cleanup_start
 
-        if status == "completed" and (results["err"] or failed_routes or publish_failures):
-            status = "partial"
+        if status == "completed":
+            status = _classify_completed_status(
+                ingest_ok=results["ok"],
+                ingest_err=results["err"],
+                failed_routes=len(failed_routes),
+                publish_failures=publish_failures,
+            )
+            if status == "completed" and results["err"]:
+                logger.warning(
+                    "[Orchestrator] Completed with %s isolated source failure(s); "
+                    "%s source(s) completed and all release routes succeeded",
+                    results["err"],
+                    results["ok"],
+                )
 
         duration = time.monotonic() - start_time
         summary = {
@@ -310,6 +346,7 @@ class HardenedOrchestrator(Orchestrator):
             "publish_cancelled": publish_cancelled,
             "ingest_ok": results["ok"],
             "ingest_err": results["err"],
+            "degraded_source_failures": results["err"] if results["ok"] else 0,
             "ingestion_cancelled": ingestion_cancelled,
             "build_pending": build_pending,
             "build_cancelled": build_cancelled,
