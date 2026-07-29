@@ -19,17 +19,19 @@ def _classify_completed_status(
 ) -> str:
     """Classify a run that reached the end of every bounded stage.
 
-    HUNTX aggregates many independently volatile external sources. A minority of
-    source failures is therefore degraded input coverage, not a failed release,
-    when at least one source completed and all build/publish routes succeeded.
-    Route or publication failures still make the run partial, and a run where
-    every ingestion attempt failed is a hard failure.
+    HUNTX aggregates independently volatile external sources. Source failures
+    are degraded input coverage only when successful ingestions are a strict
+    majority and every build/publish route succeeds. Route or publication
+    failures remain partial, while zero successful ingestions are a hard
+    failure.
     """
 
     if failed_routes or publish_failures:
         return "partial"
-    if ingest_err and ingest_ok == 0:
+    if ingest_ok <= 0:
         return "failed"
+    if ingest_err >= ingest_ok:
+        return "partial"
     return "completed"
 
 
