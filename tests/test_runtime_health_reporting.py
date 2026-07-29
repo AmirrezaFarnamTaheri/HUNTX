@@ -53,3 +53,25 @@ def test_load_report_accepts_structured_health(tmp_path):
     payload, error = module._load_report(path)
     assert error is None
     assert payload == expected
+
+
+def test_normalize_reasons_handles_untrusted_json_shapes():
+    module = _load_module()
+    assert module._normalize_reasons("one reason") == ["one reason"]
+    assert module._normalize_reasons(["one", 2]) == ["one", "2"]
+    assert module._normalize_reasons({"bad": "shape"}) == ["invalid reasons type: dict"]
+    assert module._normalize_reasons(42) == ["invalid reasons type: int"]
+
+
+def test_inventory_is_memory_bounded_but_counts_every_file(tmp_path):
+    module = _load_module()
+    for index in range(module._MAX_INVENTORY_ITEMS + 25):
+        path = tmp_path / f"item-{index:04d}.txt"
+        path.write_text("abc", encoding="utf-8")
+
+    rows, file_count, total_bytes = module._inventory(tmp_path)
+
+    assert len(rows) == module._MAX_INVENTORY_ITEMS
+    assert file_count == module._MAX_INVENTORY_ITEMS + 25
+    assert total_bytes == file_count * 3
+    assert rows == sorted(rows)
