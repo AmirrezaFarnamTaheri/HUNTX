@@ -31,6 +31,7 @@ def test_production_workflow_uses_verified_atomic_generations():
 def test_production_workflow_exposes_structured_degraded_success():
     workflow = Path(".github/workflows/huntx.yml").read_text()
     assert "Publish structured runtime diagnostics" in workflow
+    assert "HUNTX_RUNTIME_DIAGNOSTICS_BEGIN" not in workflow
     assert "runtime_disposition:" in workflow
     assert "Enforce only truly fatal runtime outcomes" in workflow
     assert 'if [[ "$disposition" == "degraded" ]]' in workflow
@@ -45,13 +46,23 @@ def test_production_workflow_exposes_structured_degraded_success():
     assert fatal_guard < zero_exit_guard
 
 
+def test_production_workflow_has_last_known_good_release_safenet():
+    workflow = Path(".github/workflows/huntx.yml").read_text()
+    assert "Snapshot last verified outputs" in workflow
+    assert "restore_previous_outputs" in workflow
+    assert "Release safenet activated" in workflow
+    assert "package_source: ${{ steps.package.outputs.source }}" in workflow
+    assert "--package-source" in workflow
+    assert "Package source:" in workflow
+
+
 def test_production_workflow_packages_and_deploys_only_verified_output():
     workflow = Path(".github/workflows/huntx.yml").read_text()
     assert "package_ready: ${{ steps.package.outputs.ready }}" in workflow
     assert "if: steps.package.outputs.ready == 'true'" in workflow
     assert "needs.run.outputs.package_ready == 'true'" in workflow
     assert "No packageable output" in workflow
-    assert "Output verification degraded" in workflow
+    assert "Current output degraded" in workflow
 
 
 def test_pull_request_workflow_has_no_oidc_permission():
