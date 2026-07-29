@@ -1,0 +1,69 @@
+name: Publish Generated Outputs
+
+on:
+  workflow_run:
+    workflows:
+      - "HUNTX"
+      - "huntx"
+    types:
+      - completed
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout publisher
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Prepare generated branch
+        run: |
+          git fetch origin generated-outputs || true
+          git checkout -B generated-outputs origin/generated-outputs || git checkout -B generated-outputs
+
+      - name: Download latest workflow artifact
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.payload.workflow_run.id
+            });
+            const candidates = artifacts.data.artifacts.filter(a => !a.expired);
+            if (!candidates.length) {
+              core.setFailed('No workflow artifacts available');
+              return;
+            }
+            const artifact = candidates[0];
+            const response = await github.rest.actions.downloadArtifact({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              artifact_id: artifact.id,
+              archive_format: 'zip'
+            });
+            require('fs').writeFileSync('generated-output.zip', Buffer.from(response.data));
+
+      - name: Extract and publish outputs
+        run: |
+          rm -rf outputs outputs_dev manifests run-summary
+          mkdir -p outputs outputs_dev manifests run-summary
+          unzip -q generated-output.zip -d artifact
+          find artifact -type d -name outputs -exec cp -a {}/. outputs/ \; || true
+          find artifact -type d -name outputs_dev -exec cp -a {}/. outputs_dev/ \; || true
+          date -u +%Y-%m-%dT%H:%M:%SZ > manifests/published-at.txt
+
+      - name: Commit generated snapshot
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add outputs outputs_dev manifests run-summary
+          git commit -m "Publish generated HUNTX outputs ${{ github.event.workflow_run.id }}" || echo "No generated changes"
+          git push origin generated-outputs
