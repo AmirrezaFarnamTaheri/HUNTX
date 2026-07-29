@@ -281,7 +281,12 @@ def test_full_release_completes_with_minority_degraded_sources():
             queue.task_done()
 
     orchestrator._worker_async = ingest_worker
-    orchestrator.transform_pipeline = SimpleNamespace(process_pending=lambda: None)
+    orchestrator.transform_pipeline = SimpleNamespace(
+        process_pending=lambda **kwargs: {
+            "completed": True,
+            "stop_reason": "complete",
+        }
+    )
     orchestrator.build_pipeline = SimpleNamespace(run=lambda route: [build_result])
     orchestrator.publish_pipeline = SimpleNamespace(run=lambda result, destinations: True)
     orchestrator._export_outputs = lambda results: None
