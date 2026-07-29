@@ -6,6 +6,7 @@ import threading
 import time
 from typing import Any, Dict, List
 
+from ..config.schema import normalize_destination_mode
 from ..publishers.telegram.publisher import (
     TelegramPublisher,
     UnknownPublicationOutcome,
@@ -121,9 +122,7 @@ class PublishPipeline:
             chat_id = str(dest.get("chat_id") or "").strip()
             if not chat_id:
                 raise ValueError("Publish destination requires chat_id")
-            mode = str(dest.get("mode") or "telegram").strip().lower()
-            if mode != "telegram":
-                raise ValueError(f"Unsupported destination mode: {mode}")
+            mode = normalize_destination_mode(dest.get("mode"))
             stable_id = str(dest.get("id") or f"{mode}:{chat_id}").strip()
             if stable_id in stable_destination_ids:
                 raise ValueError(f"Duplicate destination identity: {stable_id}")

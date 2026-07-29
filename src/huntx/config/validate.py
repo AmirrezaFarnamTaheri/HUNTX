@@ -1,6 +1,13 @@
 import os
+
 from .schema import AppConfig
 from ..formats.registry import FormatRegistry
+
+
+def _configured_publish_token(destination_token: str | None) -> str | None:
+    """Resolve destination-specific credentials using runtime precedence."""
+
+    return destination_token or os.getenv("PUBLISH_BOT_TOKEN") or os.getenv("TELEGRAM_TOKEN")
 
 
 def validate_config(config: AppConfig):
@@ -12,7 +19,10 @@ def validate_config(config: AppConfig):
     - Source blocks (telegram, telegram_user) match their type and exclude the other
     - Required fields are non-empty and do not have unexpanded environment variables
     - Formats in routes are recognized by the registry (or are valid derived formats)
-    - If strict mode is active (HUNTX_STRICT=1 or CI=true), missing/unexpanded destination tokens are fatal
+    - Destination modes are canonical and supported
+    - If strict mode is active (HUNTX_STRICT=1 or CI=true), publishing credentials
+      are resolved with the same destination > PUBLISH_BOT_TOKEN > TELEGRAM_TOKEN
+      precedence used at runtime
     """
     registry = FormatRegistry.get_instance()
     # Populates registry dynamically if empty to validate formats during loader phase
@@ -26,7 +36,11 @@ def validate_config(config: AppConfig):
             # Fallback if raw store cannot be created (e.g. inside dry tests)
             pass
 
-    is_strict = os.getenv("HUNTX_STRICT", "0") in ("1", "true", "TRUE") or os.getenv("CI", "0") in ("1", "true", "TRUE")
+    is_strict = os.getenv("HUNTX_STRICT", "0") in ("1", "true", "TRUE") or os.getenv("CI", "0") in (
+        "1",
+        "true",
+        "TRUE",
+    )
 
     seen_ids = set()
     for s in config.sources:
@@ -98,17 +112,18 @@ def validate_config(config: AppConfig):
                 raise ValueError(f"Route {r.name} has unrecognized format ID: {fmt}")
 
         for d in r.destinations:
-            if not d.mode:
-                raise ValueError(f"Route {r.name} destination missing mode")
+            if d.mode != "telegram":
+                # DestinationConfig normalizes supported aliases before this point.
+                raise ValueError(f"Route {r.name} has unsupported destination mode: {d.mode}")
+            if not d.chat_id or d.chat_id.startswith("${"):
+                raise ValueError(f"Route {r.name} destination missing or invalid chat_id: {d.chat_id}")
 
-            if d.mode == "telegram":
-                if not d.chat_id or d.chat_id.startswith("${"):
-                    raise ValueError(f"Route {r.name} destination missing or invalid chat_id: {d.chat_id}")
-
-                # Token validation
-                if is_strict:
-                    if not d.token or d.token.startswith("${"):
-                        raise ValueError(f"Route {r.name} destination missing/unexpanded token in strict mode")
-                else:
-                    if d.token and d.token.startswith("${"):
-                        raise ValueError(f"Route {r.name} destination has invalid unexpanded token: {d.token}")
+            resolved_token = _configured_publish_token(d.token)
+            if is_strict:
+                if not resolved_token or resolved_token.startswith("${"):
+                    raise ValueError(
+                        f"Route {r.name} destination missing/unexpanded token in strict mode; "
+                        "configure destination.token, PUBLISH_BOT_TOKEN, or TELEGRAM_TOKEN"
+                    )
+            elif d.token and d.token.startswith("${"):
+                raise ValueError(f"Route {r.name} destination has invalid unexpanded token: {d.token}")
