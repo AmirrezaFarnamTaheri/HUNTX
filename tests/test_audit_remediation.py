@@ -1,9 +1,10 @@
 import unittest
-from unittest.mock import MagicMock, patch
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+from huntx.cli.main import _cmd_reset
 from huntx.publishers.telegram.publisher import TelegramPublisher
 from huntx.state.repo import StateRepo
-from huntx.cli.main import _cmd_reset
 
 
 class TestAuditRemediation(unittest.TestCase):
@@ -88,36 +89,48 @@ class TestAuditRemediation(unittest.TestCase):
 
         from huntx.cli.commands.run import run_command
 
-        # Case 1: zero artifacts built
+        # Case 1: a completed no-op is degraded but must not hard-fail.
         mock_orch_inst.run.return_value = {
             "status": "completed",
             "total_artifacts": 0,
+            "ingest_ok": 3,
             "publish_attempts": 0,
             "publish_failures": 0,
         }
-        with self.assertRaises(RuntimeError) as cm:
-            run_command("dummy_config.yaml")
-        self.assertIn("Zero artifacts were built", str(cm.exception))
+        run_command("dummy_config.yaml")
 
-        # Case 2: publish attempted but all failed
+        # Case 2: all external publication attempts may fail while durable output remains valid.
         mock_orch_inst.run.return_value = {
-            "status": "completed",
+            "status": "partial",
             "total_artifacts": 1,
+            "ingest_ok": 3,
             "publish_attempts": 2,
             "publish_failures": 2,
         }
+        run_command("dummy_config.yaml")
+
+        # Case 3: an explicit integrity/configuration fatality must still fail.
+        mock_orch_inst.run.return_value = {
+            "status": "failed",
+            "reason": "no_approved_sources",
+            "total_artifacts": 0,
+            "ingest_ok": 0,
+            "ingest_err": 0,
+        }
         with self.assertRaises(RuntimeError) as cm:
             run_command("dummy_config.yaml")
-        self.assertIn("all publish tasks failed", str(cm.exception))
+        self.assertIn("Health Gate FATAL", str(cm.exception))
+        self.assertIn("no_approved_sources", str(cm.exception))
 
-        # Case 3: successful run
+        # Case 4: clean success remains successful.
         mock_orch_inst.run.return_value = {
             "status": "completed",
             "total_artifacts": 1,
+            "ingest_ok": 3,
             "publish_attempts": 2,
             "publish_failures": 0,
         }
-        run_command("dummy_config.yaml")  # Should not raise any error
+        run_command("dummy_config.yaml")
 
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@ from ..config.loader import load_config
 from ..config.validate import validate_config
 from ..core.locks import acquire_lock
 from ..core.optimized_orchestrator import OptimizedHardenedOrchestrator
+from ..core.run_health import emit_run_health, evaluate_run_health
 from ..core.runtime_resilience import apply_runtime_resilience
 from ..core.session_lease import session_lease_path
 from ..pipeline.governed_build import GovernedBuildPipeline
@@ -21,8 +22,11 @@ logger = logging.getLogger(__name__)
 apply_runtime_resilience()
 
 
-def _enabled(name: str) -> bool:
-    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes"}
+def _enabled(name: str, *, default: bool = False) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _option_value(argv: Sequence[str], option: str) -> str | None:
@@ -42,13 +46,7 @@ def _has_option(argv: Sequence[str], option: str) -> bool:
 
 
 def _inject_runtime_path_arguments(argv: Sequence[str]) -> list[str]:
-    """Apply CLI > environment > default precedence for runtime paths.
-
-    The legacy parser historically gave both path options unconditional defaults,
-    which overwrote environment configuration even when the caller did not pass
-    either option. The public entry point injects only missing global options so
-    argparse still validates explicit CLI syntax and explicit values always win.
-    """
+    """Apply CLI > environment > default precedence for runtime paths."""
 
     resolved = list(argv)
     explicit_data = _option_value(resolved, "--data-dir")
@@ -68,11 +66,15 @@ def _all_publish_failures_are_fatal(
     *,
     no_publish: bool,
 ) -> bool:
-    if no_publish or bool(summary.get("ingestion_budget_exhausted")):
-        return False
-    attempts = int(summary.get("publish_attempts", 0))
-    failures = int(summary.get("publish_failures", 0))
-    return attempts > 0 and failures >= attempts
+    """Compatibility shim: publication is best-effort, never a health-gate fatality.
+
+    Failed delivery remains visible in the structured run-health report and
+    durable publication state. It must not discard valid artifacts or prevent a
+    checkpoint from advancing.
+    """
+
+    del summary, no_publish
+    return False
 
 
 def _cmd_run(args):
@@ -89,9 +91,9 @@ def _cmd_run(args):
         "msg_subsequent_hours": args.msg_subsequent_hours,
         "file_subsequent_hours": args.file_subsequent_hours,
     }
-    allow_partial = _enabled("HUNTX_ALLOW_PARTIAL_SUCCESS")
-    allow_partial_export = _enabled("HUNTX_ALLOW_PARTIAL_EXPORT")
+    allow_partial_export = _enabled("HUNTX_ALLOW_PARTIAL_EXPORT", default=True)
 
+    summary: dict[str, Any] | None = None
     try:
         config = load_config(args.config)
         validate_config(config)
@@ -136,62 +138,49 @@ def _cmd_run(args):
                 allow_partial_export=allow_partial_export,
             )
 
-        status = summary.get("status", "failed")
-        budget_partial = bool(summary.get("ingestion_budget_exhausted"))
-        if status in {"failed", "timed_out"}:
-            logger.error("Health Gate FAILED: run status=%s summary=%s", status, summary)
-            raise SystemExit(1)
-        if status == "partial" and not allow_partial and not budget_partial:
+        health = evaluate_run_health(summary, no_publish=args.no_publish)
+        emit_run_health(summary, health, logger=logger)
+        if health.is_fatal:
             logger.error(
-                "Health Gate FAILED: partial run requires HUNTX_ALLOW_PARTIAL_SUCCESS=true; summary=%s",
-                summary,
+                "Health Gate FATAL: status=%s reasons=%s metrics=%s",
+                health.status,
+                list(health.reasons),
+                health.metrics,
             )
             raise SystemExit(1)
-        if status == "partial" and budget_partial:
+        if health.disposition == "degraded":
             logger.warning(
-                "Health Gate accepted deadline-bounded partial run; completed work "
-                "was built, exported, and persisted. External publication may be "
-                "degraded: %s",
-                summary,
+                "Health Gate DEGRADED SUCCESS: preserved useful work; reasons=%s metrics=%s",
+                list(health.reasons),
+                health.metrics,
             )
-
-        source_failures = int(summary.get("ingest_err", 0))
-        source_successes = int(summary.get("ingest_ok", 0))
-        if status == "completed" and source_failures:
-            logger.warning(
-                "Health Gate accepted degraded source coverage: %s source failure(s), "
-                "%s successful source(s), and all release routes completed",
-                source_failures,
-                source_successes,
-            )
-
-        if summary.get("total_artifacts", 0) == 0:
-            if budget_partial:
-                logger.warning(
-                    "Deadline-bounded partial run produced no new artifacts; "
-                    "preserving previously published outputs"
-                )
-            else:
-                logger.error("Health Gate FAILED: zero artifacts were built; summary=%s", summary)
-                raise SystemExit(1)
-        if _all_publish_failures_are_fatal(summary, no_publish=args.no_publish):
-            logger.error("Health Gate FAILED: all publish attempts failed; summary=%s", summary)
-            raise SystemExit(1)
-        publish_attempts = int(summary.get("publish_attempts", 0))
-        publish_failures = int(summary.get("publish_failures", 0))
-        if budget_partial and publish_attempts > 0 and publish_failures >= publish_attempts:
-            logger.warning(
-                "All Telegram publish attempts failed during an accepted deadline-bounded "
-                "partial run; local outputs and durable state remain valid"
-            )
+        else:
+            logger.info("Health Gate SUCCESS: metrics=%s", health.metrics)
     except SystemExit:
         raise
-    except Exception:
+    except Exception as exc:
         logger.exception("Fatal pipeline error")
+        failure_summary = {
+            "status": "failed",
+            "reason": "unhandled_exception",
+            "exception_type": type(exc).__name__,
+            "total_artifacts": 0,
+            "ingest_ok": 0,
+            "ingest_err": 0,
+        }
+        failure_health = evaluate_run_health(failure_summary, no_publish=args.no_publish)
+        emit_run_health(failure_summary, failure_health, logger=logger)
         raise SystemExit(1)
 
     if not args.no_auto_deliver:
-        legacy._deliver_updates()
+        try:
+            legacy._deliver_updates()
+        except (Exception, SystemExit):
+            logger.exception("Post-run auto-delivery failed; durable run output is preserved")
+            if summary is not None:
+                summary["post_run_delivery_failures"] = int(summary.get("post_run_delivery_failures", 0)) + 1
+                delivery_health = evaluate_run_health(summary, no_publish=args.no_publish)
+                emit_run_health(summary, delivery_health, logger=logger)
 
 
 def main():
