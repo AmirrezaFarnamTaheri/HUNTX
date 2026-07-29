@@ -40,6 +40,10 @@ def test_production_workflow_exposes_structured_degraded_success():
     assert "Summarize quality gate" in workflow
     assert "Summarize immutable persistence" in workflow
 
+    fatal_guard = workflow.index('if [[ "$disposition" == "fatal" ]]')
+    zero_exit_guard = workflow.index("if (( rc == 0 ))")
+    assert fatal_guard < zero_exit_guard
+
 
 def test_production_workflow_packages_and_deploys_only_verified_output():
     workflow = Path(".github/workflows/huntx.yml").read_text()
