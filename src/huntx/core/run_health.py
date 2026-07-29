@@ -75,6 +75,16 @@ def evaluate_run_health(
     lifo_window_failures = _as_int(summary, "lifo_window_failures")
     export_failures = _as_int(summary, "export_failures")
     cleanup_failures = _as_int(summary, "cleanup_failures")
+    post_run_delivery_failures = _as_int(summary, "post_run_delivery_failures")
+    ingest_skipped_due_to_budget = _as_int(summary, "ingest_skipped_due_to_budget")
+    lifo_residue = summary.get("lifo_residue", {})
+    lifo_residue_remaining = 0
+    if isinstance(lifo_residue, Mapping):
+        try:
+            lifo_residue_remaining = int(lifo_residue.get("remaining", 0) or 0)
+        except (TypeError, ValueError):
+            lifo_residue_remaining = 0
+    partial_reason = str(summary.get("partial_reason", "") or "").strip()
 
     recoverable_progress = any(
         (
@@ -139,6 +149,14 @@ def evaluate_run_health(
         degraded_reasons.append("export_failures")
     if cleanup_failures:
         degraded_reasons.append("cleanup_failures")
+    if post_run_delivery_failures:
+        degraded_reasons.append("post_run_delivery_failures")
+    if ingest_skipped_due_to_budget:
+        degraded_reasons.append("ingest_skipped_due_to_budget")
+    if lifo_residue_remaining:
+        degraded_reasons.append("ingestion_residue_remaining")
+    if partial_reason:
+        degraded_reasons.append(partial_reason)
     if bool(summary.get("ingestion_budget_exhausted")):
         degraded_reasons.append("ingestion_budget_exhausted")
     if artifacts == 0 and status != "failed":
@@ -171,6 +189,10 @@ def evaluate_run_health(
         "lifo_window_failures": lifo_window_failures,
         "export_failures": export_failures,
         "cleanup_failures": cleanup_failures,
+        "post_run_delivery_failures": post_run_delivery_failures,
+        "ingest_skipped_due_to_budget": ingest_skipped_due_to_budget,
+        "lifo_residue_remaining": lifo_residue_remaining,
+        "partial_reason": partial_reason or None,
         "ingestion_budget_exhausted": bool(summary.get("ingestion_budget_exhausted")),
         "timed_out_stage": summary.get("timed_out_stage"),
     }
