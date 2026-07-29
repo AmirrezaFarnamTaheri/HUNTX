@@ -4,6 +4,29 @@ from typing import Any, List, Optional
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
+_DESTINATION_MODE_ALIASES = {
+    "telegram": "telegram",
+    "post_on_change": "telegram",
+}
+
+
+def normalize_destination_mode(value: Any) -> str:
+    """Return the canonical transport mode for a configured destination.
+
+    ``post_on_change`` is the historical public configuration spelling. The
+    publisher has always used content hashes to suppress unchanged deliveries,
+    so it is a policy alias for the Telegram transport rather than a separate
+    transport implementation.
+    """
+
+    normalized = str(value or "telegram").strip().lower()
+    try:
+        return _DESTINATION_MODE_ALIASES[normalized]
+    except KeyError as exc:
+        supported = ", ".join(sorted(_DESTINATION_MODE_ALIASES))
+        raise ValueError(f"Unsupported destination mode: {normalized!r}; supported values: {supported}") from exc
+
+
 class SourceTrustState(str, Enum):
     CANDIDATE = "candidate"
     APPROVED = "approved"
@@ -101,6 +124,11 @@ class DestinationConfig(BaseModel):
     mode: str = "telegram"
     caption_template: str = "{filename}"
     token: Optional[str] = None
+
+    @field_validator("mode", mode="before")
+    @classmethod
+    def validate_mode(cls, value: Any) -> str:
+        return normalize_destination_mode(value)
 
 
 class PublishRoute(BaseModel):
