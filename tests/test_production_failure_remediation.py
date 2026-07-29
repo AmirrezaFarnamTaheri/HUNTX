@@ -1,5 +1,7 @@
+import asyncio
 import hashlib
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from pydantic import ValidationError
@@ -16,7 +18,7 @@ from huntx.config.schema import (
     normalize_destination_mode,
 )
 from huntx.config.validate import validate_config
-from huntx.core.hardened_orchestrator import _classify_completed_status
+from huntx.core.hardened_orchestrator import HardenedOrchestrator, _classify_completed_status
 from huntx.pipeline.publish import PublishPipeline
 
 
@@ -183,3 +185,75 @@ def test_route_or_publish_failure_remains_partial():
         )
         == "partial"
     )
+
+
+def test_full_release_completes_with_one_degraded_source():
+    config = AppConfig(
+        sources=[
+            SourceConfig(
+                id="healthy",
+                type="telegram",
+                selector=SourceSelector(include_formats=["all"]),
+                telegram=TelegramSourceConfig(token="123456:source-token", chat_id="-1001"),
+            ),
+            SourceConfig(
+                id="degraded",
+                type="telegram",
+                selector=SourceSelector(include_formats=["all"]),
+                telegram=TelegramSourceConfig(token="123456:source-token", chat_id="-1002"),
+            ),
+        ],
+        publishing=PublishingConfig(
+            routes=[
+                PublishRoute(
+                    name="route",
+                    from_sources=["healthy", "degraded"],
+                    formats=["npvt"],
+                    destinations=[DestinationConfig(chat_id="-1003", mode="telegram")],
+                )
+            ]
+        ),
+    )
+    payload = b"vmess://example"
+    build_result = {
+        "route_name": "route",
+        "unique_id": "route:npvt",
+        "format": "npvt",
+        "data": payload,
+        "artifact_hash": hashlib.sha256(payload).hexdigest(),
+    }
+
+    orchestrator = object.__new__(HardenedOrchestrator)
+    orchestrator.config = config
+    orchestrator.max_workers = 2
+    orchestrator.repo = object()
+    orchestrator._get_seen_file_max_id = lambda: 0
+
+    async def ingest_worker(queue, results, result_lock):
+        while not queue.empty():
+            source = await queue.get()
+            async with result_lock:
+                results["err" if source.id == "degraded" else "ok"] += 1
+            queue.task_done()
+
+    orchestrator._worker_async = ingest_worker
+    orchestrator.transform_pipeline = SimpleNamespace(process_pending=lambda: None)
+    orchestrator.build_pipeline = SimpleNamespace(run=lambda route: [build_result])
+    orchestrator.publish_pipeline = SimpleNamespace(run=lambda result, destinations: True)
+    orchestrator._export_outputs = lambda results: None
+    orchestrator._export_dev_outputs = lambda results: None
+    orchestrator.raw_store = SimpleNamespace(
+        prune_processed=lambda repo: None,
+        prune_orphans=lambda repo: None,
+    )
+    orchestrator.artifact_store = SimpleNamespace(prune_archive=lambda: None)
+
+    summary = asyncio.run(orchestrator._run_hardened(timeout=10, no_publish=False, allow_partial_export=False))
+
+    assert summary["status"] == "completed"
+    assert summary["ingest_ok"] == 1
+    assert summary["ingest_err"] == 1
+    assert summary["degraded_source_failures"] == 1
+    assert summary["total_artifacts"] == 1
+    assert summary["publish_attempts"] == 1
+    assert summary["publish_failures"] == 0
