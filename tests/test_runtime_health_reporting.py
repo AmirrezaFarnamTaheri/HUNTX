@@ -14,6 +14,13 @@ def _load_module():
     return module
 
 
+def test_fallback_success_without_report_is_degraded():
+    module = _load_module()
+    disposition, reasons = module._fallback_disposition(0, True)
+    assert disposition == "degraded"
+    assert "did not produce a structured report" in reasons[0]
+
+
 def test_fallback_timeout_is_degraded_when_checkpoint_exists():
     module = _load_module()
     disposition, reasons = module._fallback_disposition(124, True)
