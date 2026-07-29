@@ -6,7 +6,7 @@ def test_production_workflow_uses_verified_atomic_generations():
     assert "pull_request:" not in workflow
     assert "timeout-minutes: 115" in workflow
     assert 'HUNTX_RUN_TIMEOUT: "5400"' in workflow
-    assert 'HUNTX_ALLOW_PARTIAL_SUCCESS: "true"' in workflow
+    assert "HUNTX_ALLOW_PARTIAL_SUCCESS" not in workflow
     assert 'HUNTX_ALLOW_PARTIAL_EXPORT: "true"' in workflow
     assert 'HUNTX_RUN_SUMMARY_PATH: "persist/data/logs/run-summary.json"' in workflow
     assert "timeout --signal=TERM --kill-after=60s 105m" in workflow
