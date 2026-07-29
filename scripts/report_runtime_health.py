@@ -86,11 +86,13 @@ def main() -> int:
     parser.add_argument("--data-dir", type=Path, required=True)
     parser.add_argument("--checkpoint-ready", default="false")
     parser.add_argument("--package-ready", default="false")
+    parser.add_argument("--package-source", default="none")
     parser.add_argument("--step-summary")
     args = parser.parse_args()
 
     checkpoint_ready = args.checkpoint_ready.strip().lower() == "true"
     package_ready = args.package_ready.strip().lower() == "true"
+    package_source = args.package_source.strip() or "none"
     payload, load_error = _load_report(args.summary)
 
     if payload is not None:
@@ -125,6 +127,7 @@ def main() -> int:
     print(f"exit_code={args.exit_code}")
     print(f"checkpoint_ready={str(checkpoint_ready).lower()}")
     print(f"package_ready={str(package_ready).lower()}")
+    print(f"package_source={package_source}")
     print(f"summary_present={str(payload is not None).lower()}")
     for key in _METRIC_KEYS:
         print(f"metric.{key}={metrics.get(key, '')}")
@@ -151,6 +154,7 @@ def main() -> int:
 | Process exit code | `{args.exit_code}` |
 | Checkpoint ready | `{str(checkpoint_ready).lower()}` |
 | Package ready | `{str(package_ready).lower()}` |
+| Package source | `{package_source}` |
 | Structured report | `{str(payload is not None).lower()}` |
 
 ### Reasons
@@ -170,6 +174,7 @@ def main() -> int:
     _write_output("disposition", disposition)
     _write_output("summary_present", str(payload is not None).lower())
     _write_output("status", status)
+    _write_output("package_source", package_source)
     return 0
 
 
