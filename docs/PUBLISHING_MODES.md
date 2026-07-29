@@ -27,8 +27,8 @@ be emitted by new code or copied into new configuration. Removal, if pursued,
 requires an explicitly announced major-version migration rather than a silent
 minor release change.
 
-Unknown or explicitly empty destination modes fail during configuration loading
-rather than later inside the production publish stage.
+Unknown, explicitly empty, boolean, and numeric destination modes fail during
+configuration loading rather than later inside the production publish stage.
 
 ## Migration
 
@@ -55,15 +55,20 @@ can cause Telegram consumer conflicts.
 
 ## Health-gate semantics
 
-External source availability is independent from release integrity. A minority
-of source failures is reported as degraded coverage, while a successfully
-built, verified, and published aggregate remains a completed release.
+External source availability is independent from release integrity only while
+successful ingestion attempts remain a strict majority. Minority source
+failures are reported as degraded coverage when the aggregate is successfully
+built, verified, and published. A tie or majority of ingestion failures is
+`partial`; zero successful ingestion attempts is `failed`.
 
 Concrete outcomes:
 
 | Ingestion | Build and publish | Result |
 |---|---|---|
 | 67 succeeded, 8 failed | all routes succeeded | `completed`, with `degraded_source_failures: 8` |
+| 51 succeeded, 49 failed | all routes succeeded | `completed`, with degraded coverage |
+| 50 succeeded, 50 failed | all routes succeeded | `partial` |
+| 1 succeeded, 99 failed | all routes succeeded | `partial` |
 | 0 succeeded, 8 failed | no healthy ingestion | `failed` |
 | one or more succeeded | a build or publication route failed | `partial` |
 | deadline exhausted | any unfinished stage | `timed_out` |
