@@ -30,10 +30,9 @@ def test_post_on_change_is_normalized_to_telegram_transport():
 
 
 def test_unknown_destination_mode_is_rejected_at_load_time():
-    with pytest.raises(ValidationError, match="Unsupported destination mode"):
-        DestinationConfig(chat_id="-1001", mode="bundle")
-    with pytest.raises(ValidationError, match="Unsupported destination mode"):
-        DestinationConfig(chat_id="-1001", mode="")
+    for invalid_mode in ("bundle", "", False, 0):
+        with pytest.raises(ValidationError, match="Unsupported destination mode"):
+            DestinationConfig(chat_id="-1001", mode=invalid_mode)
 
 
 def test_production_config_legacy_mode_loads_as_canonical_telegram(monkeypatch):
@@ -142,7 +141,7 @@ def test_publish_pipeline_defensively_accepts_legacy_mode(monkeypatch):
     assert repo.published is True
 
 
-def test_isolated_source_errors_do_not_invalidate_successful_release():
+def test_minority_source_errors_do_not_invalidate_successful_release():
     assert (
         _classify_completed_status(
             ingest_ok=67,
@@ -152,6 +151,36 @@ def test_isolated_source_errors_do_not_invalidate_successful_release():
         )
         == "completed"
     )
+    assert (
+        _classify_completed_status(
+            ingest_ok=51,
+            ingest_err=49,
+            failed_routes=0,
+            publish_failures=0,
+        )
+        == "completed"
+    )
+
+
+def test_tied_or_majority_source_failures_are_partial():
+    assert (
+        _classify_completed_status(
+            ingest_ok=50,
+            ingest_err=50,
+            failed_routes=0,
+            publish_failures=0,
+        )
+        == "partial"
+    )
+    assert (
+        _classify_completed_status(
+            ingest_ok=1,
+            ingest_err=99,
+            failed_routes=0,
+            publish_failures=0,
+        )
+        == "partial"
+    )
 
 
 def test_all_source_failures_are_fatal():
@@ -159,6 +188,15 @@ def test_all_source_failures_are_fatal():
         _classify_completed_status(
             ingest_ok=0,
             ingest_err=8,
+            failed_routes=0,
+            publish_failures=0,
+        )
+        == "failed"
+    )
+    assert (
+        _classify_completed_status(
+            ingest_ok=0,
+            ingest_err=0,
             failed_routes=0,
             publish_failures=0,
         )
@@ -187,29 +225,35 @@ def test_route_or_publish_failure_remains_partial():
     )
 
 
-def test_full_release_completes_with_one_degraded_source():
+def test_full_release_completes_with_minority_degraded_sources():
     config = AppConfig(
         sources=[
             SourceConfig(
-                id="healthy",
+                id="healthy_a",
                 type="telegram",
                 selector=SourceSelector(include_formats=["all"]),
                 telegram=TelegramSourceConfig(token="123456:source-token", chat_id="-1001"),
             ),
             SourceConfig(
-                id="degraded",
+                id="healthy_b",
                 type="telegram",
                 selector=SourceSelector(include_formats=["all"]),
                 telegram=TelegramSourceConfig(token="123456:source-token", chat_id="-1002"),
+            ),
+            SourceConfig(
+                id="degraded",
+                type="telegram",
+                selector=SourceSelector(include_formats=["all"]),
+                telegram=TelegramSourceConfig(token="123456:source-token", chat_id="-1003"),
             ),
         ],
         publishing=PublishingConfig(
             routes=[
                 PublishRoute(
                     name="route",
-                    from_sources=["healthy", "degraded"],
+                    from_sources=["healthy_a", "healthy_b", "degraded"],
                     formats=["npvt"],
-                    destinations=[DestinationConfig(chat_id="-1003", mode="telegram")],
+                    destinations=[DestinationConfig(chat_id="-1004", mode="telegram")],
                 )
             ]
         ),
@@ -225,7 +269,7 @@ def test_full_release_completes_with_one_degraded_source():
 
     orchestrator = object.__new__(HardenedOrchestrator)
     orchestrator.config = config
-    orchestrator.max_workers = 2
+    orchestrator.max_workers = 3
     orchestrator.repo = object()
     orchestrator._get_seen_file_max_id = lambda: 0
 
@@ -251,7 +295,7 @@ def test_full_release_completes_with_one_degraded_source():
     summary = asyncio.run(orchestrator._run_hardened(timeout=10, no_publish=False, allow_partial_export=False))
 
     assert summary["status"] == "completed"
-    assert summary["ingest_ok"] == 1
+    assert summary["ingest_ok"] == 2
     assert summary["ingest_err"] == 1
     assert summary["degraded_source_failures"] == 1
     assert summary["total_artifacts"] == 1
