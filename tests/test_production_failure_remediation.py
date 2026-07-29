@@ -30,6 +30,8 @@ def test_post_on_change_is_normalized_to_telegram_transport():
 def test_unknown_destination_mode_is_rejected_at_load_time():
     with pytest.raises(ValidationError, match="Unsupported destination mode"):
         DestinationConfig(chat_id="-1001", mode="bundle")
+    with pytest.raises(ValidationError, match="Unsupported destination mode"):
+        DestinationConfig(chat_id="-1001", mode="")
 
 
 def test_production_config_legacy_mode_loads_as_canonical_telegram(monkeypatch):
