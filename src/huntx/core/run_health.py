@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -193,9 +193,13 @@ def emit_run_health(
 ) -> dict[str, Any]:
     """Log and optionally persist a machine-readable run-health envelope."""
 
-    payload = {
+    payload: dict[str, Any] = {
         "schema_version": 1,
-        **asdict(health),
+        "disposition": health.disposition,
+        "status": health.status,
+        "reasons": list(health.reasons),
+        "recoverable_progress": health.recoverable_progress,
+        "metrics": dict(health.metrics),
         "summary": dict(summary),
     }
     compact = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
