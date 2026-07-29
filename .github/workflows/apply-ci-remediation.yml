@@ -1,0 +1,261 @@
+name: apply-ci-remediation
+
+on:
+  push:
+    branches:
+      - codex/fix-actions-production-auth
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  remediate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout remediation branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Apply guarded repository fixes
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+
+          def replace_exact(text: str, old: str, new: str, *, expected: int, label: str) -> str:
+              actual = text.count(old)
+              if actual != expected:
+                  raise SystemExit(f"{label}: expected {expected} match(es), found {actual}")
+              return text.replace(old, new)
+
+
+          workflow_path = Path(".github/workflows/huntx.yml")
+          workflow = workflow_path.read_text(encoding="utf-8")
+
+          validate_anchor = """    timeout-minutes: 25
+              steps:
+                - name: Checkout immutable source
+          """
+          validate_replacement = """    timeout-minutes: 25
+              steps:
+                - name: Validate dispatch inputs before external access
+                  if: github.event_name == 'workflow_dispatch'
+                  run: |
+                    set -euo pipefail
+                    require_uint() {
+                      local name="$1" value="$2" maximum="$3"
+                      if ! [[ "$value" =~ ^[0-9]+$ ]] || (( 10#$value > maximum )); then
+                        echo "::error title=Invalid input::$name must be an integer from 0 to $maximum"
+                        exit 2
+                      fi
+                    }
+                    require_uint max_workers "$MAX_WORKERS" 16
+                    if (( 10#$MAX_WORKERS < 1 )); then
+                      echo "::error title=Invalid input::max_workers must be at least 1"
+                      exit 2
+                    fi
+                    require_uint msg_fresh_hours "$MSG_FRESH_HOURS" 720
+                    require_uint file_fresh_hours "$FILE_FRESH_HOURS" 720
+                    require_uint msg_subsequent_hours "$MSG_SUBSEQUENT_HOURS" 720
+                    require_uint file_subsequent_hours "$FILE_SUBSEQUENT_HOURS" 720
+                    if [[ "${{ inputs.reset }}" == "true" && "${{ inputs.reset_confirm }}" != "RESET-HUNTX-STATE" ]]; then
+                      echo "::error title=Reset not confirmed::reset_confirm must exactly match RESET-HUNTX-STATE"
+                      exit 2
+                    fi
+
+                - name: Checkout immutable source
+          """
+          workflow = replace_exact(
+              workflow,
+              validate_anchor,
+              validate_replacement,
+              expected=1,
+              label="early dispatch validation",
+          )
+
+          configure_anchor = """      - name: Configure AWS credentials
+                  if: env.AWS_ROLE_ARN != ''
+                  uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+          """
+          configure_replacement = """      - name: Validate AWS configuration
+                  env:
+                    S3_BUCKET: ${{ secrets.S3_BUCKET }}
+                  run: |
+                    set -euo pipefail
+                    if [[ -n "$S3_BUCKET" && -z "$AWS_ROLE_ARN" ]]; then
+                      echo "::error title=Missing AWS role::S3_BUCKET requires AWS_ROLE_ARN for OIDC authentication"
+                      exit 2
+                    fi
+
+                - name: Configure AWS credentials
+                  if: env.AWS_ROLE_ARN != ''
+                  uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+          """
+          workflow = replace_exact(
+              workflow,
+              configure_anchor,
+              configure_replacement,
+              expected=2,
+              label="AWS OIDC preflight",
+          )
+
+          for line, count, label in (
+              ("          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}\n", 3, "static access keys"),
+              ("          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}\n", 3, "static secret keys"),
+              ("          AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}\n", 3, "step AWS region overrides"),
+          ):
+              workflow = replace_exact(workflow, line, "", expected=count, label=label)
+
+          if "AWS_ACCESS_KEY_ID:" in workflow or "AWS_SECRET_ACCESS_KEY:" in workflow:
+              raise SystemExit("static AWS credential shadowing remains")
+          if workflow.count("Validate AWS configuration") != 2:
+              raise SystemExit("expected exactly two AWS OIDC preflights")
+          if workflow.index("Validate dispatch inputs before external access") > workflow.index(
+              "Restore and verify immutable generation"
+          ):
+              raise SystemExit("dispatch validation does not precede state access")
+          workflow_path.write_text(workflow, encoding="utf-8")
+
+          pr_path = Path(".github/workflows/pr-validation.yml")
+          pr_workflow = pr_path.read_text(encoding="utf-8")
+          pr_workflow = replace_exact(
+              pr_workflow,
+              '      - "agent/**"\n',
+              '      - "agent/**"\n      - "codex/**"\n',
+              expected=1,
+              label="codex branch trigger",
+          )
+          pr_workflow = replace_exact(
+              pr_workflow,
+              """          gofmt -w -l .
+                    test -z "$(gofmt -l .)"
+          """,
+              """          formatting="$(gofmt -l .)"
+                    test -z "$formatting" || {
+                      printf 'Unformatted Go files:\\n%s\\n' "$formatting"
+                      exit 1
+                    }
+          """,
+              expected=1,
+              label="non-mutating gofmt gate",
+          )
+          if "gofmt -w" in pr_workflow:
+              raise SystemExit("mutating gofmt command remains")
+          pr_path.write_text(pr_workflow, encoding="utf-8")
+
+          db_path = Path("src/huntx/state/db.py")
+          db = db_path.read_text(encoding="utf-8")
+          destructive_cleanup = """                    migrated += 1
+                        conn.execute(
+                            """
+                            DELETE FROM record_verdicts
+                            WHERE unique_hash NOT IN (SELECT DISTINCT unique_hash FROM records)
+                            """
+                        )
+          """
+          scoped_cleanup = """                    if old_hash != new_hash:
+                            conn.execute(
+                                "DELETE FROM record_verdicts WHERE unique_hash = ?",
+                                (old_hash,),
+                            )
+                        migrated += 1
+          """
+          db = replace_exact(
+              db,
+              destructive_cleanup,
+              scoped_cleanup,
+              expected=1,
+              label="v10 verdict cleanup scope",
+          )
+          if "WHERE unique_hash NOT IN (SELECT DISTINCT unique_hash FROM records)" in db:
+              raise SystemExit("global verdict-cache deletion remains")
+          db_path.write_text(db, encoding="utf-8")
+
+          tests_path = Path("tests/test_workflow_resilience.py")
+          tests_path.write_text(
+              '''from pathlib import Path
+
+
+def test_production_workflow_uses_verified_atomic_generations():
+    workflow = Path(".github/workflows/huntx.yml").read_text()
+    assert "pull_request:" not in workflow
+    assert "timeout-minutes: 115" in workflow
+    assert 'HUNTX_RUN_TIMEOUT: "5400"' in workflow
+    assert "timeout --signal=TERM --kill-after=60s 105m" in workflow
+    assert "scripts/checkpoint_runtime_state.py" in workflow
+    assert "huntx-tools runtime-generation" in workflow
+    assert "huntx-tools verify-output" in workflow
+    assert "huntx-tools site-data" in workflow
+    assert "id-token: write" in workflow
+    assert "needs: validate" in workflow
+    assert "restore-verified-state" in workflow
+    assert "ingest-build-package" in workflow
+    assert "persist-immutable-state" in workflow
+
+    payload_upload = workflow.index("aws s3 sync checkpoint-package/payload")
+    manifest_upload = workflow.index("aws s3 cp checkpoint-package/generation-manifest.json")
+    pointer_upload = workflow.index("aws s3 cp checkpoint-package/next-current.json")
+    assert payload_upload < manifest_upload < pointer_upload
+
+
+def test_production_workflow_uses_oidc_without_static_credential_shadowing():
+    workflow = Path(".github/workflows/huntx.yml").read_text()
+    assert "AWS_ACCESS_KEY_ID:" not in workflow
+    assert "AWS_SECRET_ACCESS_KEY:" not in workflow
+    assert workflow.count("Validate AWS configuration") == 2
+    assert "S3_BUCKET requires AWS_ROLE_ARN for OIDC authentication" in workflow
+    assert workflow.count("aws-actions/configure-aws-credentials@") == 2
+
+
+def test_dispatch_validation_precedes_external_state_access():
+    workflow = Path(".github/workflows/huntx.yml").read_text()
+    validation = workflow.index("Validate dispatch inputs before external access")
+    restore = workflow.index("Restore and verify immutable generation")
+    assert validation < restore
+    assert "reset_confirm must exactly match RESET-HUNTX-STATE" in workflow[validation:restore]
+
+
+def test_pull_request_workflow_is_read_only_and_non_mutating():
+    workflow = Path(".github/workflows/pr-validation.yml").read_text()
+    assert "pull_request:" in workflow
+    assert '"codex/**"' in workflow
+    assert "id-token: write" not in workflow
+    assert "gofmt -w" not in workflow
+    assert 'formatting="$(gofmt -l .)"' in workflow
+    assert "actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c" in workflow
+
+
+def test_go_release_plane_is_present():
+    assert Path("cmd/huntx-tools/main.go").exists()
+    assert Path("internal/runtimegen/runtimegen.go").exists()
+    assert Path("internal/releasemanifest/releasemanifest.go").exists()
+    assert Path("internal/outputverify/outputverify.go").exists()
+    assert Path("internal/sitegen/sitegen.go").exists()
+''',
+              encoding="utf-8",
+          )
+
+          Path(".github/workflows/apply-ci-remediation.yml").unlink()
+          PY
+
+          python -m py_compile src/huntx/state/db.py tests/test_workflow_resilience.py
+          git diff --check
+
+      - name: Commit validated remediation
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/huntx.yml .github/workflows/pr-validation.yml \
+            src/huntx/state/db.py tests/test_workflow_resilience.py \
+            .github/workflows/apply-ci-remediation.yml
+          git commit -m "fix: harden Actions auth and migration safety"
+          git push origin HEAD:${GITHUB_REF_NAME}
