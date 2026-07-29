@@ -115,3 +115,36 @@ def test_run_health_report_is_atomic_and_machine_readable(tmp_path):
     assert persisted["schema_version"] == 1
     assert persisted["disposition"] == "degraded"
     assert persisted["summary"]["total_artifacts"] == 3
+
+
+def test_post_run_delivery_failure_is_structured_degradation():
+    health = evaluate_run_health(
+        {
+            "status": "completed",
+            "total_artifacts": 2,
+            "ingest_ok": 4,
+            "post_run_delivery_failures": 1,
+        }
+    )
+
+    assert health.disposition == "degraded"
+    assert "post_run_delivery_failures" in health.reasons
+    assert health.metrics["post_run_delivery_failures"] == 1
+
+
+def test_ingestion_residue_and_budget_skips_are_visible():
+    health = evaluate_run_health(
+        {
+            "status": "partial",
+            "total_artifacts": 1,
+            "ingest_ok": 2,
+            "partial_reason": "ingestion_residue_remaining",
+            "ingest_skipped_due_to_budget": 5,
+            "lifo_residue": {"remaining": 7},
+        }
+    )
+
+    assert health.disposition == "degraded"
+    assert health.metrics["ingest_skipped_due_to_budget"] == 5
+    assert health.metrics["lifo_residue_remaining"] == 7
+    assert "ingestion_residue_remaining" in health.reasons
