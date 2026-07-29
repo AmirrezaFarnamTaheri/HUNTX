@@ -4,10 +4,14 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 _TIMEOUT_EXIT_CODES = {124, 137, 143}
+_MAX_INVENTORY_ITEMS = 200
+_MAX_REASONS = 50
+_MAX_REASON_LENGTH = 500
 _METRIC_KEYS = (
     "total_artifacts",
     "ingest_ok",
@@ -52,6 +56,24 @@ def _fallback_disposition(exit_code: int, checkpoint_ready: bool) -> tuple[str, 
     return "fatal", [f"runtime exited with code {exit_code} without a trustworthy structured report"]
 
 
+def _normalize_reasons(raw: Any) -> list[str]:
+    if raw is None:
+        values: list[Any] = []
+    elif isinstance(raw, str):
+        values = [raw]
+    elif isinstance(raw, Sequence) and not isinstance(raw, (bytes, bytearray)):
+        values = list(raw)
+    elif isinstance(raw, Mapping):
+        values = [f"invalid reasons type: {type(raw).__name__}"]
+    else:
+        values = [f"invalid reasons type: {type(raw).__name__}"]
+
+    reasons = [str(value)[:_MAX_REASON_LENGTH] for value in values[:_MAX_REASONS]]
+    if len(values) > _MAX_REASONS:
+        reasons.append(f"reasons truncated: {len(values) - _MAX_REASONS} additional entries")
+    return reasons
+
+
 def _write_output(name: str, value: str) -> None:
     output_path = os.environ.get("GITHUB_OUTPUT", "").strip()
     if not output_path:
@@ -70,17 +92,33 @@ def _append_step_summary(markdown: str, explicit_path: str | None) -> None:
             handle.write("\n")
 
 
-def _inventory(data_dir: Path) -> list[tuple[str, int]]:
+def _inventory(data_dir: Path) -> tuple[list[tuple[str, int]], int, int]:
+    """Stream a bounded inventory while retaining complete aggregate counts."""
+
     if not data_dir.exists():
-        return []
+        return [], 0, 0
+
     rows: list[tuple[str, int]] = []
-    for path in sorted(data_dir.rglob("*")):
-        if path.is_file():
+    file_count = 0
+    total_bytes = 0
+    for root, directories, filenames in os.walk(data_dir, followlinks=False):
+        directories.sort()
+        filenames.sort()
+        root_path = Path(root)
+        for filename in filenames:
+            path = root_path / filename
             try:
-                rows.append((str(path.relative_to(data_dir)), path.stat().st_size))
-            except OSError:
+                size = path.stat().st_size
+                relative = str(path.relative_to(data_dir))
+            except (OSError, ValueError):
                 continue
-    return rows
+            file_count += 1
+            total_bytes += size
+            if len(rows) < _MAX_INVENTORY_ITEMS:
+                rows.append((relative, size))
+
+    rows.sort()
+    return rows, file_count, total_bytes
 
 
 def main() -> int:
@@ -102,7 +140,7 @@ def main() -> int:
     if payload is not None:
         disposition = str(payload.get("disposition", "fatal")).strip().lower()
         status = str(payload.get("status", "unknown"))
-        reasons = [str(value) for value in payload.get("reasons", [])]
+        reasons = _normalize_reasons(payload.get("reasons", []))
         metrics = payload.get("metrics", {})
         if not isinstance(metrics, dict):
             metrics = {}
@@ -138,13 +176,13 @@ def main() -> int:
     for index, reason in enumerate(reasons, start=1):
         print(f"reason.{index}={reason}")
 
-    inventory = _inventory(args.data_dir)
-    print(f"inventory.files={len(inventory)}")
-    print(f"inventory.bytes={sum(size for _, size in inventory)}")
-    for name, size in inventory[:200]:
+    inventory, file_count, total_bytes = _inventory(args.data_dir)
+    print(f"inventory.files={file_count}")
+    print(f"inventory.bytes={total_bytes}")
+    for name, size in inventory:
         print(f"inventory.item={size}\t{name}")
-    if len(inventory) > 200:
-        print(f"inventory.truncated={len(inventory) - 200}")
+    if file_count > len(inventory):
+        print(f"inventory.truncated={file_count - len(inventory)}")
     print("HUNTX_RUNTIME_DIAGNOSTICS_END")
 
     metric_rows = "\n".join(f"| `{key}` | `{metrics.get(key, '')}` |" for key in _METRIC_KEYS)
@@ -170,8 +208,9 @@ def main() -> int:
 {metric_rows}
 
 ### Artifact inventory
-- Files: `{len(inventory)}`
-- Bytes: `{sum(size for _, size in inventory)}`
+- Files: `{file_count}`
+- Bytes: `{total_bytes}`
+- Listed: `{len(inventory)}`
 """
     _append_step_summary(markdown, args.step_summary)
 
