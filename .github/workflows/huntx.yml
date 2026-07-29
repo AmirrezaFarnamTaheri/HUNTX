@@ -520,6 +520,11 @@ jobs:
             echo "::error title=Checkpoint unavailable::Runtime state could not be validated and packaged; refusing to report success."
             exit 1
           fi
+          if [[ "$disposition" == "fatal" ]]; then
+            echo "::error title=Fatal runtime disposition::exit_code=$rc disposition=$disposition"
+            (( rc != 0 )) || rc=1
+            exit "$rc"
+          fi
           if (( rc == 0 )); then
             exit 0
           fi
