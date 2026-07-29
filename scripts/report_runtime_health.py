@@ -23,6 +23,10 @@ _METRIC_KEYS = (
     "lifo_pages_processed",
     "lifo_windows_completed",
     "lifo_window_failures",
+    "post_run_delivery_failures",
+    "ingest_skipped_due_to_budget",
+    "lifo_residue_remaining",
+    "partial_reason",
     "ingestion_budget_exhausted",
     "timed_out_stage",
 )
