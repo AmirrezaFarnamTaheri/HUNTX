@@ -154,6 +154,17 @@ def _cmd_run(args):
                 "degraded: %s",
                 summary,
             )
+
+        source_failures = int(summary.get("ingest_err", 0))
+        source_successes = int(summary.get("ingest_ok", 0))
+        if status == "completed" and source_failures:
+            logger.warning(
+                "Health Gate accepted degraded source coverage: %s source failure(s), "
+                "%s successful source(s), and all release routes completed",
+                source_failures,
+                source_successes,
+            )
+
         if summary.get("total_artifacts", 0) == 0:
             if budget_partial:
                 logger.warning(
