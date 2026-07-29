@@ -19,7 +19,7 @@ def normalize_destination_mode(value: Any) -> str:
     transport implementation.
     """
 
-    normalized = str(value or "telegram").strip().lower()
+    normalized = "telegram" if value is None else str(value).strip().lower()
     try:
         return _DESTINATION_MODE_ALIASES[normalized]
     except KeyError as exc:
