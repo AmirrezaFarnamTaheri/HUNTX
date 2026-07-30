@@ -181,15 +181,22 @@ jobs:
           SNAPSHOT_ROOT: ${{ runner.temp }}/huntx-publication/snapshot
           SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
           SOURCE_RUN_ATTEMPT: ${{ steps.source.outputs.run_attempt }}
+          RESTORED_SHA: ${{ steps.previous.outputs.sha }}
         run: |
           set -euo pipefail
 
           remote_sha="$(git ls-remote --heads origin refs/heads/generated-outputs | awk '{print $1}')"
-          if [[ -n "$remote_sha" ]]; then
-            git fetch --no-tags origin "$remote_sha"
+          if [[ "$remote_sha" != "$RESTORED_SHA" ]]; then
+            echo "::error title=Generated snapshot advanced::Restored $RESTORED_SHA but remote is now $remote_sha; rerun to merge the newest cumulative manifest."
+            exit 1
           fi
 
-          git checkout --orphan generated-outputs-next
+          if [[ -n "$remote_sha" ]]; then
+            git fetch --no-tags origin "$remote_sha"
+            git checkout -B generated-outputs-next "$remote_sha"
+          else
+            git checkout --orphan generated-outputs-next
+          fi
           git rm -rf . >/dev/null 2>&1 || true
           git clean -fdx
           cp -a "$SNAPSHOT_ROOT"/. .
@@ -198,15 +205,13 @@ jobs:
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add --all
           git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "Generated snapshot is unchanged; branch update is idempotent."
+            exit 0
+          fi
           git commit -m "Publish HUNTX outputs from run ${SOURCE_RUN_ID}/${SOURCE_RUN_ATTEMPT}"
 
           if [[ -n "$remote_sha" ]]; then
-            remote_tree="$(git rev-parse "${remote_sha}^{tree}")"
-            local_tree="$(git rev-parse 'HEAD^{tree}')"
-            if [[ "$local_tree" == "$remote_tree" ]]; then
-              echo "Generated snapshot is unchanged; branch update is idempotent."
-              exit 0
-            fi
             git push origin HEAD:refs/heads/generated-outputs \
               --force-with-lease="refs/heads/generated-outputs:${remote_sha}"
           else
@@ -263,6 +268,7 @@ jobs:
             echo "- Source run: \`${{ steps.source.outputs.run_id || 'unresolved' }}\`"
             echo "- Source attempt: \`${{ steps.source.outputs.run_attempt || 'unresolved' }}\`"
             echo "- Source commit: \`${{ steps.source.outputs.head_sha || 'unresolved' }}\`"
+            echo "- Previous generated commit: \`${{ steps.previous.outputs.sha || 'none' }}\`"
             echo "- Generated data branch: \`generated-outputs\`"
             echo "- Source-branch mirrors: \`main/outputs\`, \`main/outputs_dev\`"
             echo "- \`outputs/\` scope: source run"
