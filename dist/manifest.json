@@ -4,26 +4,26 @@
   "artifacts": [
     {
       "path": "all_sources.npvt",
-      "size": 18584,
-      "sha256": "993fdd6494ad6229955f0d3ecd84414bb183de4e39bf868726efab18fc4eec59",
+      "size": 11399,
+      "sha256": "dde3ff3192af8b0e4d9bbd134c45598e64254734e68d33838bb9b35f6c817ce0",
       "media_type": "application/octet-stream"
     },
     {
       "path": "all_sources.opaque_bundle",
-      "size": 354148,
-      "sha256": "2e1557c752bbc7d810a9544587b168cf8fd2e11a80a123a64edcd06143c33e33",
+      "size": 464628,
+      "sha256": "36fe04fcb271fcac82fafcfd9e0b3a2e2e6b92df50615e6f40631e37136cb384",
       "media_type": "application/octet-stream"
     },
     {
       "path": "all_sources_npvt_b64sub.txt",
-      "size": 24780,
-      "sha256": "68dca6391562cb559e271675e32887bd605fb26fa9c18c4f0d48168fdf2547c2",
+      "size": 15200,
+      "sha256": "12b8d7763c00c3f48bcffc1fe9a34b5ffc5994e504f9535c88822b7246f57e9e",
       "media_type": "text/plain"
     },
     {
       "path": "all_sources_npvt_decoded.json",
-      "size": 57260,
-      "sha256": "45469869c3138291741991d1861b01f1559f3687f28dbbec3b2cc9cb6f103033",
+      "size": 39033,
+      "sha256": "ea2ec9770b15183a3b5eae2deabf27fa1529a45a056406c206757e1af726d6be",
       "media_type": "application/json"
     }
   ]
