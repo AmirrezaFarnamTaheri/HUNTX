@@ -151,6 +151,7 @@ jobs:
         env:
           SOURCE_ROOT: ${{ runner.temp }}/huntx-publication
           PREVIOUS_ROOT: ${{ runner.temp }}/huntx-previous-generated
+          LEGACY_DEV_ROOT: ${{ github.workspace }}/outputs_dev
           SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
           SOURCE_RUN_ATTEMPT: ${{ steps.source.outputs.run_attempt }}
           SOURCE_HEAD_SHA: ${{ steps.source.outputs.head_sha }}
@@ -166,6 +167,7 @@ jobs:
             --dist-root "$SOURCE_ROOT/dist" \
             --logs-root "$SOURCE_ROOT/logs" \
             --previous-snapshot-root "$PREVIOUS_ROOT" \
+            --legacy-dev-root "$LEGACY_DEV_ROOT" \
             --destination "$SOURCE_ROOT/snapshot" \
             --run-id "$SOURCE_RUN_ID" \
             --run-attempt "$SOURCE_RUN_ATTEMPT" \
@@ -272,6 +274,6 @@ jobs:
             echo "- Generated data branch: \`generated-outputs\`"
             echo "- Source-branch mirrors: \`main/outputs\`, \`main/outputs_dev\`"
             echo "- \`outputs/\` scope: source run"
-            echo "- \`outputs_dev/\` scope: cumulative across publications"
+            echo "- \`outputs_dev/\` scope: cumulative across publications and legacy history"
             echo "- Job status: **${{ job.status }}**"
           } >> "$GITHUB_STEP_SUMMARY"
