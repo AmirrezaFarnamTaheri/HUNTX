@@ -1,3 +1,3 @@
 # HUNTX generated outputs
 
-Generated-only data plane snapshot. Do not edit manually.
+`outputs/` contains the verified source run. `outputs_dev/` is merged with all previously published and legacy cumulative proxy identities. Do not edit manually.
