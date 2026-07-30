@@ -146,9 +146,6 @@ def write_dev_outputs(
     manifest: dict[str, ManifestValue],
     source_created_at: str,
 ) -> None:
-    if not manifest:
-        raise ValueError("cumulative outputs_dev manifest is empty")
-
     dev_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = dev_dir / "_manifest.json"
     manifest_path.write_text(
@@ -243,19 +240,18 @@ def assemble_snapshot(
 
     dist = first_dir(dist_root, "dist") or dist_root
     current_outputs = require_nonempty_tree(first_dir(checkpoint_root, "outputs"), "outputs")
-    current_dev = require_nonempty_tree(first_dir(checkpoint_root, "outputs_dev"), "outputs_dev")
+    current_dev = first_dir(checkpoint_root, "outputs_dev")
 
     copy_tree(dist, destination / "dist")
     copy_tree(current_outputs, destination / "outputs")
-    copy_tree(current_dev, destination / "outputs_dev")
+    if current_dev is not None:
+        copy_tree(current_dev, destination / "outputs_dev")
 
     previous_dev = None
     if previous_snapshot_root is not None and previous_snapshot_root.exists():
         previous_dev = first_dir(previous_snapshot_root, "outputs_dev")
     previous_manifest = load_dev_manifest(previous_dev / "_manifest.json" if previous_dev else None)
-    current_manifest = load_dev_manifest(current_dev / "_manifest.json")
-    if not current_manifest:
-        raise ValueError("current outputs_dev manifest is missing or empty")
+    current_manifest = load_dev_manifest(current_dev / "_manifest.json" if current_dev else None)
     cumulative_manifest = merge_dev_manifests(previous_manifest, current_manifest)
     write_dev_outputs(destination / "outputs_dev", cumulative_manifest, source_created_at)
 
@@ -310,7 +306,7 @@ def main() -> int:
     parser.add_argument("--source-created-at", required=True)
     args = parser.parse_args()
 
-    assemble_snapshot(
+    payload = assemble_snapshot(
         checkpoint_root=args.checkpoint_root,
         dist_root=args.dist_root,
         logs_root=args.logs_root,
@@ -321,6 +317,12 @@ def main() -> int:
         head_branch=args.head_branch,
         source_created_at=args.source_created_at,
         previous_snapshot_root=args.previous_snapshot_root,
+    )
+    print(
+        "Assembled generated snapshot: "
+        f"run={payload['source_run_id']}/{payload['source_run_attempt']} "
+        f"current_dev={payload['outputs_dev_current_count']} "
+        f"cumulative_dev={payload['outputs_dev_cumulative_count']}"
     )
     return 0
 
