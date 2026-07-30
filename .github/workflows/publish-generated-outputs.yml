@@ -1,6 +1,14 @@
 name: Publish Generated Outputs
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/publish-generated-outputs.yml"
+      - ".github/huntx-generated-files.txt"
+      - "scripts/assemble_generated_snapshot.py"
+      - "scripts/sync_generated_outputs_to_main.py"
   workflow_run:
     workflows:
       - huntx-production
@@ -29,7 +37,7 @@ concurrency:
 jobs:
   publish:
     name: Publish verified generated snapshot
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 25
 
@@ -39,15 +47,41 @@ jobs:
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
+            const expectedPath = '.github/workflows/huntx.yml';
             let runId;
             let expectedAttempt;
 
             if (context.eventName === 'workflow_run') {
               runId = Number(context.payload.workflow_run.id);
               expectedAttempt = Number(context.payload.workflow_run.run_attempt);
-            } else {
+            } else if (context.eventName === 'workflow_dispatch') {
               runId = Number('${{ inputs.source_run_id }}');
               expectedAttempt = Number('${{ inputs.source_run_attempt }}');
+            } else if (context.eventName === 'push') {
+              const { data } = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'huntx.yml',
+                branch: 'main',
+                status: 'completed',
+                per_page: 50,
+              });
+              const candidate = data.workflow_runs.find(
+                run => run.conclusion === 'success'
+                  && run.path === expectedPath
+                  && run.name === 'huntx-production',
+              );
+              if (!candidate) {
+                core.setFailed(
+                  'No completed successful huntx-production run is available for control-plane republish.',
+                );
+                return;
+              }
+              runId = Number(candidate.id);
+              expectedAttempt = Number(candidate.run_attempt);
+            } else {
+              core.setFailed(`Unsupported publication event: ${context.eventName}`);
+              return;
             }
 
             if (!Number.isSafeInteger(runId) || runId <= 0) {
@@ -65,7 +99,6 @@ jobs:
               run_id: runId,
             });
 
-            const expectedPath = '.github/workflows/huntx.yml';
             if (run.path !== expectedPath || run.name !== 'huntx-production') {
               core.setFailed(
                 `Run ${runId} is not the trusted producer: name=${run.name} path=${run.path}`,
@@ -95,7 +128,7 @@ jobs:
             core.setOutput('head_branch', String(run.head_branch));
             core.setOutput('created_at', String(run.created_at));
             core.notice(
-              `Publishing huntx-production run ${runId}, attempt ${run.run_attempt}, commit ${run.head_sha}`,
+              `Publishing huntx-production run ${runId}, attempt ${run.run_attempt}, commit ${run.head_sha}, event ${context.eventName}`,
             );
 
       - name: Checkout publisher control plane
@@ -267,6 +300,7 @@ jobs:
           {
             echo "## Generated output publication"
             echo
+            echo "- Trigger: \`${{ github.event_name }}\`"
             echo "- Source run: \`${{ steps.source.outputs.run_id || 'unresolved' }}\`"
             echo "- Source attempt: \`${{ steps.source.outputs.run_attempt || 'unresolved' }}\`"
             echo "- Source commit: \`${{ steps.source.outputs.head_sha || 'unresolved' }}\`"
