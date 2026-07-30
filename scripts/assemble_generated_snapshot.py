@@ -185,8 +185,8 @@ def load_legacy_dev_identities(dev_dir: Path | None) -> dict[str, ManifestValue]
     Historical repositories may have a blank or missing ``_manifest.json`` while
     still containing a very large rendered proxy list. Those identities are data,
     not disposable presentation residue. Known timestamps from a manifest or JSON
-    record are retained; identities recovered only from rendered files receive the
-    sentinel timestamp ``0`` and never replace a known timestamp.
+    record are loaded before text-only identities; identities recovered only from
+    rendered files receive the sentinel timestamp ``0``.
     """
     if dev_dir is None or not dev_dir.is_dir():
         return {}
@@ -203,6 +203,14 @@ def load_legacy_dev_identities(dev_dir: Path | None) -> dict[str, ManifestValue]
         except ValueError as exc:
             errors.append(str(exc))
 
+    json_path = dev_dir / "proxies.json"
+    if json_path.is_file() and json_path.stat().st_size > 0:
+        nonempty_sources.append(json_path)
+        try:
+            _load_legacy_json(json_path, manifest)
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+            errors.append(f"could not read legacy proxy JSON {json_path}: {exc}")
+
     text_path = dev_dir / "proxies.txt"
     if text_path.is_file() and text_path.stat().st_size > 0:
         nonempty_sources.append(text_path)
@@ -212,14 +220,6 @@ def load_legacy_dev_identities(dev_dir: Path | None) -> dict[str, ManifestValue]
                     _add_legacy_identity(manifest, line)
         except (OSError, UnicodeDecodeError) as exc:
             errors.append(f"could not read legacy proxy list {text_path}: {exc}")
-
-    json_path = dev_dir / "proxies.json"
-    if json_path.is_file() and json_path.stat().st_size > 0:
-        nonempty_sources.append(json_path)
-        try:
-            _load_legacy_json(json_path, manifest)
-        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
-            errors.append(f"could not read legacy proxy JSON {json_path}: {exc}")
 
     b64_path = dev_dir / "proxies_b64sub.txt"
     if not manifest and b64_path.is_file() and b64_path.stat().st_size > 0:
