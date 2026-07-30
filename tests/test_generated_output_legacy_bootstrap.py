@@ -35,6 +35,21 @@ class TestLegacyDevBootstrap(unittest.TestCase):
             legacy = root / "legacy"
             legacy.mkdir()
             (legacy / "_manifest.json").write_text("", encoding="utf-8")
+            _write_json(
+                legacy / "proxies.json",
+                {
+                    "proxies": [
+                        {
+                            "uri": "vless://legacy.example:443?encryption=none#json-label",
+                            "first_seen": 10,
+                        },
+                        {
+                            "uri": "vless://shared.example:443?encryption=none#json-label",
+                            "first_seen": 50,
+                        },
+                    ]
+                },
+            )
             (legacy / "proxies.txt").write_text(
                 "# legacy cumulative list\n\n"
                 "vless://legacy.example:443?encryption=none#old-label\n"
@@ -76,7 +91,7 @@ class TestLegacyDevBootstrap(unittest.TestCase):
 
             manifest = json.loads((root / "snapshot" / "outputs_dev" / "_manifest.json").read_text())
             self.assertEqual(len(manifest), 3)
-            self.assertEqual(manifest["vless://legacy.example:443?encryption=none"], 0)
+            self.assertEqual(manifest["vless://legacy.example:443?encryption=none"], 10)
             self.assertEqual(manifest["vless://shared.example:443?encryption=none"], 100)
             self.assertEqual(manifest["vless://current.example:443?encryption=none"], 200)
             self.assertEqual(payload["outputs_dev_legacy_count"], 2)
