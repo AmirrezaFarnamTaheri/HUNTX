@@ -1,3 +1,4 @@
+outputs/all_sources.hc
 outputs/all_sources.npvt
 outputs/all_sources.opaque_bundle
 outputs/all_sources_npvt_b64sub.txt
