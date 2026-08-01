@@ -4,8 +4,8 @@
   "artifacts": [
     {
       "path": "all_sources.opaque_bundle",
-      "size": 192806,
-      "sha256": "1c41397282359d87e8b6f027517d29d1a8740127d3d869e2bee41b9e321cad02",
+      "size": 26863,
+      "sha256": "4dc8a65f0d12d49f373420488ca2d9e125aae9b3ad26e27ea07f18d325dcc7f5",
       "media_type": "application/octet-stream"
     }
   ]
