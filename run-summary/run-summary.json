@@ -44,7 +44,7 @@
     "build_workers": 1,
     "completion_buffer_seconds": 900.0,
     "degraded_source_failures": 8,
-    "duration_seconds": 148.45329137000002,
+    "duration_seconds": 125.720932168,
     "excluded_sources": 0,
     "failed_routes": 1,
     "ingest_err": 8,
@@ -54,7 +54,7 @@
     "ingestion_budget_seconds": 4500.0,
     "ingestion_cancelled": 0,
     "ingestion_workers": 2,
-    "lifo_anchor_ts": 1785596400,
+    "lifo_anchor_ts": 1785603600,
     "lifo_campaign_id": 1,
     "lifo_pages_processed": 68,
     "lifo_residue": {
@@ -63,25 +63,25 @@
       "remaining": 3341,
       "retry_wait": 4
     },
-    "lifo_target_start_ts": 1785423600,
+    "lifo_target_start_ts": 1785430800,
     "lifo_window_failures": 8,
     "lifo_windows_completed": 67,
     "lifo_windows_seeded": 3408,
     "partial_export_enabled": true,
     "post_run_delivery_failures": 1,
-    "preflight_seconds": 71.01813203200001,
+    "preflight_seconds": 69.56624158200002,
     "publish_attempts": 4,
     "publish_cancelled": 0,
     "publish_failures": 4,
     "publish_pending": 0,
     "publish_workers": 2,
     "stage_seconds": {
-      "build": 0.047,
-      "cleanup": 0.014,
-      "export": 0.012,
-      "ingestion": 74.105,
-      "publishing": 3.197,
-      "transformation": 0.059
+      "build": 0.067,
+      "cleanup": 0.019,
+      "export": 0.015,
+      "ingestion": 52.92,
+      "publishing": 3.035,
+      "transformation": 0.098
     },
     "status": "partial",
     "timed_out": false,
@@ -92,14 +92,14 @@
       "batches": 2,
       "completed": true,
       "deferred": 0,
-      "duration_seconds": 0.05888569500001495,
+      "duration_seconds": 0.0973468930000081,
       "failed": 0,
       "formats": {
-        "npvt": 80,
-        "opaque_bundle": 264
+        "npvt": 66,
+        "opaque_bundle": 279
       },
-      "processed": 344,
-      "records": 368,
+      "processed": 345,
+      "records": 400,
       "skipped": 0,
       "stop_reason": "complete"
     }
