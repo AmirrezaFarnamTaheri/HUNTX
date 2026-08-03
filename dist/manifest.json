@@ -1,35 +1,29 @@
 {
   "schema_version": 1,
-  "artifact_count": 5,
+  "artifact_count": 4,
   "artifacts": [
     {
       "path": "all_sources.npvt",
-      "size": 11968,
-      "sha256": "c919ffb1036f0ff038c1aae491cc74416846613240d9216d793744347616814a",
+      "size": 25835,
+      "sha256": "9654c37a95547fbd124ef8e750bc5e59c890161ec3b4d9ff31a349d876b98a25",
       "media_type": "application/octet-stream"
     },
     {
       "path": "all_sources.opaque_bundle",
-      "size": 221426,
-      "sha256": "cad45f5d0df3f9aa4f768f41a9857ca5e7cdaa36b782bd1fef6b19f51e27247f",
+      "size": 270450,
+      "sha256": "d7b2ca9fb0bb7520d35360b4674e5185e42a0246da14f1964623e2e91373c162",
       "media_type": "application/octet-stream"
     },
     {
-      "path": "all_sources.ovpn",
-      "size": 14788,
-      "sha256": "141826b1c19f82379901bac9a68b107d9d190c37e84e46d82bcb3ada5134ba3f",
-      "media_type": "application/x-openvpn-profile"
-    },
-    {
       "path": "all_sources_npvt_b64sub.txt",
-      "size": 15960,
-      "sha256": "e8430a15f47b3f15fb6982af5395e7e5514e351e2074cf3c8a78f6c913b769f2",
+      "size": 34448,
+      "sha256": "10bf06b0173cf07e4f1d2318ffe87cf58503b9fd1b99f25cff2ff5b2bf3a4ced",
       "media_type": "text/plain"
     },
     {
       "path": "all_sources_npvt_decoded.json",
-      "size": 36468,
-      "sha256": "ba34a03b27cdf931207089f67f1f6f8e75c3afff3719beec106721478771abe8",
+      "size": 66509,
+      "sha256": "822befe2e1b8cd1b64fb62d691c503c299450ffae23b80d3f6863652177a7cb5",
       "media_type": "application/json"
     }
   ]
