@@ -1,0 +1,313 @@
+name: Publish Generated Outputs
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/publish-generated-outputs.yml"
+      - ".github/huntx-generated-files.txt"
+      - "scripts/assemble_generated_snapshot.py"
+      - "scripts/sync_generated_outputs_to_main.py"
+  workflow_run:
+    workflows:
+      - huntx-production
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Successful huntx-production workflow run ID to republish
+        required: true
+        type: string
+      source_run_attempt:
+        description: Current attempt number for the source run
+        required: true
+        default: "1"
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: publish-generated-outputs
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish verified generated snapshot
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Resolve and validate source run
+        id: source
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const expectedPath = '.github/workflows/huntx.yml';
+            let runId;
+            let expectedAttempt;
+
+            if (context.eventName === 'workflow_run') {
+              runId = Number(context.payload.workflow_run.id);
+              expectedAttempt = Number(context.payload.workflow_run.run_attempt);
+            } else if (context.eventName === 'workflow_dispatch') {
+              runId = Number('${{ inputs.source_run_id }}');
+              expectedAttempt = Number('${{ inputs.source_run_attempt }}');
+            } else if (context.eventName === 'push') {
+              const { data } = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'huntx.yml',
+                branch: 'main',
+                status: 'completed',
+                per_page: 50,
+              });
+              const candidate = data.workflow_runs.find(
+                run => run.conclusion === 'success'
+                  && run.path === expectedPath
+                  && run.name === 'huntx-production',
+              );
+              if (!candidate) {
+                core.setFailed(
+                  'No completed successful huntx-production run is available for control-plane republish.',
+                );
+                return;
+              }
+              runId = Number(candidate.id);
+              expectedAttempt = Number(candidate.run_attempt);
+            } else {
+              core.setFailed(`Unsupported publication event: ${context.eventName}`);
+              return;
+            }
+
+            if (!Number.isSafeInteger(runId) || runId <= 0) {
+              core.setFailed(`Invalid source workflow run ID: ${runId}`);
+              return;
+            }
+            if (!Number.isSafeInteger(expectedAttempt) || expectedAttempt <= 0) {
+              core.setFailed(`Invalid source workflow run attempt: ${expectedAttempt}`);
+              return;
+            }
+
+            const { data: run } = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: runId,
+            });
+
+            if (run.path !== expectedPath || run.name !== 'huntx-production') {
+              core.setFailed(
+                `Run ${runId} is not the trusted producer: name=${run.name} path=${run.path}`,
+              );
+              return;
+            }
+            if (run.head_branch !== 'main') {
+              core.setFailed(`Run ${runId} did not execute from main: ${run.head_branch}`);
+              return;
+            }
+            if (run.status !== 'completed' || run.conclusion !== 'success') {
+              core.setFailed(
+                `Run ${runId} is not a completed success: status=${run.status} conclusion=${run.conclusion}`,
+              );
+              return;
+            }
+            if (Number(run.run_attempt) !== expectedAttempt) {
+              core.setFailed(
+                `Attempt mismatch for run ${runId}: expected=${expectedAttempt} current=${run.run_attempt}`,
+              );
+              return;
+            }
+
+            core.setOutput('run_id', String(runId));
+            core.setOutput('run_attempt', String(run.run_attempt));
+            core.setOutput('head_sha', String(run.head_sha));
+            core.setOutput('head_branch', String(run.head_branch));
+            core.setOutput('created_at', String(run.created_at));
+            core.notice(
+              `Publishing huntx-production run ${runId}, attempt ${run.run_attempt}, commit ${run.head_sha}, event ${context.eventName}`,
+            );
+
+      - name: Checkout publisher control plane
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Restore previous generated snapshot
+        id: previous
+        env:
+          PREVIOUS_ROOT: ${{ runner.temp }}/huntx-previous-generated
+        run: |
+          set -euo pipefail
+          rm -rf "$PREVIOUS_ROOT"
+          remote_sha="$(git ls-remote --heads origin refs/heads/generated-outputs | awk '{print $1}')"
+          echo "sha=$remote_sha" >> "$GITHUB_OUTPUT"
+          if [[ -z "$remote_sha" ]]; then
+            mkdir -p "$PREVIOUS_ROOT"
+            echo "No previous generated snapshot exists; starting cumulative publication from this run."
+            exit 0
+          fi
+          git fetch --no-tags origin \
+            refs/heads/generated-outputs:refs/remotes/origin/generated-outputs
+          git worktree add --detach "$PREVIOUS_ROOT" refs/remotes/origin/generated-outputs
+          test -s "$PREVIOUS_ROOT/outputs_dev/_manifest.json"
+
+      - name: Download verified checkpoint handoff
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: runtime-checkpoint-${{ steps.source.outputs.run_id }}-${{ steps.source.outputs.run_attempt }}
+          path: ${{ runner.temp }}/huntx-publication/checkpoint
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.source.outputs.run_id }}
+
+      - name: Download distributable output
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: huntx-output-${{ steps.source.outputs.run_id }}-${{ steps.source.outputs.run_attempt }}
+          path: ${{ runner.temp }}/huntx-publication/dist
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.source.outputs.run_id }}
+
+      - name: Download structured runtime diagnostics
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: huntx-logs-${{ steps.source.outputs.run_id }}-${{ steps.source.outputs.run_attempt }}
+          path: ${{ runner.temp }}/huntx-publication/logs
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.source.outputs.run_id }}
+
+      - name: Assemble and verify publication snapshot
+        env:
+          SOURCE_ROOT: ${{ runner.temp }}/huntx-publication
+          PREVIOUS_ROOT: ${{ runner.temp }}/huntx-previous-generated
+          LEGACY_DEV_ROOT: ${{ github.workspace }}/outputs_dev
+          SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ steps.source.outputs.run_attempt }}
+          SOURCE_HEAD_SHA: ${{ steps.source.outputs.head_sha }}
+          SOURCE_HEAD_BRANCH: ${{ steps.source.outputs.head_branch }}
+          SOURCE_CREATED_AT: ${{ steps.source.outputs.created_at }}
+        run: |
+          set -euo pipefail
+          python -m compileall -q \
+            scripts/assemble_generated_snapshot.py \
+            scripts/sync_generated_outputs_to_main.py
+          python scripts/assemble_generated_snapshot.py \
+            --checkpoint-root "$SOURCE_ROOT/checkpoint" \
+            --dist-root "$SOURCE_ROOT/dist" \
+            --logs-root "$SOURCE_ROOT/logs" \
+            --previous-snapshot-root "$PREVIOUS_ROOT" \
+            --legacy-dev-root "$LEGACY_DEV_ROOT" \
+            --destination "$SOURCE_ROOT/snapshot" \
+            --run-id "$SOURCE_RUN_ID" \
+            --run-attempt "$SOURCE_RUN_ATTEMPT" \
+            --head-sha "$SOURCE_HEAD_SHA" \
+            --head-branch "$SOURCE_HEAD_BRANCH" \
+            --source-created-at "$SOURCE_CREATED_AT"
+          test -n "$(find "$SOURCE_ROOT/snapshot/outputs" -type f -size +0c -print -quit)"
+          test -s "$SOURCE_ROOT/snapshot/outputs_dev/_manifest.json"
+          test -s "$SOURCE_ROOT/snapshot/manifests/main-sync-files.txt"
+
+      - name: Commit atomic generated-only snapshot
+        env:
+          SNAPSHOT_ROOT: ${{ runner.temp }}/huntx-publication/snapshot
+          SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ steps.source.outputs.run_attempt }}
+          RESTORED_SHA: ${{ steps.previous.outputs.sha }}
+        run: |
+          set -euo pipefail
+
+          remote_sha="$(git ls-remote --heads origin refs/heads/generated-outputs | awk '{print $1}')"
+          if [[ "$remote_sha" != "$RESTORED_SHA" ]]; then
+            echo "::error title=Generated snapshot advanced::Restored $RESTORED_SHA but remote is now $remote_sha; rerun to merge the newest cumulative manifest."
+            exit 1
+          fi
+
+          if [[ -n "$remote_sha" ]]; then
+            git fetch --no-tags origin "$remote_sha"
+            git checkout -B generated-outputs-next "$remote_sha"
+          else
+            git checkout --orphan generated-outputs-next
+          fi
+          git rm -rf . >/dev/null 2>&1 || true
+          git clean -fdx
+          cp -a "$SNAPSHOT_ROOT"/. .
+
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add --all
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "Generated snapshot is unchanged; branch update is idempotent."
+            exit 0
+          fi
+          git commit -m "Publish HUNTX outputs from run ${SOURCE_RUN_ID}/${SOURCE_RUN_ATTEMPT}"
+
+          if [[ -n "$remote_sha" ]]; then
+            git push origin HEAD:refs/heads/generated-outputs \
+              --force-with-lease="refs/heads/generated-outputs:${remote_sha}"
+          else
+            git push origin HEAD:refs/heads/generated-outputs
+          fi
+
+      - name: Mirror verified outputs to main
+        env:
+          SNAPSHOT_ROOT: ${{ runner.temp }}/huntx-publication/snapshot
+          SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ steps.source.outputs.run_attempt }}
+        run: |
+          set -euo pipefail
+
+          for attempt in 1 2 3; do
+            git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main
+            git checkout -B generated-main-sync refs/remotes/origin/main
+            python scripts/sync_generated_outputs_to_main.py \
+              --snapshot-root "$SNAPSHOT_ROOT" \
+              --repo-root "$GITHUB_WORKSPACE" \
+              --inventory-path .github/huntx-generated-files.txt
+
+            test -n "$(find outputs -type f -size +0c -print -quit)"
+            test -s outputs_dev/_manifest.json
+            test -f outputs/verify_output.py
+
+            git add -- outputs outputs_dev .github/huntx-generated-files.txt
+            git diff --cached --check
+            if git diff --cached --quiet; then
+              echo "Main output mirror is already current."
+              exit 0
+            fi
+
+            git commit -m "Update HUNTX outputs from run ${SOURCE_RUN_ID}/${SOURCE_RUN_ATTEMPT}"
+            if git push origin HEAD:refs/heads/main; then
+              exit 0
+            fi
+
+            if (( attempt == 3 )); then
+              echo "::error title=Main output mirror failed::Could not update main after 3 concurrency-safe attempts."
+              exit 1
+            fi
+            git reset --hard
+            git clean -fd -- outputs outputs_dev
+            sleep $((attempt * 2))
+          done
+
+      - name: Summarize publication
+        if: always()
+        run: |
+          {
+            echo "## Generated output publication"
+            echo
+            echo "- Trigger: \`${{ github.event_name }}\`"
+            echo "- Source run: \`${{ steps.source.outputs.run_id || 'unresolved' }}\`"
+            echo "- Source attempt: \`${{ steps.source.outputs.run_attempt || 'unresolved' }}\`"
+            echo "- Source commit: \`${{ steps.source.outputs.head_sha || 'unresolved' }}\`"
+            echo "- Previous generated commit: \`${{ steps.previous.outputs.sha || 'none' }}\`"
+            echo "- Generated data branch: \`generated-outputs\`"
+            echo "- Source-branch mirrors: \`main/outputs\`, \`main/outputs_dev\`"
+            echo "- \`outputs/\` scope: source run"
+            echo "- \`outputs_dev/\` scope: cumulative across publications and legacy history"
+            echo "- Job status: **${{ job.status }}**"
+          } >> "$GITHUB_STEP_SUMMARY"

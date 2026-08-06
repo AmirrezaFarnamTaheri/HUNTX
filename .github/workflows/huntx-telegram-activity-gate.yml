@@ -1,0 +1,37 @@
+name: HUNTX Telegram Activity Gate
+
+on:
+  workflow_run:
+    workflows:
+      - huntx-production
+    types:
+      - completed
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  telegram-activity-check:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect HUNTX runtime diagnostics
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const runId = context.payload.workflow_run.id;
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: runId
+            });
+
+            const logs = artifacts.data.artifacts.find(a => a.name.startsWith('huntx-logs-') && !a.expired);
+            if (!logs) {
+              core.setFailed('No HUNTX runtime logs artifact found. Investigation evidence is missing.');
+              return;
+            }
+
+            core.info(`Found runtime diagnostics artifact: ${logs.name}`);
+            core.info('Telegram activity validation is now enforced through runtime diagnostics.');
