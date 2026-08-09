@@ -73,14 +73,12 @@ def checkpoint_state(db_path: Path, raw_dir: Path) -> dict[str, Any]:
 
         missing: list[sqlite3.Row] = []
         if _table_exists(conn, "seen_files"):
-            rows = conn.execute(
-                """
+            rows = conn.execute("""
                 SELECT id, source_id, raw_hash, metadata_json
                 FROM seen_files
                 WHERE status='pending'
                 ORDER BY id
-                """
-            ).fetchall()
+                """).fetchall()
             for row in rows:
                 raw_hash = str(row["raw_hash"])
                 if len(raw_hash) != 64 or not _raw_path(raw_dir, raw_hash).is_file():
@@ -128,19 +126,14 @@ def checkpoint_state(db_path: Path, raw_dir: Path) -> dict[str, Any]:
 
         remaining_missing = 0
         if _table_exists(conn, "seen_files"):
-            rows = conn.execute(
-                "SELECT raw_hash FROM seen_files WHERE status='pending'"
-            ).fetchall()
+            rows = conn.execute("SELECT raw_hash FROM seen_files WHERE status='pending'").fetchall()
             remaining_missing = sum(
                 1
                 for row in rows
-                if len(str(row["raw_hash"])) != 64
-                or not _raw_path(raw_dir, str(row["raw_hash"])).is_file()
+                if len(str(row["raw_hash"])) != 64 or not _raw_path(raw_dir, str(row["raw_hash"])).is_file()
             )
         if remaining_missing:
-            raise RuntimeError(
-                f"{remaining_missing} pending observation(s) still reference missing raw blobs"
-            )
+            raise RuntimeError(f"{remaining_missing} pending observation(s) still reference missing raw blobs")
 
     return {
         "checkpoint": list(checkpoint) if checkpoint is not None else None,

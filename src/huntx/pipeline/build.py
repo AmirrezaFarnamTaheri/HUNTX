@@ -10,7 +10,6 @@ from collections import defaultdict
 from typing import Any, Optional
 from urllib.parse import parse_qs, unquote, urlparse
 
-from ..formats.common.b64 import b64_decode as _b64_decode
 from ..formats.registry import FormatRegistry
 from ..state.repo import StateRepo
 from ..store.artifact_store import ArtifactStore
@@ -63,6 +62,13 @@ class BuildPipeline:
             return lock
 
     @staticmethod
+    def _b64_decode(data: str) -> str:
+        """Base64 decode with auto-padding, including URL-safe variants."""
+        normalized = data.replace("-", "+").replace("_", "/")
+        normalized += "=" * ((4 - len(normalized) % 4) % 4)
+        return base64.b64decode(normalized).decode("utf-8", errors="ignore")
+
+    @staticmethod
     def _parse_standard_uri(line: str, protocol: str) -> dict[str, Any]:
         try:
             parsed = urlparse(line)
@@ -87,7 +93,7 @@ class BuildPipeline:
     @staticmethod
     def _decode_vmess(line: str) -> dict[str, Any]:
         try:
-            obj = json.loads(_b64_decode(line[8:]))
+            obj = json.loads(BuildPipeline._b64_decode(line[8:]))
             return {"protocol": "vmess", "decoded": obj, "raw": line}
         except Exception:
             return {"protocol": "vmess", "raw": line, "error": "decode_failed"}
@@ -104,7 +110,7 @@ class BuildPipeline:
             if "@" in rest:
                 userinfo, hostport = rest.rsplit("@", 1)
                 try:
-                    decoded_ui = _b64_decode(userinfo)
+                    decoded_ui = BuildPipeline._b64_decode(userinfo)
                     method, password = decoded_ui.split(":", 1) if ":" in decoded_ui else (decoded_ui, "")
                 except Exception:
                     parts = unquote(userinfo).split(":", 1)
@@ -122,7 +128,7 @@ class BuildPipeline:
                     "raw": line,
                 }
 
-            decoded = _b64_decode(rest.split("?", 1)[0])
+            decoded = BuildPipeline._b64_decode(rest.split("?", 1)[0])
             if "@" in decoded:
                 method_password, host_port = decoded.rsplit("@", 1)
                 method, password = method_password.split(":", 1) if ":" in method_password else (method_password, "")
@@ -147,7 +153,7 @@ class BuildPipeline:
     @staticmethod
     def _decode_ssr(line: str) -> dict[str, Any]:
         try:
-            decoded = _b64_decode(line[6:])
+            decoded = BuildPipeline._b64_decode(line[6:])
             main_part, _, param_part = decoded.partition("/?")
             parts = main_part.split(":")
             if len(parts) >= 6:
@@ -160,7 +166,7 @@ class BuildPipeline:
                     "ssr_protocol": protocol,
                     "method": method,
                     "obfs": obfs,
-                    "password": _b64_decode(b64pass),
+                    "password": BuildPipeline._b64_decode(b64pass),
                 }
                 if param_part:
                     for item in param_part.split("&"):
@@ -168,7 +174,7 @@ class BuildPipeline:
                             continue
                         key, value = item.split("=", 1)
                         try:
-                            result[key] = _b64_decode(value)
+                            result[key] = BuildPipeline._b64_decode(value)
                         except Exception:
                             result[key] = value
                 result["raw"] = line

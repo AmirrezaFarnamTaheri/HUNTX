@@ -1,12 +1,11 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from huntx.core.unified_orchestrator import UnifiedOrchestrator
 from huntx.config.schema import (
     AppConfig,
     SourceConfig,
     TelegramSourceConfig,
-    TelegramUserSourceConfig,
     PublishRoute,
     DestinationConfig,
     SourceSelector,

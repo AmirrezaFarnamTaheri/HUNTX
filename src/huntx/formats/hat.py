@@ -57,7 +57,13 @@ class HatHandler(OpaqueBundleHandler):
 
         # Try decrypting as a .tut/.tmt format (some .hat are actually these)
         try:
-            text = raw_data.decode("utf-8", "strip")
+            # "strip" is not a registered codec error handler; because handlers
+            # are resolved lazily, any .hat containing a single invalid UTF-8
+            # byte raised LookupError here, which the broad `except Exception`
+            # below swallowed — silently disabling this entire .tut/.tmt
+            # fallback branch for exactly the binary-ish files it exists to
+            # handle. "ignore" is the intended behavior.
+            text = raw_data.decode("utf-8", "ignore")
             if "." in text and len(text) > 50:
                 decrypted = decrypt_tut_data(text, extension=".tmt")
                 if decrypted:

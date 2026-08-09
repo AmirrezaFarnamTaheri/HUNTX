@@ -1,8 +1,8 @@
-import datetime
 import logging
 import time
-from typing import Any, Dict
-from telethon import Button, events
+import datetime
+from typing import Dict, Any
+from telethon import events, Button
 from .constants import WELCOME_TEXT, _ALL_VALID_FORMATS, _FORMAT_LABELS
 
 logger = logging.getLogger(__name__)
@@ -18,23 +18,21 @@ class HandlersMixin:
 
     def _register_handlers(self):
         """Register all event handlers and the callback query handler."""
-        reg = self.client.add_event_handler  # type: ignore[attr-defined]
-        NM = events.NewMessage
-        reg(self._on_start, NM(pattern=r"(?i)/start"))
-        reg(self._on_help, NM(pattern=r"(?i)/help"))
-        reg(self._on_get, NM(pattern=r"(?i)/get"))
-        reg(self._on_latest, NM(pattern=r"(?i)/latest"))
-        reg(self._on_formats, NM(pattern=r"(?i)/formats"))
-        reg(self._on_setformat, NM(pattern=r"(?i)/setformat"))
-        reg(self._on_myinfo, NM(pattern=r"(?i)/myinfo"))
-        reg(self._on_status, NM(pattern=r"(?i)/status"))
-        reg(self._on_protocols, NM(pattern=r"(?i)/protocols"))
-        reg(self._on_count, NM(pattern=r"(?i)/count"))
-        reg(self._on_ping, NM(pattern=r"(?i)/ping"))
-        reg(self._on_mute, NM(pattern=r"(?i)/mute"))
-        reg(self._on_unmute, NM(pattern=r"(?i)/unmute"))
-        reg(self._on_admin, NM(pattern=r"(?i)/admin"))
-        reg(self._on_callback, events.CallbackQuery())
+        self.client.add_event_handler(self._on_start, events.NewMessage(pattern=r"(?i)/start"))  # type: ignore[attr-defined]
+        self.client.add_event_handler(self._on_help, events.NewMessage(pattern=r"(?i)/help"))  # type: ignore[attr-defined]
+        self.client.add_event_handler(self._on_get, events.NewMessage(pattern=r"(?i)/get"))  # type: ignore[attr-defined]
+        self.client.add_event_handler(self._on_latest, events.NewMessage(pattern=r"(?i)/latest"))  # type: ignore[attr-defined]
+        self.client.add_event_handler(self._on_formats, events.NewMessage(pattern=r"(?i)/formats"))  # type: ignore[attr-defined]
+        self.client.add_event_handler(self._on_setformat, events.NewMessage(pattern=r"(?i)/setformat"))  # type: ignore[attr-defined]
+        self.client.add_event_handler(self._on_myinfo, events.NewMessage(pattern=r"(?i)/myinfo"))  # type: ignore[attr-defined]
+        self.client.add_event_handler(self._on_status, events.NewMessage(pattern=r"(?i)/status"))  # type: ignore[attr-defined]
+        self.client.add_event_handler(self._on_protocols, events.NewMessage(pattern=r"(?i)/protocols"))  # type: ignore[attr-defined]
+        self.client.add_event_handler(self._on_count, events.NewMessage(pattern=r"(?i)/count"))  # type: ignore[attr-defined]
+        self.client.add_event_handler(self._on_ping, events.NewMessage(pattern=r"(?i)/ping"))  # type: ignore[attr-defined]
+        self.client.add_event_handler(self._on_mute, events.NewMessage(pattern=r"(?i)/mute"))  # type: ignore[attr-defined]
+        self.client.add_event_handler(self._on_unmute, events.NewMessage(pattern=r"(?i)/unmute"))  # type: ignore[attr-defined]
+        self.client.add_event_handler(self._on_admin, events.NewMessage(pattern=r"(?i)/admin"))  # type: ignore[attr-defined]
+        self.client.add_event_handler(self._on_callback, events.CallbackQuery())  # type: ignore[attr-defined]
 
     def _build_setformat_keyboard(self, user_id: str):
         current = self._get_user_pref(user_id)  # type: ignore[attr-defined]
@@ -53,30 +51,6 @@ class HandlersMixin:
             buttons.append(row_buttons)
         buttons.append([Button.inline("🔙 Back to Settings", b"cmd:myinfo")])
         return buttons
-
-    async def _check_rate_limit(self, event, cooldown_seconds=5) -> bool:
-        """Rate limit check to prevent resource exhaustion / flood-bans.
-        Returns True if the request is allowed, False if it is rate-limited.
-        """
-        user_id = getattr(event, "sender_id", None)
-        if not user_id:
-            return True
-
-        if self._is_admin(str(user_id)):  # type: ignore[attr-defined]
-            return True
-
-        now = time.time()
-        last_time = self._user_cooldowns.get(user_id, 0.0)  # type: ignore[attr-defined]
-        elapsed = now - last_time
-        if elapsed < cooldown_seconds:
-            wait_time = int(cooldown_seconds - elapsed) + 1
-            await event.respond(
-                f"⚠️ **Slow down!** Please wait {wait_time}s before using this command again.", parse_mode="md"
-            )
-            return False
-
-        self._user_cooldowns[user_id] = now  # type: ignore[attr-defined]
-        return True
 
     async def _on_start(self, event):
         """Register user and send welcome with quick-action buttons."""
@@ -306,88 +280,6 @@ class HandlersMixin:
         )
         await event.respond(msg, parse_mode="md")
 
-    async def _on_callback(self, event):
-        """Handle inline button presses."""
-        data = event.data.decode("utf-8") if event.data else ""
-        user_id = str(event.sender_id)
-        chat_id = event.chat_id
-
-        try:
-            if data.startswith("get:"):
-                fmt = data.split(":", 1)[1]
-                await event.answer(f"Fetching {fmt}...")
-                await self._send_format_to_user(chat_id, fmt)
-
-            elif data.startswith("setfmt:"):
-                fmt = data.split(":", 1)[1]
-                if fmt in _ALL_VALID_FORMATS:
-                    self._set_user_pref(user_id, fmt)
-                    label = _FORMAT_LABELS.get(fmt, fmt)
-                    await event.answer(f"Default set to {fmt} ✅")
-                    buttons = self._build_setformat_keyboard(user_id)
-                    await event.edit(
-                        f"⚙️ **Set Default Format**\n\n"
-                        f"Current: `{fmt}` ({label})\n\n"
-                        f"Pick below or type `/setformat <format>`:",
-                        parse_mode="md",
-                        buttons=buttons,
-                    )
-
-            elif data.startswith("cmd:"):
-                cmd = data.split(":", 1)[1]
-                if cmd == "formats":
-                    await event.answer()
-                    await self._respond_formats(chat_id)
-                elif cmd == "myinfo":
-                    await event.answer()
-                    await self._respond_myinfo(chat_id, user_id, event=event)
-                elif cmd == "mute":
-                    self._register_user(user_id, str(chat_id))
-                    with self.db.connect() as conn:
-                        conn.execute("UPDATE bot_users SET muted = 1 WHERE user_id = ?", (user_id,))
-                    await event.answer("Auto-delivery paused 🔇")
-                    await self._respond_myinfo(chat_id, user_id, event=event)
-                elif cmd == "unmute":
-                    self._register_user(user_id, str(chat_id))
-                    with self.db.connect() as conn:
-                        conn.execute("UPDATE bot_users SET muted = 0 WHERE user_id = ?", (user_id,))
-                    await event.answer("Auto-delivery resumed 🔔")
-                    await self._respond_myinfo(chat_id, user_id, event=event)
-                elif cmd == "setformat":
-                    await event.answer()
-                    current = self._get_user_pref(user_id)  # type: ignore[attr-defined]
-                    label = _FORMAT_LABELS.get(current, current)
-                    buttons = self._build_setformat_keyboard(user_id)
-                    await event.edit(
-                        f"⚙️ **Set Default Format**\n\n"
-                        f"Current: `{current}` ({label})\n\n"
-                        f"Pick a new default format:",
-                        parse_mode="md",
-                        buttons=buttons,
-                    )
-            elif data.startswith("admin:"):
-                sender = await event.get_sender()
-                username = getattr(sender, "username", None)
-                if not self._is_admin(user_id, username):  # type: ignore[attr-defined]
-                    await event.answer("❌ Access Denied", alert=True)
-                    return
-
-                action = data.split(":", 1)[1]
-                if action == "run":
-                    await event.answer("Starting pipeline run...")
-                    await self._trigger_background_run(event)
-                elif action.startswith("prune:"):
-                    days = int(action.split(":", 1)[1])
-                    await self._perform_admin_prune(event, days)
-                elif action == "stats":
-                    await event.answer("Refreshing statistics...")
-                    await self._respond_admin_dashboard(event, edit=True)
-            else:
-                await event.answer("Unknown action")
-        except Exception as e:
-            logger.exception(f"[GatherX] Callback error: {e}")
-            await event.answer(f"Error: {e}"[:200])
-
     async def _respond_formats(self, chat_id: int):
         """Send formats list to a chat."""
         text_fmts = ["npvt", "npvtsub", "conf_lines", "b64sub", "decoded.json"]
@@ -400,8 +292,7 @@ class HandlersMixin:
             lines.append(f"  `{f}` — {_FORMAT_LABELS.get(f, f)}")
         lines.append("\nUse `/get <format>` to download.")
         buttons = [[Button.inline("📋 Get npvt", b"get:npvt"), Button.inline("🔗 Get b64sub", b"get:b64sub")]]
-        send_msg = self.client.send_message  # type: ignore[attr-defined]
-        await send_msg(chat_id, "\n".join(lines), parse_mode="md", buttons=buttons)
+        await self.client.send_message(chat_id, "\n".join(lines), parse_mode="md", buttons=buttons)  # type: ignore[attr-defined]
 
     async def _respond_myinfo(self, chat_id: int, user_id: str, event=None):
         """Send or edit user settings to a chat."""

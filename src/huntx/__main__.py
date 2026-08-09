@@ -1,4 +1,4 @@
-from .cli.main import main
+from .cli.hardened_main import main
 
 if __name__ == "__main__":
     main()

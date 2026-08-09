@@ -74,7 +74,16 @@ class TestOrchestrator(unittest.TestCase):
 
         # Setup mocks
         mock_build_pipeline = MockBuild.return_value
-        mock_build_pipeline.run.return_value = ["fake_result"]
+        mock_build_pipeline.run.return_value = [
+            {
+                "route_name": "route1",
+                "format": "fmt",
+                "unique_id": "route1:fmt",
+                "artifact_hash": "a" * 64,
+                "data": b"artifact",
+                "count": 1,
+            }
+        ]
 
         orch.run()
 

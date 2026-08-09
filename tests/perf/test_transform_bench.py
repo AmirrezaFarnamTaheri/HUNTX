@@ -3,7 +3,6 @@
 Throughput benchmark for TransformPipeline._process_single_file.
 Run with: pytest tests/perf/test_transform_bench.py -m perf -v
 """
-import time
 import pytest
 from unittest.mock import MagicMock
 from huntx.utils.profiler import wall_clock

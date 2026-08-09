@@ -22,7 +22,7 @@ class TestV2RayCollectorConnector(unittest.TestCase):
             "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpZNUVKWm9qVk1FTnZrRFZG@62.133.63.169:37096#Config1",
             "vless://3f3bb5cc-da8b-4551-8b76-ba223f1a5255@18.192.50.101:443?security=none#Config2",
         ]
-        
+
         # Setup subprocess run mock to create the file (simulating Go collector execution)
         def side_effect(*args, **kwargs):
             with open(output_file, "w", encoding="utf-8") as f:

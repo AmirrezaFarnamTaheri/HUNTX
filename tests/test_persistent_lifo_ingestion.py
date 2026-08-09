@@ -54,12 +54,8 @@ def test_exact_boundary_excludes_new_active_window(tmp_path):
     assert seed["anchor_ts"] == 10_800
     assert seed["target_start_ts"] == 7200
     with db.connect() as conn:
-        rows = conn.execute(
-            "SELECT window_start_ts, window_end_ts FROM ingestion_work_items"
-        ).fetchall()
-    assert [(row["window_start_ts"], row["window_end_ts"]) for row in rows] == [
-        (7200, 10_800)
-    ]
+        rows = conn.execute("SELECT window_start_ts, window_end_ts FROM ingestion_work_items").fetchall()
+    assert [(row["window_start_ts"], row["window_end_ts"]) for row in rows] == [(7200, 10_800)]
 
 
 def test_non_divisible_lookback_rounds_outward_to_aligned_closed_windows(tmp_path):
@@ -101,6 +97,7 @@ def test_partial_page_rotates_sources_within_same_second(tmp_path):
         queue.checkpoint_page(
             first.id,
             "run-a",
+            lease_token=first.lease_token,
             continuation_cursor=900,
             items_ingested=3,
             bytes_ingested=12,
@@ -147,7 +144,13 @@ def test_terminal_stale_work_does_not_block_older_windows(tmp_path):
     )
     newest = queue.claim_next("run", lease_seconds=60, now=10_000)
     assert newest is not None
-    queue.mark_terminal(newest.id, "run", "source removed", now=10_000)
+    queue.mark_terminal(
+        newest.id,
+        "run",
+        "source removed",
+        lease_token=newest.lease_token,
+        now=10_000,
+    )
 
     older = queue.claim_next("run", lease_seconds=60, now=10_000)
     assert older is not None
@@ -195,6 +198,7 @@ def test_file_insert_and_residue_checkpoint_roll_back_together(tmp_path):
             queue.checkpoint_page(
                 item.id,
                 "run",
+                lease_token=item.lease_token,
                 continuation_cursor=42,
                 items_ingested=1,
                 bytes_ingested=3,
@@ -212,6 +216,37 @@ def test_file_insert_and_residue_checkpoint_roll_back_together(tmp_path):
         ).fetchone()
     assert row["status"] == "leased"
     assert row["continuation_cursor"] is None
+
+
+def test_stale_lease_token_cannot_checkpoint_reclaimed_work(tmp_path):
+    db = open_db(tmp_path / "state.db")
+    queue = PersistentIngestionQueue(db)
+    queue.seed_rolling_horizon(
+        _sources("a"),
+        now=10_000,
+        lookback_seconds=3600,
+        window_seconds=3600,
+    )
+    stale = queue.claim_next("same-owner", lease_seconds=10, now=10_000)
+    assert stale is not None
+    assert queue.recover_expired_leases(now=10_011) == 1
+    current = queue.claim_next("same-owner", lease_seconds=60, now=10_012)
+    assert current is not None
+    assert current.lease_token != stale.lease_token
+
+    with pytest.raises(RuntimeError, match="lease was lost"):
+        with db.connect() as conn:
+            queue.checkpoint_page(
+                stale.id,
+                "same-owner",
+                lease_token=stale.lease_token,
+                continuation_cursor=99,
+                items_ingested=1,
+                bytes_ingested=1,
+                completed=False,
+                conn=conn,
+                now=10_013,
+            )
 
 
 def test_overlapping_campaigns_do_not_duplicate_source_windows(tmp_path):

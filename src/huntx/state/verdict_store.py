@@ -93,9 +93,13 @@ def get_records_for_governed_build(
                 " AND v.probe_status = 'pass'" " AND v.probe_expires_at IS NOT NULL" " AND v.probe_expires_at > ?"
             )
             args.append(float(now_epoch if now_epoch is not None else time.time()))
+    # DISTINCT: see the matching comment in StateRepo.get_records_for_build —
+    # seen_files.raw_hash is not unique, so this JOIN (and the verdict join)
+    # can fan one record out to several identical rows, which the final
+    # dedup join would then re-emit into the governed artifact.
     query = f"""
         WITH filtered AS (
-            SELECT r.id, r.record_type, r.unique_hash, r.data_json
+            SELECT DISTINCT r.id, r.record_type, r.unique_hash, r.data_json
             FROM records r
             JOIN seen_files s ON r.source_file_hash = s.raw_hash
             {verdict_join}

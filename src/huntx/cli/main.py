@@ -135,6 +135,14 @@ def _cmd_run(args):
             run_summary = orchestrator.run(timeout=run_timeout, no_publish=args.no_publish)
 
             # Health Gate check
+            status = run_summary.get("status", "failed")
+            allow_partial = os.getenv("HUNTX_ALLOW_PARTIAL_SUCCESS", "").strip().lower()
+            if status in {"failed", "timed_out"}:
+                logger.error("Health Gate FAILED: run status=%s", status)
+                sys.exit(1)
+            if status == "partial" and allow_partial not in {"1", "true", "yes"}:
+                logger.error("Health Gate FAILED: partial run requires " "HUNTX_ALLOW_PARTIAL_SUCCESS=true")
+                sys.exit(1)
             total_artifacts = run_summary.get("total_artifacts", 0)
             publish_attempts = run_summary.get("publish_attempts", 0)
             publish_failures = run_summary.get("publish_failures", 0)

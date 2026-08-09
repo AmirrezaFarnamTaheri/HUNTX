@@ -1,4 +1,3 @@
-import pytest
 from huntx.core.scoring import ProxyScoringEngine
 
 

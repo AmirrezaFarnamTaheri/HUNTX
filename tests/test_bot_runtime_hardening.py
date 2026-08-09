@@ -67,9 +67,7 @@ class TestCallbackHardening(unittest.IsolatedAsyncioTestCase):
         self.bot._COOLDOWN_MAX_ENTRIES = 3
         self.bot._COOLDOWN_TTL_SECONDS = 10
         now = time.time()
-        self.bot._user_cooldowns.update(
-            [(1, now - 100), (2, now - 1), (3, now - 1), (4, now - 1), (5, now - 1)]
-        )
+        self.bot._user_cooldowns.update([(1, now - 100), (2, now - 1), (3, now - 1), (4, now - 1), (5, now - 1)])
 
         self.bot._prune_cooldowns(now)
 
@@ -134,11 +132,14 @@ class TestDeliveryRecovery(unittest.IsolatedAsyncioTestCase):
                 raise _flood_wait(1)
             return "ok"
 
-        with patch.dict(
-            os.environ,
-            {"HUNTX_FLOODWAIT_MAX_SECONDS": "5", "HUNTX_FLOODWAIT_MAX_RETRIES": "2"},
-            clear=False,
-        ), patch("huntx.bot.delivery.asyncio.sleep", new=AsyncMock()):
+        with (
+            patch.dict(
+                os.environ,
+                {"HUNTX_FLOODWAIT_MAX_SECONDS": "5", "HUNTX_FLOODWAIT_MAX_RETRIES": "2"},
+                clear=False,
+            ),
+            patch("huntx.bot.delivery.asyncio.sleep", new=AsyncMock()),
+        ):
             result = await harness._send_with_floodwait(method)
 
         self.assertEqual(result, "ok")
@@ -166,8 +167,7 @@ class TestDeliveryRecovery(unittest.IsolatedAsyncioTestCase):
     def test_checkpoint_persists_partial_progress(self):
         conn = sqlite3.connect(":memory:")
         conn.row_factory = sqlite3.Row
-        conn.executescript(
-            """
+        conn.executescript("""
             CREATE TABLE bot_users (
                 user_id TEXT PRIMARY KEY,
                 chat_id TEXT NOT NULL,
@@ -183,14 +183,11 @@ class TestDeliveryRecovery(unittest.IsolatedAsyncioTestCase):
                 updated_at REAL NOT NULL
             );
             INSERT INTO bot_users (user_id, chat_id, registered_at) VALUES ('1', '1', 0);
-            """
-        )
+            """)
         harness = _DeliveryHarness()
         harness.db = _DB(conn)
 
-        harness._record_delivery_checkpoint(
-            "1", attempted=3, sent=2, failed=1, error="TimeoutError"
-        )
+        harness._record_delivery_checkpoint("1", attempted=3, sent=2, failed=1, error="TimeoutError")
 
         row = conn.execute("SELECT * FROM bot_delivery_checkpoint WHERE user_id='1'").fetchone()
         self.assertEqual((row["attempted"], row["sent"], row["failed"]), (3, 2, 1))

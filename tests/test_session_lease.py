@@ -1,6 +1,7 @@
 import asyncio
 import os
 import tempfile
+import json
 import unittest
 from pathlib import Path
 
@@ -53,6 +54,41 @@ class TestSessionLease(unittest.IsolatedAsyncioTestCase):
                 await asyncio.sleep(0)
                 self.assertTrue(session_lease_path(self.root, "one").exists())
                 self.assertTrue(session_lease_path(self.root, "two").exists())
+
+    async def test_live_lease_heartbeats(self) -> None:
+        lock_path = session_lease_path(self.root, "identity")
+        async with acquire_session_lease(
+            self.root,
+            "identity",
+            timeout_seconds=0.1,
+            stale_after_seconds=0.2,
+            heartbeat_seconds=0.02,
+        ):
+            before = lock_path.stat().st_mtime_ns
+            await asyncio.sleep(0.06)
+            self.assertGreater(lock_path.stat().st_mtime_ns, before)
+
+    async def test_old_owner_cannot_remove_replacement_lease(self) -> None:
+        lock_path = session_lease_path(self.root, "identity")
+        async with acquire_session_lease(
+            self.root,
+            "identity",
+            timeout_seconds=0.1,
+            heartbeat_seconds=10,
+        ):
+            replacement = {
+                "lease_id": "replacement-owner",
+                "pid": os.getpid(),
+                "created_at": 1,
+                "heartbeat_at": 1,
+                "session_sha256": "replacement",
+            }
+            lock_path.write_text(json.dumps(replacement), encoding="utf-8")
+        self.assertTrue(lock_path.exists())
+        self.assertEqual(
+            json.loads(lock_path.read_text(encoding="utf-8"))["lease_id"],
+            "replacement-owner",
+        )
 
 
 if __name__ == "__main__":

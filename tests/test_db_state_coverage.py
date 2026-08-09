@@ -43,9 +43,10 @@ class TestDBStateCoverage(unittest.TestCase):
                 "SELECT raw_hash, file_size, filename, status FROM seen_files WHERE external_id=?", ("ext1",)
             )
             row = cursor.fetchone()
-            self.assertEqual(row[0], "hash1")
-            self.assertEqual(row[1], 100)
-            self.assertEqual(row[3], "pending")
+            self.assertEqual(row[0], "hash2")
+            self.assertEqual(row[1], 200)
+            self.assertEqual(row[2], "f1_v2.txt")
+            self.assertEqual(row[3], "processed")
 
     def test_get_pending_files(self):
         self.repo.record_file("src1", "ext1", "h1", 10, "f1", "pending", {})

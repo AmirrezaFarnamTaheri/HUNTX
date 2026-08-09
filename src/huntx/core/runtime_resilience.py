@@ -8,12 +8,18 @@ import time
 import uuid
 from typing import Any, Optional
 
-from .hardened_orchestrator import HardenedOrchestrator
 from . import optimized_orchestrator as optimized_module
+from .dev_manifest_contract import install_dev_manifest_contract
+from .hardened_orchestrator import HardenedOrchestrator
 from .optimized_orchestrator import OptimizedHardenedOrchestrator
+from .orchestrator import Orchestrator
+from .transform_contract import install_transform_contract
 from ..connectors.telegram_user.windowed import WindowedTelegramUserConnector
 
 logger = logging.getLogger(__name__)
+
+install_transform_contract()
+install_dev_manifest_contract(Orchestrator)
 
 
 def _bounded_float(name: str, default: float, minimum: float, maximum: float) -> float:
@@ -117,7 +123,7 @@ async def _canonical_ingestion_sources(
                         )
                     except asyncio.TimeoutError:
                         logger.error(
-                            "[LIFO] Timed out acquiring Telegram session for %s; " "preserving source",
+                            "[LIFO] Timed out acquiring Telegram session for %s; preserving source",
                             source.id,
                         )
                         connector = None
@@ -126,7 +132,7 @@ async def _canonical_ingestion_sources(
                         continue
                     except Exception:
                         logger.exception(
-                            "[LIFO] Failed acquiring Telegram session for %s; " "preserving source",
+                            "[LIFO] Failed acquiring Telegram session for %s; preserving source",
                             source.id,
                         )
                         connector = None
@@ -142,7 +148,7 @@ async def _canonical_ingestion_sources(
                     )
                 except asyncio.TimeoutError:
                     logger.error(
-                        "[LIFO] Canonical resolution timed out for %s after %.2fs; " "preserving source",
+                        "[LIFO] Canonical resolution timed out for %s after %.2fs; preserving source",
                         source.id,
                         operation_timeout,
                     )
@@ -153,7 +159,7 @@ async def _canonical_ingestion_sources(
                     continue
                 except Exception:
                     logger.exception(
-                        "[LIFO] Could not resolve canonical channel for %s; " "preserving source",
+                        "[LIFO] Could not resolve canonical channel for %s; preserving source",
                         source.id,
                     )
                     await _close_canonical_connector(self, connector)
@@ -175,7 +181,7 @@ async def _canonical_ingestion_sources(
             reason = f"duplicate canonical Telegram channel {channel_id}; owned by {existing}"
             terminalized = self._work_queue.terminalize_source(str(source.id), reason)
             logger.warning(
-                "[LIFO] Skipping alias source %s for canonical channel %s already " "owned by %s; terminalized=%s",
+                "[LIFO] Skipping alias source %s for canonical channel %s already owned by %s; terminalized=%s",
                 source.id,
                 channel_id,
                 existing,
@@ -230,9 +236,8 @@ async def _run_hardened(
         preflight_seconds = time.monotonic() - run_started
         remaining_total = None if timeout is None else max(0.0, timeout - preflight_seconds)
         logger.info(
-            "[Orchestrator] budgets total=%s remaining_after_preflight=%s "
-            "ingestion=%s completion_buffer=%s preflight_seconds=%.3f "
-            "lifo_campaign=%s seeded=%s recovered_leases=%s",
+            "[Orchestrator] budgets total=%s remaining_after_preflight=%s ingestion=%s "
+            "completion_buffer=%s preflight_seconds=%.3f lifo_campaign=%s seeded=%s recovered_leases=%s",
             timeout,
             remaining_total,
             ingestion_budget,

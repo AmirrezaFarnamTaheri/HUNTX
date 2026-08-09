@@ -4,6 +4,29 @@ from typing import Any, List, Optional
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
+_DESTINATION_MODE_ALIASES = {
+    "telegram": "telegram",
+    "post_on_change": "telegram",
+}
+
+
+def normalize_destination_mode(value: Any) -> str:
+    """Return the canonical transport mode for a configured destination.
+
+    ``post_on_change`` is the historical public configuration spelling. The
+    publisher has always used content hashes to suppress unchanged deliveries,
+    so it is a policy alias for the Telegram transport rather than a separate
+    transport implementation.
+    """
+
+    normalized = "telegram" if value is None else str(value).strip().lower()
+    try:
+        return _DESTINATION_MODE_ALIASES[normalized]
+    except KeyError as exc:
+        supported = ", ".join(sorted(_DESTINATION_MODE_ALIASES))
+        raise ValueError(f"Unsupported destination mode: {normalized!r}; supported values: {supported}") from exc
+
+
 class SourceTrustState(str, Enum):
     CANDIDATE = "candidate"
     APPROVED = "approved"
@@ -41,13 +64,26 @@ class TelegramUserSourceConfig(BaseModel):
     @field_validator("api_id", mode="before")
     @classmethod
     def validate_api_id(cls, v: Any) -> Optional[int]:
+        """Coerce ``api_id`` to an int, treating absent values as optional.
+
+        An unset, empty, or zero value is a legitimately *absent* credential
+        (e.g. a dev/test run without Telegram access) and maps to ``None``.
+        A non-empty value that cannot be parsed as an integer — such as a
+        typo or an unexpanded ``${...}`` placeholder — is a genuine
+        configuration error and is rejected loudly rather than silently
+        discarded.
+        """
         if v is None or v == "" or v == 0:
             return None
-        if isinstance(v, int):
-            return v
-        if isinstance(v, str) and (v.isdigit() or (v.startswith("-") and v[1:].isdigit())):
-            return int(v)
-        raise ValueError(f"Invalid api_id: {v}")
+        try:
+            parsed = int(v)
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f"Invalid api_id (must be an integer): {v!r}") from exc
+        # A string like "0" fails the `v == 0` check above (str != int in
+        # Python), so it reaches int() and must be normalized here too —
+        # otherwise the documented "zero maps to None" contract is broken
+        # for any zero value that arrives as text (env var, YAML string).
+        return None if parsed == 0 else parsed
 
 
 class SourceSelector(BaseModel):
@@ -88,6 +124,11 @@ class DestinationConfig(BaseModel):
     mode: str = "telegram"
     caption_template: str = "{filename}"
     token: Optional[str] = None
+
+    @field_validator("mode", mode="before")
+    @classmethod
+    def validate_mode(cls, value: Any) -> str:
+        return normalize_destination_mode(value)
 
 
 class PublishRoute(BaseModel):

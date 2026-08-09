@@ -7,7 +7,6 @@ import (
 	"time"
 )
 
-
 type CheckResult struct {
 	Target  string
 	Latency time.Duration

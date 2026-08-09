@@ -31,7 +31,7 @@ class TestConfigLoader(unittest.TestCase):
               formats: ["npvt"]
               destinations:
                 - chat_id: "-1002"
-                  mode: bundle
+                  mode: telegram
         """
         with open(self.config_path, "w") as f:
             f.write(config_content)
@@ -43,6 +43,7 @@ class TestConfigLoader(unittest.TestCase):
         # routes is accessed via property
         self.assertEqual(len(config.routes), 1)
         self.assertEqual(config.routes[0].name, "test_route")
+        self.assertEqual(config.routes[0].destinations[0].mode, "telegram")
 
     def test_load_telegram_user_config(self):
         config_content = """

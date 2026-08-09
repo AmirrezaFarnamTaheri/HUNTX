@@ -1,12 +1,15 @@
 import logging
 import os
 from pathlib import Path
-from ...logging_conf import setup_logging
+
 from ...config.loader import load_config
 from ...config.validate import validate_config
-from ...core.orchestrator import Orchestrator
 from ...core.locks import acquire_lock
+from ...core.orchestrator import Orchestrator
+from ...core.run_health import emit_run_health, evaluate_run_health
+from ...logging_conf import setup_logging
 from ...store import paths
+from ...utils.env import env_bool, env_int
 
 
 def run_command(config_path: str):
@@ -17,18 +20,23 @@ def run_command(config_path: str):
     paths.LOGS_DIR.mkdir(parents=True, exist_ok=True)
     log_file = paths.LOGS_DIR / "huntx.log"
     setup_logging(log_level=log_level, log_file=str(log_file))
+    logger = logging.getLogger(__name__)
 
     cfg_path = Path(config_path)
     if not cfg_path.exists():
-        logging.error(f"Config file not found: {cfg_path}")
-        return
+        logger.error("Config file not found: %s", cfg_path)
+        raise FileNotFoundError(f"Config file not found: {cfg_path}")
 
-    max_workers_str = os.getenv("HUNTX_MAX_WORKERS") or "3"
+    max_workers = env_int("HUNTX_MAX_WORKERS", 3, min_value=1, max_value=64)
+    timeout_raw = os.getenv("HUNTX_RUN_TIMEOUT", "12600")
     try:
-        max_workers = int(max_workers_str)
-    except ValueError:
-        logging.warning(f"Invalid HUNTX_MAX_WORKERS value '{max_workers_str}', defaulting to 3.")
-        max_workers = 3
+        run_timeout = float(timeout_raw)
+    except ValueError as exc:
+        raise ValueError(f"HUNTX_RUN_TIMEOUT must be numeric, got {timeout_raw!r}") from exc
+    if run_timeout <= 0:
+        raise ValueError("HUNTX_RUN_TIMEOUT must be greater than zero")
+
+    allow_partial_export = env_bool("HUNTX_ALLOW_PARTIAL_EXPORT", True)
 
     try:
         config = load_config(cfg_path)
@@ -37,17 +45,26 @@ def run_command(config_path: str):
         lock_path = paths.STATE_DIR / "huntx.lock"
         with acquire_lock(lock_path):
             orch = Orchestrator(config, max_workers=max_workers)
-            run_summary = orch.run()
+            run_summary = orch.run(
+                timeout=run_timeout,
+                allow_partial_export=allow_partial_export,
+            )
 
-            total_artifacts = run_summary.get("total_artifacts", 0)
-            publish_attempts = run_summary.get("publish_attempts", 0)
-            publish_failures = run_summary.get("publish_failures", 0)
-            successful_publishes = publish_attempts - publish_failures
-
-            if total_artifacts == 0:
-                raise RuntimeError("Health Gate FAILED: Zero artifacts were built during this run.")
-            elif publish_attempts > 0 and successful_publishes == 0:
-                raise RuntimeError("Health Gate FAILED: Publishing was attempted but all publish tasks failed.")
-    except Exception as e:
-        logging.exception(f"Fatal error during run: {e}")
+        health = evaluate_run_health(run_summary, no_publish=False)
+        emit_run_health(run_summary, health, logger=logger)
+        if health.is_fatal:
+            raise RuntimeError(
+                "Health Gate FATAL: "
+                f"status={health.status} reasons={list(health.reasons)} metrics={health.metrics}"
+            )
+        if health.disposition == "degraded":
+            logger.warning(
+                "Health Gate DEGRADED SUCCESS: reasons=%s metrics=%s",
+                list(health.reasons),
+                health.metrics,
+            )
+        else:
+            logger.info("Health Gate SUCCESS: metrics=%s", health.metrics)
+    except Exception as exc:
+        logger.exception("Fatal error during run: %s", exc)
         raise

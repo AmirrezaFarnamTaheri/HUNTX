@@ -22,14 +22,17 @@ from ..state.repo import StateRepo
 from ..state.db import open_db
 from ..store import paths
 
-from .constants import (  # noqa: F401
-    WELCOME_TEXT as WELCOME_TEXT,
-    SUPPORTED_FORMATS as SUPPORTED_FORMATS,
+from .constants import (
     _BOT_COMMANDS,
     _ALL_VALID_FORMATS,
-    _AUTO_DELIVER_FORMATS as _AUTO_DELIVER_FORMATS,
     _FORMAT_LABELS,
 )
+
+# Re-exported as part of this module's public surface (consumed by the test
+# suite and downstream importers); imported here rather than referenced.
+from .constants import WELCOME_TEXT as WELCOME_TEXT  # noqa: F401
+from .constants import SUPPORTED_FORMATS as SUPPORTED_FORMATS  # noqa: F401
+
 from .handlers import HandlersMixin
 from .delivery import DeliveryMixin
 from .admin import AdminMixin
@@ -82,11 +85,15 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
                     chat_id TEXT NOT NULL,
                     username TEXT,
                     registered_at REAL NOT NULL,
+                    approved INTEGER NOT NULL DEFAULT 0,
                     muted INTEGER DEFAULT 0,
                     last_delivered_at REAL DEFAULT 0,
                     default_format TEXT DEFAULT 'npvt'
                 )
                 """)
+            columns = {row["name"] for row in conn.execute("PRAGMA table_info(bot_users)").fetchall()}
+            if "approved" not in columns:
+                conn.execute("ALTER TABLE bot_users " "ADD COLUMN approved INTEGER NOT NULL DEFAULT 0")
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS bot_delivery_checkpoint (
                     user_id TEXT PRIMARY KEY,
@@ -95,6 +102,17 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
                     failed INTEGER NOT NULL DEFAULT 0,
                     last_error TEXT,
                     updated_at REAL NOT NULL DEFAULT 0
+                )
+                """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS bot_delivery_items (
+                    user_id TEXT NOT NULL,
+                    artifact_hash TEXT NOT NULL,
+                    artifact_name TEXT NOT NULL,
+                    delivered_at REAL NOT NULL,
+                    PRIMARY KEY (user_id, artifact_hash),
+                    FOREIGN KEY (user_id)
+                        REFERENCES bot_users(user_id) ON DELETE CASCADE
                 )
                 """)
 
@@ -115,12 +133,17 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
 
     def _get_active_users(self) -> list:
         with self.db.connect() as conn:
-            return conn.execute("SELECT user_id, chat_id FROM bot_users WHERE muted = 0").fetchall()
+            return conn.execute("""
+                SELECT user_id, chat_id FROM bot_users
+                WHERE approved = 1 AND muted = 0
+                """).fetchall()
 
     def _get_user_count(self) -> dict:
         with self.db.connect() as conn:
             total = conn.execute("SELECT COUNT(*) AS c FROM bot_users").fetchone()["c"]
-            active = conn.execute("SELECT COUNT(*) AS c FROM bot_users WHERE muted = 0").fetchone()["c"]
+            active = conn.execute("SELECT COUNT(*) AS c FROM bot_users " "WHERE approved = 1 AND muted = 0").fetchone()[
+                "c"
+            ]
             return {"total": total, "active": active, "muted": total - active}
 
     def _get_user_pref(self, user_id: str) -> str:

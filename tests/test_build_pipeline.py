@@ -43,9 +43,7 @@ class TestBuildPipeline(unittest.TestCase):
                 {"record_type": "fmt1", "data": "data2"},
             ]
         )
-        self.artifact_store.save_output.assert_called_with(
-            "route1", "fmt1", b"artifact data"
-        )
+        self.artifact_store.save_output.assert_called_with("route1", "fmt1", b"artifact data")
 
     def test_build_no_records(self):
         route_config = {
@@ -71,9 +69,7 @@ class TestBuildPipeline(unittest.TestCase):
 
         self.pipeline.run(route_config)
 
-        self.state_repo.get_records_for_build.assert_called_once_with(
-            ["fmt1"], ["src1"], min_seen_file_id=55
-        )
+        self.state_repo.get_records_for_build.assert_called_once_with(["fmt1"], ["src1"], min_seen_file_id=55)
 
     def test_groups_records_once_and_uses_per_format_counts(self):
         route_config = {
@@ -111,9 +107,7 @@ class TestBuildPipeline(unittest.TestCase):
             "formats": ["fmt1", "fmt1"],
             "from_sources": ["src1", "src1"],
         }
-        self.state_repo.get_records_for_build.return_value = [
-            {"record_type": "fmt1", "data": "a"}
-        ]
+        self.state_repo.get_records_for_build.return_value = [{"record_type": "fmt1", "data": "a"}]
         handler = Mock()
         handler.build.return_value = b"artifact"
         self.registry.get.return_value = handler
@@ -121,9 +115,7 @@ class TestBuildPipeline(unittest.TestCase):
 
         results = self.pipeline.run(route_config)
 
-        self.state_repo.get_records_for_build.assert_called_once_with(
-            ["fmt1"], ["src1"], min_seen_file_id=None
-        )
+        self.state_repo.get_records_for_build.assert_called_once_with(["fmt1"], ["src1"], min_seen_file_id=None)
         handler.build.assert_called_once()
         self.assertEqual([result["format"] for result in results], ["fmt1"])
 

@@ -5,6 +5,10 @@ from huntx.connectors.telegram.connector import TelegramConnector
 from huntx.connectors.telegram_user.connector import TelegramUserConnector
 
 
+async def _download_chunks(data):
+    yield data
+
+
 class TestApkSkipping(unittest.TestCase):
     def setUp(self):
         # Clear shared state to prevent test pollution
@@ -165,7 +169,7 @@ class TestApkSkipping(unittest.TestCase):
 
         mock_client.iter_messages.return_value = [msg_mixed]
         mock_client.is_connected.return_value = True
-        mock_client.download_media.return_value = b"ovpn_content"
+        mock_client.iter_download.side_effect = lambda message, request_size: _download_chunks(b"ovpn_content")
 
         items = list(connector.list_new())
 
@@ -174,7 +178,7 @@ class TestApkSkipping(unittest.TestCase):
         self.assertEqual(len(items), 2)
 
         ext_ids = [i.external_id for i in items]
-        self.assertIn("400", ext_ids)       # text from pass 1
+        self.assertIn("400", ext_ids)  # text from pass 1
         self.assertIn("400_media", ext_ids)  # document from pass 2
 
 

@@ -4,9 +4,35 @@ import logging
 import time
 from typing import Any, Optional
 
+from ..connectors.base import run_sync
 from .orchestrator import Orchestrator
 
 logger = logging.getLogger(__name__)
+
+
+def _classify_completed_status(
+    *,
+    ingest_ok: int,
+    ingest_err: int,
+    failed_routes: int,
+    publish_failures: int,
+) -> str:
+    """Classify a run that reached the end of every bounded stage.
+
+    HUNTX aggregates independently volatile external sources. Source failures
+    are degraded input coverage only when successful ingestions are a strict
+    majority and every build/publish route succeeds. Route or publication
+    failures remain partial, while zero successful ingestions are a hard
+    failure.
+    """
+
+    if failed_routes or publish_failures:
+        return "partial"
+    if ingest_ok <= 0:
+        return "failed"
+    if ingest_err >= ingest_ok:
+        return "partial"
+    return "completed"
 
 
 class HardenedOrchestrator(Orchestrator):
@@ -18,18 +44,10 @@ class HardenedOrchestrator(Orchestrator):
         no_publish: bool = False,
         allow_partial_export: bool = False,
     ) -> dict[str, Any]:
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = None
-
-        if loop is not None and loop.is_running():
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                return executor.submit(
-                    asyncio.run,
-                    self._run_hardened(timeout, no_publish, allow_partial_export),
-                ).result()
-        return asyncio.run(self._run_hardened(timeout, no_publish, allow_partial_export))
+        # See Orchestrator.run: run_sync covers both the no-loop and
+        # already-running-loop cases without the deprecated get_event_loop()
+        # and without leaking an unclosed loop.
+        return run_sync(self._run_hardened(timeout, no_publish, allow_partial_export))
 
     async def _run_hardened(
         self,
@@ -55,6 +73,11 @@ class HardenedOrchestrator(Orchestrator):
         total_artifacts = 0
         publish_attempts = 0
         publish_failures = 0
+        ingestion_cancelled = 0
+        build_pending = 0
+        build_cancelled = 0
+        publish_pending = 0
+        publish_cancelled = 0
         all_build_results: list[Any] = []
         stage_seconds: dict[str, float] = {}
 
@@ -110,8 +133,14 @@ class HardenedOrchestrator(Orchestrator):
                 "total_artifacts": 0,
                 "publish_attempts": 0,
                 "publish_failures": 0,
+                "publish_pending": 0,
+                "publish_cancelled": 0,
                 "ingest_ok": 0,
                 "ingest_err": 0,
+                "degraded_source_failures": 0,
+                "ingestion_cancelled": 0,
+                "build_pending": 0,
+                "build_cancelled": 0,
                 "failed_routes": 0,
                 "approved_sources": 0,
                 "excluded_sources": excluded_sources,
@@ -136,7 +165,8 @@ class HardenedOrchestrator(Orchestrator):
         except asyncio.TimeoutError:
             mark_timeout("ingestion")
             for task in ingestion_tasks:
-                task.cancel()
+                if task.cancel():
+                    ingestion_cancelled += 1
             await asyncio.gather(*ingestion_tasks, return_exceptions=True)
         except Exception:
             status = "failed"
@@ -192,8 +222,10 @@ class HardenedOrchestrator(Orchestrator):
 
                 if not_done:
                     mark_timeout("build")
+                    build_pending = len(not_done)
                     for pending_build in not_done:
-                        pending_build.cancel()
+                        if pending_build.cancel():
+                            build_cancelled += 1
             finally:
                 build_executor.shutdown(wait=False, cancel_futures=True)
                 stage_seconds["build"] = time.monotonic() - build_start
@@ -204,7 +236,27 @@ class HardenedOrchestrator(Orchestrator):
             publisher = concurrent.futures.ThreadPoolExecutor(max_workers=publish_workers)
             try:
                 for build_result in all_build_results:
-                    route_name = str(build_result["route_name"])
+                    # Mirror the base Orchestrator's defensiveness: a single
+                    # malformed build result must not abort the entire publish
+                    # stage and discard otherwise-successful work.
+                    if not isinstance(build_result, dict):
+                        logger.warning("[Orchestrator] Skipping non-dict build result: %r", build_result)
+                        continue
+                    route_name_val = build_result.get("route_name")
+                    artifact_hash_val = build_result.get("artifact_hash")
+                    if not isinstance(route_name_val, str) or not route_name_val or not artifact_hash_val:
+                        # PublishPipeline.run indexes build_result["route_name"]
+                        # and ["artifact_hash"] directly (no .get), so a dict
+                        # missing either would only fail with a KeyError inside
+                        # the submitted future. Skip it here instead: a clear
+                        # log beats a wasted thread-pool slot and a KeyError
+                        # buried in publish_failures.
+                        logger.warning(
+                            "[Orchestrator] Skipping build result missing route_name/artifact_hash: %r",
+                            build_result,
+                        )
+                        continue
+                    route_name = route_name_val
                     publish_future = publisher.submit(
                         self.publish_pipeline.run,
                         build_result,
@@ -233,8 +285,10 @@ class HardenedOrchestrator(Orchestrator):
                         logger.exception("[Orchestrator] Publish failed for route %s", route_name)
                 if not_done:
                     mark_timeout("publishing")
+                    publish_pending = len(not_done)
                     for pending_item in not_done:
-                        pending_item.cancel()
+                        if pending_item.cancel():
+                            publish_cancelled += 1
             finally:
                 publisher.shutdown(wait=False, cancel_futures=True)
                 stage_seconds["publishing"] = time.monotonic() - publish_start
@@ -264,8 +318,20 @@ class HardenedOrchestrator(Orchestrator):
         finally:
             stage_seconds["cleanup"] = time.monotonic() - cleanup_start
 
-        if status == "completed" and (results["err"] or failed_routes or publish_failures):
-            status = "partial"
+        if status == "completed":
+            status = _classify_completed_status(
+                ingest_ok=results["ok"],
+                ingest_err=results["err"],
+                failed_routes=len(failed_routes),
+                publish_failures=publish_failures,
+            )
+            if status == "completed" and results["err"]:
+                logger.warning(
+                    "[Orchestrator] Completed with %s isolated source failure(s); "
+                    "%s source(s) completed and all release routes succeeded",
+                    results["err"],
+                    results["ok"],
+                )
 
         duration = time.monotonic() - start_time
         summary = {
@@ -278,8 +344,14 @@ class HardenedOrchestrator(Orchestrator):
             "total_artifacts": total_artifacts,
             "publish_attempts": publish_attempts,
             "publish_failures": publish_failures,
+            "publish_pending": publish_pending,
+            "publish_cancelled": publish_cancelled,
             "ingest_ok": results["ok"],
             "ingest_err": results["err"],
+            "degraded_source_failures": results["err"] if results["ok"] else 0,
+            "ingestion_cancelled": ingestion_cancelled,
+            "build_pending": build_pending,
+            "build_cancelled": build_cancelled,
             "failed_routes": len(failed_routes),
             "approved_sources": total_sources,
             "excluded_sources": excluded_sources,

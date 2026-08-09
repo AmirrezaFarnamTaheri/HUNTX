@@ -10,7 +10,6 @@ import (
 	"strings"
 )
 
-
 type Record struct {
 	UniqueHash string `json:"unique_hash"`
 	RawURI     string `json:"raw_uri"`

@@ -1,12 +1,17 @@
 import datetime
 from pathlib import Path
+from typing import Optional
 from ..utils.atomic import atomic_write
-from .paths import REJECTS_DIR
+from . import paths
 
 
 class RejectsStore:
-    def __init__(self, base_dir: Path = REJECTS_DIR):
-        self.base_dir = base_dir
+    def __init__(self, base_dir: Optional[Path] = None):
+        # IMPORTANT: resolve the default at runtime (after paths.set_paths()),
+        # mirroring RawStore/ArtifactStore. Binding paths.REJECTS_DIR as a
+        # default argument would capture the pre-configuration directory at
+        # import time and silently write rejects to the wrong location.
+        self.base_dir = base_dir or paths.REJECTS_DIR
         self.base_dir.mkdir(parents=True, exist_ok=True)
 
     def save_reject(self, source_id: str, reason: str, data: bytes):

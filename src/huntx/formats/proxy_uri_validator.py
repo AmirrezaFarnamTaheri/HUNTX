@@ -79,6 +79,15 @@ def _validate_ss(uri: str) -> bool:
             body = _decode_base64_text(body)
         except (binascii.Error, UnicodeDecodeError, ValueError):
             return False
+    # The base64 fallback above can decode successfully and still yield a body
+    # with no "@" (e.g. "ss://YWJj" decodes to "abc"). Without this guard the
+    # two-target unpack below raises ValueError instead of returning False —
+    # and because callers such as npvt._append_uri treat this function as a
+    # plain predicate and do not wrap it, that exception escapes to the
+    # transform stage, which marks the ENTIRE source file as failed and
+    # discards every other valid URI it contained.
+    if "@" not in body:
+        return False
     userinfo, endpoint = body.rsplit("@", 1)
     userinfo = unquote(userinfo)
     if ":" not in userinfo:

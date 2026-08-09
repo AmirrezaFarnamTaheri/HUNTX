@@ -124,6 +124,7 @@ class WindowedIngestionPipeline:
             self.work_queue.checkpoint_page(
                 item.id,
                 owner,
+                lease_token=item.lease_token,
                 continuation_cursor=page.continuation_cursor,
                 items_ingested=count,
                 bytes_ingested=new_bytes,

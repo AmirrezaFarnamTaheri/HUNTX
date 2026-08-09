@@ -1,6 +1,6 @@
 import unittest
 import asyncio
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 from huntx.bot.delivery import DeliveryMixin
 
 

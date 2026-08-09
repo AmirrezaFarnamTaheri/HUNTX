@@ -97,9 +97,14 @@ The bot (`src/huntx/bot/interactive.py`) has two modes:
 
 User state is stored in the `bot_users` SQLite table:
 - Auto-registered on first `/start`
+- Denied automatic delivery until an operator explicitly sets `approved = 1`
 - `default_format` column for per-user preferences (`/setformat`)
 - `muted` flag for opt-out (`/mute` / `/unmute`)
 - `last_delivered_at` for delivery tracking
+
+Registration is intentionally not authorization. Interactive commands may
+create a pending user row, but broadcast delivery selects only
+`approved = 1 AND muted = 0`.
 
 ## Adding a New Format
 

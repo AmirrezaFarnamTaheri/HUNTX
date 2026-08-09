@@ -1,3 +1,8 @@
+# Single source of truth for flake8.
+#
+# flake8 does not read pyproject.toml (it supports only setup.cfg, tox.ini and
+# this file), so a [tool.flake8] section there is silently inert. Keep all lint
+# settings here so an edit actually takes effect.
 [flake8]
 max-line-length = 120
-extend-ignore = E203, E501
+extend-ignore = E203,E501

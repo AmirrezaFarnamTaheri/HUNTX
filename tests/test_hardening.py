@@ -1,5 +1,6 @@
 import unittest
 import os
+import hashlib
 import shutil
 import tempfile
 from pathlib import Path
@@ -69,7 +70,9 @@ class TestHardening(unittest.TestCase):
         self.assertIn("duplicate source id", str(ctx.exception).lower())
 
     def test_validate_config_unexpanded_source_id(self):
-        src = SourceConfig(id="${SRC_ID}", type="telegram", telegram=TelegramSourceConfig(token="123:abc", chat_id="11"))
+        src = SourceConfig(
+            id="${SRC_ID}", type="telegram", telegram=TelegramSourceConfig(token="123:abc", chat_id="11")
+        )
         config = AppConfig(sources=[src], publishing=PublishingConfig(routes=[]))
         with self.assertRaises(ValueError) as ctx:
             validate_config(config)
@@ -87,7 +90,7 @@ class TestHardening(unittest.TestCase):
             id="s1",
             type="telegram",
             telegram=TelegramSourceConfig(token="123:abc", chat_id="11"),
-            telegram_user=TelegramUserSourceConfig(api_id=123, api_hash="hash", session="s", peer="p")
+            telegram_user=TelegramUserSourceConfig(api_id=123, api_hash="hash", session="s", peer="p"),
         )
         config = AppConfig(sources=[src], publishing=PublishingConfig(routes=[]))
         with self.assertRaises(ValueError) as ctx:
@@ -106,7 +109,7 @@ class TestHardening(unittest.TestCase):
             id="s1",
             type="telegram_user",
             telegram=TelegramSourceConfig(token="123:abc", chat_id="11"),
-            telegram_user=TelegramUserSourceConfig(api_id=123, api_hash="hash", session="s", peer="p")
+            telegram_user=TelegramUserSourceConfig(api_id=123, api_hash="hash", session="s", peer="p"),
         )
         config = AppConfig(sources=[src], publishing=PublishingConfig(routes=[]))
         with self.assertRaises(ValueError) as ctx:
@@ -115,12 +118,7 @@ class TestHardening(unittest.TestCase):
 
     def test_validate_config_unrecognized_route_format(self):
         src = SourceConfig(id="s1", type="telegram", telegram=TelegramSourceConfig(token="123:abc", chat_id="11"))
-        route = PublishRoute(
-            name="r1",
-            from_sources=["s1"],
-            formats=["invalid_format_xyz"],
-            destinations=[]
-        )
+        route = PublishRoute(name="r1", from_sources=["s1"], formats=["invalid_format_xyz"], destinations=[])
         config = AppConfig(sources=[src], publishing=PublishingConfig(routes=[route]))
         with self.assertRaises(ValueError) as ctx:
             validate_config(config)
@@ -133,7 +131,7 @@ class TestHardening(unittest.TestCase):
             name="r1",
             from_sources=["s1"],
             formats=["npvt"],
-            destinations=[DestinationConfig(chat_id="123", mode="telegram", token=None)]
+            destinations=[DestinationConfig(chat_id="123", mode="telegram", token=None)],
         )
         config = AppConfig(sources=[src], publishing=PublishingConfig(routes=[route]))
         with self.assertRaises(ValueError) as ctx:
@@ -146,17 +144,15 @@ class TestHardening(unittest.TestCase):
         mock_repo = MagicMock(spec=StateRepo)
         mock_repo.get_last_published_hash.return_value = None
         pipeline = PublishPipeline(mock_repo)
-        
+
         build_result = {
             "route_name": "r1",
-            "artifact_hash": "hash123",
+            "artifact_hash": hashlib.sha256(b"test_data").hexdigest(),
             "format": "npvt",
             "data": b"test_data",
         }
-        destinations = [
-            {"chat_id": "123", "mode": "telegram", "token": ""}
-        ]
-        
+        destinations = [{"chat_id": "123", "mode": "telegram", "token": ""}]
+
         with self.assertRaises(RuntimeError) as ctx:
             pipeline.run(build_result, destinations)
         self.assertIn("strict mode active: no token configured", str(ctx.exception).lower())

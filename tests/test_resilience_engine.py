@@ -1,5 +1,4 @@
 import pytest
-import asyncio
 from huntx.core.resilience import AsyncCircuitBreaker, CircuitBreakerOpenError
 
 

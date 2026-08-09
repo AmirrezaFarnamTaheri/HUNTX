@@ -14,8 +14,8 @@ type DegradedNode struct {
 }
 
 type Daemon struct {
-	mu             sync.RWMutex
-	degraded       map[string]*DegradedNode
+	mu              sync.RWMutex
+	degraded        map[string]*DegradedNode
 	backoffSchedule []time.Duration
 }
 

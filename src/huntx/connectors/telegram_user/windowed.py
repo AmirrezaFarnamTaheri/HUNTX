@@ -5,8 +5,14 @@ import time
 from dataclasses import dataclass
 from typing import Optional
 
-from .connector import TelegramUserConnector, TelegramUserItem, _UNWANTED_MEDIA_ATTRS
-from ..base import async_iter, maybe_await
+from .connector import (
+    MAX_DOWNLOAD_BYTES,
+    TelegramUserConnector,
+    TelegramUserItem,
+    _UNWANTED_MEDIA_ATTRS,
+    download_media_bounded,
+)
+from ..base import async_iter
 
 
 @dataclass(frozen=True)
@@ -96,10 +102,10 @@ class WindowedTelegramUserConnector(TelegramUserConnector):
             file_size = int(getattr(file_info, "size", 0) or 0)
             if file_name.lower().endswith(".apk") or file_ext.lower() == ".apk":
                 continue
-            if file_size > 25 * 1024 * 1024:
+            if file_size > MAX_DOWNLOAD_BYTES:
                 continue
 
-            data = await maybe_await(client.download_media(msg, file=bytes))
+            data = await download_media_bounded(client, msg)
             if not data:
                 continue
 

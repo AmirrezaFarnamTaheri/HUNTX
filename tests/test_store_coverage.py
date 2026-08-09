@@ -84,7 +84,10 @@ class TestStoreCoverage(unittest.TestCase):
             with self.assertRaises(Exception):
                 store.save_artifact("r", "fmt", b"data")
 
-        with patch("builtins.open", side_effect=Exception("Write fail")):
+        with patch(
+            "huntx.store.artifact_store.atomic_write_if_changed",
+            side_effect=Exception("Write fail"),
+        ):
             with self.assertRaises(Exception):
                 store.save_output("r", "fmt", b"data")
 

@@ -1,7 +1,8 @@
 import logging
+import hashlib
 import time
 from typing import Optional
-from ..connectors.base import SourceConnector
+from ..connectors.base import SourceConnector, maybe_await
 from ..store.raw_store import RawStore
 from ..state.repo import StateRepo
 
@@ -23,7 +24,7 @@ class IngestionPipeline:
 
         # 1. Check seen files in batch
         external_ids = [item.external_id for item in buffer]
-        seen_ids = self.state_repo.get_seen_files_batch(source_id, external_ids, conn=conn)
+        seen_hashes = self.state_repo.get_seen_file_hashes_batch(source_id, external_ids, conn=conn)
 
         records_to_insert = []
         new_items_count = 0
@@ -33,7 +34,8 @@ class IngestionPipeline:
         media_count = 0
 
         for item in buffer:
-            if item.external_id in seen_ids:
+            item_hash = hashlib.sha256(item.data).hexdigest()
+            if seen_hashes.get(str(item.external_id)) == item_hash:
                 skipped_count += 1
                 continue
 
@@ -130,7 +132,14 @@ class IngestionPipeline:
 
                 buffer.append(item)
                 if len(buffer) >= BATCH_SIZE:
-                    c, nb, sc, tc, mc = self._process_batch(source_id, buffer)
+                    committed = buffer
+                    c, nb, sc, tc, mc = self._process_batch(
+                        source_id,
+                        committed,
+                    )
+                    acknowledge = getattr(connector, "acknowledge", None)
+                    if acknowledge is not None:
+                        await maybe_await(acknowledge(committed))
                     count += c
                     new_bytes += nb
                     skipped_count += sc
@@ -149,7 +158,14 @@ class IngestionPipeline:
                         )
 
             if buffer:
-                c, nb, sc, tc, mc = self._process_batch(source_id, buffer)
+                committed = buffer
+                c, nb, sc, tc, mc = self._process_batch(
+                    source_id,
+                    committed,
+                )
+                acknowledge = getattr(connector, "acknowledge", None)
+                if acknowledge is not None:
+                    await maybe_await(acknowledge(committed))
                 count += c
                 new_bytes += nb
                 skipped_count += sc
@@ -183,6 +199,10 @@ class IngestionPipeline:
             }
 
             self.state_repo.update_source_state(source_id, new_state, source_type=source_type)
+
+            commit_acknowledgement = getattr(connector, "commit_acknowledgement", None)
+            if commit_acknowledgement is not None:
+                await maybe_await(commit_acknowledgement())
 
             logger.info(
                 f"[Ingest] ═══ Done {source_id} ═══  "

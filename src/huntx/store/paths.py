@@ -1,4 +1,5 @@
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 # Base directory for all data
@@ -18,6 +19,34 @@ OUTPUT_DIR = DATA_DIR / "outputs"
 DEV_OUTPUT_DIR = DATA_DIR / "outputs_dev"
 
 STATE_DB_PATH = Path(os.getenv("HUNTX_STATE_DB_PATH", str(STATE_DIR / "state.db"))).resolve()
+
+
+@dataclass(frozen=True)
+class RuntimePaths:
+    data_dir: Path
+    raw_store_dir: Path
+    artifact_store_dir: Path
+    rejects_dir: Path
+    state_dir: Path
+    logs_dir: Path
+    output_dir: Path
+    dev_output_dir: Path
+    state_db_path: Path
+
+
+def current_paths() -> RuntimePaths:
+    """Capture an immutable path set for one runtime instance."""
+    return RuntimePaths(
+        data_dir=DATA_DIR,
+        raw_store_dir=RAW_STORE_DIR,
+        artifact_store_dir=ARTIFACT_STORE_DIR,
+        rejects_dir=REJECTS_DIR,
+        state_dir=STATE_DIR,
+        logs_dir=LOGS_DIR,
+        output_dir=OUTPUT_DIR,
+        dev_output_dir=DEV_OUTPUT_DIR,
+        state_db_path=STATE_DB_PATH,
+    )
 
 
 def ensure_dirs():

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import time
+import uuid
 from dataclasses import dataclass
 from typing import Any, Iterable, Optional
 
@@ -18,6 +19,7 @@ class IngestionWorkItem:
     attempt_count: int
     items_ingested: int
     bytes_ingested: int
+    lease_token: str
 
 
 class PersistentIngestionQueue:
@@ -129,7 +131,8 @@ class PersistentIngestionQueue:
             cursor = conn.execute(
                 """
                 UPDATE ingestion_work_items
-                SET status = 'partial', lease_owner = NULL, lease_expires_at = NULL,
+                SET status = 'partial', lease_owner = NULL, lease_token = NULL,
+                    lease_expires_at = NULL,
                     rotation_seq = ?, updated_at = ?
                 WHERE status = 'leased' AND lease_expires_at IS NOT NULL
                   AND lease_expires_at <= ?
@@ -147,6 +150,7 @@ class PersistentIngestionQueue:
     ) -> Optional[IngestionWorkItem]:
         current = int(time.time()) if now is None else int(now)
         lease_expires = current + max(1, int(lease_seconds))
+        lease_token = uuid.uuid4().hex
 
         with self.db.connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
@@ -174,11 +178,12 @@ class PersistentIngestionQueue:
             updated = conn.execute(
                 """
                 UPDATE ingestion_work_items
-                SET status = 'leased', lease_owner = ?, lease_expires_at = ?,
+                SET status = 'leased', lease_owner = ?, lease_token = ?,
+                    lease_expires_at = ?,
                     attempt_count = attempt_count + 1, updated_at = ?
                 WHERE id = ? AND status IN ('pending', 'partial', 'retry_wait')
                 """,
-                (owner, lease_expires, current, int(row["id"])),
+                (owner, lease_token, lease_expires, current, int(row["id"])),
             )
             if updated.rowcount != 1:
                 return None
@@ -196,6 +201,7 @@ class PersistentIngestionQueue:
                 attempt_count=int(row["attempt_count"]) + 1,
                 items_ingested=int(row["items_ingested"]),
                 bytes_ingested=int(row["bytes_ingested"]),
+                lease_token=lease_token,
             )
 
     def checkpoint_page(
@@ -203,6 +209,7 @@ class PersistentIngestionQueue:
         item_id: int,
         owner: str,
         *,
+        lease_token: str,
         continuation_cursor: Optional[int],
         items_ingested: int,
         bytes_ingested: int,
@@ -220,10 +227,11 @@ class PersistentIngestionQueue:
             SET continuation_cursor = ?, status = ?,
                 items_ingested = items_ingested + ?,
                 bytes_ingested = bytes_ingested + ?,
-                lease_owner = NULL, lease_expires_at = NULL,
+                lease_owner = NULL, lease_token = NULL, lease_expires_at = NULL,
                 next_retry_at = NULL, last_error = NULL,
                 rotation_seq = ?, updated_at = ?, completed_at = ?
             WHERE id = ? AND status = 'leased' AND lease_owner = ?
+              AND lease_token = ?
             """,
             (
                 continuation_cursor,
@@ -235,6 +243,7 @@ class PersistentIngestionQueue:
                 completed_at,
                 int(item_id),
                 owner,
+                lease_token,
             ),
         )
         if cursor.rowcount != 1:
@@ -246,18 +255,21 @@ class PersistentIngestionQueue:
         owner: str,
         error: str,
         *,
+        lease_token: str,
         retry_delay: int,
         now: Optional[int] = None,
     ) -> None:
         current = int(time.time()) if now is None else int(now)
         with self.db.connect() as conn:
             rotation_seq = self._next_rotation_seq(conn)
-            conn.execute(
+            cursor = conn.execute(
                 """
                 UPDATE ingestion_work_items
-                SET status = 'retry_wait', lease_owner = NULL, lease_expires_at = NULL,
+                SET status = 'retry_wait', lease_owner = NULL, lease_token = NULL,
+                    lease_expires_at = NULL,
                     next_retry_at = ?, last_error = ?, rotation_seq = ?, updated_at = ?
                 WHERE id = ? AND status = 'leased' AND lease_owner = ?
+                  AND lease_token = ?
                 """,
                 (
                     current + max(1, int(retry_delay)),
@@ -266,8 +278,11 @@ class PersistentIngestionQueue:
                     current,
                     int(item_id),
                     owner,
+                    lease_token,
                 ),
             )
+            if cursor.rowcount != 1:
+                raise RuntimeError(f"work item {item_id} lease was lost before failure checkpoint")
 
     def mark_terminal(
         self,
@@ -275,6 +290,7 @@ class PersistentIngestionQueue:
         owner: str,
         reason: str,
         *,
+        lease_token: str,
         now: Optional[int] = None,
     ) -> None:
         current = int(time.time()) if now is None else int(now)
@@ -282,11 +298,20 @@ class PersistentIngestionQueue:
             cursor = conn.execute(
                 """
                 UPDATE ingestion_work_items
-                SET status = 'quarantined', lease_owner = NULL, lease_expires_at = NULL,
+                SET status = 'quarantined', lease_owner = NULL, lease_token = NULL,
+                    lease_expires_at = NULL,
                     next_retry_at = NULL, last_error = ?, updated_at = ?, completed_at = ?
                 WHERE id = ? AND status = 'leased' AND lease_owner = ?
+                  AND lease_token = ?
                 """,
-                (str(reason)[:1000], current, current, int(item_id), owner),
+                (
+                    str(reason)[:1000],
+                    current,
+                    current,
+                    int(item_id),
+                    owner,
+                    lease_token,
+                ),
             )
             if cursor.rowcount != 1:
                 raise RuntimeError(f"work item {item_id} lease was lost before terminalization")
@@ -303,7 +328,8 @@ class PersistentIngestionQueue:
             cursor = conn.execute(
                 """
                 UPDATE ingestion_work_items
-                SET status = 'quarantined', lease_owner = NULL, lease_expires_at = NULL,
+                SET status = 'quarantined', lease_owner = NULL, lease_token = NULL,
+                    lease_expires_at = NULL,
                     next_retry_at = NULL, last_error = ?, updated_at = ?, completed_at = ?
                 WHERE source_id = ?
                   AND status IN ('pending', 'partial', 'retry_wait')
@@ -319,7 +345,8 @@ class PersistentIngestionQueue:
             cursor = conn.execute(
                 """
                 UPDATE ingestion_work_items
-                SET status = 'partial', lease_owner = NULL, lease_expires_at = NULL,
+                SET status = 'partial', lease_owner = NULL, lease_token = NULL,
+                    lease_expires_at = NULL,
                     rotation_seq = ?, updated_at = ?
                 WHERE status = 'leased' AND lease_owner = ?
                 """,

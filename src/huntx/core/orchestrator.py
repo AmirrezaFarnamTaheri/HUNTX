@@ -8,6 +8,7 @@ import logging
 import time
 import threading
 from typing import Optional, Any
+from ..connectors.base import run_sync
 from ..store import paths
 from ..store.raw_store import RawStore
 from ..store.artifact_store import ArtifactStore
@@ -32,7 +33,13 @@ DEFAULT_MAX_WORKERS = 3
 
 
 class Orchestrator:
-    def __init__(self, config: AppConfig, max_workers: int = DEFAULT_MAX_WORKERS, fetch_windows: Optional[dict] = None):
+    def __init__(
+        self,
+        config: AppConfig,
+        max_workers: int = DEFAULT_MAX_WORKERS,
+        fetch_windows: Optional[dict] = None,
+        runtime_paths: Optional[paths.RuntimePaths] = None,
+    ):
         logger.info("[Orchestrator] Initializing...")
         self.config = config
         self.max_workers = max_workers
@@ -42,26 +49,23 @@ class Orchestrator:
             "msg_subsequent_hours": 0,
             "file_subsequent_hours": 0,
         }
+        self.paths = runtime_paths or paths.current_paths()
 
-        self.raw_store = RawStore()
-        self.artifact_store = ArtifactStore()
+        self.raw_store = RawStore(self.paths.raw_store_dir)
+        self.artifact_store = ArtifactStore(self.paths.data_dir)
 
-        self.db = open_db(paths.STATE_DB_PATH)
+        self.db = open_db(self.paths.state_db_path)
         self.repo = StateRepo(self.db)
-        logger.debug(f"[Orchestrator] State DB at {paths.STATE_DB_PATH}")
+        logger.debug(f"[Orchestrator] State DB at {self.paths.state_db_path}")
 
-        # SQLite performance tuning: WAL mode + optimized PRAGMA settings
+        # Optimization: Enable WAL mode for better concurrency (readers don't block writers)
         try:
             with self.db.connect() as conn:
                 conn.execute("PRAGMA journal_mode=WAL;")
-                conn.execute("PRAGMA synchronous=NORMAL;")  # safe with WAL, ~3x faster than FULL
-                conn.execute("PRAGMA cache_size=-65536;")  # 64 MB page cache
-                conn.execute("PRAGMA temp_store=MEMORY;")  # avoid temp-file I/O
-                conn.execute("PRAGMA mmap_size=268435456;")  # 256 MB memory-mapped I/O
         except Exception as e:
-            logger.warning("[Orchestrator] Could not apply SQLite PRAGMAs: %s", e)
+            logger.warning(f"[Orchestrator] Could not set WAL mode: {e}")
 
-        self.registry = FormatRegistry.get_instance()
+        self.registry = FormatRegistry()
         register_all_formats(self.registry, self.raw_store)
 
         source_configs = {s.id: s for s in self.config.sources}
@@ -86,7 +90,7 @@ class Orchestrator:
     def _export_outputs(self, all_build_results: list):
         """Write this run's build artifacts to the registered output directory.
         These are committed back to the repo by CI."""
-        out_dir = paths.OUTPUT_DIR
+        out_dir = self.paths.output_dir
         out_dir.mkdir(parents=True, exist_ok=True)
 
         # Collect payloads to write. Keyed by filename.
@@ -180,7 +184,7 @@ class Orchestrator:
         A hidden _manifest.json tracks {uri: first_seen_timestamp} for dedup
         across runs.
         """
-        dev_dir = paths.DEV_OUTPUT_DIR
+        dev_dir = self.paths.dev_output_dir
         dev_dir.mkdir(parents=True, exist_ok=True)
         manifest_path = dev_dir / "_manifest.json"
         now = time.time()
@@ -239,7 +243,7 @@ class Orchestrator:
             f"# All-time cumulative history \u2014 {len(remarked_uris)} unique URIs\n"
             f"# One proxy URI per line\n\n"
         )
-        txt_path.write_text(header + "\n".join(remarked_uris) + "\n", encoding="utf-8")
+        atomic_write(txt_path, header + "\n".join(remarked_uris) + "\n", mode="w")
         logger.info(
             f"[DevExport] Written {txt_path.name} "
             f"({len(sorted_uris)} URIs, {txt_path.stat().st_size / 1024:.1f} KB)"
@@ -249,7 +253,7 @@ class Orchestrator:
         b64_path = dev_dir / "proxies_b64sub.txt"
         plain = "\n".join(remarked_uris)
         b64_payload = base64.b64encode(plain.encode("utf-8")).decode("ascii")
-        b64_path.write_text(b64_payload + "\n", encoding="utf-8")
+        atomic_write(b64_path, b64_payload + "\n", mode="w")
         logger.info(f"[DevExport] Written {b64_path.name} " f"({b64_path.stat().st_size / 1024:.1f} KB)")
 
         # ── proxies.json ─────────────────────────────────────────────
@@ -262,7 +266,7 @@ class Orchestrator:
                 {"uri": remarked, "first_seen": manifest[raw]} for raw, remarked in zip(sorted_uris, remarked_uris)
             ],
         }
-        json_path.write_text(json.dumps(wrapped, indent=2, ensure_ascii=False), encoding="utf-8")
+        atomic_write(json_path, json.dumps(wrapped, indent=2, ensure_ascii=False), mode="w")
         logger.info(f"[DevExport] Written {json_path.name} " f"({json_path.stat().st_size / 1024:.1f} KB)")
 
         logger.info(f"[DevExport] Exported 3 file(s) to {dev_dir}")
@@ -301,6 +305,7 @@ class Orchestrator:
                     chat_id=src_conf.telegram.chat_id,
                     state=self.repo.get_source_state(src_conf.id),
                     fetch_windows=self.fetch_windows,
+                    inbox=self.repo,
                 )
                 bot_conn.deadline = deadline
                 await maybe_await(
@@ -379,22 +384,45 @@ class Orchestrator:
     # Main run
     # ------------------------------------------------------------------
 
-    def run(self, timeout: float | None = None, no_publish: bool = False):
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = None
+    def run(
+        self,
+        timeout: float | None = None,
+        no_publish: bool = False,
+        allow_partial_export: bool = False,
+    ):
+        # run_sync handles both cases: a fresh loop via asyncio.run when none
+        # is running, or a dedicated worker thread when called from inside a
+        # running loop. It avoids the deprecated get_event_loop() (which
+        # raises on Python 3.12+ when no loop was ever set) and does not leak
+        # an unclosed loop from new_event_loop().
+        return run_sync(
+            self._run_async(
+                timeout,
+                no_publish,
+                allow_partial_export=allow_partial_export,
+            )
+        )
 
-        if loop and loop.is_running():
-            import concurrent.futures
+    async def _run_async(
+        self,
+        timeout: float | None = None,
+        no_publish: bool = False,
+        allow_partial_export: bool = False,
+    ):
+        """Run through the single deadline-aware orchestration contract."""
+        # Imported lazily to avoid an import cycle: HardenedOrchestrator is a
+        # compatibility subclass of this class, while its implementation is
+        # also the authoritative execution contract for legacy callers.
+        from .hardened_orchestrator import HardenedOrchestrator
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(asyncio.run, self._run_async(timeout, no_publish))
-                return future.result()
-        else:
-            return asyncio.run(self._run_async(timeout, no_publish))
+        return await HardenedOrchestrator._run_hardened(
+            self,  # type: ignore[arg-type]
+            timeout,
+            no_publish,
+            allow_partial_export,
+        )
 
-    async def _run_async(self, timeout: float | None = None, no_publish: bool = False):
+    async def _run_async_legacy(self, timeout: float | None = None, no_publish: bool = False):
         start_time = time.time()
         self._deadline = start_time + timeout if timeout else None
         run_id = int(start_time)

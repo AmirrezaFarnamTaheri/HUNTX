@@ -3,7 +3,7 @@ import logging
 import struct
 import urllib.parse
 import os
-from typing import Optional, Any
+from typing import Any, Optional
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes

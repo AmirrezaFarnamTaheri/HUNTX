@@ -232,6 +232,7 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                     item.id,
                     self._run_owner,
                     f"source configuration {item.source_id!r} is unavailable",
+                    lease_token=item.lease_token,
                 )
                 async with lock:
                     results["err"] += 1
@@ -272,6 +273,7 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                     item.id,
                     self._run_owner,
                     "window page timed out",
+                    lease_token=item.lease_token,
                     retry_delay=retry_delay,
                 )
                 if remaining is not None and timeout < configured_timeout:
@@ -286,6 +288,7 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                     item.id,
                     self._run_owner,
                     str(exc),
+                    lease_token=item.lease_token,
                     retry_delay=retry_delay,
                 )
                 async with lock:
