@@ -1,12 +1,16 @@
 import base64
+import codecs
 import hashlib
 from typing import AsyncIterator, Dict, Any, List, Optional
 
 
+_BASE64_ALPHABET = frozenset(b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=")
+
+
 class StreamingChunkParser:
     """
-    Zero-copy streaming parser for multi-gigabyte subscription bundles.
-    Processes stream chunks in 64KB blocks without accumulating full payloads in memory.
+    Streaming parser for large subscription bundles.
+    Processes raw UTF-8 or Base64-encoded streams without accumulating the full payload.
     """
 
     def __init__(self, chunk_size: int = 65536):
@@ -33,70 +37,122 @@ class StreamingChunkParser:
             "source_info": source_info or {},
         }
 
+    @staticmethod
+    def _compact_base64(data: bytes) -> bytes:
+        return b"".join(data.split())
+
+    def _detect_stream_mode(self, data: bytes) -> Optional[str]:
+        """Return raw/base64 once the buffered prefix contains enough evidence."""
+        compact = self._compact_base64(data)
+        if not compact:
+            return None
+        if any(byte not in _BASE64_ALPHABET for byte in compact):
+            return "raw"
+
+        sample_len = len(compact) - (len(compact) % 4)
+        if sample_len >= 8:
+            try:
+                decoded = base64.b64decode(compact[:sample_len], validate=True)
+                sample = decoded.decode("utf-8")
+            except (ValueError, UnicodeDecodeError):
+                sample = ""
+            if "://" in sample or "\n" in sample or "\r" in sample:
+                return "base64"
+
+        detection_limit = max(64, min(self.chunk_size, 4096))
+        if len(data) >= detection_limit:
+            return "raw"
+        return None
+
     async def parse_stream(
         self, stream: AsyncIterator[bytes], source_info: Optional[Dict[str, Any]] = None
     ) -> AsyncIterator[Dict[str, Any]]:
-        """
-        Asynchronously yields parsed proxy record dicts from a chunked bytes stream.
-        """
-        buffer = ""
+        """Yield parsed records from raw UTF-8 or Base64-encoded byte chunks."""
+        mode: Optional[str] = None
+        pending = bytearray()
         b64_remainder = b""
+        text_buffer = ""
+        decoder = codecs.getincrementaldecoder("utf-8")(errors="ignore")
+
+        def feed_text(text_chunk: str) -> List[Dict[str, Any]]:
+            nonlocal text_buffer
+            if not text_chunk:
+                return []
+            text_buffer += text_chunk
+            lines = text_buffer.splitlines(keepends=True)
+            if lines and not text_buffer.endswith(("\r", "\n")):
+                text_buffer = lines.pop()
+            else:
+                text_buffer = ""
+
+            records: List[Dict[str, Any]] = []
+            for line in lines:
+                record = self.parse_line(line, source_info)
+                if record:
+                    records.append(record)
+            return records
+
+        def decode_payload(data: bytes) -> bytes:
+            nonlocal b64_remainder
+            if mode == "raw":
+                return data
+
+            compact = self._compact_base64(data)
+            combined = b64_remainder + compact
+            complete_len = len(combined) - (len(combined) % 4)
+            if complete_len == 0:
+                b64_remainder = combined
+                return b""
+            encoded = combined[:complete_len]
+            b64_remainder = combined[complete_len:]
+            try:
+                return base64.b64decode(encoded, validate=True)
+            except ValueError:
+                return b""
 
         async for chunk in stream:
             if not chunk:
                 continue
 
-            # Try to decode chunk directly or append to base64 remainder
+            if mode is None:
+                pending.extend(chunk)
+                mode = self._detect_stream_mode(bytes(pending))
+                if mode is None:
+                    continue
+                chunk = bytes(pending)
+                pending.clear()
+
+            decoded_bytes = decode_payload(chunk)
+            for record in feed_text(decoder.decode(decoded_bytes, final=False)):
+                yield record
+
+        if mode is None:
+            mode = "raw"
+            decoded_bytes = bytes(pending)
+        else:
+            decoded_bytes = b""
+
+        if mode == "base64" and b64_remainder:
+            padded = b64_remainder + (b"=" * (-len(b64_remainder) % 4))
             try:
-                text_chunk = (b64_remainder + chunk).decode("utf-8")
-                b64_remainder = b""
-            except UnicodeDecodeError:
-                # If base64 encoded stream, attempt base64 chunk decoding
-                combined = b64_remainder + chunk
-                # Align to 4-byte base64 boundary
-                remainder_len = len(combined) % 4
-                if remainder_len != 0:
-                    valid_part = combined[:-remainder_len]
-                    b64_remainder = combined[-remainder_len:]
-                else:
-                    valid_part = combined
-                    b64_remainder = b""
+                decoded_bytes += base64.b64decode(padded, validate=True)
+            except ValueError:
+                pass
+            b64_remainder = b""
 
-                try:
-                    decoded = base64.b64decode(valid_part, validate=False)
-                    text_chunk = decoded.decode("utf-8", errors="ignore")
-                except Exception:
-                    text_chunk = chunk.decode("utf-8", errors="ignore")
+        final_text = decoder.decode(decoded_bytes, final=True)
+        for record in feed_text(final_text):
+            yield record
 
-            buffer += text_chunk
-            lines = buffer.splitlines(keepends=True)
-
-            # Process completed lines, keep incomplete trailing line in buffer
-            if lines:
-                if not buffer.endswith(("\r", "\n")):
-                    buffer = lines.pop()
-                else:
-                    buffer = ""
-
-                for line in lines:
-                    record = self.parse_line(line, source_info)
-                    if record:
-                        yield record
-
-        # Process any remaining text in buffer
-        if buffer:
-            for line in buffer.splitlines():
+        if text_buffer:
+            for line in text_buffer.splitlines():
                 record = self.parse_line(line, source_info)
                 if record:
                     yield record
 
     def parse_bytes(self, raw_bytes: bytes, source_info: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-        """
-        Synchronous fallback helper to parse raw byte arrays into records.
-        """
-        text = ""
+        """Parse a complete raw or Base64-encoded byte payload into records."""
         try:
-            # Check if entire payload is base64 encoded
             decoded = base64.b64decode(raw_bytes.strip(), validate=True)
             text = decoded.decode("utf-8", errors="ignore")
         except Exception:
