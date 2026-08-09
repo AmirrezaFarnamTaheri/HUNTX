@@ -47,7 +47,7 @@ jobs:
             find cmd/huntx-engine -type f -name '*.go' -print0 | xargs -0 -r gofmt -w
           fi
 
-          echo "Cleaning PR-added test lint issues"
+          echo "Cleaning PR-added test lint and benchmark integration issues"
           python - <<'PY'
           from pathlib import Path
 
@@ -72,6 +72,27 @@ jobs:
 
           path = Path("tests/test_formats_coverage.py")
           path.write_text(path.read_text().rstrip() + "\n")
+
+          # Preserve the PR's explicit perf-marker contract without turning
+          # machine-sensitive microbenchmarks into main/production merge gates.
+          pyproject = Path("pyproject.toml")
+          text = pyproject.read_text()
+          perf_marker = '  "perf: marks performance regression benchmarks (exclude with \'-m not perf\')",\n'
+          if perf_marker not in text:
+              text = text.replace("markers = [\n", "markers = [\n" + perf_marker, 1)
+          pyproject.write_text(text)
+
+          for filename in [
+              ".github/workflows/pr-validation.yml",
+              ".github/workflows/huntx.yml",
+          ]:
+              path = Path(filename)
+              text = path.read_text()
+              text = text.replace(
+                  "python -m pytest -q --strict-config --strict-markers",
+                  'python -m pytest -q -m "not perf" --strict-config --strict-markers',
+              )
+              path.write_text(text)
           PY
 
           rm -f .github/workflows/pr72-resolve-conflicts.yml
@@ -118,7 +139,7 @@ jobs:
           python -m compileall -q -j 0 src tests scripts
           python -m flake8 src/huntx tests scripts --count --statistics
           python -m mypy src/huntx
-          python -m pytest -q --strict-config --strict-markers --durations=20
+          python -m pytest -q -m "not perf" --strict-config --strict-markers --durations=20
 
           git status --short
           git commit -m "merge: resolve PR #72 conflicts with current main"
