@@ -1,5 +1,7 @@
-import pytest
 import base64
+
+import pytest
+
 from huntx.formats.streaming import StreamingChunkParser
 
 
@@ -32,14 +34,15 @@ async def test_streaming_chunk_parser_base64():
     async def b64_stream():
         # Yield in 10-byte chunks to test boundary alignment
         for i in range(0, len(encoded), 10):
-            yield encoded[i:i+10]
+            yield encoded[i:i + 10]
 
     records = []
     async for rec in parser.parse_stream(b64_stream()):
         records.append(rec)
 
-    assert len(records) >= 1
-    hashes = [r["unique_hash"] for r in records]
+    assert len(records) == 2
+    assert [record["protocol"] for record in records] == ["vless", "vmess"]
+    hashes = [record["unique_hash"] for record in records]
     assert len(set(hashes)) == len(records)
 
 
