@@ -1,5 +1,7 @@
+outputs/all_sources.conf_lines
 outputs/all_sources.npvt
 outputs/all_sources.opaque_bundle
+outputs/all_sources.ovpn
 outputs/all_sources_npvt_b64sub.txt
 outputs/all_sources_npvt_decoded.json
 outputs_dev/_manifest.json
