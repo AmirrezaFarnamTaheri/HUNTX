@@ -66,8 +66,8 @@ def test_file_backed_self_healing_closes_every_opened_connection(tmp_path, monke
     monkeypatch.setattr(sqlite3, "connect", tracked_connect)
 
     daemon = SelfHealingDaemon(db_path=str(tmp_path / "healing.db"), backoff_schedule=[1])
-    daemon.record_failure("h1", "vless://user@host.example:443", current_time=0.0)
-    assert daemon.get_due_for_retest(current_time=1.0)
+    daemon.record_failure("h1", "vless://user@host.example:443", current_time=100.0)
+    assert daemon.get_due_for_retest(current_time=101.0)
     assert daemon.reinstate_proxy("h1") is True
 
     assert TrackingConnection.opened > 0
