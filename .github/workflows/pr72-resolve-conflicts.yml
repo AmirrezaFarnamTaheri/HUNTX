@@ -47,7 +47,7 @@ jobs:
             find cmd/huntx-engine -type f -name '*.go' -print0 | xargs -0 -r gofmt -w
           fi
 
-          echo "Cleaning PR-added test lint and benchmark integration issues"
+          echo "Applying compatible PR integration fixes"
           python - <<'PY'
           from pathlib import Path
 
@@ -93,6 +93,41 @@ jobs:
                   'python -m pytest -q -m "not perf" --strict-config --strict-markers',
               )
               path.write_text(text)
+
+          # Main's delivery implementation is authoritative, but PR #72 adds a
+          # compatible freshness-alert API and tests. Re-add only that helper.
+          delivery = Path("src/huntx/bot/delivery.py")
+          text = delivery.read_text()
+          if "async def send_freshness_alert(" not in text:
+              method = '''    async def send_freshness_alert(
+              self,
+              admin_chat_id: int,
+              proxy_count: int,
+              min_threshold: int = 10,
+              status_msg: str = "Pipeline Complete",
+          ) -> bool:
+              """Send a pipeline freshness report to the configured admin chat."""
+              try:
+                  alert_prefix = (
+                      "⚠️ [LOW FRESHNESS WARNING]"
+                      if proxy_count < min_threshold
+                      else "✅ [PIPELINE REPORT]"
+                  )
+                  message = (
+                      f"{alert_prefix} {status_msg}\\n"
+                      f"Fresh Proxies Available: {proxy_count} (Min Threshold: {min_threshold})"
+                  )
+                  client = getattr(self, "client", None)
+                  if client:
+                      await self._send_with_floodwait(client.send_message, admin_chat_id, message)
+                      return True
+              except Exception as exc:
+                  logger.error("[GatherX] Failed to send freshness alert: %s", exc)
+              return False
+
+'''
+              text = text.replace("class DeliveryMixin:\n", "class DeliveryMixin:\n" + method, 1)
+              delivery.write_text(text)
           PY
 
           rm -f .github/workflows/pr72-resolve-conflicts.yml
