@@ -125,7 +125,7 @@ jobs:
                   logger.error("[GatherX] Failed to send freshness alert: %s", exc)
               return False
 
-'''
+          '''
               text = text.replace("class DeliveryMixin:\n", "class DeliveryMixin:\n" + method, 1)
               delivery.write_text(text)
           PY
