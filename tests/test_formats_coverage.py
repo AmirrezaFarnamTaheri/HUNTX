@@ -11,6 +11,24 @@ from huntx.formats.sip import SipHandler
 
 
 class TestFormatsCoverage(unittest.TestCase):
+    def test_b64_decode_shared_helper(self):
+        import base64
+        import binascii
+        from huntx.formats.common.b64 import b64_decode
+
+        payload = "hello:world"
+        enc_padded = base64.b64encode(payload.encode()).decode()
+        self.assertEqual(b64_decode(enc_padded), payload)
+
+        enc_stripped = enc_padded.rstrip("=")
+        self.assertEqual(b64_decode(enc_stripped), payload)
+
+        enc_urlsafe = base64.urlsafe_b64encode(payload.encode()).decode().rstrip("=")
+        self.assertEqual(b64_decode(enc_urlsafe), payload)
+
+        with self.assertRaises((binascii.Error, ValueError)):
+            b64_decode("!@#$%^&*()")
+
     def test_npvt_format(self):
         import base64
         import json
@@ -168,3 +186,20 @@ class TestFormatsCoverage(unittest.TestCase):
         parsed = fmt.parse(data, {"filename": "account.sip"})
         self.assertEqual(len(parsed), 1)
         self.assertEqual(parsed[0]["data"]["filename"], "account.sip")
+
+    def test_malformed_payload_handling(self):
+        # NPVT malformed Base64 handling
+        fmt_npvt = NpvtHandler()
+        corrupt_b64 = b"!!!NotValidBase64!!!"
+        parsed_corrupt = fmt_npvt.parse(corrupt_b64, {})
+        self.assertEqual(len(parsed_corrupt), 0)
+
+        # ConfLines empty & all-comment handling
+        fmt_conf = ConfLinesHandler()
+        empty_conf = b"# Only comments\n# Another comment\n\n"
+        self.assertEqual(len(fmt_conf.parse(empty_conf, {})), 0)
+
+        # NPVTSub malformed lines handling
+        fmt_sub = NpvtSubHandler()
+        mixed_corrupt = b"invalid_protocol://bad@url\n\n  \n"
+        self.assertEqual(len(fmt_sub.parse(mixed_corrupt, {})), 0)

@@ -56,6 +56,7 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 markers = [
+  "perf: marks performance regression benchmarks (exclude with '-m not perf')",
   "asyncio: run the test in an asyncio event loop",
 ]
 

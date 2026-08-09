@@ -21,6 +21,32 @@ logger = logging.getLogger(__name__)
 
 
 class DeliveryMixin:
+    async def send_freshness_alert(
+        self,
+        admin_chat_id: int,
+        proxy_count: int,
+        min_threshold: int = 10,
+        status_msg: str = "Pipeline Complete",
+    ) -> bool:
+        """Send a pipeline freshness report to the configured admin chat."""
+        try:
+            alert_prefix = (
+                "⚠️ [LOW FRESHNESS WARNING]"
+                if proxy_count < min_threshold
+                else "✅ [PIPELINE REPORT]"
+            )
+            message = (
+                f"{alert_prefix} {status_msg}\n"
+                f"Fresh Proxies Available: {proxy_count} (Min Threshold: {min_threshold})"
+            )
+            client = getattr(self, "client", None)
+            if client:
+                await self._send_with_floodwait(client.send_message, admin_chat_id, message)
+                return True
+        except Exception as exc:
+            logger.error("[GatherX] Failed to send freshness alert: %s", exc)
+        return False
+
     @staticmethod
     def _artifact_hash(path: Path) -> str:
         digest = hashlib.sha256()

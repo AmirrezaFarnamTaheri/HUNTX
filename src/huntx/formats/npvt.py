@@ -8,6 +8,8 @@ from .common.normalize_text import normalize_text
 from .common.hashing import hash_string
 from .proxy_uri_validator import validate_proxy_uri
 
+from .common.b64 import b64_decode as _b64_decode_safe
+
 from ..core.router import _PROXY_SCHEMES
 
 _PROXY_URI_RE = re.compile(
@@ -22,13 +24,6 @@ def _is_proxy_line(line: str) -> bool:
 
 def _extract_proxy_uris(text: str) -> List[str]:
     return _PROXY_URI_RE.findall(text)
-
-
-def _b64_decode_safe(data: str) -> str:
-    normalized = data.replace("-", "+").replace("_", "/")
-    normalized += "=" * ((4 - len(normalized) % 4) % 4)
-    decoded = base64.b64decode(normalized, validate=True)
-    return decoded.decode("utf-8")
 
 
 def strip_proxy_remark(uri: str) -> str:

@@ -1,5 +1,6 @@
 import base64
 import binascii
+from functools import lru_cache
 
 # All known proxy URI schemes for content-based detection
 _PROXY_SCHEMES = (
@@ -26,43 +27,46 @@ _PROXY_SCHEMES = (
 _PROXY_URI_PREFIXES = _PROXY_SCHEMES
 
 
+@lru_cache(maxsize=4096)
+def _format_by_extension(filename_lower: str) -> str | None:
+    """Cache extension-based format lookups — filenames repeat heavily across runs."""
+    if filename_lower.endswith(".ovpn"):
+        return "ovpn"
+    if filename_lower.endswith(".npv4"):
+        return "npv4"
+    if filename_lower.endswith(".conf"):
+        return "conf_lines"
+    if filename_lower.endswith(".ehi"):
+        return "ehi"
+    if filename_lower.endswith(".hc"):
+        return "hc"
+    if filename_lower.endswith(".hat"):
+        return "hat"
+    if filename_lower.endswith(".sip"):
+        return "sip"
+    if filename_lower.endswith(".nm"):
+        return "nm"
+    if filename_lower.endswith(".dark"):
+        return "dark"
+    if filename_lower.endswith(".tut"):
+        return "tut"
+    if filename_lower.endswith(".sks"):
+        return "sks"
+    if filename_lower.endswith(".tmt"):
+        return "tmt"
+    if filename_lower.endswith(".npvtsub"):
+        return "npvtsub"
+    return None
+
+
 def decide_format(filename: str, content: bytes) -> str:
     """
     Decides the format ID based on filename extension and content.
+    Extension checks are LRU-cached; content heuristics run only for unknowns.
     """
-    fn = filename.lower()
-
-    # Extension based
-    if fn.endswith(".ovpn"):
-        return "ovpn"
-    if fn.endswith(".npv4"):
-        return "npv4"
-    if fn.endswith(".conf"):
-        return "conf_lines"
-
-    # Dedicated opaque/binary formats
-    if fn.endswith(".ehi"):
-        return "ehi"
-    if fn.endswith(".hc"):
-        return "hc"
-    if fn.endswith(".hat"):
-        return "hat"
-    if fn.endswith(".sip"):
-        return "sip"
-    if fn.endswith(".nm"):
-        return "nm"
-    if fn.endswith(".dark"):
-        return "dark"
-    if fn.endswith(".tut"):
-        return "tut"
-    if fn.endswith(".sks"):
-        return "sks"
-    if fn.endswith(".tmt"):
-        return "tmt"
-
-    # .npvtsub is a subscription text (VLESS/VMESS/Trojan URIs)
-    if fn.endswith(".npvtsub"):
-        return "npvtsub"
+    ext_fmt = _format_by_extension(filename.lower())
+    if ext_fmt is not None:
+        return ext_fmt
 
     # Content based heuristics — detect proxy URI lines
     text_preview = content[:2048].decode("utf-8", errors="ignore")

@@ -64,11 +64,18 @@ class TestStoreCoverage(unittest.TestCase):
         # Create a file
         h = store.save(b"data")
 
-        with patch("pathlib.Path.read_bytes", side_effect=Exception("IO Error")):
-            # Store uses Path object methods
-            store.get(h)
-            # Actually get() catches exception and logs it, returns None
+        with patch("pathlib.Path.open", side_effect=OSError("IO Error")):
+            # get() catches OSError and logs it, returns None
             self.assertIsNone(store.get(h))
+
+    def test_raw_store_get_large_blob_correctness(self):
+        """get() must return identical bytes for a 2 MB blob."""
+        store = RawStore(base_dir=self.base_dir)
+        data = b"vless://abc@192.0.2.1:443?security=tls#t\n" * 53_000
+        self.assertGreater(len(data), 2_000_000)
+        h = store.save(data)
+        recovered = store.get(h)
+        self.assertEqual(recovered, data)
 
     def test_artifact_store_exceptions(self):
         store = ArtifactStore(base_dir=self.base_dir)
