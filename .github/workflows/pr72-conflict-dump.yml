@@ -1,0 +1,42 @@
+name: PR72 conflict dump
+
+on:
+  push:
+    branches:
+      - feat/next-gen-architecture-and-hardening
+
+permissions:
+  contents: read
+
+jobs:
+  dump-conflicts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reproduce merge and dump unmerged index
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir repo
+          cd repo
+          git init -q
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --no-tags origin \
+            "+refs/heads/main:refs/remotes/origin/main" \
+            "+refs/heads/feat/next-gen-architecture-and-hardening:refs/remotes/origin/pr"
+          git checkout -q -B pr refs/remotes/origin/pr
+          git config user.name "PR72 conflict probe"
+          git config user.email "actions@users.noreply.github.com"
+          git config merge.conflictStyle diff3
+          set +e
+          git merge --no-commit --no-ff refs/remotes/origin/main
+          merge_rc=$?
+          set -e
+          echo "MERGE_RC=${merge_rc}"
+          echo "CONFLICT_PATHS_BEGIN"
+          git diff --name-only --diff-filter=U
+          echo "CONFLICT_PATHS_END"
+          echo "UNMERGED_INDEX_BEGIN"
+          git ls-files -u
+          echo "UNMERGED_INDEX_END"
