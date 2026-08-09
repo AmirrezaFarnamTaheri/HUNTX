@@ -42,6 +42,11 @@ jobs:
             done < <(git diff --name-only --diff-filter=U -z)
           fi
 
+          echo "Formatting PR-added Go engine files"
+          if [ -d cmd/huntx-engine ]; then
+            find cmd/huntx-engine -type f -name '*.go' -print0 | xargs -0 -r gofmt -w
+          fi
+
           rm -f .github/workflows/pr72-resolve-conflicts.yml
           git add -A
           unresolved="$(git diff --name-only --diff-filter=U)"
