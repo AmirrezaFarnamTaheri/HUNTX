@@ -87,9 +87,9 @@ class StreamingChunkParser:
 
             records: List[Dict[str, Any]] = []
             for line in lines:
-                record = self.parse_line(line, source_info)
-                if record:
-                    records.append(record)
+                parsed_record = self.parse_line(line, source_info)
+                if parsed_record:
+                    records.append(parsed_record)
             return records
 
         def decode_payload(data: bytes) -> bytes:
@@ -123,8 +123,8 @@ class StreamingChunkParser:
                 pending.clear()
 
             decoded_bytes = decode_payload(chunk)
-            for record in feed_text(decoder.decode(decoded_bytes, final=False)):
-                yield record
+            for parsed_record in feed_text(decoder.decode(decoded_bytes, final=False)):
+                yield parsed_record
 
         if mode is None:
             mode = "raw"
@@ -141,14 +141,14 @@ class StreamingChunkParser:
             b64_remainder = b""
 
         final_text = decoder.decode(decoded_bytes, final=True)
-        for record in feed_text(final_text):
-            yield record
+        for parsed_record in feed_text(final_text):
+            yield parsed_record
 
         if text_buffer:
             for line in text_buffer.splitlines():
-                record = self.parse_line(line, source_info)
-                if record:
-                    yield record
+                remaining_record = self.parse_line(line, source_info)
+                if remaining_record:
+                    yield remaining_record
 
     def parse_bytes(self, raw_bytes: bytes, source_info: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """Parse a complete raw or Base64-encoded byte payload into records."""
