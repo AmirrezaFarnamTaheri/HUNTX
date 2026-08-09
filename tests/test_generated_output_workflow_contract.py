@@ -27,7 +27,7 @@ def test_main_mirror_is_inventory_scoped_and_never_force_pushed():
     assert "git push origin HEAD:refs/heads/main" in workflow
     main_mirror = workflow[workflow.index("- name: Mirror verified outputs to main") :]
     assert "--force" not in main_mirror
-    assert "test -f outputs/verify_output.py" in main_mirror
+    assert "test -f scripts/verify_output.py" in main_mirror
 
 
 def test_control_plane_push_republishes_latest_trusted_producer_without_recursion():

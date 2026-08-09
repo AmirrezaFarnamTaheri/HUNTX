@@ -271,7 +271,7 @@ jobs:
 
             test -n "$(find outputs -type f -size +0c -print -quit)"
             test -s outputs_dev/_manifest.json
-            test -f outputs/verify_output.py
+            test -f scripts/verify_output.py
 
             git add -- outputs outputs_dev .github/huntx-generated-files.txt
             git diff --cached --check
