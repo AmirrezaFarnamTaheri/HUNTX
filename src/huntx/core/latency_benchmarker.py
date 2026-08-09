@@ -4,10 +4,10 @@ Tests proxy endpoint reachability and latency via socket / HTTP probes.
 """
 
 import asyncio
-import time
-from typing import Dict, Any, List, Optional
-from urllib.parse import urlparse
 import logging
+import time
+from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +57,29 @@ async def check_proxy_latency(proxy_url: str, timeout: float = 3.0) -> Optional[
         return None
 
 
+def _extract_proxy_uri(record: Dict[str, Any]) -> str:
+    """Extract a proxy URI from mapping-, text-, or byte-backed records."""
+    data = record.get("data")
+    if isinstance(data, dict):
+        for key in ("line", "raw_uri", "uri"):
+            value = data.get(key)
+            if isinstance(value, str) and value:
+                return value
+    elif isinstance(data, str):
+        if data:
+            return data
+    elif isinstance(data, (bytes, bytearray, memoryview)):
+        value = bytes(data).decode("utf-8", errors="ignore").strip()
+        if value:
+            return value
+
+    for key in ("raw_uri", "line", "uri"):
+        value = record.get(key)
+        if isinstance(value, str) and value:
+            return value
+    return ""
+
+
 async def filter_proxies_by_latency(
     proxies: List[Dict[str, Any]],
     max_latency_ms: float = 3000.0,
@@ -73,12 +96,13 @@ async def filter_proxies_by_latency(
     semaphore = asyncio.Semaphore(concurrency)
 
     async def _worker(record: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        line = record.get("data", {}).get("line", "") or record.get("line", "")
+        line = _extract_proxy_uri(record)
         async with semaphore:
             latency = await check_proxy_latency(line, timeout=timeout)
             if latency is not None and latency <= max_latency_ms:
                 res = dict(record)
                 if "data" in res and isinstance(res["data"], dict):
+                    res["data"] = dict(res["data"])
                     res["data"]["latency_ms"] = round(latency, 2)
                 else:
                     res["latency_ms"] = round(latency, 2)
