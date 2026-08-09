@@ -72,3 +72,18 @@ def test_file_backed_self_healing_closes_every_opened_connection(tmp_path, monke
 
     assert TrackingConnection.opened > 0
     assert TrackingConnection.closed == TrackingConnection.opened
+
+
+def test_self_healing_preserves_explicit_zero_timestamp():
+    daemon = SelfHealingDaemon(db_path=":memory:", backoff_schedule=[1])
+    try:
+        fail_count, next_check = daemon.record_failure(
+            "h0",
+            "vless://user@host.example:443",
+            current_time=0.0,
+        )
+        assert fail_count == 1
+        assert next_check == 1.0
+        assert daemon.get_due_for_retest(current_time=1.0)[0]["first_failed_at"] == 0.0
+    finally:
+        daemon.close()
