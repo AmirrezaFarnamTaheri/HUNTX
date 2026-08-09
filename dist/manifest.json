@@ -1,35 +1,29 @@
 {
   "schema_version": 1,
-  "artifact_count": 5,
+  "artifact_count": 4,
   "artifacts": [
     {
-      "path": "all_sources.conf_lines",
-      "size": 3832,
-      "sha256": "a5e189ce77b131b321c8cec4e76a355c8b9b749fa97d1c3cdd19c46c023819bf",
-      "media_type": "application/octet-stream"
-    },
-    {
       "path": "all_sources.npvt",
-      "size": 35035,
-      "sha256": "791ca75c4a66f0f71f0e79ffb07553b1ad378c5a43c64e6f8d0a62b572a187e2",
+      "size": 5133,
+      "sha256": "01a878f5b320f7a2eefa0e2e3ab6eb647f337f3c4deffbc6d6feb62c4a3a5466",
       "media_type": "application/octet-stream"
     },
     {
       "path": "all_sources.opaque_bundle",
-      "size": 317623,
-      "sha256": "dd52981944d378838f4ece8d40f015aab24d21d3d767b2dab2243ae7f66fe849",
+      "size": 338409,
+      "sha256": "1e4f5879b4061e612bcd409f294658d859ad696dfc89ccd92a2d672e4de46708",
       "media_type": "application/octet-stream"
     },
     {
       "path": "all_sources_npvt_b64sub.txt",
-      "size": 46716,
-      "sha256": "ae15c96751d8aa7734b463ab6e8a52b321f0c8c14f27f3ce3e1bd5c3ee42eed6",
+      "size": 6844,
+      "sha256": "cc99b93b82210ec6c9265b4655ac7503425984df2b6ce4d9f55e60cb863d9596",
       "media_type": "text/plain"
     },
     {
       "path": "all_sources_npvt_decoded.json",
-      "size": 91986,
-      "sha256": "f8be7b3afe1e587a8b48d0936f2c8cfc6bcbc9dd0235906dd1723d04e2a69070",
+      "size": 15598,
+      "sha256": "cf616e3d2f6ce2a6b882b68c36b0355136f795c562673e8b774e743f7a86da8f",
       "media_type": "application/json"
     }
   ]
