@@ -1,0 +1,20 @@
+[Interface]
+PrivateKey = GBpCFd7R/sgHqOR/G16iKY4E9J3MWtLURCnKOzMnk2A=
+Address = 10.77.100.15/32
+DNS = 1.1.1.1, 8.8.8.8
+MTU = 1280
+Jc = 5
+Jmin = 40
+Jmax = 70
+S1 = 86
+S2 = 27
+H1 = 1666511381
+H2 = 1261314327
+H3 = 998727311
+H4 = 512346719
+[Peer]
+PublicKey = N4A3jesYjKisqyMpuMEjgMmf2seF2rP4LGa5lroBkVI=
+PresharedKey = 3ciDytJK0/BDZnpgsFpisKsXqeILBEVk78qtYlE/cQ4=
+AllowedIPs = 0.0.0.0/0
+Endpoint = dl.downloadsaz.ir:443
+PersistentKeepalive = 25
