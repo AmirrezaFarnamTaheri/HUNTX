@@ -1,12 +1,30 @@
 {
   "schema_version": 1,
-  "artifact_count": 1,
+  "artifact_count": 4,
   "artifacts": [
     {
-      "path": "all_sources.opaque_bundle",
-      "size": 202170,
-      "sha256": "da3655d120a32c70984d53fbc7ec6f0e282721f6fa61ecb8f8674622b594b493",
+      "path": "all_sources.npvt",
+      "size": 8593,
+      "sha256": "f7ba0268f70a2b85bff157b2b13479fb47d26b9a35c3c5053e77fde49a78b796",
       "media_type": "application/octet-stream"
+    },
+    {
+      "path": "all_sources.opaque_bundle",
+      "size": 214254,
+      "sha256": "57a29bebac269796ce404be945f853d64ff8de36e67d4921e99f8c0305ad5e3e",
+      "media_type": "application/octet-stream"
+    },
+    {
+      "path": "all_sources_npvt_b64sub.txt",
+      "size": 11460,
+      "sha256": "5d52063aa670d0e9a2682f2c4cb125fd801c31fac0bba9846e11851b58a5158d",
+      "media_type": "text/plain"
+    },
+    {
+      "path": "all_sources_npvt_decoded.json",
+      "size": 20613,
+      "sha256": "b1f415d4e6e6a02a2095f256a100b07fde4b33716739c2843ee19b467f564e92",
+      "media_type": "application/json"
     }
   ]
 }
