@@ -44,7 +44,7 @@
     "build_workers": 1,
     "completion_buffer_seconds": 900.0,
     "degraded_source_failures": 8,
-    "duration_seconds": 106.959786963,
+    "duration_seconds": 113.88890868299997,
     "excluded_sources": 0,
     "failed_routes": 1,
     "ingest_err": 8,
@@ -54,7 +54,7 @@
     "ingestion_budget_seconds": 4500.0,
     "ingestion_cancelled": 0,
     "ingestion_workers": 2,
-    "lifo_anchor_ts": 1786518000,
+    "lifo_anchor_ts": 1786525200,
     "lifo_campaign_id": 1,
     "lifo_pages_processed": 67,
     "lifo_residue": {
@@ -63,25 +63,25 @@
       "remaining": 3341,
       "retry_wait": 4
     },
-    "lifo_target_start_ts": 1786345200,
+    "lifo_target_start_ts": 1786352400,
     "lifo_window_failures": 8,
     "lifo_windows_completed": 67,
     "lifo_windows_seeded": 3408,
     "partial_export_enabled": true,
     "post_run_delivery_failures": 1,
-    "preflight_seconds": 67.36244977300001,
+    "preflight_seconds": 68.95795828899999,
     "publish_attempts": 4,
     "publish_cancelled": 0,
     "publish_failures": 4,
     "publish_pending": 0,
     "publish_workers": 2,
     "stage_seconds": {
-      "build": 0.043,
-      "cleanup": 0.007,
-      "export": 0.012,
-      "ingestion": 37.665,
-      "publishing": 1.81,
-      "transformation": 0.059
+      "build": 0.057,
+      "cleanup": 0.015,
+      "export": 0.022,
+      "ingestion": 42.452,
+      "publishing": 2.319,
+      "transformation": 0.065
     },
     "status": "partial",
     "timed_out": false,
@@ -89,17 +89,17 @@
     "total_artifacts": 4,
     "transform": {
       "batch_size": 200,
-      "batches": 1,
+      "batches": 2,
       "completed": true,
       "deferred": 0,
-      "duration_seconds": 0.058748111999989305,
+      "duration_seconds": 0.06507095700001742,
       "failed": 0,
       "formats": {
-        "npvt": 22,
-        "opaque_bundle": 68
+        "npvt": 46,
+        "opaque_bundle": 157
       },
-      "processed": 90,
-      "records": 103,
+      "processed": 203,
+      "records": 212,
       "skipped": 0,
       "stop_reason": "complete"
     }
