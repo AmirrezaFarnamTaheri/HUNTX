@@ -42,20 +42,15 @@
         "auto",
         "vless-1",
         "vless-2",
-        "vmess-1",
         "vless-3",
         "vless-4",
-        "ss-1",
-        "ss-2",
         "vless-5",
         "vless-6",
-        "ss-3",
         "vless-7",
         "vless-8",
         "vless-9",
         "vless-10",
         "vless-11",
-        "ss-4",
         "vless-12",
         "vless-13",
         "vless-14",
@@ -65,9 +60,15 @@
         "vless-18",
         "vless-19",
         "vless-20",
-        "ss-5",
         "vless-21",
-        "hysteria2-1",
+        "vless-22",
+        "vless-23",
+        "vless-24",
+        "vless-25",
+        "vless-26",
+        "vless-27",
+        "vless-28",
+        "vless-29",
         "direct"
       ],
       "default": "auto"
@@ -78,20 +79,15 @@
       "outbounds": [
         "vless-1",
         "vless-2",
-        "vmess-1",
         "vless-3",
         "vless-4",
-        "ss-1",
-        "ss-2",
         "vless-5",
         "vless-6",
-        "ss-3",
         "vless-7",
         "vless-8",
         "vless-9",
         "vless-10",
         "vless-11",
-        "ss-4",
         "vless-12",
         "vless-13",
         "vless-14",
@@ -101,288 +97,20 @@
         "vless-18",
         "vless-19",
         "vless-20",
-        "ss-5",
         "vless-21",
-        "hysteria2-1"
+        "vless-22",
+        "vless-23",
+        "vless-24",
+        "vless-25",
+        "vless-26",
+        "vless-27",
+        "vless-28",
+        "vless-29"
       ]
     },
     {
       "type": "vless",
       "tag": "vless-1",
-      "server": "rvg-production-0062.up.railway.app",
-      "server_port": 443,
-      "domain_resolver": "google",
-      "uuid": "c4419a4d-83b5-5e8f-8f6a-7f629a1faf83",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "rvg-production-0062.up.railway.app",
-        "alpn": [
-          "h2",
-          "http/1.1"
-        ],
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-2",
-      "server": "62.210.24.143",
-      "server_port": 32202,
-      "uuid": "28148be2-61a7-4f36-8adb-030cc9f82bd0",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "www.amazon.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "firefox"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "bGe_-nAtOq6_w_2mv6pcmD8RzJP65Tti-vyMP2hAwDc",
-          "short_id": "f57d8f26"
-        }
-      }
-    },
-    {
-      "type": "vmess",
-      "tag": "vmess-1",
-      "server": "154.37.223.56",
-      "server_port": 52080,
-      "uuid": "f1ac5c82-00a4-400b-bb20-530c91b7c5bb",
-      "security": "auto",
-      "alter_id": 0,
-      "global_padding": false,
-      "authenticated_length": true
-    },
-    {
-      "type": "vless",
-      "tag": "vless-3",
-      "server": "158.69.112.254",
-      "server_port": 443,
-      "uuid": "661f395d-b153-4199-a04b-693f5fe7f261",
-      "flow": "xtls-rprx-vision",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "www.speedtest.net",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "wo417FrFdjy7ZhccQ-VWGZEKcoCHSEfyWcJT1pIVc1Y",
-          "short_id": "3d3c1e645f763ee3"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-4",
-      "server": "169.40.42.212",
-      "server_port": 443,
-      "uuid": "d65cc14c-f53f-4fe2-b262-97856601319c",
-      "flow": "xtls-rprx-vision",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "yahoo.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "e2RLf57Li_-MDZGE9ss1BWPgP54mqRb5PfXhW2jcVVg",
-          "short_id": "c39cc7310a"
-        }
-      }
-    },
-    {
-      "type": "shadowsocks",
-      "tag": "ss-1",
-      "server": "156.146.38.167",
-      "server_port": 443,
-      "method": "aes-128-gcm",
-      "password": "shadowsocks"
-    },
-    {
-      "type": "shadowsocks",
-      "tag": "ss-2",
-      "server": "51.222.12.127",
-      "server_port": 445,
-      "method": "aes-256-gcm",
-      "password": "zDNVedRFPQexG9v"
-    },
-    {
-      "type": "vless",
-      "tag": "vless-5",
-      "server": "193.124.204.145",
-      "server_port": 49853,
-      "uuid": "5ed7b151-b781-4dba-800d-e3f824f1416f",
-      "packet_encoding": "xudp"
-    },
-    {
-      "type": "vless",
-      "tag": "vless-6",
-      "server": "104.21.8.34",
-      "server_port": 2052,
-      "uuid": "6a5fc565-2987-43da-8618-9021ede10f98",
-      "packet_encoding": "xudp",
-      "transport": {
-        "type": "httpupgrade",
-        "host": "shop.zenvia.ir",
-        "path": "/wss"
-      }
-    },
-    {
-      "type": "shadowsocks",
-      "tag": "ss-3",
-      "server": "103.120.178.193",
-      "server_port": 31348,
-      "method": "chacha20-ietf-poly1305",
-      "password": "EBDRo9THx4CqiFU7h5gfov76oNwzZURAh0ZwbWjBKddtUhvz"
-    },
-    {
-      "type": "vless",
-      "tag": "vless-7",
-      "server": "15.224.75.217",
-      "server_port": 22222,
-      "uuid": "e4514801-0d5a-42ba-869f-39bd605aef9e",
-      "packet_encoding": "xudp"
-    },
-    {
-      "type": "vless",
-      "tag": "vless-8",
-      "server": "104.16.79.73",
-      "server_port": 443,
-      "uuid": "83afd88f-200f-4d89-bfc7-66eff160c1d8",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "josni.hoyes.cloudns.ch"
-      },
-      "transport": {
-        "type": "ws",
-        "path": "musiclovers85?ed=512/mtmvpn-mtmvpn-mtmvpn-mtmvpn-mtmvpn-mtmvpn-mtmvpn-mtmvpn-mtmvpn-mtmvpn-mtmvpn-mtmvpn-mtmvpn-mtmvpn-mtmvpn-mtmvpn-mtmvpn-mtmvpn-mtmvpn-mtmvpn-mtmvpn-mtmvpn-mtmvpn-mtmvpn",
-        "headers": {
-          "Host": "josni.hoyes.cloudns.ch"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-9",
-      "server": "104.16.79.73",
-      "server_port": 443,
-      "uuid": "83afd88f-200f-4d89-bfc7-66eff160c1d8",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "josni.hoyes.cloudns.ch"
-      },
-      "transport": {
-        "type": "ws",
-        "path": "musiclovers85?ed=512",
-        "headers": {
-          "Host": "josni.hoyes.cloudns.ch"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-10",
-      "server": "172.66.44.97",
-      "server_port": 443,
-      "uuid": "83afd88f-200f-4d89-bfc7-66eff160c1d8",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "josni.hoyes.cloudns.ch"
-      },
-      "transport": {
-        "type": "ws",
-        "path": "?ed=512",
-        "headers": {
-          "Host": "josni.hoyes.cloudns.ch"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-11",
-      "server": "202.37.33.80",
-      "server_port": 443,
-      "uuid": "5aafc2be-9348-4dec-b896-f4a91253bbca",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "support.zoom.us.yxls.eu.cc"
-      },
-      "transport": {
-        "type": "ws",
-        "path": "/id-tksi?ed=2048",
-        "headers": {
-          "Host": "support.zoom.us.yxls.eu.cc"
-        }
-      }
-    },
-    {
-      "type": "shadowsocks",
-      "tag": "ss-4",
-      "server": "54.36.174.140",
-      "server_port": 443,
-      "method": "chacha20-ietf-poly1305",
-      "password": "ytw2awn"
-    },
-    {
-      "type": "vless",
-      "tag": "vless-12",
-      "server": "172.66.44.97",
-      "server_port": 443,
-      "uuid": "83afd88f-200f-4d89-bfc7-66eff160c1d8",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "josni.hoyes.cloudns.ch"
-      },
-      "transport": {
-        "type": "ws",
-        "path": "/sg-melbi/Telegram-MTMVPN-Telegram-MTMVPN-Telegram-Telegram-MTMVPN-Telegram-MTMVPN-Telegram-MTMVPN-Telegram-MTMVPN-Telegram-MTMVPNMTMVPN-Telegram-MTMVPN-Telegram-MTMVPN-=512",
-        "headers": {
-          "Host": "josni.hoyes.cloudns.ch"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-13",
-      "server": "rvg-production-0062.up.railway.app",
-      "server_port": 443,
-      "domain_resolver": "google",
-      "uuid": "c4419a4d-83b5-5e8f-8f6a-7f629a1faf83",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "rvg-production-0062.up.railway.app",
-        "alpn": [
-          "h2",
-          "http/1.1"
-        ],
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-14",
       "server": "169.40.42.15",
       "server_port": 443,
       "uuid": "d65cc14c-f53f-4fe2-b262-97856601319c",
@@ -393,7 +121,7 @@
         "server_name": "yahoo.com",
         "utls": {
           "enabled": true,
-          "fingerprint": "ios"
+          "fingerprint": "firefox"
         },
         "reality": {
           "enabled": true,
@@ -404,145 +132,363 @@
     },
     {
       "type": "vless",
-      "tag": "vless-15",
-      "server": "31.76.4.103",
+      "tag": "vless-2",
+      "server": "3.78.155.1",
+      "server_port": 22224,
+      "uuid": "e4514801-0d5a-42ba-869f-39bd605aef9e",
+      "packet_encoding": "xudp"
+    },
+    {
+      "type": "vless",
+      "tag": "vless-3",
+      "server": "195.63.138.112",
       "server_port": 443,
-      "uuid": "423b1d79-08c4-403f-9d5e-c541f791b55f",
+      "uuid": "9aff0732-7ce4-4b34-ba20-e67c6df64fdd",
       "flow": "xtls-rprx-vision",
       "packet_encoding": "xudp",
       "tls": {
         "enabled": true,
-        "server_name": "eu-central.cendora.ru",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "firefox"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "b-Cm9hX-3UHsS1L_lnUB6AMjuKhlN1IDdBbZ506itjI",
-          "short_id": "00bca5982f82d083"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-16",
-      "server": "31.76.80.69",
-      "server_port": 2083,
-      "uuid": "8975546a-375c-4966-8064-19fc0f66f30a",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "www.amd.com",
+        "server_name": "v938014.hosted-by-vdsina.com",
         "utls": {
           "enabled": true,
           "fingerprint": "chrome"
         },
         "reality": {
           "enabled": true,
-          "public_key": "zq3gOJkXi6laNuxMohL3lr-wFOKi4Z9oG7QuMMiTDAk",
-          "short_id": "29b21343ab4d"
+          "public_key": "2guR3_fpRkIfDzdWBWDibb0H2Ypn06vq2vqMF4WfNUk",
+          "short_id": "1899e4d82e80cbcf"
+        }
+      }
+    },
+    {
+      "type": "vless",
+      "tag": "vless-4",
+      "server": "165.232.118.133",
+      "server_port": 12899,
+      "uuid": "e97ab92c-6067-44d8-a8ea-c8c07d33e99a",
+      "packet_encoding": "xudp"
+    },
+    {
+      "type": "vless",
+      "tag": "vless-5",
+      "server": "5.129.194.34",
+      "server_port": 4100,
+      "uuid": "af325624-e28d-44fd-a8a7-058a439d128f",
+      "packet_encoding": "xudp",
+      "transport": {
+        "type": "ws",
+        "path": "/v1"
+      }
+    },
+    {
+      "type": "vless",
+      "tag": "vless-6",
+      "server": "159.89.111.250",
+      "server_port": 12899,
+      "uuid": "e97ab92c-6067-44d8-a8ea-c8c07d33e99a",
+      "packet_encoding": "xudp"
+    },
+    {
+      "type": "vless",
+      "tag": "vless-7",
+      "server": "199.232.78.159",
+      "server_port": 443,
+      "uuid": "e0454af2-6fe9-4983-a55d-05e1da202602",
+      "packet_encoding": "xudp",
+      "tls": {
+        "enabled": true,
+        "server_name": "ssl.fastly.com"
+      },
+      "transport": {
+        "type": "ws",
+        "path": "/",
+        "headers": {
+          "Host": "lsjaoijji.global.ssl.fastly.neT"
+        }
+      }
+    },
+    {
+      "type": "vless",
+      "tag": "vless-8",
+      "server": "164.90.215.211",
+      "server_port": 12899,
+      "uuid": "e97ab92c-6067-44d8-a8ea-c8c07d33e99a",
+      "packet_encoding": "xudp"
+    },
+    {
+      "type": "vless",
+      "tag": "vless-9",
+      "server": "45.146.131.97",
+      "server_port": 4100,
+      "uuid": "5502312d-b5cf-4652-8c59-4d670dd047be",
+      "packet_encoding": "xudp",
+      "transport": {
+        "type": "ws",
+        "path": "/v1"
+      }
+    },
+    {
+      "type": "vless",
+      "tag": "vless-10",
+      "server": "168.222.143.50",
+      "server_port": 2200,
+      "uuid": "2aa7f4b1-e859-46d0-b8ac-8587811ab7b1",
+      "packet_encoding": "xudp",
+      "transport": {
+        "type": "ws",
+        "path": "/v1"
+      }
+    },
+    {
+      "type": "vless",
+      "tag": "vless-11",
+      "server": "apn.zyro-lab.com",
+      "server_port": 1324,
+      "domain_resolver": "google",
+      "uuid": "7d3963b5-4029-4878-a251-2437deaebcd7",
+      "packet_encoding": "xudp",
+      "transport": {
+        "type": "ws",
+        "path": "?ed=2560",
+        "headers": {
+          "Host": "api16-access-wf-sg.pangle.io"
+        }
+      }
+    },
+    {
+      "type": "vless",
+      "tag": "vless-12",
+      "server": "188.114.97.4",
+      "server_port": 443,
+      "uuid": "cf39fab0-bb85-42cb-9945-2ad69d78e575",
+      "packet_encoding": "xudp",
+      "tls": {
+        "enabled": true,
+        "server_name": "rubifen.adaspoloandco.com",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        }
+      },
+      "transport": {
+        "type": "ws",
+        "path": "/GOrbEh#TELEGRAM-MARAMBASHI_MARAMBASHI_MARAMBASHI_MARAMBASHI_MARAMBASHI?ed=512",
+        "headers": {
+          "Host": "rubifen.adaspoloandco.com"
+        }
+      }
+    },
+    {
+      "type": "vless",
+      "tag": "vless-13",
+      "server": "209.38.234.20",
+      "server_port": 12899,
+      "uuid": "e97ab92c-6067-44d8-a8ea-c8c07d33e99a",
+      "packet_encoding": "xudp"
+    },
+    {
+      "type": "vless",
+      "tag": "vless-14",
+      "server": "167.99.142.236",
+      "server_port": 12899,
+      "uuid": "e97ab92c-6067-44d8-a8ea-c8c07d33e99a",
+      "packet_encoding": "xudp"
+    },
+    {
+      "type": "vless",
+      "tag": "vless-15",
+      "server": "dl0.pcapps.ir",
+      "server_port": 8080,
+      "domain_resolver": "google",
+      "uuid": "ede43ede-85b5-4a0e-8bd6-57409bc2b2c9",
+      "packet_encoding": "xudp"
+    },
+    {
+      "type": "vless",
+      "tag": "vless-16",
+      "server": "lake.app20.ir",
+      "server_port": 2084,
+      "domain_resolver": "google",
+      "uuid": "ede43ede-85b5-4a0e-8bd6-57409bc2b2c9",
+      "flow": "xtls-rprx-vision",
+      "packet_encoding": "xudp",
+      "tls": {
+        "enabled": true,
+        "server_name": "srvuk.letsgoandapplereach.network.picumin.net",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "firefox"
+        },
+        "reality": {
+          "enabled": true,
+          "public_key": "EqiJy6-MJ8mVohF61a0Wu7V5BeV3KQbi5AdGwcHWCg0",
+          "short_id": "d1a02e59038db3bf"
         }
       }
     },
     {
       "type": "vless",
       "tag": "vless-17",
-      "server": "193.233.126.82",
-      "server_port": 9443,
-      "uuid": "37a098ab-8fec-4352-8ee8-294ae5bca68f",
+      "server": "usa.phoneshop98.ir",
+      "server_port": 2084,
+      "domain_resolver": "google",
+      "uuid": "ede43ede-85b5-4a0e-8bd6-57409bc2b2c9",
       "flow": "xtls-rprx-vision",
       "packet_encoding": "xudp",
       "tls": {
         "enabled": true,
-        "server_name": "www.amd.com",
+        "server_name": "deiwork.community.picumin.net",
         "utls": {
           "enabled": true,
           "fingerprint": "firefox"
         },
         "reality": {
           "enabled": true,
-          "public_key": "Te5lrfzw_MytTzQJB92DhWw7fk1qTK3mhzz7Bz41gVc",
-          "short_id": "0240e83f65a25e"
+          "public_key": "EqiJy6-MJ8mVohF61a0Wu7V5BeV3KQbi5AdGwcHWCg0",
+          "short_id": "c088b1008189a755"
         }
       }
     },
     {
       "type": "vless",
       "tag": "vless-18",
-      "server": "82.202.247.181",
+      "server": "deconverter.teddylink.com",
       "server_port": 443,
-      "uuid": "cd60668d-28d0-4070-8179-47ad0d151dd5",
+      "domain_resolver": "google",
+      "uuid": "7a3fa6b9-e862-4b3f-b742-a9168c4fa3b6",
       "flow": "xtls-rprx-vision",
       "packet_encoding": "xudp",
       "tls": {
         "enabled": true,
-        "server_name": "yandex.ru",
+        "server_name": "deconverter.teddylink.com",
         "utls": {
           "enabled": true,
-          "fingerprint": "firefox"
+          "fingerprint": "qq"
         },
         "reality": {
           "enabled": true,
-          "public_key": "vZ22ThhkpXUd5-tY-v5TTrouLHjgYYmeQgqeLt7HRz0"
+          "public_key": "OjYfFyxxb6SWmbxAoj00xWXqBzs-IuXr3xaShB_cIDI",
+          "short_id": "9ba2199aa517c9"
         }
       }
     },
     {
       "type": "vless",
       "tag": "vless-19",
-      "server": "188.114.97.6",
-      "server_port": 80,
-      "uuid": "dc8eccdb-ecfa-435f-9ac1-5dc4882e7b51",
+      "server": "31.76.66.5",
+      "server_port": 443,
+      "uuid": "7a3fa6b9-e862-4b3f-b742-a9168c4fa3b6",
+      "flow": "xtls-rprx-vision",
       "packet_encoding": "xudp",
-      "transport": {
-        "type": "ws",
-        "path": "/http",
-        "headers": {
-          "Host": "de.vpnbase.net"
+      "tls": {
+        "enabled": true,
+        "server_name": "fi.velajio.com",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "firefox"
+        },
+        "reality": {
+          "enabled": true,
+          "public_key": "6rrQ09njNw0wrfGg_S48ySsl4v17Q6uTAIMnECMWbyU",
+          "short_id": "5fd2b921da642f3e"
         }
       }
     },
     {
       "type": "vless",
       "tag": "vless-20",
-      "server": "it.feywebsite.ir",
-      "server_port": 8008,
-      "domain_resolver": "google",
-      "uuid": "b91abe1a-80ca-417b-998b-2b542661c16f",
+      "server": "64.188.77.13",
+      "server_port": 443,
+      "uuid": "423b1d79-08c4-403f-9d5e-c541f791b55f",
+      "flow": "xtls-rprx-vision",
       "packet_encoding": "xudp",
       "tls": {
         "enabled": true,
-        "server_name": "play.google.com",
+        "server_name": "eu-west.cendora.ru",
         "utls": {
           "enabled": true,
-          "fingerprint": "chrome"
+          "fingerprint": "firefox"
         },
         "reality": {
           "enabled": true,
-          "public_key": "yGB6HD9OYiD77YWTH1YxcG9yIYkyeEYOEcHL-WnwQn8",
-          "short_id": "5f9a"
+          "public_key": "m6RDw1b8R4lCaRUIzhHpy6TtX2Dhk6nyby8dWzeQqA0",
+          "short_id": "dd3ff38418d29d22"
         }
       }
     },
     {
-      "type": "shadowsocks",
-      "tag": "ss-5",
-      "server": "4.168.234.5",
-      "server_port": 443,
-      "method": "chacha20-ietf-poly1305",
-      "password": "LY94CL8HouUwEPF3"
-    },
-    {
       "type": "vless",
       "tag": "vless-21",
-      "server": "199.181.197.1",
-      "server_port": 443,
-      "uuid": "b2f6aa3a-2550-4a1c-b2c0-1c94b1207217",
+      "server": "167.99.178.229",
+      "server_port": 8039,
+      "uuid": "3775ad6e-d281-8bc5-36e9-9c5324a69393",
+      "flow": "xtls-rprx-vision",
       "packet_encoding": "xudp",
       "tls": {
         "enabled": true,
-        "server_name": "terazhediii.info",
+        "server_name": "amp-api-edge.apps.apple.com",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "ios"
+        },
+        "reality": {
+          "enabled": true,
+          "public_key": "ZrdPHtBvi7yMRj17SohKaGQEXuDptmCJWCi8gk5HlD8",
+          "short_id": "35938c4e546cd459"
+        }
+      }
+    },
+    {
+      "type": "vless",
+      "tag": "vless-22",
+      "server": "66.33.22.66",
+      "server_port": 443,
+      "uuid": "88d43d65-fcad-4659-2d6e-74ec614a7e07",
+      "packet_encoding": "xudp",
+      "tls": {
+        "enabled": true,
+        "server_name": "breakthebarriers.up.railway.app",
+        "alpn": [
+          "h2",
+          "http/1.1"
+        ],
+        "utls": {
+          "enabled": true,
+          "fingerprint": "firefox"
+        }
+      }
+    },
+    {
+      "type": "vless",
+      "tag": "vless-23",
+      "server": "172.66.44.97",
+      "server_port": 443,
+      "uuid": "83afd88f-200f-4d89-bfc7-66eff160c1d8",
+      "packet_encoding": "xudp",
+      "tls": {
+        "enabled": true,
+        "server_name": "josni.hoyes.cloudns.ch"
+      },
+      "transport": {
+        "type": "ws",
+        "headers": {
+          "Host": "josni.hoyes.cloudns.ch"
+        }
+      }
+    },
+    {
+      "type": "vless",
+      "tag": "vless-24",
+      "server": "69.46.46.123",
+      "server_port": 443,
+      "uuid": "58c02e38-24a7-3f60-b703-ca4cc154960f",
+      "packet_encoding": "xudp",
+      "tls": {
+        "enabled": true,
+        "server_name": "x4g-production-1167c.up.railway.app",
+        "alpn": [
+          "http/1.1"
+        ],
         "utls": {
           "enabled": true,
           "fingerprint": "chrome"
@@ -550,27 +496,75 @@
       },
       "transport": {
         "type": "ws",
-        "path": "/hdgrbws",
+        "path": "/ws/58c02e38-24a7-3f60-b703-ca4cc154960f",
         "headers": {
-          "Host": "terazhediii.info"
+          "Host": "x4g-production-1167c.up.railway.app"
         }
       }
     },
     {
-      "type": "hysteria2",
-      "tag": "hysteria2-1",
-      "server": "assets.gateway-stream.com",
-      "server_port": 52029,
-      "domain_resolver": "google",
-      "password": "d86efa900c2f4bb6bde662f1ef6413b8",
-      "obfs": {
-        "type": "salamander",
-        "password": "v8h63irhnay97090"
-      },
+      "type": "vless",
+      "tag": "vless-25",
+      "server": "172.66.44.97",
+      "server_port": 443,
+      "uuid": "83afd88f-200f-4d89-bfc7-66eff160c1d8",
+      "packet_encoding": "xudp",
       "tls": {
         "enabled": true,
-        "server_name": "assets.gateway-stream.com"
+        "server_name": "josni.hoyes.cloudns.ch"
+      },
+      "transport": {
+        "type": "ws",
+        "path": "/sg-melbi#TELEGRAM-TOOTFFARANGI_TOOTFFARANGI?ed=2560",
+        "headers": {
+          "Host": "josni.hoyes.cloudns.ch"
+        }
       }
+    },
+    {
+      "type": "vless",
+      "tag": "vless-26",
+      "server": "rvg-production-bdae.up.railway.app",
+      "server_port": 443,
+      "domain_resolver": "google",
+      "uuid": "d4381eda-187c-cb1a-67d8-7592b2169c2f",
+      "packet_encoding": "xudp",
+      "tls": {
+        "enabled": true,
+        "server_name": "rvg-production-bdae.up.railway.app",
+        "alpn": [
+          "h2",
+          "http/1.1"
+        ],
+        "utls": {
+          "enabled": true,
+          "fingerprint": "ios"
+        }
+      }
+    },
+    {
+      "type": "vless",
+      "tag": "vless-27",
+      "server": "207.154.253.46",
+      "server_port": 12899,
+      "uuid": "e97ab92c-6067-44d8-a8ea-c8c07d33e99a",
+      "packet_encoding": "xudp"
+    },
+    {
+      "type": "vless",
+      "tag": "vless-28",
+      "server": "164.92.176.108",
+      "server_port": 12899,
+      "uuid": "e97ab92c-6067-44d8-a8ea-c8c07d33e99a",
+      "packet_encoding": "xudp"
+    },
+    {
+      "type": "vless",
+      "tag": "vless-29",
+      "server": "161.35.194.85",
+      "server_port": 12899,
+      "uuid": "e97ab92c-6067-44d8-a8ea-c8c07d33e99a",
+      "packet_encoding": "xudp"
     },
     {
       "type": "direct",
