@@ -1,29 +1,53 @@
 {
   "schema_version": 1,
-  "artifact_count": 4,
+  "artifact_count": 8,
   "artifacts": [
     {
       "path": "all_sources.npvt",
-      "size": 26013,
-      "sha256": "778ef5c3452fb84396b644eba90026a2cb4e95a4a0173249fe3485d64840545a",
+      "size": 7602,
+      "sha256": "d009d1ce7b7b828d06f8db4a29f1c9a8bd8d01c36b239c212364d04ff9a1f52c",
       "media_type": "application/octet-stream"
     },
     {
+      "path": "all_sources.npvt.b64sub",
+      "size": 10136,
+      "sha256": "ca2d781c37396ad3005213238dbcd5ee286fd4150eff9a52f4dc9ae0f61ec42d",
+      "media_type": "application/octet-stream"
+    },
+    {
+      "path": "all_sources.npvt.decoded.json",
+      "size": 22926,
+      "sha256": "db53d7c586b6d1946e8658d42245756f4b391acc70f063edc029a79521d3e610",
+      "media_type": "application/json"
+    },
+    {
+      "path": "all_sources.npvt.singbox.json",
+      "size": 18125,
+      "sha256": "36bd74378909d62af7d93a0aa67ed491bbaf11f221d81bd60ae40bef4bc0ed83",
+      "media_type": "application/json"
+    },
+    {
       "path": "all_sources.opaque_bundle",
-      "size": 240608,
-      "sha256": "71ef29d18b50f6497af853a99a6579e10f5318ba2e62d74255252257813b7f8d",
+      "size": 252438,
+      "sha256": "faff46d424b073beee866705be483964f44977f42ff786fb8a4ded9afe9cdb92",
       "media_type": "application/octet-stream"
     },
     {
       "path": "all_sources_npvt_b64sub.txt",
-      "size": 34684,
-      "sha256": "2f7c7480e4e5658f38a6637ae0a01b9ed7e2018454568a54494ad4be476aeba6",
+      "size": 10136,
+      "sha256": "ca2d781c37396ad3005213238dbcd5ee286fd4150eff9a52f4dc9ae0f61ec42d",
       "media_type": "text/plain"
     },
     {
       "path": "all_sources_npvt_decoded.json",
-      "size": 66504,
-      "sha256": "4bdd86a714f15ec19c298a4edfb3e5a50e9e0328c9f582fe0b08410f132ee291",
+      "size": 22926,
+      "sha256": "db53d7c586b6d1946e8658d42245756f4b391acc70f063edc029a79521d3e610",
+      "media_type": "application/json"
+    },
+    {
+      "path": "all_sources_npvt_singbox.json",
+      "size": 18125,
+      "sha256": "36bd74378909d62af7d93a0aa67ed491bbaf11f221d81bd60ae40bef4bc0ed83",
       "media_type": "application/json"
     }
   ]
