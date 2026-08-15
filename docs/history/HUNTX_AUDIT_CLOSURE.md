@@ -33,7 +33,7 @@ This ledger maps the six-repository audit findings and synthesis recommendations
 | D-17 subscriber-count inflation | Not applicable | No equivalent ranking parser was identified. |
 | D-18 non-atomic JSON state | Existing HUNTX mechanism | HUNTX uses SQLite/WAL and atomic file utilities. S3 state promotion still needs generation/checksum semantics. |
 | D-19 fragment-based duplicate inflation | Partial | HUNTX strips nonsemantic remarks for dedup and has regression tests. Corpus-level duplicate-ratio SLI remains open. |
-| D-20 browser secret persistence | Not applicable | HUNTX does not include the cited Abzar browser workflow. |
+| D-20 browser secret persistence | Not applicable | HUNTX does not include the cited client-side browser decoder workflow. |
 | D-21 placeholder Clash conversion | Not applicable | No equivalent placeholder UI renderer was identified. Renderer-native conformance remains a general requirement. |
 | D-22 unbounded legacy HTTP calls | Partial | HUNTX connectors have retry/freshness controls; connector-wide byte/redirect/global-deadline contracts require a dedicated audit. |
 | D-23 unescaped MTProto HTML | Not applicable | HUNTX does not use the cited static MTProto HTML generator. |

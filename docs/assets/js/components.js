@@ -113,6 +113,10 @@ export const Header = ({ onSearch, stats, theme, onToggleTheme }) => html`
                     <i data-lucide="${theme === 'dark' ? 'sun' : 'moon'}" class="w-5 h-5"></i>
                 </button>
 
+                <a href="decoder.html" class="hidden sm:flex p-2 rounded-lg text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus-ring" title="Subscription config decoder">
+                    <i data-lucide="scan-line" class="w-5 h-5"></i>
+                </a>
+
                 <a href="https://github.com/cyb3r-jak3/huntx" target="_blank" class="hidden sm:flex p-2 rounded-lg text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus-ring">
                     <i data-lucide="github" class="w-5 h-5"></i>
                 </a>

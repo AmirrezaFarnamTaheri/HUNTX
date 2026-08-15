@@ -1,6 +1,9 @@
 from pathlib import Path
 
 
+SETUP_GO_V7_SHA = "b7ad1dad31e06c5925ef5d2fc7ad053ef454303e"
+
+
 def test_production_workflow_uses_verified_atomic_generations():
     workflow = Path(".github/workflows/huntx.yml").read_text()
     assert "pull_request:" not in workflow
@@ -16,7 +19,7 @@ def test_production_workflow_uses_verified_atomic_generations():
     assert "huntx-tools verify-output" in workflow
     assert "huntx-tools site-data" in workflow
     assert "id-token: write" in workflow
-    assert workflow.count("actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c") == 4
+    assert workflow.count(f"actions/setup-go@{SETUP_GO_V7_SHA}") == 4
     assert "needs: validate" in workflow
     assert "restore-verified-state" in workflow
     assert "ingest-build-package" in workflow
@@ -69,7 +72,7 @@ def test_pull_request_workflow_has_no_oidc_permission():
     workflow = Path(".github/workflows/pr-validation.yml").read_text()
     assert "pull_request:" in workflow
     assert "id-token: write" not in workflow
-    assert "actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c" in workflow
+    assert f"actions/setup-go@{SETUP_GO_V7_SHA}" in workflow
 
 
 def test_go_release_plane_is_present():

@@ -1,8 +1,7 @@
 package main
 
-// SMGo - Telegram Configs Collector (Go)
-// Inspired by and builds upon the work of Sorush Mirzaei
-// https://github.com/soroushmirzaei/telegram-configs-collector
+// HuntX Telegram Configs Collector (Go)
+// Fetches proxy configurations from public Telegram channels since the last run.
 
 import (
 	"bufio"
@@ -487,7 +486,7 @@ func filterIranianConfigs(configs []string) []string {
 }
 
 func main() {
-	fmt.Println("🚀 Starting SMGo Collector...")
+	fmt.Println("🚀 Starting HuntX Collector...")
 
 	// Load channels
 	channels, err := loadTelegramChannels()
