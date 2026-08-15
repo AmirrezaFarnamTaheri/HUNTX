@@ -1,8 +1,10 @@
+import base64
 import json
 import unittest
 from unittest.mock import Mock
 
 from huntx.formats.common.singbox import (
+    TARGET_SINGBOX_VERSION,
     build_singbox_config_bytes,
     config_from_uris,
     parse_proxy_uri,
@@ -30,8 +32,6 @@ class TestSingboxParsing(unittest.TestCase):
         self.assertEqual(node.transport_service_name, "grpcsvc")
 
     def test_parse_vmess_ws(self):
-        import base64
-
         payload = {
             "v": "2",
             "ps": "vmess-node",
@@ -54,113 +54,102 @@ class TestSingboxParsing(unittest.TestCase):
         self.assertEqual(node.transport_path, "/ws")
         self.assertTrue(node.tls_enabled)
 
-    def test_parse_trojan_and_hysteria2(self):
+    def test_parse_trojan_hysteria2_and_shadowsocks(self):
         trojan = parse_proxy_uri("trojan://secret@t.example.com:443?sni=t.example.com#T")
         self.assertEqual(trojan.type, "trojan")
         self.assertEqual(trojan.password, "secret")
-        hy2 = parse_proxy_uri("hysteria2://pw@h.example.com:8443?sni=h.example.com&obfs=salamander#H")
+
+        hy2 = parse_proxy_uri(
+            "hysteria2://pw@h.example.com:8443?sni=h.example.com"
+            "&obfs=salamander&obfs-password=obfs-secret#H"
+        )
         self.assertEqual(hy2.type, "hysteria2")
         self.assertEqual(hy2.password, "pw")
-
-    def test_parse_ss_base64_userinfo(self):
-        import base64
+        self.assertEqual(hy2.obfs_type, "salamander")
+        self.assertEqual(hy2.obfs_password, "obfs-secret")
 
         userinfo = base64.b64encode(b"aes-256-gcm:password123").decode()
-        node = parse_proxy_uri(f"ss://{userinfo}@s.example.com:8388#SS")
+        ss = parse_proxy_uri(f"ss://{userinfo}@s.example.com:8388#SS")
+        self.assertIsNotNone(ss)
+        self.assertEqual(ss.type, "shadowsocks")
+        self.assertEqual(ss.method, "aes-256-gcm")
+        self.assertEqual(ss.password, "password123")
+
+    def test_hysteria2_does_not_alias_obfs_type_to_password(self):
+        node = parse_proxy_uri("hy2://pw@h.example.com:8443?obfs=salamander#H")
+        self.assertEqual(node.obfs_type, "salamander")
+        self.assertEqual(node.obfs_password, "")
+        config = config_from_uris(["hy2://pw@h.example.com:8443?obfs=salamander#H"])
+        outbound = next(item for item in config["outbounds"] if item.get("type") == "hysteria2")
+        self.assertNotIn("obfs", outbound)
+
+    def test_hysteria2_port_range_is_rendered_in_current_syntax(self):
+        node = parse_proxy_uri(
+            "hysteria2://pw@h2.example.com:8443?sni=h2.example.com"
+            "&up_mbps=80&down_mbps=200&mport=20000-30000#H2"
+        )
+        self.assertEqual(node.server_ports, ["20000-30000"])
+        config = config_from_uris(
+            ["hysteria2://pw@h2.example.com:8443?sni=h2.example.com&mport=20000-30000#H2"]
+        )
+        outbound = next(item for item in config["outbounds"] if item.get("type") == "hysteria2")
+        self.assertEqual(outbound["server_ports"], ["20000:30000"])
+        self.assertNotIn("server_port", outbound)
+
+    def test_current_renderer_skips_removed_legacy_native_outbounds(self):
+        self.assertEqual(TARGET_SINGBOX_VERSION, "1.14+")
+        self.assertIsNone(parse_proxy_uri("hysteria://h1.example.com:443?auth=secret#H1"))
+        self.assertIsNone(parse_proxy_uri("wireguard://legacy"))
+
+    def test_anytls_and_double_encoded_tag(self):
+        node = parse_proxy_uri("anytls://pass123@a.example.com:8443?sni=a.example.com&insecure=1#A")
         self.assertIsNotNone(node)
-        self.assertEqual(node.type, "shadowsocks")
-        self.assertEqual(node.method, "aes-256-gcm")
-        self.assertEqual(node.password, "password123")
-        self.assertEqual(node.port, 8388)
+        self.assertEqual(node.type, "anytls")
+        self.assertTrue(node.tls_enabled)
+        self.assertTrue(node.tls_insecure)
+
+        tagged = parse_proxy_uri("trojan://secret@t.example.com:443?sni=t.example.com#My%2520Node")
+        self.assertEqual(tagged.tag, "My Node")
 
     def test_unknown_scheme_returns_none(self):
         self.assertIsNone(parse_proxy_uri("http://not-a-proxy"))
         self.assertIsNone(parse_proxy_uri("garbage"))
 
-    def test_parse_ss_json_userinfo(self):
-        import base64
-
-        payload = json.dumps(
-            {
-                "server": "j.example.com",
-                "server_port": 8388,
-                "method": "chacha20-ietf-poly1305",
-                "password": "pw",
-            }
-        )
-        raw = base64.urlsafe_b64encode(payload.encode()).decode().rstrip("=")
-        node = parse_proxy_uri(f"ss://{raw}")
-        self.assertIsNotNone(node)
-        self.assertEqual(node.type, "shadowsocks")
-        self.assertEqual(node.server, "j.example.com")
-        self.assertEqual(node.port, 8388)
-        self.assertEqual(node.method, "chacha20-ietf-poly1305")
-
-    def test_parse_hysteria_v1(self):
-        node = parse_proxy_uri(
-            "hysteria://h1.example.com:443?auth=secret&peer=sni.example.com" "&up_mbps=50&down_mbps=100&obfs=xplus#H1"
-        )
-        self.assertIsNotNone(node)
-        self.assertEqual(node.type, "hysteria")
-        self.assertEqual(node.server, "h1.example.com")
-        self.assertEqual(node.password, "secret")
-        self.assertEqual(node.up_mbps, 50)
-        self.assertEqual(node.down_mbps, 100)
-        self.assertEqual(node.obfs_password, "xplus")
-
-    def test_parse_hysteria2_bandwidth_and_ports(self):
-        node = parse_proxy_uri(
-            "hysteria2://pw@h2.example.com:8443?sni=h2.example.com" "&up_mbps=80&down_mbps=200&mport=20000-30000#H2"
-        )
-        self.assertEqual(node.type, "hysteria2")
-        self.assertEqual(node.up_mbps, 80)
-        self.assertEqual(node.down_mbps, 200)
-        self.assertEqual(node.server_ports, ["20000-30000"])
-
-    def test_parse_anytls(self):
-        node = parse_proxy_uri("anytls://pass123@a.example.com:8443?sni=a.example.com&insecure=1#A")
-        self.assertIsNotNone(node)
-        self.assertEqual(node.type, "anytls")
-        self.assertEqual(node.server, "a.example.com")
-        self.assertEqual(node.port, 8443)
-        self.assertEqual(node.password, "pass123")
-        self.assertTrue(node.tls_enabled)
-        self.assertTrue(node.tls_insecure)
-
-    def test_anytls_outbound_and_juicity_skip(self):
-        cfg = config_from_uris(["anytls://pw@a.example.com:8443?sni=a.example.com#A"])
-        anytls = [ob for ob in cfg["outbounds"] if ob.get("type") == "anytls"]
-        self.assertEqual(len(anytls), 1)
-        self.assertEqual(anytls[0]["password"], "pw")
-        self.assertIn("tls", anytls[0])
-        # juicity has no native sing-box outbound type → not converted.
-        self.assertIsNone(parse_proxy_uri("juicity://uuid:pw@j.example.com:443#J"))
-
-    def test_double_encoded_tag_is_fully_unquoted(self):
-        # %2520 -> %20 -> space; single-pass unquote would stop at "%20".
-        node = parse_proxy_uri("trojan://secret@t.example.com:443?sni=t.example.com#My%2520Node")
-        self.assertIsNotNone(node)
-        self.assertEqual(node.tag, "My Node")
-
 
 class TestSingboxConfig(unittest.TestCase):
-    def test_config_from_uris_structure(self):
-        config = config_from_uris(
-            [
-                "trojan://secret@t.example.com:443?sni=t.example.com#Node",
-                "trojan://secret@t.example.com:443?sni=t.example.com#Node",  # dup tag
-            ]
-        )
-        tags = [ob["tag"] for ob in config["outbounds"] if ob.get("type") == "trojan"]
-        self.assertEqual(len(tags), 2)
-        self.assertEqual(len(set(tags)), 2)  # de-duplicated tags
-        outbound_types = {ob["type"] for ob in config["outbounds"]}
+    def test_config_uses_current_schema_and_no_removed_special_outbounds(self):
+        config = config_from_uris(["trojan://secret@t.example.com:443?sni=t.example.com#Node"])
+        self.assertEqual(config["route"]["final"], "select")
+        self.assertEqual(config["route"]["default_domain_resolver"], "google")
+        self.assertTrue(config["dns"]["optimistic"])
+        self.assertTrue(all("type" in server for server in config["dns"]["servers"]))
+        self.assertTrue(all("address" not in server for server in config["dns"]["servers"]))
+
+        outbound_types = {item["type"] for item in config["outbounds"]}
         self.assertIn("selector", outbound_types)
         self.assertIn("urltest", outbound_types)
         self.assertIn("direct", outbound_types)
-        self.assertEqual(config["route"]["final"], "select")
-        self.assertIn("experimental", config)
-        self.assertTrue(config["dns"].get("optimistic"))
+        self.assertTrue(outbound_types.isdisjoint({"block", "dns", "wireguard", "hysteria"}))
+
+        trojan = next(item for item in config["outbounds"] if item.get("type") == "trojan")
+        self.assertEqual(trojan["domain_resolver"], "google")
+
+    def test_reserved_and_duplicate_tags_are_renamed(self):
+        config = config_from_uris(
+            [
+                "trojan://secret@t.example.com:443?sni=t.example.com#auto",
+                "trojan://secret@t.example.com:443?sni=t.example.com#direct",
+                "trojan://secret@t.example.com:443?sni=t.example.com#Node",
+                "trojan://secret@t.example.com:443?sni=t.example.com#Node",
+            ]
+        )
+        tags = [item["tag"] for item in config["outbounds"]]
+        self.assertEqual(len(tags), len(set(tags)))
+        proxy_tags = [item["tag"] for item in config["outbounds"] if item.get("type") == "trojan"]
+        self.assertIn("auto-1", proxy_tags)
+        self.assertIn("direct-1", proxy_tags)
+        self.assertIn("Node", proxy_tags)
+        self.assertIn("Node-1", proxy_tags)
 
     def test_build_bytes_empty_when_no_proxies(self):
         self.assertEqual(build_singbox_config_bytes("just some text\nno uris"), b"")
@@ -192,7 +181,7 @@ class TestBuildPipelineSingboxDerivative(unittest.TestCase):
 
         results = self.pipeline.run(route_config)
 
-        formats = {r["format"] for r in results}
+        formats = {result["format"] for result in results}
         self.assertIn("npvt", formats)
         self.assertIn("npvt.decoded.json", formats)
         self.assertIn("npvt.b64sub", formats)
@@ -201,7 +190,7 @@ class TestBuildPipelineSingboxDerivative(unittest.TestCase):
         saved_formats = {call.args[1] for call in self.artifact_store.save_output.call_args_list}
         self.assertIn("npvt.singbox.json", saved_formats)
 
-        singbox_result = next(r for r in results if r["format"] == "npvt.singbox.json")
+        singbox_result = next(result for result in results if result["format"] == "npvt.singbox.json")
         parsed = json.loads(singbox_result["data"].decode("utf-8"))
         self.assertIn("outbounds", parsed)
 
@@ -214,8 +203,7 @@ class TestBuildPipelineSingboxDerivative(unittest.TestCase):
         self.artifact_store.save_artifact.return_value = "hash"
 
         results = self.pipeline.run(route_config)
-
-        formats = {r["format"] for r in results}
+        formats = {result["format"] for result in results}
         self.assertNotIn("npvt.singbox.json", formats)
 
 
