@@ -22,7 +22,7 @@ class V2RayCollectorItem:
 
 class V2RayCollectorConnector(SourceConnector):
     """
-    Python wrapper connector for the Go v2ray_collector scraper (smgo).
+    Python wrapper connector for the Go v2ray_collector scraper.
     Executes 'go run main.go' to fetch configurations from Telegram and
     ingests the results.
     """

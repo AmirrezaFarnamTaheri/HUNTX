@@ -59,7 +59,7 @@ follow-ups are represented directly or strengthened in PR #61.
 | Record fan-out deduplication | Adopted | repository build queries; `tests/test_build_record_fanout.py` |
 | Transform records and file-status changes commit atomically | Adopted | `src/huntx/pipeline/transform.py`; `tests/test_transform_atomicity.py` |
 | Publisher retry bound and safe multipart filename handling | Adopted | `src/huntx/publishers/telegram/publisher.py`; `tests/test_publisher_hardening.py` |
-| Historical audit report | Historical only | `docs/AUDIT_2026-07-26.md`, explicitly marked as a donor snapshot and superseded by the convergence records |
+| Historical audit report | Historical only | `docs/history/AUDIT_2026-07-26.md`, explicitly marked as a donor snapshot and superseded by the convergence records |
 
 ### PR #59 review finding closure
 
@@ -145,7 +145,7 @@ HUNTX responsibilities; unsafe mechanisms became negative guardrails.
 
 | Donor value unit | Disposition | Target-native result |
 |---|---|---|
-| Forensic inventory and architectural lessons | Historical only / adapted | The useful findings are represented by `docs/AUDIT_2026-07-26.md`, `docs/CONVERGENCE_2026-07-27.md`, this ledger, and focused user/developer documentation. |
+| Forensic inventory and architectural lessons | Historical only / adapted | The useful findings are represented by `docs/history/AUDIT_2026-07-26.md`, `docs/history/CONVERGENCE_2026-07-27.md`, this ledger, and focused user/developer documentation. |
 | “Production Ready” and executive-approval claims | Rejected | Release status is derived from current checks and maintainer approval, never asserted by an audit document. |
 | Local `file:///D:/...` links and stale component paths | Rejected | Repository documentation uses portable repository-relative references. |
 | Push-to-main or production instructions before approval | Negative guardrail | Repository mutation and protected production execution remain explicit maintainer actions. |
@@ -172,6 +172,17 @@ Every PR #58 review family has a terminal target disposition:
 No unresolved PR #58 comment requires copying the reviewed donor mechanism into
 PR #61. Reintroducing those mechanisms without a new product decision and their
 missing contracts would reduce, not improve, convergence quality.
+
+---
+
+## Output retention (cumulative cache ≥ 3 days)
+
+`outputs/` previously deleted any route-owned file not produced by the current
+run. `core/orchestrator.Orchestrator._export_outputs` now keeps such files for
+at least `OUTPUT_RETENTION_DAYS` (default 3, overridable via the
+`HUNTX_OUTPUT_RETENTION_DAYS` environment variable) using an mtime guard, so a
+single run can no longer wipe recently produced output. `outputs_dev/` already
+keeps an all-time cumulative manifest.
 
 ---
 

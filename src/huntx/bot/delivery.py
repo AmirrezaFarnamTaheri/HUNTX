@@ -262,6 +262,8 @@ class DeliveryMixin:
                 caption = f"🔗 `{name}` — base64 subscription ({size_kb:.0f} KB)"
             elif "decoded.json" in name:
                 caption = f"📊 `{name}` — decoded JSON ({size_kb:.0f} KB)"
+            elif "singbox.json" in name:
+                caption = f"📦 `{name}` — sing-box config ({size_kb:.0f} KB)"
             elif name.endswith((".ovpn", ".ehi", ".hc", ".hat", ".sip", ".nm", ".dark", ".npv4")):
                 caption = f"📦 `{name}` — config archive ({size_kb:.0f} KB)"
             else:
@@ -279,6 +281,8 @@ class DeliveryMixin:
             return ".b64sub" in n or n.endswith("_b64sub.txt")
         if f in ("decoded.json", "npvt.decoded.json", "npvtsub.decoded.json"):
             return ".decoded.json" in n or n.endswith("_decoded.json")
+        if f in ("singbox.json", "npvt.singbox.json", "npvtsub.singbox.json"):
+            return ".singbox.json" in n or n.endswith("_singbox.json")
         return n.endswith(f".{f}") or n.endswith(f"_{f}.txt") or n.endswith(f"_{f}.json") or n.endswith(f"_{f}.zip")
 
     async def _send_format_to_user(self, chat_id: int, fmt: str):

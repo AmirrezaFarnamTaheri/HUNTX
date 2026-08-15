@@ -1,4 +1,4 @@
-module smgo
+module huntx-collector
 
 go 1.21
 

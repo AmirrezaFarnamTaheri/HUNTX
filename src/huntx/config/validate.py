@@ -98,11 +98,11 @@ def validate_config(config: AppConfig):
 
             is_valid_fmt = False
             # Check if format is registered or a valid derived/known format
-            if fmt in registry.list_formats() or fmt in ["b64sub", "decoded.json"]:
+            if fmt in registry.list_formats() or fmt in ["b64sub", "decoded.json", "singbox.json"]:
                 is_valid_fmt = True
             else:
                 # check derived formats
-                for suffix in [".b64sub", ".decoded.json"]:
+                for suffix in [".b64sub", ".decoded.json", ".singbox.json"]:
                     if fmt.endswith(suffix):
                         base_fmt = fmt[: -len(suffix)]
                         if base_fmt in registry.list_formats() or base_fmt in ["npvt", "npvtsub"]:

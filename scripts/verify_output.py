@@ -162,6 +162,11 @@ def validate_file(path: Path) -> Dict[str, Any]:
             print(f"    JSON: {stats['entries']} entries  protocols=[{protos}]")
         return stats
 
+    if name.endswith(".singbox.json"):
+        stats = validate_json_file(path)
+        print(f"    sing-box config: {size_kb:.1f} KB")
+        return stats
+
     if name.endswith(".b64sub"):
         print(f"    Base64 subscription: {size_kb:.1f} KB")
         return {"type": "b64sub", "size": size}
@@ -224,7 +229,9 @@ def main():
 
         # Track format
         suffix = item.suffix.lower()
-        if item.name.endswith(".decoded.json"):
+        if item.name.endswith(".singbox.json"):
+            format_counts["singbox.json"] += 1
+        elif item.name.endswith(".decoded.json"):
             format_counts["decoded.json"] += 1
         elif item.name.endswith(".b64sub"):
             format_counts["b64sub"] += 1

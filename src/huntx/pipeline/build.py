@@ -10,6 +10,7 @@ from collections import defaultdict
 from typing import Any, Optional
 from urllib.parse import parse_qs, unquote, urlparse
 
+from ..formats.common.singbox import build_singbox_config_bytes
 from ..formats.registry import FormatRegistry
 from ..state.repo import StateRepo
 from ..store.artifact_store import ArtifactStore
@@ -242,16 +243,24 @@ class BuildPipeline:
             return b""
         return base64.b64encode(text.encode("utf-8")) if text else b""
 
-    def _proxy_derivatives(self, artifact_bytes: bytes) -> tuple[bytes, bytes]:
-        """Create decoded JSON and base64 output from one UTF-8 decode."""
+    def _proxy_derivatives(self, artifact_bytes: bytes) -> tuple[bytes, bytes, bytes]:
+        """Create decoded JSON, base64 subscription and sing-box config from one UTF-8 decode.
+
+        The sing-box config is empty bytes when no proxy URI parses, so callers can skip
+        emitting an empty derivative.
+        """
         try:
             text = artifact_bytes.decode("utf-8", errors="ignore")
         except (AttributeError, UnicodeDecodeError):
-            return b"", b""
+            return b"", b"", b""
         stripped = text.strip()
         if not stripped:
-            return b"", b""
-        return self._decode_proxy_text(text), base64.b64encode(stripped.encode("utf-8"))
+            return b"", b"", b""
+        return (
+            self._decode_proxy_text(text),
+            base64.b64encode(stripped.encode("utf-8")),
+            build_singbox_config_bytes(text),
+        )
 
     def run(
         self,
@@ -332,7 +341,7 @@ class BuildPipeline:
                 format_count = len(format_records)
 
                 if format_id in _DERIVED_PROXY_FORMATS:
-                    decoded, reencoded = self._proxy_derivatives(artifact_bytes)
+                    decoded, reencoded, singbox = self._proxy_derivatives(artifact_bytes)
                     if decoded:
                         derived_format = f"{format_id}.decoded.json"
                         self.artifact_store.save_output(route_name, derived_format, decoded)
@@ -356,6 +365,19 @@ class BuildPipeline:
                                 "unique_id": f"{route_name}:{derived_format}",
                                 "artifact_hash": hashlib.sha256(reencoded).hexdigest(),
                                 "data": reencoded,
+                                "count": format_count,
+                            }
+                        )
+                    if singbox:
+                        derived_format = f"{format_id}.singbox.json"
+                        self.artifact_store.save_output(route_name, derived_format, singbox)
+                        results.append(
+                            {
+                                "route_name": route_name,
+                                "format": derived_format,
+                                "unique_id": f"{route_name}:{derived_format}",
+                                "artifact_hash": hashlib.sha256(singbox).hexdigest(),
+                                "data": singbox,
                                 "count": format_count,
                             }
                         )

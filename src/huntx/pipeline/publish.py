@@ -110,7 +110,7 @@ class PublishPipeline:
         safe_fmt = safe_component(fmt, default="fmt")
         ext = _EXT_LOOKUP.get(fmt, _DEFAULT_EXT)
         if ext == _DEFAULT_EXT:
-            if fmt.endswith(".decoded.json"):
+            if fmt.endswith(".decoded.json") or fmt.endswith(".singbox.json"):
                 ext = ".json"
             elif fmt.endswith(".b64sub"):
                 ext = ".txt"

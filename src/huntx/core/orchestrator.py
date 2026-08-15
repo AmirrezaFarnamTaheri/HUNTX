@@ -31,8 +31,32 @@ logger = logging.getLogger(__name__)
 # Default number of parallel ingestion workers
 DEFAULT_MAX_WORKERS = 3
 
+# Minimum number of days to retain cumulative/cached output artifacts before
+# a route-owned file that is no longer produced may be pruned.
+DEFAULT_OUTPUT_RETENTION_DAYS = 3
+
 
 class Orchestrator:
+
+    # Retention window (days) for cumulative output artifacts in outputs/.
+    OUTPUT_RETENTION_DAYS = DEFAULT_OUTPUT_RETENTION_DAYS
+
+    def _output_retention_days(self) -> int:
+        """Resolve the output retention window, honoring HUNTX_OUTPUT_RETENTION_DAYS.
+
+        The environment variable overrides the class default when it parses to a
+        non-negative integer; otherwise the class attribute is used.
+        """
+        raw = os.environ.get("HUNTX_OUTPUT_RETENTION_DAYS")
+        if raw is not None:
+            try:
+                value = int(raw)
+                if value >= 0:
+                    return value
+            except ValueError:
+                pass
+        return self.OUTPUT_RETENTION_DAYS
+
     def __init__(
         self,
         config: AppConfig,
@@ -110,8 +134,14 @@ class Orchestrator:
             output_payloads[filename] = data
 
         # Remove stale route files that are no longer part of expected naming.
+        # Retention window: keep cumulative/cached artifacts for at least
+        # OUTPUT_RETENTION_DAYS so a single run cannot wipe recently produced
+        # output. Only files older than the window are pruned.
         routes_in_play = {r.name for r in self.config.routes}
+        retention_days = self._output_retention_days()
+        retention_cutoff = time.time() - (retention_days * 86400)
         stale_removed = 0
+        stale_retained = 0
         for existing in out_dir.iterdir():
             if not existing.is_file():
                 continue
@@ -121,7 +151,15 @@ class Orchestrator:
                 continue
             if name in output_payloads:
                 continue
-            # This is a route-owned file that is NOT in the new set → stale
+            # This is a route-owned file that is NOT in the new set → stale.
+            # Retain it if younger than the retention window so outputs/ keeps
+            # a rolling cumulative cache across runs.
+            try:
+                if existing.stat().st_mtime >= retention_cutoff:
+                    stale_retained += 1
+                    continue
+            except OSError:
+                pass
             try:
                 existing.unlink()
                 stale_removed += 1
@@ -130,6 +168,10 @@ class Orchestrator:
                 logger.warning(f"[Export] Could not remove stale file {name}: {e}")
         if stale_removed:
             logger.info(f"[Export] Cleaned {stale_removed} stale file(s) from {out_dir}")
+        if stale_retained:
+            logger.info(
+                f"[Export] Retained {stale_retained} cached file(s) within " f"{retention_days}-day window in {out_dir}"
+            )
 
         # ── Write new outputs ─────────────────────────────────────────
         files_written = 0
@@ -163,6 +205,9 @@ class Orchestrator:
         if fmt.endswith(".decoded.json"):
             base = safe_component(fmt.replace(".decoded.json", ""), default="decoded")
             return f"{safe_route}_{base}_decoded.json"
+        elif fmt.endswith(".singbox.json"):
+            base = safe_component(fmt.replace(".singbox.json", ""), default="singbox")
+            return f"{safe_route}_{base}_singbox.json"
         elif fmt.endswith(".b64sub"):
             base = safe_component(fmt.replace(".b64sub", ""), default="b64sub")
             return f"{safe_route}_{base}_b64sub.txt"

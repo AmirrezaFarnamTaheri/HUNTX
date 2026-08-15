@@ -1,8 +1,8 @@
-# SMGo - Telegram Configs Collector (Go)
+# HuntX Telegram Configs Collector (Go)
 
 A Go implementation of the Telegram configs collector that fetches proxy configurations from Telegram channels.
 
-**Note:** This project is inspired by and builds upon the work of *Sorush Mirzaei*. I extend our gratitude for the original implementation and community contributions.
+**Note:** This project fetches proxy configurations from public Telegram channels.
 
 ## Features
 
@@ -35,8 +35,8 @@ go run main.go
 
 Or build and run:
 ```bash
-go build -o smgo main.go
-./smgo
+go build -o huntx-collector main.go
+./huntx-collector
 ```
 
 ## Files
