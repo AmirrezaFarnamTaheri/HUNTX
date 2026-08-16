@@ -1,3 +1,4 @@
+outputs/all_sources.conf_lines
 outputs/all_sources.npvt
 outputs/all_sources.npvt.b64sub
 outputs/all_sources.npvt.decoded.json
