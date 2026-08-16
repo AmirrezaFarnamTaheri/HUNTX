@@ -1,14 +1,14 @@
 {
   "schema_version": 3,
-  "source_run_id": "31941381361",
+  "source_run_id": "31947412787",
   "source_run_attempt": 1,
-  "source_commit": "f5ebc980e86e002092c0706e4180f55bd65b6ae9",
+  "source_commit": "e3a5fb22817676261a400eafff497fdfd483e00e",
   "source_branch": "main",
-  "source_created_at": "2026-08-16T10:19:58Z",
+  "source_created_at": "2026-08-16T12:34:08Z",
   "outputs_scope": "source_run",
   "outputs_dev_scope": "all_time_cumulative",
-  "outputs_dev_previous_count": 115128,
-  "outputs_dev_legacy_count": 115128,
-  "outputs_dev_current_count": 110,
-  "outputs_dev_cumulative_count": 115167
+  "outputs_dev_previous_count": 115167,
+  "outputs_dev_legacy_count": 115167,
+  "outputs_dev_current_count": 88,
+  "outputs_dev_cumulative_count": 115192
 }
