@@ -4,50 +4,50 @@
   "artifacts": [
     {
       "path": "all_sources.npvt",
-      "size": 6830,
-      "sha256": "8e387d856f3a5a44925a5b35cfa953da985bf02607780df2ed5666b63b3a7cd2",
+      "size": 1032,
+      "sha256": "045fb52922d099245ece59b92b18cc314985f420736cdf6fc801952195d498cf",
       "media_type": "application/octet-stream"
     },
     {
       "path": "all_sources.npvt.b64sub",
-      "size": 9108,
-      "sha256": "04d0c2bb28042661f27bf89534358de52d67819d5aa7eb6b0a2aef7d86b4e343",
+      "size": 1376,
+      "sha256": "beb1c306f494ba3ed0142fab037327cdafc25a8fd48dfd414e057aeabc2ef026",
       "media_type": "application/octet-stream"
     },
     {
       "path": "all_sources.npvt.decoded.json",
-      "size": 19730,
-      "sha256": "e056ab3d3949789f2d6cfea1d92f8f6887752d62d6c456aa6b9b3faaa81d974c",
+      "size": 3127,
+      "sha256": "24762b7439fee8ca46ed7763ee4f9ffcc3cb9288dea564f21cbf1dfc1c1f02bf",
       "media_type": "application/json"
     },
     {
       "path": "all_sources.npvt.singbox.json",
-      "size": 14652,
-      "sha256": "58341371bd2600531809a8a9b8042a5d7002342c93f00af8a500283ec4c256c6",
+      "size": 3639,
+      "sha256": "c2f36653245bed452c29e95e645b59f066c5b0ea544b7e4e9ace865b89213bd7",
       "media_type": "application/json"
     },
     {
       "path": "all_sources.opaque_bundle",
-      "size": 154386,
-      "sha256": "0fa4bbd7d8c5ad2298f3faafad9107bfcf5c66d3cbcee71789d30f3dfff824a7",
+      "size": 348089,
+      "sha256": "02fab936703e81cbaaeebec8845557cb81f5d834616f55ab9d16e692a9acd664",
       "media_type": "application/octet-stream"
     },
     {
       "path": "all_sources_npvt_b64sub.txt",
-      "size": 9108,
-      "sha256": "04d0c2bb28042661f27bf89534358de52d67819d5aa7eb6b0a2aef7d86b4e343",
+      "size": 1376,
+      "sha256": "beb1c306f494ba3ed0142fab037327cdafc25a8fd48dfd414e057aeabc2ef026",
       "media_type": "text/plain"
     },
     {
       "path": "all_sources_npvt_decoded.json",
-      "size": 19730,
-      "sha256": "e056ab3d3949789f2d6cfea1d92f8f6887752d62d6c456aa6b9b3faaa81d974c",
+      "size": 3127,
+      "sha256": "24762b7439fee8ca46ed7763ee4f9ffcc3cb9288dea564f21cbf1dfc1c1f02bf",
       "media_type": "application/json"
     },
     {
       "path": "all_sources_npvt_singbox.json",
-      "size": 14652,
-      "sha256": "58341371bd2600531809a8a9b8042a5d7002342c93f00af8a500283ec4c256c6",
+      "size": 3639,
+      "sha256": "c2f36653245bed452c29e95e645b59f066c5b0ea544b7e4e9ace865b89213bd7",
       "media_type": "application/json"
     }
   ]
