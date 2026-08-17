@@ -1,4 +1,3 @@
-outputs/all_sources.hc
 outputs/all_sources.npvt
 outputs/all_sources.npvt.b64sub
 outputs/all_sources.npvt.decoded.json
