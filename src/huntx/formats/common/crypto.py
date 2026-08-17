@@ -124,10 +124,30 @@ def decrypt_slipnet_link(link_str: str) -> Optional[str]:
 
 # --- TutDecryptor (.tut, .sks, .tmt) ---
 
+import warnings as _warnings
+
+
+def _require_env_bytes(env_key: str, insecure_fallback: bytes, name: str) -> bytes:
+    """H-3 Phase 1: return env-var bytes; emit RuntimeWarning when using hardcoded fallback.
+    Phase 2 will replace this body with RuntimeError (after operator credential rotation).
+    """
+    val_str = os.environ.get(env_key)
+    if val_str:
+        return val_str.encode()
+    _warnings.warn(
+        f"[SECURITY] {name}: environment variable {env_key!r} is not set. "
+        f"Using insecure hardcoded fallback. Set {env_key!r} in your environment "
+        f"to suppress this warning.",
+        RuntimeWarning,
+        stacklevel=2,
+    )
+    return insecure_fallback
+
+
 TUT_PASSWORDS = {
-    ".tut": os.getenv("HUNTX_TUT_PASS_TUT", "").encode() or b"fubvx788b46v",
-    ".sks": os.getenv("HUNTX_TUT_PASS_SKS", "").encode() or b"dyv35224nossas!!",
-    ".tmt": os.getenv("HUNTX_TUT_PASS_TMT", "").encode() or b"fubvx788B4mev",
+    ".tut": _require_env_bytes("HUNTX_TUT_PASS_TUT", b"fubvx788b46v",     "TUT password (.tut)"),
+    ".sks": _require_env_bytes("HUNTX_TUT_PASS_SKS", b"dyv35224nossas!!", "TUT password (.sks)"),
+    ".tmt": _require_env_bytes("HUNTX_TUT_PASS_TMT", b"fubvx788B4mev",    "TUT password (.tmt)"),
 }
 
 
@@ -237,8 +257,7 @@ def decrypt_netmod_data(data: bytes) -> Optional[str]:
     if not data:
         return None
 
-    key_env = os.getenv("HUNTX_NETMOD_KEY")
-    key = key_env.encode() if key_env else b"_netsyna_netmod_"
+    key = _require_env_bytes("HUNTX_NETMOD_KEY", b"_netsyna_netmod_", "NetMod AES key")
     try:
         content_str = data.decode("utf-8", errors="ignore").strip()
         if "://" in content_str:
