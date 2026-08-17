@@ -3,6 +3,7 @@ outputs/all_sources.npvt.b64sub
 outputs/all_sources.npvt.decoded.json
 outputs/all_sources.npvt.singbox.json
 outputs/all_sources.opaque_bundle
+outputs/all_sources.ovpn
 outputs/all_sources_npvt_b64sub.txt
 outputs/all_sources_npvt_decoded.json
 outputs/all_sources_npvt_singbox.json
