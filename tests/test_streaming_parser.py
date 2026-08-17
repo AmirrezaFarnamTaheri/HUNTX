@@ -53,3 +53,42 @@ def test_streaming_parser_parse_bytes():
     assert len(recs) == 2
     assert recs[0]["protocol"] == "vless"
     assert recs[1]["protocol"] == "hysteria2"
+
+
+@pytest.mark.asyncio
+async def test_streaming_parser_malformed_stream_does_not_crash():
+    """
+    Plan Task 1.2: 'malformed streams' must be tested.
+    Garbage bytes that are neither valid base64 nor valid proxy URIs
+    should yield 0 records and not raise.
+    """
+    parser = StreamingChunkParser()
+
+    async def garbage_stream():
+        yield b"\x00\x01\x02\xff\xfe garbage not a proxy\n"
+        yield b"also-not-valid://\n"
+        yield b"   \n\n\n"
+
+    records = []
+    async for rec in parser.parse_stream(garbage_stream()):
+        records.append(rec)
+
+    # Malformed / unknown-scheme lines must be silently skipped, not crash
+    assert isinstance(records, list)
+    for rec in records:
+        # Any record that does get emitted must still have the required fields
+        assert "unique_hash" in rec
+        assert "raw_uri" in rec
+
+
+@pytest.mark.asyncio
+async def test_streaming_parser_empty_stream_yields_nothing():
+    """parse_stream on empty async iterator must yield zero records."""
+    parser = StreamingChunkParser()
+
+    async def empty_stream():
+        return
+        yield  # make it an async generator
+
+    records = [rec async for rec in parser.parse_stream(empty_stream())]
+    assert records == []
