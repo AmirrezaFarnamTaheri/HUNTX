@@ -9,13 +9,13 @@ Verifies:
 5. V2Ray collector external_id uses >=32-char hash prefix.
 """
 import hashlib
-import pytest
 
 from huntx.formats.streaming import StreamingChunkParser
 from huntx.formats.common.hashing import hash_string, hash_bytes
 
 
 PARSER = StreamingChunkParser()
+
 
 # ---------------------------------------------------------------------------
 # 1. _hash_record returns full 64-char hexdigest

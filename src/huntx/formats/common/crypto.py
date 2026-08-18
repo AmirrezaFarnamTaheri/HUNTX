@@ -3,6 +3,7 @@ import logging
 import struct
 import urllib.parse
 import os
+import warnings
 from typing import Any, Optional
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
@@ -124,17 +125,17 @@ def decrypt_slipnet_link(link_str: str) -> Optional[str]:
 
 # --- TutDecryptor (.tut, .sks, .tmt) ---
 
-import warnings as _warnings
 
-
-def _require_env_bytes(env_key: str, insecure_fallback: bytes, name: str) -> bytes:
-    """H-3 Phase 1: return env-var bytes; emit RuntimeWarning when using hardcoded fallback.
-    Phase 2 will replace this body with RuntimeError (after operator credential rotation).
-    """
+def _require_env_bytes(env_key: str, insecure_fallback: Optional[bytes] = None, name: str = "credential") -> bytes:
+    """H-3: return env-var bytes; emit RuntimeWarning on fallback, or raise RuntimeError if strict mode is active."""
     val_str = os.environ.get(env_key)
     if val_str:
-        return val_str.encode()
-    _warnings.warn(
+        return val_str.encode("utf-8")
+    if insecure_fallback is None or os.environ.get("HUNTX_REQUIRE_SECRETS", "").lower() in ("1", "true", "yes"):
+        raise RuntimeError(
+            f"[SECURITY] {name}: environment variable {env_key!r} is required but not set."
+        )
+    warnings.warn(
         f"[SECURITY] {name}: environment variable {env_key!r} is not set. "
         f"Using insecure hardcoded fallback. Set {env_key!r} in your environment "
         f"to suppress this warning.",

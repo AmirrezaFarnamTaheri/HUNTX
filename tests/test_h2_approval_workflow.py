@@ -10,12 +10,11 @@ Tests:
 6. Delivery query is correct SQL (approved=1 AND muted=0).
 """
 import pathlib
-import sqlite3
 import tempfile
 import time
-import pytest
 
 from huntx.state.db import open_db
+from huntx.bot.interactive import InteractiveBot
 
 
 SCHEMA_PATH = (
@@ -28,6 +27,13 @@ def _make_db() -> object:
     tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
     tmp.close()
     return open_db(pathlib.Path(tmp.name))
+
+
+def _make_bot(db) -> object:
+    """Create a minimal bot instance with db attached to exercise DeliveryMixin._get_active_users."""
+    bot = object.__new__(InteractiveBot)
+    bot.db = db
+    return bot
 
 
 def _add_user(conn, user_id, chat_id, approved=0, muted=0):
@@ -62,11 +68,10 @@ def test_new_user_defaults_to_unapproved():
 def test_unapproved_user_excluded_from_delivery():
     """H-2: Delivery query (approved=1 AND muted=0) must exclude unapproved user."""
     db = _make_db()
+    bot = _make_bot(db)
     with db.connect() as conn:
         _add_user(conn, "u_unap", "c2", approved=0)
-        result = conn.execute(
-            "SELECT user_id FROM bot_users WHERE approved=1 AND muted=0"
-        ).fetchall()
+    result = bot._get_active_users()
     assert all(r["user_id"] != "u_unap" for r in result), (
         "H-2: unapproved user u_unap must not appear in delivery query"
     )
@@ -79,11 +84,10 @@ def test_unapproved_user_excluded_from_delivery():
 def test_approved_user_included_in_delivery():
     """H-2: Approved, unmuted user must appear in delivery query."""
     db = _make_db()
+    bot = _make_bot(db)
     with db.connect() as conn:
         _add_user(conn, "u_ok", "c3", approved=1, muted=0)
-        result = conn.execute(
-            "SELECT user_id FROM bot_users WHERE approved=1 AND muted=0"
-        ).fetchall()
+    result = bot._get_active_users()
     ids = [r["user_id"] for r in result]
     assert "u_ok" in ids, "H-2: approved+unmuted user u_ok must appear in delivery query"
 
@@ -95,11 +99,10 @@ def test_approved_user_included_in_delivery():
 def test_muted_approved_user_excluded_from_delivery():
     """H-2: Muted user must be excluded even if approved."""
     db = _make_db()
+    bot = _make_bot(db)
     with db.connect() as conn:
         _add_user(conn, "u_muted", "c4", approved=1, muted=1)
-        result = conn.execute(
-            "SELECT user_id FROM bot_users WHERE approved=1 AND muted=0"
-        ).fetchall()
+    result = bot._get_active_users()
     ids = [r["user_id"] for r in result]
     assert "u_muted" not in ids, "H-2: muted user u_muted must not appear in delivery query"
 
@@ -111,21 +114,19 @@ def test_muted_approved_user_excluded_from_delivery():
 def test_approve_user_transitions_to_delivery():
     """H-2: After UPDATE approved=1, user appears in delivery query."""
     db = _make_db()
+    bot = _make_bot(db)
     with db.connect() as conn:
         _add_user(conn, "u_pend", "c5", approved=0)
-        # Verify excluded before approval
-        before = conn.execute(
-            "SELECT user_id FROM bot_users WHERE approved=1 AND muted=0"
-        ).fetchall()
-        assert all(r["user_id"] != "u_pend" for r in before), "pre-condition: not yet approved"
+    # Verify excluded before approval
+    before = bot._get_active_users()
+    assert all(r["user_id"] != "u_pend" for r in before), "pre-condition: not yet approved"
 
-        # Approve
+    # Approve
+    with db.connect() as conn:
         conn.execute("UPDATE bot_users SET approved=1 WHERE user_id='u_pend'")
         conn.commit()
 
-        after = conn.execute(
-            "SELECT user_id FROM bot_users WHERE approved=1 AND muted=0"
-        ).fetchall()
+    after = bot._get_active_users()
     ids = [r["user_id"] for r in after]
     assert "u_pend" in ids, "H-2: after approval, user must appear in delivery query"
 
@@ -137,13 +138,12 @@ def test_approve_user_transitions_to_delivery():
 def test_revoke_approval_removes_from_delivery():
     """H-2: After UPDATE approved=0, user must no longer appear in delivery query."""
     db = _make_db()
+    bot = _make_bot(db)
     with db.connect() as conn:
         _add_user(conn, "u_rev", "c6", approved=1)
         conn.execute("UPDATE bot_users SET approved=0 WHERE user_id='u_rev'")
         conn.commit()
-        result = conn.execute(
-            "SELECT user_id FROM bot_users WHERE approved=1 AND muted=0"
-        ).fetchall()
+    result = bot._get_active_users()
     ids = [r["user_id"] for r in result]
     assert "u_rev" not in ids, "H-2: revoked user must not appear in delivery query"
 

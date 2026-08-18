@@ -154,3 +154,19 @@ def test_success_event_resets_consecutive_failures():
     assert lc["consecutive_failures"] == 0, (
         f"H-5: consecutive_failures must reset to 0 after success, got {lc['consecutive_failures']}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Stale event does not overwrite trust_state
+# ---------------------------------------------------------------------------
+
+def test_stale_event_does_not_overwrite_trust_state():
+    """H-5: A stale event (older timestamp) must not downgrade/overwrite the trust_state."""
+    db = _make_db()
+    _seed(db, "s8", "candidate", t=T)
+    record_source_event(db, "s8", "test_type", "approved", "valid", observed_at=T + 2)
+    # Stale event arrives with quarantined at T + 1
+    record_source_event(db, "s8", "test_type", "quarantined", "attempt", observed_at=T + 1)
+    lc = get_source_lifecycle(db, "s8")
+    assert lc["trust_state"] == "approved", "H-5: Stale quarantined event must not downgrade approved trust_state"
+    assert lc["updated_at"] == T + 2, "updated_at must remain the latest timestamp"

@@ -8,7 +8,6 @@ Tests:
 4. _require_env_bytes returns fallback when env var absent (Phase 1).
 5-8. Parametrized: each credential key triggers RuntimeWarning when absent.
 """
-import os
 import warnings
 import pytest
 
@@ -96,3 +95,12 @@ def test_each_credential_warns_on_fallback(env_key, fallback, name, monkeypatch)
     assert env_key in str(runtime_warns[0].message), (
         f"H-3: Warning must name the missing key {env_key!r}"
     )
+
+
+def test_require_env_bytes_raises_when_strict_and_missing(monkeypatch):
+    """H-3: When HUNTX_REQUIRE_SECRETS=1, missing secret must raise RuntimeError."""
+    monkeypatch.delenv("HUNTX_TUT_PASS_TUT", raising=False)
+    monkeypatch.setenv("HUNTX_REQUIRE_SECRETS", "1")
+    from huntx.formats.common.crypto import _require_env_bytes
+    with pytest.raises(RuntimeError, match="required but not set"):
+        _require_env_bytes("HUNTX_TUT_PASS_TUT", b"fallback", "TUT password")

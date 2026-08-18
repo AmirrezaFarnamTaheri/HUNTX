@@ -11,7 +11,6 @@ import sqlite3
 import tempfile
 import pathlib
 import os
-import pytest
 
 from huntx.cli.main import _backup_bot_users, _restore_bot_users
 
@@ -56,9 +55,11 @@ def test_restore_creates_approved_column_in_fresh_db():
     """H-1: _restore_bot_users must create table with approved column."""
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = f.name
-    data = [{"user_id": "u1", "chat_id": "c1", "registered_at": 1.0,
-              "approved": 1, "muted": 0, "last_delivered_at": 0.0,
-              "default_format": "npvt", "username": None}]
+    data = [{
+        "user_id": "u1", "chat_id": "c1", "registered_at": 1.0,
+        "approved": 1, "muted": 0, "last_delivered_at": 0.0,
+        "default_format": "npvt", "username": None,
+    }]
     _restore_bot_users(db_path, data)
     conn = sqlite3.connect(db_path)
     columns = {row[1] for row in conn.execute("PRAGMA table_info(bot_users)").fetchall()}
@@ -117,9 +118,11 @@ def test_restore_is_idempotent_on_legacy_db_missing_approved():
     """)
     conn.commit()
     conn.close()
-    data = [{"user_id": "u3", "chat_id": "c3", "registered_at": 1.0,
-              "muted": 0, "last_delivered_at": 0.0,
-              "default_format": "npvt", "username": None}]
+    data = [{
+        "user_id": "u3", "chat_id": "c3", "registered_at": 1.0,
+        "muted": 0, "last_delivered_at": 0.0,
+        "default_format": "npvt", "username": None,
+    }]
     _restore_bot_users(db_path, data)
     conn2 = sqlite3.connect(db_path)
     columns = {row[1] for row in conn2.execute("PRAGMA table_info(bot_users)").fetchall()}

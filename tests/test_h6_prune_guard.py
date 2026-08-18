@@ -7,7 +7,6 @@ referenced by active (is_active=1) records of blob-dependent formats.
 The guard is inside StateRepo.prune_old_data via the `still_referenced`
 sub-query.  We exercise it through the repo directly (no subprocess).
 """
-import sqlite3
 import tempfile
 import pathlib
 import time
