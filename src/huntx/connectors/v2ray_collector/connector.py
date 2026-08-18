@@ -98,8 +98,10 @@ class V2RayCollectorConnector(SourceConnector):
             line = line.strip()
             if not line:
                 continue
-            # Stable unique external ID derived from line content
-            h = hashlib.sha256(line.encode("utf-8")).hexdigest()[:16]
+            # H-4: Use 32-char (128-bit) hash prefix for external_id stability.
+            # Previous [:16] = 64-bit — birthday collision at ~4B items.
+            # 32-char = 128-bit — birthday collision at ~2^64 items (negligible risk).
+            h = hashlib.sha256(line.encode("utf-8")).hexdigest()[:32]
             ext_id = f"goscrap_{h}_{idx}"
 
             yield V2RayCollectorItem(

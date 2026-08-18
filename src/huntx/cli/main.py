@@ -229,11 +229,17 @@ def _restore_bot_users(db_path, data):
                 chat_id TEXT NOT NULL,
                 username TEXT,
                 registered_at REAL NOT NULL,
+                approved INTEGER NOT NULL DEFAULT 0,
                 muted INTEGER DEFAULT 0,
                 last_delivered_at REAL DEFAULT 0,
                 default_format TEXT DEFAULT 'npvt'
             )
             """)
+        # H-1: Ensure approved column present on pre-existing DBs (idempotent migration).
+        # PRAGMA table_info: row[0]=cid (int), row[1]=name (str). Use row[1].
+        existing_cols = {row[1] for row in cursor.execute("PRAGMA table_info(bot_users)").fetchall()}
+        if "approved" not in existing_cols:
+            cursor.execute("ALTER TABLE bot_users ADD COLUMN approved INTEGER NOT NULL DEFAULT 0")
         if data:
             columns = data[0].keys()
             query = (

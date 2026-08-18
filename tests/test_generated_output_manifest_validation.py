@@ -47,7 +47,8 @@ class TestGeneratedManifestValidation(unittest.TestCase):
             (dist / "catalog.json").write_text("{}\n", encoding="utf-8")
             destination = root / "snapshot"
 
-            with self.assertRaisesRegex(ValueError, str(previous_manifest)):
+            import re
+            with self.assertRaisesRegex(ValueError, re.escape(str(previous_manifest))):
                 ASSEMBLER.assemble_snapshot(
                     checkpoint_root=checkpoint,
                     dist_root=dist,

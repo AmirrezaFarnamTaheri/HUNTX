@@ -47,9 +47,9 @@ def record_source_event(
         ).fetchone()
         if existing is not None:
             current_trust = str(existing["trust_state"])
-            if trust_state not in _ALLOWED_TRUST_TRANSITIONS[current_trust]:
-                raise ValueError(f"Illegal source trust transition: {current_trust} -> " f"{trust_state}")
             is_latest_event = now >= float(existing["updated_at"])
+            if is_latest_event and trust_state not in _ALLOWED_TRUST_TRANSITIONS[current_trust]:
+                raise ValueError(f"Illegal source trust transition: {current_trust} -> " f"{trust_state}")
         else:
             is_latest_event = True
 
@@ -59,8 +59,16 @@ def record_source_event(
                 (source_id, source_type, trust_state, updated_at, metadata_json)
             VALUES (?, ?, ?, ?, ?)
             ON CONFLICT(source_id) DO UPDATE SET
-                source_type=excluded.source_type,
-                trust_state=excluded.trust_state,
+                source_type=CASE
+                    WHEN excluded.updated_at >= source_lifecycle.updated_at
+                    THEN excluded.source_type
+                    ELSE source_lifecycle.source_type
+                END,
+                trust_state=CASE
+                    WHEN excluded.updated_at >= source_lifecycle.updated_at
+                    THEN excluded.trust_state
+                    ELSE source_lifecycle.trust_state
+                END,
                 updated_at=MAX(source_lifecycle.updated_at, excluded.updated_at),
                 metadata_json=CASE
                     WHEN excluded.updated_at >= source_lifecycle.updated_at

@@ -17,7 +17,9 @@ class StreamingChunkParser:
         self.chunk_size = chunk_size
 
     def _hash_record(self, raw_line: str) -> str:
-        return hashlib.sha256(raw_line.strip().encode("utf-8")).hexdigest()[:16]
+        # H-4: Full 256-bit digest — do NOT truncate. Truncation to [:16] risks
+        # birthday collisions at ~4B records and causes silent data loss on dedup.
+        return hashlib.sha256(raw_line.strip().encode("utf-8")).hexdigest()
 
     def _extract_protocol(self, uri: str) -> str:
         if "://" in uri:

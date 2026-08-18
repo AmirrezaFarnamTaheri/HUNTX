@@ -39,3 +39,35 @@ def test_self_healing_reinstate_and_purge():
     reinstated = daemon.reinstate_proxy("h1")
     assert reinstated is True
     assert daemon.reinstate_proxy("h1") is False
+
+
+def test_run_poller_cycle_returns_stats_dict():
+    """
+    Plan contract: run_poller_cycle() -> Dict[str, int] with keys
+    retested, reinstated, purged.
+    A proxy past its next_check_at should appear in retested count.
+    A proxy older than 48h should appear in purged count.
+    """
+    daemon = SelfHealingDaemon(db_path=":memory:", backoff_schedule=[10, 30, 60])
+    now = 100000.0
+
+    # Record a failure that is already due for retest (next_check_at = now+10, test at now+20)
+    daemon.record_failure("due_proxy", "vless://u@due:443", current_time=now)
+    # Record a stale proxy that has been failing for 49 hours
+    daemon.record_failure("stale_proxy", "vmess://u@stale:443", current_time=now - (49 * 3600))
+
+    # Run poller cycle at now+20 (due_proxy is past its 10s retry window)
+    result = daemon.run_poller_cycle(current_time=now + 20)
+
+    assert isinstance(result, dict), "run_poller_cycle must return a dict"
+    assert "retested" in result
+    assert "purged" in result
+    assert result["retested"] >= 1, "due_proxy should have been retested"
+    assert result["purged"] >= 1, "stale_proxy should have been purged"
+
+
+def test_run_poller_cycle_empty_db_returns_zeros():
+    """run_poller_cycle on empty DB must return zeros, not raise."""
+    daemon = SelfHealingDaemon(db_path=":memory:")
+    result = daemon.run_poller_cycle()
+    assert result == {"retested": 0, "reinstated": 0, "purged": 0}

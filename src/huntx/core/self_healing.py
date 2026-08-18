@@ -148,3 +148,20 @@ class SelfHealingDaemon:
             conn.commit()
             deleted = cursor.rowcount
         return deleted
+
+    def run_poller_cycle(self, current_time: Optional[float] = None) -> Dict[str, int]:
+        """
+        H-N Phase 3 plan contract: run one poller cycle.
+        1. Purge proxies stale > 48h.
+        2. Collect all proxies due for re-test.
+        3. Advance their backoff (re-record failure, bump fail_count).
+        Returns: {"retested": int, "reinstated": int, "purged": int}
+        """
+        now = time.time() if current_time is None else current_time
+        purged = self.purge_stale_proxies(max_age_hours=48, current_time=now)
+        due = self.get_due_for_retest(current_time=now)
+        retested = 0
+        for proxy in due:
+            self.record_failure(proxy["unique_hash"], proxy["raw_uri"], current_time=now)
+            retested += 1
+        return {"retested": retested, "reinstated": 0, "purged": purged}

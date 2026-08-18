@@ -70,3 +70,7 @@ class TestUnifiedOrchestrator(unittest.TestCase):
         assert res["status"] == "completed"
         assert res["unified"] is True
         assert "elapsed_seconds" in res
+        # Plan Task 4.1: orchestrator must expose all three next-gen components
+        assert hasattr(orch, "streaming_parser"), "streaming_parser not wired into UnifiedOrchestrator"
+        assert hasattr(orch, "geo_routing_engine") or hasattr(orch, "geo_routing"), "geo_routing not wired"
+        assert hasattr(orch, "self_healing_daemon") or hasattr(orch, "self_healing"), "self_healing not wired into UnifiedOrchestrator"
