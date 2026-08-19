@@ -276,15 +276,14 @@ def test_validate_config_rejects_unsafe_and_duplicate_route_identities():
         validate_config(duplicate)
 
 
-def test_validate_config_rejects_ambiguous_route_prefixes():
+def test_validate_config_accepts_prefix_related_routes_with_structural_ownership():
     config = _runtime_config()
     second = config.publishing.routes[0].model_copy(deep=True)
     config.publishing.routes[0].name = "prod"
     second.name = "production"
     config.publishing.routes.append(second)
 
-    with pytest.raises(ValueError, match="ambiguous output prefixes"):
-        validate_config(config)
+    validate_config(config)
 
 
 def test_validate_config_rejects_duplicate_route_members():
@@ -347,6 +346,7 @@ def test_production_runtime_factory_installs_governed_build(monkeypatch):
 
     assert result is fake_orchestrator
     assert result.build_pipeline is marker
+    assert callable(result._export_outputs)
     assert constructed["max_workers"] == 7
     assert constructed["fetch_windows"] == {"file_fresh_hours": 5}
     assert constructed["route_policies"] == {
