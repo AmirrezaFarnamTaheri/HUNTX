@@ -120,6 +120,17 @@ def validate_config(config: AppConfig):
                 raise ValueError(
                     f"Source {source.id} has invalid/unexpanded telegram_user peer"
                 )
+
+        elif source.type == "v2ray_collector":
+            # This source is collected by the local Go wrapper and does not use
+            # Telegram credentials. Reject contradictory credential blocks so a
+            # typo cannot silently select the wrong connector contract.
+            if source.telegram or source.telegram_user:
+                raise ValueError(
+                    f"Source {source.id} is type='v2ray_collector' and must not "
+                    "define telegram credential blocks"
+                )
+
         else:
             raise ValueError(f"Source {source.id} has unknown type: {source.type}")
 
