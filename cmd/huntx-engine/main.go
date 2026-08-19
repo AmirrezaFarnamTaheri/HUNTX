@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"huntx-engine/benchmark"
-	"huntx-engine/georoute"
-	"huntx-engine/healing"
-	"huntx-engine/internal/parse"
-	"huntx-engine/stream"
+	"github.com/AmirrezaFarnamTaheri/HUNTX/cmd/huntx-engine/benchmark"
+	"github.com/AmirrezaFarnamTaheri/HUNTX/cmd/huntx-engine/georoute"
+	"github.com/AmirrezaFarnamTaheri/HUNTX/cmd/huntx-engine/healing"
+	"github.com/AmirrezaFarnamTaheri/HUNTX/cmd/huntx-engine/internal/parse"
+	"github.com/AmirrezaFarnamTaheri/HUNTX/cmd/huntx-engine/stream"
 )
 
 var (
