@@ -1,6 +1,8 @@
 """Regression coverage for PR #76 review findings and follow-up defects."""
 
 import hashlib
+import io
+import zipfile
 
 import pytest
 
@@ -11,6 +13,7 @@ from huntx.connectors.v2ray_collector.connector import (
     V2RayCollectorConnector,
     V2RayCollectorItem,
 )
+from huntx.formats.nm import NmHandler
 from huntx.formats.registry import FormatRegistry
 from huntx.pipeline.ingest import IngestionPipeline
 from huntx.state.db import open_db
@@ -35,16 +38,6 @@ class _FakeEvent:
     async def respond(self, message, **kwargs):
         self.responses.append(message)
         return None
-
-
-class _ParseOnlyHandler:
-    format_id = "nm"
-
-    def parse(self, raw_data, source_info=None):
-        return []
-
-    def build(self, records):
-        raise NotImplementedError
 
 
 def test_approval_commands_are_registered():
@@ -169,18 +162,39 @@ def test_v2ray_duplicate_content_is_suppressed_within_batch(tmp_path):
     assert skipped == 1
 
 
-def test_registry_preserves_api_and_marks_concrete_nm_stub_parse_only():
+def test_nm_is_buildable_as_opaque_archive_without_decryption_secret(
+    tmp_path, monkeypatch
+):
+    monkeypatch.delenv("HUNTX_NETMOD_KEY", raising=False)
+    raw_store = RawStore(tmp_path / "raw")
+    handler = NmHandler(raw_store)
+    raw_data = b"opaque-encrypted-netmod-fixture"
+    raw_hash = raw_store.save(raw_data)
+
+    records = handler.parse(raw_data, {"filename": "fixture.nm"})
+
+    assert len(records) == 1
+    assert records[0]["data"]["blob_hash"] == raw_hash
+    assert "decrypted" not in records[0]["data"]
+
+    artifact = handler.build(records)
+    with zipfile.ZipFile(io.BytesIO(artifact), "r") as archive:
+        assert archive.namelist() == ["fixture.nm"]
+        assert archive.read("fixture.nm") == raw_data
+
+
+def test_registry_preserves_api_and_reports_nm_builder(tmp_path):
     registry = FormatRegistry()
-    registry.register(_ParseOnlyHandler())
+    registry.register(NmHandler(RawStore(tmp_path / "raw")))
 
     assert registry.get("nm") is not None
     assert "nm" in registry.list_formats()
-    assert registry.can_build("nm") is False
+    assert registry.can_build("nm") is True
 
 
-def test_validate_config_rejects_parse_only_output_route(monkeypatch):
+def test_validate_config_accepts_real_nm_output_route(tmp_path, monkeypatch):
     registry = FormatRegistry()
-    registry.register(_ParseOnlyHandler())
+    registry.register(NmHandler(RawStore(tmp_path / "raw")))
     monkeypatch.setattr(FormatRegistry, "_shared_instance", registry)
 
     config = AppConfig(
@@ -188,7 +202,7 @@ def test_validate_config_rejects_parse_only_output_route(monkeypatch):
         publishing=PublishingConfig(
             routes=[
                 PublishRoute(
-                    name="bad-nm-output",
+                    name="nm-output",
                     from_sources=["collector"],
                     formats=["nm"],
                     destinations=[],
@@ -197,8 +211,7 @@ def test_validate_config_rejects_parse_only_output_route(monkeypatch):
         ),
     )
 
-    with pytest.raises(ValueError, match="parse-only"):
-        validate_config(config)
+    validate_config(config)
 
 
 def test_validate_config_accepts_v2ray_collector_source(monkeypatch):
