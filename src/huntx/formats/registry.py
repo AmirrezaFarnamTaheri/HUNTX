@@ -10,7 +10,6 @@ class FormatRegistry:
     """Registry for parser/build handlers with explicit output capability checks."""
 
     _shared_instance = None
-    _PARSE_ONLY_FORMATS = frozenset({"nm", "slipnet"})
 
     def __init__(self):
         self._handlers: Dict[str, FormatHandler] = {}
@@ -44,11 +43,6 @@ class FormatRegistry:
         return list(self._handlers.keys())
 
     def can_build(self, format_id: str) -> bool:
-        """Return whether a registered format supports direct artifact building.
-
-        ``nm`` and ``slipnet`` currently implement parsing only; their concrete
-        ``build`` methods raise ``NotImplementedError``. Keeping that capability
-        explicit prevents validation from accepting a route that can only fail
-        later at build time while preserving the existing registry API.
-        """
-        return format_id in self._handlers and format_id not in self._PARSE_ONLY_FORMATS
+        """Return whether a registered handler exposes a callable builder."""
+        handler = self._handlers.get(format_id)
+        return handler is not None and callable(getattr(handler, "build", None))
