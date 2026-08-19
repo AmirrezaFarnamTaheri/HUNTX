@@ -23,6 +23,7 @@ install_dev_manifest_contract(Orchestrator)
 
 
 def _bounded_float(name: str, default: float, minimum: float, maximum: float) -> float:
+    """Read a finite bounded floating-point environment setting."""
     raw = os.environ.get(name, str(default))
     try:
         value = float(raw)
@@ -36,14 +37,17 @@ def _bounded_float(name: str, default: float, minimum: float, maximum: float) ->
 
 
 def _canonical_timeout(self: OptimizedHardenedOrchestrator) -> float:
+    """Return the bounded Telegram canonical-channel resolution timeout."""
     return _bounded_float("HUNTX_CANONICAL_RESOLVE_TIMEOUT", 20.0, 0.05, 120.0)
 
 
 def _cleanup_timeout(self: OptimizedHardenedOrchestrator) -> float:
+    """Return the bounded Telegram cleanup timeout."""
     return _bounded_float("HUNTX_TELEGRAM_CLEANUP_TIMEOUT", 10.0, 0.05, 60.0)
 
 
 def _numeric_channel_id(peer: Any) -> Optional[int]:
+    """Extract a canonical numeric Telegram channel ID when directly available."""
     text = str(peer).strip()
     if text.startswith("-100") and text[4:].isdigit():
         return int(text[4:])
@@ -54,6 +58,7 @@ async def _close_canonical_connector(
     self: OptimizedHardenedOrchestrator,
     connector: Optional[WindowedTelegramUserConnector],
 ) -> None:
+    """Close the reusable canonical-resolution connector within a bounded timeout."""
     if connector is None:
         return
     try:
@@ -71,6 +76,7 @@ async def _canonical_ingestion_sources(
     self: OptimizedHardenedOrchestrator,
     sources: list[Any],
 ) -> list[Any]:
+    """Return one configured source per canonical Telegram channel."""
     accepted: list[Any] = []
     canonical_owner: dict[int, str] = {}
     connector: Optional[WindowedTelegramUserConnector] = None
@@ -199,12 +205,36 @@ async def _run_hardened(
     no_publish: bool,
     allow_partial_export: bool,
 ) -> dict[str, Any]:
+    """Run the resilient optimized pipeline without bypassing source trust policy."""
     run_started = time.monotonic()
     original = list(self.config.sources)
+    approved = [
+        source
+        for source in original
+        if getattr(source, "publication_eligible", True)
+    ]
+    rejected = [
+        source
+        for source in original
+        if not getattr(source, "publication_eligible", True)
+    ]
+    for source in rejected:
+        terminalized = self._work_queue.terminalize_source(
+            str(source.id),
+            "source is not publication-approved",
+        )
+        if terminalized:
+            logger.warning(
+                "[LIFO] Terminalized %s queued work item(s) for unapproved source %s",
+                terminalized,
+                source.id,
+            )
+
     self._ingestion_budget_exhausted = False
     self._window_pages = 0
     self._window_completions = 0
     self._window_failures = 0
+    self._reset_investigation_metrics()
     self._run_owner = uuid.uuid4().hex
     self._completion_buffer_seconds = self._completion_buffer(timeout)
 
@@ -223,9 +253,10 @@ async def _run_hardened(
     }
     preflight_seconds = 0.0
     summary: dict[str, Any]
+    ingestion_sources: list[Any] = []
     try:
         recovered = self._work_queue.recover_expired_leases()
-        ingestion_sources = await self._canonical_ingestion_sources(original)
+        ingestion_sources = await self._canonical_ingestion_sources(approved)
         self._source_by_id = {str(source.id): source for source in ingestion_sources}
         self.config.sources = ingestion_sources
         seed = self._work_queue.seed_rolling_horizon(
@@ -237,7 +268,8 @@ async def _run_hardened(
         remaining_total = None if timeout is None else max(0.0, timeout - preflight_seconds)
         logger.info(
             "[Orchestrator] budgets total=%s remaining_after_preflight=%s ingestion=%s "
-            "completion_buffer=%s preflight_seconds=%.3f lifo_campaign=%s seeded=%s recovered_leases=%s",
+            "completion_buffer=%s preflight_seconds=%.3f lifo_campaign=%s seeded=%s "
+            "recovered_leases=%s approved=%s rejected=%s canonical=%s",
             timeout,
             remaining_total,
             ingestion_budget,
@@ -246,6 +278,9 @@ async def _run_hardened(
             seed["campaign_id"],
             seed["inserted"],
             recovered,
+            len(approved),
+            len(rejected),
+            len(ingestion_sources),
         )
         summary = await HardenedOrchestrator._run_hardened(
             self,
@@ -278,7 +313,13 @@ async def _run_hardened(
     summary["lifo_windows_completed"] = self._window_completions
     summary["lifo_window_failures"] = self._window_failures
     summary["lifo_residue"] = residue
-    summary["ingest_skipped_due_to_budget"] = remaining_residue if self._ingestion_budget_exhausted else 0
+    summary.update(self._investigation_metrics())
+    summary["ingest_skipped_due_to_budget"] = (
+        remaining_residue if self._ingestion_budget_exhausted else 0
+    )
+    summary["configured_approved_sources"] = len(approved)
+    summary["excluded_sources"] = len(rejected)
+    summary["canonical_ingestion_sources"] = len(ingestion_sources)
 
     if self._ingestion_budget_exhausted and summary.get("status") == "completed":
         summary["status"] = "partial"
@@ -292,7 +333,15 @@ async def _run_hardened(
     return summary
 
 
+async def _disabled_legacy_run(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+    """Fail closed if obsolete direct legacy orchestration is invoked."""
+    raise RuntimeError(
+        "_run_async_legacy is disabled; use run()/_run_async() through the hardened runtime"
+    )
+
+
 def apply_runtime_resilience() -> None:
+    """Install resilient runtime overrides exactly once."""
     cls = OptimizedHardenedOrchestrator
     if getattr(cls, "_runtime_resilience_applied", False):
         return
@@ -303,3 +352,4 @@ def apply_runtime_resilience() -> None:
     cls._canonical_ingestion_sources = _canonical_ingestion_sources  # type: ignore[method-assign]
     cls._run_hardened = _run_hardened  # type: ignore[method-assign]
     cls._runtime_resilience_applied = True  # type: ignore[attr-defined]
+    Orchestrator._run_async_legacy = _disabled_legacy_run  # type: ignore[method-assign]

@@ -4,24 +4,33 @@ except ModuleNotFoundError:
     BotCommand = None
     BotCommandScopeDefault = None
 
+# GatherX is deliberately a private-chat bot. These policy sets classify every
+# non-admin command by the minimum authorization required after the DM check.
+# Administrative commands are not advertised in Telegram's default menu.
+_BOT_PUBLIC_COMMANDS = frozenset({"start", "help", "formats", "protocols", "myinfo", "ping"})
+_BOT_APPROVED_COMMANDS = frozenset({"get", "latest", "count", "setformat", "mute", "unmute"})
+_BOT_ADMIN_COMMANDS = frozenset({"status", "admin", "approve", "deny", "pending"})
+
 WELCOME_TEXT = (
     "🛰 **GatherX — Free Proxy Configs**\n"
     "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-    "Fresh proxy configs from **85 sources**, updated every 2 hours.\n"
+    "Fresh proxy configs from public sources, updated regularly.\n"
     "VMess · VLESS · Trojan · SS · Hysteria2 · TUIC · WireGuard and more.\n\n"
-    "📥 **Get Proxies**\n"
+    "New registrations require administrator approval before proxy inventory, "
+    "downloads, or delivery settings are available. GatherX works only in your DM.\n\n"
+    "📥 **Approved access**\n"
     "  /get — Download proxies (your default format)\n"
     "  /get `b64sub` — Base64 subscription link\n"
     "  /latest — All recent proxy files (max 7 days)\n"
-    "  /formats — See all available formats\n"
-    "  /protocols — Supported proxy protocols\n"
     "  /count — Proxy count per protocol\n\n"
-    "⚙️ **Settings**\n"
+    "ℹ️ **Available while pending**\n"
+    "  /formats — See supported output formats\n"
+    "  /protocols — Supported proxy protocols\n"
+    "  /myinfo — Your registration/approval status\n"
+    "  /ping — Check bot availability\n\n"
+    "⚙️ **Approved settings**\n"
     "  /setformat — Change your preferred format\n"
-    "  /mute · /unmute — Toggle auto-delivery\n"
-    "  /myinfo — Your preferences\n"
-    "  /status · /ping — System status\n\n"
-    "Proxies are delivered automatically. Use /mute to stop.\n"
+    "  /mute · /unmute — Toggle auto-delivery\n\n"
     "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
     "⚠️ **Disclaimer:** All configurations are aggregated from public channels and are **unverified**. "
     "Use at your own risk; malicious proxy operators can observe/MITM your traffic."
@@ -30,19 +39,18 @@ WELCOME_TEXT = (
 _BOT_COMMANDS = [
     *(
         [
-            BotCommand(command="start", description="🚀 Start and get proxies"),
+            BotCommand(command="start", description="🚀 Start / register"),
             BotCommand(command="help", description="❓ Help"),
-            BotCommand(command="get", description="📥 Download proxies"),
-            BotCommand(command="latest", description="📦 Recent proxy files"),
+            BotCommand(command="get", description="📥 Download proxies (approved)"),
+            BotCommand(command="latest", description="📦 Recent proxy files (approved)"),
             BotCommand(command="formats", description="📋 Available formats"),
             BotCommand(command="protocols", description="🔗 Supported protocols"),
-            BotCommand(command="count", description="📊 Proxy count per protocol"),
-            BotCommand(command="setformat", description="⚙️ Change default format"),
-            BotCommand(command="myinfo", description="👤 Your preferences"),
-            BotCommand(command="status", description="📈 Pipeline statistics"),
-            BotCommand(command="mute", description="🔇 Stop auto-delivery"),
-            BotCommand(command="unmute", description="🔔 Resume auto-delivery"),
-            BotCommand(command="ping", description="🏓 Check bot status"),
+            BotCommand(command="count", description="📊 Proxy counts (approved)"),
+            BotCommand(command="setformat", description="⚙️ Change default format (approved)"),
+            BotCommand(command="myinfo", description="👤 Registration / preferences"),
+            BotCommand(command="mute", description="🔇 Stop auto-delivery (approved)"),
+            BotCommand(command="unmute", description="🔔 Resume auto-delivery (approved)"),
+            BotCommand(command="ping", description="🏓 Check bot availability"),
         ]
         if BotCommand is not None
         else []

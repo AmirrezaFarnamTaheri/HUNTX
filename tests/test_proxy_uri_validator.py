@@ -78,7 +78,7 @@ class TestAcceptedProxyUris(unittest.TestCase):
             "socks4://example.com:1080",
             "socks5://example.com:1080",
             "anytls://secret@example.com:443",
-            "juicity://secret@example.com:443",
+            "juicity://11111111-2222-3333-4444-555555555555:secret@example.com:443",
             "warp://example.com:2408",
             "dns://example.com:53",
             "dnstt://example.com:53",
@@ -157,6 +157,14 @@ class TestRejectedProxyUris(unittest.TestCase):
         for fixture in fixtures:
             with self.subTest(fixture=fixture):
                 self.assertFalse(validate_proxy_uri(fixture))
+
+    def test_invalid_juicity_identity_or_missing_password_is_rejected(self) -> None:
+        self.assertFalse(validate_proxy_uri("juicity://secret@example.com:443"))
+        self.assertFalse(
+            validate_proxy_uri(
+                "juicity://11111111-2222-3333-4444-555555555555@example.com:443"
+            )
+        )
 
     def test_malformed_vmess_and_shadowsocks_are_rejected(self) -> None:
         fixtures = (

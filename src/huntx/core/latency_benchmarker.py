@@ -1,10 +1,9 @@
-"""
-Async Proxy Latency Benchmarker module for HuntX.
-Tests proxy endpoint reachability and latency via socket / HTTP probes.
-"""
+"""Async reachability/latency probes for validated public proxy endpoints."""
 
 import asyncio
+import ipaddress
 import logging
+import socket
 import time
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
@@ -12,22 +11,56 @@ from urllib.parse import urlparse
 logger = logging.getLogger(__name__)
 
 
+def _public_addresses(address_info: list[tuple[Any, ...]]) -> list[tuple[int, str]]:
+    """Return unique globally routable resolved addresses with their families."""
+    result: list[tuple[int, str]] = []
+    seen: set[tuple[int, str]] = set()
+    for entry in address_info:
+        if len(entry) < 5:
+            continue
+        family = int(entry[0])
+        sockaddr = entry[4]
+        if not sockaddr:
+            continue
+        raw_address = str(sockaddr[0]).split("%", 1)[0]
+        try:
+            address = ipaddress.ip_address(raw_address)
+        except ValueError:
+            continue
+        if not address.is_global:
+            logger.warning(
+                "Latency Benchmarker rejected non-public resolved address %s",
+                address,
+            )
+            continue
+        key = (family, str(address))
+        if key not in seen:
+            seen.add(key)
+            result.append(key)
+    return result
+
+
 async def check_proxy_latency(proxy_url: str, timeout: float = 3.0) -> Optional[float]:
-    """
-    Measures TCP connection latency to the host:port of a proxy URI.
-    Returns latency in milliseconds if reachable, or None if failed/timed out.
+    """Measure TCP latency without allowing probes into private address space.
+
+    The endpoint hostname is resolved once, every candidate address is checked
+    with :mod:`ipaddress`, and the connection is made to the accepted numeric
+    address rather than resolving the attacker-controlled hostname again.  This
+    prevents loopback/private/link-local/reserved DNS answers and DNS rebinding
+    from turning the benchmark helper into an internal port scanner.
     """
     try:
-        if not proxy_url or not isinstance(proxy_url, str):
+        if not proxy_url or not isinstance(proxy_url, str) or timeout <= 0:
             return None
 
-        # Basic parse host and port from proxy URI
         parsed = urlparse(proxy_url)
         host = parsed.hostname
-        port = parsed.port
+        try:
+            port = parsed.port
+        except ValueError:
+            return None
 
         if not host:
-            # Fallback for URIs without standard scheme format
             parts = proxy_url.replace("//", "").split("@")[-1].split(":")
             if len(parts) >= 2:
                 host = parts[0]
@@ -36,23 +69,51 @@ async def check_proxy_latency(proxy_url: str, timeout: float = 3.0) -> Optional[
                 except ValueError:
                     port = None
 
-        if not host or not port:
+        if not host or not port or not 1 <= int(port) <= 65535:
             return None
 
-        start_time = time.monotonic()
-        # Non-blocking async TCP connection attempt
-        conn = asyncio.open_connection(host, port)
-        reader, writer = await asyncio.wait_for(conn, timeout=timeout)
-        elapsed_ms = (time.monotonic() - start_time) * 1000.0
+        loop = asyncio.get_running_loop()
+        deadline = time.monotonic() + timeout
+        address_info = await asyncio.wait_for(
+            loop.getaddrinfo(
+                host,
+                int(port),
+                type=socket.SOCK_STREAM,
+            ),
+            timeout=timeout,
+        )
+        candidates = _public_addresses(address_info)
+        if not candidates:
+            return None
 
-        res: Any = writer.close()  # type: ignore[func-returns-value]
-        if res is not None and asyncio.iscoroutine(res):
-            await res
-        if hasattr(writer, "wait_closed"):
-            res_wait = writer.wait_closed()
-            if asyncio.iscoroutine(res_wait):
-                await res_wait
-        return elapsed_ms
+        for family, address in candidates:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return None
+            start_time = time.monotonic()
+            try:
+                reader, writer = await asyncio.wait_for(
+                    asyncio.open_connection(
+                        address,
+                        int(port),
+                        family=family,
+                    ),
+                    timeout=remaining,
+                )
+            except (OSError, asyncio.TimeoutError):
+                continue
+            del reader
+            elapsed_ms = (time.monotonic() - start_time) * 1000.0
+
+            result: Any = writer.close()  # type: ignore[func-returns-value]
+            if result is not None and asyncio.iscoroutine(result):
+                await result
+            if hasattr(writer, "wait_closed"):
+                wait_result = writer.wait_closed()
+                if asyncio.iscoroutine(wait_result):
+                    await wait_result
+            return elapsed_ms
+        return None
     except Exception:
         return None
 
@@ -86,32 +147,33 @@ async def filter_proxies_by_latency(
     concurrency: int = 50,
     timeout: float = 2.0,
 ) -> List[Dict[str, Any]]:
-    """
-    Filters a list of proxy dict records by latency.
-    Only proxies under max_latency_ms are retained.
-    """
+    """Return only proxy records that complete a public-endpoint probe in time."""
     if not proxies:
         return []
 
-    semaphore = asyncio.Semaphore(concurrency)
+    semaphore = asyncio.Semaphore(max(1, int(concurrency)))
 
     async def _worker(record: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         line = _extract_proxy_uri(record)
         async with semaphore:
             latency = await check_proxy_latency(line, timeout=timeout)
             if latency is not None and latency <= max_latency_ms:
-                res = dict(record)
-                if "data" in res and isinstance(res["data"], dict):
-                    res["data"] = dict(res["data"])
-                    res["data"]["latency_ms"] = round(latency, 2)
+                result = dict(record)
+                if "data" in result and isinstance(result["data"], dict):
+                    result["data"] = dict(result["data"])
+                    result["data"]["latency_ms"] = round(latency, 2)
                 else:
-                    res["latency_ms"] = round(latency, 2)
-                return res
+                    result["latency_ms"] = round(latency, 2)
+                return result
             return None
 
-    tasks = [_worker(p) for p in proxies]
+    tasks = [_worker(proxy) for proxy in proxies]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    valid_proxies = [r for r in results if isinstance(r, dict)]
-    logger.info("Latency Benchmarker: %d/%d proxies passed latency filter", len(valid_proxies), len(proxies))
+    valid_proxies = [result for result in results if isinstance(result, dict)]
+    logger.info(
+        "Latency Benchmarker: %d/%d proxies passed latency filter",
+        len(valid_proxies),
+        len(proxies),
+    )
     return valid_proxies

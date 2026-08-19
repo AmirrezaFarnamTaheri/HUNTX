@@ -26,6 +26,7 @@ def test_source_timeout_is_isolated():
         orchestrator._ingestion_stop_monotonic = None
         orchestrator._ingestion_budget_exhausted = False
         orchestrator._source_timeout = lambda: 0.05
+        orchestrator._reset_investigation_metrics()
 
         observed: list[str] = []
 
@@ -53,6 +54,7 @@ def test_source_timeout_is_isolated():
         assert observed == ["slow-source", "healthy-source"]
         assert results == {"ok": 1, "err": 1}
         assert queue.empty()
+        assert orchestrator._sources_checked == {"slow-source", "healthy-source"}
 
     asyncio.run(exercise())
 

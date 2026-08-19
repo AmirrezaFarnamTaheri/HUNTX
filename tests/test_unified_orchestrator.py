@@ -1,76 +1,45 @@
-import unittest
 from unittest.mock import patch
 
+from huntx.core.optimized_orchestrator import OptimizedHardenedOrchestrator
 from huntx.core.unified_orchestrator import UnifiedOrchestrator
-from huntx.config.schema import (
-    AppConfig,
-    SourceConfig,
-    TelegramSourceConfig,
-    PublishRoute,
-    DestinationConfig,
-    SourceSelector,
-    PublishingConfig,
+
+
+def test_unified_orchestrator_is_a_production_runtime_facade():
+    assert issubclass(UnifiedOrchestrator, OptimizedHardenedOrchestrator)
+
+
+@patch.object(OptimizedHardenedOrchestrator, "__init__", return_value=None)
+@patch.object(
+    OptimizedHardenedOrchestrator,
+    "run",
+    return_value={"status": "completed", "duration_seconds": 1.25},
 )
+def test_unified_orchestrator_delegates_run_contract(mock_run, mock_init):
+    orchestrator = UnifiedOrchestrator(
+        object(),
+        enable_benchmarking=True,
+        max_proxy_latency_ms=1200,
+    )
 
+    result = orchestrator.run(
+        timeout=30,
+        no_publish=True,
+        allow_partial_export=True,
+    )
 
-class TestUnifiedOrchestrator(unittest.TestCase):
-
-    def setUp(self):
-        self.config = AppConfig(
-            sources=[
-                SourceConfig(
-                    id="src_bot",
-                    type="telegram",
-                    selector=SourceSelector(include_formats=["fmt"]),
-                    telegram=TelegramSourceConfig(token="123:bot_token", chat_id="123"),
-                ),
-            ],
-            publishing=PublishingConfig(
-                routes=[
-                    PublishRoute(
-                        name="route1",
-                        from_sources=["src_bot"],
-                        formats=["fmt"],
-                        destinations=[DestinationConfig(chat_id="dest1", mode="telegram", caption_template="cap")],
-                    )
-                ]
-            ),
-        )
-
-    @patch("huntx.core.orchestrator.RawStore")
-    @patch("huntx.core.orchestrator.ArtifactStore")
-    @patch("huntx.core.orchestrator.open_db")
-    @patch("huntx.core.orchestrator.StateRepo")
-    @patch("huntx.core.orchestrator.FormatRegistry")
-    @patch("huntx.core.orchestrator.IngestionPipeline")
-    @patch("huntx.core.orchestrator.TransformPipeline")
-    @patch("huntx.core.orchestrator.BuildPipeline")
-    @patch("huntx.core.orchestrator.PublishPipeline")
-    @patch("huntx.connectors.telegram.connector.TelegramConnector")
-    @patch("huntx.connectors.telegram_user.connector.TelegramUserConnector")
-    def test_unified_orchestrator_run(
-        self,
-        mock_user_conn,
-        mock_bot_conn,
-        mock_pub,
-        mock_build,
-        mock_trans,
-        mock_ingest,
-        mock_reg,
-        mock_repo,
-        mock_open_db,
-        mock_art_store,
-        mock_raw_store,
-    ):
-        orch = UnifiedOrchestrator(self.config, enable_benchmarking=True)
-        assert hasattr(orch, "circuit_breaker")
-        assert hasattr(orch, "scoring_engine")
-        res = orch.run(no_publish=True)
-
-        assert res["status"] == "completed"
-        assert res["unified"] is True
-        assert "elapsed_seconds" in res
-        # Plan Task 4.1: orchestrator must expose all three next-gen components
-        assert hasattr(orch, "streaming_parser"), "streaming_parser not wired into UnifiedOrchestrator"
-        assert hasattr(orch, "geo_routing_engine") or hasattr(orch, "geo_routing"), "geo_routing not wired"
-        assert hasattr(orch, "self_healing_daemon") or hasattr(orch, "self_healing"), "self_healing not wired into UnifiedOrchestrator"
+    mock_init.assert_called_once()
+    mock_run.assert_called_once_with(
+        timeout=30,
+        no_publish=True,
+        allow_partial_export=True,
+    )
+    assert result["status"] == "completed"
+    assert result["unified"] is True
+    assert result["elapsed_seconds"] == 1.25
+    assert orchestrator.enable_benchmarking is True
+    assert orchestrator.max_proxy_latency_ms == 1200
+    assert hasattr(orchestrator, "circuit_breaker")
+    assert hasattr(orchestrator, "scoring_engine")
+    assert hasattr(orchestrator, "streaming_parser")
+    assert hasattr(orchestrator, "geo_routing")
+    assert hasattr(orchestrator, "self_healing")

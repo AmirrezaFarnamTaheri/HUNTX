@@ -67,7 +67,9 @@ class TestCallbackHardening(unittest.IsolatedAsyncioTestCase):
         self.bot._COOLDOWN_MAX_ENTRIES = 3
         self.bot._COOLDOWN_TTL_SECONDS = 10
         now = time.time()
-        self.bot._user_cooldowns.update([(1, now - 100), (2, now - 1), (3, now - 1), (4, now - 1), (5, now - 1)])
+        self.bot._user_cooldowns.update(
+            [(1, now - 100), (2, now - 1), (3, now - 1), (4, now - 1), (5, now - 1)]
+        )
 
         self.bot._prune_cooldowns(now)
 
@@ -76,11 +78,12 @@ class TestCallbackHardening(unittest.IsolatedAsyncioTestCase):
 
     async def test_callback_failure_does_not_expose_exception_text(self):
         self.bot._check_rate_limit = AsyncMock(return_value=True)
+        self.bot._require_approved = AsyncMock(return_value=True)
         self.bot._send_format_to_user = AsyncMock(side_effect=RuntimeError("secret detail"))
         event = MagicMock()
         event.data = b"get:npvt"
         event.sender_id = 8
-        event.chat_id = 9
+        event.chat_id = 8
         event.answer = AsyncMock()
 
         await self.bot._on_callback(event)
@@ -99,13 +102,13 @@ class TestTokenIsolation(unittest.TestCase):
                 InteractiveBot("same", 1, "hash")
 
     @patch("huntx.bot.interactive.TelegramClient")
+    @patch.object(InteractiveBot, "_init_tables")
     @patch("huntx.bot.interactive.open_db")
     @patch("huntx.bot.interactive.ArtifactStore")
     @patch("huntx.bot.interactive.StateRepo")
-    def test_explicit_shared_token_override_is_allowed(self, repo, store, open_db, _client):
-        conn = sqlite3.connect(":memory:")
-        conn.row_factory = sqlite3.Row
-        open_db.return_value = _DB(conn)
+    def test_explicit_shared_token_override_is_allowed(
+        self, _repo, _store, _open_db, _init_tables, _client
+    ):
         with patch.dict(
             os.environ,
             {"TELEGRAM_TOKEN": "same", "HUNTX_ALLOW_SHARED_BOT_TOKEN": "true"},
@@ -113,7 +116,6 @@ class TestTokenIsolation(unittest.TestCase):
         ):
             bot = InteractiveBot("same", 1, "hash")
         self.assertEqual(bot.token, "same")
-        conn.close()
 
 
 class _DeliveryHarness(DeliveryMixin):
@@ -187,13 +189,19 @@ class TestDeliveryRecovery(unittest.IsolatedAsyncioTestCase):
         harness = _DeliveryHarness()
         harness.db = _DB(conn)
 
-        harness._record_delivery_checkpoint("1", attempted=3, sent=2, failed=1, error="TimeoutError")
+        harness._record_delivery_checkpoint(
+            "1", attempted=3, sent=2, failed=1, error="TimeoutError"
+        )
 
-        row = conn.execute("SELECT * FROM bot_delivery_checkpoint WHERE user_id='1'").fetchone()
+        row = conn.execute(
+            "SELECT * FROM bot_delivery_checkpoint WHERE user_id='1'"
+        ).fetchone()
         self.assertEqual((row["attempted"], row["sent"], row["failed"]), (3, 2, 1))
         self.assertEqual(row["last_error"], "TimeoutError")
         self.assertGreater(
-            conn.execute("SELECT last_delivered_at FROM bot_users WHERE user_id='1'").fetchone()[0],
+            conn.execute(
+                "SELECT last_delivered_at FROM bot_users WHERE user_id='1'"
+            ).fetchone()[0],
             0,
         )
         conn.close()

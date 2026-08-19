@@ -20,7 +20,28 @@ from .constants import _AUTO_DELIVER_FORMATS, _FORMAT_LABELS, _ALL_VALID_FORMATS
 logger = logging.getLogger(__name__)
 
 
+def _bounded_env_int(
+    name: str,
+    default: int,
+    *,
+    minimum: int = 0,
+    maximum: int = 3600,
+) -> int:
+    """Read a bounded integer environment variable without crashing runtime paths."""
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.warning("[GatherX] Invalid %s=%r; using %s", name, raw, default)
+        return default
+    return max(minimum, min(value, maximum))
+
+
 class DeliveryMixin:
+    """Artifact-delivery helpers with durable progress and authorization checks."""
+
     async def send_freshness_alert(
         self,
         admin_chat_id: int,
@@ -44,23 +65,68 @@ class DeliveryMixin:
                 await self._send_with_floodwait(client.send_message, admin_chat_id, message)
                 return True
         except Exception as exc:
-            logger.error("[GatherX] Failed to send freshness alert: %s", exc)
+            logger.error("[GatherX] Failed to send freshness alert: %s", type(exc).__name__)
         return False
 
     @staticmethod
     def _artifact_hash(path: Path) -> str:
+        """Return a SHA-256 digest for one delivery artifact."""
         digest = hashlib.sha256()
         with path.open("rb") as stream:
             for chunk in iter(lambda: stream.read(1024 * 1024), b""):
                 digest.update(chunk)
         return digest.hexdigest()
 
+    def _artifact_chat_authorized(self, chat_id: int | str) -> bool:
+        """Authorize direct artifact sends only to approved private user chats."""
+        identity = str(chat_id)
+        admin_check = getattr(self, "_is_admin", None)
+        if callable(admin_check) and admin_check(identity):
+            return True
+        db = getattr(self, "db", None)
+        if db is None:
+            return False
+        try:
+            with db.connect() as conn:
+                row = conn.execute(
+                    """
+                    SELECT 1 FROM bot_users
+                    WHERE user_id = ? AND chat_id = ? AND approved = 1
+                    LIMIT 1
+                    """,
+                    (identity, identity),
+                ).fetchone()
+            return row is not None
+        except Exception:
+            logger.exception(
+                "[GatherX] Failed to authorize protected artifact chat=%s", identity
+            )
+            return False
+
+    async def _deny_artifact_chat(self, chat_id: int | str) -> None:
+        """Emit a generic denial for an unauthorized lower-level artifact request."""
+        logger.warning(
+            "[Security] Blocked direct artifact send to unauthorized chat=%s",
+            chat_id,
+        )
+        client = getattr(self, "client", None)
+        if client is not None:
+            await self._send_with_floodwait(
+                client.send_message,
+                int(chat_id),
+                "🔒 Artifact access requires an approved private GatherX chat.",
+            )
+
     def _pending_delivery_files(
         self,
         user_id: str,
         files_to_send: List[tuple],
     ) -> list[tuple[Path, str, str]]:
-        candidates = [(Path(path), caption, self._artifact_hash(Path(path))) for path, caption in files_to_send]
+        """Return files whose content hashes have not been delivered to the user."""
+        candidates = [
+            (Path(path), caption, self._artifact_hash(Path(path)))
+            for path, caption in files_to_send
+        ]
         if not candidates:
             return []
         with self.db.connect() as conn:  # type: ignore[attr-defined]
@@ -82,6 +148,7 @@ class DeliveryMixin:
         path: Path,
         artifact_hash: str,
     ) -> None:
+        """Persist one successfully delivered artifact hash."""
         with self.db.connect() as conn:  # type: ignore[attr-defined]
             conn.execute(
                 """
@@ -96,8 +163,19 @@ class DeliveryMixin:
             )
 
     async def _send_with_floodwait(self, method: Any, *args: Any, **kwargs: Any) -> Any:
-        max_wait = max(0, int(os.environ.get("HUNTX_FLOODWAIT_MAX_SECONDS", "60")))
-        max_retries = max(0, int(os.environ.get("HUNTX_FLOODWAIT_MAX_RETRIES", "2")))
+        """Retry bounded Telegram FloodWait responses using sanitized env limits."""
+        max_wait = _bounded_env_int(
+            "HUNTX_FLOODWAIT_MAX_SECONDS",
+            60,
+            minimum=0,
+            maximum=3600,
+        )
+        max_retries = _bounded_env_int(
+            "HUNTX_FLOODWAIT_MAX_RETRIES",
+            2,
+            minimum=0,
+            maximum=32,
+        )
         retries = 0
         while True:
             try:
@@ -124,6 +202,7 @@ class DeliveryMixin:
         failed: int,
         error: Optional[str] = None,
     ) -> None:
+        """Persist delivery checkpoint counters and successful-delivery timestamp."""
         now = time.time()
         with self.db.connect() as conn:  # type: ignore[attr-defined]
             conn.execute(
@@ -146,9 +225,22 @@ class DeliveryMixin:
                     (now, user_id),
                 )
 
-    async def _deliver_files_to_user(self, user: Any, files_to_send: List[tuple]) -> tuple[int, int]:
+    async def _deliver_files_to_user(
+        self,
+        user: Any,
+        files_to_send: List[tuple],
+    ) -> tuple[int, int]:
+        """Deliver pending files to one already-selected active private user."""
         user_id = str(user["user_id"])
         chat_id = int(user["chat_id"])
+        if str(chat_id) != user_id or not self._artifact_chat_authorized(chat_id):
+            logger.error(
+                "[Security] Refusing automatic artifact delivery user=%s chat=%s",
+                user_id,
+                chat_id,
+            )
+            return 0, max(1, len(files_to_send))
+
         sent = 0
         failed = 0
         last_error: Optional[str] = None
@@ -186,14 +278,18 @@ class DeliveryMixin:
                     logger.warning(
                         "[GatherX] File delivery failed user=%s file=%s error=%s",
                         user_id,
-                        fpath,
-                        exc,
+                        fpath.name,
+                        type(exc).__name__,
                     )
                 await asyncio.sleep(0.3)
         except Exception as exc:
             failed += max(1, len(pending) - sent)
             last_error = type(exc).__name__
-            logger.warning("[GatherX] Delivery failed user=%s error=%s", user_id, exc)
+            logger.warning(
+                "[GatherX] Delivery failed user=%s error=%s",
+                user_id,
+                type(exc).__name__,
+            )
         finally:
             self._record_delivery_checkpoint(
                 user_id,
@@ -210,18 +306,22 @@ class DeliveryMixin:
             await self.client.start(bot_token=self.token)  # type: ignore[attr-defined]
             await self.deliver_updates_active()
         except Exception as exc:
-            logger.error("[GatherX] Delivery error: %s", exc)
+            logger.error("[GatherX] Delivery error: %s", type(exc).__name__)
         finally:
             try:
                 await self.client.disconnect()  # type: ignore[attr-defined]
             except Exception as exc:
-                logger.debug("[GatherX] Failed to disconnect bot client: %s", exc)
+                logger.debug(
+                    "[GatherX] Failed to disconnect bot client: %s",
+                    type(exc).__name__,
+                )
             await asyncio.sleep(0.25)
 
     async def deliver_updates_active(self):
+        """Deliver current outputs to all approved, unmuted private-chat users."""
         users = self._get_active_users()  # type: ignore[attr-defined]
         if not users:
-            logger.info("[GatherX] No registered users — skipping delivery.")
+            logger.info("[GatherX] No approved private-chat users — skipping delivery.")
             return
 
         files_to_send = self._collect_delivery_files(paths.OUTPUT_DIR)
@@ -240,9 +340,14 @@ class DeliveryMixin:
             sent, user_failed = await self._deliver_files_to_user(user, files_to_send)
             delivered += int(sent > 0)
             failed += int(user_failed > 0)
-        logger.info("[GatherX] Delivery complete: %s users received data, %s had failures.", delivered, failed)
+        logger.info(
+            "[GatherX] Delivery complete: %s users received data, %s had failures.",
+            delivered,
+            failed,
+        )
 
     def _collect_delivery_files(self, output_dir: Path, formats=None) -> List[tuple]:
+        """Collect non-empty output artifacts matching the requested formats."""
         allowed = formats or _AUTO_DELIVER_FORMATS
         results: list[tuple] = []
         if not output_dir.exists():
@@ -264,7 +369,9 @@ class DeliveryMixin:
                 caption = f"📊 `{name}` — decoded JSON ({size_kb:.0f} KB)"
             elif "singbox.json" in name:
                 caption = f"📦 `{name}` — sing-box config ({size_kb:.0f} KB)"
-            elif name.endswith((".ovpn", ".ehi", ".hc", ".hat", ".sip", ".nm", ".dark", ".npv4")):
+            elif name.endswith(
+                (".ovpn", ".ehi", ".hc", ".hat", ".sip", ".nm", ".dark", ".npv4")
+            ):
                 caption = f"📦 `{name}` — config archive ({size_kb:.0f} KB)"
             else:
                 caption = f"`{name}` ({size_kb:.0f} KB)"
@@ -273,6 +380,7 @@ class DeliveryMixin:
 
     @staticmethod
     def _filename_matches_format(name: str, fmt: str) -> bool:
+        """Return whether a generated filename represents a logical format."""
         n = name.lower()
         f = fmt.lower()
         if f in ("npvt", "npvtsub"):
@@ -283,9 +391,18 @@ class DeliveryMixin:
             return ".decoded.json" in n or n.endswith("_decoded.json")
         if f in ("singbox.json", "npvt.singbox.json", "npvtsub.singbox.json"):
             return ".singbox.json" in n or n.endswith("_singbox.json")
-        return n.endswith(f".{f}") or n.endswith(f"_{f}.txt") or n.endswith(f"_{f}.json") or n.endswith(f"_{f}.zip")
+        return (
+            n.endswith(f".{f}")
+            or n.endswith(f"_{f}.txt")
+            or n.endswith(f"_{f}.json")
+            or n.endswith(f"_{f}.zip")
+        )
 
     async def _send_format_to_user(self, chat_id: int, fmt: str):
+        """Send one format only after lower-layer private-chat authorization."""
+        if not self._artifact_chat_authorized(chat_id):
+            await self._deny_artifact_chat(chat_id)
+            return
         if fmt not in _ALL_VALID_FORMATS:
             await self._send_with_floodwait(
                 self.client.send_message,  # type: ignore[attr-defined]
@@ -319,11 +436,22 @@ class DeliveryMixin:
             await self._send_with_floodwait(
                 self.client.send_message,  # type: ignore[attr-defined]
                 chat_id,
-                f"No files found for `{fmt}`.\nThe pipeline may not have produced this format yet.\nUse /formats to see all options.",
+                f"No files found for `{fmt}`.\n"
+                "The pipeline may not have produced this format yet.\n"
+                "Use /formats to see all options.",
                 parse_mode="md",
             )
 
-    async def _send_latest_to_user(self, chat_id: int, fmt: Optional[str] = None, days: int = 4):
+    async def _send_latest_to_user(
+        self,
+        chat_id: int,
+        fmt: Optional[str] = None,
+        days: int = 4,
+    ):
+        """Send recent archived artifacts only to an authorized private chat."""
+        if not self._artifact_chat_authorized(chat_id):
+            await self._deny_artifact_chat(chat_id)
+            return 0
         files = self.artifact_store.list_archive(days=days)  # type: ignore[attr-defined]
         if not files:
             await self._send_with_floodwait(

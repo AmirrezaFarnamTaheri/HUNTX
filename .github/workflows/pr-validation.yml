@@ -77,6 +77,7 @@ jobs:
           go test -race ./...
           go vet ./...
           go build ./cmd/huntx-tools
+          go build ./cmd/huntx-engine
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -84,19 +85,14 @@ jobs:
           cache: pip
           cache-dependency-path: |
             requirements.txt
+            requirements-ci.txt
             pyproject.toml
 
       - name: Python quality gate
         run: |
           set -euo pipefail
           python -m pip install --require-hashes --prefer-binary -r requirements.txt
-          python -m pip install --prefer-binary \
-            flake8==7.3.0 \
-            mypy==2.3.0 \
-            pytest==9.1.1 \
-            pytest-asyncio==1.4.0 \
-            types-requests==2.33.0.20260712 \
-            types-PyYAML==6.0.12.20260724
+          python -m pip install --prefer-binary -r requirements-ci.txt
           python -m pip install --no-deps -e .
           python -m pip check
           python -m compileall -q -j 0 src tests scripts

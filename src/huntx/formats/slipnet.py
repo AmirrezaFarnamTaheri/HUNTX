@@ -1,13 +1,12 @@
 import logging
 import re
-from typing import List, Dict, Any, Optional
-from .base import FormatHandler
-from .common.crypto import decrypt_slipnet_link
+from typing import Any, Dict, List, Optional
+
+from .common.crypto import MissingSecretError, decrypt_slipnet_link
 from .common.hashing import hash_string
 
 logger = logging.getLogger(__name__)
 
-# SlipNet Schemas from Pantegnos (Source of Truth)
 V1 = [
     "Version",
     "Tunnel Type/Mode",
@@ -131,13 +130,8 @@ BOOLEAN_FIELDS = {
 }
 
 
-class SlipNetHandler(FormatHandler):
-    """
-    Handler for SlipNet (slipnet-enc://) links.
-    Core: Slipstream.
-    Usually found as raw text messages in channels.
-    Enhanced with versioned schema mapping from Pantegnos.
-    """
+class SlipNetHandler:
+    """SlipNet encrypted links with optional versioned profile enrichment."""
 
     def __init__(self, format_id: str = "slipnet"):
         self._format_id = format_id
@@ -147,45 +141,65 @@ class SlipNetHandler(FormatHandler):
         return self._format_id
 
     def detect(self, filename: str, data: bytes) -> bool:
-        # Detect if it's a text file or message containing slipnet-enc://
         try:
-            text = data.decode("utf-8", "ignore")
-            if "slipnet-enc://" in text:
-                return True
+            return "slipnet-enc://" in data.decode("utf-8", "ignore")
         except Exception:
-            pass
-        return False
+            return False
 
-    def parse(self, raw_data: bytes, source_info: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-        if source_info is None:
-            source_info = {}
-        try:
-            text = raw_data.decode("utf-8", "ignore")
-            # Extract links
-            links = re.findall(r"slipnet-enc://[a-zA-Z0-9+/=_\-]+", text)
+    def parse(
+        self,
+        raw_data: bytes,
+        source_info: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict[str, Any]]:
+        del source_info
+        text = raw_data.decode("utf-8", "ignore")
+        links = re.findall(r"slipnet-enc://[a-zA-Z0-9+/=_\-]+", text)
 
-            records = []
-            for link in links:
+        records: List[Dict[str, Any]] = []
+        for link in links:
+            data: Dict[str, Any] = {"line": link}
+            try:
                 decrypted = decrypt_slipnet_link(link)
-                if decrypted:
-                    parsed_data = self._parse_profile(decrypted)
-                    records.append(
-                        {
-                            "type": self.format_id,
-                            "unique_hash": hash_string(link),
-                            "data": {"line": link, "decrypted": decrypted, "profile": parsed_data},
-                        }
-                    )
-            return records
-        except Exception as e:
-            logger.debug(f"SlipNet parsing failed: {e}")
-            return []
+            except MissingSecretError:
+                logger.debug(
+                    "SlipNet decryption credential is not configured; preserving encrypted link"
+                )
+                decrypted = None
+            except Exception as exc:
+                logger.debug("SlipNet deep parsing failed: %s", exc)
+                decrypted = None
+
+            if decrypted:
+                data["decrypted"] = decrypted
+                data["profile"] = self._parse_profile(decrypted)
+
+            records.append(
+                {
+                    "type": self.format_id,
+                    "unique_hash": hash_string(link),
+                    "data": data,
+                }
+            )
+        return records
 
     def build(self, records: List[Dict[str, Any]]) -> bytes:
-        raise NotImplementedError("Building SlipNet files/links is not supported.")
+        """Rebuild a deterministic newline-delimited set of encrypted links."""
+        lines: List[str] = []
+        seen: set[str] = set()
+        for record in records:
+            line = record.get("data", {}).get("line")
+            if not isinstance(line, str) or not line.startswith("slipnet-enc://"):
+                continue
+            if line in seen:
+                continue
+            seen.add(line)
+            lines.append(line)
+        if not lines:
+            return b""
+        return ("\n".join(lines) + "\n").encode("utf-8")
 
     def _parse_profile(self, decrypted_text: str) -> Dict[str, Any]:
-        """Parses the decrypted pipe-separated profile string into a structured dict."""
+        """Parse a decrypted pipe-separated profile into a structured mapping."""
         decrypted_text = decrypted_text.rstrip("|")
         parts = decrypted_text.split("|")
         if not parts:
@@ -193,22 +207,12 @@ class SlipNetHandler(FormatHandler):
 
         version_str = parts[0]
         schema = SCHEMAS.get(version_str)
+        profile: Dict[str, Any] = {"Version": version_str}
 
-        profile = {"Version": version_str}
-
-        for i, value in enumerate(parts):
-            if i == 0:
-                continue  # Already handled Version
-
-            label = schema[i] if schema and i < len(schema) else f"Field_{i}"
-
-            # Convert boolean fields
-            display_value: Any
-            if label in BOOLEAN_FIELDS:
-                display_value = True if value == "1" else False
-            else:
-                display_value = value if value else ""
-
-            profile[label] = display_value
+        for index, value in enumerate(parts):
+            if index == 0:
+                continue
+            label = schema[index] if schema and index < len(schema) else f"Field_{index}"
+            profile[label] = value == "1" if label in BOOLEAN_FIELDS else value
 
         return profile

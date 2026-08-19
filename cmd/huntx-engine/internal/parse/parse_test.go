@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"huntx-engine/internal/parse"
+	"github.com/AmirrezaFarnamTaheri/HUNTX/cmd/huntx-engine/internal/parse"
 )
 
 func TestParseReader_ValidVlessLine(t *testing.T) {

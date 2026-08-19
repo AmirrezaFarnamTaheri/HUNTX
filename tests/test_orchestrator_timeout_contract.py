@@ -14,12 +14,13 @@ class TestOrchestratorTimeoutContract(unittest.TestCase):
         release_publisher: threading.Event,
     ) -> Orchestrator:
         orchestrator = Orchestrator.__new__(Orchestrator)
-        source = SimpleNamespace(publication_eligible=True)
+        source = SimpleNamespace(id="source", publication_eligible=True)
         destination = SimpleNamespace(
             chat_id="123",
             mode="telegram",
             caption_template=None,
             token="token",
+            required=True,
         )
         route = SimpleNamespace(
             name="route",
@@ -36,6 +37,10 @@ class TestOrchestratorTimeoutContract(unittest.TestCase):
 
         orchestrator._worker_async = worker
         orchestrator.transform_pipeline = MagicMock()
+        orchestrator.transform_pipeline.process_pending.return_value = {
+            "completed": True,
+            "stop_reason": "complete",
+        }
         orchestrator.build_pipeline = MagicMock()
         orchestrator.build_pipeline.run.return_value = [
             {

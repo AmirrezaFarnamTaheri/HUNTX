@@ -1,7 +1,13 @@
-import unittest
 import asyncio
-from unittest.mock import patch, AsyncMock
-from huntx.core.latency_benchmarker import check_proxy_latency, filter_proxies_by_latency
+import socket
+import unittest
+from unittest.mock import AsyncMock, patch
+
+from huntx.core.latency_benchmarker import (
+    _public_addresses,
+    check_proxy_latency,
+    filter_proxies_by_latency,
+)
 
 
 class TestLatencyBenchmarker(unittest.TestCase):
@@ -14,6 +20,17 @@ class TestLatencyBenchmarker(unittest.TestCase):
         finally:
             loop.close()
 
+    def test_private_and_loopback_resolutions_are_rejected(self):
+        infos = [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 443)),
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.1.2.3", 443)),
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("169.254.1.2", 443)),
+            (socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("::1", 443, 0, 0)),
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("8.8.8.8", 443)),
+        ]
+
+        self.assertEqual(_public_addresses(infos), [(socket.AF_INET, "8.8.8.8")])
+
     @patch("asyncio.open_connection")
     def test_check_proxy_latency_success(self, mock_open_conn):
         mock_reader = AsyncMock()
@@ -22,12 +39,41 @@ class TestLatencyBenchmarker(unittest.TestCase):
 
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
+        loop.getaddrinfo = AsyncMock(
+            return_value=[
+                (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("8.8.8.8", 443))
+            ]
+        )
         try:
             latency = loop.run_until_complete(
                 check_proxy_latency("vless://user@example.com:443?type=ws#test", timeout=1.0)
             )
             self.assertIsNotNone(latency)
             self.assertGreaterEqual(latency, 0)
+            mock_open_conn.assert_awaited_once_with(
+                "8.8.8.8",
+                443,
+                family=socket.AF_INET,
+            )
+        finally:
+            loop.close()
+
+    @patch("asyncio.open_connection")
+    def test_check_proxy_latency_never_connects_to_private_dns_answer(self, mock_open_conn):
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.getaddrinfo = AsyncMock(
+            return_value=[
+                (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 443)),
+                (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("192.168.1.10", 443)),
+            ]
+        )
+        try:
+            result = loop.run_until_complete(
+                check_proxy_latency("vless://user@attacker.example:443", timeout=1.0)
+            )
+            self.assertIsNone(result)
+            mock_open_conn.assert_not_awaited()
         finally:
             loop.close()
 
@@ -36,7 +82,7 @@ class TestLatencyBenchmarker(unittest.TestCase):
         async def mock_latency(url, timeout):
             if "fast" in url:
                 return 150.0
-            elif "slow" in url:
+            if "slow" in url:
                 return 4000.0
             return None
 
@@ -52,7 +98,11 @@ class TestLatencyBenchmarker(unittest.TestCase):
         asyncio.set_event_loop(loop)
         try:
             filtered = loop.run_until_complete(
-                filter_proxies_by_latency(proxies, max_latency_ms=3000.0, timeout=1.0)
+                filter_proxies_by_latency(
+                    proxies,
+                    max_latency_ms=3000.0,
+                    timeout=1.0,
+                )
             )
             self.assertEqual(len(filtered), 1)
             self.assertEqual(filtered[0]["data"]["line"], "vless://user@fast.com:443#fast")

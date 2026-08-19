@@ -1,17 +1,17 @@
 package georoute
 
 import (
+	"net/url"
 	"regexp"
 	"strings"
-	"sync"
 )
 
 var (
-	countryTagRegex = regexp.MustCompile(`\b([A-Z]{2})\b`)
+	countryTagRegex = regexp.MustCompile(`(?:^|[^A-Z])([A-Z]{2})(?:$|[^A-Z])`)
 	tldCountryMap   = map[string]string{
-		".de": "DE", ".fr": "FR", ".uk": "GB", ".us": "US", ".jp": "JP",
-		".nl": "NL", ".sg": "SG", ".ca": "CA", ".au": "AU", ".ir": "IR",
-		".kr": "KR", ".cn": "CN", ".ru": "RU", ".hk": "HK", ".tw": "TW",
+		"de": "DE", "fr": "FR", "uk": "GB", "us": "US", "jp": "JP",
+		"nl": "NL", "sg": "SG", "ca": "CA", "au": "AU", "ir": "IR",
+		"kr": "KR", "cn": "CN", "ru": "RU", "hk": "HK", "tw": "TW",
 	}
 	validCountries = map[string]bool{
 		"US": true, "DE": true, "FR": true, "GB": true, "NL": true,
@@ -28,55 +28,59 @@ type ProxyRecord struct {
 	RegionTier  int    `json:"region_tier"`
 }
 
-type Engine struct {
-	mu    sync.RWMutex
-	cache map[string]string
-}
+type Engine struct{}
 
 func NewEngine() *Engine {
-	return &Engine{
-		cache: make(map[string]string),
+	return &Engine{}
+}
+
+func countryFromRemark(fragment string) string {
+	remark, err := url.QueryUnescape(fragment)
+	if err != nil {
+		remark = fragment
 	}
+	upper := strings.ToUpper(remark)
+	matches := countryTagRegex.FindAllStringSubmatch(upper, -1)
+	for _, match := range matches {
+		if len(match) < 2 {
+			continue
+		}
+		code := match[1]
+		if validCountries[code] {
+			return code
+		}
+	}
+	return "XX"
+}
+
+func countryFromHostname(hostname string) string {
+	host := strings.TrimSuffix(strings.ToLower(strings.TrimSpace(hostname)), ".")
+	if host == "" {
+		return "XX"
+	}
+	labels := strings.Split(host, ".")
+	if len(labels) < 2 {
+		return "XX"
+	}
+	if code, ok := tldCountryMap[labels[len(labels)-1]]; ok {
+		return code
+	}
+	return "XX"
 }
 
 func (e *Engine) InferCountryCode(uri string) string {
-	e.mu.RLock()
-	if code, found := e.cache[uri]; found {
-		e.mu.RUnlock()
+	// Parse only the structured URI fragment and hostname. Searching the full
+	// URI for strings such as ".de" lets passwords, query parameters and paths
+	// spoof a country classification.
+	parsed, err := url.Parse(strings.TrimSpace(uri))
+	if err != nil {
+		return "XX"
+	}
+
+	if code := countryFromRemark(parsed.Fragment); code != "XX" {
 		return code
 	}
-	e.mu.RUnlock()
-
-	code := "XX"
-
-	// 1. Check hashtag remark
-	if idx := strings.Index(uri, "#"); idx != -1 {
-		remark := uri[idx+1:]
-		matches := countryTagRegex.FindAllString(remark, -1)
-		for _, m := range matches {
-			if validCountries[m] {
-				code = m
-				break
-			}
-		}
-	}
-
-	// 2. Check TLD from hostname if not found
-	if code == "XX" {
-		lower := strings.ToLower(uri)
-		for tld, c := range tldCountryMap {
-			if strings.Contains(lower, tld) {
-				code = c
-				break
-			}
-		}
-	}
-
-	e.mu.Lock()
-	e.cache[uri] = code
-	e.mu.Unlock()
-
-	return code
+	return countryFromHostname(parsed.Hostname())
 }
 
 func NormalizeProtocol(proto string) string {
@@ -109,7 +113,7 @@ func (e *Engine) Classify(rec ProxyRecord) ProxyRecord {
 }
 
 func FilterByRegion(records []ProxyRecord, country string) []ProxyRecord {
-	target := strings.ToUpper(country)
+	target := strings.ToUpper(strings.TrimSpace(country))
 	var filtered []ProxyRecord
 	for _, r := range records {
 		if r.CountryCode == target {

@@ -26,9 +26,10 @@ class PersistentIngestionQueue:
     """SQLite-backed newest-window-first ingestion queue.
 
     Only closed, epoch-aligned windows are seeded. Windows are strict LIFO by
-    ``window_end_ts``. Within the newest incomplete window, ``rotation_seq`` is
-    advanced after every page so sources rotate deterministically even when
-    several operations complete within the same wall-clock second.
+    ``window_end_ts`` among work that is ready now. Actively leased work still
+    blocks older windows, preserving ordering while another worker owns the
+    newest page. A deferred ``retry_wait`` item does not block all older ready
+    work merely because its retry timestamp is in the future.
     """
 
     def __init__(self, db: Any) -> None:
@@ -41,7 +42,7 @@ class PersistentIngestionQueue:
     @staticmethod
     def _next_rotation_seq(conn: Any) -> int:
         row = conn.execute(
-            "SELECT COALESCE(MAX(rotation_seq), 0) + 1 AS next_seq " "FROM ingestion_work_items"
+            "SELECT COALESCE(MAX(rotation_seq), 0) + 1 AS next_seq FROM ingestion_work_items"
         ).fetchone()
         return int(row["next_seq"] if row else 1)
 
@@ -62,8 +63,6 @@ class PersistentIngestionQueue:
         if not math.isfinite(current):
             raise ValueError("now must be finite")
 
-        # The anchor is the most recent fully closed boundary. The active
-        # window [anchor, anchor + window_seconds) is deliberately excluded.
         anchor = self.floor_window(current, window_seconds)
         window_count = max(1, math.ceil(lookback_seconds / window_seconds))
         target_start = anchor - window_count * window_seconds
@@ -156,21 +155,25 @@ class PersistentIngestionQueue:
             conn.execute("BEGIN IMMEDIATE")
             row = conn.execute(
                 """
-                WITH newest_incomplete AS (
+                WITH newest_ready_or_leased AS (
                     SELECT MAX(window_end_ts) AS window_end_ts
                     FROM ingestion_work_items
-                    WHERE status IN ('pending', 'partial', 'retry_wait', 'leased')
+                    WHERE status IN ('pending', 'partial', 'leased')
+                       OR (
+                            status = 'retry_wait'
+                            AND (next_retry_at IS NULL OR next_retry_at <= ?)
+                       )
                 )
                 SELECT work.*
                 FROM ingestion_work_items AS work
-                JOIN newest_incomplete AS newest
+                JOIN newest_ready_or_leased AS newest
                   ON work.window_end_ts = newest.window_end_ts
                 WHERE work.status IN ('pending', 'partial', 'retry_wait')
                   AND (work.next_retry_at IS NULL OR work.next_retry_at <= ?)
                 ORDER BY work.rotation_seq ASC, work.id ASC
                 LIMIT 1
                 """,
-                (current,),
+                (current, current),
             ).fetchone()
             if row is None:
                 return None
@@ -182,8 +185,16 @@ class PersistentIngestionQueue:
                     lease_expires_at = ?,
                     attempt_count = attempt_count + 1, updated_at = ?
                 WHERE id = ? AND status IN ('pending', 'partial', 'retry_wait')
+                  AND (next_retry_at IS NULL OR next_retry_at <= ?)
                 """,
-                (owner, lease_token, lease_expires, current, int(row["id"])),
+                (
+                    owner,
+                    lease_token,
+                    lease_expires,
+                    current,
+                    int(row["id"]),
+                    current,
+                ),
             )
             if updated.rowcount != 1:
                 return None
@@ -196,7 +207,9 @@ class PersistentIngestionQueue:
                 window_start_ts=int(row["window_start_ts"]),
                 window_end_ts=int(row["window_end_ts"]),
                 continuation_cursor=(
-                    int(row["continuation_cursor"]) if row["continuation_cursor"] is not None else None
+                    int(row["continuation_cursor"])
+                    if row["continuation_cursor"] is not None
+                    else None
                 ),
                 attempt_count=int(row["attempt_count"]) + 1,
                 items_ingested=int(row["items_ingested"]),
@@ -323,6 +336,15 @@ class PersistentIngestionQueue:
         *,
         now: Optional[int] = None,
     ) -> int:
+        """Immediately revoke all unfinished work, including active leases.
+
+        Revoking a leased row invalidates its lease token. Windowed page writes
+        and their queue checkpoint share one SQLite transaction, so a worker
+        that tries to checkpoint after revocation raises and rolls its page
+        writes back. If the page transaction linearized before revocation, the
+        later source-trust build filter still prevents that source from being
+        published.
+        """
         current = int(time.time()) if now is None else int(now)
         with self.db.connect() as conn:
             cursor = conn.execute(
@@ -332,7 +354,7 @@ class PersistentIngestionQueue:
                     lease_expires_at = NULL,
                     next_retry_at = NULL, last_error = ?, updated_at = ?, completed_at = ?
                 WHERE source_id = ?
-                  AND status IN ('pending', 'partial', 'retry_wait')
+                  AND status IN ('pending', 'partial', 'retry_wait', 'leased')
                 """,
                 (str(reason)[:1000], current, current, str(source_id)),
             )
@@ -356,13 +378,17 @@ class PersistentIngestionQueue:
 
     def summary(self) -> dict[str, int]:
         with self.db.connect() as conn:
-            rows = conn.execute("""
+            rows = conn.execute(
+                """
                 SELECT status, COUNT(*) AS count
                 FROM ingestion_work_items
                 GROUP BY status
-                """).fetchall()
+                """
+            ).fetchall()
         result = {str(row["status"]): int(row["count"]) for row in rows}
         result["remaining"] = sum(
-            count for status, count in result.items() if status in {"pending", "partial", "leased", "retry_wait"}
+            count
+            for status, count in result.items()
+            if status in {"pending", "partial", "leased", "retry_wait"}
         )
         return result

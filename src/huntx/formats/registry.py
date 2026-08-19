@@ -1,11 +1,14 @@
 import logging
 from typing import Dict, Optional
+
 from .base import FormatHandler
 
 logger = logging.getLogger(__name__)
 
 
 class FormatRegistry:
+    """Registry for parser/build handlers with explicit output capability checks."""
+
     _shared_instance = None
 
     def __init__(self):
@@ -24,17 +27,22 @@ class FormatRegistry:
 
     def register(self, handler: FormatHandler):
         if handler.format_id in self._handlers:
-            logger.warning(f"Overwriting handler for format: {handler.format_id}")
+            logger.warning("Overwriting handler for format: %s", handler.format_id)
         else:
-            logger.debug(f"Registered format handler: {handler.format_id}")
+            logger.debug("Registered format handler: %s", handler.format_id)
         self._handlers[handler.format_id] = handler
 
     def get(self, format_id: str) -> Optional[FormatHandler]:
         handler = self._handlers.get(format_id)
         if not handler:
-            logger.warning(f"Requested unknown format: {format_id}")
+            logger.warning("Requested unknown format: %s", format_id)
             return None
         return handler
 
     def list_formats(self):
         return list(self._handlers.keys())
+
+    def can_build(self, format_id: str) -> bool:
+        """Return whether a registered handler exposes a callable builder."""
+        handler = self._handlers.get(format_id)
+        return handler is not None and callable(getattr(handler, "build", None))

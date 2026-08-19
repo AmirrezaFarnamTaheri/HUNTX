@@ -7,6 +7,11 @@ on:
     types:
       - completed
   workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Completed huntx-production workflow run ID to investigate"
+        required: true
+        type: string
 
 permissions:
   actions: read
@@ -16,34 +21,158 @@ jobs:
   verify-investigation:
     name: Verify real source investigation occurred
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion != 'cancelled' }}
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        github.event.workflow_run.conclusion == 'success'
+      }}
+    env:
+      TARGET_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.run_id }}
 
     steps:
-      - name: Download runtime diagnostics artifacts
-        uses: actions/github-script@v9
+      - name: Resolve and download runtime diagnostics artifact
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         with:
           script: |
-            const runId = context.payload.workflow_run?.id;
-            if (!runId) {
-              core.warning('Manual execution: no workflow_run artifact context available');
+            const fs = require('fs');
+            const runId = Number(process.env.TARGET_RUN_ID || 0);
+            if (!Number.isSafeInteger(runId) || runId <= 0) {
+              core.setFailed(`Invalid target workflow run id: ${process.env.TARGET_RUN_ID}`);
               return;
             }
-            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+
+            const run = await github.rest.actions.getWorkflowRun({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              run_id: runId
+              run_id: runId,
             });
-            const logs = artifacts.data.artifacts.find(a => a.name.startsWith('huntx-logs-') && !a.expired);
-            if (!logs) {
-              core.setFailed('No HUNTX logs artifact found. Investigation evidence unavailable.');
+            if (run.data.status !== 'completed') {
+              core.setFailed(`Target run ${runId} is not completed (status=${run.data.status})`);
               return;
             }
-            core.info(`Found diagnostics artifact: ${logs.name}`);
 
-      - name: Enforce investigation contract
+            const artifacts = await github.paginate(
+              github.rest.actions.listWorkflowRunArtifacts,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: runId,
+                per_page: 100,
+              }
+            );
+            const candidates = artifacts
+              .filter(a => !a.expired && a.name.startsWith('huntx-logs-'))
+              .sort((a, b) => b.id - a.id);
+            if (candidates.length === 0) {
+              core.setFailed(`No non-expired huntx-logs-* artifact found for run ${runId}`);
+              return;
+            }
+
+            const artifact = candidates[0];
+            const archive = await github.rest.actions.downloadArtifact({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              artifact_id: artifact.id,
+              archive_format: 'zip',
+            });
+            fs.writeFileSync('huntx-investigation.zip', Buffer.from(archive.data));
+            fs.writeFileSync(
+              'huntx-investigation-metadata.json',
+              JSON.stringify({
+                run_id: runId,
+                run_conclusion: run.data.conclusion,
+                artifact_id: artifact.id,
+                artifact_name: artifact.name,
+              }, null, 2) + '\n'
+            );
+            core.info(`Downloaded ${artifact.name} (${artifact.id}) from run ${runId}`);
+
+      - name: Extract investigation evidence
         shell: bash
         run: |
           set -euo pipefail
-          echo "Strict investigation gate enabled."
-          echo "Future runtime summaries must expose Telegram/source activity metrics."
-          echo "Required metrics: sources_checked, messages_scanned, messages_new, cursor_updates."
+          test -s huntx-investigation.zip
+          rm -rf investigation-logs
+          mkdir -p investigation-logs
+          unzip -q huntx-investigation.zip -d investigation-logs
+          summary="$(find investigation-logs -type f -name 'run-summary.json' -print -quit)"
+          test -n "$summary" || {
+            echo "run-summary.json is missing from the HUNTX logs artifact" >&2
+            exit 1
+          }
+          cp "$summary" investigation-run-summary.json
+
+      - name: Enforce structured investigation contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("investigation-run-summary.json")
+          try:
+              payload = json.loads(path.read_text(encoding="utf-8"))
+          except Exception as exc:
+              raise SystemExit(f"Invalid run-summary.json: {exc}") from exc
+
+          if not isinstance(payload, dict):
+              raise SystemExit("run-summary.json root must be an object")
+          if payload.get("schema_version") != 1:
+              raise SystemExit(
+                  f"Unsupported run-health schema version: {payload.get('schema_version')!r}"
+              )
+          summary = payload.get("summary")
+          if not isinstance(summary, dict):
+              raise SystemExit("run-summary.json is missing the structured summary object")
+
+          required = (
+              "sources_checked",
+              "messages_scanned",
+              "messages_new",
+              "cursor_updates",
+          )
+          values = {}
+          for key in required:
+              value = summary.get(key)
+              if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                  raise SystemExit(
+                      f"Required investigation metric {key!r} must be a non-negative integer; "
+                      f"got {value!r}"
+                  )
+              values[key] = value
+
+          approved = summary.get(
+              "configured_approved_sources",
+              summary.get("approved_sources", 0),
+          )
+          if isinstance(approved, bool) or not isinstance(approved, int) or approved < 0:
+              raise SystemExit(f"Invalid approved-source count: {approved!r}")
+          if approved > 0 and values["sources_checked"] <= 0:
+              raise SystemExit(
+                  "Investigation evidence is invalid: approved sources existed but no source "
+                  "was actually checked"
+              )
+
+          pages = summary.get("lifo_pages_processed", 0)
+          if isinstance(pages, bool) or not isinstance(pages, int) or pages < 0:
+              raise SystemExit(f"Invalid lifo_pages_processed value: {pages!r}")
+          if values["cursor_updates"] > pages:
+              raise SystemExit("cursor_updates exceeds lifo_pages_processed")
+
+          print("Validated HUNTX investigation evidence:")
+          for key, value in values.items():
+              print(f"  {key}={value}")
+          print(f"  status={summary.get('status')}")
+          print(f"  approved_sources={approved}")
+          PY
+
+      - name: Preserve validated investigation evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: huntx-investigation-${{ env.TARGET_RUN_ID }}
+          path: |
+            huntx-investigation-metadata.json
+            investigation-run-summary.json
+          if-no-files-found: error
+          retention-days: 14

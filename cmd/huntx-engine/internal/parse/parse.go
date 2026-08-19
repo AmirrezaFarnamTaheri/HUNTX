@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 
-	"huntx-engine/stream"
+	"github.com/AmirrezaFarnamTaheri/HUNTX/cmd/huntx-engine/stream"
 )
 
 // ParseReader parses a proxy subscription stream from an io.Reader.

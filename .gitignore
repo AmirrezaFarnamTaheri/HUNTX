@@ -33,7 +33,8 @@ my_config.yaml
 huntx-output/
 temp_*
 
-
+# Go build outputs
+cmd/huntx-engine/*.exe
 
 # Go collector generated files
 src/huntx/connectors/v2ray_collector/*.txt

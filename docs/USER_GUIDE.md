@@ -90,7 +90,7 @@ selector:
 
 | Format ID | Extension | Type | Client | Description |
 |---|---|---|---|---|
-| `npvt` | `.txt`, auto-detect | Text | v2rayN/NG, Xray, sing-box | Proxy URI lines (20+ protocols) |
+| `npvt` | `.txt`, auto-detect | Text | v2rayN/NG, Xray, sing-box | Proxy URI lines (30+ schemes/aliases) |
 | `npvtsub` | `.npvtsub` | Text | NapsternetV | Subscription proxy URIs |
 | `conf_lines` | `.conf` | Text | Generic | Line-based config entries |
 | `ovpn` | `.ovpn` | Binary (ZIP) | OpenVPN | OpenVPN config files |
@@ -105,29 +105,38 @@ selector:
 All binary formats produce ZIP archives. Text formats produce deduplicated plain-text files.
 
 For `npvt` and `npvtsub`, the build phase also produces:
-- **`.decoded.json`** — structured JSON with all proxy URIs fully parsed
+- **`.decoded.json`** — structured JSON describing recognized proxy URIs
 - **`.b64sub`** — base64-encoded subscription (standard for v2rayN/v2rayNG import)
+- **`.singbox.json`** — sing-box 1.14+ output containing only links that can be represented faithfully in the current sing-box schema
 
 ## Supported Proxy Protocols
 
-All of the following URI schemes are detected, parsed, and decoded:
+HUNTX deliberately separates **recognition/preservation** from **native sing-box conversion**. A valid share link can remain in the subscription and decoded JSON even when it does not contain enough information for a safe sing-box representation.
 
-| Scheme | Protocol | Decoding |
+| Scheme | Protocol | HUNTX handling |
 |---|---|---|
-| `vmess://` | VMess (V2Ray) | Base64 → JSON |
-| `vless://` | VLESS (V2Ray/Xray) | Standard URI parse |
-| `trojan://` | Trojan | Standard URI parse |
-| `ss://` | Shadowsocks | SIP002 base64 userinfo or legacy base64 |
-| `ssr://` | ShadowsocksR | Full base64 decode → structured fields |
-| `hysteria2://` / `hy2://` | Hysteria 2 | Standard URI parse |
-| `hysteria://` | Hysteria 1 | Standard URI parse |
-| `tuic://` | TUIC (QUIC) | Standard URI parse |
-| `wireguard://` / `wg://` | WireGuard | Standard URI parse |
-| `socks://` / `socks5://` / `socks4://` | SOCKS proxy | Standard URI parse |
-| `anytls://` | AnyTLS (sing-box) | Standard URI parse |
-| `juicity://` | Juicity (QUIC) | Standard URI parse |
-| `warp://` | Cloudflare WARP | Standard URI parse |
-| `dns://` / `dnstt://` | DNS tunnel | Standard URI parse |
+| `vmess://` | VMess (V2Ray) | Base64 → JSON; sing-box export |
+| `vless://` | VLESS (V2Ray/Xray) | URI parse; sing-box export |
+| `trojan://` | Trojan | URI parse; sing-box export |
+| `ss://` | Shadowsocks | SIP002/legacy parse; sing-box export |
+| `ssr://` | ShadowsocksR | Full base64 decode; preserved (no native conversion) |
+| `hysteria2://` / `hy2://` | Hysteria 2 | URI parse including default/multi-port forms; sing-box export when representable |
+| `hysteria2+realm://` / `hysteria2+realm+http://` | Hysteria2 Realm | Preserved; sing-box export only when required Realm/STUN fields are present |
+| `hysteria://` | Hysteria 1 | Official URI parse; UDP-form sing-box export when auth and bandwidth fields are complete |
+| `tuic://` | TUIC (QUIC) | URI parse; sing-box export |
+| `wireguard://` / `wg://` | WireGuard-style link | Validated/preserved; no legacy outbound synthesis |
+| `socks://` / `socks5://` / `socks4://` / `socks4a://` | SOCKS proxy | URI parse; sing-box export |
+| authenticated `http://` / `https://` endpoints | HTTP CONNECT proxy | URI parse; sing-box export; ordinary web URLs are rejected as proxy links |
+| `ssh://` | SSH proxy | URI parse; sing-box export |
+| `shadowtls://` | ShadowTLS | URI parse; sing-box export |
+| `naive+https://` / `naive+quic://` | NaiveProxy | Validated/preserved with optional auth and validated extra headers; representable authenticated HTTPS form can export to sing-box, QUIC remains preserve-only |
+| `anytls://` | AnyTLS | URI parse; sing-box export |
+| `juicity://` | Juicity (QUIC) | Validates UUID + password endpoint; preserved |
+| `mieru://` / `mierus://` | Mieru | Standard opaque or human-readable share-link validation; preserved |
+| `warp://` | Cloudflare WARP | URI parse; preserved |
+| `dns://` / `dnstt://` | DNS tunnel | URI parse; preserved |
+
+HUNTX does not invent share-link grammars for protocols that have a native sing-box outbound but no sufficiently clear share-link contract in the input ecosystem. This prevents false-positive parsing and invalid generated configs.
 
 ## Running Locally
 
@@ -235,12 +244,12 @@ Unlocks history access, public channel reading, and text content ingestion.
 
 **GatherX** is the user-facing Telegram bot. Anyone may create a pending
 registration by messaging it, but automatic delivery is deny-by-default until
-an operator approves that user in the state database.
+an operator approves that user.
 
 ### How It Works
 
 1. User sends `/start` → a pending registration is created
-2. An operator explicitly approves the user (`bot_users.approved = 1`)
+2. An administrator uses `/pending` to inspect registrations and `/approve <user_id>` or `/deny <user_id>` to change approval state
 3. After every `huntx run` → the bot sends outputs only to approved, non-muted users
 4. Users can request specific formats on demand with `/get`
 5. Users can set a preferred format with `/setformat`
@@ -248,7 +257,7 @@ an operator approves that user in the state database.
 
 ### Running the Bot
 
-- **After pipeline** (automatic): `huntx run` auto-delivers to all users
+- **After pipeline** (automatic): `huntx run` auto-delivers to all approved, non-muted users
 - **Persistent mode**: `huntx bot` listens for DM commands forever
 
 ### Bot Commands
@@ -268,6 +277,9 @@ an operator approves that user in the state database.
 | `/unmute` | Resume auto-delivery |
 | `/ping` | Check if bot is alive |
 | `/help` | Show help message |
+| `/pending` | Admin: list users awaiting approval |
+| `/approve <user_id>` | Admin: approve a pending user |
+| `/deny <user_id>` | Admin: deny/revoke approval |
 
 The bot registers its command menu via `setMyCommands` on startup, so commands appear in the Telegram menu.
 
@@ -312,8 +324,9 @@ Workers pull from a shared queue — no two workers process the same source. Tra
 | Path | Description |
 |---|---|
 | `output/{route}.{fmt}` | Latest merged artifact per route/format |
-| `output/{route}.npvt.decoded.json` | All proxy URIs decoded to structured JSON |
+| `output/{route}.npvt.decoded.json` | Recognized proxy URIs decoded to structured JSON |
 | `output/{route}.npvt.b64sub` | Base64-encoded subscription (v2rayN/v2rayNG compatible) |
+| `output/{route}.npvt.singbox.json` | Current-schema sing-box config for safely representable proxy links |
 | `archive/{route}_{timestamp}.{fmt}` | Timestamped archive copies |
 | `dist/` | Packaged output for GitHub Actions upload |
 

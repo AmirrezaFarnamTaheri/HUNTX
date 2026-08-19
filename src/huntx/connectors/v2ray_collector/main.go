@@ -33,6 +33,55 @@ const (
 	maxConcurrency = 10
 )
 
+var blockedProbeNetworks = mustNetworks(
+	"0.0.0.0/8",
+	"10.0.0.0/8",
+	"100.64.0.0/10",
+	"127.0.0.0/8",
+	"169.254.0.0/16",
+	"172.16.0.0/12",
+	"192.0.0.0/24",
+	"192.0.2.0/24",
+	"192.168.0.0/16",
+	"198.18.0.0/15",
+	"198.51.100.0/24",
+	"203.0.113.0/24",
+	"224.0.0.0/4",
+	"240.0.0.0/4",
+	"::/128",
+	"::1/128",
+	"fc00::/7",
+	"fe80::/10",
+	"ff00::/8",
+	"2001:db8::/32",
+)
+
+func mustNetworks(cidrs ...string) []*net.IPNet {
+	networks := make([]*net.IPNet, 0, len(cidrs))
+	for _, cidr := range cidrs {
+		_, network, err := net.ParseCIDR(cidr)
+		if err != nil {
+			panic(err)
+		}
+		networks = append(networks, network)
+	}
+	return networks
+}
+
+func isPublicProbeIP(ip net.IP) bool {
+	if ip == nil || !ip.IsGlobalUnicast() || ip.IsPrivate() || ip.IsLoopback() ||
+		ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsMulticast() ||
+		ip.IsUnspecified() {
+		return false
+	}
+	for _, network := range blockedProbeNetworks {
+		if network.Contains(ip) {
+			return false
+		}
+	}
+	return true
+}
+
 type ChannelResult struct {
 	Channel  string
 	Messages []string
@@ -44,96 +93,156 @@ type ConnectionResult struct {
 	Latency   time.Duration
 }
 
-// extractAddressPort extracts IP/domain and port from a proxy config URL
+func decodeVMessPayload(encoded string) ([]byte, error) {
+	encodings := []*base64.Encoding{
+		base64.StdEncoding,
+		base64.RawStdEncoding,
+		base64.URLEncoding,
+		base64.RawURLEncoding,
+	}
+	var lastErr error
+	for _, encoding := range encodings {
+		decoded, err := encoding.DecodeString(encoded)
+		if err == nil {
+			return decoded, nil
+		}
+		lastErr = err
+	}
+	return nil, lastErr
+}
+
+func parseConfigPort(value interface{}) (int, error) {
+	var port int
+	switch raw := value.(type) {
+	case float64:
+		port = int(raw)
+	case string:
+		parsed, err := strconv.Atoi(raw)
+		if err != nil {
+			return 0, err
+		}
+		port = parsed
+	case json.Number:
+		parsed, err := strconv.Atoi(raw.String())
+		if err != nil {
+			return 0, err
+		}
+		port = parsed
+	default:
+		return 0, fmt.Errorf("unsupported port type %T", value)
+	}
+	if port < 1 || port > 65535 {
+		return 0, fmt.Errorf("port outside valid range: %d", port)
+	}
+	return port, nil
+}
+
+// extractAddressPort extracts IP/domain and port from a proxy config URL.
 func extractAddressPort(configStr string) (string, int, error) {
 	if strings.HasPrefix(configStr, "vmess://") {
 		encodedPart := configStr[8:]
-		decoded, err := base64.StdEncoding.DecodeString(encodedPart)
+		decoded, err := decodeVMessPayload(encodedPart)
 		if err != nil {
 			return "", 0, fmt.Errorf("failed to decode VMess config: %v", err)
 		}
 
 		var vmessData map[string]interface{}
-		if err := json.Unmarshal(decoded, &vmessData); err != nil {
+		decoder := json.NewDecoder(strings.NewReader(string(decoded)))
+		decoder.UseNumber()
+		if err := decoder.Decode(&vmessData); err != nil {
 			return "", 0, fmt.Errorf("failed to parse VMess JSON: %v", err)
 		}
 
 		address, ok := vmessData["add"].(string)
-		if !ok {
+		if !ok || strings.TrimSpace(address) == "" {
 			return "", 0, fmt.Errorf("VMess config missing address")
 		}
 
-		portFloat, ok := vmessData["port"].(float64)
-		if !ok {
-			return "", 0, fmt.Errorf("VMess config missing port")
-		}
-
-		return address, int(portFloat), nil
-	} else {
-		parsedURL, err := url.Parse(configStr)
+		port, err := parseConfigPort(vmessData["port"])
 		if err != nil {
-			return "", 0, fmt.Errorf("failed to parse config URL: %v", err)
+			return "", 0, fmt.Errorf("VMess config has invalid port: %v", err)
 		}
-
-		address := parsedURL.Hostname()
-		if address == "" {
-			return "", 0, fmt.Errorf("config missing address")
-		}
-
-		port := parsedURL.Port()
-		if port == "" {
-			switch parsedURL.Scheme {
-			case "ss":
-				port = "8388"
-			case "trojan":
-				port = "443"
-			case "vless":
-				port = "443"
-			default:
-				port = "443"
-			}
-		}
-
-		portInt, err := strconv.Atoi(port)
-		if err != nil {
-			return "", 0, fmt.Errorf("invalid port: %v", err)
-		}
-
-		return address, portInt, nil
+		return address, port, nil
 	}
+
+	parsedURL, err := url.Parse(configStr)
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to parse config URL: %v", err)
+	}
+
+	address := parsedURL.Hostname()
+	if address == "" {
+		return "", 0, fmt.Errorf("config missing address")
+	}
+
+	port := parsedURL.Port()
+	if port == "" {
+		switch parsedURL.Scheme {
+		case "ss":
+			port = "8388"
+		case "trojan", "vless":
+			port = "443"
+		default:
+			port = "443"
+		}
+	}
+
+	portInt, err := strconv.Atoi(port)
+	if err != nil || portInt < 1 || portInt > 65535 {
+		return "", 0, fmt.Errorf("invalid port: %q", port)
+	}
+	return address, portInt, nil
 }
 
 func resolveDomainToIPs(domain string) ([]string, error) {
-	if net.ParseIP(domain) != nil {
-		return []string{domain}, nil
+	if parsed := net.ParseIP(domain); parsed != nil {
+		if !isPublicProbeIP(parsed) {
+			return nil, fmt.Errorf("refusing non-public endpoint %s", domain)
+		}
+		return []string{parsed.String()}, nil
 	}
 
 	ips, err := net.LookupIP(domain)
 	if err != nil {
-		return []string{domain}, nil
+		return nil, err
 	}
 
-	var ipStrings []string
+	seen := make(map[string]struct{})
+	ipStrings := make([]string, 0, len(ips))
 	for _, ip := range ips {
-		ipStrings = append(ipStrings, ip.String())
+		if !isPublicProbeIP(ip) {
+			continue
+		}
+		value := ip.String()
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		ipStrings = append(ipStrings, value)
 	}
-
+	if len(ipStrings) == 0 {
+		return nil, fmt.Errorf("domain %s resolved only to non-public addresses", domain)
+	}
 	return ipStrings, nil
 }
 
-// checkPort tests if a port is open on the given IP
+// checkPort tests if a port is open on a validated public IP.
 func checkPort(ip string, port int, timeout time.Duration) bool {
-	address := fmt.Sprintf("%s:%d", ip, port)
+	parsedIP := net.ParseIP(ip)
+	if !isPublicProbeIP(parsedIP) || port < 1 || port > 65535 || timeout <= 0 {
+		return false
+	}
+	address := net.JoinHostPort(parsedIP.String(), strconv.Itoa(port))
 
 	conn, err := net.DialTimeout("tcp", address, timeout)
 	if err != nil {
 		return false
 	}
-	conn.Close()
+	_ = conn.Close()
 	return true
 }
 
-// testConnection tests if a proxy config is working by checking port connectivity
+// testConnection tests if a proxy config is working by checking public-endpoint connectivity.
 func testConnection(configStr string) (*ConnectionResult, error) {
 	address, port, err := extractAddressPort(configStr)
 	if err != nil {
@@ -142,7 +251,7 @@ func testConnection(configStr string) (*ConnectionResult, error) {
 
 	ips, err := resolveDomainToIPs(address)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve domain: %v", err)
+		return nil, fmt.Errorf("failed to resolve safe public endpoint: %v", err)
 	}
 
 	for _, ip := range ips {
@@ -154,12 +263,15 @@ func testConnection(configStr string) (*ConnectionResult, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("no working IP/port combination found")
+	return nil, fmt.Errorf("no working public IP/port combination found")
 }
 
-// testConfigsFromSlice tests multiple configs concurrently and returns only working ones
-func testConfigsFromSlice(configs []string, maxConcurrency int) []string {
-	semaphore := make(chan struct{}, maxConcurrency)
+// testConfigsFromSlice tests multiple configs concurrently and returns only working ones.
+func testConfigsFromSlice(configs []string, concurrency int) []string {
+	if concurrency < 1 {
+		concurrency = 1
+	}
+	semaphore := make(chan struct{}, concurrency)
 	var wg sync.WaitGroup
 	resultsChan := make(chan *ConnectionResult, len(configs))
 
@@ -177,13 +289,11 @@ func testConfigsFromSlice(configs []string, maxConcurrency int) []string {
 		}(config)
 	}
 
-	// Close results channel when all workers are done
 	go func() {
 		wg.Wait()
 		close(resultsChan)
 	}()
 
-	// Collect working configs
 	var workingConfigs []string
 	for result := range resultsChan {
 		workingConfigs = append(workingConfigs, result.ConfigStr)
@@ -331,7 +441,6 @@ func cleanHTMLText(html string) string {
 func extractConfigs(text string) ConfigCollection {
 	collection := ConfigCollection{}
 
-	// Extract protocol configs
 	protocolMap := map[string]*[]string{
 		"shadowsocks": &collection.Shadowsocks,
 		"trojan":      &collection.Trojan,
@@ -354,7 +463,6 @@ func extractConfigs(text string) ConfigCollection {
 		}
 	}
 
-	// Handle hysteria2 separately
 	if matches := patterns["hysteria2"].FindAllString(text, -1); matches != nil {
 		for _, match := range matches {
 			cleanMatch := regexp.MustCompile(`#[^#]+$`).ReplaceAllString(match, "")
@@ -373,13 +481,11 @@ func processChannelsConcurrently(channels []string) ([]ChannelResult, int) {
 	semaphore := make(chan struct{}, maxConcurrency)
 	var wg sync.WaitGroup
 
-	// Start workers
 	for i, channel := range channels {
 		wg.Add(1)
 		go func(index int, ch string) {
 			defer wg.Done()
 
-			// Acquire semaphore
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
 
@@ -399,19 +505,15 @@ func processChannelsConcurrently(channels []string) ([]ChannelResult, int) {
 			}
 
 			resultsChan <- result
-
-			// Small delay between requests to be respectful
 			time.Sleep(requestDelay)
 		}(i, channel)
 	}
 
-	// Close results channel when all workers are done
 	go func() {
 		wg.Wait()
 		close(resultsChan)
 	}()
 
-	// Collect results
 	totalMessages := 0
 	for result := range resultsChan {
 		results = append(results, result)
@@ -440,7 +542,6 @@ func removeDuplicates(slice []string) []string {
 func filterIranianConfigs(configs []string) []string {
 	var irConfigs []string
 
-	// Iranian domain patterns
 	irDomains := []string{
 		".ir",
 		"samanehha.co",
@@ -459,7 +560,6 @@ func filterIranianConfigs(configs []string) []string {
 	for _, config := range configs {
 		isIranian := false
 
-		// Check for Iranian domains
 		for _, domain := range irDomains {
 			if strings.Contains(config, domain) {
 				isIranian = true
@@ -467,12 +567,10 @@ func filterIranianConfigs(configs []string) []string {
 			}
 		}
 
-		// Check for Persian characters in config (common in Iranian configs)
 		if strings.Contains(config, "🔹با") || strings.Contains(config, "با") {
 			isIranian = true
 		}
 
-		// Check for IR country code in remarks (format: "Name - IR-Other")
 		if strings.Contains(config, " - IR") || strings.Contains(config, " - ir") {
 			isIranian = true
 		}
@@ -488,13 +586,11 @@ func filterIranianConfigs(configs []string) []string {
 func main() {
 	fmt.Println("🚀 Starting HuntX Collector...")
 
-	// Load channels
 	channels, err := loadTelegramChannels()
 	if err != nil {
 		log.Fatalf("Error loading channels: %v", err)
 	}
 
-	// Load last update
 	lastUpdate, err := loadLastUpdate()
 	if err != nil {
 		log.Fatalf("Error loading last update: %v", err)
@@ -509,13 +605,11 @@ func main() {
 
 	allConfigs := ConfigCollection{}
 
-	// Process channels concurrently
-	fmt.Println("� Starting concurrent channel processing...")
+	fmt.Println("🔍 Starting concurrent channel processing...")
 	results, totalNewMessages := processChannelsConcurrently(channels)
 
-	fmt.Printf("\n� Total messages processed: %d\n", totalNewMessages)
+	fmt.Printf("\n📨 Total messages processed: %d\n", totalNewMessages)
 
-	// Extract configs from all messages
 	for _, result := range results {
 		if result.Error != nil {
 			continue
@@ -523,8 +617,6 @@ func main() {
 
 		for _, message := range result.Messages {
 			configs := extractConfigs(message)
-
-			// Add to collections
 			allConfigs.Shadowsocks = append(allConfigs.Shadowsocks, configs.Shadowsocks...)
 			allConfigs.Trojan = append(allConfigs.Trojan, configs.Trojan...)
 			allConfigs.Vmess = append(allConfigs.Vmess, configs.Vmess...)
@@ -538,7 +630,6 @@ func main() {
 
 	fmt.Printf("\n📊 Total messages processed: %d\n", totalNewMessages)
 
-	// Remove duplicates
 	fmt.Println("🔧 Removing duplicates...")
 	allConfigs.Shadowsocks = removeDuplicates(allConfigs.Shadowsocks)
 	allConfigs.Trojan = removeDuplicates(allConfigs.Trojan)
@@ -549,7 +640,6 @@ func main() {
 	allConfigs.Hysteria = removeDuplicates(allConfigs.Hysteria)
 	allConfigs.Juicity = removeDuplicates(allConfigs.Juicity)
 
-	// Print stats
 	fmt.Printf("🔧 Shadowsocks: %d unique configs\n", len(allConfigs.Shadowsocks))
 	fmt.Printf("🔧 Trojan: %d unique configs\n", len(allConfigs.Trojan))
 	fmt.Printf("🔧 Vmess: %d unique configs\n", len(allConfigs.Vmess))
@@ -559,7 +649,6 @@ func main() {
 	fmt.Printf("🔧 Hysteria: %d unique configs\n", len(allConfigs.Hysteria))
 	fmt.Printf("🔧 Juicity: %d unique configs\n", len(allConfigs.Juicity))
 
-	// Combine all configs
 	allCombined := append(allConfigs.Shadowsocks,
 		append(allConfigs.Trojan,
 			append(allConfigs.Vmess,
@@ -570,22 +659,16 @@ func main() {
 
 	fmt.Printf("📦 Total unique configs: %d\n", len(allCombined))
 
-	// Save to file
 	if err := saveConfigsToFile(allCombined); err != nil {
 		log.Fatalf("Error saving configs: %v", err)
 	}
 
-	// Filter and save Iranian configs
 	fmt.Println("🇮🇷 Filtering Iranian configs...")
-	irConfigs := filterIranianConfigs(allCombined)
-	irConfigs = removeDuplicates(irConfigs)
-
+	irConfigs := removeDuplicates(filterIranianConfigs(allCombined))
 	fmt.Printf("🇮🇷 Found %d unique Iranian configs\n", len(irConfigs))
 
-	// Test Iranian configs for connectivity (only save working ones)
 	fmt.Println("🔍 Testing Iranian configs for connectivity...")
 	workingIrConfigs := testConfigsFromSlice(irConfigs, maxConcurrency)
-
 	fmt.Printf("✅ Found %d working Iranian configurations out of %d\n",
 		len(workingIrConfigs), len(irConfigs))
 
@@ -593,13 +676,11 @@ func main() {
 		log.Fatalf("Error saving working IR configs: %v", err)
 	}
 
-	// Create base64 encoded version
 	if err := saveConfigsToFileBase64(workingIrConfigs, irB64File); err != nil {
 		log.Fatalf("Error saving base64 IR configs: %v", err)
 	}
 	fmt.Printf("📦 Created base64 encoded file: %s\n", irB64File)
 
-	// Update last update timestamp
 	if err := saveLastUpdate(currentTime); err != nil {
 		log.Fatalf("Error saving last update: %v", err)
 	}
@@ -637,7 +718,6 @@ func saveConfigsToFileBase64(configs []string, filename string) error {
 
 	writer := bufio.NewWriter(file)
 	for _, config := range configs {
-		// Base64 encode each config
 		encoded := base64.StdEncoding.EncodeToString([]byte(config))
 		if _, err := fmt.Fprintln(writer, encoded); err != nil {
 			return err
