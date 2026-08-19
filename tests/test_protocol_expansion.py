@@ -132,6 +132,22 @@ def test_socks4a_http_https_ssh_shadowtls_and_naive_are_exported():
     assert naive['tls']['enabled'] is True
 
 
+def test_naive_share_schemes_follow_de_facto_uri_contract():
+    https_uri = 'naive+https://naive.example.com#Public'
+    quic_uri = 'naive+quic://alice:secret@quic.example.com#QUIC'
+    with_headers = (
+        'naive+https://alice:secret@naive.example.com'
+        '?extra-headers=X-Test%3A%20one%0D%0AX-Other%3A%20two'
+    )
+    assert validate_proxy_uri(https_uri)
+    assert validate_proxy_uri(quic_uri)
+    assert validate_proxy_uri(with_headers)
+    assert not validate_proxy_uri('naive://alice:secret@naive.example.com:443')
+    assert decide_format('message.txt', quic_uri.encode()) == 'npvt'
+    records = NpvtHandler().parse(quic_uri.encode(), {})
+    assert records and records[0]['data']['line'] == quic_uri
+
+
 def test_ordinary_web_url_does_not_trigger_proxy_classification():
     assert decide_format('message.txt', b'read https://example.com:443/docs for help') == 'opaque_bundle'
     assert not validate_proxy_uri('https://example.com:443/docs')
@@ -205,6 +221,7 @@ def test_decoded_json_counts_new_protocols():
             'ssh://root:secret@ssh.example.com:22',
             'shadowtls://secret@st.example.com:443?version=3&sni=cdn.example.com',
             'naive+https://alice:secret@naive.example.com:443',
+            'naive+quic://alice:secret@quic.example.com:443',
             'https://alice:secret@http.example.com:8443',
             f'mieru://{mieru_payload}',
             'mierus://alice:secret@mieru.example.com?profile=default&port=6666&protocol=TCP',
@@ -215,7 +232,7 @@ def test_decoded_json_counts_new_protocols():
         'socks': 1,
         'ssh': 1,
         'shadowtls': 1,
-        'naive': 1,
+        'naive': 2,
         'http': 1,
         'mieru': 2,
     }
