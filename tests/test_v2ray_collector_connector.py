@@ -1,6 +1,7 @@
 import os
 import shutil
 import tempfile
+import time
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -15,8 +16,9 @@ class TestV2RayCollectorConnector(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.test_dir)
 
+    @patch("shutil.which", return_value="/usr/bin/go")
     @patch("subprocess.run")
-    def test_list_new_success(self, mock_run):
+    def test_list_new_success(self, mock_run, mock_which):
         output_file = os.path.join(self.test_dir, "collected_configs.txt")
         mock_configs = [
             "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpZNUVKWm9qVk1FTnZrRFZG@62.133.63.169:37096#Config1",
@@ -42,10 +44,16 @@ class TestV2RayCollectorConnector(unittest.TestCase):
         self.assertTrue(items[0].external_id.startswith("goscrap_"))
         self.assertEqual(items[0].metadata["filename"], "collected_configs.txt")
         self.assertTrue(self.connector.get_state()["last_run_time"] > 0)
-        self.assertEqual(mock_run.call_count, 1)
+        mock_which.assert_called_once_with("go")
+        args, kwargs = mock_run.call_args
+        self.assertEqual(args[0], ["/usr/bin/go", "run", "."])
+        self.assertEqual(kwargs["cwd"], self.test_dir)
+        self.assertGreater(kwargs["timeout"], 0)
+        self.assertLessEqual(kwargs["timeout"], 300)
 
+    @patch("shutil.which", return_value="/usr/bin/go")
     @patch("subprocess.run")
-    def test_list_new_no_output_file(self, mock_run):
+    def test_list_new_no_output_file(self, mock_run, _mock_which):
         mock_res = MagicMock()
         mock_res.stdout = ""
         mock_res.stderr = ""
@@ -56,15 +64,20 @@ class TestV2RayCollectorConnector(unittest.TestCase):
         self.assertEqual(len(items), 0)
         self.assertEqual(mock_run.call_count, 1)
 
+    @patch("shutil.which", return_value="/usr/bin/go")
     @patch("subprocess.run")
-    def test_list_new_failed_scraper_does_not_consume_stale_output(self, mock_run):
+    def test_list_new_failed_scraper_does_not_consume_stale_output(
+        self,
+        mock_run,
+        _mock_which,
+    ):
         output_file = os.path.join(self.test_dir, "collected_configs.txt")
         with open(output_file, "w", encoding="utf-8") as stream:
             stream.write("vless://stale@example.invalid:443\n")
 
         mock_res = MagicMock()
         mock_res.stdout = ""
-        mock_res.stderr = "scraper failed"
+        mock_res.stderr = "scraper failed with sensitive details"
         mock_res.returncode = 1
         mock_run.return_value = mock_res
 
@@ -72,6 +85,36 @@ class TestV2RayCollectorConnector(unittest.TestCase):
 
         self.assertEqual(items, [])
         self.assertFalse(os.path.exists(output_file))
+
+    @patch("shutil.which", return_value="/usr/bin/go")
+    @patch("subprocess.run")
+    def test_exhausted_global_deadline_does_not_launch_subprocess(
+        self,
+        mock_run,
+        _mock_which,
+    ):
+        self.connector.deadline = time.time() - 1
+
+        self.assertEqual(list(self.connector.list_new(state=None)), [])
+        mock_run.assert_not_called()
+
+    @patch("shutil.which", return_value="/usr/bin/go")
+    @patch("subprocess.run")
+    def test_subprocess_timeout_is_bounded_by_global_deadline(
+        self,
+        mock_run,
+        _mock_which,
+    ):
+        mock_run.side_effect = __import__("subprocess").TimeoutExpired(
+            cmd=["/usr/bin/go", "run", "."],
+            timeout=1,
+        )
+        self.connector.deadline = time.time() + 1.5
+
+        self.assertEqual(list(self.connector.list_new(state=None)), [])
+        timeout = mock_run.call_args.kwargs["timeout"]
+        self.assertGreater(timeout, 0)
+        self.assertLessEqual(timeout, 1.5)
 
 
 if __name__ == "__main__":
