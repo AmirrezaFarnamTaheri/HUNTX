@@ -145,7 +145,7 @@ def test_naive_share_schemes_follow_de_facto_uri_contract():
     assert not validate_proxy_uri('naive://alice:secret@naive.example.com:443')
     assert decide_format('message.txt', quic_uri.encode()) == 'npvt'
     records = NpvtHandler().parse(quic_uri.encode(), {})
-    assert records and records[0]['data']['line'] == quic_uri
+    assert records and records[0]['data']['line'] == quic_uri.rsplit('#', 1)[0]
 
 
 def test_ordinary_web_url_does_not_trigger_proxy_classification():
