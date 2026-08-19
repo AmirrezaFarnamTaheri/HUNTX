@@ -1,106 +1,119 @@
-"""
-H-3 Secret Scan Suite — Phase 1 (warn-on-fallback).
+"""H-3 secret externalization and fail-closed regression tests."""
 
-Tests:
-1. RuntimeWarning emitted when env var absent (fallback active).
-2. No warning when env var is set.
-3. _require_env_bytes returns env var bytes when set.
-4. _require_env_bytes returns fallback when env var absent (Phase 1).
-5-8. Parametrized: each credential key triggers RuntimeWarning when absent.
-"""
-import warnings
+from pathlib import Path
+
 import pytest
 
-
-# ---------------------------------------------------------------------------
-# Import module (will trigger warnings at import if env vars absent)
-# ---------------------------------------------------------------------------
-
-def _fresh_import():
-    """Reload crypto module to re-evaluate TUT_PASSWORDS dict."""
-    import importlib
-    import huntx.formats.common.crypto as m
-    importlib.reload(m)
-    return m
+from huntx.formats.common.crypto import (
+    MissingSecretError,
+    _get_tut_password,
+    _require_env_bytes,
+    _require_env_hex_bytes,
+    decrypt_netmod_data,
+    decrypt_slipnet_link,
+)
 
 
-# ---------------------------------------------------------------------------
-# Tests for _require_env_bytes helper
-# ---------------------------------------------------------------------------
-
-def test_require_env_bytes_returns_env_value_when_set(monkeypatch):
-    """H-3: _require_env_bytes must return env var bytes when set."""
-    monkeypatch.setenv("HUNTX_TUT_PASS_TUT", "mySecretPass")
-    from huntx.formats.common.crypto import _require_env_bytes
-    result = _require_env_bytes("HUNTX_TUT_PASS_TUT", b"fallback", "test")
-    assert result == b"mySecretPass", f"Expected b'mySecretPass', got {result!r}"
-
-
-def test_require_env_bytes_returns_fallback_when_env_absent(monkeypatch):
-    """H-3 Phase 1: _require_env_bytes returns fallback when env var absent."""
-    monkeypatch.delenv("HUNTX_TUT_PASS_TUT", raising=False)
-    from huntx.formats.common.crypto import _require_env_bytes
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", RuntimeWarning)
-        result = _require_env_bytes("HUNTX_TUT_PASS_TUT", b"myfallback", "test")
-    assert result == b"myfallback", f"Expected fallback b'myfallback', got {result!r}"
-
-
-def test_require_env_bytes_warns_on_fallback(monkeypatch):
-    """H-3 Phase 1: RuntimeWarning emitted when env var absent."""
-    monkeypatch.delenv("HUNTX_TUT_PASS_TUT", raising=False)
-    from huntx.formats.common.crypto import _require_env_bytes
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        _require_env_bytes("HUNTX_TUT_PASS_TUT", b"myfallback", "TUT password")
-    runtime_warns = [x for x in w if issubclass(x.category, RuntimeWarning)]
-    assert runtime_warns, "H-3: RuntimeWarning must be emitted when env var absent"
-    assert "HUNTX_TUT_PASS_TUT" in str(runtime_warns[0].message), (
-        "H-3: Warning message must name the missing env var"
-    )
-
-
-def test_require_env_bytes_no_warning_when_env_set(monkeypatch):
-    """H-3 Phase 1: No RuntimeWarning when env var is properly configured."""
-    monkeypatch.setenv("HUNTX_TUT_PASS_TUT", "properSecret")
-    from huntx.formats.common.crypto import _require_env_bytes
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        _require_env_bytes("HUNTX_TUT_PASS_TUT", b"myfallback", "TUT password")
-    runtime_warns = [x for x in w if issubclass(x.category, RuntimeWarning)]
-    assert not runtime_warns, (
-        "H-3: No RuntimeWarning must be emitted when env var is set"
-    )
-
-
-# ---------------------------------------------------------------------------
-# Parametrized: all 4 credential keys must each warn individually
-# ---------------------------------------------------------------------------
-
-@pytest.mark.parametrize("env_key,fallback,name", [
-    ("HUNTX_TUT_PASS_TUT", b"fubvx788b46v",     "TUT password (.tut)"),
-    ("HUNTX_TUT_PASS_SKS", b"dyv35224nossas!!", "TUT password (.sks)"),
-    ("HUNTX_TUT_PASS_TMT", b"fubvx788B4mev",    "TUT password (.tmt)"),
-    ("HUNTX_NETMOD_KEY",   b"_netsyna_netmod_", "NetMod AES key"),
-])
-def test_each_credential_warns_on_fallback(env_key, fallback, name, monkeypatch):
-    """H-3: Each of the 4 credential env vars must trigger RuntimeWarning when absent."""
+@pytest.mark.parametrize(
+    "env_key",
+    [
+        "HUNTX_TUT_PASS_TUT",
+        "HUNTX_TUT_PASS_SKS",
+        "HUNTX_TUT_PASS_TMT",
+        "HUNTX_NETMOD_KEY",
+        "HUNTX_SLIPNET_KEY_HEX",
+    ],
+)
+def test_missing_decryption_secret_fails_closed(env_key, monkeypatch):
     monkeypatch.delenv(env_key, raising=False)
-    from huntx.formats.common.crypto import _require_env_bytes
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        _require_env_bytes(env_key, fallback, name)
-    runtime_warns = [x for x in w if issubclass(x.category, RuntimeWarning)]
-    assert runtime_warns, f"H-3: {env_key!r} must trigger RuntimeWarning when absent"
-    assert env_key in str(runtime_warns[0].message), (
-        f"H-3: Warning must name the missing key {env_key!r}"
+    if env_key == "HUNTX_SLIPNET_KEY_HEX":
+        with pytest.raises(MissingSecretError, match=env_key):
+            _require_env_hex_bytes(env_key, "test secret", expected_length=32)
+    else:
+        with pytest.raises(MissingSecretError, match=env_key):
+            _require_env_bytes(env_key, "test secret")
+
+
+def test_require_env_bytes_preserves_configured_value(monkeypatch):
+    monkeypatch.setenv("HUNTX_TUT_PASS_TUT", "configured-secret")
+    assert _require_env_bytes("HUNTX_TUT_PASS_TUT", "TUT password") == b"configured-secret"
+
+
+def test_empty_secret_is_rejected(monkeypatch):
+    monkeypatch.setenv("HUNTX_TUT_PASS_TUT", "")
+    with pytest.raises(MissingSecretError, match="HUNTX_TUT_PASS_TUT"):
+        _require_env_bytes("HUNTX_TUT_PASS_TUT", "TUT password")
+
+
+def test_fixed_length_secret_is_validated(monkeypatch):
+    monkeypatch.setenv("HUNTX_NETMOD_KEY", "too-short")
+    with pytest.raises(MissingSecretError, match="exactly 16 bytes"):
+        _require_env_bytes("HUNTX_NETMOD_KEY", "NetMod AES key", expected_length=16)
+
+
+def test_slipnet_key_must_be_32_hex_bytes(monkeypatch):
+    monkeypatch.setenv("HUNTX_SLIPNET_KEY_HEX", "not-hex")
+    with pytest.raises(MissingSecretError, match="hexadecimal"):
+        _require_env_hex_bytes("HUNTX_SLIPNET_KEY_HEX", "SlipNet key", expected_length=32)
+
+    monkeypatch.setenv("HUNTX_SLIPNET_KEY_HEX", "00" * 31)
+    with pytest.raises(MissingSecretError, match="exactly 32 bytes"):
+        _require_env_hex_bytes("HUNTX_SLIPNET_KEY_HEX", "SlipNet key", expected_length=32)
+
+    monkeypatch.setenv("HUNTX_SLIPNET_KEY_HEX", "ab" * 32)
+    assert _require_env_hex_bytes(
+        "HUNTX_SLIPNET_KEY_HEX", "SlipNet key", expected_length=32
+    ) == bytes.fromhex("ab" * 32)
+
+
+@pytest.mark.parametrize(
+    "extension,env_key,value",
+    [
+        (".tut", "HUNTX_TUT_PASS_TUT", "tut-secret"),
+        (".sks", "HUNTX_TUT_PASS_SKS", "sks-secret"),
+        (".tmt", "HUNTX_TUT_PASS_TMT", "tmt-secret"),
+    ],
+)
+def test_tut_passwords_are_resolved_lazily(extension, env_key, value, monkeypatch):
+    monkeypatch.setenv(env_key, value)
+    assert _get_tut_password(extension) == value.encode("utf-8")
+
+
+def test_netmod_decryptor_requires_secret_before_processing(monkeypatch):
+    monkeypatch.delenv("HUNTX_NETMOD_KEY", raising=False)
+    with pytest.raises(MissingSecretError, match="HUNTX_NETMOD_KEY"):
+        decrypt_netmod_data(b"AA==")
+
+
+def test_slipnet_decryptor_requires_secret_before_processing(monkeypatch):
+    monkeypatch.delenv("HUNTX_SLIPNET_KEY_HEX", raising=False)
+    with pytest.raises(MissingSecretError, match="HUNTX_SLIPNET_KEY_HEX"):
+        decrypt_slipnet_link("slipnet-enc://AQ==")
+
+
+def test_crypto_source_contains_no_legacy_plaintext_fallbacks():
+    source_path = (
+        Path(__file__).parent.parent
+        / "src"
+        / "huntx"
+        / "formats"
+        / "common"
+        / "crypto.py"
     )
-
-
-def test_require_env_bytes_raises_when_strict_and_missing(monkeypatch):
-    """H-3: When HUNTX_REQUIRE_SECRETS=1, missing secret must raise RuntimeError."""
-    monkeypatch.delenv("HUNTX_TUT_PASS_TUT", raising=False)
-    monkeypatch.setenv("HUNTX_REQUIRE_SECRETS", "1")
-    from huntx.formats.common.crypto import _require_env_bytes
-    with pytest.raises(RuntimeError, match="required but not set"):
-        _require_env_bytes("HUNTX_TUT_PASS_TUT", b"fallback", "TUT password")
+    source = source_path.read_text(encoding="utf-8")
+    forbidden = [
+        "fubvx788b46v",
+        "dyv35224nossas!!",
+        "fubvx788B4mev",
+        "_netsyna_netmod_",
+        "1C8986F91DD8EC9A",
+        "557034DC3DDDA3BB",
+        "C70A4A42712024EE",
+        "6F5577AE58747E8E",
+        "924D4AF0D8A43E0B",
+        "FCD9E79819861E07",
+        "4A5573B012F4D08B",
+        "998E67C256D955E3",
+    ]
+    for literal in forbidden:
+        assert literal not in source, f"legacy credential material remains in crypto.py: {literal}"
