@@ -1,12 +1,14 @@
-import unittest
+import os
 import sqlite3
 import time
+import unittest
 from pathlib import Path
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
+
 from huntx.bot.interactive import (
     InteractiveBot,
-    WELCOME_TEXT,
     SUPPORTED_FORMATS,
+    WELCOME_TEXT,
     _BOT_COMMANDS,
 )
 
@@ -125,7 +127,7 @@ class TestBotUserRegistration(unittest.TestCase):
         self.assertEqual(row["default_format"], "ovpn")
 
     def test_get_active_users_excludes_muted(self):
-        """_get_active_users should only return non-muted users."""
+        """Query-level muted filtering should exclude muted users."""
         now = time.time()
         self.conn.execute(
             "INSERT INTO bot_users (user_id, chat_id, username, registered_at, muted) VALUES (?, ?, ?, ?, ?)",
@@ -168,7 +170,6 @@ class TestBotConstants(unittest.TestCase):
             self.assertIn(cmd, WELCOME_TEXT, f"Missing command {cmd} in WELCOME_TEXT")
 
     def test_bot_commands_list_length(self):
-        # When Telethon isn't installed, `_BOT_COMMANDS` is intentionally empty so tests can run.
         if not _BOT_COMMANDS:
             self.skipTest("Telethon not installed; bot commands are not populated.")
         required = {"start", "get", "latest", "formats", "setformat", "myinfo", "mute", "unmute", "help"}
@@ -234,12 +235,20 @@ class TestBotInteractiveCommands(unittest.IsolatedAsyncioTestCase):
             except OSError:
                 pass
 
+    @staticmethod
+    def _private_event(user_id: int = 123, *, respond_result=None):
+        event = MagicMock()
+        event.sender_id = user_id
+        event.chat_id = user_id
+        event.is_private = True
+        event.data = None
+        event.respond = AsyncMock(return_value=respond_result)
+        return event
+
     async def test_on_ping(self):
         mock_msg = AsyncMock()
         mock_msg.edit = AsyncMock()
-
-        event = MagicMock()
-        event.respond = AsyncMock(return_value=mock_msg)
+        event = self._private_event(respond_result=mock_msg)
 
         await self.bot._on_ping(event)
 
@@ -248,8 +257,7 @@ class TestBotInteractiveCommands(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Latency", mock_msg.edit.call_args[0][0])
 
     async def test_on_protocols(self):
-        event = MagicMock()
-        event.respond = AsyncMock()
+        event = self._private_event()
 
         await self.bot._on_protocols(event)
 
@@ -258,8 +266,7 @@ class TestBotInteractiveCommands(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Supported Protocols", msg)
 
     async def test_on_status(self):
-        event = MagicMock()
-        event.respond = AsyncMock()
+        event = self._private_event(user_id=9001)
 
         with self.bot.db.connect() as conn:
             conn.execute(
@@ -275,7 +282,8 @@ class TestBotInteractiveCommands(unittest.IsolatedAsyncioTestCase):
                 ("hash123", "npvt", "u1", '{"line": "vmess://test"}'),
             )
 
-        await self.bot._on_status(event)
+        with patch.dict(os.environ, {"HUNTX_ADMINS": "9001"}, clear=False):
+            await self.bot._on_status(event)
 
         event.respond.assert_called_once()
         msg = event.respond.call_args[0][0]
@@ -283,10 +291,11 @@ class TestBotInteractiveCommands(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Sources", msg)
 
     async def test_on_count(self):
-        event = MagicMock()
-        event.respond = AsyncMock()
+        event = self._private_event(user_id=123)
+        self.bot._register_user("123", "123", "approved-user")
 
         with self.bot.db.connect() as conn:
+            conn.execute("UPDATE bot_users SET approved = 1 WHERE user_id = '123'")
             conn.execute(
                 "INSERT OR REPLACE INTO records (source_file_hash, record_type, unique_hash, data_json, is_active) VALUES (?, ?, ?, ?, 1)",
                 ("hash123", "npvt", "u1", '{"line": "vmess://test"}'),
@@ -298,7 +307,7 @@ class TestBotInteractiveCommands(unittest.IsolatedAsyncioTestCase):
 
         await self.bot._on_count(event)
 
-        self.assertGreaterEqual(event.respond.call_count, 1)
+        self.assertGreaterEqual(event.respond.call_count, 2)
         msg = event.respond.call_args[0][0]
         self.assertIn("Proxy Counts", msg)
 
