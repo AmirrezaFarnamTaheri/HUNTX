@@ -22,10 +22,17 @@ from huntx.state.repo import StateRepo
 
 
 class _Event:
-    def __init__(self, sender_id: int = 1, chat_id: int = 1, data=None):
+    def __init__(
+        self,
+        sender_id: int = 1,
+        chat_id: int = 1,
+        data=None,
+        is_private=None,
+    ):
         self.sender_id = sender_id
         self.chat_id = chat_id
         self.data = data
+        self.is_private = is_private
         self.responses: list[str] = []
         self.answers: list[str] = []
 
@@ -59,12 +66,36 @@ def test_pending_bot_user_cannot_retrieve_protected_artifacts(tmp_path, monkeypa
     assert asyncio.run(bot._require_approved(_Event())) is True
 
 
+def test_approved_bot_user_cannot_redirect_download_to_group(tmp_path, monkeypatch):
+    bot = _bot_with_db(tmp_path, monkeypatch)
+    bot._register_user("1", "1", "alice")
+    with bot.db.connect() as conn:
+        conn.execute("UPDATE bot_users SET approved = 1 WHERE user_id = '1'")
+
+    group_event = _Event(sender_id=1, chat_id=-10099, is_private=False)
+    assert asyncio.run(bot._require_approved(group_event)) is False
+    assert group_event.responses
+    assert "Private chat required" in group_event.responses[-1]
+
+
 def test_register_user_does_not_erase_known_username(tmp_path, monkeypatch):
     bot = _bot_with_db(tmp_path, monkeypatch)
     assert bot._register_user("1", "1", "alice") is True
     assert bot._register_user("1", "1", None) is False
 
     assert bot._get_user_info("1")["username"] == "alice"
+
+
+def test_legacy_group_delivery_row_is_not_active(tmp_path, monkeypatch):
+    bot = _bot_with_db(tmp_path, monkeypatch)
+    with bot.db.connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO bot_users (user_id, chat_id, username, registered_at, approved, muted)
+            VALUES ('1', '-10099', 'alice', 0, 1, 0)
+            """
+        )
+    assert bot._get_active_users() == []
 
 
 def _runtime_config(*, candidate: bool = False) -> AppConfig:
@@ -136,15 +167,19 @@ def _bare_hardened(config: AppConfig):
     return orchestrator
 
 
-def test_build_routes_exclude_unapproved_historical_sources():
-    orchestrator = _bare_hardened(_runtime_config(candidate=True))
-    captured_routes = []
-    orchestrator.transform_pipeline = SimpleNamespace(
+def _complete_transform():
+    return SimpleNamespace(
         process_pending=lambda **kwargs: {
             "completed": True,
             "stop_reason": "complete",
         }
     )
+
+
+def test_build_routes_exclude_unapproved_historical_sources():
+    orchestrator = _bare_hardened(_runtime_config(candidate=True))
+    captured_routes = []
+    orchestrator.transform_pipeline = _complete_transform()
     orchestrator.build_pipeline = SimpleNamespace(
         run=lambda route: captured_routes.append(route) or []
     )
@@ -161,6 +196,39 @@ def test_build_routes_exclude_unapproved_historical_sources():
     assert summary["approved_sources"] == 1
     assert summary["excluded_sources"] == 1
     assert captured_routes[0]["from_sources"] == ["approved"]
+
+
+def test_optional_destination_policy_reaches_publisher():
+    config = _runtime_config()
+    config.publishing.routes[0].destinations[0].required = False
+    orchestrator = _bare_hardened(config)
+    captured_destinations = []
+    orchestrator.transform_pipeline = _complete_transform()
+    orchestrator.build_pipeline = SimpleNamespace(
+        run=lambda route: [
+            {
+                "route_name": route["name"],
+                "artifact_hash": "a" * 64,
+                "format": "npvt",
+                "data": b"payload",
+            }
+        ]
+    )
+    orchestrator.publish_pipeline = SimpleNamespace(
+        run=lambda result, destinations: captured_destinations.extend(destinations)
+    )
+
+    summary = asyncio.run(
+        orchestrator._run_hardened(
+            timeout=10,
+            no_publish=False,
+            allow_partial_export=False,
+        )
+    )
+
+    assert summary["status"] == "completed"
+    assert captured_destinations
+    assert captured_destinations[0]["required"] is False
 
 
 def test_transform_deadline_stops_build_and_marks_timeout():
@@ -206,6 +274,17 @@ def test_validate_config_rejects_unsafe_and_duplicate_route_identities():
     duplicate.publishing.routes.append(duplicate.publishing.routes[0].model_copy(deep=True))
     with pytest.raises(ValueError, match="Duplicate route name"):
         validate_config(duplicate)
+
+
+def test_validate_config_rejects_ambiguous_route_prefixes():
+    config = _runtime_config()
+    second = config.publishing.routes[0].model_copy(deep=True)
+    config.publishing.routes[0].name = "prod"
+    second.name = "production"
+    config.publishing.routes.append(second)
+
+    with pytest.raises(ValueError, match="ambiguous output prefixes"):
+        validate_config(config)
 
 
 def test_validate_config_rejects_duplicate_route_members():
