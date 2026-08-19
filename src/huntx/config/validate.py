@@ -2,6 +2,7 @@ import os
 
 from .schema import AppConfig
 from ..formats.registry import FormatRegistry
+from ..utils.safe_names import safe_component
 
 
 _DERIVED_FORMATS = {"b64sub", "decoded.json", "singbox.json"}
@@ -122,9 +123,6 @@ def validate_config(config: AppConfig):
                 )
 
         elif source.type == "v2ray_collector":
-            # This source is collected by the local Go wrapper and does not use
-            # Telegram credentials. Reject contradictory credential blocks so a
-            # typo cannot silently select the wrong connector contract.
             if source.telegram or source.telegram_user:
                 raise ValueError(
                     f"Source {source.id} is type='v2ray_collector' and must not "
@@ -134,12 +132,33 @@ def validate_config(config: AppConfig):
         else:
             raise ValueError(f"Source {source.id} has unknown type: {source.type}")
 
+    seen_route_names: set[str] = set()
+    seen_route_components: dict[str, str] = {}
     for route in config.routes:
         if not route.name or route.name.startswith("${"):
             raise ValueError(f"Route name cannot be empty or unexpanded: {route.name}")
+        if route.name in seen_route_names:
+            raise ValueError(f"Duplicate route name: {route.name}")
+        seen_route_names.add(route.name)
+
+        route_component = safe_component(route.name, default="")
+        if route_component != route.name:
+            raise ValueError(
+                f"Route {route.name!r} is not a canonical filesystem-safe name; "
+                f"use {route_component!r}"
+            )
+        prior_route = seen_route_components.get(route_component)
+        if prior_route is not None:
+            raise ValueError(
+                f"Routes {prior_route!r} and {route.name!r} collide on output name "
+                f"{route_component!r}"
+            )
+        seen_route_components[route_component] = route.name
 
         if not route.from_sources:
             raise ValueError(f"Route {route.name} has no sources specified")
+        if len(set(route.from_sources)) != len(route.from_sources):
+            raise ValueError(f"Route {route.name} contains duplicate source references")
 
         for source_ref in route.from_sources:
             if source_ref not in seen_ids:
@@ -149,10 +168,13 @@ def validate_config(config: AppConfig):
 
         if not route.formats:
             raise ValueError(f"Route {route.name} has no formats specified")
+        if len(set(route.formats)) != len(route.formats):
+            raise ValueError(f"Route {route.name} contains duplicate formats")
 
         for fmt in route.formats:
             _validate_route_format(registry, route.name, fmt)
 
+        seen_destinations: set[tuple[str, str]] = set()
         for destination in route.destinations:
             if destination.mode != "telegram":
                 raise ValueError(
@@ -164,6 +186,13 @@ def validate_config(config: AppConfig):
                     f"Route {route.name} destination missing or invalid chat_id: "
                     f"{destination.chat_id}"
                 )
+            destination_key = (destination.mode, destination.chat_id.strip())
+            if destination_key in seen_destinations:
+                raise ValueError(
+                    f"Route {route.name} has duplicate destination identity: "
+                    f"{destination.mode}:{destination.chat_id}"
+                )
+            seen_destinations.add(destination_key)
 
             resolved_token = _configured_publish_token(destination.token)
             if is_strict:
