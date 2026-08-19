@@ -91,6 +91,7 @@ jobs:
           cache: pip
           cache-dependency-path: |
             requirements.txt
+            requirements-ci.txt
             pyproject.toml
 
       - name: Describe validation environment
@@ -120,12 +121,13 @@ jobs:
           go vet ./...
           mkdir -p .bin
           go build -o .bin/huntx-tools ./cmd/huntx-tools
+          go build -o .bin/huntx-engine ./cmd/huntx-engine
 
       - name: Install and validate Python release plane
         run: |
           set -euo pipefail
           python -m pip install --require-hashes --prefer-binary -r requirements.txt
-          python -m pip install --prefer-binary flake8 mypy pytest pytest-asyncio types-requests types-PyYAML
+          python -m pip install --prefer-binary -r requirements-ci.txt
           python -m pip install --no-deps -e .
           python -m pip check
           python -m compileall -q -j 0 src tests scripts
