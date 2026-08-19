@@ -1,6 +1,7 @@
 package healing
 
 import (
+	"sort"
 	"sync"
 	"time"
 )
@@ -28,9 +29,18 @@ func NewDaemon(backoff []time.Duration) *Daemon {
 			6 * time.Hour,
 		}
 	}
+	clean := make([]time.Duration, 0, len(backoff))
+	for _, delay := range backoff {
+		if delay > 0 {
+			clean = append(clean, delay)
+		}
+	}
+	if len(clean) == 0 {
+		clean = []time.Duration{5 * time.Minute}
+	}
 	return &Daemon{
 		degraded:        make(map[string]*DegradedNode),
-		backoffSchedule: backoff,
+		backoffSchedule: clean,
 	}
 }
 
@@ -76,19 +86,33 @@ func (d *Daemon) Reinstate(hash string) bool {
 }
 
 func (d *Daemon) GetDueForRetest(now time.Time) []*DegradedNode {
+	// Return defensive copies. Returning internal pointers after releasing the
+	// mutex lets callers mutate daemon state without synchronization.
 	d.mu.RLock()
-	defer d.mu.RUnlock()
-
-	var due []*DegradedNode
+	due := make([]*DegradedNode, 0)
 	for _, n := range d.degraded {
 		if !n.NextCheckAt.After(now) {
-			due = append(due, n)
+			copyNode := *n
+			due = append(due, &copyNode)
 		}
 	}
+	d.mu.RUnlock()
+
+	// Stable ordering makes scheduler behavior/test output deterministic even
+	// though the backing map iteration order is intentionally random.
+	sort.Slice(due, func(i, j int) bool {
+		if due[i].NextCheckAt.Equal(due[j].NextCheckAt) {
+			return due[i].UniqueHash < due[j].UniqueHash
+		}
+		return due[i].NextCheckAt.Before(due[j].NextCheckAt)
+	})
 	return due
 }
 
 func (d *Daemon) PurgeStale(maxAge time.Duration, now time.Time) int {
+	if maxAge <= 0 {
+		return 0
+	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
