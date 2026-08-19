@@ -66,7 +66,7 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Root Go quality gate
+      - name: Go quality gate
         run: |
           set -euo pipefail
           formatting="$(gofmt -l .)"
@@ -77,24 +77,7 @@ jobs:
           go test -race ./...
           go vet ./...
           go build ./cmd/huntx-tools
-
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: cmd/huntx-engine/go.mod
-          cache: false
-
-      - name: huntx-engine nested Go module gate
-        working-directory: cmd/huntx-engine
-        run: |
-          set -euo pipefail
-          formatting="$(gofmt -l .)"
-          test -z "$formatting" || {
-            printf 'Unformatted huntx-engine files:\n%s\n' "$formatting"
-            exit 1
-          }
-          go test -race ./...
-          go vet ./...
-          go build .
+          go build ./cmd/huntx-engine
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -102,19 +85,14 @@ jobs:
           cache: pip
           cache-dependency-path: |
             requirements.txt
+            requirements-ci.txt
             pyproject.toml
 
       - name: Python quality gate
         run: |
           set -euo pipefail
           python -m pip install --require-hashes --prefer-binary -r requirements.txt
-          python -m pip install --prefer-binary \
-            flake8==7.3.0 \
-            mypy==2.3.0 \
-            pytest==9.1.1 \
-            pytest-asyncio==1.4.0 \
-            types-requests==2.33.0.20260712 \
-            types-PyYAML==6.0.12.20260724
+          python -m pip install --prefer-binary -r requirements-ci.txt
           python -m pip install --no-deps -e .
           python -m pip check
           python -m compileall -q -j 0 src tests scripts
