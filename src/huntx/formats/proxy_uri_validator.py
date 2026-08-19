@@ -14,6 +14,7 @@ _HOST_RE = re.compile(
     r"^(?=.{1,253}\.?$)(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*"
     r"[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.?$"
 )
+_HEADER_NAME_RE = re.compile(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
 _SS_METHODS = {
     "aes-128-gcm",
     "aes-192-gcm",
@@ -38,8 +39,6 @@ _GENERIC_ENDPOINT_SCHEMES = {
     "dnstt",
     "ssh",
     "shadowtls",
-    "naive",
-    "naive+https",
     "http",
     "https",
 }
@@ -87,6 +86,21 @@ def _validate_port_token(token: str) -> bool:
         return False
     start, end = map(int, match.groups())
     return 1 <= start <= end <= 65535
+
+
+def _valid_naive_headers(value: str) -> bool:
+    """Validate CRLF-separated NaiveProxy extra headers after URL decoding."""
+    if not value:
+        return True
+    for line in value.splitlines():
+        if ":" not in line:
+            return False
+        name, header_value = line.split(":", 1)
+        if not _HEADER_NAME_RE.fullmatch(name.strip()):
+            return False
+        if "\x00" in header_value:
+            return False
+    return True
 
 
 def _validate_ss(uri: str) -> bool:
@@ -284,6 +298,26 @@ def _validate_mierus(uri: str) -> bool:
     return all(protocol.upper() in {"TCP", "UDP"} for protocol in protocols)
 
 
+def _validate_naive(uri: str) -> bool:
+    """Validate a de-facto NaiveProxy ``naive+https`` or ``naive+quic`` URI."""
+    try:
+        parsed = urlsplit(uri)
+        port = parsed.port or 443
+    except ValueError:
+        return False
+    if not _valid_host(parsed.hostname) or not _valid_port(port):
+        return False
+    if parsed.path not in {"", "/"}:
+        return False
+    username = unquote(parsed.username or "")
+    has_password = parsed.password is not None
+    if bool(username) != has_password:
+        return False
+    query = parse_qs(parsed.query, keep_blank_values=True)
+    headers = query.get("extra-headers", [""])
+    return len(headers) == 1 and _valid_naive_headers(headers[0])
+
+
 def _validate_standard_uri(uri: str) -> bool:
     """Validate endpoint-shaped URI schemes with shared rules."""
     try:
@@ -294,7 +328,7 @@ def _validate_standard_uri(uri: str) -> bool:
     if not _valid_host(parsed.hostname):
         return False
     scheme = parsed.scheme.lower()
-    default_port = 22 if scheme == "ssh" else 443 if scheme in {"naive", "naive+https"} else None
+    default_port = 22 if scheme == "ssh" else None
     port = port or default_port
     if not _valid_port(port):
         return False
@@ -327,9 +361,6 @@ def _validate_standard_uri(uri: str) -> bool:
         password = username or query.get("password", [""])[0]
         if version in {"2", "3"} and not password:
             return False
-    elif scheme in {"naive", "naive+https"}:
-        if not username or parsed.password is None:
-            return False
     elif scheme in {"http", "https"}:
         if not username or parsed.port is None or parsed.path not in {"", "/"}:
             return False
@@ -357,6 +388,8 @@ def validate_proxy_uri(uri: str) -> bool:
         return _validate_mieru(uri)
     if scheme == "mierus":
         return _validate_mierus(uri)
+    if scheme in {"naive+https", "naive+quic"}:
+        return _validate_naive(uri)
     if scheme in {"vless", "trojan", "tuic"} | _GENERIC_ENDPOINT_SCHEMES:
         return _validate_standard_uri(uri)
     return False
