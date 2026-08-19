@@ -44,9 +44,7 @@ class HardenedOrchestrator(Orchestrator):
         no_publish: bool = False,
         allow_partial_export: bool = False,
     ) -> dict[str, Any]:
-        # See Orchestrator.run: run_sync covers both the no-loop and
-        # already-running-loop cases without the deprecated get_event_loop()
-        # and without leaking an unclosed loop.
+        """Execute the deadline-aware pipeline in a sync or async caller."""
         return run_sync(self._run_hardened(timeout, no_publish, allow_partial_export))
 
     async def _run_hardened(
@@ -57,7 +55,12 @@ class HardenedOrchestrator(Orchestrator):
     ) -> dict[str, Any]:
         start_time = time.monotonic()
         self._deadline = time.time() + timeout if timeout else None
-        eligible_sources = [source for source in self.config.sources if getattr(source, "publication_eligible", True)]
+        eligible_sources = [
+            source
+            for source in self.config.sources
+            if getattr(source, "publication_eligible", True)
+        ]
+        eligible_source_ids = {str(source.id) for source in eligible_sources}
         excluded_sources = len(self.config.sources) - len(eligible_sources)
         total_sources = len(eligible_sources)
         total_routes = len(self.config.routes)
@@ -80,6 +83,8 @@ class HardenedOrchestrator(Orchestrator):
         publish_cancelled = 0
         all_build_results: list[Any] = []
         stage_seconds: dict[str, float] = {}
+        transform_completed = True
+        transform_stop_reason = "complete"
 
         def remaining() -> Optional[float]:
             if timeout is None:
@@ -93,10 +98,22 @@ class HardenedOrchestrator(Orchestrator):
             logger.error("[Orchestrator] Deadline exhausted during %s", stage)
 
         def route_payload(route: Any) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+            approved_route_sources = [
+                source_id
+                for source_id in route.from_sources
+                if str(source_id) in eligible_source_ids
+            ]
+            excluded_route_sources = len(route.from_sources) - len(approved_route_sources)
+            if excluded_route_sources:
+                logger.warning(
+                    "[Orchestrator] route=%s excluded %s non-approved source(s) from build",
+                    route.name,
+                    excluded_route_sources,
+                )
             route_dict = {
                 "name": route.name,
                 "formats": route.formats,
-                "from_sources": route.from_sources,
+                "from_sources": approved_route_sources,
                 "min_seen_file_id": seen_file_cutoff_id,
             }
             destinations = [
@@ -144,6 +161,8 @@ class HardenedOrchestrator(Orchestrator):
                 "failed_routes": 0,
                 "approved_sources": 0,
                 "excluded_sources": excluded_sources,
+                "transform_completed": False,
+                "transform_stop_reason": "not_started",
                 "reason": "no_approved_sources",
             }
 
@@ -179,16 +198,37 @@ class HardenedOrchestrator(Orchestrator):
 
         if status == "completed":
             transform_start = time.monotonic()
+            transform_deadline = start_time + timeout if timeout is not None else None
             try:
-                self.transform_pipeline.process_pending()
+                transform_summary = self.transform_pipeline.process_pending(
+                    deadline_monotonic=transform_deadline
+                )
+                if isinstance(transform_summary, dict):
+                    transform_completed = bool(transform_summary.get("completed", True))
+                    transform_stop_reason = str(
+                        transform_summary.get("stop_reason", "complete")
+                    )
+                    if not transform_completed:
+                        if transform_stop_reason == "deadline":
+                            mark_timeout("transformation")
+                        else:
+                            status = "partial"
+                            logger.error(
+                                "[Orchestrator] Transformation did not fully drain: %s",
+                                transform_stop_reason,
+                            )
             except Exception:
                 status = "failed"
+                transform_completed = False
+                transform_stop_reason = "exception"
                 logger.exception("[Orchestrator] Transformation failed")
             finally:
                 stage_seconds["transformation"] = time.monotonic() - transform_start
             time_left = remaining()
-            if time_left is not None and time_left <= 0:
+            if status == "completed" and time_left is not None and time_left <= 0:
                 mark_timeout("transformation")
+                transform_completed = False
+                transform_stop_reason = "deadline"
 
         route_destinations: dict[str, list[dict[str, Any]]] = {}
         if status == "completed" and total_routes:
@@ -236,23 +276,22 @@ class HardenedOrchestrator(Orchestrator):
             publisher = concurrent.futures.ThreadPoolExecutor(max_workers=publish_workers)
             try:
                 for build_result in all_build_results:
-                    # Mirror the base Orchestrator's defensiveness: a single
-                    # malformed build result must not abort the entire publish
-                    # stage and discard otherwise-successful work.
                     if not isinstance(build_result, dict):
-                        logger.warning("[Orchestrator] Skipping non-dict build result: %r", build_result)
+                        logger.warning(
+                            "[Orchestrator] Skipping non-dict build result: %r",
+                            build_result,
+                        )
                         continue
                     route_name_val = build_result.get("route_name")
                     artifact_hash_val = build_result.get("artifact_hash")
-                    if not isinstance(route_name_val, str) or not route_name_val or not artifact_hash_val:
-                        # PublishPipeline.run indexes build_result["route_name"]
-                        # and ["artifact_hash"] directly (no .get), so a dict
-                        # missing either would only fail with a KeyError inside
-                        # the submitted future. Skip it here instead: a clear
-                        # log beats a wasted thread-pool slot and a KeyError
-                        # buried in publish_failures.
+                    if (
+                        not isinstance(route_name_val, str)
+                        or not route_name_val
+                        or not artifact_hash_val
+                    ):
                         logger.warning(
-                            "[Orchestrator] Skipping build result missing route_name/artifact_hash: %r",
+                            "[Orchestrator] Skipping build result missing "
+                            "route_name/artifact_hash: %r",
                             build_result,
                         )
                         continue
@@ -282,7 +321,10 @@ class HardenedOrchestrator(Orchestrator):
                     except Exception:
                         publish_failures += 1
                         failed_routes.add(route_name)
-                        logger.exception("[Orchestrator] Publish failed for route %s", route_name)
+                        logger.exception(
+                            "[Orchestrator] Publish failed for route %s",
+                            route_name,
+                        )
                 if not_done:
                     mark_timeout("publishing")
                     publish_pending = len(not_done)
@@ -293,7 +335,9 @@ class HardenedOrchestrator(Orchestrator):
                 publisher.shutdown(wait=False, cancel_futures=True)
                 stage_seconds["publishing"] = time.monotonic() - publish_start
 
-        should_export = status == "completed" or (status == "timed_out" and allow_partial_export)
+        should_export = status == "completed" or (
+            status == "timed_out" and allow_partial_export
+        )
         export_start = time.monotonic()
         if should_export:
             try:
@@ -303,7 +347,10 @@ class HardenedOrchestrator(Orchestrator):
                 status = "failed"
                 logger.exception("[Orchestrator] Output export failed")
         elif all_build_results:
-            logger.warning("[Orchestrator] Partial artifacts were not exported because partial export is disabled")
+            logger.warning(
+                "[Orchestrator] Partial artifacts were not exported because "
+                "partial export is disabled"
+            )
         stage_seconds["export"] = time.monotonic() - export_start
 
         cleanup_start = time.monotonic()
@@ -339,7 +386,9 @@ class HardenedOrchestrator(Orchestrator):
             "timed_out": status == "timed_out",
             "timed_out_stage": timed_out_stage,
             "duration_seconds": duration,
-            "stage_seconds": {key: round(value, 3) for key, value in stage_seconds.items()},
+            "stage_seconds": {
+                key: round(value, 3) for key, value in stage_seconds.items()
+            },
             "partial_export_enabled": allow_partial_export,
             "total_artifacts": total_artifacts,
             "publish_attempts": publish_attempts,
@@ -358,6 +407,8 @@ class HardenedOrchestrator(Orchestrator):
             "ingestion_workers": ingestion_workers,
             "build_workers": build_workers,
             "publish_workers": publish_workers,
+            "transform_completed": transform_completed,
+            "transform_stop_reason": transform_stop_reason,
         }
         logger.info("[Orchestrator] Final run summary: %s", summary)
         return summary
