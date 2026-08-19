@@ -99,13 +99,16 @@ class TestTokenIsolation(unittest.TestCase):
                 InteractiveBot("same", 1, "hash")
 
     @patch("huntx.bot.interactive.TelegramClient")
+    @patch.object(InteractiveBot, "_init_tables")
     @patch("huntx.bot.interactive.open_db")
     @patch("huntx.bot.interactive.ArtifactStore")
     @patch("huntx.bot.interactive.StateRepo")
-    def test_explicit_shared_token_override_is_allowed(self, repo, store, open_db, _client):
-        conn = sqlite3.connect(":memory:")
-        conn.row_factory = sqlite3.Row
-        open_db.return_value = _DB(conn)
+    def test_explicit_shared_token_override_is_allowed(
+        self, _repo, _store, _open_db, _init_tables, _client
+    ):
+        # This test is about token-isolation policy only. Schema initialization
+        # has its own canonical-schema regression coverage and is intentionally
+        # isolated here rather than emulated with an incomplete SQLite mock.
         with patch.dict(
             os.environ,
             {"TELEGRAM_TOKEN": "same", "HUNTX_ALLOW_SHARED_BOT_TOKEN": "true"},
@@ -113,7 +116,6 @@ class TestTokenIsolation(unittest.TestCase):
         ):
             bot = InteractiveBot("same", 1, "hash")
         self.assertEqual(bot.token, "same")
-        conn.close()
 
 
 class _DeliveryHarness(DeliveryMixin):
