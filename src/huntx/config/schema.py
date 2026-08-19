@@ -24,7 +24,9 @@ def normalize_destination_mode(value: Any) -> str:
         return _DESTINATION_MODE_ALIASES[normalized]
     except KeyError as exc:
         supported = ", ".join(sorted(_DESTINATION_MODE_ALIASES))
-        raise ValueError(f"Unsupported destination mode: {normalized!r}; supported values: {supported}") from exc
+        raise ValueError(
+            f"Unsupported destination mode: {normalized!r}; supported values: {supported}"
+        ) from exc
 
 
 class SourceTrustState(str, Enum):
@@ -64,25 +66,13 @@ class TelegramUserSourceConfig(BaseModel):
     @field_validator("api_id", mode="before")
     @classmethod
     def validate_api_id(cls, v: Any) -> Optional[int]:
-        """Coerce ``api_id`` to an int, treating absent values as optional.
-
-        An unset, empty, or zero value is a legitimately *absent* credential
-        (e.g. a dev/test run without Telegram access) and maps to ``None``.
-        A non-empty value that cannot be parsed as an integer — such as a
-        typo or an unexpanded ``${...}`` placeholder — is a genuine
-        configuration error and is rejected loudly rather than silently
-        discarded.
-        """
+        """Coerce ``api_id`` to an int, treating absent values as optional."""
         if v is None or v == "" or v == 0:
             return None
         try:
             parsed = int(v)
         except (ValueError, TypeError) as exc:
             raise ValueError(f"Invalid api_id (must be an integer): {v!r}") from exc
-        # A string like "0" fails the `v == 0` check above (str != int in
-        # Python), so it reaches int() and must be normalized here too —
-        # otherwise the documented "zero maps to None" contract is broken
-        # for any zero value that arrives as text (env var, YAML string).
         return None if parsed == 0 else parsed
 
 
@@ -111,7 +101,9 @@ class SourceConfig(BaseModel):
     def validate_source_governance(self) -> "SourceConfig":
         if self.trust_state == SourceTrustState.APPROVED and self.discovered_from:
             if not self.approval_evidence:
-                raise ValueError("Discovered sources cannot be approved without approval_evidence")
+                raise ValueError(
+                    "Discovered sources cannot be approved without approval_evidence"
+                )
         return self
 
     @property
@@ -124,6 +116,7 @@ class DestinationConfig(BaseModel):
     mode: str = "telegram"
     caption_template: str = "{filename}"
     token: Optional[str] = None
+    required: bool = True
 
     @field_validator("mode", mode="before")
     @classmethod
