@@ -151,6 +151,8 @@ class HandlersMixin:
             return
         user_id = str(event.sender_id)
         self._register_user(user_id, str(event.chat_id))
+        if not await self._require_approved(event):
+            return
 
         args = event.text.split()[1:]
         if not args:
@@ -187,6 +189,8 @@ class HandlersMixin:
         if not await self._check_rate_limit(event, cooldown_seconds=15):
             return
         self._register_user(str(event.sender_id), str(event.chat_id))
+        if not await self._require_approved(event):
+            return
 
         args = event.text.split()[1:]
         days = int(args[0]) if args and args[0].isdigit() else 4
@@ -397,8 +401,10 @@ class HandlersMixin:
         muted_icon = "🔇" if info["muted"] else "🔔"
         muted_str = "Paused" if info["muted"] else "Active"
         fmt = info.get("default_format", "npvt")
+        approval = "Approved" if info.get("approved") else "Pending approval"
         msg = (
             "⚙️ **Your Settings**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"  Access: {approval}\n"
             f"  Download format: `{fmt}` ({_FORMAT_LABELS.get(fmt, fmt)})\n"
             f"  Auto-delivery: {muted_icon} {muted_str}\n"
             f"  Last received: {last_del}"
