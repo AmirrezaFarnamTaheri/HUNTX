@@ -125,7 +125,18 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
         chat_id: str,
         username: Optional[str] = None,
     ) -> bool:
-        """Create a pending user or refresh metadata without erasing known names."""
+        """Create/refresh a pending private-chat user without erasing names."""
+        user_id = str(user_id)
+        chat_id = str(chat_id)
+        if chat_id != user_id:
+            logger.warning(
+                "[Security] Refusing GatherX registration/chat reassignment for user=%s chat=%s; "
+                "artifact delivery is private-chat only",
+                user_id,
+                chat_id,
+            )
+            return False
+
         with self.db.connect() as conn:
             existing = conn.execute(
                 "SELECT 1 FROM bot_users WHERE user_id = ?", (user_id,)
@@ -148,21 +159,24 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
             return True
 
     def _get_active_users(self) -> list:
-        """Return approved, unmuted users eligible for automatic delivery."""
+        """Return approved users whose delivery target is their private chat."""
         with self.db.connect() as conn:
             return conn.execute(
                 """
                 SELECT user_id, chat_id FROM bot_users
-                WHERE approved = 1 AND muted = 0
+                WHERE approved = 1 AND muted = 0 AND chat_id = user_id
                 """
             ).fetchall()
 
     def _get_user_count(self) -> dict:
-        """Return total, active, and explicitly muted bot-user counts."""
+        """Return total, safely active, and explicitly muted bot-user counts."""
         with self.db.connect() as conn:
             total = conn.execute("SELECT COUNT(*) AS c FROM bot_users").fetchone()["c"]
             active = conn.execute(
-                "SELECT COUNT(*) AS c FROM bot_users WHERE approved = 1 AND muted = 0"
+                """
+                SELECT COUNT(*) AS c FROM bot_users
+                WHERE approved = 1 AND muted = 0 AND chat_id = user_id
+                """
             ).fetchone()["c"]
             muted = conn.execute(
                 "SELECT COUNT(*) AS c FROM bot_users WHERE muted = 1"
@@ -204,8 +218,36 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
             ).fetchone()
         return bool(row and int(row["approved"]) == 1)
 
+    @staticmethod
+    def _is_private_event(event: Any) -> bool:
+        """Return whether an event is bound to the sender's private chat."""
+        sender_id = getattr(event, "sender_id", None)
+        chat_id = getattr(event, "chat_id", None)
+        if sender_id is None or chat_id is None:
+            return False
+        declared_private = getattr(event, "is_private", None)
+        if declared_private is False:
+            return False
+        return str(sender_id) == str(chat_id)
+
+    async def _require_private_chat(self, event: Any) -> bool:
+        """Reject artifact access from groups/channels even for approved users."""
+        if self._is_private_event(event):
+            return True
+        answer = getattr(event, "answer", None)
+        if getattr(event, "data", None) is not None and callable(answer):
+            await answer("Use GatherX in a private chat for downloads.", alert=True)
+        else:
+            await event.respond(
+                "🔒 **Private chat required**\nArtifact access is available only in your DM with this bot.",
+                parse_mode="md",
+            )
+        return False
+
     async def _require_approved(self, event: Any) -> bool:
-        """Deny protected bot actions until an operator approves the sender."""
+        """Require both a private chat and operator approval for protected actions."""
+        if not await self._require_private_chat(event):
+            return False
         user_id = str(getattr(event, "sender_id", "") or "")
         if user_id and self._is_user_approved(user_id):
             return True
