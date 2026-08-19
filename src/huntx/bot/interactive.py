@@ -125,14 +125,18 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
         chat_id: str,
         username: Optional[str] = None,
     ) -> bool:
-        """Create a pending bot user or refresh chat metadata for an existing user."""
+        """Create a pending user or refresh metadata without erasing known names."""
         with self.db.connect() as conn:
             existing = conn.execute(
                 "SELECT 1 FROM bot_users WHERE user_id = ?", (user_id,)
             ).fetchone()
             if existing:
                 conn.execute(
-                    "UPDATE bot_users SET chat_id = ?, username = ? WHERE user_id = ?",
+                    """
+                    UPDATE bot_users
+                    SET chat_id = ?, username = COALESCE(?, username)
+                    WHERE user_id = ?
+                    """,
                     (chat_id, username, user_id),
                 )
                 return False
@@ -188,6 +192,33 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
                 "SELECT * FROM bot_users WHERE user_id = ?", (user_id,)
             ).fetchone()
             return dict(row) if row else None
+
+    def _is_user_approved(self, user_id: str) -> bool:
+        """Return whether a sender may retrieve protected artifacts."""
+        if self._is_admin(str(user_id)):
+            return True
+        with self.db.connect() as conn:
+            row = conn.execute(
+                "SELECT approved FROM bot_users WHERE user_id = ?",
+                (str(user_id),),
+            ).fetchone()
+        return bool(row and int(row["approved"]) == 1)
+
+    async def _require_approved(self, event: Any) -> bool:
+        """Deny protected bot actions until an operator approves the sender."""
+        user_id = str(getattr(event, "sender_id", "") or "")
+        if user_id and self._is_user_approved(user_id):
+            return True
+        message = (
+            "⏳ **Approval required**\n"
+            "Your registration is pending administrator approval."
+        )
+        answer = getattr(event, "answer", None)
+        if getattr(event, "data", None) is not None and callable(answer):
+            await answer("Approval required. Your registration is still pending.", alert=True)
+        else:
+            await event.respond(message, parse_mode="md")
+        return False
 
     def _prune_cooldowns(self, now: float) -> None:
         """Remove stale rate-limit entries and enforce the in-memory size bound."""
@@ -267,6 +298,8 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
                 return
 
             if data.startswith("get:"):
+                if not await self._require_approved(event):
+                    return
                 fmt = data.split(":", 1)[1]
                 if fmt not in _ALL_VALID_FORMATS:
                     await event.answer("Unknown format", alert=True)
