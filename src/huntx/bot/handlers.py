@@ -11,7 +11,8 @@ logger = logging.getLogger(__name__)
 
 
 class HandlersMixin:
-    # These methods are designed to be mixed into InteractiveBot.
+    """Telegram command handlers mixed into :class:`InteractiveBot`."""
+
     client: Any
     _user_cooldowns: Dict[Any, float]
     _get_user_pref: Any
@@ -77,6 +78,7 @@ class HandlersMixin:
         self.client.add_event_handler(self._on_callback, events.CallbackQuery())
 
     def _build_setformat_keyboard(self, user_id: str):
+        """Build the inline keyboard for selecting a default delivery format."""
         current = self._get_user_pref(user_id)
         formats_layout = [
             [("npvt", "📋 npvt"), ("b64sub", "🔗 b64sub")],
@@ -97,7 +99,7 @@ class HandlersMixin:
         return buttons
 
     async def _on_start(self, event):
-        """Register user and send welcome with quick-action buttons."""
+        """Register a user and send the welcome/quick-action panel."""
         if not await self._check_rate_limit(event, cooldown_seconds=3):
             return
         user_id = str(event.sender_id)
@@ -127,6 +129,7 @@ class HandlersMixin:
             logger.info("[GatherX] New user registered: %s (@%s)", user_id, username)
 
     async def _on_help(self, event):
+        """Send the help/welcome panel after applying the command rate limit."""
         if not await self._check_rate_limit(event, cooldown_seconds=3):
             return
         self._register_user(str(event.sender_id), str(event.chat_id))
@@ -143,7 +146,7 @@ class HandlersMixin:
         await event.respond(WELCOME_TEXT, parse_mode="md", buttons=buttons)
 
     async def _on_get(self, event):
-        """On-demand file download: /get [format]."""
+        """Handle on-demand file download via ``/get [format]``."""
         if not await self._check_rate_limit(event, cooldown_seconds=5):
             return
         user_id = str(event.sender_id)
@@ -180,7 +183,7 @@ class HandlersMixin:
         await self._send_format_to_user(event.chat_id, fmt)
 
     async def _on_latest(self, event):
-        """Send all recent artifacts: /latest [days]."""
+        """Send all recent artifacts via ``/latest [days]``."""
         if not await self._check_rate_limit(event, cooldown_seconds=15):
             return
         self._register_user(str(event.sender_id), str(event.chat_id))
@@ -200,6 +203,7 @@ class HandlersMixin:
             await event.respond(f"✅ Sent {sent} file(s).")
 
     async def _on_formats(self, event):
+        """List downloadable text and binary artifact formats."""
         self._register_user(str(event.sender_id), str(event.chat_id))
 
         text_fmts = ["npvt", "npvtsub", "conf_lines", "b64sub", "decoded.json"]
@@ -227,7 +231,7 @@ class HandlersMixin:
         await event.respond("\n".join(lines), parse_mode="md", buttons=buttons)
 
     async def _on_setformat(self, event):
-        """Set user's preferred default format: /setformat <fmt>."""
+        """Set a user's preferred default format via ``/setformat <fmt>``."""
         user_id = str(event.sender_id)
         self._register_user(user_id, str(event.chat_id))
 
@@ -262,12 +266,13 @@ class HandlersMixin:
         )
 
     async def _on_myinfo(self, event):
-        """Show user's preferences and delivery settings."""
+        """Show the user's preferences and delivery settings."""
         user_id = str(event.sender_id)
         self._register_user(user_id, str(event.chat_id))
         await self._respond_myinfo(event.chat_id, user_id)
 
     async def _on_mute(self, event):
+        """Pause automatic delivery for the requesting user."""
         user_id = str(event.sender_id)
         self._register_user(user_id, str(event.chat_id))
         with self.db.connect() as conn:
@@ -280,6 +285,7 @@ class HandlersMixin:
         )
 
     async def _on_unmute(self, event):
+        """Resume automatic delivery for the requesting user."""
         user_id = str(event.sender_id)
         self._register_user(user_id, str(event.chat_id))
         with self.db.connect() as conn:
@@ -290,14 +296,16 @@ class HandlersMixin:
         )
 
     async def _on_protocols(self, event):
-        """Show supported proxy protocols."""
-        from ..formats.npvt import _PROXY_SCHEMES
+        """Show recognized proxy URI schemes, including authenticated HTTP(S)."""
+        from ..formats.npvt import _REPORT_PROXY_SCHEMES
 
-        schemes = sorted([scheme.replace("://", "") for scheme in _PROXY_SCHEMES])
+        schemes = sorted(
+            {scheme.replace("://", "") for scheme in _REPORT_PROXY_SCHEMES}
+        )
         msg = (
             "🔗 **Supported Protocols**\n"
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            "HuntX can detect, parse, and decode:\n\n"
+            "HuntX can detect, validate, and preserve:\n\n"
             f"`{', '.join(schemes)}`"
         )
         await event.respond(msg, parse_mode="md")
@@ -324,7 +332,7 @@ class HandlersMixin:
         await event.respond("\n".join(lines), parse_mode="md")
 
     async def _on_ping(self, event):
-        """Simple health check."""
+        """Run a simple bot health/latency check."""
         start = time.time()
         msg = await event.respond("🏓 Pong!")
         latency = (time.time() - start) * 1000
@@ -334,7 +342,7 @@ class HandlersMixin:
         )
 
     async def _on_status(self, event):
-        """Show system/pipeline statistics."""
+        """Show aggregate system and pipeline statistics."""
         stats = self._get_system_stats()
         users = self._get_user_count()
 
@@ -349,7 +357,7 @@ class HandlersMixin:
         await event.respond(msg, parse_mode="md")
 
     async def _respond_formats(self, chat_id: int):
-        """Send formats list to a chat."""
+        """Send the downloadable-format list to a chat."""
         text_fmts = ["npvt", "npvtsub", "conf_lines", "b64sub", "decoded.json"]
         bin_fmts = ["ovpn", "npv4", "ehi", "hc", "hat", "sip", "nm", "dark"]
         lines = ["📋 **Available Formats**\n", "**Text-based:**"]
@@ -373,7 +381,7 @@ class HandlersMixin:
         )
 
     async def _respond_myinfo(self, chat_id: int, user_id: str, event=None):
-        """Send or edit user settings to a chat."""
+        """Send or edit a user's settings panel."""
         info = self._get_user_info(user_id)
         if not info:
             if event:
