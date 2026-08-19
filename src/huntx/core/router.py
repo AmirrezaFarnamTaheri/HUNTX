@@ -2,9 +2,11 @@ import base64
 import binascii
 import re
 from functools import lru_cache
+
 _PROXY_SCHEMES = ('vmess://', 'vless://', 'trojan://', 'ss://', 'ssr://', 'hysteria2://', 'hy2://', 'hysteria2+realm://', 'hysteria2+realm+http://', 'hysteria://', 'tuic://', 'wireguard://', 'wg://', 'socks://', 'socks5://', 'socks4://', 'socks4a://', 'anytls://', 'juicity://', 'warp://', 'dns://', 'dnstt://', 'ssh://', 'shadowtls://', 'naive://', 'naive+https://')
 _PROXY_URI_PREFIXES = _PROXY_SCHEMES
 _AUTH_HTTP_PROXY_RE = re.compile('https?://[^@\\s/:]+(?::[^@\\s]*)?@(?:\\[[^\\]]+\\]|[^/\\s:]+):\\d{1,5}(?:#[^\\s<>\\"\']*)?', re.IGNORECASE)
+
 
 @lru_cache(maxsize=4096)
 def _format_by_extension(filename_lower: str) -> str | None:
@@ -37,9 +39,11 @@ def _format_by_extension(filename_lower: str) -> str | None:
         return 'npvtsub'
     return None
 
+
 def _contains_proxy_uri(text: str) -> bool:
     """Return whether text contains a safe proxy endpoint URI."""
     return any((scheme in text for scheme in _PROXY_URI_PREFIXES)) or bool(_AUTH_HTTP_PROXY_RE.search(text))
+
 
 def decide_format(filename: str, content: bytes) -> str:
     """
