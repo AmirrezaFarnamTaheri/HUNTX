@@ -7,6 +7,7 @@ from ..config.schema import AppConfig
 from ..pipeline.governed_build import GovernedBuildPipeline
 from ..state.consumer_reconciliation import reconcile_configured_bot_consumers
 from .optimized_orchestrator import OptimizedHardenedOrchestrator
+from .runtime_resilience import apply_runtime_resilience
 
 logger = logging.getLogger(__name__)
 
@@ -19,11 +20,13 @@ def create_production_orchestrator(
 ) -> OptimizedHardenedOrchestrator:
     """Construct the single governed production orchestration stack.
 
-    Every production trigger must use this factory.  Centralizing construction
+    Every production trigger must use this factory. Centralizing construction
     prevents CLI, bot-admin and future entry points from silently diverging on
     persistent-window ingestion, source governance, publication tiers, fresh
-    probe requirements or Telegram consumer reconciliation.
+    probe requirements, manifest trust revocation, or Telegram consumer
+    reconciliation.
     """
+    apply_runtime_resilience()
     orchestrator = OptimizedHardenedOrchestrator(
         config,
         max_workers=max(1, int(max_workers)),
