@@ -234,6 +234,7 @@ async def _run_hardened(
     self._window_pages = 0
     self._window_completions = 0
     self._window_failures = 0
+    self._reset_investigation_metrics()
     self._run_owner = uuid.uuid4().hex
     self._completion_buffer_seconds = self._completion_buffer(timeout)
 
@@ -257,11 +258,6 @@ async def _run_hardened(
         recovered = self._work_queue.recover_expired_leases()
         ingestion_sources = await self._canonical_ingestion_sources(approved)
         self._source_by_id = {str(source.id): source for source in ingestion_sources}
-        # The downstream hardened runner, dev-export contract, and persistent
-        # queue must all observe the same approved/canonical source set.  The
-        # previous monkey-patched runtime used the original source list here,
-        # which reintroduced candidate/quarantined MTProto work before the base
-        # class had a chance to filter it.
         self.config.sources = ingestion_sources
         seed = self._work_queue.seed_rolling_horizon(
             ingestion_sources,
@@ -317,6 +313,7 @@ async def _run_hardened(
     summary["lifo_windows_completed"] = self._window_completions
     summary["lifo_window_failures"] = self._window_failures
     summary["lifo_residue"] = residue
+    summary.update(self._investigation_metrics())
     summary["ingest_skipped_due_to_budget"] = (
         remaining_residue if self._ingestion_budget_exhausted else 0
     )
