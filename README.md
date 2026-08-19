@@ -199,11 +199,12 @@ HUNTX recognizes and preserves these proxy URI families (including aliases):
 - Hysteria 1, Hysteria2 (`hysteria2` / `hy2`), and Hysteria2 Realm share links
 - TUIC, AnyTLS, Juicity
 - SOCKS (`socks`, `socks4`, `socks4a`, `socks5`) and authenticated HTTP/HTTPS proxy endpoints
-- SSH, ShadowTLS, NaiveProxy
+- SSH and ShadowTLS
+- NaiveProxy (`naive+https` / `naive+quic`), including optional authentication and validated extra headers
 - Mieru (`mieru` / `mierus`)
 - WireGuard-style (`wireguard` / `wg`), WARP, DNS and DNSTT links
 
-The sing-box derivative is intentionally stricter than ingestion. It currently renders VMess, VLESS, Trojan, Shadowsocks, Hysteria 1, sufficiently complete Hysteria2/Realm links, TUIC, AnyTLS, SOCKS, authenticated HTTP(S), SSH, ShadowTLS, and NaiveProxy. Links whose current sing-box representation requires information not present in the share URI (or for which HUNTX has no verified native mapping) remain in the subscription/decoded output instead of being converted into invalid JSON.
+The sing-box derivative is intentionally stricter than ingestion. It currently renders VMess, VLESS, Trojan, Shadowsocks, Hysteria 1, sufficiently complete Hysteria2/Realm links, TUIC, AnyTLS, SOCKS, authenticated HTTP(S), SSH, ShadowTLS, and representable authenticated `naive+https` links. `naive+quic`, Mieru, Juicity, SSR, WireGuard-style links, and other schemes without a verified current native mapping remain in the subscription/decoded output instead of being converted into invalid JSON.
 
 ## GitHub Actions CI
 
