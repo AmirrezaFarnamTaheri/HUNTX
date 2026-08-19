@@ -122,6 +122,7 @@ class HardenedOrchestrator(Orchestrator):
                     "mode": destination.mode,
                     "caption_template": destination.caption_template,
                     "token": destination.token,
+                    "required": getattr(destination, "required", True),
                 }
                 for destination in route.destinations
             ]
