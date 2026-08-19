@@ -3,7 +3,7 @@ import binascii
 import re
 from functools import lru_cache
 
-_PROXY_SCHEMES = ('vmess://', 'vless://', 'trojan://', 'ss://', 'ssr://', 'hysteria2://', 'hy2://', 'hysteria2+realm://', 'hysteria2+realm+http://', 'hysteria://', 'tuic://', 'wireguard://', 'wg://', 'socks://', 'socks5://', 'socks4://', 'socks4a://', 'anytls://', 'juicity://', 'warp://', 'dns://', 'dnstt://', 'ssh://', 'shadowtls://', 'naive://', 'naive+https://')
+_PROXY_SCHEMES = ('vmess://', 'vless://', 'trojan://', 'ss://', 'ssr://', 'hysteria2://', 'hy2://', 'hysteria2+realm://', 'hysteria2+realm+http://', 'hysteria://', 'tuic://', 'wireguard://', 'wg://', 'socks://', 'socks5://', 'socks4://', 'socks4a://', 'anytls://', 'juicity://', 'mieru://', 'mierus://', 'warp://', 'dns://', 'dnstt://', 'ssh://', 'shadowtls://', 'naive://', 'naive+https://')
 _PROXY_URI_PREFIXES = _PROXY_SCHEMES
 _AUTH_HTTP_PROXY_RE = re.compile('https?://[^@\\s/:]+(?::[^@\\s]*)?@(?:\\[[^\\]]+\\]|[^/\\s:]+):\\d{1,5}(?:#[^\\s<>\\"\']*)?', re.IGNORECASE)
 
