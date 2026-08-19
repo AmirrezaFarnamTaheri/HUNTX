@@ -14,6 +14,8 @@ import (
 	"github.com/AmirrezaFarnamTaheri/HUNTX/internal/releasemanifest"
 )
 
+const outputOwnershipManifest = ".huntx-output-ownership.json"
+
 type Summary struct {
 	Files      int            `json:"files"`
 	TotalSize  int64          `json:"total_size"`
@@ -48,6 +50,9 @@ func Verify(dataDir string) (Summary, error) {
 			return fmt.Errorf("symlink output forbidden: %s", name)
 		}
 		if entry.IsDir() {
+			return nil
+		}
+		if filepath.Base(name) == outputOwnershipManifest {
 			return nil
 		}
 		paths = append(paths, name)
