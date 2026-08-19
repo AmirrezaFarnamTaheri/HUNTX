@@ -25,6 +25,14 @@ class HandlersMixin:
     _get_user_pref: Any
     _is_admin: Any
     _get_user_info: Any
+    _require_private_chat: Any
+    _require_approved: Any
+    _require_admin: Any
+    _on_callback: Any
+    _on_admin: Any
+    _on_approve: Any
+    _on_deny: Any
+    _on_pending: Any
 
     async def _require_named_access(self, event: Any, command: str) -> bool:
         """Apply the declared DM/approval/admin policy for one command."""
@@ -55,8 +63,6 @@ class HandlersMixin:
         elif data in {"cmd:formats", "cmd:myinfo"}:
             allowed = await self._require_named_access(event, "myinfo")
         else:
-            # Unknown callbacks are still constrained to the private bot surface
-            # before the dispatcher returns its normal "unknown action" result.
             allowed = await self._require_private_chat(event)
         if not allowed:
             return
