@@ -1,3 +1,4 @@
+import base64
 import json
 from unittest.mock import Mock
 
@@ -92,6 +93,12 @@ def test_hysteria2_realm_uri_maps_to_realm_object_without_server_fields():
     ]
 
 
+def test_realm_without_stun_is_preserved_but_not_misrendered():
+    uri = 'hysteria2+realm://token@realm.example.com/my-room?auth=hy-password'
+    assert validate_proxy_uri(uri)
+    assert parse_proxy_uri(uri) is None
+
+
 def test_socks4a_http_https_ssh_shadowtls_and_naive_are_exported():
     uris = [
         'socks4a://proxy.example.com:1080#S4A',
@@ -130,6 +137,12 @@ def test_ordinary_web_url_does_not_trigger_proxy_classification():
     assert not validate_proxy_uri('https://example.com:443/docs')
 
 
+def test_unauthenticated_http_root_is_not_treated_as_proxy_share_link():
+    uri = 'https://example.com:443'
+    assert not validate_proxy_uri(uri)
+    assert decide_format('message.txt', uri.encode()) == 'opaque_bundle'
+
+
 def test_authenticated_http_proxy_is_detected_and_npvt_parses_it():
     uri = 'https://alice:secret@proxy.example.com:8443'
     assert decide_format('message.txt', uri.encode()) == 'npvt'
@@ -146,8 +159,46 @@ def test_wireguard_is_preserved_as_valid_input_but_not_emitted_as_removed_outbou
     assert not any(item.get('type') == 'wireguard' for item in config['outbounds'])
 
 
+def test_mieru_standard_share_is_preserved_and_not_misrendered():
+    payload = base64.urlsafe_b64encode(b'\x08\x01synthetic-mieru').decode().rstrip('=')
+    uri = f'mieru://{payload}'
+    assert validate_proxy_uri(uri)
+    assert decide_format('message.txt', uri.encode()) == 'npvt'
+    records = NpvtHandler().parse(uri.encode(), {})
+    assert len(records) == 1
+    assert records[0]['data']['line'] == uri
+    assert parse_proxy_uri(uri) is None
+
+
+def test_mierus_simple_share_validates_paired_ports_and_protocols():
+    uri = (
+        'mierus://alice:secret@mieru.example.com?profile=default'
+        '&port=6666&protocol=TCP&port=7000-7002&protocol=UDP#Mieru'
+    )
+    assert validate_proxy_uri(uri)
+    assert decide_format('message.txt', uri.encode()) == 'npvt'
+    assert parse_proxy_uri(uri) is None
+
+    mismatched = (
+        'mierus://alice:secret@mieru.example.com?profile=default'
+        '&port=6666&protocol=TCP&port=7000'
+    )
+    assert not validate_proxy_uri(mismatched)
+
+
+def test_juicity_requires_uuid_and_password():
+    uuid_value = '11111111-2222-3333-4444-555555555555'
+    valid = f'juicity://{uuid_value}:secret@juicity.example.com:443'
+    missing_password = f'juicity://{uuid_value}@juicity.example.com:443'
+    bad_uuid = 'juicity://not-a-uuid:secret@juicity.example.com:443'
+    assert validate_proxy_uri(valid)
+    assert not validate_proxy_uri(missing_password)
+    assert not validate_proxy_uri(bad_uuid)
+
+
 def test_decoded_json_counts_new_protocols():
     pipeline = BuildPipeline(Mock(), Mock(), Mock())
+    mieru_payload = base64.urlsafe_b64encode(b'\x08\x01synthetic-mieru').decode().rstrip('=')
     raw = '\n'.join(
         [
             'socks4a://proxy.example.com:1080',
@@ -155,6 +206,8 @@ def test_decoded_json_counts_new_protocols():
             'shadowtls://secret@st.example.com:443?version=3&sni=cdn.example.com',
             'naive+https://alice:secret@naive.example.com:443',
             'https://alice:secret@http.example.com:8443',
+            f'mieru://{mieru_payload}',
+            'mierus://alice:secret@mieru.example.com?profile=default&port=6666&protocol=TCP',
         ]
     )
     decoded = json.loads(pipeline._decode_proxy_text(raw).decode())
@@ -164,4 +217,9 @@ def test_decoded_json_counts_new_protocols():
         'shadowtls': 1,
         'naive': 1,
         'http': 1,
+        'mieru': 2,
     }
+    standard_mieru = next(
+        entry for entry in decoded['entries'] if entry.get('scheme') == 'mieru'
+    )
+    assert standard_mieru['encoding'] == 'protobuf-base64'
