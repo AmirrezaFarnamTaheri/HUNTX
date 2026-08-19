@@ -13,7 +13,7 @@ from ..formats.registry import FormatRegistry
 from ..state.repo import StateRepo
 from ..store.artifact_store import ArtifactStore
 logger = logging.getLogger(__name__)
-_STANDARD_PROTOCOLS = {'vless': 'vless', 'trojan': 'trojan', 'hysteria2': 'hysteria2', 'hy2': 'hysteria2', 'hysteria2+realm': 'hysteria2', 'hysteria2+realm+http': 'hysteria2', 'hysteria': 'hysteria', 'tuic': 'tuic', 'wireguard': 'wireguard', 'wg': 'wireguard', 'socks': 'socks', 'socks5': 'socks', 'socks4': 'socks', 'socks4a': 'socks', 'http': 'http', 'https': 'http', 'ssh': 'ssh', 'shadowtls': 'shadowtls', 'naive': 'naive', 'naive+https': 'naive', 'anytls': 'anytls', 'juicity': 'juicity', 'warp': 'warp', 'dns': 'dns', 'dnstt': 'dnstt'}
+_STANDARD_PROTOCOLS = {'vless': 'vless', 'trojan': 'trojan', 'hysteria2': 'hysteria2', 'hy2': 'hysteria2', 'hysteria2+realm': 'hysteria2', 'hysteria2+realm+http': 'hysteria2', 'hysteria': 'hysteria', 'tuic': 'tuic', 'wireguard': 'wireguard', 'wg': 'wireguard', 'socks': 'socks', 'socks5': 'socks', 'socks4': 'socks', 'socks4a': 'socks', 'http': 'http', 'https': 'http', 'ssh': 'ssh', 'shadowtls': 'shadowtls', 'naive': 'naive', 'naive+https': 'naive', 'anytls': 'anytls', 'juicity': 'juicity', 'mierus': 'mieru', 'warp': 'warp', 'dns': 'dns', 'dnstt': 'dnstt'}
 _DERIVED_PROXY_FORMATS = frozenset({'npvt', 'npvtsub'})
 
 
@@ -169,6 +169,13 @@ class BuildPipeline:
             return self._decode_ss(line)
         if normalized_scheme == 'ssr':
             return self._decode_ssr(line)
+        if normalized_scheme == 'mieru':
+            return {
+                'protocol': 'mieru',
+                'scheme': 'mieru',
+                'encoding': 'protobuf-base64',
+                'raw': line,
+            }
         protocol = _STANDARD_PROTOCOLS.get(normalized_scheme)
         if protocol is None:
             return None
