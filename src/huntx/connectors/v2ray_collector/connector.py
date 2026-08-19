@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import hashlib
+import logging
 import os
 import subprocess
 import time
-import logging
-import hashlib
-from typing import Dict, Any, Optional
-from ..base import SourceConnector, AsyncSyncIterator
+from typing import Any, Dict, Optional
+
+from ..base import AsyncSyncIterator, SourceConnector
 
 logger = logging.getLogger("huntx.connectors.v2ray_collector")
 
@@ -21,11 +22,7 @@ class V2RayCollectorItem:
 
 
 class V2RayCollectorConnector(SourceConnector):
-    """
-    Python wrapper connector for the Go v2ray_collector scraper.
-    Executes 'go run main.go' to fetch configurations from Telegram and
-    ingests the results.
-    """
+    """Python wrapper for the Go v2ray_collector scraper."""
 
     def __init__(self, base_dir: Optional[str] = None):
         if base_dir is None:
@@ -35,11 +32,24 @@ class V2RayCollectorConnector(SourceConnector):
         self.last_run_time = 0
         self.deadline: Optional[float] = None
 
+    @staticmethod
+    def build_external_id(line: str) -> str:
+        """Return a stable content identity independent of output ordering.
+
+        Historical versions used ``sha256[:16]`` and later ``sha256[:32]``
+        plus the scraper's line index. Reordering the same scraper output could
+        therefore manufacture a new identity. New identities use the complete
+        SHA-256 digest and intentionally omit the volatile index.
+        """
+        digest = hashlib.sha256(line.strip().encode("utf-8")).hexdigest()
+        return f"goscrap_{digest}"
+
     def list_new(self, state: Optional[Dict[str, Any]] = None):
         return AsyncSyncIterator(self._list_new_async(state))
 
     async def _list_new_async(self, state: Optional[Dict[str, Any]]):
         import asyncio
+        import shutil
 
         loop = asyncio.get_running_loop()
 
@@ -48,66 +58,76 @@ class V2RayCollectorConnector(SourceConnector):
             if os.path.exists(output_file):
                 try:
                     os.remove(output_file)
-                except OSError as e:
-                    logger.warning(f"Could not remove existing configs file: {e}")
-
-            # 2. Run the Go scraper
-            import shutil
+                except OSError as exc:
+                    logger.warning("Could not remove existing configs file: %s", exc)
 
             if not shutil.which("go"):
                 logger.error(
-                    "Go binary ('go') not found in system PATH. Please install Go toolchain to run v2ray_collector."
+                    "Go binary ('go') not found in system PATH. "
+                    "Install Go to run v2ray_collector."
                 )
                 return []
 
-            logger.info(f"Executing Go scraper in {self.base_dir}...")
+            logger.info("Executing Go scraper in %s...", self.base_dir)
             try:
-                res = subprocess.run(
+                result = subprocess.run(
                     ["go", "run", "main.go"],
                     cwd=self.base_dir,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True,
-                    timeout=300,  # 5 minutes safety limit
+                    timeout=300,
+                    check=False,
                 )
-                if res.stdout:
-                    logger.debug(f"Go scraper stdout: {res.stdout}")
-                if res.stderr:
-                    logger.warning(f"Go scraper stderr: {res.stderr}")
-            except Exception as e:
-                logger.error(f"Failed to execute Go scraper subprocess: {e}")
+                if result.stdout:
+                    logger.debug("Go scraper stdout: %s", result.stdout)
+                if result.stderr:
+                    logger.warning("Go scraper stderr: %s", result.stderr)
+                if result.returncode != 0:
+                    logger.error("Go scraper exited with status %s", result.returncode)
+                    return []
+            except (OSError, subprocess.SubprocessError) as exc:
+                logger.error("Failed to execute Go scraper subprocess: %s", exc)
                 return []
 
-            # 3. Read the output file
             if not os.path.exists(output_file):
-                logger.warning(f"Scraper completed but no output file was written at {output_file}")
+                logger.warning(
+                    "Scraper completed but no output file was written at %s",
+                    output_file,
+                )
                 return []
 
             try:
-                with open(output_file, "r", encoding="utf-8", errors="ignore") as f:
-                    return f.readlines()
-            except Exception as e:
-                logger.error(f"Failed to read output file: {e}")
+                with open(output_file, "r", encoding="utf-8", errors="ignore") as stream:
+                    return stream.readlines()
+            except OSError as exc:
+                logger.error("Failed to read output file: %s", exc)
                 return []
 
         lines = await loop.run_in_executor(None, run_scraper_sync)
-        logger.info(f"Go scraper completed. Scraped {len(lines)} configs.")
+        logger.info("Go scraper completed. Scraped %s configs.", len(lines))
 
-        # 4. Yield each config line as a SourceItem
-        for idx, line in enumerate(lines):
+        yielded_ids: set[str] = set()
+        for line in lines:
             line = line.strip()
             if not line:
                 continue
-            # H-4: Use 32-char (128-bit) hash prefix for external_id stability.
-            # Previous [:16] = 64-bit — birthday collision at ~4B items.
-            # 32-char = 128-bit — birthday collision at ~2^64 items (negligible risk).
-            h = hashlib.sha256(line.encode("utf-8")).hexdigest()[:32]
-            ext_id = f"goscrap_{h}_{idx}"
+
+            ext_id = self.build_external_id(line)
+            if ext_id in yielded_ids:
+                continue
+            yielded_ids.add(ext_id)
 
             yield V2RayCollectorItem(
                 external_id=ext_id,
                 data=line.encode("utf-8"),
-                metadata={"filename": "collected_configs.txt", "is_text": True},
+                metadata={
+                    "filename": "collected_configs.txt",
+                    "is_text": True,
+                    # Ingestion uses this opt-in to recognize rows written by
+                    # the old index-dependent external-ID schemes via raw_hash.
+                    "dedupe_by_content": True,
+                },
             )
 
         self.last_run_time = int(time.time())
