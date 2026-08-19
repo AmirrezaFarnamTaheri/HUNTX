@@ -42,6 +42,10 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
         self._window_pages = 0
         self._window_completions = 0
         self._window_failures = 0
+        self._sources_checked: set[str] = set()
+        self._messages_scanned = 0
+        self._messages_new = 0
+        self._cursor_updates = 0
 
     def _source_timeout(self) -> float:
         raw = os.environ.get("HUNTX_SOURCE_TIMEOUT", "600")
@@ -108,6 +112,22 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
         if stop is None:
             return None
         return stop - time.monotonic()
+
+    def _reset_investigation_metrics(self) -> None:
+        """Reset concrete ingestion-evidence counters for one run."""
+        self._sources_checked = set()
+        self._messages_scanned = 0
+        self._messages_new = 0
+        self._cursor_updates = 0
+
+    def _investigation_metrics(self) -> dict[str, int]:
+        """Return machine-readable evidence used by the investigation gate."""
+        return {
+            "sources_checked": len(self._sources_checked),
+            "messages_scanned": int(self._messages_scanned),
+            "messages_new": int(self._messages_new),
+            "cursor_updates": int(self._cursor_updates),
+        }
 
     async def _canonical_ingestion_sources(self, sources: list[Any]) -> list[Any]:
         """Return direct sources plus one MTProto source per canonical channel."""
@@ -182,6 +202,7 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
             return
         timeout = configured_timeout if remaining is None else min(configured_timeout, remaining)
         success = False
+        self._sources_checked.add(str(source.id))
         try:
             success = bool(
                 await asyncio.wait_for(
@@ -243,6 +264,7 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                     results["err"] += 1
                 continue
 
+            self._sources_checked.add(str(item.source_id))
             timeout = configured_timeout if remaining is None else min(configured_timeout, remaining)
             wall_deadline = time.time() + timeout
             try:
@@ -257,6 +279,12 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                     timeout=timeout,
                 )
                 self._window_pages += 1
+                self._messages_scanned += max(0, int(page_result["scanned_messages"] or 0))
+                self._messages_new += max(0, int(page_result["items_ingested"] or 0))
+                # A successful page always checkpoints either a continuation
+                # cursor or terminal completion in the same DB transaction as
+                # its newly ingested observations.
+                self._cursor_updates += 1
                 if bool(page_result["completed"]):
                     self._window_completions += 1
                     async with lock:
@@ -364,13 +392,12 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                 )
 
         ingestion_sources = await self._canonical_ingestion_sources(approved_sources)
-        self._source_by_id = {
-            str(source.id): source for source in ingestion_sources
-        }
+        self._source_by_id = {str(source.id): source for source in ingestion_sources}
         self._ingestion_budget_exhausted = False
         self._window_pages = 0
         self._window_completions = 0
         self._window_failures = 0
+        self._reset_investigation_metrics()
         self._run_owner = uuid.uuid4().hex
         self._completion_buffer_seconds = self._completion_buffer(timeout)
 
@@ -427,6 +454,7 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
         summary["lifo_windows_completed"] = self._window_completions
         summary["lifo_window_failures"] = self._window_failures
         summary["lifo_residue"] = residue
+        summary.update(self._investigation_metrics())
         summary["ingest_skipped_due_to_budget"] = (
             remaining_residue if self._ingestion_budget_exhausted else 0
         )
