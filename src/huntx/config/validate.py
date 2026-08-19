@@ -153,6 +153,14 @@ def validate_config(config: AppConfig):
                 f"Routes {prior_route!r} and {route.name!r} collide on output name "
                 f"{route_component!r}"
             )
+        for prior_component, prior_name in seen_route_components.items():
+            if route_component.startswith(prior_component) or prior_component.startswith(
+                route_component
+            ):
+                raise ValueError(
+                    f"Routes {prior_name!r} and {route.name!r} have ambiguous output "
+                    "prefixes; route names must not prefix one another"
+                )
         seen_route_components[route_component] = route.name
 
         if not route.from_sources:
