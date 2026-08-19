@@ -3,18 +3,24 @@ import binascii
 import json
 import re
 from typing import Any, Dict, List
+
 from .base import FormatHandler
 from .common.b64 import b64_decode as _b64_decode_safe
 from .common.hashing import hash_string
 from .common.normalize_text import normalize_text
 from .proxy_uri_validator import validate_proxy_uri
 from ..core.router import _AUTH_HTTP_PROXY_RE, _PROXY_SCHEMES
-_PROXY_URI_RE = re.compile('(?:' + '|'.join((re.escape(s) for s in _PROXY_SCHEMES)) + ')[^\\s<>"\\\']+', re.IGNORECASE)
+
+_REPORT_PROXY_SCHEMES = _PROXY_SCHEMES + ('http://', 'https://')
+_PROXY_URI_RE = re.compile(
+    '(?:' + '|'.join((re.escape(s) for s in _PROXY_SCHEMES)) + ')[^\\s<>"\\\']+',
+    re.IGNORECASE,
+)
 
 
 def _is_proxy_line(line: str) -> bool:
     """Return whether a complete line is a supported proxy URI."""
-    if any((line.startswith(s) for s in _PROXY_SCHEMES)):
+    if any(line.startswith(s) for s in _PROXY_SCHEMES):
         return True
     return line.lower().startswith(('http://', 'https://')) and validate_proxy_uri(line)
 
@@ -22,7 +28,7 @@ def _is_proxy_line(line: str) -> bool:
 def _extract_proxy_uris(text: str) -> List[str]:
     """Extract supported proxy URIs embedded in arbitrary text."""
     matches = _PROXY_URI_RE.findall(text)
-    matches.extend((match.group(0) for match in _AUTH_HTTP_PROXY_RE.finditer(text)))
+    matches.extend(match.group(0) for match in _AUTH_HTTP_PROXY_RE.finditer(text))
     return matches
 
 
@@ -72,7 +78,12 @@ class NpvtHandler(FormatHandler):
         """Return the format identifier."""
         return 'npvt'
 
-    def _append_uri(self, records: List[Dict[str, Any]], seen_hashes: set[str], candidate: str) -> None:
+    def _append_uri(
+        self,
+        records: List[Dict[str, Any]],
+        seen_hashes: set[str],
+        candidate: str,
+    ) -> None:
         """Validate, deduplicate, and append one proxy URI record."""
         uri = candidate.strip()
         if not validate_proxy_uri(uri):
@@ -86,17 +97,21 @@ class NpvtHandler(FormatHandler):
         seen_hashes.add(digest)
         records.append({'unique_hash': digest, 'data': {'line': stripped}})
 
-    def parse(self, raw_data: bytes, source_info: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def parse(
+        self,
+        raw_data: bytes,
+        source_info: Dict[str, Any],
+    ) -> List[Dict[str, Any]]:
         """Parse proxy text into validated deduplicated records."""
         try:
             text = raw_data.decode('utf-8')
         except UnicodeDecodeError:
             return []
         clean_text = text.strip()
-        if '://' not in clean_text and ' ' not in clean_text and (len(clean_text) > 10):
+        if '://' not in clean_text and ' ' not in clean_text and len(clean_text) > 10:
             try:
                 decoded = _b64_decode_safe(clean_text)
-                if any((s in decoded for s in _PROXY_SCHEMES)) or _AUTH_HTTP_PROXY_RE.search(decoded):
+                if any(s in decoded for s in _PROXY_SCHEMES) or _AUTH_HTTP_PROXY_RE.search(decoded):
                     text = decoded
             except (binascii.Error, UnicodeDecodeError, ValueError):
                 pass
