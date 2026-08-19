@@ -17,8 +17,8 @@ class _Harness(DeliveryMixin):
         with self.db.connect() as conn:
             conn.execute("""
                 INSERT INTO bot_users
-                    (user_id, chat_id, registered_at)
-                VALUES ('u1', '123', 0)
+                    (user_id, chat_id, registered_at, approved, muted)
+                VALUES ('123', '123', 0, 1, 0)
                 """)
 
 
@@ -36,7 +36,7 @@ class DeliveryResumeTests(unittest.IsolatedAsyncioTestCase):
 
             with patch("huntx.bot.delivery.asyncio.sleep", new=AsyncMock()):
                 sent, failed = await harness._deliver_files_to_user(
-                    {"user_id": "u1", "chat_id": "123"},
+                    {"user_id": "123", "chat_id": "123"},
                     files,
                 )
             self.assertEqual((sent, failed), (1, 1))
@@ -45,7 +45,7 @@ class DeliveryResumeTests(unittest.IsolatedAsyncioTestCase):
             harness.client.send_file.side_effect = None
             with patch("huntx.bot.delivery.asyncio.sleep", new=AsyncMock()):
                 sent, failed = await harness._deliver_files_to_user(
-                    {"user_id": "u1", "chat_id": "123"},
+                    {"user_id": "123", "chat_id": "123"},
                     files,
                 )
 
@@ -59,7 +59,7 @@ class DeliveryResumeTests(unittest.IsolatedAsyncioTestCase):
             artifact = root / "artifact.txt"
             artifact.write_text("v1", encoding="utf-8")
             harness = _Harness(root)
-            user = {"user_id": "u1", "chat_id": "123"}
+            user = {"user_id": "123", "chat_id": "123"}
 
             with patch("huntx.bot.delivery.asyncio.sleep", new=AsyncMock()):
                 await harness._deliver_files_to_user(user, [(artifact, "artifact")])
@@ -78,7 +78,7 @@ class DeliveryResumeTests(unittest.IsolatedAsyncioTestCase):
             with harness.db.connect() as conn:
                 row = conn.execute("""
                     SELECT artifact_hash FROM bot_delivery_items
-                    WHERE user_id = 'u1' ORDER BY delivered_at DESC LIMIT 1
+                    WHERE user_id = '123' ORDER BY delivered_at DESC LIMIT 1
                     """).fetchone()
             self.assertEqual(row["artifact_hash"], expected)
 
