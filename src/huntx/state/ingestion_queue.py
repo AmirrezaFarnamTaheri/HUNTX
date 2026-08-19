@@ -42,7 +42,7 @@ class PersistentIngestionQueue:
     @staticmethod
     def _next_rotation_seq(conn: Any) -> int:
         row = conn.execute(
-            "SELECT COALESCE(MAX(rotation_seq), 0) + 1 AS next_seq " "FROM ingestion_work_items"
+            "SELECT COALESCE(MAX(rotation_seq), 0) + 1 AS next_seq FROM ingestion_work_items"
         ).fetchone()
         return int(row["next_seq"] if row else 1)
 
@@ -336,6 +336,15 @@ class PersistentIngestionQueue:
         *,
         now: Optional[int] = None,
     ) -> int:
+        """Immediately revoke all unfinished work, including active leases.
+
+        Revoking a leased row invalidates its lease token. Windowed page writes
+        and their queue checkpoint share one SQLite transaction, so a worker
+        that tries to checkpoint after revocation raises and rolls its page
+        writes back. If the page transaction linearized before revocation, the
+        later source-trust build filter still prevents that source from being
+        published.
+        """
         current = int(time.time()) if now is None else int(now)
         with self.db.connect() as conn:
             cursor = conn.execute(
@@ -345,7 +354,7 @@ class PersistentIngestionQueue:
                     lease_expires_at = NULL,
                     next_retry_at = NULL, last_error = ?, updated_at = ?, completed_at = ?
                 WHERE source_id = ?
-                  AND status IN ('pending', 'partial', 'retry_wait')
+                  AND status IN ('pending', 'partial', 'retry_wait', 'leased')
                 """,
                 (str(reason)[:1000], current, current, str(source_id)),
             )
