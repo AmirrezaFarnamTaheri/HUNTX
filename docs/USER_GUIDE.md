@@ -129,7 +129,7 @@ HUNTX deliberately separates **recognition/preservation** from **native sing-box
 | authenticated `http://` / `https://` endpoints | HTTP CONNECT proxy | URI parse; sing-box export; ordinary web URLs are rejected as proxy links |
 | `ssh://` | SSH proxy | URI parse; sing-box export |
 | `shadowtls://` | ShadowTLS | URI parse; sing-box export |
-| `naive://` / `naive+https://` | NaiveProxy | URI parse; sing-box export |
+| `naive+https://` / `naive+quic://` | NaiveProxy | Validated/preserved with optional auth and validated extra headers; representable authenticated HTTPS form can export to sing-box, QUIC remains preserve-only |
 | `anytls://` | AnyTLS | URI parse; sing-box export |
 | `juicity://` | Juicity (QUIC) | Validates UUID + password endpoint; preserved |
 | `mieru://` / `mierus://` | Mieru | Standard opaque or human-readable share-link validation; preserved |
