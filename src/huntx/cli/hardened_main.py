@@ -9,12 +9,10 @@ from . import main as legacy
 from ..config.loader import load_config
 from ..config.validate import validate_config
 from ..core.locks import acquire_lock
-from ..core.optimized_orchestrator import OptimizedHardenedOrchestrator
 from ..core.run_health import emit_run_health, evaluate_run_health
+from ..core.runtime_factory import create_production_orchestrator
 from ..core.runtime_resilience import apply_runtime_resilience
 from ..core.session_lease import session_lease_path
-from ..pipeline.governed_build import GovernedBuildPipeline
-from ..state.consumer_reconciliation import reconcile_configured_bot_consumers
 from ..store import paths
 
 logger = logging.getLogger(__name__)
@@ -56,7 +54,9 @@ def _inject_runtime_path_arguments(argv: Sequence[str]) -> list[str]:
     if not _has_option(resolved, "--data-dir"):
         additions.extend(["--data-dir", data_dir])
     if not _has_option(resolved, "--db-path"):
-        db_path = os.environ.get("HUNTX_STATE_DB_PATH") or str(Path(data_dir) / "state" / "state.db")
+        db_path = os.environ.get("HUNTX_STATE_DB_PATH") or str(
+            Path(data_dir) / "state" / "state.db"
+        )
         additions.extend(["--db-path", db_path])
     return [resolved[0], *additions, *resolved[1:]]
 
@@ -66,13 +66,7 @@ def _all_publish_failures_are_fatal(
     *,
     no_publish: bool,
 ) -> bool:
-    """Compatibility shim: publication is best-effort, never a health-gate fatality.
-
-    Failed delivery remains visible in the structured run-health report and
-    durable publication state. It must not discard valid artifacts or prevent a
-    checkpoint from advancing.
-    """
-
+    """Compatibility shim: publication is best-effort, never health-gate fatal."""
     del summary, no_publish
     return False
 
@@ -112,25 +106,10 @@ def _cmd_run(args):
             else nullcontext()
         )
         with acquire_lock(process_lock), session_lock:
-            orchestrator = OptimizedHardenedOrchestrator(
+            orchestrator = create_production_orchestrator(
                 config,
                 max_workers=max_workers,
                 fetch_windows=fetch_windows,
-            )
-            reconciliation = reconcile_configured_bot_consumers(orchestrator.repo, config)
-            logger.info("Telegram consumer reconciliation: %s", reconciliation)
-            route_policies = {
-                route.name: (
-                    route.publication_tier.value,
-                    route.effective_require_fresh_probe,
-                )
-                for route in config.routes
-            }
-            orchestrator.build_pipeline = GovernedBuildPipeline(
-                orchestrator.repo,
-                orchestrator.artifact_store,
-                orchestrator.registry,
-                route_policies,
             )
             summary = orchestrator.run(
                 timeout=run_timeout,
@@ -168,7 +147,10 @@ def _cmd_run(args):
             "ingest_ok": 0,
             "ingest_err": 0,
         }
-        failure_health = evaluate_run_health(failure_summary, no_publish=args.no_publish)
+        failure_health = evaluate_run_health(
+            failure_summary,
+            no_publish=args.no_publish,
+        )
         emit_run_health(failure_summary, failure_health, logger=logger)
         raise SystemExit(1)
 
@@ -176,10 +158,17 @@ def _cmd_run(args):
         try:
             legacy._deliver_updates()
         except (Exception, SystemExit):
-            logger.exception("Post-run auto-delivery failed; durable run output is preserved")
+            logger.exception(
+                "Post-run auto-delivery failed; durable run output is preserved"
+            )
             if summary is not None:
-                summary["post_run_delivery_failures"] = int(summary.get("post_run_delivery_failures", 0)) + 1
-                delivery_health = evaluate_run_health(summary, no_publish=args.no_publish)
+                summary["post_run_delivery_failures"] = int(
+                    summary.get("post_run_delivery_failures", 0)
+                ) + 1
+                delivery_health = evaluate_run_health(
+                    summary,
+                    no_publish=args.no_publish,
+                )
                 emit_run_health(summary, delivery_health, logger=logger)
 
 
