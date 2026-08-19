@@ -1,6 +1,8 @@
 import asyncio
 import logging
 import os
+from contextlib import nullcontext
+from pathlib import Path
 from typing import Optional
 
 from telethon import Button
@@ -53,7 +55,7 @@ class AdminMixin:
         return target if target.isdigit() else None
 
     async def _on_approve(self, event):
-        """Approve a registered user for automatic delivery: /approve <user_id>."""
+        """Approve a registered user for downloads and automatic delivery."""
         if not await self._require_admin(event):
             return
         target = self._target_user_id(event)
@@ -67,15 +69,18 @@ class AdminMixin:
                 (target,),
             )
         if cursor.rowcount == 0:
-            await event.respond(f"No registered user `{target}` was found.", parse_mode="md")
+            await event.respond(
+                f"No registered user `{target}` was found.",
+                parse_mode="md",
+            )
             return
         await event.respond(
-            f"✅ User `{target}` approved for automatic delivery.",
+            f"✅ User `{target}` approved for downloads and automatic delivery.",
             parse_mode="md",
         )
 
     async def _on_deny(self, event):
-        """Revoke/deny automatic delivery approval: /deny <user_id>."""
+        """Revoke a user's download and automatic-delivery authorization."""
         if not await self._require_admin(event):
             return
         target = self._target_user_id(event)
@@ -89,10 +94,13 @@ class AdminMixin:
                 (target,),
             )
         if cursor.rowcount == 0:
-            await event.respond(f"No registered user `{target}` was found.", parse_mode="md")
+            await event.respond(
+                f"No registered user `{target}` was found.",
+                parse_mode="md",
+            )
             return
         await event.respond(
-            f"🚫 User `{target}` is not approved for automatic delivery.",
+            f"🚫 User `{target}` is not approved for downloads or automatic delivery.",
             parse_mode="md",
         )
 
@@ -238,23 +246,65 @@ class AdminMixin:
         )
 
     def _run_pipeline_blocking(self):
-        """Load/validate config and execute one pipeline run under the process lock."""
+        """Execute one bot-triggered run through the production runtime contract."""
         from ..config.loader import load_config
         from ..config.validate import validate_config
         from ..core.locks import acquire_lock
-        from ..core.orchestrator import Orchestrator
+        from ..core.run_health import emit_run_health, evaluate_run_health
+        from ..core.runtime_factory import create_production_orchestrator
+        from ..core.session_lease import session_lease_path
 
         paths.set_paths(self.data_dir, self.db_path)
-
         config_path = os.environ.get("HUNTX_CONFIG", "config.yaml")
         config = load_config(config_path)
         validate_config(config)
 
+        max_workers_raw = os.environ.get("HUNTX_MAX_WORKERS", "3")
+        try:
+            max_workers = max(1, int(max_workers_raw))
+        except ValueError:
+            logger.warning("Invalid HUNTX_MAX_WORKERS=%r; using 3", max_workers_raw)
+            max_workers = 3
+
+        timeout_raw = os.environ.get("HUNTX_RUN_TIMEOUT", "12600")
+        try:
+            run_timeout = float(timeout_raw)
+        except ValueError:
+            logger.warning("Invalid HUNTX_RUN_TIMEOUT=%r; using 12600", timeout_raw)
+            run_timeout = 12600.0
+
+        allow_partial_export = os.environ.get(
+            "HUNTX_ALLOW_PARTIAL_EXPORT", "true"
+        ).strip().lower() in {"1", "true", "yes", "on"}
+        no_publish = os.environ.get(
+            "HUNTX_BOT_NO_PUBLISH", "false"
+        ).strip().lower() in {"1", "true", "yes", "on"}
+
         lock_path = paths.STATE_DIR / "huntx.lock"
-        with acquire_lock(lock_path):
-            orchestrator = Orchestrator(config)
-            no_publish = os.environ.get("HUNTX_BOT_NO_PUBLISH", "false").lower() == "true"
-            orchestrator.run(timeout=16200, no_publish=no_publish)
+        session_identity = os.environ.get("TELEGRAM_USER_SESSION", "").strip()
+        session_lock = (
+            acquire_lock(session_lease_path(Path(paths.STATE_DIR), session_identity))
+            if session_identity
+            else nullcontext()
+        )
+        with acquire_lock(lock_path), session_lock:
+            orchestrator = create_production_orchestrator(
+                config,
+                max_workers=max_workers,
+            )
+            summary = orchestrator.run(
+                timeout=run_timeout,
+                no_publish=no_publish,
+                allow_partial_export=allow_partial_export,
+            )
+
+        health = evaluate_run_health(summary, no_publish=no_publish)
+        emit_run_health(summary, health, logger=logger)
+        if health.is_fatal:
+            raise RuntimeError(
+                f"Pipeline health gate failed: {', '.join(health.reasons) or health.status}"
+            )
+        return summary
 
     async def _perform_admin_prune(self, event, days):
         """Invoke repo and raw-store pruning and report the resulting counts."""
