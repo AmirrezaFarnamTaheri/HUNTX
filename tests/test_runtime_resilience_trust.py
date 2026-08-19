@@ -25,6 +25,12 @@ async def test_resilient_runtime_filters_before_queue_seed_and_restores_config()
     queue.release_owner.return_value = 0
     queue.terminalize_source.return_value = 2
 
+    metrics = {
+        "sources_checked": 0,
+        "messages_scanned": 0,
+        "messages_new": 0,
+        "cursor_updates": 0,
+    }
     orchestrator = SimpleNamespace(
         config=config,
         _work_queue=queue,
@@ -33,6 +39,8 @@ async def test_resilient_runtime_filters_before_queue_seed_and_restores_config()
         _lookback_seconds=lambda: 3600,
         _window_seconds=lambda: 600,
         _canonical_ingestion_sources=AsyncMock(return_value=[approved]),
+        _reset_investigation_metrics=MagicMock(),
+        _investigation_metrics=MagicMock(return_value=metrics),
     )
 
     with patch.object(
@@ -47,6 +55,7 @@ async def test_resilient_runtime_filters_before_queue_seed_and_restores_config()
             allow_partial_export=False,
         )
 
+    orchestrator._reset_investigation_metrics.assert_called_once_with()
     orchestrator._canonical_ingestion_sources.assert_awaited_once_with([approved])
     queue.terminalize_source.assert_called_once_with(
         "candidate",
@@ -60,6 +69,7 @@ async def test_resilient_runtime_filters_before_queue_seed_and_restores_config()
     assert summary["configured_approved_sources"] == 1
     assert summary["excluded_sources"] == 1
     assert summary["canonical_ingestion_sources"] == 1
+    assert summary["sources_checked"] == 0
 
 
 @pytest.mark.asyncio
