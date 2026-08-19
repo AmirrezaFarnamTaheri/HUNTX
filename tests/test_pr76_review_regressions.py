@@ -32,6 +32,9 @@ class _FakeClient:
 class _FakeEvent:
     def __init__(self, sender_id, text):
         self.sender_id = sender_id
+        self.chat_id = sender_id
+        self.is_private = True
+        self.data = None
         self.text = text
         self.responses = []
 
@@ -40,15 +43,18 @@ class _FakeEvent:
         return None
 
 
-def test_approval_commands_are_registered():
+def test_approval_commands_are_registered_through_private_admin_policy():
     bot = object.__new__(InteractiveBot)
     bot.client = _FakeClient()
 
     bot._register_handlers()
 
-    assert "_on_approve" in bot.client.callbacks
-    assert "_on_deny" in bot.client.callbacks
-    assert "_on_pending" in bot.client.callbacks
+    assert "_private_approve" in bot.client.callbacks
+    assert "_private_deny" in bot.client.callbacks
+    assert "_private_pending" in bot.client.callbacks
+    assert "_on_approve" not in bot.client.callbacks
+    assert "_on_deny" not in bot.client.callbacks
+    assert "_on_pending" not in bot.client.callbacks
 
 
 @pytest.mark.asyncio
