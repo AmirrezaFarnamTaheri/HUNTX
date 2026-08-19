@@ -61,7 +61,7 @@ async def test_approval_commands_change_real_delivery_selector(tmp_path, monkeyp
         conn.execute(
             """
             INSERT INTO bot_users (user_id, chat_id, registered_at, approved, muted)
-            VALUES ('12345', 'chat-1', 1.0, 0, 0)
+            VALUES ('12345', '12345', 1.0, 0, 0)
             """
         )
 
