@@ -7,8 +7,8 @@
 - **Multi-source ingestion** — Bot API and MTProto User Session connectors (49+ sources)
 - **Configurable worker pool** — parallel ingestion via `HUNTX_MAX_WORKERS`
 - **12 format handlers** — `npvt`, `npvtsub`, `ovpn`, `npv4`, `conf_lines`, `ehi`, `hc`, `hat`, `sip`, `nm`, `dark`, `opaque_bundle`
-- **20+ proxy protocols** — vmess, vless, trojan, ss, ssr, hysteria2, tuic, wireguard, socks, juicity, anytls, warp, dns, and more
-- **Full protocol decoding** — all proxy URIs decoded to structured JSON; base64 subscription re-encoding
+- **30+ proxy URI schemes/aliases** — VMess, VLESS, Trojan, SS/SSR, Hysteria/Hysteria2, TUIC, SOCKS, HTTP(S), SSH, ShadowTLS, Naive, Mieru, Juicity, AnyTLS, WireGuard-style links, and more
+- **Structured protocol decoding** — validated proxy URIs are preserved and decoded to structured JSON; base64 subscription re-encoding is generated alongside safely representable sing-box output
 - **Incremental & deduplicated** — SHA-256 content hashing, only new files processed
 - **Crash-safe ingestion** — durable Bot API inbox plus content-addressed raw storage
 - **Media filtering** — images, videos, GIFs, stickers, voice, audio automatically dropped
@@ -166,7 +166,7 @@ Sources (49+ Telegram channels)
 
 | Format ID | Extension | Client | Description |
 |---|---|---|---|
-| `npvt` | `.txt` / auto | v2rayN/NG, Xray, sing-box | Proxy URI lines (20+ protocols) |
+| `npvt` | `.txt` / auto | v2rayN/NG, Xray, sing-box | Proxy URI lines (30+ schemes/aliases) |
 | `npvtsub` | `.npvtsub` | NapsternetV | Subscription proxy URIs |
 | `conf_lines` | `.conf` | Generic | Line-based config entries |
 
@@ -187,12 +187,23 @@ Sources (49+ Telegram channels)
 ### Derived outputs
 
 For `npvt` routes, the build phase also produces:
-- **`_decoded.json`** — structured JSON with all proxy URIs fully parsed
+- **`_decoded.json`** — structured JSON describing recognized proxy URIs
 - **`_b64sub.txt`** — base64-encoded subscription (v2rayN/v2rayNG import)
+- **`.singbox.json`** — sing-box 1.14+ configuration containing only URIs that can be represented faithfully in the current sing-box schema
 
 ## Supported Proxy Protocols
 
-vmess, vless, trojan, shadowsocks (ss), shadowsocksR (ssr), hysteria2/hy2, hysteria, tuic, wireguard/wg, socks/socks4/socks5, anytls, juicity, warp, dns/dnstt
+HUNTX recognizes and preserves these proxy URI families (including aliases):
+
+- VMess, VLESS, Trojan, Shadowsocks (`ss`), ShadowsocksR (`ssr`)
+- Hysteria 1, Hysteria2 (`hysteria2` / `hy2`), and Hysteria2 Realm share links
+- TUIC, AnyTLS, Juicity
+- SOCKS (`socks`, `socks4`, `socks4a`, `socks5`) and authenticated HTTP/HTTPS proxy endpoints
+- SSH, ShadowTLS, NaiveProxy
+- Mieru (`mieru` / `mierus`)
+- WireGuard-style (`wireguard` / `wg`), WARP, DNS and DNSTT links
+
+The sing-box derivative is intentionally stricter than ingestion. It currently renders VMess, VLESS, Trojan, Shadowsocks, Hysteria 1, sufficiently complete Hysteria2/Realm links, TUIC, AnyTLS, SOCKS, authenticated HTTP(S), SSH, ShadowTLS, and NaiveProxy. Links whose current sing-box representation requires information not present in the share URI (or for which HUNTX has no verified native mapping) remain in the subscription/decoded output instead of being converted into invalid JSON.
 
 ## GitHub Actions CI
 
@@ -202,9 +213,9 @@ The workflow (`.github/workflows/huntx.yml`) runs every 2 hours (cron) and suppo
 |---|---|---|
 | `max_workers` | Parallel ingestion workers | `2` |
 | `msg_fresh_hours` | Text lookback for first-seen sources | `2` |
-| `file_fresh_hours` | File/media lookback for first-seen sources | `48` |
+| `file_fresh_hours` | File/media lookback for first-seen source | `48` |
 | `msg_subsequent_hours` | Text lookback on subsequent runs | `0` |
-| `file_subsequent_hours` | File/media lookback on subsequent runs | `0` |
+| `file_subsequent_hours` | File lookback on subsequent runs | `0` |
 | `reset` | Factory reset before run (checkbox) | `false` |
 | `reset_confirm` | Safety confirmation (type `RESET` to actually reset) | `""` |
 
