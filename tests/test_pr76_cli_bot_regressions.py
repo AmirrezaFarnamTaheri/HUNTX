@@ -31,7 +31,7 @@ def test_reset_backup_survives_state_directory_deletion(monkeypatch, tmp_path):
     db = open_db(state_dir / "state.db")
     with db.connect() as conn:
         conn.execute(
-            "INSERT INTO bot_users (user_id, chat_id, registered_at) VALUES ('1', 'c1', 1.0)"
+            "INSERT INTO bot_users (user_id, chat_id, registered_at) VALUES ('1', '1', 1.0)"
         )
 
     _cmd_reset(SimpleNamespace(yes=True))
@@ -64,9 +64,9 @@ def test_user_count_does_not_label_pending_users_as_muted(tmp_path):
             VALUES (?, ?, 1.0, ?, ?)
             """,
             [
-                ("pending", "c1", 0, 0),
-                ("active", "c2", 1, 0),
-                ("muted", "c3", 1, 1),
+                ("pending", "pending", 0, 0),
+                ("active", "active", 1, 0),
+                ("muted", "muted", 1, 1),
             ],
         )
 
@@ -81,7 +81,7 @@ def test_restore_upsert_preserves_delivery_foreign_key_rows(tmp_path):
             """
             INSERT INTO bot_users
                 (user_id, chat_id, username, registered_at, approved)
-            VALUES ('42', 'chat-old', 'old', 1.0, 1)
+            VALUES ('42', '42', 'old', 1.0, 1)
             """
         )
         conn.execute(
@@ -97,7 +97,7 @@ def test_restore_upsert_preserves_delivery_foreign_key_rows(tmp_path):
         [
             {
                 "user_id": "42",
-                "chat_id": "chat-new",
+                "chat_id": "42",
                 "username": "new",
                 "registered_at": 1.0,
                 "approved": 1,
@@ -116,5 +116,5 @@ def test_restore_upsert_preserves_delivery_foreign_key_rows(tmp_path):
             "SELECT COUNT(*) AS c FROM bot_delivery_items WHERE user_id = '42'"
         ).fetchone()["c"]
 
-    assert (user["chat_id"], user["username"]) == ("chat-new", "new")
+    assert (user["chat_id"], user["username"]) == ("42", "new")
     assert delivery_count == 1
