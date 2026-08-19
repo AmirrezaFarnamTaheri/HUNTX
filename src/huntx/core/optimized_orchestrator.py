@@ -159,7 +159,8 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
             reason = f"duplicate canonical Telegram channel {channel_id}; owned by {existing}"
             terminalized = self._work_queue.terminalize_source(str(source.id), reason)
             logger.warning(
-                "[LIFO] Skipping alias source %s for canonical channel %s already owned by %s; " "terminalized=%s",
+                "[LIFO] Skipping alias source %s for canonical channel %s already "
+                "owned by %s; terminalized=%s",
                 source.id,
                 channel_id,
                 existing,
@@ -196,7 +197,11 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                     source.id,
                 )
             else:
-                logger.error("[Worker] Source %s exceeded %.1fs and was isolated", source.id, timeout)
+                logger.error(
+                    "[Worker] Source %s exceeded %.1fs and was isolated",
+                    source.id,
+                    timeout,
+                )
         except Exception:
             logger.exception("[Worker] Source %s failed", source.id)
         finally:
@@ -231,7 +236,7 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                 self._work_queue.mark_terminal(
                     item.id,
                     self._run_owner,
-                    f"source configuration {item.source_id!r} is unavailable",
+                    f"source configuration {item.source_id!r} is unavailable or unapproved",
                     lease_token=item.lease_token,
                 )
                 async with lock:
@@ -257,7 +262,8 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                     async with lock:
                         results["ok"] += 1
                 logger.info(
-                    "[LIFO] source=%s window=[%s,%s) scanned=%s ingested=%s " "cursor=%s completed=%s",
+                    "[LIFO] source=%s window=[%s,%s) scanned=%s ingested=%s "
+                    "cursor=%s completed=%s",
                     item.source_id,
                     item.window_start_ts,
                     item.window_end_ts,
@@ -268,7 +274,9 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                 )
             except asyncio.TimeoutError:
                 self._window_failures += 1
-                retry_delay = 1 if remaining is not None and timeout < configured_timeout else 60
+                retry_delay = (
+                    1 if remaining is not None and timeout < configured_timeout else 60
+                )
                 self._work_queue.fail(
                     item.id,
                     self._run_owner,
@@ -315,7 +323,12 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                 break
             try:
                 if getattr(source, "type", None) != "telegram_user":
-                    await self._run_direct_source(source, results, lock, configured_timeout)
+                    await self._run_direct_source(
+                        source,
+                        results,
+                        lock,
+                        configured_timeout,
+                    )
             finally:
                 source_queue.task_done()
 
@@ -328,8 +341,32 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
         allow_partial_export: bool,
     ) -> dict[str, Any]:
         original = list(self.config.sources)
-        ingestion_sources = await self._canonical_ingestion_sources(original)
-        self._source_by_id = {str(source.id): source for source in ingestion_sources}
+        approved_sources = [
+            source
+            for source in original
+            if getattr(source, "publication_eligible", True)
+        ]
+        rejected_sources = [
+            source
+            for source in original
+            if not getattr(source, "publication_eligible", True)
+        ]
+        for source in rejected_sources:
+            terminalized = self._work_queue.terminalize_source(
+                str(source.id),
+                "source is not publication-approved",
+            )
+            if terminalized:
+                logger.warning(
+                    "[LIFO] Terminalized %s queued work item(s) for unapproved source %s",
+                    terminalized,
+                    source.id,
+                )
+
+        ingestion_sources = await self._canonical_ingestion_sources(approved_sources)
+        self._source_by_id = {
+            str(source.id): source for source in ingestion_sources
+        }
         self._ingestion_budget_exhausted = False
         self._window_pages = 0
         self._window_completions = 0
@@ -370,7 +407,10 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
         finally:
             released = self._work_queue.release_owner(self._run_owner)
             if released:
-                logger.warning("[LIFO] Released %s unfinished lease(s) to residue", released)
+                logger.warning(
+                    "[LIFO] Released %s unfinished lease(s) to residue",
+                    released,
+                )
             self.config.sources = original
             self._ingestion_stop_monotonic = None
 
@@ -387,7 +427,9 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
         summary["lifo_windows_completed"] = self._window_completions
         summary["lifo_window_failures"] = self._window_failures
         summary["lifo_residue"] = residue
-        summary["ingest_skipped_due_to_budget"] = remaining_residue if self._ingestion_budget_exhausted else 0
+        summary["ingest_skipped_due_to_budget"] = (
+            remaining_residue if self._ingestion_budget_exhausted else 0
+        )
 
         if self._ingestion_budget_exhausted and summary.get("status") == "completed":
             summary["status"] = "partial"
