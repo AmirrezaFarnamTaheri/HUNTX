@@ -15,6 +15,7 @@ This document is the authoritative disposition of the review feedback on PR #76.
 - Reset backups are written outside `STATE_DIR`, because `STATE_DIR` is a reset target. The prior path created a backup and then deleted it in the same reset.
 - `validate_config()` now accepts the `v2ray_collector` source type already accepted by the Pydantic schema and rejects contradictory Telegram credential blocks.
 - Bot statistics now distinguish actual `muted=1` users from pending/unapproved users.
+- Proxy-URI handling now separates recognition/preservation from native sing-box conversion. Additional verified schemes include Hysteria2 Realm and authority multi-port forms, SOCKS4a, authenticated HTTP/HTTPS proxy endpoints, SSH, ShadowTLS, NaiveProxy, and Mieru. Incomplete or non-native mappings stay in the subscription/decoded output rather than being converted into invalid sing-box JSON.
 
 ## Review finding disposition
 
@@ -70,6 +71,14 @@ These were not required to close the original comments but were found while trac
 - `INSERT OR REPLACE` during subscriber restoration could delete/reinsert a parent row and cascade delivery history; replaced with `ON CONFLICT ... DO UPDATE`.
 - Existing NetMod/TUT integration tests depended on the very embedded credentials H-3 removed; the fixtures now supply synthetic env credentials instead.
 - V2Ray subprocess tests used a `MagicMock` return code rather than modeling `CompletedProcess.returncode`, masking non-zero-exit handling; they now model success/failure explicitly and cover stale-output rejection.
+- The Go V2Ray collector recognized only `hy2://` and silently missed the equally valid `hysteria2://` spelling; the matcher now supports both and has a Go regression test.
+- Hysteria v1 validation rejected the protocol's `?auth=` share-link form and the sing-box derivative skipped all Hysteria v1 links; official UDP-form links with complete auth/bandwidth fields are now validated and rendered, while unsupported legacy transports remain preserved but not misrepresented.
+- Hysteria2 default-port, authority multi-port/range, user/password auth, modern obfuscation, and Realm share-link forms were incomplete; coverage and conversion now handle the representable cases and refuse incomplete Realm-to-sing-box conversion.
+- SOCKS4a, authenticated HTTP/HTTPS proxy endpoints, SSH, ShadowTLS, NaiveProxy, and Mieru share links were missing from the core NPVT recognition path; verified forms are now validated/preserved, with native sing-box conversion only where a current mapping exists.
+- Juicity validation previously accepted incomplete endpoints; the validator now requires a UUID plus password.
+- Ordinary HTTP(S) web URLs could not safely be added by simply extending the scheme tuple because that would classify normal links as proxy records. HTTP(S) support therefore uses an authenticated endpoint-only matcher and validator.
+- `/protocols` and `/count` initially omitted authenticated HTTP/HTTPS proxy records after protocol expansion; reporting now uses the complete reporting-scheme set and counts them explicitly.
+- WireGuard legacy sing-box outbound examples remain discoverable in documentation, but the 1.14-target migration contract uses a WireGuard endpoint with required local address/private key/peer public key state. Generic `wg://` links lacking that state are preserved rather than converted into a fabricated endpoint.
 
 ## Verification contract
 
