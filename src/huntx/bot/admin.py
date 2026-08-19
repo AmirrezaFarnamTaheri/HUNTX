@@ -17,20 +17,114 @@ class AdminMixin:
         admins_str = os.environ.get("HUNTX_ADMINS", "")
         if not admins_str:
             return False
-        admins = [a.strip() for a in admins_str.split(",") if a.strip()]
+        admins = [entry.strip() for entry in admins_str.split(",") if entry.strip()]
         user_id_str = str(user_id).strip()
 
-        # Security: match numeric IDs only to prevent username spoofing/takeover.
-        # Warn if non-numeric entries are configured in HUNTX_ADMINS.
         for admin_id in admins:
             if not admin_id.isdigit():
                 logger.warning(
-                    "[Security] Non-numeric admin ID configured in " "HUNTX_ADMINS: %r. Insecure and ignored.",
+                    "[Security] Non-numeric admin ID configured in HUNTX_ADMINS: %r. "
+                    "Insecure and ignored.",
                     admin_id,
                 )
 
         numeric_admins = {admin_id for admin_id in admins if admin_id.isdigit()}
         return user_id_str in numeric_admins
+
+    async def _require_admin(self, event) -> bool:
+        """Authorize an admin command using immutable numeric Telegram user IDs."""
+        user_id = str(event.sender_id)
+        if self._is_admin(user_id):
+            return True
+        await event.respond(
+            "❌ **Access Denied**\nThis command is restricted to administrators.",
+            parse_mode="md",
+        )
+        return False
+
+    @staticmethod
+    def _target_user_id(event) -> Optional[str]:
+        parts = (getattr(event, "text", "") or "").split()
+        if len(parts) < 2:
+            return None
+        target = parts[1].strip()
+        return target if target.isdigit() else None
+
+    async def _on_approve(self, event):
+        """Approve a registered user for automatic delivery: /approve <user_id>."""
+        if not await self._require_admin(event):
+            return
+        target = self._target_user_id(event)
+        if target is None:
+            await event.respond("Usage: `/approve <numeric_user_id>`", parse_mode="md")
+            return
+
+        with self.db.connect() as conn:
+            cursor = conn.execute(
+                "UPDATE bot_users SET approved = 1 WHERE user_id = ?",
+                (target,),
+            )
+        if cursor.rowcount == 0:
+            await event.respond(f"No registered user `{target}` was found.", parse_mode="md")
+            return
+        await event.respond(
+            f"✅ User `{target}` approved for automatic delivery.",
+            parse_mode="md",
+        )
+
+    async def _on_deny(self, event):
+        """Revoke/deny automatic delivery approval: /deny <user_id>."""
+        if not await self._require_admin(event):
+            return
+        target = self._target_user_id(event)
+        if target is None:
+            await event.respond("Usage: `/deny <numeric_user_id>`", parse_mode="md")
+            return
+
+        with self.db.connect() as conn:
+            cursor = conn.execute(
+                "UPDATE bot_users SET approved = 0 WHERE user_id = ?",
+                (target,),
+            )
+        if cursor.rowcount == 0:
+            await event.respond(f"No registered user `{target}` was found.", parse_mode="md")
+            return
+        await event.respond(
+            f"🚫 User `{target}` is not approved for automatic delivery.",
+            parse_mode="md",
+        )
+
+    async def _on_pending(self, event):
+        """List registered users awaiting approval: /pending."""
+        if not await self._require_admin(event):
+            return
+
+        with self.db.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT user_id, username, registered_at
+                FROM bot_users
+                WHERE approved = 0
+                ORDER BY registered_at ASC, user_id ASC
+                LIMIT 50
+                """
+            ).fetchall()
+            count_row = conn.execute(
+                "SELECT COUNT(*) AS c FROM bot_users WHERE approved = 0"
+            ).fetchone()
+
+        total = int(count_row["c"]) if count_row else 0
+        if not rows:
+            await event.respond("✅ No users are awaiting approval.")
+            return
+
+        lines = [f"👥 **Pending approvals:** `{total}`"]
+        for row in rows:
+            username = row["username"] or "—"
+            lines.append(f"- `{row['user_id']}` — @{username}")
+        if total > len(rows):
+            lines.append(f"… and {total - len(rows)} more")
+        await event.respond("\n".join(lines), parse_mode="md")
 
     async def _on_admin(self, event):
         """Secure admin control room command."""
@@ -63,15 +157,22 @@ class AdminMixin:
     async def _respond_admin_dashboard(self, event, edit=False):
         users = self._get_user_count()
         system = self._get_system_stats()
+        with self.db.connect() as conn:
+            pending_row = conn.execute(
+                "SELECT COUNT(*) AS c FROM bot_users WHERE approved = 0"
+            ).fetchone()
+        pending = int(pending_row["c"]) if pending_row else 0
 
         msg = (
             "🛠 **GatherX Restricted Admin Panel**\n"
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
             f"👤 **Users:** `{users['total']}` "
             f"(`{users['active']}` active, `{users['muted']}` muted)\n"
+            f"🕓 **Pending approvals:** `{pending}`\n"
             f"📡 **Sources:** `{system['sources']}`\n"
             f"📄 **Seen Files:** `{system['files']}`\n"
             f"💎 **Active Records:** `{system['records']}`\n"
+            "\nApproval commands: `/pending`, `/approve <id>`, `/deny <id>`"
         )
 
         buttons = [
@@ -109,7 +210,7 @@ class AdminMixin:
                 await self.deliver_updates_active()
                 await self.client.send_message(
                     event.chat_id,
-                    "✅ **Pipeline execution and subscription delivery " "completed successfully!**",
+                    "✅ **Pipeline execution and subscription delivery completed successfully!**",
                     parse_mode="md",
                 )
             except Exception as exc:
@@ -127,7 +228,8 @@ class AdminMixin:
         if hasattr(event, "answer"):
             await event.answer("Starting pipeline run...")
         await event.respond(
-            "⚡ **Pipeline execution started in background...**\n" "An update will be sent when complete.",
+            "⚡ **Pipeline execution started in background...**\n"
+            "An update will be sent when complete.",
             parse_mode="md",
         )
 
@@ -181,8 +283,7 @@ class AdminMixin:
             report = (
                 f"✅ **Pruning Complete (Older than {days} days)**\n"
                 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-                f"📄 **Seen Files Pruned:** "
-                f"`{result.get('seen_files', 0)}`\n"
+                f"📄 **Seen Files Pruned:** `{result.get('seen_files', 0)}`\n"
                 f"💎 **Records Pruned:** `{result.get('records', 0)}`\n"
                 f"📦 **Published Artifacts Pruned:** "
                 f"`{result.get('published_artifacts', 0)}`\n"
