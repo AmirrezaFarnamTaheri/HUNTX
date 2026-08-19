@@ -39,7 +39,7 @@ def create_production_orchestrator(
         max_workers=max(1, int(max_workers)),
         fetch_windows=fetch_windows,
     )
-    orchestrator._export_outputs = MethodType(_owned_export, orchestrator)
+    setattr(orchestrator, "_export_outputs", MethodType(_owned_export, orchestrator))
 
     reconciliation = reconcile_configured_bot_consumers(orchestrator.repo, config)
     logger.info("Telegram consumer reconciliation: %s", reconciliation)
