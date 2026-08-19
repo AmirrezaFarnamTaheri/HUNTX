@@ -2,12 +2,12 @@
 H-2 Approval Workflow Regression Suite.
 
 Tests:
-1. Unapproved users cannot receive deliveries (delivery query filters approved=1).
-2. Approved users do receive deliveries.
-3. Setting approved=1 transitions user correctly.
+1. Unapproved users cannot receive deliveries.
+2. Approved users in their private chat do receive deliveries.
+3. Setting approved=1 transitions a private-chat user correctly.
 4. Muted+approved users are excluded from delivery.
 5. Default approved=0 for new registrations.
-6. Delivery query is correct SQL (approved=1 AND muted=0).
+6. Delivery eligibility requires approved=1, muted=0, and chat_id=user_id.
 """
 import pathlib
 import tempfile
@@ -17,10 +17,7 @@ from huntx.state.db import open_db
 from huntx.bot.interactive import InteractiveBot
 
 
-SCHEMA_PATH = (
-    pathlib.Path(__file__).parent.parent
-    / "src" / "huntx" / "state" / "schema.sql"
-)
+SCHEMA_PATH = pathlib.Path(__file__).parent.parent / "src" / "huntx" / "state" / "schema.sql"
 
 
 def _make_db() -> object:
@@ -30,13 +27,14 @@ def _make_db() -> object:
 
 
 def _make_bot(db) -> object:
-    """Create a minimal bot instance with db attached to exercise DeliveryMixin._get_active_users."""
+    """Create a minimal bot instance with DB attached for delivery selection."""
     bot = object.__new__(InteractiveBot)
     bot.db = db
     return bot
 
 
-def _add_user(conn, user_id, chat_id, approved=0, muted=0):
+def _add_user(conn, user_id, chat_id=None, approved=0, muted=0):
+    chat_id = user_id if chat_id is None else chat_id
     conn.execute(
         """INSERT INTO bot_users (user_id, chat_id, registered_at, approved, muted)
            VALUES (?, ?, ?, ?, ?)""",
@@ -45,15 +43,11 @@ def _add_user(conn, user_id, chat_id, approved=0, muted=0):
     conn.commit()
 
 
-# ---------------------------------------------------------------------------
-# 1. Default new-user state: approved=0
-# ---------------------------------------------------------------------------
-
 def test_new_user_defaults_to_unapproved():
     """H-2: Newly registered users must default to approved=0."""
     db = _make_db()
     with db.connect() as conn:
-        _add_user(conn, "u_new", "c1", approved=0)
+        _add_user(conn, "u_new", approved=0)
         row = conn.execute(
             "SELECT approved FROM bot_users WHERE user_id='u_new'"
         ).fetchone()
@@ -61,100 +55,75 @@ def test_new_user_defaults_to_unapproved():
     assert row["approved"] == 0, f"Expected approved=0, got {row['approved']!r}"
 
 
-# ---------------------------------------------------------------------------
-# 2. Unapproved user excluded from delivery query
-# ---------------------------------------------------------------------------
-
 def test_unapproved_user_excluded_from_delivery():
-    """H-2: Delivery query (approved=1 AND muted=0) must exclude unapproved user."""
+    """Unapproved private-chat users must be excluded from delivery."""
     db = _make_db()
     bot = _make_bot(db)
     with db.connect() as conn:
-        _add_user(conn, "u_unap", "c2", approved=0)
+        _add_user(conn, "u_unap", approved=0)
     result = bot._get_active_users()
-    assert all(r["user_id"] != "u_unap" for r in result), (
-        "H-2: unapproved user u_unap must not appear in delivery query"
-    )
+    assert all(r["user_id"] != "u_unap" for r in result)
 
-
-# ---------------------------------------------------------------------------
-# 3. Approved user included in delivery query
-# ---------------------------------------------------------------------------
 
 def test_approved_user_included_in_delivery():
-    """H-2: Approved, unmuted user must appear in delivery query."""
+    """Approved, unmuted private-chat users must appear in delivery selection."""
     db = _make_db()
     bot = _make_bot(db)
     with db.connect() as conn:
-        _add_user(conn, "u_ok", "c3", approved=1, muted=0)
-    result = bot._get_active_users()
-    ids = [r["user_id"] for r in result]
-    assert "u_ok" in ids, "H-2: approved+unmuted user u_ok must appear in delivery query"
+        _add_user(conn, "u_ok", approved=1, muted=0)
+    ids = [r["user_id"] for r in bot._get_active_users()]
+    assert "u_ok" in ids
 
-
-# ---------------------------------------------------------------------------
-# 4. Muted+approved user excluded from delivery
-# ---------------------------------------------------------------------------
 
 def test_muted_approved_user_excluded_from_delivery():
-    """H-2: Muted user must be excluded even if approved."""
+    """Muted users must be excluded even if approved."""
     db = _make_db()
     bot = _make_bot(db)
     with db.connect() as conn:
-        _add_user(conn, "u_muted", "c4", approved=1, muted=1)
-    result = bot._get_active_users()
-    ids = [r["user_id"] for r in result]
-    assert "u_muted" not in ids, "H-2: muted user u_muted must not appear in delivery query"
+        _add_user(conn, "u_muted", approved=1, muted=1)
+    ids = [r["user_id"] for r in bot._get_active_users()]
+    assert "u_muted" not in ids
 
-
-# ---------------------------------------------------------------------------
-# 5. Setting approved=1 transitions user into delivery set
-# ---------------------------------------------------------------------------
 
 def test_approve_user_transitions_to_delivery():
-    """H-2: After UPDATE approved=1, user appears in delivery query."""
+    """After approved=1, a private-chat user enters the delivery set."""
     db = _make_db()
     bot = _make_bot(db)
     with db.connect() as conn:
-        _add_user(conn, "u_pend", "c5", approved=0)
-    # Verify excluded before approval
+        _add_user(conn, "u_pend", approved=0)
     before = bot._get_active_users()
-    assert all(r["user_id"] != "u_pend" for r in before), "pre-condition: not yet approved"
+    assert all(r["user_id"] != "u_pend" for r in before)
 
-    # Approve
     with db.connect() as conn:
         conn.execute("UPDATE bot_users SET approved=1 WHERE user_id='u_pend'")
         conn.commit()
 
-    after = bot._get_active_users()
-    ids = [r["user_id"] for r in after]
-    assert "u_pend" in ids, "H-2: after approval, user must appear in delivery query"
+    ids = [r["user_id"] for r in bot._get_active_users()]
+    assert "u_pend" in ids
 
-
-# ---------------------------------------------------------------------------
-# 6. Revoking approval (approved=0) removes user from delivery set
-# ---------------------------------------------------------------------------
 
 def test_revoke_approval_removes_from_delivery():
-    """H-2: After UPDATE approved=0, user must no longer appear in delivery query."""
+    """After approved=0, a user must no longer appear in delivery selection."""
     db = _make_db()
     bot = _make_bot(db)
     with db.connect() as conn:
-        _add_user(conn, "u_rev", "c6", approved=1)
+        _add_user(conn, "u_rev", approved=1)
         conn.execute("UPDATE bot_users SET approved=0 WHERE user_id='u_rev'")
         conn.commit()
-    result = bot._get_active_users()
-    ids = [r["user_id"] for r in result]
-    assert "u_rev" not in ids, "H-2: revoked user must not appear in delivery query"
+    ids = [r["user_id"] for r in bot._get_active_users()]
+    assert "u_rev" not in ids
 
 
-# ---------------------------------------------------------------------------
-# 7. schema.sql contains NOT NULL DEFAULT 0 constraint for approved
-# ---------------------------------------------------------------------------
+def test_non_private_chat_is_never_delivery_eligible():
+    """Approval cannot make a group/channel chat a GatherX delivery target."""
+    db = _make_db()
+    bot = _make_bot(db)
+    with db.connect() as conn:
+        _add_user(conn, "u_group", "-10099", approved=1, muted=0)
+    assert bot._get_active_users() == []
+
 
 def test_schema_sql_approved_not_null_default_zero():
-    """H-2: schema.sql must define approved as NOT NULL DEFAULT 0."""
+    """schema.sql must define approved as NOT NULL DEFAULT 0."""
     schema = SCHEMA_PATH.read_text(encoding="utf-8")
-    assert "approved INTEGER NOT NULL DEFAULT 0" in schema, (
-        "H-2: schema.sql must declare approved INTEGER NOT NULL DEFAULT 0"
-    )
+    assert "approved INTEGER NOT NULL DEFAULT 0" in schema
