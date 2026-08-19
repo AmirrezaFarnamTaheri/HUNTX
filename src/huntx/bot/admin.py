@@ -11,9 +11,10 @@ logger = logging.getLogger(__name__)
 
 
 class AdminMixin:
-    # These methods are designed to be mixed into InteractiveBot.
+    """Restricted administrative commands mixed into ``InteractiveBot``."""
 
     def _is_admin(self, user_id: str, username: Optional[str] = None) -> bool:
+        """Authorize only immutable numeric Telegram user IDs from ``HUNTX_ADMINS``."""
         admins_str = os.environ.get("HUNTX_ADMINS", "")
         if not admins_str:
             return False
@@ -44,6 +45,7 @@ class AdminMixin:
 
     @staticmethod
     def _target_user_id(event) -> Optional[str]:
+        """Extract a numeric target user ID from an admin command event."""
         parts = (getattr(event, "text", "") or "").split()
         if len(parts) < 2:
             return None
@@ -127,7 +129,7 @@ class AdminMixin:
         await event.respond("\n".join(lines), parse_mode="md")
 
     async def _on_admin(self, event):
-        """Secure admin control room command."""
+        """Dispatch the secure admin dashboard and supported admin subcommands."""
         user_id = str(event.sender_id)
         sender = await event.get_sender()
         username = getattr(sender, "username", None)
@@ -155,6 +157,7 @@ class AdminMixin:
         await self._respond_admin_dashboard(event)
 
     async def _respond_admin_dashboard(self, event, edit=False):
+        """Send or refresh the restricted administrative status dashboard."""
         users = self._get_user_count()
         system = self._get_system_stats()
         with self.db.connect() as conn:
@@ -205,6 +208,7 @@ class AdminMixin:
         loop = asyncio.get_running_loop()
 
         async def run_pipeline_task():
+            """Run the blocking pipeline off-loop, then deliver resulting updates."""
             try:
                 await loop.run_in_executor(None, self._run_pipeline_blocking)
                 await self.deliver_updates_active()
@@ -234,6 +238,7 @@ class AdminMixin:
         )
 
     def _run_pipeline_blocking(self):
+        """Load/validate config and execute one pipeline run under the process lock."""
         from ..config.loader import load_config
         from ..config.validate import validate_config
         from ..core.locks import acquire_lock
@@ -252,7 +257,7 @@ class AdminMixin:
             orchestrator.run(timeout=16200, no_publish=no_publish)
 
     async def _perform_admin_prune(self, event, days):
-        """Invoke repo and raw store pruning and report counts."""
+        """Invoke repo and raw-store pruning and report the resulting counts."""
         from ..store.raw_store import RawStore
 
         if hasattr(event, "answer"):
@@ -267,6 +272,7 @@ class AdminMixin:
             loop = asyncio.get_running_loop()
 
             def prune_blocking():
+                """Prune DB rows, then delete only raw blobs no longer referenced."""
                 raw_store = RawStore()
                 result = self.repo.prune_old_data(days)
                 raw_pruned = 0
