@@ -32,10 +32,13 @@ logger = logging.getLogger(__name__)
 
 
 class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
+    """Persistent GatherX Telegram bot backed by the canonical HUNTX state DB."""
+
     _COOLDOWN_MAX_ENTRIES = 4096
     _COOLDOWN_TTL_SECONDS = 3600.0
 
     def __init__(self, token: str, api_id: int, api_hash: str):
+        """Initialize bot dependencies, state access, and the Telegram client."""
         if TelegramClient is None:
             raise RuntimeError(
                 "Telethon is required to run the bot. Install dependencies (pip install -e .)."
@@ -116,7 +119,13 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
                     f"{sorted(missing_columns)}"
                 )
 
-    def _register_user(self, user_id: str, chat_id: str, username: Optional[str] = None) -> bool:
+    def _register_user(
+        self,
+        user_id: str,
+        chat_id: str,
+        username: Optional[str] = None,
+    ) -> bool:
+        """Create a pending bot user or refresh chat metadata for an existing user."""
         with self.db.connect() as conn:
             existing = conn.execute(
                 "SELECT 1 FROM bot_users WHERE user_id = ?", (user_id,)
@@ -135,6 +144,7 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
             return True
 
     def _get_active_users(self) -> list:
+        """Return approved, unmuted users eligible for automatic delivery."""
         with self.db.connect() as conn:
             return conn.execute(
                 """
@@ -144,6 +154,7 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
             ).fetchall()
 
     def _get_user_count(self) -> dict:
+        """Return total, active, and explicitly muted bot-user counts."""
         with self.db.connect() as conn:
             total = conn.execute("SELECT COUNT(*) AS c FROM bot_users").fetchone()["c"]
             active = conn.execute(
@@ -155,6 +166,7 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
             return {"total": total, "active": active, "muted": muted}
 
     def _get_user_pref(self, user_id: str) -> str:
+        """Return a user's preferred delivery format, defaulting to ``npvt``."""
         with self.db.connect() as conn:
             row = conn.execute(
                 "SELECT default_format FROM bot_users WHERE user_id = ?", (user_id,)
@@ -162,6 +174,7 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
             return row["default_format"] if row and row["default_format"] else "npvt"
 
     def _set_user_pref(self, user_id: str, fmt: str):
+        """Persist a user's preferred delivery format."""
         with self.db.connect() as conn:
             conn.execute(
                 "UPDATE bot_users SET default_format = ? WHERE user_id = ?",
@@ -169,6 +182,7 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
             )
 
     def _get_user_info(self, user_id: str) -> Optional[dict]:
+        """Return one bot-user row as a dictionary, if registered."""
         with self.db.connect() as conn:
             row = conn.execute(
                 "SELECT * FROM bot_users WHERE user_id = ?", (user_id,)
@@ -176,6 +190,7 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
             return dict(row) if row else None
 
     def _prune_cooldowns(self, now: float) -> None:
+        """Remove stale rate-limit entries and enforce the in-memory size bound."""
         stale_before = now - self._COOLDOWN_TTL_SECONDS
         for user_id, timestamp in list(self._user_cooldowns.items()):
             if timestamp < stale_before:
@@ -183,7 +198,12 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
         while len(self._user_cooldowns) > self._COOLDOWN_MAX_ENTRIES:
             self._user_cooldowns.pop(next(iter(self._user_cooldowns)), None)
 
-    async def _check_rate_limit(self, event: Any, cooldown_seconds: float = 5) -> bool:
+    async def _check_rate_limit(
+        self,
+        event: Any,
+        cooldown_seconds: float = 5,
+    ) -> bool:
+        """Apply per-sender command/callback cooldowns while exempting admins."""
         user_id = getattr(event, "sender_id", None)
         if not user_id or self._is_admin(str(user_id)):
             return True
@@ -209,6 +229,7 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
 
     @staticmethod
     def _callback_cooldown(data: str) -> float:
+        """Return the cooldown interval for a callback payload family."""
         if data.startswith("get:"):
             return 8.0
         if data.startswith(("setfmt:", "cmd:")):
@@ -216,6 +237,7 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
         return 5.0
 
     async def _on_callback(self, event: Any) -> None:
+        """Dispatch validated inline-button callbacks without exposing failures."""
         try:
             data = event.data.decode("utf-8", errors="strict") if event.data else ""
             user_id = str(event.sender_id)
@@ -312,6 +334,7 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
             await event.answer("The request failed. Please try again later.", alert=True)
 
     async def start(self):
+        """Start the Telegram bot, register commands/handlers, and poll until stopped."""
         await self.client.start(bot_token=self.token)
 
         try:
@@ -344,6 +367,7 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
             await self.client.disconnect()
 
     def _get_system_stats(self) -> dict:
+        """Return aggregate source, seen-file, and active-record counts."""
         with self.db.connect() as conn:
             sources = conn.execute("SELECT COUNT(*) AS c FROM source_state").fetchone()["c"]
             files = conn.execute("SELECT COUNT(*) AS c FROM seen_files").fetchone()["c"]
@@ -353,7 +377,8 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
             return {"sources": sources, "files": files, "records": records}
 
     def _get_protocol_counts(self) -> Dict[str, int]:
-        from ..formats.npvt import _PROXY_SCHEMES
+        """Return active record counts grouped by protocol or URI scheme."""
+        from ..formats.npvt import _REPORT_PROXY_SCHEMES
 
         counts: Dict[str, int] = {}
         with self.db.connect() as conn:
@@ -366,7 +391,7 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
 
             case_clauses = []
             params = []
-            for scheme in _PROXY_SCHEMES:
+            for scheme in _REPORT_PROXY_SCHEMES:
                 proto = scheme.replace("://", "")
                 case_clauses.append(
                     "WHEN json_valid(data_json) = 1 AND "
