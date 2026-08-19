@@ -136,7 +136,7 @@ def _is_ip(value: str) -> bool:
 
 def _bandwidth(value: str) -> int:
     """Extract an integer bandwidth value from free-form text."""
-    match = re.search(r'\d+', value or '')
+    match = re.search('\\d+', value or '')
     return int(match.group(0)) if match else 0
 
 
@@ -344,14 +344,14 @@ def _split_hy2_authority(uri: str) -> Optional[tuple[urllib.parse.SplitResult, s
     normalized: list[str] = []
     first_port = 0
     for token in tokens:
-        if re.fullmatch(r'\d+', token):
+        if re.fullmatch('\\d+', token):
             value = int(token)
             if not 1 <= value <= 65535:
                 return None
             first_port = first_port or value
             normalized.append(token)
             continue
-        match = re.fullmatch(r'(\d+)-(\d+)', token)
+        match = re.fullmatch('(\\d+)-(\\d+)', token)
         if not match:
             return None
         start, end = map(int, match.groups())
@@ -399,7 +399,7 @@ def _parse_hysteria2(uri: str) -> Optional[ProxyNode]:
 
 
 def _parse_hysteria2_realm(uri: str) -> Optional[ProxyNode]:
-    """Parse an official Hysteria2 realm share URI."""
+    """Parse a Hysteria2 Realm URI only when sing-box-required fields exist."""
     try:
         parsed = urllib.parse.urlsplit(uri)
     except ValueError:
@@ -411,7 +411,8 @@ def _parse_hysteria2_realm(uri: str) -> Optional[ProxyNode]:
         return None
     params_multi = _query_multi(parsed)
     auth_values = params_multi.get('auth', [])
-    if not auth_values or not auth_values[0]:
+    stun_values = [value for value in params_multi.get('stun', []) if value]
+    if not auth_values or not auth_values[0] or not stun_values:
         return None
     scheme = parsed.scheme.lower()
     transport_scheme = 'http' if scheme.endswith('+http') else 'https'
@@ -430,7 +431,7 @@ def _parse_hysteria2_realm(uri: str) -> Optional[ProxyNode]:
         realm_server_url=realm_url,
         realm_token=urllib.parse.unquote(parsed.username),
         realm_id=realm_id,
-        realm_stun_servers=[value for value in params_multi.get('stun', []) if value],
+        realm_stun_servers=stun_values,
     )
     params = {key: values[0] for key, values in params_multi.items() if values}
     _apply_tls(node, params, default_enabled=True)
@@ -533,19 +534,19 @@ def _parse_socks(uri: str) -> Optional[ProxyNode]:
 
 
 def _parse_http_proxy(uri: str) -> Optional[ProxyNode]:
-    """Parse an HTTP or HTTPS CONNECT proxy endpoint URI."""
+    """Parse an authenticated HTTP or HTTPS CONNECT proxy endpoint URI."""
     result = _parsed_url(uri)
     if result is None:
         return None
     parsed, port = result
-    if parsed.path not in {'', '/'}:
+    if parsed.path not in {'', '/'} or not parsed.username:
         return None
     return ProxyNode(
         type='http',
         tag=_full_unquote(parsed.fragment) or parsed.scheme.lower(),
         server=parsed.hostname or '',
         port=port,
-        username=urllib.parse.unquote(parsed.username or ''),
+        username=urllib.parse.unquote(parsed.username),
         password=urllib.parse.unquote(parsed.password or ''),
         tls_enabled=parsed.scheme.lower() == 'https',
         tls_server_name=parsed.hostname or '',
@@ -618,7 +619,7 @@ def _parse_naive(uri: str) -> Optional[ProxyNode]:
 
 
 def parse_proxy_uri(uri: str) -> Optional[ProxyNode]:
-    """Parse one supported proxy share URI into a normalized proxy node."""
+    """Parse one safely representable proxy share URI into a normalized node."""
     uri = uri.strip()
     lower = uri.lower()
     if lower.startswith('vmess://'):
@@ -703,7 +704,7 @@ def _current_server_ports(values: list[str]) -> list[str]:
     current = []
     for value in values:
         token = value.strip()
-        if re.fullmatch(r'\d+-\d+', token):
+        if re.fullmatch('\\d+-\\d+', token):
             token = token.replace('-', ':', 1)
         if token:
             current.append(token)
@@ -718,9 +719,8 @@ def build_outbound(node: ProxyNode, *, resolver_tag: str = 'google') -> dict[str
             'server_url': node.realm_server_url,
             'token': node.realm_token,
             'realm_id': node.realm_id,
+            'stun_servers': node.realm_stun_servers,
         }
-        if node.realm_stun_servers:
-            outbound['realm']['stun_servers'] = node.realm_stun_servers
     else:
         outbound['server'] = node.server
         ports = _current_server_ports(node.server_ports) if node.type == 'hysteria2' else []
