@@ -6,10 +6,12 @@ import re
 import uuid
 from urllib.parse import parse_qs, unquote, urlsplit
 from .common.b64 import b64_decode as _decode_base64_text
+
 _HOST_RE = re.compile('^(?=.{1,253}\\.?$)(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)*[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.?$')
 _SS_METHODS = {'aes-128-gcm', 'aes-192-gcm', 'aes-256-gcm', 'chacha20-ietf-poly1305', 'xchacha20-ietf-poly1305', '2022-blake3-aes-128-gcm', '2022-blake3-aes-256-gcm', '2022-blake3-chacha20-poly1305'}
 _GENERIC_ENDPOINT_SCHEMES = {'wireguard', 'wg', 'socks', 'socks4', 'socks4a', 'socks5', 'anytls', 'juicity', 'warp', 'dns', 'dnstt', 'ssh', 'shadowtls', 'naive', 'naive+https', 'http', 'https'}
 _AUTH_REQUIRED_SCHEMES = {'trojan', 'tuic', 'anytls', 'juicity', 'wireguard', 'wg'}
+
 
 def _valid_host(host: str | None) -> bool:
     """Validate that a host is public and syntactically acceptable."""
@@ -20,13 +22,22 @@ def _valid_host(host: str | None) -> bool:
         return False
     try:
         address = ipaddress.ip_address(normalized)
-        return not (address.is_unspecified or address.is_loopback or address.is_multicast or address.is_private or address.is_link_local or address.is_reserved)
+        return not (
+            address.is_unspecified
+            or address.is_loopback
+            or address.is_multicast
+            or address.is_private
+            or address.is_link_local
+            or address.is_reserved
+        )
     except ValueError:
         return bool(_HOST_RE.fullmatch(normalized))
+
 
 def _valid_port(port: int | None) -> bool:
     """Validate a TCP or UDP port number."""
     return port is not None and 1 <= port <= 65535
+
 
 def _validate_ss(uri: str) -> bool:
     """Validate a Shadowsocks share URI."""
@@ -56,9 +67,10 @@ def _validate_ss(uri: str) -> bool:
     except ValueError:
         return False
     query = parse_qs(parsed.query, keep_blank_values=True)
-    if 'plugin' in query and (not query['plugin'][0].strip()):
+    if 'plugin' in query and not query['plugin'][0].strip():
         return False
     return _valid_host(parsed.hostname) and _valid_port(port)
+
 
 def _validate_ssr(uri: str) -> bool:
     """Validate a ShadowsocksR share URI."""
@@ -76,6 +88,7 @@ def _validate_ssr(uri: str) -> bool:
         return False
     return _valid_host(host) and _valid_port(port) and bool(method and password)
 
+
 def _validate_vmess(uri: str) -> bool:
     """Validate a VMess share URI and required identity fields."""
     try:
@@ -90,6 +103,7 @@ def _validate_vmess(uri: str) -> bool:
     except (ValueError, TypeError, json.JSONDecodeError, binascii.Error, UnicodeDecodeError):
         return False
     return _valid_host(str(payload.get('add', ''))) and _valid_port(port)
+
 
 def _split_hy2_endpoint(uri: str) -> tuple[str | None, str, list[str]] | None:
     """Validate Hysteria2 host and multi-port authority syntax."""
@@ -113,7 +127,7 @@ def _split_hy2_endpoint(uri: str) -> tuple[str | None, str, list[str]] | None:
     elif ':' in endpoint:
         _, port_spec = endpoint.rsplit(':', 1)
     if not port_spec:
-        return (host, '443', [])
+        return host, '443', []
     tokens = [token.strip() for token in port_spec.split(',') if token.strip()]
     if not tokens:
         return None
@@ -122,13 +136,14 @@ def _split_hy2_endpoint(uri: str) -> tuple[str | None, str, list[str]] | None:
             if not _valid_port(int(token)):
                 return None
             continue
-        match = re.fullmatch('(\\d+)-(\\d+)', token)
+        match = re.fullmatch(r'(\d+)-(\d+)', token)
         if not match:
             return None
         start, end = map(int, match.groups())
         if not 1 <= start <= end <= 65535:
             return None
-    return (host, tokens[0], tokens)
+    return host, tokens[0], tokens
+
 
 def _validate_hysteria2(uri: str) -> bool:
     """Validate a Hysteria2 share URI."""
@@ -153,6 +168,7 @@ def _validate_hysteria2(uri: str) -> bool:
         return False
     return True
 
+
 def _validate_hysteria2_realm(uri: str) -> bool:
     """Validate an official Hysteria2 realm share URI."""
     try:
@@ -162,7 +178,7 @@ def _validate_hysteria2_realm(uri: str) -> bool:
         return False
     if not _valid_host(parsed.hostname):
         return False
-    if port is not None and (not _valid_port(port)):
+    if port is not None and not _valid_port(port):
         return False
     if not unquote(parsed.username or ''):
         return False
@@ -171,6 +187,7 @@ def _validate_hysteria2_realm(uri: str) -> bool:
     query = parse_qs(parsed.query, keep_blank_values=True)
     auth = query.get('auth', [''])[0]
     return bool(auth)
+
 
 def _validate_hysteria1(uri: str) -> bool:
     """Validate a Hysteria v1 share URI."""
@@ -187,6 +204,7 @@ def _validate_hysteria1(uri: str) -> bool:
         return False
     protocol = query.get('protocol', ['udp'])[0].lower()
     return protocol in {'', 'udp', 'wechat-video', 'faketcp'}
+
 
 def _validate_standard_uri(uri: str) -> bool:
     """Validate endpoint-shaped URI schemes with shared rules."""
@@ -215,22 +233,23 @@ def _validate_standard_uri(uri: str) -> bool:
             server_name = query.get('sni', [''])[0]
             if not public_key or not server_name:
                 return False
-    elif scheme in _AUTH_REQUIRED_SCHEMES and (not username):
+    elif scheme in _AUTH_REQUIRED_SCHEMES and not username:
         return False
     elif scheme == 'shadowtls':
         version = query.get('version', ['3'])[0]
         if version not in {'1', '2', '3'}:
             return False
         password = username or query.get('password', [''])[0]
-        if version in {'2', '3'} and (not password):
+        if version in {'2', '3'} and not password:
             return False
     elif scheme in {'naive', 'naive+https'}:
         if not username or parsed.password is None:
             return False
     elif scheme in {'http', 'https'}:
-        if parsed.port is None or parsed.path not in {'', '/'}:
+        if not username or parsed.port is None or parsed.path not in {'', '/'}:
             return False
     return True
+
 
 def validate_proxy_uri(uri: str) -> bool:
     """Return whether a single string is a supported safe proxy URI."""
