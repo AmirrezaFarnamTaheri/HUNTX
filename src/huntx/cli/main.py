@@ -282,9 +282,13 @@ def _restore_bot_users(db_path, data):
                 )
 
             placeholders = ", ".join("?" for _ in columns)
+            update_columns = [column for column in columns if column != "user_id"]
+            assignments = ", ".join(
+                f"{column} = excluded.{column}" for column in update_columns
+            )
             query = (
-                f"INSERT OR REPLACE INTO bot_users ({', '.join(columns)}) "
-                f"VALUES ({placeholders})"
+                f"INSERT INTO bot_users ({', '.join(columns)}) VALUES ({placeholders}) "
+                f"ON CONFLICT(user_id) DO UPDATE SET {assignments}"
             )
             for row in data:
                 conn.execute(query, tuple(row.get(column) for column in columns))
@@ -377,8 +381,12 @@ def _cmd_reset(args):
             return
 
     if db_path.exists():
-        backup_path = db_path.with_suffix(".db.bak")
+        # Keep the backup outside STATE_DIR because STATE_DIR itself is one of
+        # the reset targets. The previous location deleted the backup moments
+        # after creating it.
+        backup_path = Path(paths.DATA_DIR) / "state.db.bak"
         try:
+            backup_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(db_path, backup_path)
             print(f"Backed up state DB to: {backup_path}")
         except Exception as exc:
