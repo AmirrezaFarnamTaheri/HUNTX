@@ -6,7 +6,7 @@ from collections import OrderedDict
 from typing import Any, Dict, Optional
 
 try:
-    from telethon import TelegramClient, events, Button
+    from telethon import Button, TelegramClient, events
     from telethon.tl.functions.bots import SetBotCommandsRequest
     from telethon.tl.types import BotCommand, BotCommandScopeDefault
 except ModuleNotFoundError:  # pragma: no cover
@@ -17,25 +17,16 @@ except ModuleNotFoundError:  # pragma: no cover
     BotCommand = None  # type: ignore[assignment]
     BotCommandScopeDefault = None  # type: ignore[assignment]
 
-from ..store.artifact_store import ArtifactStore
-from ..state.repo import StateRepo
 from ..state.db import open_db
+from ..state.repo import StateRepo
 from ..store import paths
-
-from .constants import (
-    _BOT_COMMANDS,
-    _ALL_VALID_FORMATS,
-    _FORMAT_LABELS,
-)
-
-# Re-exported as part of this module's public surface (consumed by the test
-# suite and downstream importers); imported here rather than referenced.
-from .constants import WELCOME_TEXT as WELCOME_TEXT  # noqa: F401
-from .constants import SUPPORTED_FORMATS as SUPPORTED_FORMATS  # noqa: F401
-
-from .handlers import HandlersMixin
-from .delivery import DeliveryMixin
+from ..store.artifact_store import ArtifactStore
 from .admin import AdminMixin
+from .constants import _ALL_VALID_FORMATS, _BOT_COMMANDS, _FORMAT_LABELS
+from .constants import SUPPORTED_FORMATS as SUPPORTED_FORMATS  # noqa: F401
+from .constants import WELCOME_TEXT as WELCOME_TEXT  # noqa: F401
+from .delivery import DeliveryMixin
+from .handlers import HandlersMixin
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +37,9 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
 
     def __init__(self, token: str, api_id: int, api_hash: str):
         if TelegramClient is None:
-            raise RuntimeError("Telethon is required to run the bot. Install dependencies (pip install -e .).")
+            raise RuntimeError(
+                "Telethon is required to run the bot. Install dependencies (pip install -e .)."
+            )
 
         ingest_token = os.environ.get("TELEGRAM_TOKEN")
         allow_shared = os.environ.get("HUNTX_ALLOW_SHARED_BOT_TOKEN", "").strip().lower()
@@ -78,47 +71,56 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
         self.client = TelegramClient(str(session_path), self.api_id, self.api_hash)
 
     def _init_tables(self):
+        """Verify the canonical schema applied by ``open_db``.
+
+        Table creation and migrations live exclusively in ``schema.sql`` and
+        ``DBConnection._check_migrations``. Duplicating DDL here previously let
+        bot startup drift independently from CLI reset/restore and migrations.
+        """
+        required_tables = {
+            "bot_users",
+            "bot_delivery_checkpoint",
+            "bot_delivery_items",
+        }
+        required_user_columns = {
+            "user_id",
+            "chat_id",
+            "username",
+            "registered_at",
+            "approved",
+            "muted",
+            "last_delivered_at",
+            "default_format",
+        }
         with self.db.connect() as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS bot_users (
-                    user_id TEXT PRIMARY KEY,
-                    chat_id TEXT NOT NULL,
-                    username TEXT,
-                    registered_at REAL NOT NULL,
-                    approved INTEGER NOT NULL DEFAULT 0,
-                    muted INTEGER DEFAULT 0,
-                    last_delivered_at REAL DEFAULT 0,
-                    default_format TEXT DEFAULT 'npvt'
+            tables = {
+                row["name"]
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            missing_tables = required_tables - tables
+            if missing_tables:
+                raise RuntimeError(
+                    f"Canonical bot schema is incomplete; missing tables: {sorted(missing_tables)}"
                 )
-                """)
-            columns = {row["name"] for row in conn.execute("PRAGMA table_info(bot_users)").fetchall()}
-            if "approved" not in columns:
-                conn.execute("ALTER TABLE bot_users " "ADD COLUMN approved INTEGER NOT NULL DEFAULT 0")
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS bot_delivery_checkpoint (
-                    user_id TEXT PRIMARY KEY,
-                    attempted INTEGER NOT NULL DEFAULT 0,
-                    sent INTEGER NOT NULL DEFAULT 0,
-                    failed INTEGER NOT NULL DEFAULT 0,
-                    last_error TEXT,
-                    updated_at REAL NOT NULL DEFAULT 0
+
+            user_columns = {
+                row["name"]
+                for row in conn.execute("PRAGMA table_info(bot_users)").fetchall()
+            }
+            missing_columns = required_user_columns - user_columns
+            if missing_columns:
+                raise RuntimeError(
+                    "Canonical bot_users schema is incomplete; missing columns: "
+                    f"{sorted(missing_columns)}"
                 )
-                """)
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS bot_delivery_items (
-                    user_id TEXT NOT NULL,
-                    artifact_hash TEXT NOT NULL,
-                    artifact_name TEXT NOT NULL,
-                    delivered_at REAL NOT NULL,
-                    PRIMARY KEY (user_id, artifact_hash),
-                    FOREIGN KEY (user_id)
-                        REFERENCES bot_users(user_id) ON DELETE CASCADE
-                )
-                """)
 
     def _register_user(self, user_id: str, chat_id: str, username: Optional[str] = None) -> bool:
         with self.db.connect() as conn:
-            existing = conn.execute("SELECT 1 FROM bot_users WHERE user_id = ?", (user_id,)).fetchone()
+            existing = conn.execute(
+                "SELECT 1 FROM bot_users WHERE user_id = ?", (user_id,)
+            ).fetchone()
             if existing:
                 conn.execute(
                     "UPDATE bot_users SET chat_id = ?, username = ? WHERE user_id = ?",
@@ -126,29 +128,37 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
                 )
                 return False
             conn.execute(
-                "INSERT INTO bot_users (user_id, chat_id, username, registered_at) VALUES (?, ?, ?, ?)",
+                "INSERT INTO bot_users (user_id, chat_id, username, registered_at) "
+                "VALUES (?, ?, ?, ?)",
                 (user_id, chat_id, username, time.time()),
             )
             return True
 
     def _get_active_users(self) -> list:
         with self.db.connect() as conn:
-            return conn.execute("""
+            return conn.execute(
+                """
                 SELECT user_id, chat_id FROM bot_users
                 WHERE approved = 1 AND muted = 0
-                """).fetchall()
+                """
+            ).fetchall()
 
     def _get_user_count(self) -> dict:
         with self.db.connect() as conn:
             total = conn.execute("SELECT COUNT(*) AS c FROM bot_users").fetchone()["c"]
-            active = conn.execute("SELECT COUNT(*) AS c FROM bot_users " "WHERE approved = 1 AND muted = 0").fetchone()[
-                "c"
-            ]
-            return {"total": total, "active": active, "muted": total - active}
+            active = conn.execute(
+                "SELECT COUNT(*) AS c FROM bot_users WHERE approved = 1 AND muted = 0"
+            ).fetchone()["c"]
+            muted = conn.execute(
+                "SELECT COUNT(*) AS c FROM bot_users WHERE muted = 1"
+            ).fetchone()["c"]
+            return {"total": total, "active": active, "muted": muted}
 
     def _get_user_pref(self, user_id: str) -> str:
         with self.db.connect() as conn:
-            row = conn.execute("SELECT default_format FROM bot_users WHERE user_id = ?", (user_id,)).fetchone()
+            row = conn.execute(
+                "SELECT default_format FROM bot_users WHERE user_id = ?", (user_id,)
+            ).fetchone()
             return row["default_format"] if row and row["default_format"] else "npvt"
 
     def _set_user_pref(self, user_id: str, fmt: str):
@@ -160,7 +170,9 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
 
     def _get_user_info(self, user_id: str) -> Optional[dict]:
         with self.db.connect() as conn:
-            row = conn.execute("SELECT * FROM bot_users WHERE user_id = ?", (user_id,)).fetchone()
+            row = conn.execute(
+                "SELECT * FROM bot_users WHERE user_id = ?", (user_id,)
+            ).fetchone()
             return dict(row) if row else None
 
     def _prune_cooldowns(self, now: float) -> None:
@@ -250,7 +262,8 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
                 label = _FORMAT_LABELS.get(fmt, fmt)
                 await event.answer(f"Default set to {fmt} ✅")
                 await event.edit(
-                    f"⚙️ **Set Default Format**\n\nCurrent: `{fmt}` ({label})\n\nPick below or type `/setformat <format>`:",
+                    f"⚙️ **Set Default Format**\n\nCurrent: `{fmt}` ({label})\n\n"
+                    "Pick below or type `/setformat <format>`:",
                     parse_mode="md",
                     buttons=self._build_setformat_keyboard(user_id),
                 )
@@ -268,15 +281,21 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
                     self._register_user(user_id, str(chat_id))
                     muted = 1 if cmd == "mute" else 0
                     with self.db.connect() as conn:
-                        conn.execute("UPDATE bot_users SET muted = ? WHERE user_id = ?", (muted, user_id))
-                    await event.answer("Auto-delivery paused 🔇" if muted else "Auto-delivery resumed 🔔")
+                        conn.execute(
+                            "UPDATE bot_users SET muted = ? WHERE user_id = ?",
+                            (muted, user_id),
+                        )
+                    await event.answer(
+                        "Auto-delivery paused 🔇" if muted else "Auto-delivery resumed 🔔"
+                    )
                     await self._respond_myinfo(chat_id, user_id, event=event)
                 elif cmd == "setformat":
                     await event.answer()
                     current = self._get_user_pref(user_id)
                     label = _FORMAT_LABELS.get(current, current)
                     await event.edit(
-                        f"⚙️ **Set Default Format**\n\nCurrent: `{current}` ({label})\n\nPick a new default format:",
+                        f"⚙️ **Set Default Format**\n\nCurrent: `{current}` ({label})\n\n"
+                        "Pick a new default format:",
                         parse_mode="md",
                         buttons=self._build_setformat_keyboard(user_id),
                     )
@@ -305,20 +324,22 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
                     )
                 )
             logger.info("[GatherX] Bot commands menu registered.")
-        except Exception as e:
-            logger.warning(f"[GatherX] Failed to register commands: {e}")
+        except Exception as exc:
+            logger.warning("[GatherX] Failed to register commands: %s", exc)
 
         self._register_handlers()
         stats = self._get_user_count()
         logger.info(
-            f"[GatherX] Bot started (long-polling) — {stats['total']} users "
-            f"({stats['active']} active, {stats['muted']} muted)"
+            "[GatherX] Bot started (long-polling) — %s users (%s active, %s muted)",
+            stats["total"],
+            stats["active"],
+            stats["muted"],
         )
 
         try:
             await self.client.run_until_disconnected()
-        except Exception as e:
-            logger.error(f"[GatherX] Bot error: {e}")
+        except Exception as exc:
+            logger.error("[GatherX] Bot error: %s", exc)
         finally:
             await self.client.disconnect()
 
@@ -326,7 +347,9 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
         with self.db.connect() as conn:
             sources = conn.execute("SELECT COUNT(*) AS c FROM source_state").fetchone()["c"]
             files = conn.execute("SELECT COUNT(*) AS c FROM seen_files").fetchone()["c"]
-            records = conn.execute("SELECT COUNT(*) AS c FROM records WHERE is_active=1").fetchone()["c"]
+            records = conn.execute(
+                "SELECT COUNT(*) AS c FROM records WHERE is_active=1"
+            ).fetchone()["c"]
             return {"sources": sources, "files": files, "records": records}
 
     def _get_protocol_counts(self) -> Dict[str, int]:
@@ -335,17 +358,19 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
         counts: Dict[str, int] = {}
         with self.db.connect() as conn:
             rows = conn.execute(
-                "SELECT record_type, COUNT(*) as c FROM records WHERE is_active=1 AND record_type != 'npvt' GROUP BY record_type"
+                "SELECT record_type, COUNT(*) as c FROM records "
+                "WHERE is_active=1 AND record_type != 'npvt' GROUP BY record_type"
             ).fetchall()
-            for r in rows:
-                counts[r["record_type"]] = r["c"]
+            for row in rows:
+                counts[row["record_type"]] = row["c"]
 
             case_clauses = []
             params = []
             for scheme in _PROXY_SCHEMES:
                 proto = scheme.replace("://", "")
                 case_clauses.append(
-                    "WHEN json_valid(data_json) = 1 AND LOWER(json_extract(data_json, '$.line')) LIKE ? THEN ?"
+                    "WHEN json_valid(data_json) = 1 AND "
+                    "LOWER(json_extract(data_json, '$.line')) LIKE ? THEN ?"
                 )
                 params.extend([f"{scheme.lower()}%", proto])
 
@@ -362,9 +387,9 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
             """
 
             rows = conn.execute(case_sql, params).fetchall()
-            for r in rows:
-                sub_proto = r["sub_proto"]
-                counts[sub_proto] = counts.get(sub_proto, 0) + r["c"]
+            for row in rows:
+                sub_proto = row["sub_proto"]
+                counts[sub_proto] = counts.get(sub_proto, 0) + row["c"]
 
         return counts
 
