@@ -154,11 +154,11 @@ class DeliveryMixin:
                 """
                 INSERT INTO bot_delivery_items
                     (user_id, artifact_hash, artifact_name, delivered_at)
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?)
                 ON CONFLICT(user_id, artifact_hash) DO UPDATE SET
                     artifact_name=excluded.artifact_name,
                     delivered_at=excluded.delivered_at
-                """.replace("VALUES (?, ?, ?, ?, ?)", "VALUES (?, ?, ?, ?)") ,
+                """,
                 (user_id, artifact_hash, path.name, time.time()),
             )
 
