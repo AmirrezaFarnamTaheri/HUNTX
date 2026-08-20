@@ -9,6 +9,7 @@ import uuid
 from typing import Any, Optional
 
 from .hardened_orchestrator import HardenedOrchestrator
+from ..connectors.telegram_user.failure_policy import is_permanent_telegram_peer_error
 from ..connectors.telegram_user.windowed import WindowedTelegramUserConnector
 from ..pipeline.optimized_transform import OptimizedTransformPipeline
 from ..pipeline.windowed_ingest import WindowedIngestionPipeline
@@ -319,6 +320,26 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                     results["err"] += 1
             except Exception as exc:
                 self._window_failures += 1
+                if is_permanent_telegram_peer_error(exc):
+                    reason = (
+                        "permanent Telegram peer failure: "
+                        f"{type(exc).__name__}"
+                    )
+                    terminalized = self._work_queue.terminalize_source(
+                        item.source_id,
+                        reason,
+                    )
+                    async with lock:
+                        results["err"] += 1
+                    logger.warning(
+                        "[LIFO] Quarantined source=%s after permanent Telegram "
+                        "peer failure type=%s terminalized=%s",
+                        item.source_id,
+                        type(exc).__name__,
+                        terminalized,
+                    )
+                    continue
+
                 retry_delay = min(3600, 2 ** min(item.attempt_count, 10))
                 self._work_queue.fail(
                     item.id,
