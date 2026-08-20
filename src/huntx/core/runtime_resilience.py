@@ -98,6 +98,27 @@ async def _canonical_ingestion_sources(
                 continue
 
             configured_channel_id = _numeric_channel_id(config.peer)
+            if configured_channel_id is not None:
+                existing = canonical_owner.get(configured_channel_id)
+                if existing is not None:
+                    reason = (
+                        f"duplicate canonical Telegram channel {configured_channel_id}; "
+                        f"owned by {existing}"
+                    )
+                    terminalized = self._work_queue.terminalize_source(
+                        str(source.id),
+                        reason,
+                    )
+                    logger.warning(
+                        "[LIFO] Skipping numeric alias source %s for canonical "
+                        "channel %s already owned by %s; terminalized=%s",
+                        source.id,
+                        configured_channel_id,
+                        existing,
+                        terminalized,
+                    )
+                    continue
+
             stop = getattr(self, "_ingestion_stop_monotonic", None)
             remaining = None if stop is None else stop - time.monotonic()
             if remaining is not None and remaining <= 0:
