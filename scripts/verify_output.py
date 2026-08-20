@@ -125,7 +125,7 @@ def validate_zip_file(path: Path) -> Dict[str, Any]:
 
 
 def validate_json_file(path: Path) -> Dict[str, Any]:
-    """Validate a decoded JSON artifact."""
+    """Validate a decoded or client JSON artifact."""
     stats: Dict[str, Any] = {"type": "json", "entries": 0, "protocols": Counter()}
 
     try:
@@ -133,7 +133,9 @@ def validate_json_file(path: Path) -> Dict[str, Any]:
         if isinstance(data, list):
             stats["entries"] = len(data)
             for entry in data:
-                proto = entry.get("protocol", "unknown")
+                if not isinstance(entry, dict):
+                    continue
+                proto = entry.get("protocol") or entry.get("type", "unknown")
                 stats["protocols"][proto] += 1
         elif isinstance(data, dict):
             stats["entries"] = 1
@@ -165,6 +167,16 @@ def validate_file(path: Path) -> Dict[str, Any]:
     if name.endswith(".singbox.json"):
         stats = validate_json_file(path)
         print(f"    sing-box config: {size_kb:.1f} KB")
+        return stats
+
+    if name.endswith(".xray.json"):
+        stats = validate_json_file(path)
+        print(f"    Xray config: {size_kb:.1f} KB")
+        return stats
+
+    if name.endswith(".nekobox.json"):
+        stats = validate_json_file(path)
+        print(f"    NekoBox outbounds: {size_kb:.1f} KB")
         return stats
 
     if name.endswith(".b64sub"):
@@ -231,8 +243,14 @@ def main():
         suffix = item.suffix.lower()
         if item.name.endswith(".singbox.json"):
             format_counts["singbox.json"] += 1
+        elif item.name.endswith(".xray.json"):
+            format_counts["xray.json"] += 1
+        elif item.name.endswith(".nekobox.json"):
+            format_counts["nekobox.json"] += 1
         elif item.name.endswith(".decoded.json"):
             format_counts["decoded.json"] += 1
+        elif item.name.endswith(".raw.txt") or item.name.endswith("_raw.txt"):
+            format_counts["raw.txt"] += 1
         elif item.name.endswith(".b64sub"):
             format_counts["b64sub"] += 1
         else:
