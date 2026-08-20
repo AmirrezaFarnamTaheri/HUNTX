@@ -14,6 +14,8 @@ from .hardened_orchestrator import HardenedOrchestrator
 from .optimized_orchestrator import OptimizedHardenedOrchestrator
 from .orchestrator import Orchestrator
 from .transform_contract import install_transform_contract
+from ..connectors.base import maybe_await
+from ..connectors.telegram_user.connector import TelegramUserConnector
 from ..connectors.telegram_user.failure_policy import is_permanent_telegram_peer_error
 from ..connectors.telegram_user.windowed import WindowedTelegramUserConnector
 
@@ -53,6 +55,27 @@ def _numeric_channel_id(peer: Any) -> Optional[int]:
     if text.startswith("-100") and text[4:].isdigit():
         return int(text[4:])
     return None
+
+
+async def _resolve_channel_id_strict_async(
+    self: TelegramUserConnector,
+) -> Optional[int]:
+    """Resolve a Telegram peer without collapsing lookup failures to ``None``."""
+    client = self._client()
+    await self._ensure_connected_async(client)
+    entity = await maybe_await(
+        client.get_entity(int(self.peer) if self.peer.lstrip("-").isdigit() else self.peer)
+    )
+    raw_id = getattr(entity, "id", None)
+    if raw_id:
+        logger.info("[MTProto] Resolved peer %s -> channel_id=%s", self.peer, raw_id)
+    return raw_id
+
+
+# The resilience module already owns runtime method installation. Keep the
+# connector's existing best-effort resolve_channel_id_async() API unchanged,
+# while exposing a strict seam for governed preflight classification.
+TelegramUserConnector.resolve_channel_id_strict_async = _resolve_channel_id_strict_async  # type: ignore[attr-defined]
 
 
 async def _close_canonical_connector(
@@ -169,8 +192,13 @@ async def _canonical_ingestion_sources(
 
             connector.peer = config.peer
             try:
+                resolver = getattr(
+                    connector,
+                    "resolve_channel_id_strict_async",
+                    connector.resolve_channel_id_async,
+                )
                 resolved_channel_id = await asyncio.wait_for(
-                    connector.resolve_channel_id_async(),
+                    resolver(),
                     timeout=operation_timeout,
                 )
             except asyncio.TimeoutError:
