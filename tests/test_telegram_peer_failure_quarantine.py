@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from huntx.connectors.telegram_user.connector import TelegramUserConnector
 from huntx.core import runtime_resilience
 from huntx.core.optimized_orchestrator import OptimizedHardenedOrchestrator
 
@@ -149,3 +150,15 @@ async def test_numeric_peer_is_reachability_checked_during_canonical_preflight()
     assert accepted == []
     queue.terminalize_source.assert_called_once()
     assert queue.terminalize_source.call_args.args[0] == source.id
+
+
+@pytest.mark.asyncio
+async def test_strict_channel_resolution_surfaces_transient_lookup_failure():
+    connector = TelegramUserConnector(123, "hash", "session", "-10042")
+    client = MagicMock()
+    client.is_connected.return_value = True
+    client.get_entity = AsyncMock(side_effect=ConnectionError("temporary lookup failure"))
+
+    with patch.object(connector, "_client", return_value=client):
+        with pytest.raises(ConnectionError, match="temporary lookup failure"):
+            await connector.resolve_channel_id_strict_async()
