@@ -11,6 +11,10 @@ from huntx.core import runtime_resilience
 from huntx.core.optimized_orchestrator import OptimizedHardenedOrchestrator
 
 
+class PeerIdInvalidError(Exception):
+    pass
+
+
 def _window_failure_orchestrator(exc: Exception):
     item = SimpleNamespace(
         id=11,
@@ -71,6 +75,21 @@ async def test_unusable_numeric_peer_terminalizes_source_instead_of_retrying():
             "Could not find the input entity for "
             "PeerChannel(channel_id=2272946873) (PeerChannel)"
         )
+    )
+    results = {"ok": 0, "err": 0}
+
+    await orchestrator._run_persistent_windows(results, asyncio.Lock(), 30.0)
+
+    queue.terminalize_source.assert_called_once()
+    assert queue.terminalize_source.call_args.args[0] == "dead-source"
+    queue.fail.assert_not_called()
+    assert results == {"ok": 0, "err": 1}
+
+
+@pytest.mark.asyncio
+async def test_peer_id_invalid_terminalizes_source_instead_of_retrying():
+    orchestrator, queue = _window_failure_orchestrator(
+        PeerIdInvalidError("An invalid Peer was used")
     )
     results = {"ok": 0, "err": 0}
 
