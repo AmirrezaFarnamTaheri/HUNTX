@@ -7,7 +7,6 @@ import binascii
 import ipaddress
 import json
 import urllib.parse
-import uuid
 from typing import Any, Optional
 
 from .b64 import b64_decode
@@ -116,12 +115,32 @@ def _address_is_known_private(server: str) -> bool:
     )
 
 
-def _valid_uuid(value: str) -> bool:
-    """Return whether Xray can parse a UUID credential."""
+def _valid_xray_id(value: str) -> bool:
+    """Mirror current Xray ID parsing, including short UUIDv5-style IDs."""
     try:
-        uuid.UUID(value)
-    except (AttributeError, ValueError):
+        text = value.encode("utf-8")
+    except AttributeError:
         return False
+    length = len(text)
+    if length == 0 or length == 31 or length > 36:
+        return False
+    if length <= 30:
+        return True
+
+    position = 0
+    for group_length in (8, 4, 4, 4, 12):
+        if position < length and text[position : position + 1] == b"-":
+            position += 1
+        chunk = text[position : position + group_length]
+        if len(chunk) != group_length:
+            return False
+        try:
+            decoded = chunk.decode("ascii")
+        except UnicodeDecodeError:
+            return False
+        if any(char not in "0123456789abcdefABCDEF" for char in decoded):
+            return False
+        position += group_length
     return True
 
 
@@ -131,6 +150,11 @@ def _valid_reality_credentials(node: ProxyNode) -> bool:
         return True
 
     key = node.tls_reality_public_key
+    if not key or any(
+        char not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+        for char in key
+    ):
+        return False
     try:
         padded = key + ("=" * ((4 - len(key) % 4) % 4))
         decoded = base64.urlsafe_b64decode(padded.encode("ascii"))
@@ -140,11 +164,11 @@ def _valid_reality_credentials(node: ProxyNode) -> bool:
         return False
 
     short_id = node.tls_reality_short_id
-    if len(short_id) > 16 or len(short_id) % 2:
-        return False
-    try:
-        bytes.fromhex(short_id)
-    except ValueError:
+    if (
+        len(short_id) > 16
+        or len(short_id) % 2
+        or any(char not in "0123456789abcdefABCDEF" for char in short_id)
+    ):
         return False
     return True
 
@@ -161,7 +185,7 @@ def _node_features_are_representable(node: ProxyNode) -> bool:
         return False
 
     if node.type == "vmess":
-        if not _valid_uuid(node.uuid):
+        if not _valid_xray_id(node.uuid):
             return False
         if node.alter_id:
             return False
@@ -169,7 +193,7 @@ def _node_features_are_representable(node: ProxyNode) -> bool:
             return False
 
     if node.type == "vless":
-        if not _valid_uuid(node.uuid):
+        if not _valid_xray_id(node.uuid):
             return False
         if node.flow not in _XRAY_VLESS_FLOWS:
             return False

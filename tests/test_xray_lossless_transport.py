@@ -117,10 +117,17 @@ def test_xray_keeps_plaintext_vless_for_known_private_ip():
     assert outbounds[0]["settings"]["address"] == "192.168.1.10"
 
 
-def test_xray_rejects_invalid_vless_uuid_before_emitting_config():
-    uri = "vless://not-a-uuid@example.com:443?security=tls&type=tcp#bad-uuid"
+def test_xray_matches_current_xray_short_id_and_invalid_length_rules():
+    short_id = "vless://short-id@example.com:443?security=tls&type=tcp#short-id"
+    invalid = (
+        "vless://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@example.com:443"
+        "?security=tls&type=tcp#invalid-id"
+    )
 
-    assert _proxy_outbounds(build_xray_config_bytes(uri)) == []
+    outbounds = _proxy_outbounds(build_xray_config_bytes(short_id))
+    assert len(outbounds) == 1
+    assert outbounds[0]["settings"]["id"] == "short-id"
+    assert _proxy_outbounds(build_xray_config_bytes(invalid)) == []
 
 
 def test_xray_accepts_vision_only_over_direct_raw_tls_or_reality():
@@ -159,9 +166,14 @@ def test_xray_rejects_malformed_reality_credentials():
         "vless://11111111-2222-3333-4444-555555555555@example.com:443"
         f"?security=reality&pbk={_VALID_REALITY_KEY}&sid=xyz&type=tcp#bad-sid"
     )
+    padded_key = (
+        "vless://11111111-2222-3333-4444-555555555555@example.com:443"
+        f"?security=reality&pbk={_VALID_REALITY_KEY}%3D&sid=ab12&type=tcp#padded-key"
+    )
 
     assert _proxy_outbounds(build_xray_config_bytes(bad_key)) == []
     assert _proxy_outbounds(build_xray_config_bytes(bad_short_id)) == []
+    assert _proxy_outbounds(build_xray_config_bytes(padded_key)) == []
 
 
 def test_xray_rejects_vmess_features_current_xray_would_coerce_or_drop():
