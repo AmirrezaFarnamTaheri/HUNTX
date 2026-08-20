@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
+import ipaddress
 import json
 import urllib.parse
+import uuid
 from typing import Any, Optional
 
 from .b64 import b64_decode
@@ -15,6 +19,36 @@ _XRAY_TRANSPORT_METHODS = {
     "grpc": "grpc",
     "httpupgrade": "httpupgrade",
 }
+_XRAY_VMESS_SECURITIES = {"auto", "aes-128-gcm", "chacha20-poly1305"}
+_XRAY_VLESS_FLOWS = {"", "xtls-rprx-vision", "xtls-rprx-vision-udp443"}
+_XRAY_SHADOWSOCKS_METHODS = {
+    "aes-128-gcm",
+    "aead_aes_128_gcm",
+    "aes-256-gcm",
+    "aead_aes_256_gcm",
+    "chacha20-poly1305",
+    "aead_chacha20_poly1305",
+    "chacha20-ietf-poly1305",
+    "xchacha20-poly1305",
+    "aead_xchacha20_poly1305",
+    "xchacha20-ietf-poly1305",
+    "2022-blake3-aes-128-gcm",
+    "2022-blake3-aes-256-gcm",
+    "2022-blake3-chacha20-poly1305",
+}
+_XRAY_PRIVATE_NETWORKS = tuple(
+    ipaddress.ip_network(network)
+    for network in (
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16",
+        "127.0.0.0/8",
+        "169.254.0.0/16",
+        "::1/128",
+        "fc00::/7",
+        "fe80::/10",
+    )
+)
 
 
 def _unique_tag(base: str, seen: set[str]) -> str:
@@ -70,13 +104,101 @@ def _declared_transport_is_representable(uri: str, node: ProxyNode) -> bool:
     return expected_node_transport is not None and node.transport_type == expected_node_transport
 
 
+def _address_is_known_private(server: str) -> bool:
+    """Return whether an address is in a conservative private-IP allowlist."""
+    try:
+        address = ipaddress.ip_address(server)
+    except ValueError:
+        return False
+    return any(
+        address.version == network.version and address in network
+        for network in _XRAY_PRIVATE_NETWORKS
+    )
+
+
+def _valid_uuid(value: str) -> bool:
+    """Return whether Xray can parse a UUID credential."""
+    try:
+        uuid.UUID(value)
+    except (AttributeError, ValueError):
+        return False
+    return True
+
+
+def _valid_reality_credentials(node: ProxyNode) -> bool:
+    """Validate REALITY fields that current Xray checks while loading config."""
+    if not node.tls_reality_enabled:
+        return True
+
+    key = node.tls_reality_public_key
+    try:
+        padded = key + ("=" * ((4 - len(key) % 4) % 4))
+        decoded = base64.urlsafe_b64decode(padded.encode("ascii"))
+    except (binascii.Error, UnicodeEncodeError, ValueError):
+        return False
+    if len(decoded) != 32:
+        return False
+
+    short_id = node.tls_reality_short_id
+    if len(short_id) > 16 or len(short_id) % 2:
+        return False
+    try:
+        bytes.fromhex(short_id)
+    except ValueError:
+        return False
+    return True
+
+
+def _node_features_are_representable(node: ProxyNode) -> bool:
+    """Reject normalized features current Xray cannot preserve or load safely."""
+    # Xray 26.7 removed allowInsecure. URI intent cannot be preserved without
+    # certificate pin/verification data, so omit the node rather than emitting
+    # a config that current Xray rejects.
+    if node.tls_insecure:
+        return False
+
+    if node.tls_reality_enabled and not _valid_reality_credentials(node):
+        return False
+
+    if node.type == "vmess":
+        if not _valid_uuid(node.uuid):
+            return False
+        if node.alter_id:
+            return False
+        if (node.security or "auto").lower() not in _XRAY_VMESS_SECURITIES:
+            return False
+
+    if node.type == "vless":
+        if not _valid_uuid(node.uuid):
+            return False
+        if node.flow not in _XRAY_VLESS_FLOWS:
+            return False
+        # Vision without VLESS Encryption is supported only over direct
+        # RAW/TCP + TLS/REALITY. Non-default VLESS Encryption is rejected
+        # earlier because ProxyNode does not preserve it.
+        if node.flow and (not node.tls_enabled or node.transport_type):
+            return False
+        # Current Xray prohibits plaintext VLESS to public addresses.
+        if not node.tls_enabled and not _address_is_known_private(node.server):
+            return False
+
+    if node.type == "trojan":
+        # Current Xray likewise prohibits plaintext Trojan to public addresses.
+        if not node.tls_enabled and not _address_is_known_private(node.server):
+            return False
+
+    if node.type == "shadowsocks":
+        if node.method.lower() not in _XRAY_SHADOWSOCKS_METHODS:
+            return False
+
+    return True
+
+
 def _tls_settings(node: ProxyNode) -> dict[str, Any]:
     """Build Xray TLS settings from one normalized proxy node."""
     tls: dict[str, Any] = {}
     if node.tls_server_name:
         tls["serverName"] = node.tls_server_name
-    if node.tls_insecure:
-        tls["allowInsecure"] = True
     if node.tls_alpn:
         tls["alpn"] = node.tls_alpn
     if node.tls_utls_fingerprint:
@@ -151,7 +273,7 @@ def _protocol_settings(node: ProxyNode) -> Optional[tuple[str, dict[str, Any]]]:
                 "address": node.server,
                 "port": node.port,
                 "id": node.uuid,
-                "security": node.security or "auto",
+                "security": (node.security or "auto").lower(),
             },
         )
     if node.type == "vless" and node.server and node.uuid and node.port:
@@ -177,7 +299,7 @@ def _protocol_settings(node: ProxyNode) -> Optional[tuple[str, dict[str, Any]]]:
             {
                 "address": node.server,
                 "port": node.port,
-                "method": node.method,
+                "method": node.method.lower(),
                 "password": node.password,
             },
         )
@@ -233,7 +355,11 @@ def proxy_outbounds_from_uris(uris: list[str]) -> list[dict[str, Any]]:
         if not uri or uri.startswith("#"):
             continue
         node = parse_proxy_uri(uri)
-        if node is None or not _declared_transport_is_representable(uri, node):
+        if (
+            node is None
+            or not _declared_transport_is_representable(uri, node)
+            or not _node_features_are_representable(node)
+        ):
             continue
         tag = _unique_tag(node.tag or node.type, seen_tags)
         outbound = _outbound(node, tag)

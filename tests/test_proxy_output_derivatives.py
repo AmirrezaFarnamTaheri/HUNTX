@@ -11,6 +11,8 @@ from huntx.config.validate import _validate_route_format
 from huntx.core.output_ownership import output_filename
 from huntx.pipeline.build import BuildPipeline
 
+_VALID_REALITY_KEY = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+
 
 class _Registry:
     def list_formats(self):
@@ -42,8 +44,9 @@ def _build_results(proxy_text: bytes):
 def test_proxy_build_emits_raw_xray_and_nekobox_derivatives():
     proxy_text = (
         b"vless://11111111-2222-3333-4444-555555555555@example.com:443"
-        b"?security=reality&pbk=PUBKEY&sid=ab12&sni=cdn.example.com"
-        b"&flow=xtls-rprx-vision&type=grpc&serviceName=grpcsvc&fp=chrome#My%20Node\n"
+        + f"?security=reality&pbk={_VALID_REALITY_KEY}".encode()
+        + b"&sid=ab12&sni=cdn.example.com"
+        b"&type=grpc&serviceName=grpcsvc&fp=chrome#My%20Node\n"
     )
 
     results, artifact_store = _build_results(proxy_text)
@@ -60,7 +63,6 @@ def test_proxy_build_emits_raw_xray_and_nekobox_derivatives():
         "port": 443,
         "id": "11111111-2222-3333-4444-555555555555",
         "encryption": "none",
-        "flow": "xtls-rprx-vision",
     }
     assert proxy["streamSettings"]["method"] == "grpc"
     assert proxy["streamSettings"]["grpcSettings"] == {"serviceName": "grpcsvc"}
@@ -68,7 +70,7 @@ def test_proxy_build_emits_raw_xray_and_nekobox_derivatives():
     assert proxy["streamSettings"]["realitySettings"] == {
         "serverName": "cdn.example.com",
         "fingerprint": "chrome",
-        "password": "PUBKEY",
+        "password": _VALID_REALITY_KEY,
         "shortId": "ab12",
     }
 
