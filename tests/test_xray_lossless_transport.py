@@ -37,3 +37,12 @@ def test_xray_skips_vless_non_default_encryption_instead_of_forcing_none():
     )
 
     assert _proxy_outbounds(build_xray_config_bytes(uri)) == []
+
+
+def test_xray_skips_vless_explicit_empty_encryption_instead_of_forcing_none():
+    uri = (
+        "vless://11111111-2222-3333-4444-555555555555@example.com:443"
+        "?security=tls&type=tcp&encryption=#empty-encryption"
+    )
+
+    assert _proxy_outbounds(build_xray_config_bytes(uri)) == []
