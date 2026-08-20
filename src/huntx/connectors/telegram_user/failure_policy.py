@@ -8,6 +8,7 @@ _PERMANENT_PEER_ERROR_NAMES = frozenset(
         "ChannelInvalidError",
         "ChannelPrivateError",
         "ChatIdInvalidError",
+        "PeerIdInvalidError",
         "UsernameInvalidError",
         "UsernameNotOccupiedError",
     }
