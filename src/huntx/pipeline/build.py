@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+from ..core.deadline import Deadline, DeadlineExceeded
 import base64
 import hashlib
 import json
@@ -228,7 +230,7 @@ class BuildPipeline:
             return b'', b'', b''
         return self._decode_proxy_text(text), base64.b64encode(stripped.encode('utf-8')), build_singbox_config_bytes(text)
 
-    def run(self, route_config: dict[str, Any], *, records: Optional[list[dict[str, Any]]] = None) -> list[dict[str, Any]]:
+    def run(self, route_config: dict[str, Any], *, records: Optional[list[dict[str, Any]]] = None, deadline: Deadline | None = None) -> list[dict[str, Any]]:
         """Build one route with a single record grouping pass."""
         route_start = time.monotonic()
         route_name = str(route_config['name'])
@@ -236,9 +238,13 @@ class BuildPipeline:
         allowed_source_ids = list(dict.fromkeys(route_config.get('from_sources', [])))
         min_seen_file_id = route_config.get('min_seen_file_id')
         logger.info('[Build] route=%s formats=%s sources=%s delta_seen_files_id>%s', route_name, formats, len(allowed_source_ids), min_seen_file_id if min_seen_file_id is not None else 'all')
+        if deadline is not None:
+            deadline.raise_if_expired("build")
         fetch_start = time.monotonic()
         if records is None:
             records = self.state_repo.get_records_for_build(formats, allowed_source_ids, min_seen_file_id=min_seen_file_id)
+        if deadline is not None:
+            deadline.raise_if_expired("build")
         fetch_duration = time.monotonic() - fetch_start
         records_by_type: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for record in records:
@@ -251,6 +257,7 @@ class BuildPipeline:
         if not records:
             return []
         results: list[dict[str, Any]] = []
+        build_failures: list[tuple[str, str]] = []
         built_formats: list[str] = []
         empty_formats: list[str] = []
         total_build_seconds = 0.0
@@ -262,11 +269,26 @@ class BuildPipeline:
             handler = self.registry.get(format_id)
             if handler is None:
                 logger.error('[Build] No handler for format=%s', format_id)
+                build_failures.append((format_id, "missing_handler"))
                 continue
             try:
+                if deadline is not None:
+                    deadline.raise_if_expired("build")
                 build_start = time.monotonic()
-                with self._format_lock(format_id):
-                    artifact_bytes = handler.build(format_records)
+                format_lock = self._format_lock(format_id)
+                if deadline is None:
+                    with format_lock:
+                        artifact_bytes = handler.build(format_records)
+                else:
+                    acquired = format_lock.acquire(timeout=deadline.clamp_timeout(3600.0))
+                    if not acquired:
+                        raise DeadlineExceeded("Global deadline exhausted waiting for format lock")
+                    try:
+                        deadline.raise_if_expired("build")
+                        artifact_bytes = handler.build(format_records)
+                        deadline.raise_if_expired("build")
+                    finally:
+                        format_lock.release()
                 build_duration = time.monotonic() - build_start
                 total_build_seconds += build_duration
                 if not artifact_bytes:
@@ -292,8 +314,16 @@ class BuildPipeline:
                         results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(singbox).hexdigest(), 'data': singbox, 'count': format_count})
                 results.append({'route_name': route_name, 'format': format_id, 'unique_id': f'{route_name}:{format_id}', 'artifact_hash': artifact_hash, 'data': artifact_bytes, 'count': format_count})
                 logger.info('[Build] route=%s format=%s records=%s bytes=%s build_seconds=%.3f hash=%s', route_name, format_id, format_count, len(artifact_bytes), build_duration, artifact_hash[:12] if artifact_hash else 'N/A')
-            except Exception:
+            except DeadlineExceeded:
+                raise
+            except Exception as exc:
                 logger.exception('[Build] Failed for %s/%s', route_name, format_id)
+                build_failures.append((format_id, type(exc).__name__))
+        if build_failures:
+            details = ", ".join(f"{fmt}:{error}" for fmt, error in build_failures)
+            raise RuntimeError(
+                f"Route {route_name} build failed for {len(build_failures)} format(s): {details}"
+            )
         route_duration = time.monotonic() - route_start
         logger.info('[Build] route=%s artifacts=%s built=%s empty=%s fetch_seconds=%.3f build_seconds=%.3f total_seconds=%.3f', route_name, len(results), built_formats, empty_formats, fetch_duration, total_build_seconds, route_duration)
         return results

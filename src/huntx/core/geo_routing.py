@@ -1,12 +1,14 @@
+from __future__ import annotations
+
 import re
-from typing import Dict, Any, List
 from functools import lru_cache
+from typing import Any, Dict, List
+from urllib.parse import unquote, urlsplit
 
-# Standard ISO 3166-1 alpha-2 country codes regex pattern in remark tags
+# Country inference is intentionally heuristic. Explicit display remarks win;
+# otherwise only a hostname TLD is used. IP geolocation is not fabricated.
 COUNTRY_TAG_REGEX = re.compile(r"\b([A-Z]{2})\b")
-IP_HOST_REGEX = re.compile(r"@?([a-zA-Z0-9\.\-]+):(\d+)")
 
-# Known TLD to Country mappings
 TLD_COUNTRY_MAP = {
     ".de": "DE",
     ".fr": "FR",
@@ -29,6 +31,7 @@ TLD_COUNTRY_MAP = {
     ".it": "IT",
     ".es": "ES",
 }
+COUNTRY_CODES = frozenset(TLD_COUNTRY_MAP.values())
 
 SUPPORTED_PROTOCOLS = {
     "vless",
@@ -45,57 +48,42 @@ SUPPORTED_PROTOCOLS = {
 }
 
 
+def _hostname_from_uri(uri: str) -> str | None:
+    if "://" not in uri:
+        return None
+    try:
+        return urlsplit(uri).hostname
+    except (TypeError, ValueError):
+        return None
+
+
 class GeoRoutingEngine:
-    """
-    Intelligent geo-clustering, protocol taxonomy, and dynamic target routing engine.
-    """
+    """Heuristic geo clustering and protocol taxonomy for proxy records."""
 
-    @lru_cache(maxsize=1024)
+    @lru_cache(maxsize=4096)
     def infer_country_code(self, uri: str) -> str:
-        """
-        Infers the 2-letter ISO country code from proxy remark tags or hostname TLDs.
-        Returns 'XX' if country code cannot be determined.
-        """
-        # 1. Search for explicit hashtag remarks e.g. #US - Node 1
-        if "#" in uri:
-            remark = uri.split("#", 1)[1]
-            matches = COUNTRY_TAG_REGEX.findall(remark)
-            for m in matches:
-                if m in {
-                    "US",
-                    "DE",
-                    "FR",
-                    "GB",
-                    "NL",
-                    "SG",
-                    "JP",
-                    "CA",
-                    "AU",
-                    "IR",
-                    "KR",
-                    "CN",
-                    "RU",
-                    "HK",
-                    "TW",
-                    "SE",
-                    "FI",
-                    "CH",
-                    "IT",
-                    "ES",
-                }:
-                    return m
+        """Infer a country tag from a remark or hostname TLD, else ``XX``."""
+        if not isinstance(uri, str) or not uri:
+            return "XX"
 
-        # 2. Check TLD from host address
-        match = IP_HOST_REGEX.search(uri)
-        if match:
-            host = match.group(1).lower()
+        if "#" in uri:
+            remark = unquote(uri.split("#", 1)[1]).upper()
+            for match in COUNTRY_TAG_REGEX.findall(remark):
+                if match in COUNTRY_CODES:
+                    return match
+
+        host = _hostname_from_uri(uri)
+        if host:
+            normalized = host.rstrip(".").lower()
             for tld, code in TLD_COUNTRY_MAP.items():
-                if host.endswith(tld):
+                if normalized.endswith(tld):
                     return code
 
         return "XX"
 
-    def normalize_protocol(self, protocol_str: str) -> str:
+    def normalize_protocol(self, protocol_str: Any) -> str:
+        if not isinstance(protocol_str, str):
+            return "unknown"
         proto = protocol_str.lower().strip()
         if proto in ("ss", "shadowsocks"):
             return "shadowsocks"
@@ -108,40 +96,63 @@ class GeoRoutingEngine:
         return "unknown"
 
     def classify_proxy(self, proxy_record: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Enriches a proxy record with country_code, normalized protocol, and taxonomy metadata.
-        """
+        """Enrich a proxy record without mutating the caller-owned mapping."""
         record = dict(proxy_record)
-        data = record.get("data")
-        raw_uri = record.get("raw_uri") or (data.decode("utf-8") if isinstance(data, bytes) else "")
-        proto_raw = record.get("protocol") or (raw_uri.split("://", 1)[0] if "://" in raw_uri else "unknown")
+        raw_uri = record.get("raw_uri")
+        if not isinstance(raw_uri, str):
+            data = record.get("data")
+            if isinstance(data, bytes):
+                raw_uri = data.decode("utf-8", errors="ignore")
+            elif isinstance(data, str):
+                raw_uri = data
+            else:
+                raw_uri = ""
+
+        proto_raw = record.get("protocol")
+        if not isinstance(proto_raw, str) or not proto_raw.strip():
+            proto_raw = raw_uri.split("://", 1)[0] if "://" in raw_uri else "unknown"
 
         country = self.infer_country_code(raw_uri)
         normalized_proto = self.normalize_protocol(proto_raw)
 
+        record["raw_uri"] = raw_uri
         record["country_code"] = country
         record["protocol"] = normalized_proto
         record["taxonomy"] = {
             "is_fast": normalized_proto in {"hysteria2", "tuic", "vless"},
             "region_tier": 1 if country in {"US", "DE", "NL", "SG", "JP"} else 2,
         }
-
         return record
 
-    def route_by_region(self, proxies: List[Dict[str, Any]], country_code: str) -> List[Dict[str, Any]]:
-        """
-        Filters proxies for a specific ISO country code.
-        """
-        target = country_code.upper()
+    def route_by_region(
+        self,
+        proxies: List[Dict[str, Any]],
+        country_code: str,
+    ) -> List[Dict[str, Any]]:
+        """Filter proxies by an explicit or heuristically inferred country tag."""
+        if not isinstance(country_code, str):
+            return []
+        target = country_code.strip().upper()
+        if target not in COUNTRY_CODES:
+            return []
         return [
-            p
-            for p in proxies
-            if p.get("country_code") == target or self.infer_country_code(p.get("raw_uri", "")) == target
+            proxy
+            for proxy in proxies
+            if proxy.get("country_code") == target
+            or self.infer_country_code(proxy.get("raw_uri", "")) == target
         ]
 
-    def route_by_protocol(self, proxies: List[Dict[str, Any]], protocol: str) -> List[Dict[str, Any]]:
-        """
-        Filters proxies matching a target protocol taxonomy.
-        """
+    def route_by_protocol(
+        self,
+        proxies: List[Dict[str, Any]],
+        protocol: str,
+    ) -> List[Dict[str, Any]]:
+        """Filter proxies by normalized protocol taxonomy."""
         target_proto = self.normalize_protocol(protocol)
-        return [p for p in proxies if p.get("protocol") == target_proto]
+        if target_proto == "unknown":
+            return []
+        return [
+            proxy
+            for proxy in proxies
+            if self.normalize_protocol(proxy.get("protocol")) == target_proto
+        ]

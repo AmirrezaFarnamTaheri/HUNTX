@@ -287,8 +287,8 @@ def test_full_release_completes_with_minority_degraded_sources():
             "stop_reason": "complete",
         }
     )
-    orchestrator.build_pipeline = SimpleNamespace(run=lambda route: [build_result])
-    orchestrator.publish_pipeline = SimpleNamespace(run=lambda result, destinations: True)
+    orchestrator.build_pipeline = SimpleNamespace(run=lambda route, **kwargs: [build_result])
+    orchestrator.publish_pipeline = SimpleNamespace(run=lambda result, destinations, **kwargs: True)
     orchestrator._export_outputs = lambda results: None
     orchestrator._export_dev_outputs = lambda results: None
     orchestrator.raw_store = SimpleNamespace(

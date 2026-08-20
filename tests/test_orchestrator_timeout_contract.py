@@ -51,7 +51,13 @@ class TestOrchestratorTimeoutContract(unittest.TestCase):
             }
         ]
         orchestrator.publish_pipeline = MagicMock()
-        orchestrator.publish_pipeline.run.side_effect = lambda *_args: release_publisher.wait(timeout=5.0)
+
+        def publish_with_deadline(*_args, deadline=None, **_kwargs):
+            if deadline is None:
+                raise AssertionError("publisher must receive the run-wide deadline")
+            deadline.sleep(5.0)
+
+        orchestrator.publish_pipeline.run.side_effect = publish_with_deadline
         orchestrator._export_outputs = MagicMock()
         orchestrator._export_dev_outputs = MagicMock()
         orchestrator.raw_store = MagicMock()
@@ -77,7 +83,7 @@ class TestOrchestratorTimeoutContract(unittest.TestCase):
         self.assertLess(time.monotonic() - started, 1.0)
         self.assertEqual(summary["status"], "timed_out")
         self.assertEqual(summary["timed_out_stage"], "publishing")
-        self.assertGreaterEqual(summary["publish_pending"], 1)
+        self.assertEqual(summary["publish_pending"], 0)
         self.assertIn("publish_cancelled", summary)
         orchestrator._export_outputs.assert_not_called()
         orchestrator._export_dev_outputs.assert_not_called()

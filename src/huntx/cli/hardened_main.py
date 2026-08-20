@@ -1,30 +1,9 @@
-import logging
 import os
 import sys
-from contextlib import nullcontext
 from pathlib import Path
 from typing import Any, Sequence
 
-from . import main as legacy
-from ..config.loader import load_config
-from ..config.validate import validate_config
-from ..core.locks import acquire_lock
-from ..core.run_health import emit_run_health, evaluate_run_health
-from ..core.runtime_factory import create_production_orchestrator
-from ..core.runtime_resilience import apply_runtime_resilience
-from ..core.session_lease import session_lease_path
-from ..store import paths
-
-logger = logging.getLogger(__name__)
-
-apply_runtime_resilience()
-
-
-def _enabled(name: str, *, default: bool = False) -> bool:
-    raw = os.environ.get(name)
-    if raw is None:
-        return default
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
+from . import main as cli
 
 
 def _option_value(argv: Sequence[str], option: str) -> str | None:
@@ -66,116 +45,22 @@ def _all_publish_failures_are_fatal(
     *,
     no_publish: bool,
 ) -> bool:
-    """Compatibility shim: publication is best-effort, never health-gate fatal."""
+    """Compatibility shim: publication failures remain degraded, not fatal."""
     del summary, no_publish
     return False
 
 
-def _cmd_run(args):
-    max_workers_raw = os.environ.get("HUNTX_MAX_WORKERS") or "3"
-    try:
-        max_workers = max(1, int(max_workers_raw))
-    except ValueError:
-        logger.warning("Invalid HUNTX_MAX_WORKERS=%r; using 3", max_workers_raw)
-        max_workers = 3
+def main() -> None:
+    """Compatibility console entrypoint with environment-aware path defaults.
 
-    fetch_windows = {
-        "msg_fresh_hours": args.msg_fresh_hours,
-        "file_fresh_hours": args.file_fresh_hours,
-        "msg_subsequent_hours": args.msg_subsequent_hours,
-        "file_subsequent_hours": args.file_subsequent_hours,
-    }
-    allow_partial_export = _enabled("HUNTX_ALLOW_PARTIAL_EXPORT", default=True)
+    Runtime execution itself lives in :mod:`huntx.cli.run_service` and is used
+    by ``huntx.cli.main`` directly. Keeping this wrapper avoids breaking the
+    installed ``huntx`` console script while eliminating the previous
+    import-time monkey patch that made runtime behavior depend on entrypoint.
+    """
 
-    summary: dict[str, Any] | None = None
-    try:
-        config = load_config(args.config)
-        validate_config(config)
-        timeout_raw = os.environ.get("HUNTX_RUN_TIMEOUT", "12600")
-        try:
-            run_timeout = float(timeout_raw)
-        except ValueError:
-            logger.warning("Invalid HUNTX_RUN_TIMEOUT=%r; using 12600", timeout_raw)
-            run_timeout = 12600.0
-
-        process_lock = Path(paths.STATE_DIR) / "huntx.lock"
-        session_identity = os.environ.get("TELEGRAM_USER_SESSION", "").strip()
-        session_lock = (
-            acquire_lock(session_lease_path(Path(paths.STATE_DIR), session_identity))
-            if session_identity
-            else nullcontext()
-        )
-        with acquire_lock(process_lock), session_lock:
-            orchestrator = create_production_orchestrator(
-                config,
-                max_workers=max_workers,
-                fetch_windows=fetch_windows,
-            )
-            summary = orchestrator.run(
-                timeout=run_timeout,
-                no_publish=args.no_publish,
-                allow_partial_export=allow_partial_export,
-            )
-
-        health = evaluate_run_health(summary, no_publish=args.no_publish)
-        emit_run_health(summary, health, logger=logger)
-        if health.is_fatal:
-            logger.error(
-                "Health Gate FATAL: status=%s reasons=%s metrics=%s",
-                health.status,
-                list(health.reasons),
-                health.metrics,
-            )
-            raise SystemExit(1)
-        if health.disposition == "degraded":
-            logger.warning(
-                "Health Gate DEGRADED SUCCESS: preserved useful work; reasons=%s metrics=%s",
-                list(health.reasons),
-                health.metrics,
-            )
-        else:
-            logger.info("Health Gate SUCCESS: metrics=%s", health.metrics)
-    except SystemExit:
-        raise
-    except Exception as exc:
-        logger.exception("Fatal pipeline error")
-        failure_summary = {
-            "status": "failed",
-            "reason": "unhandled_exception",
-            "exception_type": type(exc).__name__,
-            "total_artifacts": 0,
-            "ingest_ok": 0,
-            "ingest_err": 0,
-        }
-        failure_health = evaluate_run_health(
-            failure_summary,
-            no_publish=args.no_publish,
-        )
-        emit_run_health(failure_summary, failure_health, logger=logger)
-        raise SystemExit(1)
-
-    if not args.no_auto_deliver:
-        try:
-            legacy._deliver_updates()
-        except (Exception, SystemExit):
-            logger.exception(
-                "Post-run auto-delivery failed; durable run output is preserved"
-            )
-            if summary is not None:
-                summary["post_run_delivery_failures"] = int(
-                    summary.get("post_run_delivery_failures", 0)
-                ) + 1
-                delivery_health = evaluate_run_health(
-                    summary,
-                    no_publish=args.no_publish,
-                )
-                emit_run_health(summary, delivery_health, logger=logger)
-
-
-def main():
-    legacy._cmd_run = _cmd_run  # type: ignore[assignment]
     sys.argv = _inject_runtime_path_arguments(sys.argv)
-    legacy.main()
+    cli.main()
 
 
 if __name__ == "__main__":

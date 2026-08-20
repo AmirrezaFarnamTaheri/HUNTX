@@ -5,6 +5,7 @@ import time
 from typing import Any, Optional
 
 from ..connectors.base import run_sync
+from .deadline import Deadline, DeadlineExceeded
 from .orchestrator import Orchestrator
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,7 @@ class HardenedOrchestrator(Orchestrator):
         allow_partial_export: bool,
     ) -> dict[str, Any]:
         start_time = time.monotonic()
+        deadline = Deadline(timeout)
         self._deadline = time.time() + timeout if timeout else None
         eligible_sources = [
             source
@@ -87,9 +89,7 @@ class HardenedOrchestrator(Orchestrator):
         transform_stop_reason = "complete"
 
         def remaining() -> Optional[float]:
-            if timeout is None:
-                return None
-            return max(0.0, timeout - (time.monotonic() - start_time))
+            return deadline.remaining_seconds()
 
         def mark_timeout(stage: str) -> None:
             nonlocal status, timed_out_stage
@@ -240,7 +240,7 @@ class HardenedOrchestrator(Orchestrator):
                 for route in self.config.routes:
                     route_dict, destinations = route_payload(route)
                     route_destinations[route.name] = destinations
-                    build_future = build_executor.submit(self.build_pipeline.run, route_dict)
+                    build_future = build_executor.submit(self.build_pipeline.run, route_dict, deadline=deadline)
                     build_futures[build_future] = route.name
 
                 left = remaining()
@@ -257,8 +257,13 @@ class HardenedOrchestrator(Orchestrator):
                         build_results = completed_build.result() or []
                         total_artifacts += len(build_results)
                         all_build_results.extend(build_results)
+                    except DeadlineExceeded:
+                        failed_routes.add(route_name)
+                        mark_timeout("build")
                     except Exception:
                         failed_routes.add(route_name)
+                        if status == "completed":
+                            status = "partial"
                         logger.exception("[Orchestrator] Route build failed: %s", route_name)
 
                 if not_done:
@@ -268,7 +273,7 @@ class HardenedOrchestrator(Orchestrator):
                         if pending_build.cancel():
                             build_cancelled += 1
             finally:
-                build_executor.shutdown(wait=False, cancel_futures=True)
+                build_executor.shutdown(wait=True, cancel_futures=True)
                 stage_seconds["build"] = time.monotonic() - build_start
 
         pending_publish: dict[concurrent.futures.Future[Any], str] = {}
@@ -301,6 +306,7 @@ class HardenedOrchestrator(Orchestrator):
                         self.publish_pipeline.run,
                         build_result,
                         route_destinations.get(route_name, []),
+                        deadline=deadline,
                     )
                     pending_publish[publish_future] = route_name
 
@@ -319,9 +325,14 @@ class HardenedOrchestrator(Orchestrator):
                     route_name = pending_publish[completed_publish]
                     try:
                         completed_publish.result()
+                    except DeadlineExceeded:
+                        failed_routes.add(route_name)
+                        mark_timeout("publishing")
                     except Exception:
                         publish_failures += 1
                         failed_routes.add(route_name)
+                        if status == "completed":
+                            status = "partial"
                         logger.exception(
                             "[Orchestrator] Publish failed for route %s",
                             route_name,
@@ -333,8 +344,23 @@ class HardenedOrchestrator(Orchestrator):
                         if pending_item.cancel():
                             publish_cancelled += 1
             finally:
-                publisher.shutdown(wait=False, cancel_futures=True)
+                publisher.shutdown(wait=True, cancel_futures=True)
                 stage_seconds["publishing"] = time.monotonic() - publish_start
+
+        if status == "completed":
+            status = _classify_completed_status(
+                ingest_ok=results["ok"],
+                ingest_err=results["err"],
+                failed_routes=len(failed_routes),
+                publish_failures=publish_failures,
+            )
+            if status == "completed" and results["err"]:
+                logger.warning(
+                    "[Orchestrator] Completed with %s isolated source failure(s); "
+                    "%s source(s) completed and all release routes succeeded",
+                    results["err"],
+                    results["ok"],
+                )
 
         should_export = status == "completed" or (
             status == "timed_out" and allow_partial_export
@@ -354,32 +380,22 @@ class HardenedOrchestrator(Orchestrator):
             )
         stage_seconds["export"] = time.monotonic() - export_start
 
-        cleanup_start = time.monotonic()
-        try:
-            self.raw_store.prune_processed(self.repo)
-            self.raw_store.prune_orphans(self.repo)
-            self.artifact_store.prune_archive()
-        except Exception:
-            if status == "completed":
-                status = "partial"
-            logger.exception("[Orchestrator] Cleanup failed")
-        finally:
-            stage_seconds["cleanup"] = time.monotonic() - cleanup_start
-
-        if status == "completed":
-            status = _classify_completed_status(
-                ingest_ok=results["ok"],
-                ingest_err=results["err"],
-                failed_routes=len(failed_routes),
-                publish_failures=publish_failures,
-            )
-            if status == "completed" and results["err"]:
-                logger.warning(
-                    "[Orchestrator] Completed with %s isolated source failure(s); "
-                    "%s source(s) completed and all release routes succeeded",
-                    results["err"],
-                    results["ok"],
-                )
+        cleanup_skipped_due_to_deadline = deadline.expired()
+        if cleanup_skipped_due_to_deadline:
+            logger.warning("[Orchestrator] Skipping cleanup because the global deadline is exhausted")
+            stage_seconds["cleanup"] = 0.0
+        else:
+            cleanup_start = time.monotonic()
+            try:
+                self.raw_store.prune_processed(self.repo)
+                self.raw_store.prune_orphans(self.repo)
+                self.artifact_store.prune_archive()
+            except Exception:
+                if status == "completed":
+                    status = "partial"
+                logger.exception("[Orchestrator] Cleanup failed")
+            finally:
+                stage_seconds["cleanup"] = time.monotonic() - cleanup_start
 
         duration = time.monotonic() - start_time
         summary = {
@@ -410,6 +426,7 @@ class HardenedOrchestrator(Orchestrator):
             "publish_workers": publish_workers,
             "transform_completed": transform_completed,
             "transform_stop_reason": transform_stop_reason,
+            "cleanup_skipped_due_to_deadline": cleanup_skipped_due_to_deadline,
         }
         logger.info("[Orchestrator] Final run summary: %s", summary)
         return summary

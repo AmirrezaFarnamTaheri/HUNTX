@@ -74,8 +74,10 @@ class TestDBStateCoverage(unittest.TestCase):
         self.assertTrue(self.repo.has_seen_file("src1", "ext1"))
 
     def test_get_records_for_build(self):
-        self.repo.record_file("src1", "ext1", "h1", 10, "f1", "transformed", {})
-        self.repo.add_record("h1", "fmt1", "unique1", {"data": "foo"})
+        observation_id = self.repo.record_file("src1", "ext1", "h1", 10, "f1", "transformed", {})
+        self.repo.add_record(
+            "h1", "fmt1", "unique1", {"data": "foo"}, source_observation_id=observation_id
+        )
 
         records = self.repo.get_records_for_build(["fmt1"], ["src1"])
         self.assertEqual(len(records), 1)
@@ -86,10 +88,14 @@ class TestDBStateCoverage(unittest.TestCase):
         self.assertEqual(len(records), 0)
 
     def test_get_records_for_build_min_seen_file_id(self):
-        self.repo.record_file("src1", "ext1", "h1", 10, "f1", "transformed", {})
-        self.repo.record_file("src1", "ext2", "h2", 10, "f2", "transformed", {})
-        self.repo.add_record("h1", "fmt1", "u1", {"data": "old"})
-        self.repo.add_record("h2", "fmt1", "u2", {"data": "new"})
+        observation_1 = self.repo.record_file("src1", "ext1", "h1", 10, "f1", "transformed", {})
+        observation_2 = self.repo.record_file("src1", "ext2", "h2", 10, "f2", "transformed", {})
+        self.repo.add_record(
+            "h1", "fmt1", "u1", {"data": "old"}, source_observation_id=observation_1
+        )
+        self.repo.add_record(
+            "h2", "fmt1", "u2", {"data": "new"}, source_observation_id=observation_2
+        )
 
         records = self.repo.get_records_for_build(["fmt1"], ["src1"], min_seen_file_id=1)
         self.assertEqual(len(records), 1)
