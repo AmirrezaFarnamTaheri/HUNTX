@@ -48,9 +48,9 @@ def _declared_transport_is_representable(uri: str, node: ProxyNode) -> bool:
             params = dict(urllib.parse.parse_qsl(parsed.query, keep_blank_values=True))
         except ValueError:
             return False
-        if lower.startswith("vless://"):
-            encryption = str(params.get("encryption", "") or "").lower()
-            if encryption not in {"", "none"}:
+        if lower.startswith("vless://") and "encryption" in params:
+            encryption = str(params["encryption"] or "").lower()
+            if encryption != "none":
                 return False
         transport = str(params.get("type", "tcp") or "tcp").lower()
         header_type = str(
