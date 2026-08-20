@@ -10,7 +10,9 @@ import time
 from collections import defaultdict
 from typing import Any, Optional
 from urllib.parse import parse_qs, unquote, urlparse
+from ..formats.common.nekobox import build_nekobox_outbounds_bytes
 from ..formats.common.singbox import build_singbox_config_bytes
+from ..formats.common.xray import build_xray_config_bytes
 from ..formats.registry import FormatRegistry
 from ..state.repo import StateRepo
 from ..store.artifact_store import ArtifactStore
@@ -219,16 +221,26 @@ class BuildPipeline:
             return b''
         return base64.b64encode(text.encode('utf-8')) if text else b''
 
-    def _proxy_derivatives(self, artifact_bytes: bytes) -> tuple[bytes, bytes, bytes]:
-        """Create decoded JSON, base64 subscription and sing-box config from one UTF-8 decode."""
+    def _proxy_derivatives(
+        self,
+        artifact_bytes: bytes,
+    ) -> tuple[bytes, bytes, bytes, bytes, bytes, bytes]:
+        """Create proxy derivative artifacts from one UTF-8 decode."""
         try:
             text = artifact_bytes.decode('utf-8', errors='ignore')
         except (AttributeError, UnicodeDecodeError):
-            return b'', b'', b''
+            return b'', b'', b'', b'', b'', b''
         stripped = text.strip()
         if not stripped:
-            return b'', b'', b''
-        return self._decode_proxy_text(text), base64.b64encode(stripped.encode('utf-8')), build_singbox_config_bytes(text)
+            return b'', b'', b'', b'', b'', b''
+        return (
+            self._decode_proxy_text(text),
+            base64.b64encode(stripped.encode('utf-8')),
+            artifact_bytes,
+            build_singbox_config_bytes(text),
+            build_xray_config_bytes(text),
+            build_nekobox_outbounds_bytes(text),
+        )
 
     def run(self, route_config: dict[str, Any], *, records: Optional[list[dict[str, Any]]] = None, deadline: Deadline | None = None) -> list[dict[str, Any]]:
         """Build one route with a single record grouping pass."""
@@ -299,7 +311,9 @@ class BuildPipeline:
                 built_formats.append(format_id)
                 format_count = len(format_records)
                 if format_id in _DERIVED_PROXY_FORMATS:
-                    decoded, reencoded, singbox = self._proxy_derivatives(artifact_bytes)
+                    decoded, reencoded, raw, singbox, xray, nekobox = self._proxy_derivatives(
+                        artifact_bytes
+                    )
                     if decoded:
                         derived_format = f'{format_id}.decoded.json'
                         self.artifact_store.save_output(route_name, derived_format, decoded)
@@ -308,10 +322,22 @@ class BuildPipeline:
                         derived_format = f'{format_id}.b64sub'
                         self.artifact_store.save_output(route_name, derived_format, reencoded)
                         results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(reencoded).hexdigest(), 'data': reencoded, 'count': format_count})
+                    if raw:
+                        derived_format = f'{format_id}.raw.txt'
+                        self.artifact_store.save_output(route_name, derived_format, raw)
+                        results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(raw).hexdigest(), 'data': raw, 'count': format_count})
                     if singbox:
                         derived_format = f'{format_id}.singbox.json'
                         self.artifact_store.save_output(route_name, derived_format, singbox)
                         results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(singbox).hexdigest(), 'data': singbox, 'count': format_count})
+                    if xray:
+                        derived_format = f'{format_id}.xray.json'
+                        self.artifact_store.save_output(route_name, derived_format, xray)
+                        results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(xray).hexdigest(), 'data': xray, 'count': format_count})
+                    if nekobox:
+                        derived_format = f'{format_id}.nekobox.json'
+                        self.artifact_store.save_output(route_name, derived_format, nekobox)
+                        results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(nekobox).hexdigest(), 'data': nekobox, 'count': format_count})
                 results.append({'route_name': route_name, 'format': format_id, 'unique_id': f'{route_name}:{format_id}', 'artifact_hash': artifact_hash, 'data': artifact_bytes, 'count': format_count})
                 logger.info('[Build] route=%s format=%s records=%s bytes=%s build_seconds=%.3f hash=%s', route_name, format_id, format_count, len(artifact_bytes), build_duration, artifact_hash[:12] if artifact_hash else 'N/A')
             except DeadlineExceeded:

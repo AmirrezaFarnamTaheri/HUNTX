@@ -367,8 +367,14 @@ class DeliveryMixin:
                 caption = f"🔗 `{name}` — base64 subscription ({size_kb:.0f} KB)"
             elif "decoded.json" in name:
                 caption = f"📊 `{name}` — decoded JSON ({size_kb:.0f} KB)"
+            elif "raw.txt" in name:
+                caption = f"📝 `{name}` — raw proxy URI list ({size_kb:.0f} KB)"
             elif "singbox.json" in name:
                 caption = f"📦 `{name}` — sing-box config ({size_kb:.0f} KB)"
+            elif "xray.json" in name:
+                caption = f"📦 `{name}` — Xray client config ({size_kb:.0f} KB)"
+            elif "nekobox.json" in name:
+                caption = f"📦 `{name}` — NekoBox outbound subscription ({size_kb:.0f} KB)"
             elif name.endswith(
                 (".ovpn", ".ehi", ".hc", ".hat", ".sip", ".nm", ".dark", ".npv4")
             ):
@@ -389,8 +395,14 @@ class DeliveryMixin:
             return ".b64sub" in n or n.endswith("_b64sub.txt")
         if f in ("decoded.json", "npvt.decoded.json", "npvtsub.decoded.json"):
             return ".decoded.json" in n or n.endswith("_decoded.json")
+        if f in ("raw.txt", "npvt.raw.txt", "npvtsub.raw.txt"):
+            return n.endswith(".raw.txt") or n.endswith("_raw.txt")
         if f in ("singbox.json", "npvt.singbox.json", "npvtsub.singbox.json"):
             return ".singbox.json" in n or n.endswith("_singbox.json")
+        if f in ("xray.json", "npvt.xray.json", "npvtsub.xray.json"):
+            return n.endswith(".xray.json") or n.endswith("_xray.json")
+        if f in ("nekobox.json", "npvt.nekobox.json", "npvtsub.nekobox.json"):
+            return n.endswith(".nekobox.json") or n.endswith("_nekobox.json")
         return (
             n.endswith(f".{f}")
             or n.endswith(f"_{f}.txt")

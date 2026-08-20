@@ -6,8 +6,22 @@ from ..formats.registry import FormatRegistry
 from ..utils.safe_names import safe_component
 
 
-_DERIVED_FORMATS = {"b64sub", "decoded.json", "singbox.json"}
-_DERIVED_SUFFIXES = (".b64sub", ".decoded.json", ".singbox.json")
+_DERIVED_FORMATS = {
+    "b64sub",
+    "decoded.json",
+    "raw.txt",
+    "singbox.json",
+    "xray.json",
+    "nekobox.json",
+}
+_DERIVED_SUFFIXES = (
+    ".b64sub",
+    ".decoded.json",
+    ".raw.txt",
+    ".singbox.json",
+    ".xray.json",
+    ".nekobox.json",
+)
 
 
 def _configured_publish_token(destination_token: str | None) -> str | None:
@@ -24,9 +38,9 @@ def _validate_route_format(registry: FormatRegistry, route_name: str, fmt: str) 
 
     Proxy derivatives are build results, not independently buildable record
     types. Configuring ``npvt``/``npvtsub`` automatically emits their supported
-    decoded/base64/sing-box derivatives. Accepting derivative IDs here would
-    make configuration validation succeed while the build loop has no records
-    or handler for that requested format.
+    decoded/base64/raw/client-JSON derivatives. Accepting derivative IDs here
+    would make configuration validation succeed while the build loop has no
+    records or handler for that requested format.
     """
     if not fmt:
         raise ValueError(f"Route {route_name} has empty format ID")
@@ -35,7 +49,7 @@ def _validate_route_format(registry: FormatRegistry, route_name: str, fmt: str) 
         raise ValueError(
             f"Route {route_name} format {fmt!r} is a derived output, not a route input; "
             "configure 'npvt' and/or 'npvtsub' and HUNTX will generate supported "
-            "decoded/base64/sing-box derivatives automatically"
+            "decoded/base64/raw/sing-box/Xray/NekoBox derivatives automatically"
         )
 
     registered = set(registry.list_formats())
