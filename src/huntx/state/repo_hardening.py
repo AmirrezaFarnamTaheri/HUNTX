@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import time
-from typing import Any, Dict, Optional, Type
+from typing import Any, Callable, Dict, Optional, Type
 
 
 def _validate_fingerprint(token_fingerprint: str) -> None:
@@ -20,6 +20,13 @@ def _normalize_consumer_id(consumer_id: str) -> str:
     if len(normalized) > 512:
         raise ValueError("consumer_id is too long")
     return normalized
+
+
+def _validate_retention_days(days: Any) -> int:
+    """Require an explicit positive integer before any destructive pruning."""
+    if isinstance(days, bool) or not isinstance(days, int) or days < 1:
+        raise ValueError("retention days must be a positive integer")
+    return days
 
 
 def _record_file_atomic(
@@ -226,11 +233,30 @@ def _get_bot_consumer_watermark(
     return int(row["acknowledged_update_id"]) if row else 0
 
 
-def install_state_repo_hardening(state_repo_type: Type[Any]) -> None:
-    """Install compatibility-preserving hardened StateRepo operations."""
+def _guarded_prune_factory(
+    original: Callable[..., Dict[str, Any]],
+) -> Callable[..., Dict[str, Any]]:
+    def guarded(self: Any, days: int) -> Dict[str, Any]:
+        return original(self, _validate_retention_days(days))
 
+    guarded.__name__ = "prune_old_data"
+    guarded.__doc__ = (
+        "Purge state older than a positive integer retention window. "
+        "Zero/negative/non-integer values are rejected before any SQL executes."
+    )
+    return guarded
+
+
+def install_state_repo_hardening(state_repo_type: Type[Any]) -> None:
+    """Install compatibility-preserving hardened StateRepo operations once."""
+    if getattr(state_repo_type, "_state_repo_hardening_applied", False):
+        return
+
+    original_prune = state_repo_type.prune_old_data
     state_repo_type.record_file = _record_file_atomic
     state_repo_type.register_bot_consumer = _register_bot_consumer
     state_repo_type.acknowledge_bot_consumer = _acknowledge_bot_consumer
     state_repo_type.deactivate_bot_consumer = _deactivate_bot_consumer
     state_repo_type.get_bot_consumer_watermark = _get_bot_consumer_watermark
+    state_repo_type.prune_old_data = _guarded_prune_factory(original_prune)
+    state_repo_type._state_repo_hardening_applied = True

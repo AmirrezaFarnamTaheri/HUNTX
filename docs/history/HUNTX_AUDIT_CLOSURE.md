@@ -1,5 +1,7 @@
 # HUNTX Audit-Derived Closure Ledger
 
+> **Historical status notice — 2026-08-19.** This is a point-in-time PR #49 ledger and its status cells are intentionally preserved rather than rewritten retroactively. Later remediation (including PR #76 and the repository-wide refinement pass) superseded several entries: proxy admission is now protocol-aware; SIP002/Hysteria2 coverage expanded; secure-tier governed build selection, durable immutable S3 generations, exact output ownership, shared pinned CI tooling, and structured investigation metrics now exist; and verified generated outputs are intentionally mirrored back into `main/outputs` and `main/outputs_dev` by the current publication workflow. See `docs/plans/2026-08-19-repository-wide-refinement.md` and the current `README.md` / `docs/USER_GUIDE.md` for present-state claims. Items such as a canonical typed proxy IR, native-client conformance gates, full SBOM/provenance, complete trace propagation, and repository branch-protection settings must not be inferred as closed from later work unless separately evidenced.
+
 This ledger maps the six-repository audit findings and synthesis recommendations to HUNTX. It intentionally does not claim that defects in the comparison repositories existed in HUNTX unchanged.
 
 ## Status definitions

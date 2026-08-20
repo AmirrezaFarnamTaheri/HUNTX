@@ -1,339 +1,342 @@
-# HuntX User Guide
+# HUNTX User Guide
 
-## Table of Contents
+This guide describes the current implemented operator and user behavior. Historical audit documents under `docs/history/` are retained as point-in-time records and may describe earlier runtime paths.
 
-1. [Configuration](#configuration)
-2. [Supported Formats](#supported-formats)
-3. [Supported Proxy Protocols](#supported-proxy-protocols)
-4. [Running Locally](#running-locally)
-5. [CLI Commands](#cli-commands)
-6. [Running on GitHub Actions](#running-on-github-actions)
-7. [Telegram User Session (MTProto)](#telegram-user-session-mtproto)
-8. [GatherX Bot](#gatherx-bot)
-9. [Media Filtering](#media-filtering)
-10. [Architecture](#architecture)
-11. [Output Artifacts](#output-artifacts)
+## 1. Configuration
 
-## Configuration
+HUNTX loads YAML and expands `${VAR}` environment references before Pydantic validation.
 
-HuntX is controlled by a YAML configuration file with environment variable expansion (`${VAR}`).
+### Source types
 
-### Sources
+#### MTProto user source
 
-#### Bot API Source
-
-For private channels where the bot is an admin:
+Production uses `telegram_user` sources for public-channel history and documents:
 
 ```yaml
 sources:
-  - id: "source_channel_1"
-    type: "telegram"
+  - id: public_channel
+    type: telegram_user
     selector:
-      include_formats: ["all"]
-    telegram:
-      token: "${TELEGRAM_TOKEN}"
-      chat_id: "-1001234567890"
-```
-
-#### MTProto User Source
-
-For public channels, message history, and text content:
-
-```yaml
-sources:
-  - id: "public_channel"
-    type: "telegram_user"
-    selector:
-      include_formats: ["npvt", "npvtsub", "conf_lines"]
+      include_formats: [all]
     telegram_user:
       api_id: ${TELEGRAM_API_ID}
-      api_hash: "${TELEGRAM_API_HASH}"
-      session: "${TELEGRAM_USER_SESSION}"
+      api_hash: ${TELEGRAM_API_HASH}
+      session: ${TELEGRAM_USER_SESSION}
       peer: "@ChannelName"
 ```
 
-### Publishing Routes
+The current `configs/config.prod.yaml` contains 85 `telegram_user` sources. During a governed run HUNTX canonicalizes Telegram channels, removes duplicate aliases from ingestion, seeds only publication-eligible sources, and processes closed time windows newest-first through the durable SQLite ingestion queue.
+
+#### Telegram Bot API source
+
+The `telegram` source type is implemented for bot-visible messages/updates:
+
+```yaml
+sources:
+  - id: bot_channel
+    type: telegram
+    selector:
+      include_formats: [all]
+    telegram:
+      token: ${TELEGRAM_TOKEN}
+      chat_id: "-1001234567890"
+```
+
+Production does not currently use this source type. The connector persists fetched updates in the SQLite inbox before advancing Telegram offsets so a process crash cannot silently discard acknowledged updates.
+
+#### V2Ray collector
+
+`v2ray_collector` is also implemented. It executes the repository Go scraper package, consumes its generated config lines, and deduplicates them by full SHA-256 content identity. It is not part of the current production configuration.
+
+### Source trust
+
+Each source has a trust state. Publication is fail-closed: a source is eligible only when its effective trust state is approved. Discovered sources cannot be marked approved without approval evidence.
+
+Revoking a source terminalizes unfinished durable ingestion work, including active leases. Window-page persistence and lease checkpointing share a transaction so a worker that loses its lease cannot partially commit the page after revocation.
+
+### Publishing routes
+
+Example:
 
 ```yaml
 publishing:
   routes:
-    - name: "merged_vpn"
-      from_sources: ["source_channel_1", "public_channel"]
-      formats:
-        - npvt
-        - npvtsub
-        - conf_lines
-        - ovpn
-        - npv4
-        - ehi
-        - hc
-        - hat
-        - sip
-        - nm
-        - opaque_bundle
+    - name: merged_vpn
+      from_sources: [public_channel]
+      formats: [npvt, npvtsub]
+      publication_tier: compatible
       destinations:
         - chat_id: "-1009876543210"
-          mode: "post_on_change"
+          mode: post_on_change
           caption_template: "Merged configs — {timestamp}"
 ```
 
-### Selector: `include_formats`
+Configuration validation verifies:
 
-Use `["all"]` to accept every format, or list specific IDs:
+- source and route IDs are unique;
+- route names are canonical filesystem-safe names;
+- all route source references exist;
+- route formats are registered and build-capable;
+- concrete output filenames do not collide;
+- destination identities are unique;
+- only implemented destination modes are accepted;
+- required credentials are present in strict/CI mode.
 
-```yaml
-selector:
-  include_formats: ["npvt", "npvtsub", "ovpn", "ehi"]
+Publication tiers are `raw`, `compatible`, and `secure`. Secure-tier build queries require matching record verdicts and can require a fresh successful probe. The current production route uses the compatible tier.
+
+## 2. Formats
+
+### Build-capable registered formats
+
+| Format | Kind | Notes |
+|---|---|---|
+| `npvt` | text subscription | Validated proxy URI records |
+| `npvtsub` | text subscription | Same canonical proxy-validation contract as `npvt` |
+| `conf_lines` | text | Generic configuration lines |
+| `ovpn` | raw/archive | OpenVPN source blobs |
+| `npv4` | raw/archive + optional enrichment | NapsternetV v4 |
+| `ehi` | raw/archive | HTTP Injector |
+| `hc` | raw/archive | HTTP Custom |
+| `hat` | raw/archive + optional enrichment | HA Tunnel / `happ://` metadata |
+| `sip` | raw/archive | SocksIP Tunnel |
+| `nm` | raw/archive + optional enrichment | NetMod |
+| `dark` | raw/archive | Dark Tunnel |
+| `tut` | raw/archive + optional enrichment | TUT |
+| `sks` | raw/archive + optional enrichment | SKS |
+| `tmt` | raw/archive + optional enrichment | TMT |
+| `opaque_bundle` | raw/archive | Fallback for unrecognized binary data |
+
+`slipnet` is registered for parsing but is parse-only. `validate_config()` therefore rejects it as a publication route format instead of allowing a route that cannot build an artifact.
+
+The current production `all_sources` route configures these 12 formats:
+
+```text
+npvt, npvtsub, conf_lines, ovpn, npv4, ehi,
+hc, hat, sip, nm, dark, opaque_bundle
 ```
 
-## Supported Formats
+### Raw-blob formats
 
-| Format ID | Extension | Type | Client | Description |
-|---|---|---|---|---|
-| `npvt` | `.txt`, auto-detect | Text | v2rayN/NG, Xray, sing-box | Proxy URI lines (30+ schemes/aliases) |
-| `npvtsub` | `.npvtsub` | Text | NapsternetV | Subscription proxy URIs |
-| `conf_lines` | `.conf` | Text | Generic | Line-based config entries |
-| `ovpn` | `.ovpn` | Binary (ZIP) | OpenVPN | OpenVPN config files |
-| `npv4` | `.npv4` | Binary (ZIP) | NapsternetV v4 | Encrypted VPN config |
-| `ehi` | `.ehi` | Binary (ZIP) | HTTP Injector | Encrypted SSH/proxy config |
-| `hc` | `.hc` | Binary (ZIP) | HTTP Custom | Tunnel VPN config |
-| `hat` | `.hat` | Binary (ZIP) | HA Tunnel Plus | SSH/SSL/HTTP proxy config |
-| `sip` | `.sip` | Binary (ZIP) | SocksIP Tunnel | SOCKS tunnel config |
-| `nm` | `.nm` | Binary (ZIP) | NetMod VPN | SSH/V2Ray/OpenVPN/DNSTT config |
-| `opaque_bundle` | fallback | Binary (ZIP) | N/A | Unrecognized binary files |
+Archive-style handlers preserve the source blob hash as part of the normalized record. This is required because their build step loads the original content-addressed bytes to create the final ZIP. Deep decryption/inspection is enrichment only; successful enrichment never replaces the canonical raw blob.
 
-All binary formats produce ZIP archives. Text formats produce deduplicated plain-text files.
+### Derived proxy outputs
 
-For `npvt` and `npvtsub`, the build phase also produces:
-- **`.decoded.json`** — structured JSON describing recognized proxy URIs
-- **`.b64sub`** — base64-encoded subscription (standard for v2rayN/v2rayNG import)
-- **`.singbox.json`** — sing-box 1.14+ output containing only links that can be represented faithfully in the current sing-box schema
+Proxy routes can emit:
 
-## Supported Proxy Protocols
+- `*.decoded.json` — structured decoded URI information;
+- `*.b64sub` — base64 subscription text;
+- `*.singbox.json` — only proxies whose semantics can be represented faithfully in the implemented sing-box mapping.
 
-HUNTX deliberately separates **recognition/preservation** from **native sing-box conversion**. A valid share link can remain in the subscription and decoded JSON even when it does not contain enough information for a safe sing-box representation.
+Recognition is intentionally broader than native sing-box conversion.
 
-| Scheme | Protocol | HUNTX handling |
-|---|---|---|
-| `vmess://` | VMess (V2Ray) | Base64 → JSON; sing-box export |
-| `vless://` | VLESS (V2Ray/Xray) | URI parse; sing-box export |
-| `trojan://` | Trojan | URI parse; sing-box export |
-| `ss://` | Shadowsocks | SIP002/legacy parse; sing-box export |
-| `ssr://` | ShadowsocksR | Full base64 decode; preserved (no native conversion) |
-| `hysteria2://` / `hy2://` | Hysteria 2 | URI parse including default/multi-port forms; sing-box export when representable |
-| `hysteria2+realm://` / `hysteria2+realm+http://` | Hysteria2 Realm | Preserved; sing-box export only when required Realm/STUN fields are present |
-| `hysteria://` | Hysteria 1 | Official URI parse; UDP-form sing-box export when auth and bandwidth fields are complete |
-| `tuic://` | TUIC (QUIC) | URI parse; sing-box export |
-| `wireguard://` / `wg://` | WireGuard-style link | Validated/preserved; no legacy outbound synthesis |
-| `socks://` / `socks5://` / `socks4://` / `socks4a://` | SOCKS proxy | URI parse; sing-box export |
-| authenticated `http://` / `https://` endpoints | HTTP CONNECT proxy | URI parse; sing-box export; ordinary web URLs are rejected as proxy links |
-| `ssh://` | SSH proxy | URI parse; sing-box export |
-| `shadowtls://` | ShadowTLS | URI parse; sing-box export |
-| `naive+https://` / `naive+quic://` | NaiveProxy | Validated/preserved with optional auth and validated extra headers; representable authenticated HTTPS form can export to sing-box, QUIC remains preserve-only |
-| `anytls://` | AnyTLS | URI parse; sing-box export |
-| `juicity://` | Juicity (QUIC) | Validates UUID + password endpoint; preserved |
-| `mieru://` / `mierus://` | Mieru | Standard opaque or human-readable share-link validation; preserved |
-| `warp://` | Cloudflare WARP | URI parse; preserved |
-| `dns://` / `dnstt://` | DNS tunnel | URI parse; preserved |
+## 3. Proxy URI handling
 
-HUNTX does not invent share-link grammars for protocols that have a native sing-box outbound but no sufficiently clear share-link contract in the input ecosystem. This prevents false-positive parsing and invalid generated configs.
+`npvt` and `npvtsub` share one parser/validator. A recognized prefix alone is not enough: candidate URIs must pass protocol-aware validation before storage/build.
 
-## Running Locally
+Recognized families include VMess, VLESS, Trojan, Shadowsocks, ShadowsocksR, Hysteria 1/2, Hysteria2 Realm, TUIC, SOCKS 4/4a/5, authenticated HTTP(S) proxies, SSH, ShadowTLS, NaiveProxy, Mieru, Juicity, AnyTLS, WireGuard-style links, WARP, DNS, and DNSTT.
+
+Ordinary web URLs are not classified as proxy endpoints. Authenticated HTTP(S) proxy endpoints are accepted only when they match the endpoint shape expected by the validator.
+
+## 4. Running locally
+
+Install:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate       # Linux/macOS
+# Windows PowerShell: .venv\Scripts\Activate.ps1
+python -m pip install -e .
+```
+
+Create a Telethon session if using MTProto:
+
+```bash
+python scripts/make_telethon_session.py
+```
+
+Run:
 
 ```bash
 huntx --config configs/config.prod.yaml run
 ```
 
-Set `HUNTX_MAX_WORKERS` to control parallelism (default: 2):
+Every supported run entrypoint reaches the same governed run service. That service performs config validation, acquires the runtime-state lock, acquires host/user-wide locks for every configured MTProto session identity, constructs the production orchestrator through `create_production_orchestrator()`, executes the bounded run, and emits structured health.
 
-```bash
-HUNTX_MAX_WORKERS=5 huntx --config my_config.yaml run
-```
+## 5. CLI reference
 
-## CLI Commands
+Global options:
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--config` | `config.yaml` | YAML configuration |
+| `--data-dir` | `./data` | Runtime data root |
+| `--db-path` | `./data/state/state.db` | SQLite database |
 
 ### `huntx run`
-
-Run the full pipeline (ingest → transform → build → publish → auto-deliver → cleanup).
 
 ```bash
 huntx --config my_config.yaml run [OPTIONS]
 ```
 
-| Flag | Description | Default |
-|---|---|---|
-| `--msg-fresh-hours N` | Text lookback hours for first-seen source | `2` |
-| `--file-fresh-hours N` | File lookback hours for first-seen source | `48` |
-| `--msg-subsequent-hours N` | Text lookback on subsequent runs (0=all new) | `0` |
-| `--file-subsequent-hours N` | File lookback on subsequent runs (0=all new) | `0` |
-| `--no-auto-deliver` | Skip automatic subscription delivery after pipeline | — |
-| `--no-publish` | Skip publishing artifacts to destination channels | — |
+| Flag | Default | Meaning |
+|---|---:|---|
+| `--msg-fresh-hours` | `2` | First-seen text lookback |
+| `--file-fresh-hours` | `48` | First-seen document lookback |
+| `--msg-subsequent-hours` | `0` | Later text lookback (`0` = all unseen) |
+| `--file-subsequent-hours` | `0` | Later document lookback (`0` = all unseen) |
+| `--no-publish` | off | Skip route publication |
+| `--no-auto-deliver` | off | Skip post-run GatherX delivery |
 
-After the pipeline completes, output files are automatically sent only to
-operator-approved, non-muted GatherX bot users (unless `--no-auto-deliver` is
-passed).
+The local worker default is 3 through `HUNTX_MAX_WORKERS`. The production workflow explicitly supplies its own default of 2.
+
+Runtime health uses three dispositions:
+
+- `success` — no material degradation;
+- `degraded` — useful/durable progress exists but one or more nonfatal stages degraded;
+- `fatal` — configuration/state/invariant failure or execution failed without recoverable progress.
 
 ### `huntx bot`
-
-Run the GatherX bot in persistent interactive mode (listens forever for DM commands).
 
 ```bash
 huntx bot [--token TOKEN] [--api-id ID] [--api-hash HASH]
 ```
 
-Credentials default to `PUBLISH_BOT_TOKEN`/`TELEGRAM_TOKEN`, `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`.
+Token precedence is explicit `--token`, then `PUBLISH_BOT_TOKEN`, then `TELEGRAM_TOKEN`.
+
+### `huntx prune`
+
+```bash
+huntx prune --days 30
+```
+
+Retention must be a positive integer. The repository layer rejects zero, negative, boolean, fractional, or string retention values before destructive SQL runs. Candidate raw blobs are deleted only after a post-prune live-reference check.
 
 ### `huntx clean`
 
-Delete all data, state, cache, and logs for a fresh start.
-
-```bash
-huntx clean [--yes]
-```
-
-Deletes: raw store, output, archive, state DB, rejects, and logs.
+Removes runtime data/cache/log material. Existing GatherX user rows are backed up and restored through the canonical current database schema.
 
 ### `huntx reset`
 
-Full factory reset — wipes ALL data, state, caches, outputs, and source offsets.
+Factory-reset runtime state and source offsets. Without `--yes`, the local CLI requires typing `RESET` exactly. The GitHub Actions production reset is a different operational boundary and requires dispatch input `reset=true` plus exact `reset_confirm=RESET-HUNTX-STATE`.
+
+## 6. GatherX bot
+
+GatherX is **private-chat only**. Registration does not grant artifact access.
+
+### Pending-safe commands
+
+```text
+/start  /help  /formats  /protocols  /myinfo  /ping
+```
+
+### Approved-user commands
+
+```text
+/get [format]
+/latest
+/count
+/setformat <format>
+/mute
+/unmute
+```
+
+### Administrator-only commands
+
+```text
+/status
+/admin
+/pending
+/approve <numeric_user_id>
+/deny <numeric_user_id>
+```
+
+Administrator IDs come from `HUNTX_ADMINS` and only numeric immutable Telegram user IDs are honored. Administrative commands are not advertised in the default Telegram command menu.
+
+Artifact delivery checks authorization again at the lower delivery boundary. Automatic delivery requires `user_id == chat_id`, `approved = 1`, and a non-muted user. Delivery item hashes and checkpoint counters are persisted so completed sends can be resumed without replaying every file.
+
+## 7. Runtime state and storage
+
+Default `HUNTX_DATA_DIR=data` layout:
+
+```text
+data/raw/          content-addressed raw source bytes
+data/dist/         internal/distributable generated material
+data/outputs/      current route outputs
+data/outputs_dev/  cumulative developer proxy view
+data/archive/      archive of changed output content
+data/rejects/      rejected forensic payloads
+data/state/        default SQLite/lock area
+data/logs/         logs and structured run summaries
+```
+
+`HUNTX_STATE_DB_PATH` or `--db-path` controls the SQLite location.
+
+The raw store shards SHA-256 filenames by prefix and verifies digest integrity on read. Generated output cleanup uses `.huntx-output-ownership.json`: only files explicitly owned by a previous manifest (or exact current outputs adopted during migration) are eligible for retention cleanup.
+
+## 8. Production GitHub Actions
+
+`.github/workflows/huntx.yml` runs every two hours and supports manual dispatch.
+
+Major jobs:
+
+1. **production-quality-gate** — Go format/race tests/vet/build plus pinned Python install, compile, Flake8, MyPy, and Pytest;
+2. **restore-verified-state** — when S3 is configured, validate `current.json`, fetch the immutable generation manifest/payload, and verify it with `huntx-tools`;
+3. **ingest-build-package** — run HUNTX under a watchdog, verify output, produce Pages data, build a verified checkpoint, and emit structured diagnostics;
+4. **persist-immutable-state** — reverify the checkpoint, upload the generation, then advance the S3 pointer only after payload/manifest verification;
+5. **deploy-pages** — deploy verified static site data when a packageable output exists.
+
+Without an S3 bucket, the hosted runner is intentionally stateless across runs; the workflow still produces verified ephemeral checkpoints/artifacts for that run.
+
+A separate `publish-generated-outputs.yml` workflow consumes a successful trusted production run, assembles a verified cumulative snapshot, updates the `generated-outputs` branch using concurrency-safe semantics, then mirrors the intended generated inventory into `main/outputs` and `main/outputs_dev`.
+
+`huntx-real-investigation-gate.yml` verifies that a completed production run emitted a valid structured run summary with non-negative source/message/cursor metrics and rejects a run that had approved sources but checked none.
+
+## 9. Secrets and decryption credentials
+
+Do not store credential values in the repository. Relevant values include:
+
+- `TELEGRAM_TOKEN`
+- `PUBLISH_BOT_TOKEN`
+- `TELEGRAM_API_ID`
+- `TELEGRAM_API_HASH`
+- `TELEGRAM_USER_SESSION`
+- `HUNTX_ADMINS`
+- AWS credentials/role configuration for optional persistence
+- operator-supplied format decryption keys/passwords such as NetMod/TUT/HAPP/SlipNet credentials
+
+Secret-dependent decryptors fail closed when required credentials are unavailable. Source blobs remain preservable/buildable even when optional deep-decryption enrichment cannot run.
+
+## 10. Verification and troubleshooting
+
+Local source gates:
 
 ```bash
-huntx reset [--yes]
+python -m compileall -q -j 0 src tests scripts
+python -m flake8 src/huntx tests scripts --count --statistics
+python -m mypy src/huntx
+python -m pytest -q -m "not perf" --strict-config --strict-markers
 ```
 
-Requires typing `RESET` to confirm, or pass `--yes` to skip.
-
-## Running on GitHub Actions
-
-1. **Fork the repository**
-2. **Add Secrets** (Settings → Secrets → Actions):
-   - `TELEGRAM_TOKEN` — Bot API token for ingestion
-   - `PUBLISH_BOT_TOKEN` — separate bot token for GatherX (optional)
-   - `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_USER_SESSION` — for MTProto
-3. **Enable the workflow** — `.github/workflows/huntx.yml` runs every 2 hours (cron)
-4. **Manual trigger** — use "Run workflow" with configurable inputs:
-
-| Input | Description | Default |
-|---|---|---|
-| `max_workers` | Parallel ingestion workers | `2` |
-| `msg_fresh_hours` | Text lookback for first-seen sources | `2` |
-| `file_fresh_hours` | File/media lookback for first-seen sources | `48` |
-| `msg_subsequent_hours` | Text lookback on subsequent runs | `0` |
-| `file_subsequent_hours` | File/media lookback on subsequent runs | `0` |
-| `reset` | Factory reset before run (checkbox) | `false` |
-| `reset_confirm` | Safety confirmation (type `RESET` to actually reset) | `""` |
-
-5. State persistence is optional:
-   - If `S3_BUCKET` is configured, the workflow restores/persists `state.db` and syncs the archive to S3.
-   - If not configured, the workflow runs stateless (no state persistence).
-
-## Telegram User Session (MTProto)
-
-Unlocks history access, public channel reading, and text content ingestion.
-
-### Setup
-
-1. Go to [my.telegram.org](https://my.telegram.org) → API development tools → create an app
-2. Generate session string:
-   ```bash
-   python scripts/make_telethon_session.py
-   ```
-3. Save as `TELEGRAM_USER_SESSION` in GitHub Secrets or env vars
-
-## GatherX Bot
-
-**GatherX** is the user-facing Telegram bot. Anyone may create a pending
-registration by messaging it, but automatic delivery is deny-by-default until
-an operator approves that user.
-
-### How It Works
-
-1. User sends `/start` → a pending registration is created
-2. An administrator uses `/pending` to inspect registrations and `/approve <user_id>` or `/deny <user_id>` to change approval state
-3. After every `huntx run` → the bot sends outputs only to approved, non-muted users
-4. Users can request specific formats on demand with `/get`
-5. Users can set a preferred format with `/setformat`
-6. Users can `/mute` to opt out, `/unmute` to opt back in
-
-### Running the Bot
-
-- **After pipeline** (automatic): `huntx run` auto-delivers to all approved, non-muted users
-- **Persistent mode**: `huntx bot` listens for DM commands forever
-
-### Bot Commands
-
-| Command | Description |
-|---|---|
-| `/start` | Register and receive latest configs |
-| `/get [format]` | Download configs (default: your preferred format) |
-| `/latest [days]` | Get all recent artifacts (default: 4 days) |
-| `/formats` | List all supported formats with descriptions |
-| `/protocols` | Show all supported proxy protocols |
-| `/count` | Proxy URI count per protocol (with bar chart) |
-| `/setformat <fmt>` | Set your preferred default format |
-| `/myinfo` | Your account info and preferences |
-| `/status` | Pipeline statistics (sources, files, records, users) |
-| `/mute` | Stop auto-delivery |
-| `/unmute` | Resume auto-delivery |
-| `/ping` | Check if bot is alive |
-| `/help` | Show help message |
-| `/pending` | Admin: list users awaiting approval |
-| `/approve <user_id>` | Admin: approve a pending user |
-| `/deny <user_id>` | Admin: deny/revoke approval |
-
-The bot registers its command menu via `setMyCommands` on startup, so commands appear in the Telegram menu.
-
-### User Data
-
-User data is stored in the `bot_users` SQLite table:
-- `user_id`, `chat_id`, `username` — identity
-- `approved` — operator-controlled automatic-delivery authorization (default: denied)
-- `default_format` — preferred format for `/get` (default: `npvt`)
-- `muted` — opt-out of auto-delivery
-- `last_delivered_at` — timestamp of last delivery
-
-## Media Filtering
-
-Both connectors automatically drop messages containing unwanted media types **before** downloading:
-
-**Dropped**: images, videos, GIFs/animations, stickers, voice messages, audio, video notes
-
-**Kept**: text-only messages, document-only messages, text+document hybrid messages
-
-This significantly reduces bandwidth and processing time for channels that mix proxy configs with media posts.
-
-## Architecture
-
-```
-Sources → [Worker Pool (N)] → Ingest → Raw Store (SHA-256 sharded)
-                                              ↓
-                                    Transform (batch: 200 files/batch)
-                                              ↓
-                                    Build (merge + deduplicate)
-                                    ↓          ↓            ↓
-                               Publish    Decode JSON    Re-encode b64
-                             (Telegram)   (structured)   (subscription)
-                                    ↓
-                               Cleanup (prune raw + archive)
-```
-
-Workers pull from a shared queue — no two workers process the same source. Transform uses batch DB writes (`executemany`) for efficiency.
-
-## Output Artifacts
-
-| Path | Description |
-|---|---|
-| `output/{route}.{fmt}` | Latest merged artifact per route/format |
-| `output/{route}.npvt.decoded.json` | Recognized proxy URIs decoded to structured JSON |
-| `output/{route}.npvt.b64sub` | Base64-encoded subscription (v2rayN/v2rayNG compatible) |
-| `output/{route}.npvt.singbox.json` | Current-schema sing-box config for safely representable proxy links |
-| `archive/{route}_{timestamp}.{fmt}` | Timestamped archive copies |
-| `dist/` | Packaged output for GitHub Actions upload |
-
-### Verification
+Go gates:
 
 ```bash
-python scripts/verify_output.py
+gofmt -l .
+go test -race ./...
+go vet ./...
+go build ./cmd/huntx-tools
+go build ./cmd/huntx-engine
 ```
 
-Validates output files, decodes proxy links, and optionally runs V2Ray config checks.
+Output verification used by production:
+
+```bash
+huntx-tools verify-output --data-dir persist/data
+```
+
+Site data generation used by production:
+
+```bash
+huntx-tools site-data --data-dir persist/data --docs-dir docs
+```
+
+If a run is degraded, inspect the structured `run-summary.json` and runtime logs rather than relying only on the process exit code. Logs redact known credential shapes in both ordinary messages and rendered exception traceback text.

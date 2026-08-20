@@ -156,7 +156,7 @@ def _bare_hardened(config: AppConfig):
             queue.task_done()
 
     orchestrator._worker_async = ingest_worker
-    orchestrator.publish_pipeline = SimpleNamespace(run=lambda result, destinations: True)
+    orchestrator.publish_pipeline = SimpleNamespace(run=lambda result, destinations, **kwargs: True)
     orchestrator._export_outputs = lambda results: None
     orchestrator._export_dev_outputs = lambda results: None
     orchestrator.raw_store = SimpleNamespace(
@@ -181,7 +181,7 @@ def test_build_routes_exclude_unapproved_historical_sources():
     captured_routes = []
     orchestrator.transform_pipeline = _complete_transform()
     orchestrator.build_pipeline = SimpleNamespace(
-        run=lambda route: captured_routes.append(route) or []
+        run=lambda route, **kwargs: captured_routes.append(route) or []
     )
 
     summary = asyncio.run(
@@ -205,7 +205,7 @@ def test_optional_destination_policy_reaches_publisher():
     captured_destinations = []
     orchestrator.transform_pipeline = _complete_transform()
     orchestrator.build_pipeline = SimpleNamespace(
-        run=lambda route: [
+        run=lambda route, **kwargs: [
             {
                 "route_name": route["name"],
                 "artifact_hash": "a" * 64,
@@ -215,7 +215,7 @@ def test_optional_destination_policy_reaches_publisher():
         ]
     )
     orchestrator.publish_pipeline = SimpleNamespace(
-        run=lambda result, destinations: captured_destinations.extend(destinations)
+        run=lambda result, destinations, **kwargs: captured_destinations.extend(destinations)
     )
 
     summary = asyncio.run(

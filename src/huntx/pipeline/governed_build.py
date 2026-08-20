@@ -5,6 +5,7 @@ import threading
 from typing import Any, Optional
 
 from .build import BuildPipeline
+from ..core.deadline import Deadline
 from ..state.repo import StateRepo
 from ..state.verdict_store import get_records_for_governed_build
 
@@ -114,7 +115,10 @@ class GovernedBuildPipeline(BuildPipeline):
         route_config: dict[str, Any],
         *,
         records: Optional[list[dict[str, Any]]] = None,
+        deadline: Deadline | None = None,
     ) -> list[dict[str, Any]]:
+        if deadline is not None:
+            deadline.raise_if_expired("build")
         if records is None:
             route_name = str(route_config["name"])
             tier, require_fresh_probe = self._route_policies.get(route_name, ("compatible", False))
@@ -123,6 +127,8 @@ class GovernedBuildPipeline(BuildPipeline):
                 tier=tier,
                 require_fresh_probe=require_fresh_probe,
             )
+        if deadline is not None:
+            deadline.raise_if_expired("build")
         route_pipeline = BuildPipeline(
             self.state_repo,
             self.artifact_store,
@@ -130,4 +136,4 @@ class GovernedBuildPipeline(BuildPipeline):
             format_locks=self._format_locks,
             format_locks_guard=self._format_locks_guard,
         )
-        return route_pipeline.run(route_config, records=records)
+        return route_pipeline.run(route_config, records=records, deadline=deadline)
