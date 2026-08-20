@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import urllib.parse
 from typing import Any, Optional
 
+from .b64 import b64_decode
 from .singbox import ProxyNode, parse_proxy_uri
 
 _XRAY_TRANSPORT_METHODS = {
@@ -25,6 +27,43 @@ def _unique_tag(base: str, seen: set[str]) -> str:
         index += 1
     seen.add(candidate)
     return candidate
+
+
+def _declared_transport_is_representable(uri: str, node: ProxyNode) -> bool:
+    """Reject share transports the normalized node cannot preserve losslessly."""
+    lower = uri.lower()
+    transport = "tcp"
+    header_type = ""
+
+    if lower.startswith("vmess://"):
+        try:
+            data = json.loads(b64_decode(uri[len("vmess://") :]))
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return False
+        transport = str(data.get("net", "tcp") or "tcp").lower()
+        header_type = str(data.get("type", "") or "").lower()
+    elif lower.startswith(("vless://", "trojan://")):
+        try:
+            parsed = urllib.parse.urlsplit(uri)
+            params = dict(urllib.parse.parse_qsl(parsed.query, keep_blank_values=True))
+        except ValueError:
+            return False
+        transport = str(params.get("type", "tcp") or "tcp").lower()
+        header_type = str(
+            params.get("headerType", "") or params.get("header_type", "") or ""
+        ).lower()
+    else:
+        return True
+
+    if transport in {"", "tcp", "raw"}:
+        return header_type in {"", "none"} and not node.transport_type
+
+    expected_node_transport = {
+        "ws": "ws",
+        "grpc": "grpc",
+        "httpupgrade": "httpupgrade",
+    }.get(transport)
+    return expected_node_transport is not None and node.transport_type == expected_node_transport
 
 
 def _tls_settings(node: ProxyNode) -> dict[str, Any]:
@@ -190,7 +229,7 @@ def proxy_outbounds_from_uris(uris: list[str]) -> list[dict[str, Any]]:
         if not uri or uri.startswith("#"):
             continue
         node = parse_proxy_uri(uri)
-        if node is None:
+        if node is None or not _declared_transport_is_representable(uri, node):
             continue
         tag = _unique_tag(node.tag or node.type, seen_tags)
         outbound = _outbound(node, tag)
