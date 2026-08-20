@@ -75,7 +75,14 @@ SUPPORTED_FORMATS = [
     "opaque_bundle",
 ]
 
-_ALL_VALID_FORMATS = SUPPORTED_FORMATS + ["b64sub", "decoded.json", "singbox.json"]
+_ALL_VALID_FORMATS = SUPPORTED_FORMATS + [
+    "b64sub",
+    "decoded.json",
+    "raw.txt",
+    "singbox.json",
+    "xray.json",
+    "nekobox.json",
+]
 
 _AUTO_DELIVER_FORMATS = ("npvt", "b64sub")
 
@@ -84,7 +91,10 @@ _FORMAT_LABELS = {
     "npvtsub": "📋 NapsternetV subscription",
     "b64sub": "🔗 Base64 subscription (v2rayN/v2rayNG)",
     "decoded.json": "📊 Structured JSON (all proxies decoded)",
+    "raw.txt": "📝 Raw proxy URI list",
     "singbox.json": "📦 sing-box client config (import-ready)",
+    "xray.json": "📦 Xray client config (import-ready)",
+    "nekobox.json": "📦 NekoBox sing-box outbound subscription",
     "conf_lines": "📝 Generic config lines",
     "ovpn": "🔐 OpenVPN",
     "npv4": "📱 NapsternetV v4",
