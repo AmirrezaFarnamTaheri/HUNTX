@@ -145,6 +145,11 @@ def validate_json_file(path: Path) -> Dict[str, Any]:
     return stats
 
 
+def _matches_derived_name(name: str, dotted: str, canonical: str) -> bool:
+    """Match artifact-store dotted names and canonical exported filenames."""
+    return name.endswith(dotted) or name.endswith(canonical)
+
+
 def validate_file(path: Path) -> Dict[str, Any]:
     """Route validation to the right handler based on file type."""
     name = path.name.lower()
@@ -157,29 +162,29 @@ def validate_file(path: Path) -> Dict[str, Any]:
         print("    WARNING: Empty file.")
         return {"type": "empty"}
 
-    if name.endswith(".decoded.json"):
+    if _matches_derived_name(name, ".decoded.json", "_decoded.json"):
         stats = validate_json_file(path)
         if stats["entries"]:
             protos = ", ".join(f"{k}:{v}" for k, v in stats["protocols"].most_common(10))
             print(f"    JSON: {stats['entries']} entries  protocols=[{protos}]")
         return stats
 
-    if name.endswith(".singbox.json"):
+    if _matches_derived_name(name, ".singbox.json", "_singbox.json"):
         stats = validate_json_file(path)
         print(f"    sing-box config: {size_kb:.1f} KB")
         return stats
 
-    if name.endswith(".xray.json"):
+    if _matches_derived_name(name, ".xray.json", "_xray.json"):
         stats = validate_json_file(path)
         print(f"    Xray config: {size_kb:.1f} KB")
         return stats
 
-    if name.endswith(".nekobox.json"):
+    if _matches_derived_name(name, ".nekobox.json", "_nekobox.json"):
         stats = validate_json_file(path)
         print(f"    NekoBox outbounds: {size_kb:.1f} KB")
         return stats
 
-    if name.endswith(".b64sub"):
+    if name.endswith(".b64sub") or name.endswith("_b64sub.txt"):
         print(f"    Base64 subscription: {size_kb:.1f} KB")
         return {"type": "b64sub", "size": size}
 
@@ -240,18 +245,19 @@ def main():
         total_size += fsize
 
         # Track format
+        name = item.name.lower()
         suffix = item.suffix.lower()
-        if item.name.endswith(".singbox.json"):
+        if _matches_derived_name(name, ".singbox.json", "_singbox.json"):
             format_counts["singbox.json"] += 1
-        elif item.name.endswith(".xray.json"):
+        elif _matches_derived_name(name, ".xray.json", "_xray.json"):
             format_counts["xray.json"] += 1
-        elif item.name.endswith(".nekobox.json"):
+        elif _matches_derived_name(name, ".nekobox.json", "_nekobox.json"):
             format_counts["nekobox.json"] += 1
-        elif item.name.endswith(".decoded.json"):
+        elif _matches_derived_name(name, ".decoded.json", "_decoded.json"):
             format_counts["decoded.json"] += 1
-        elif item.name.endswith(".raw.txt") or item.name.endswith("_raw.txt"):
+        elif name.endswith(".raw.txt") or name.endswith("_raw.txt"):
             format_counts["raw.txt"] += 1
-        elif item.name.endswith(".b64sub"):
+        elif name.endswith(".b64sub") or name.endswith("_b64sub.txt"):
             format_counts["b64sub"] += 1
         else:
             format_counts[suffix or "unknown"] += 1
