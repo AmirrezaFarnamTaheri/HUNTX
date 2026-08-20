@@ -1,4 +1,3 @@
-outputs/all_sources.conf_lines
 outputs/all_sources.dark
 outputs/all_sources.ehi
 outputs/all_sources.hc
