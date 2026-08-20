@@ -176,12 +176,57 @@ def test_xray_rejects_malformed_reality_credentials():
     assert _proxy_outbounds(build_xray_config_bytes(padded_key)) == []
 
 
+def test_xray_rejects_unknown_or_removed_tls_fingerprints():
+    unknown = (
+        "vless://11111111-2222-3333-4444-555555555555@example.com:443"
+        "?security=tls&type=tcp&fp=not-a-current-fingerprint#bad-fp"
+    )
+    removed = (
+        "vless://11111111-2222-3333-4444-555555555555@example.com:443"
+        "?security=tls&type=tcp&fp=hellogolang#removed-fp"
+    )
+
+    assert _proxy_outbounds(build_xray_config_bytes(unknown)) == []
+    assert _proxy_outbounds(build_xray_config_bytes(removed)) == []
+
+
+def test_xray_rejects_contradictory_or_unpreserved_vless_declarations():
+    missing_reality_key = (
+        "vless://11111111-2222-3333-4444-555555555555@example.com:443"
+        "?security=reality&type=tcp#missing-pbk"
+    )
+    contradictory_reality = (
+        "vless://11111111-2222-3333-4444-555555555555@example.com:443"
+        f"?security=tls&pbk={_VALID_REALITY_KEY}&sid=ab12&type=tcp#contradictory"
+    )
+    packet_encoding = (
+        "vless://11111111-2222-3333-4444-555555555555@example.com:443"
+        "?security=tls&type=tcp&packetEncoding=xudp#packet-encoding"
+    )
+    network = (
+        "vless://11111111-2222-3333-4444-555555555555@example.com:443"
+        "?security=tls&type=tcp&network=tcp#network"
+    )
+
+    for uri in (missing_reality_key, contradictory_reality, packet_encoding, network):
+        assert _proxy_outbounds(build_xray_config_bytes(uri)) == []
+
+
 def test_xray_rejects_vmess_features_current_xray_would_coerce_or_drop():
     legacy_alter_id = _vmess_uri(aid="1")
+    negative_alter_id = _vmess_uri(aid="-1")
     plaintext_security = _vmess_uri(scy="none")
+    packet_encoding = _vmess_uri(packetEncoding="xudp")
+    unpreserved_fingerprint = _vmess_uri(fp="chrome")
 
-    assert _proxy_outbounds(build_xray_config_bytes(legacy_alter_id)) == []
-    assert _proxy_outbounds(build_xray_config_bytes(plaintext_security)) == []
+    for uri in (
+        legacy_alter_id,
+        negative_alter_id,
+        plaintext_security,
+        packet_encoding,
+        unpreserved_fingerprint,
+    ):
+        assert _proxy_outbounds(build_xray_config_bytes(uri)) == []
 
 
 def test_xray_accepts_current_vmess_security_modes():

@@ -20,6 +20,69 @@ _XRAY_TRANSPORT_METHODS = {
 }
 _XRAY_VMESS_SECURITIES = {"auto", "aes-128-gcm", "chacha20-poly1305"}
 _XRAY_VLESS_FLOWS = {"", "xtls-rprx-vision", "xtls-rprx-vision-udp443"}
+_XRAY_FINGERPRINTS = {
+    "chrome",
+    "firefox",
+    "safari",
+    "ios",
+    "android",
+    "edge",
+    "360",
+    "qq",
+    "random",
+    "randomized",
+    "randomizednoalpn",
+    "hellofirefox_120",
+    "hellofirefox_148",
+    "hellochrome_120",
+    "hellochrome_131",
+    "hellochrome_133",
+    "helloios_13",
+    "helloios_14",
+    "helloedge_106",
+    "hellosafari_26_3",
+    "hello360_11_0",
+    "helloqq_11_1",
+    "hellorandomized",
+    "hellorandomizedalpn",
+    "hellorandomizednoalpn",
+    "hellofirefox_auto",
+    "hellofirefox_55",
+    "hellofirefox_56",
+    "hellofirefox_63",
+    "hellofirefox_65",
+    "hellofirefox_99",
+    "hellofirefox_102",
+    "hellofirefox_105",
+    "hellochrome_auto",
+    "hellochrome_58",
+    "hellochrome_62",
+    "hellochrome_70",
+    "hellochrome_72",
+    "hellochrome_83",
+    "hellochrome_87",
+    "hellochrome_96",
+    "hellochrome_100",
+    "hellochrome_102",
+    "hellochrome_106_shuffle",
+    "helloios_auto",
+    "helloios_11_1",
+    "helloios_12_1",
+    "helloandroid_11_okhttp",
+    "helloedge_85",
+    "helloedge_auto",
+    "hellosafari_16_0",
+    "hellosafari_auto",
+    "hello360_auto",
+    "hello360_7_5",
+    "helloqq_auto",
+    "hellochrome_100_psk",
+    "hellochrome_112_psk_shuf",
+    "hellochrome_114_padding_psk_shuf",
+    "hellochrome_115_pq",
+    "hellochrome_115_pq_psk",
+    "hellochrome_120_pq",
+}
 _XRAY_SHADOWSOCKS_METHODS = {
     "aes-128-gcm",
     "aead_aes_128_gcm",
@@ -71,7 +134,18 @@ def _declared_transport_is_representable(uri: str, node: ProxyNode) -> bool:
     if lower.startswith("vmess://"):
         try:
             data = json.loads(b64_decode(uri[len("vmess://") :]))
+            alter_id = int(data.get("aid", 0) or 0)
         except (TypeError, ValueError, json.JSONDecodeError):
+            return False
+        if alter_id != 0:
+            return False
+        if str(data.get("packetEncoding", "") or ""):
+            return False
+        if str(data.get("fp", "") or ""):
+            # ProxyNode does not currently preserve VMess share fingerprints.
+            return False
+        declared_tls = str(data.get("tls", "") or "").lower()
+        if declared_tls not in {"", "none", "tls"}:
             return False
         transport = str(data.get("net", "tcp") or "tcp").lower()
         header_type = str(data.get("type", "") or "").lower()
@@ -80,6 +154,17 @@ def _declared_transport_is_representable(uri: str, node: ProxyNode) -> bool:
             parsed = urllib.parse.urlsplit(uri)
             params = dict(urllib.parse.parse_qsl(parsed.query, keep_blank_values=True))
         except ValueError:
+            return False
+        declared_security = str(params.get("security", "") or "").lower()
+        if declared_security not in {"", "none", "tls", "reality"}:
+            return False
+        if declared_security == "reality" and not params.get("pbk"):
+            return False
+        if params.get("pbk") and declared_security not in {"", "reality"}:
+            return False
+        if params.get("packetEncoding") or params.get("packet_encoding"):
+            return False
+        if params.get("network"):
             return False
         if lower.startswith("vless://") and "encryption" in params:
             encryption = str(params["encryption"] or "").lower()
@@ -179,6 +264,10 @@ def _node_features_are_representable(node: ProxyNode) -> bool:
     # certificate pin/verification data, so omit the node rather than emitting
     # a config that current Xray rejects.
     if node.tls_insecure:
+        return False
+
+    fingerprint = node.tls_utls_fingerprint.lower()
+    if fingerprint and fingerprint not in _XRAY_FINGERPRINTS:
         return False
 
     if node.tls_reality_enabled and not _valid_reality_credentials(node):

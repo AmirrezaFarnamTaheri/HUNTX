@@ -21,7 +21,10 @@ def test_verify_output_treats_new_client_json_as_json(tmp_path):
     xray = tmp_path / "all_sources_npvt_xray.json"
     xray.write_text(json.dumps({"outbounds": [{"protocol": "vless"}]}), encoding="utf-8")
     nekobox = tmp_path / "all_sources_npvt_nekobox.json"
-    nekobox.write_text(json.dumps([{"type": "vless", "tag": "node"}]), encoding="utf-8")
+    nekobox.write_text(
+        json.dumps({"outbounds": [{"type": "vless", "tag": "node"}]}),
+        encoding="utf-8",
+    )
 
     assert verifier.validate_file(xray)["type"] == "json"
     assert verifier.validate_file(nekobox)["type"] == "json"

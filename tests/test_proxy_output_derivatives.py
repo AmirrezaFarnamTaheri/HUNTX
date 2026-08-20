@@ -75,9 +75,9 @@ def test_proxy_build_emits_raw_xray_and_nekobox_derivatives():
     }
 
     nekobox = json.loads(by_format["npvt.nekobox.json"]["data"].decode("utf-8"))
-    assert isinstance(nekobox, list)
-    assert [outbound["type"] for outbound in nekobox] == ["vless"]
-    assert nekobox[0]["tag"] == "My Node"
+    assert isinstance(nekobox, dict)
+    assert [outbound["type"] for outbound in nekobox["outbounds"]] == ["vless"]
+    assert nekobox["outbounds"][0]["tag"] == "My Node"
 
     saved_formats = {call.args[1] for call in artifact_store.save_output.call_args_list}
     assert {"npvt.raw.txt", "npvt.xray.json", "npvt.nekobox.json"} <= saved_formats
