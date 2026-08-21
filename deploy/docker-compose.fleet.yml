@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  huntx-daemon:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.daemon
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    environment:
+      - LISTEN_ADDR=0.0.0.0:9090
+
+  probe-us-east:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.probe
+    environment:
+      - PROBE_ID=probe-us-east-01
+      - REGION=US
+      - DAEMON_URL=http://huntx-daemon:9090
+    ports:
+      - "9091:9091"
+    restart: unless-stopped
+
+  probe-eu-central:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.probe
+    environment:
+      - PROBE_ID=probe-eu-central-01
+      - REGION=DE
+      - DAEMON_URL=http://huntx-daemon:9090
+    ports:
+      - "9092:9091"
+    restart: unless-stopped
+
+  probe-me-tehran:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.probe
+    environment:
+      - PROBE_ID=probe-me-tehran-01
+      - REGION=IR
+      - DAEMON_URL=http://huntx-daemon:9090
+    ports:
+      - "9093:9091"
+    restart: unless-stopped

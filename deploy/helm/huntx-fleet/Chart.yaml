@@ -1,0 +1,6 @@
+apiVersion: v2
+name: huntx-fleet
+description: Distributed Multi-Vantage Edge Probe Fleet & Proxy Core for HUNTX
+type: application
+version: 1.0.0
+appVersion: "2026.08.21"
