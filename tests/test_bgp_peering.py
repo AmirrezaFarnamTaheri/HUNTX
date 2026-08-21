@@ -1,6 +1,5 @@
 # Tests for BGP Peering & ASN Carrier Quality Integrator
 # Authority: PeeringDB API & RFC 4271 (A Border Gateway Protocol 4)
-import pytest
 from huntx.pipeline.bgp import BGPPeeringIntegrator, ASNTier, CarrierQualityScore
 
 def test_asn_tier_classification():

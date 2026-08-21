@@ -1,6 +1,5 @@
 # Tests for Supply-Chain Cryptographic Signing and Manifest Verification
 # Authority: NIST FIPS 180-4 (SHA-256) & Sigstore Manifest Spec
-import pytest
 from huntx.pipeline.sign import SupplyChainSigner, ManifestVerificationResult
 
 def test_manifest_hash_generation():

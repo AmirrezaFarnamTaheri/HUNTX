@@ -1,7 +1,6 @@
 # Tests for Real-Time Dynamic AI Proxy Router (MAB / UCB1)
 # Authority: Lai & Robbins (1985), Auer et al. (2002) Finite-time Analysis of Multiarmed Bandit
-import pytest
-from huntx.pipeline.ai_router import UCB1ProxyRouter, RouterArmStats
+from huntx.pipeline.ai_router import UCB1ProxyRouter
 
 def test_router_initialization_and_cold_start():
     router = UCB1ProxyRouter(exploration_constant=1.414)

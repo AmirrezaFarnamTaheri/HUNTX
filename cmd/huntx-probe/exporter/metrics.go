@@ -1,7 +1,8 @@
 // Package exporter provides a Prometheus metrics exporter and security middleware for edge probes.
 //
 // Authority:
-//   Prometheus Text-Based Exposition Format (0.0.4): https://prometheus.io/docs/instrumenting/exposition_formats/
+//
+//	Prometheus Text-Based Exposition Format (0.0.4): https://prometheus.io/docs/instrumenting/exposition_formats/
 package exporter
 
 import (
@@ -69,7 +70,7 @@ func (m *MetricsExporter) Handler() http.Handler {
 		}
 
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
-		
+
 		var b strings.Builder
 		b.WriteString("# HELP huntx_probe_latency_seconds Observed round-trip latency in seconds\n")
 		b.WriteString("# TYPE huntx_probe_latency_seconds gauge\n")

@@ -41,7 +41,7 @@ func TestMetricsExporterAuthHeader(t *testing.T) {
 
 func TestMetricsExporterOutputsPrometheusFormat(t *testing.T) {
 	exp := NewMetricsExporter("secret-auth-token-123")
-	
+
 	// Record sample probe metrics
 	exp.RecordProbeResult("ir-probe-01", "node-vless-1", 35*time.Millisecond, 2.5, 0.0, true)
 	exp.RecordProbeResult("ir-probe-01", "node-vless-2", 150*time.Millisecond, 8.0, 0.25, false)

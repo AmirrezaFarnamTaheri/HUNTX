@@ -1,6 +1,5 @@
 # Tests for Python TLS JA4/JA4S Classifier and DPI-Resilience Scorer
 # Authority: FoxIO JA4+ Network Fingerprinting Specification: https://github.com/FoxIO-LLC/ja4
-import pytest
 from huntx.pipeline.tls_classifier import TLSClassifier, TLSProfileScore
 
 def test_ja4s_fingerprint_generation():

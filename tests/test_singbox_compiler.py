@@ -1,6 +1,5 @@
 # Tests for Sing-box 1.10+ Multi-Outbound Config Compiler
 # Authority: https://sing-box.sagernet.org/configuration/
-import pytest
 from huntx.formats.singbox import SingboxCompiler
 
 def test_singbox_compiler_initialization_defaults():

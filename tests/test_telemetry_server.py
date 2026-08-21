@@ -6,7 +6,6 @@ from huntx.bot.server import TelemetryServer, TelemetryEvent
 @pytest.mark.asyncio
 async def test_telemetry_server_broadcaster():
     server = TelemetryServer()
-    received = []
 
     async def mock_client_queue():
         q = asyncio.Queue()

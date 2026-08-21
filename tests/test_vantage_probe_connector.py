@@ -1,5 +1,4 @@
 # Tests for Vantage Probe Cluster Connector (Python Plane)
-import pytest
 from huntx.connectors.vantage_probe import VantageProbeConnector, VantageProbeObservation
 
 def test_vantage_connector_ingests_reports():

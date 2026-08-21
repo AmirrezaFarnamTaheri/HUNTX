@@ -1,5 +1,4 @@
 # Tests for Multi-Hop Dynamic Chain Synthesizer (Python Plane)
-import pytest
 from huntx.pipeline.chain import DynamicChainSynthesizer, ChainStrategy, SynthesizedProxyChain
 
 def test_chain_strategy_enum():

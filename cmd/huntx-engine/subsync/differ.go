@@ -1,7 +1,8 @@
 // Package subsync provides real-time 3-way cryptographic hash diff synchronization for subscriptions.
 //
 // Authority:
-//   FIPS 180-4 (SHA-256): https://csrc.nist.gov/publications/detail/fips/180/4/final
+//
+//	FIPS 180-4 (SHA-256): https://csrc.nist.gov/publications/detail/fips/180/4/final
 package subsync
 
 import (

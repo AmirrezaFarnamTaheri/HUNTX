@@ -1,6 +1,5 @@
 # Tests for Smart Domain-Categorized DNS & Outbound Rule Generator
 # Authority: Sing-box Route Rule Specification & Clash Rule-Set Spec
-import pytest
 from huntx.pipeline.rule_gen import SmartRuleGenerator, RuleCategory
 
 def test_rule_category_enum():

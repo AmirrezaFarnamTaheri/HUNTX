@@ -15,9 +15,9 @@ func TestSubscriptionDifferAddedRemovedUnchanged(t *testing.T) {
 	}
 
 	incoming := []string{
-		"vless://uuid-1@server1.com:443?type=ws#US-1",        // Unchanged
+		"vless://uuid-1@server1.com:443?type=ws#US-1",         // Unchanged
 		"vless://uuid-2@server2.com:443?type=ws#US-2-Mutated", // Mutated / New hash
-		"vless://uuid-4@server4.com:443?type=reality#US-4",   // Added
+		"vless://uuid-4@server4.com:443?type=reality#US-4",    // Added
 	}
 
 	diff := differ.ComputeDiff(baseline, incoming)

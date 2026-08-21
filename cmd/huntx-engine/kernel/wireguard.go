@@ -1,8 +1,9 @@
 // Package kernel provides WireGuard Noise IK protocol frame parsing and kernel models.
 //
 // Authority:
-//   WireGuard Protocol Specification: https://www.wireguard.com/papers/wireguard.pdf
-//   RFC 7539 (ChaCha20-Poly1305): https://datatracker.ietf.org/doc/html/rfc7539
+//
+//	WireGuard Protocol Specification: https://www.wireguard.com/papers/wireguard.pdf
+//	RFC 7539 (ChaCha20-Poly1305): https://datatracker.ietf.org/doc/html/rfc7539
 package kernel
 
 import (

@@ -5,7 +5,7 @@ Authority:
 """
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Dict, Any, Optional, Set
+from typing import List, Dict, Any, Set
 
 class OONIAnomalyType(str, Enum):
     """Types of network interference detected by OONI observation probes."""

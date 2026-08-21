@@ -4,8 +4,8 @@ Authority:
     RFC 6455 (The WebSocket Protocol): https://datatracker.ietf.org/doc/html/rfc6455
 """
 import asyncio
-from dataclasses import dataclass, asdict
-from typing import Dict, Any, Set, Optional
+from dataclasses import dataclass
+from typing import Dict, Any, Set
 
 @dataclass
 class TelemetryEvent:

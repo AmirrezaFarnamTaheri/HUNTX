@@ -1,6 +1,5 @@
 # Tests for Xray-core 1.8+ Multi-Outbound Config Compiler
 # Authority: https://xtls.github.io/config/
-import pytest
 from huntx.formats.xray import XrayCompiler
 
 def test_xray_compiler_initialization():

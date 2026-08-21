@@ -1,8 +1,9 @@
 // Package benchmark provides network probing capabilities.
 //
 // Authority:
-//   RFC 9000 (QUIC: A UDP-Based Multiplexed and Secure Transport): https://datatracker.ietf.org/doc/html/rfc9000
-//   RFC 3550 (RTP: Jitter Calculation): https://datatracker.ietf.org/doc/html/rfc3550
+//
+//	RFC 9000 (QUIC: A UDP-Based Multiplexed and Secure Transport): https://datatracker.ietf.org/doc/html/rfc9000
+//	RFC 3550 (RTP: Jitter Calculation): https://datatracker.ietf.org/doc/html/rfc3550
 package benchmark
 
 import (

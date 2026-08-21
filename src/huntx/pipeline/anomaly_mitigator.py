@@ -6,8 +6,8 @@ Authority:
 """
 import math
 from enum import Enum
-from dataclasses import dataclass, field
-from typing import Dict, Optional
+from dataclasses import dataclass
+from typing import Dict
 
 class NodeHealthState(str, Enum):
     """Health classification and circuit breaker states."""

@@ -1,6 +1,5 @@
 # Tests for OONI Censorship & Anomaly Feed Bridge
 # Authority: Open Observatory of Network Interference (OONI) Data Spec: https://ooni.org/data/
-import pytest
 from huntx.pipeline.ooni import OONIAnomalyBridge, OONIAnomalyType, NetworkInterferenceAlert
 
 def test_ooni_anomaly_type_classification():

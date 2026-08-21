@@ -4,7 +4,7 @@ Authority:
     Project X / XTLS Specification: https://xtls.github.io/config/
     RFC 8446 (TLS 1.3): https://datatracker.ietf.org/doc/html/rfc8446
 """
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 
 class XrayCompiler:
     """Compiles normalized proxy records into Xray-core 1.8+ JSON configuration."""

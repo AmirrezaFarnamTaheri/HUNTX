@@ -7,14 +7,14 @@ import (
 
 func TestXDPPacketFilterPassAllowedTraffic(t *testing.T) {
 	filter := NewXDPPacketFilter()
-	
+
 	// Create mock IPv4/TCP packet
 	packet := []byte{
 		0x45, 0x00, 0x00, 0x28, // IPv4 header: version 4, IHL 5, len 40
 		0x00, 0x00, 0x40, 0x00, // ID 0, flags DF
 		0x40, 0x06, 0x00, 0x00, // TTL 64, TCP (6), checksum
-		1, 1, 1, 1,             // Src IP: 1.1.1.1
-		192, 168, 1, 100,       // Dst IP: 192.168.1.100
+		1, 1, 1, 1, // Src IP: 1.1.1.1
+		192, 168, 1, 100, // Dst IP: 192.168.1.100
 		0x01, 0xBB, 0x1F, 0x90, // Src Port 443, Dst Port 8080
 		0x00, 0x00, 0x00, 0x01, // Seq num
 		0x00, 0x00, 0x00, 0x00, // Ack num
@@ -36,7 +36,7 @@ func TestXDPPacketFilterDropsBlacklistedIP(t *testing.T) {
 		0x45, 0x00, 0x00, 0x28,
 		0x00, 0x00, 0x40, 0x00,
 		0x40, 0x06, 0x00, 0x00,
-		198, 51, 100, 5,        // Blacklisted Src IP
+		198, 51, 100, 5, // Blacklisted Src IP
 		192, 168, 1, 100,
 		0x01, 0xBB, 0x1F, 0x90,
 		0x00, 0x00, 0x00, 0x01,

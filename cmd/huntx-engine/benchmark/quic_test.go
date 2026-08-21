@@ -27,7 +27,7 @@ func TestQUICProberLoopback(t *testing.T) {
 		}
 	}()
 
-	prober := NewQUICProber(WithQUICTimeout(500 * time.Millisecond), WithQUICPacketCount(5))
+	prober := NewQUICProber(WithQUICTimeout(500*time.Millisecond), WithQUICPacketCount(5))
 	res, err := prober.Probe(context.Background(), pc.LocalAddr().String())
 	if err != nil {
 		t.Fatalf("unexpected probe error: %v", err)
@@ -49,7 +49,7 @@ func TestQUICProberLoopback(t *testing.T) {
 
 func TestQUICProberTimeout(t *testing.T) {
 	// Probe non-responsive port
-	prober := NewQUICProber(WithQUICTimeout(50 * time.Millisecond), WithQUICPacketCount(2))
+	prober := NewQUICProber(WithQUICTimeout(50*time.Millisecond), WithQUICPacketCount(2))
 	res, err := prober.Probe(context.Background(), "127.0.0.1:65530")
 	if err != nil {
 		t.Fatalf("unexpected error on timeout probe: %v", err)

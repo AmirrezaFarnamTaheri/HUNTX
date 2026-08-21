@@ -1,7 +1,8 @@
 // Package main provides a lightweight, resilient proxy management daemon.
 //
 // Authority:
-//   Proxy Auto-Config (PAC) Specification: https://developer.mozilla.org/en-US/docs/Web/HTTP/Proxy_servers_and_tunneling/Proxy_Auto-Configuration_PAC_file
+//
+//	Proxy Auto-Config (PAC) Specification: https://developer.mozilla.org/en-US/docs/Web/HTTP/Proxy_servers_and_tunneling/Proxy_Auto-Configuration_PAC_file
 package main
 
 import (

@@ -6,7 +6,6 @@ Authority:
     RFC 7301 (ALPN): https://datatracker.ietf.org/doc/html/rfc7301
 """
 from typing import Dict, Any, List, Optional
-import json
 
 class SingboxCompiler:
     """Compiles normalized proxy records into Sing-box 1.10+ JSON schemas."""

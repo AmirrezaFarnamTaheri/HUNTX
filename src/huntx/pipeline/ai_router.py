@@ -5,7 +5,7 @@ Authority:
     Machine Learning, 47, 235–256.
 """
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 @dataclass

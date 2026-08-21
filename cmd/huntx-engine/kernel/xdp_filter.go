@@ -1,7 +1,8 @@
 // Package kernel provides eBPF/XDP acceleration and kernel-level network models.
 //
 // Authority:
-//   Linux eBPF / XDP Architecture Specification: https://docs.ebpf.io/
+//
+//	Linux eBPF / XDP Architecture Specification: https://docs.ebpf.io/
 package kernel
 
 import (

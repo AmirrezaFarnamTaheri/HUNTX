@@ -1,11 +1,12 @@
 // HUNTX Interactive 3D WebGL Telemetry Globe Engine
-// High-Performance, Zero-Alloc, GPU-Accelerated Canvas with Typed Arrays and Intersection Culling.
+// Cyber Neon Heatmap Edition: 1,500 Dense Fibonacci Points, 20 Global Geo-Clusters,
+// Multi-Hub Cyber Mesh Telemetry Arcs with Traveling Photons, and Zero-Allocation Mathematical Transforms.
 
 import { GLOBE_HUBS } from "./data.js";
 
-export function initTelemetryGlobe(canvasId, onNodeSelect) {
+export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null) {
   const canvas = document.getElementById(canvasId);
-  if (!canvas) return { destroy: () => {} };
+  if (!canvas || typeof canvas.getContext !== "function") return { destroy: () => {} };
 
   const ctx = canvas.getContext("2d", { alpha: true, desynchronized: true });
   if (!ctx) return { destroy: () => {} };
@@ -14,9 +15,9 @@ export function initTelemetryGlobe(canvasId, onNodeSelect) {
   let height = 0;
   let dpr = Math.min(window.devicePixelRatio || 1, 2.0);
 
-  let rotX = 0.25; // tilt
+  let rotX = 0.28; // tilt
   let rotY = 0.0;  // spin
-  let velY = 0.003;
+  let velY = 0.0032;
   let isDragging = false;
   let startX = 0;
   let startY = 0;
@@ -26,18 +27,45 @@ export function initTelemetryGlobe(canvasId, onNodeSelect) {
   let isVisible = !document.hidden;
   let isIntersecting = true;
   let cachedGrad = null;
+  let hoveredHub = null;
 
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // Generate sphere dot grid (Fibonacci Sphere / Golden Spiral distribution)
-  const DOT_COUNT = 850;
+  // High-Density Fibonacci Sphere (1,500 points for dense neon cluster representation)
+  const DOT_COUNT = 1500;
   const dotCoords = new Float32Array(DOT_COUNT * 3);
-  const dotIsLand = new Uint8Array(DOT_COUNT);
+  const dotType = new Uint8Array(DOT_COUNT);     // 0: Ocean, 1: Land, 2: Proxy Hotspot
   const dotAlphas = new Float32Array(DOT_COUNT);
+  const dotSizes = new Float32Array(DOT_COUNT);
   const rotatedPoints = new Float32Array(DOT_COUNT * 3);
 
   const phi = Math.PI * (3 - Math.sqrt(5)); // Golden ratio angle
 
+  // 20 High-Density Global Strategic Geo-Clusters (Lat, Lon, Radius in deg)
+  const HOTSPOTS = [
+    { lat: 50.1109, lon: 8.6821, radius: 22 },   // Central Europe (Frankfurt, DE)
+    { lat: 52.3702, lon: 4.8952, radius: 18 },   // Western Europe (Amsterdam, NL)
+    { lat: 51.5074, lon: -0.1278, radius: 16 },  // United Kingdom (London, GB)
+    { lat: 48.8566, lon: 2.3522, radius: 16 },   // France (Paris, FR)
+    { lat: 60.1699, lon: 24.9384, radius: 18 },  // Northern Europe (Helsinki, FI)
+    { lat: 59.3293, lon: 18.0686, radius: 16 },  // Scandinavia (Stockholm, SE)
+    { lat: 47.3769, lon: 8.5417, radius: 15 },   // Alpine Hub (Zurich, CH)
+    { lat: 39.0438, lon: -77.4874, radius: 25 }, // US East Core (Ashburn, VA)
+    { lat: 37.3382, lon: -121.8863, radius: 22 },// US West Pacific (San Jose, CA)
+    { lat: 43.6532, lon: -79.3832, radius: 18 }, // Canada East (Toronto, CA)
+    { lat: 1.3521, lon: 103.8198, radius: 18 },  // SE Asia Hub (Singapore, SG)
+    { lat: 35.6762, lon: 139.6503, radius: 20 }, // East Asia (Tokyo, JP)
+    { lat: 37.5665, lon: 126.9780, radius: 16 }, // East Asia Speed (Seoul, KR)
+    { lat: 22.3193, lon: 114.1694, radius: 16 }, // Greater China (Hong Kong, HK)
+    { lat: 41.0082, lon: 28.9784, radius: 18 },  // Eurasian Crossroads (Istanbul, TR)
+    { lat: 35.6892, lon: 51.3890, radius: 18 },  // Middle East Core (Tehran, IR)
+    { lat: 55.7558, lon: 37.6173, radius: 20 },  // Eastern Europe / Russia (Moscow, RU)
+    { lat: -33.8688, lon: 151.2093, radius: 18 },// Oceania (Sydney, AU)
+    { lat: -23.5505, lon: -46.6333, radius: 20 },// Latin America (São Paulo, BR)
+    { lat: -26.2041, lon: 28.0473, radius: 18 }  // Southern Africa (Johannesburg, ZA)
+  ];
+
+  // Fibonacci Sphere Generation
   for (let i = 0; i < DOT_COUNT; i++) {
     const y = 1 - (i / (DOT_COUNT - 1)) * 2; // y goes from 1 to -1
     const radiusAtY = Math.sqrt(Math.max(0, 1 - y * y));
@@ -46,31 +74,79 @@ export function initTelemetryGlobe(canvasId, onNodeSelect) {
     const x = Math.cos(theta) * radiusAtY;
     const z = Math.sin(theta) * radiusAtY;
 
-    // Determine rough land probability to highlight continents
+    // Convert (x, y, z) on unit sphere to spherical lat / lon in degrees
     const lat = Math.asin(Math.max(-1, Math.min(1, y))) * (180 / Math.PI);
-    const lon = Math.atan2(z, x) * (180 / Math.PI);
-    const isLand = checkLand(lat, lon);
+    const lon = Math.atan2(x, z) * (180 / Math.PI);
+
+    let type = 0; // 0: Ocean
+    if (checkLand(lat, lon)) {
+      type = 1; // Land
+      if (checkHotspot(lat, lon)) {
+        type = 2; // High-Density Proxy Hotspot
+      }
+    }
 
     const idx = i * 3;
     dotCoords[idx] = x;
     dotCoords[idx + 1] = y;
     dotCoords[idx + 2] = z;
-    dotIsLand[i] = isLand ? 1 : 0;
-    dotAlphas[i] = isLand ? 0.85 : 0.22;
+    dotType[i] = type;
+
+    if (type === 2) {
+      dotAlphas[i] = 0.95;
+      dotSizes[i] = 2.4;
+    } else if (type === 1) {
+      dotAlphas[i] = 0.65;
+      dotSizes[i] = 1.6;
+    } else {
+      dotAlphas[i] = 0.18;
+      dotSizes[i] = 1.0;
+    }
   }
 
-  // Simplified continental hit-tester for visual aesthetics
   function checkLand(lat, lon) {
     if (lat > 10 && lat < 72 && lon > -15 && lon < 65) return true; // Europe & Middle East
     if (lat > 0 && lat < 70 && lon > 65 && lon < 145) return true;  // Asia
     if (lat > 15 && lat < 70 && lon > -165 && lon < -50) return true; // North America
     if (lat > -55 && lat < 12 && lon > -80 && lon < -35) return true; // South America
     if (lat > -45 && lat < -10 && lon > 110 && lon < 155) return true; // Oceania
+    if (lat > -35 && lat < 38 && lon > -20 && lon < 52) return true;  // Africa
     return false;
   }
 
+  function checkHotspot(lat, lon) {
+    for (let j = 0; j < HOTSPOTS.length; j++) {
+      const h = HOTSPOTS[j];
+      const dLat = lat - h.lat;
+      const dLon = lon - h.lon;
+      if (dLat * dLat + dLon * dLon <= h.radius * h.radius) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Real Output Clustered Telemetry Hubs
+  const DEFAULT_HUBS = [
+    { name: "Silicon Valley", lat: 37.77, lon: -122.42, count: 11, code: "US", ping: 38 },
+    { name: "Moscow Hub", lat: 55.76, lon: 37.62, count: 4, code: "RU", ping: 32 },
+    { name: "Frankfurt Hub", lat: 50.11, lon: 8.68, count: 3, code: "DE", ping: 26 },
+    { name: "Amsterdam Hub", lat: 52.37, lon: 4.90, count: 3, code: "NL", ping: 30 },
+    { name: "Helsinki Hub", lat: 60.17, lon: 24.94, count: 2, code: "FI", ping: 28 },
+    { name: "Paris Hub", lat: 48.86, lon: 2.35, count: 2, code: "FR", ping: 32 },
+    { name: "Tokyo Hub", lat: 35.68, lon: 139.65, count: 2, code: "JP", ping: 48 },
+    { name: "Singapore Hub", lat: 1.35, lon: 103.82, count: 2, code: "SG", ping: 46 },
+    { name: "London Edge", lat: 51.51, lon: -0.13, count: 2, code: "GB", ping: 34 },
+    { name: "Zurich Edge", lat: 47.38, lon: 8.54, count: 1, code: "CH", ping: 32 },
+    { name: "Tehran Edge", lat: 35.69, lon: 51.39, count: 1, code: "IR", ping: 20 }
+  ];
+
+  const sourceHubs = (customHubs && Array.isArray(customHubs) && customHubs.length > 0)
+    ? customHubs
+    : ((typeof GLOBE_HUBS !== "undefined" && Array.isArray(GLOBE_HUBS) && GLOBE_HUBS.length > 0) ? GLOBE_HUBS : DEFAULT_HUBS);
+
   // Pre-calculate Hub Coordinates
-  const hubs = GLOBE_HUBS.map(hub => {
+  const hubs = sourceHubs.map(hub => {
     const latRad = (hub.lat * Math.PI) / 180;
     const lonRad = (hub.lon * Math.PI) / 180;
     return {
@@ -85,32 +161,61 @@ export function initTelemetryGlobe(canvasId, onNodeSelect) {
     };
   });
 
+  // Global Telemetry Mesh Backbone Connections (Pairs of hub indices)
+  const MESH_LINKS = [
+    [0, 1],  // Frankfurt -> Amsterdam
+    [0, 2],  // Frankfurt -> London
+    [0, 3],  // Frankfurt -> Paris
+    [0, 4],  // Frankfurt -> Helsinki
+    [0, 5],  // Frankfurt -> Stockholm
+    [0, 6],  // Frankfurt -> Zurich
+    [0, 7],  // Frankfurt -> Ashburn (Transatlantic)
+    [0, 14], // Frankfurt -> Istanbul
+    [0, 15], // Frankfurt -> Dubai
+    [0, 16], // Frankfurt -> Tehran
+    [7, 8],  // Ashburn -> San Jose
+    [7, 9],  // Ashburn -> Toronto
+    [7, 18], // Ashburn -> São Paulo
+    [10, 11],// Singapore -> Tokyo
+    [10, 12],// Singapore -> Seoul
+    [10, 13],// Singapore -> Hong Kong
+    [10, 17],// Singapore -> Sydney
+    [15, 10],// Dubai -> Singapore
+    [15, 19] // Dubai -> Johannesburg
+  ];
+
+  // Traveling Photons along mesh links
+  const photonProgress = new Float32Array(MESH_LINKS.length);
+  for (let i = 0; i < MESH_LINKS.length; i++) {
+    photonProgress[i] = (i * 0.17) % 1.0;
+  }
+
   function resize() {
     const rect = canvas.getBoundingClientRect();
-    width = rect.width;
-    height = rect.height;
+    width = rect.width || canvas.parentElement?.clientWidth || canvas.offsetWidth || 360;
+    height = rect.height || canvas.parentElement?.clientHeight || canvas.offsetHeight || 360;
     dpr = Math.min(window.devicePixelRatio || 1, 2.0);
 
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // Recompute cached radial gradient
+    // Recompute cached multi-stop glowing nebula atmosphere
     const centerX = width / 2;
     const centerY = height / 2;
     const radius = Math.min(width, height) * 0.42;
 
     cachedGrad = ctx.createRadialGradient(
-      centerX - radius * 0.25,
+      centerX - radius * 0.2,
       centerY - radius * 0.25,
-      radius * 0.1,
+      radius * 0.05,
       centerX,
       centerY,
-      radius * 1.15
+      radius * 1.25
     );
-    cachedGrad.addColorStop(0, "rgba(0, 210, 255, 0.08)");
-    cachedGrad.addColorStop(0.5, "rgba(14, 165, 233, 0.04)");
-    cachedGrad.addColorStop(0.85, "rgba(6, 182, 212, 0.02)");
+    cachedGrad.addColorStop(0, "rgba(0, 210, 255, 0.16)");
+    cachedGrad.addColorStop(0.35, "rgba(6, 182, 212, 0.08)");
+    cachedGrad.addColorStop(0.75, "rgba(2, 6, 23, 0.04)");
     cachedGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
   }
 
@@ -134,7 +239,15 @@ export function initTelemetryGlobe(canvasId, onNodeSelect) {
   }
 
   function render(time = 0) {
-    if (!isVisible || !isIntersecting) return;
+    if (!isVisible) {
+      rafId = requestAnimationFrame(render);
+      return;
+    }
+
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width > 0 && (Math.abs(rect.width - width) > 1 || Math.abs(rect.height - height) > 1)) {
+      resize();
+    }
 
     if (!ctx || width === 0) {
       rafId = requestAnimationFrame(render);
@@ -156,25 +269,25 @@ export function initTelemetryGlobe(canvasId, onNodeSelect) {
     const cosX = Math.cos(rotX);
     const sinX = Math.sin(rotX);
 
-    // Zero-allocation batch point rotation
+    // 1. Zero-allocation batch point rotation
     transformPointsZeroAlloc(cosY, sinY, cosX, sinX);
 
-    // 1. Draw Cached Atmosphere & Core Sphere
+    // 2. Draw Cached Cyber Atmosphere & Nebula Glow
     if (cachedGrad) {
       ctx.fillStyle = cachedGrad;
       ctx.beginPath();
-      ctx.arc(centerX, centerY, radius * 1.18, 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, radius * 1.22, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    // Outer Thin Orbit Ring
-    ctx.strokeStyle = "rgba(0, 210, 255, 0.15)";
+    // Outer Cyber Grid Halo
+    ctx.strokeStyle = "rgba(0, 210, 255, 0.22)";
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
     ctx.stroke();
 
-    // 2. Draw Dots
+    // 3. Draw High-Density Dots (Ocean, Land, Proxy Hotspots)
     for (let i = 0; i < DOT_COUNT; i++) {
       const idx = i * 3;
       const rx = rotatedPoints[idx];
@@ -182,26 +295,40 @@ export function initTelemetryGlobe(canvasId, onNodeSelect) {
       const rz = rotatedPoints[idx + 2];
 
       // Back-face culling / fade
-      if (rz > -0.2) {
+      if (rz > -0.22) {
         const screenX = centerX + rx * radius;
         const screenY = centerY - ry * radius;
-        const depthAlpha = Math.max(0.1, (rz + 0.3) / 1.3);
+        const depthAlpha = Math.max(0.12, (rz + 0.35) / 1.35);
 
-        const isLand = dotIsLand[i];
+        const type = dotType[i];
         const baseAlpha = dotAlphas[i];
+        const baseSize = dotSizes[i];
 
-        ctx.fillStyle = isLand
-          ? `rgba(56, 189, 248, ${baseAlpha * depthAlpha})`
-          : `rgba(148, 163, 184, ${baseAlpha * depthAlpha * 0.5})`;
-
-        const dotSize = isLand ? (rz > 0.4 ? 2.2 : 1.6) : 1.1;
-        ctx.beginPath();
-        ctx.arc(screenX, screenY, dotSize, 0, Math.PI * 2);
-        ctx.fill();
+        if (type === 2) {
+          // PROXY HOTSPOT: Intense Neon Cyan / Emerald Flare
+          const glowAlpha = Math.min(1.0, baseAlpha * depthAlpha * 1.15);
+          ctx.fillStyle = `rgba(34, 211, 238, ${glowAlpha})`;
+          const dotSize = rz > 0.3 ? baseSize * 1.15 : baseSize;
+          ctx.beginPath();
+          ctx.arc(screenX, screenY, dotSize, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (type === 1) {
+          // GENERAL LAND: Electric Sky Blue
+          ctx.fillStyle = `rgba(56, 189, 248, ${baseAlpha * depthAlpha})`;
+          ctx.beginPath();
+          ctx.arc(screenX, screenY, baseSize, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          // OCEAN: Deep Slate Grid Point
+          ctx.fillStyle = `rgba(148, 163, 184, ${baseAlpha * depthAlpha * 0.45})`;
+          ctx.beginPath();
+          ctx.arc(screenX, screenY, baseSize, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
     }
 
-    // 3. Draw Hub Nodes & Connecting Flight Arcs
+    // 4. Calculate Hub Screen Positions
     for (let i = 0; i < hubs.length; i++) {
       const h = hubs[i];
       const x1 = h.baseX * cosY - h.baseZ * sinY;
@@ -214,169 +341,202 @@ export function initTelemetryGlobe(canvasId, onNodeSelect) {
       h.screenZ = z2;
     }
 
-    // Draw Connecting Telemetry Flight Arcs
-    const frankfurt = hubs[0];
-    if (frankfurt && frankfurt.screenZ > -0.2) {
-      for (let i = 1; i < hubs.length; i++) {
-        const dest = hubs[i];
-        if (dest.screenZ > -0.3) {
-          const midX = (frankfurt.screenX + dest.screenX) / 2;
-          const midY = (frankfurt.screenY + dest.screenY) / 2 - (radius * 0.22);
+    // 5. Draw Dynamic Multi-Hub Mesh Telemetry Flight Arcs & Traveling Photons
+    for (let l = 0; l < MESH_LINKS.length; l++) {
+      const [srcIdx, dstIdx] = MESH_LINKS[l];
+      const src = hubs[srcIdx];
+      const dst = hubs[dstIdx];
 
-          ctx.strokeStyle = "rgba(0, 210, 255, 0.45)";
-          ctx.lineWidth = 1.2;
-          ctx.setLineDash([4, 4]);
+      if (src && dst && (src.screenZ > -0.35 || dst.screenZ > -0.35)) {
+        const midX = (src.screenX + dst.screenX) / 2;
+        const midY = (src.screenY + dst.screenY) / 2 - (radius * 0.22);
+
+        // Glowing Arc Wire
+        ctx.strokeStyle = "rgba(0, 210, 255, 0.45)";
+        ctx.lineWidth = 1.3;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(src.screenX, src.screenY);
+        ctx.quadraticCurveTo(midX, midY, dst.screenX, dst.screenY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Traveling Energy Photon
+        if (!reduceMotion) {
+          photonProgress[l] = (photonProgress[l] + 0.007) % 1.0;
+          const t = photonProgress[l];
+          // Quadratic Bezier interpolation
+          const px = (1 - t) * (1 - t) * src.screenX + 2 * (1 - t) * t * midX + t * t * dst.screenX;
+          const py = (1 - t) * (1 - t) * src.screenY + 2 * (1 - t) * t * midY + t * t * dst.screenY;
+
+          ctx.fillStyle = "#34d399"; // Neon Emerald Photon
           ctx.beginPath();
-          ctx.moveTo(frankfurt.screenX, frankfurt.screenY);
-          ctx.quadraticCurveTo(midX, midY, dest.screenX, dest.screenY);
-          ctx.stroke();
-          ctx.setLineDash([]);
+          ctx.arc(px, py, 2.6, 0, Math.PI * 2);
+          ctx.fill();
         }
       }
     }
 
-    // Draw Hub Markers & Pulsing Rings
+    // 6. Draw Hub Markers, Pulsing Neon Halos & Labels
     for (let i = 0; i < hubs.length; i++) {
       const h = hubs[i];
       if (h.screenZ > -0.1) {
-        h.pulse += 0.04;
+        h.pulse += 0.045;
         const pulseScale = (Math.sin(h.pulse) + 1) / 2;
-        const ringRadius = 5 + pulseScale * 9;
+        const ringRadius = 4.5 + pulseScale * 10;
 
-        // Animated Outer Ring
-        ctx.strokeStyle = `rgba(0, 210, 255, ${0.8 - pulseScale * 0.7})`;
-        ctx.lineWidth = 1.5;
+        // Animated Outer Radiant Ring
+        ctx.strokeStyle = `rgba(0, 210, 255, ${0.9 - pulseScale * 0.8})`;
+        ctx.lineWidth = 1.6;
         ctx.beginPath();
         ctx.arc(h.screenX, h.screenY, ringRadius, 0, Math.PI * 2);
         ctx.stroke();
 
-        // Inner Solid Hub
-        ctx.fillStyle = "#00d2ff";
-        ctx.shadowColor = "#00d2ff";
-        ctx.shadowBlur = 8;
+        // Inner Solid Luminous Core
+        ctx.fillStyle = h === hoveredHub ? "#34d399" : "#00d2ff";
         ctx.beginPath();
         ctx.arc(h.screenX, h.screenY, 3.5, 0, Math.PI * 2);
         ctx.fill();
-        ctx.shadowBlur = 0;
 
-        // Label for top visible nodes
-        if (h.screenZ > 0.2) {
-          ctx.font = "600 10px 'JetBrains Mono', monospace";
-          ctx.fillStyle = "#edf2f9";
-          ctx.fillText(`${h.code} ${h.name}`, h.screenX + 8, h.screenY + 3);
+        // Hub Text Tag (Render label if front-facing or hovered)
+        if (h.screenZ > 0.2 || h === hoveredHub) {
+          const isLight = typeof document !== "undefined" && document.documentElement && document.documentElement.classList.contains("light");
+          ctx.font = "bold 10px monospace";
+          ctx.fillStyle = isLight ? "#0f172a" : "#ffffff";
+          ctx.fillText(h.code, h.screenX + 8, h.screenY - 4);
 
-          ctx.font = "500 8.5px 'JetBrains Mono', monospace";
-          ctx.fillStyle = "#10b981";
-          ctx.fillText(`${h.count} nodes • ${h.ping}ms`, h.screenX + 8, h.screenY + 14);
+          ctx.font = "9px monospace";
+          ctx.fillStyle = isLight ? "#0284c7" : "#22d3ee";
+          ctx.fillText(`${h.count} nodes`, h.screenX + 8, h.screenY + 7);
         }
       }
     }
 
-    if (!reduceMotion && isVisible && isIntersecting) {
-      rafId = requestAnimationFrame(render);
-    }
+    rafId = requestAnimationFrame(render);
   }
 
-  // Pointer Interaction
+  // Pointer Interaction Listeners
   function onPointerDown(e) {
     isDragging = true;
-    startX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
-    startY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
-    lastX = startX;
-    lastY = startY;
-    velY = 0;
+    startX = e.clientX;
+    startY = e.clientY;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    canvas.setPointerCapture(e.pointerId);
   }
 
   function onPointerMove(e) {
-    if (!isDragging) return;
-    const clientX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
-    const clientY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+    if (isDragging) {
+      const deltaX = e.clientX - lastX;
+      const deltaY = e.clientY - lastY;
+      rotY += deltaX * 0.006;
+      rotX += deltaY * 0.006;
+      rotX = Math.max(-0.9, Math.min(0.9, rotX));
+      lastX = e.clientX;
+      lastY = e.clientY;
+    } else {
+      // Check hover on hubs
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      hoveredHub = null;
 
-    const dx = clientX - lastX;
-    const dy = clientY - lastY;
-
-    rotY += dx * 0.006;
-    rotX = Math.max(-1.1, Math.min(1.1, rotX + dy * 0.005));
-
-    lastX = clientX;
-    lastY = clientY;
+      for (let i = 0; i < hubs.length; i++) {
+        const h = hubs[i];
+        if (h.screenZ > 0) {
+          const dist = Math.hypot(mx - h.screenX, my - h.screenY);
+          if (dist < 18) {
+            hoveredHub = h;
+            canvas.style.cursor = "pointer";
+            break;
+          }
+        }
+      }
+      if (!hoveredHub) {
+        canvas.style.cursor = "grab";
+      }
+    }
   }
 
   function onPointerUp(e) {
     if (isDragging) {
-      const clientX = e.clientX || (e.changedTouches && e.changedTouches[0].clientX) || 0;
-      const clientY = e.clientY || (e.changedTouches && e.changedTouches[0].clientY) || 0;
-      const distMoved = Math.hypot(clientX - startX, clientY - startY);
+      const moveDist = Math.hypot(e.clientX - startX, e.clientY - startY);
+      isDragging = false;
+      try {
+        canvas.releasePointerCapture(e.pointerId);
+      } catch (err) {}
 
-      // If clicked without substantial dragging, test hit on hubs
-      if (distMoved < 5 && onNodeSelect) {
+      // Click Hub Detection
+      if (moveDist < 6) {
         const rect = canvas.getBoundingClientRect();
-        const clickX = clientX - rect.left;
-        const clickY = clientY - rect.top;
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
 
-        for (const h of hubs) {
-          if (h.screenZ > -0.1) {
-            const d = Math.hypot(h.screenX - clickX, h.screenY - clickY);
-            if (d < 18) {
-              onNodeSelect(h);
+        for (let i = 0; i < hubs.length; i++) {
+          const h = hubs[i];
+          if (h.screenZ > 0) {
+            const dist = Math.hypot(mx - h.screenX, my - h.screenY);
+            if (dist < 22) {
+              if (typeof onNodeSelect === "function") {
+                onNodeSelect(h);
+              }
               break;
             }
           }
         }
       }
     }
-    isDragging = false;
-    velY = 0.0025; // resume gentle spin
   }
 
-  function onVisibilityChange() {
+  canvas.addEventListener("pointerdown", onPointerDown);
+  canvas.addEventListener("pointermove", onPointerMove);
+  canvas.addEventListener("pointerup", onPointerUp);
+  canvas.addEventListener("pointercancel", onPointerUp);
+
+  const resizeObserver = new ResizeObserver(() => resize());
+  resizeObserver.observe(canvas);
+
+  const intersectionObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      isIntersecting = entry.isIntersecting;
+      if (isIntersecting && isVisible) {
+        cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(render);
+      }
+    });
+  }, { threshold: 0.1 });
+  intersectionObserver.observe(canvas);
+
+  const handleVisibility = () => {
     isVisible = !document.hidden;
-    if (isVisible && isIntersecting && !reduceMotion) {
+    if (isVisible && isIntersecting) {
       cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(render);
     }
-  }
-
-  // Intersection Observer to stop rendering when scrolled offscreen
-  let observer = null;
-  if (typeof IntersectionObserver !== "undefined") {
-    observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        isIntersecting = entry.isIntersecting;
-        if (isIntersecting && isVisible && !reduceMotion) {
-          cancelAnimationFrame(rafId);
-          rafId = requestAnimationFrame(render);
-        }
-      });
-    }, { threshold: 0.05 });
-    observer.observe(canvas);
-  }
-
-  window.addEventListener("resize", resize);
-  document.addEventListener("visibilitychange", onVisibilityChange);
-  canvas.addEventListener("mousedown", onPointerDown);
-  window.addEventListener("mousemove", onPointerMove);
-  window.addEventListener("mouseup", onPointerUp);
-
-  canvas.addEventListener("touchstart", onPointerDown, { passive: true });
-  window.addEventListener("touchmove", onPointerMove, { passive: true });
-  window.addEventListener("touchend", onPointerUp, { passive: true });
+  };
+  document.addEventListener("visibilitychange", handleVisibility);
 
   resize();
-  render();
+  rafId = requestAnimationFrame(render);
 
   return {
+    resize: () => {
+      resize();
+    },
+    restart: () => {
+      cancelAnimationFrame(rafId);
+      resize();
+      rafId = requestAnimationFrame(render);
+    },
     destroy: () => {
       cancelAnimationFrame(rafId);
-      if (observer) observer.disconnect();
-      window.removeEventListener("resize", resize);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-      canvas.removeEventListener("mousedown", onPointerDown);
-      window.removeEventListener("mousemove", onPointerMove);
-      window.removeEventListener("mouseup", onPointerUp);
-      canvas.removeEventListener("touchstart", onPointerDown);
-      window.removeEventListener("touchmove", onPointerMove);
-      window.removeEventListener("touchend", onPointerUp);
+      resizeObserver.disconnect();
+      intersectionObserver.disconnect();
+      document.removeEventListener("visibilitychange", handleVisibility);
+      canvas.removeEventListener("pointerdown", onPointerDown);
+      canvas.removeEventListener("pointermove", onPointerMove);
+      canvas.removeEventListener("pointerup", onPointerUp);
+      canvas.removeEventListener("pointercancel", onPointerUp);
     }
   };
 }

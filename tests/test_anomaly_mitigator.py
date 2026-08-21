@@ -1,6 +1,5 @@
 # Tests for Statistical Anomaly Detector & Auto-Mitigation Circuit Breaker
 # Authority: NIST SP 800-137, Welford Online Variance Method
-import pytest
 from huntx.pipeline.anomaly_mitigator import AnomalyMitigator, NodeHealthState
 
 def test_anomaly_mitigator_initial_healthy_state():

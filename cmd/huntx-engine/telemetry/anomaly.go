@@ -1,8 +1,9 @@
 // Package telemetry provides statistical latency anomaly detection and jitter analysis for HUNTX engine probers.
 //
 // Authority:
-//   Welford, B. P. (1962). "Note on a method for calculating corrected sums of squares and products".
-//   RFC 3550 (RTP: Jitter Calculation): https://datatracker.ietf.org/doc/html/rfc3550#section-6.4.1
+//
+//	Welford, B. P. (1962). "Note on a method for calculating corrected sums of squares and products".
+//	RFC 3550 (RTP: Jitter Calculation): https://datatracker.ietf.org/doc/html/rfc3550#section-6.4.1
 package telemetry
 
 import (
@@ -85,10 +86,10 @@ func (a *StatsAccumulator) IsAnomaly(d time.Duration, zThreshold float64) bool {
 
 // RFC3550JitterEstimator tracks network packet transit time variance per RFC 3550.
 type RFC3550JitterEstimator struct {
-	mu           sync.RWMutex
-	jitter       float64 // in milliseconds
-	hasPrev      bool
-	prevTransit  float64 // in milliseconds
+	mu          sync.RWMutex
+	jitter      float64 // in milliseconds
+	hasPrev     bool
+	prevTransit float64 // in milliseconds
 }
 
 // NewRFC3550JitterEstimator creates a new RFC 3550 compliant jitter calculator.

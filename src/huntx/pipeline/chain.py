@@ -6,7 +6,7 @@ Authority:
 """
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 class ChainStrategy(str, Enum):
     """Synthesis strategy heuristics for multi-hop mesh generation."""

@@ -6,7 +6,7 @@ Authority:
 """
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, Any, Optional, Set
+from typing import Set
 
 class ASNTier(str, Enum):
     """Hierarchical classification of Autonomous Systems."""
