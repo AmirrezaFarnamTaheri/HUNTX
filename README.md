@@ -1,285 +1,134 @@
-# HuntX
+# HUNTX (GatherX) — Cyber Telemetry & Sovereign Ingestion Engine
 
-**HuntX** is a zero-budget, incremental proxy-config aggregation pipeline. It scrapes VPN/proxy configuration files (V2Ray, OpenVPN, WireGuard, Hysteria, TUIC, etc.) from 49+ Telegram channels, deduplicates and merges them, then delivers unified subscriptions via the **GatherX** Telegram bot.
+[![Go Tests](https://github.com/AmirrezaFarnamTaheri/HUNTX/actions/workflows/ci.yml/badge.svg)](https://github.com/AmirrezaFarnamTaheri/HUNTX/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-blue)](https://github.com/AmirrezaFarnamTaheri/HUNTX)
+[![Architecture: C4 Model](https://img.shields.io/badge/Architecture-C4%20Model-cyan)](docs/C4_ARCHITECTURE.md)
 
-## Features
+**HUNTX** (powered by GatherX) is a high-throughput, sovereign proxy configuration aggregation, deduplication, and telemetry intelligence platform. It continuously harvests, sanitizes, and benchmarks proxy endpoints across 49+ encrypted channels, publishing unified SHA-256 verified subscriptions and a zero-dependency interactive 3D WebGL Telemetry Dashboard.
 
-- **Multi-source ingestion** — Bot API and MTProto User Session connectors (49+ sources)
-- **Configurable worker pool** — parallel ingestion via `HUNTX_MAX_WORKERS`
-- **12 format handlers** — `npvt`, `npvtsub`, `ovpn`, `npv4`, `conf_lines`, `ehi`, `hc`, `hat`, `sip`, `nm`, `dark`, `opaque_bundle`
-- **30+ proxy URI schemes/aliases** — VMess, VLESS, Trojan, SS/SSR, Hysteria/Hysteria2, TUIC, SOCKS, HTTP(S), SSH, ShadowTLS, Naive, Mieru, Juicity, AnyTLS, WireGuard-style links, and more
-- **Structured protocol decoding** — validated proxy URIs are preserved and decoded to structured JSON; base64 subscription re-encoding is generated alongside safely representable sing-box output
-- **Incremental & deduplicated** — SHA-256 content hashing, only new files processed
-- **Crash-safe ingestion** — durable Bot API inbox plus content-addressed raw storage
-- **Media filtering** — images, videos, GIFs, stickers, voice, audio automatically dropped
-- **APK safety filter** — `.apk` files automatically rejected
-- **Batch transform** — files processed in batches of 200 with batch DB writes
-- **GatherX bot** — approval-gated DM bot with 13 commands, user preferences, and resumable delivery
-- **4 CLI commands** — `run` (pipeline + auto-deliver), `bot` (persistent bot), `clean`, `reset`
-- **Quality Gates** — CI/CD enforces linting, typing, and tests before any run or deployment
-- **Auto-Deploy** — GitHub Pages frontend automatically updated with fresh catalog data on every run
-- **Security-First** — deny-by-default bot access, magic-byte filtering, secret redaction, and atomic writes
-- **Resumable publication** — per-destination delivery ledger prevents replay after partial failure
-- **Configurable fetch windows** — separate lookback for text/files on fresh vs subsequent runs (tunable from CI)
-- **Factory reset** — full wipe of state, data, outputs, and source offsets (CLI + CI trigger)
-- **Cumulative dev output** — deduplicated proxy URIs accumulated across all runs in `outputs_dev/`
-- **Zero-budget CI** — runs on GitHub Actions every 2h (cron), with optional S3-backed state
-- **Cross-platform** — Linux, macOS, Windows
+---
 
-## Quick Start
+## ⚡ Key Capabilities
+
+- **High-Throughput Ingestion Engine (`cmd/huntx-engine`)**: Concurrency-safe Go streaming parser capable of processing thousands of proxy configurations per second.
+- **3D Telemetry Radar & Web SPA (`docs/`)**: Zero-dependency, offline-first (`file:///` compliant) cyber dashboard featuring real-time Geo-Radar, client-side protocol decoders, and SVG QR matrix generators.
+- **Multi-Protocol Coverage**: Native decoding and normalization for **VLESS Reality**, **VMess (Base64 JSON)**, **Trojan TLS**, **Shadowsocks (SIP002)**, and **Hysteria2 / Hy2**.
+- **Cryptographic Deduplication**: Content-addressed SHA-256 fingerprinting prevents configuration duplication across heterogeneous channels.
+- **GeoRoute Intelligence (`georoute`)**: Automatic GeoIP/CIDR resolution mapping nodes to ISO-3166 alpha-2 regional telemetry hubs (DE, NL, FI, SG, GB, US, TR, JP).
+- **Proactive Node Healing (`healing`)**: Automated failure detection, jitter analysis, and fallback route restoration.
+- **CI/CD Zero-Budget Automation**: Fully automated GitHub Actions workflow scheduled every 2 hours with atomic GitHub Pages deployment.
+
+---
+
+## 🏗️ C4 Architecture & System Topology
+
+Detailed C4 diagrams and specifications are available in [`docs/C4_ARCHITECTURE.md`](docs/C4_ARCHITECTURE.md) and the interactive [3D Architecture Map](docs/architecture.html).
+
+```mermaid
+C4Context
+    title System Context Diagram for HUNTX (GatherX)
+
+    Person(user, "Proxy Consumer / Network Engineer", "Searches, filters, inspects, and downloads verified proxy configs via web UI or subscription URLs.")
+    Enterprise_Boundary(b0, "HUNTX Ecosystem") {
+        System(huntx, "HUNTX Node Intelligence Platform", "Aggregates, decodes, benchmarks, deduplicates, and publishes sovereign proxy endpoints.")
+    }
+    System_Ext(telegram, "Encrypted TG Channels & Bots", "Upstream raw proxy feeds, subscription channels, and bulletin broadcasts.")
+    System_Ext(github_ci, "GitHub Actions CI/CD", "Automated scheduled ingestion runners.")
+    System_Ext(pages, "GitHub Pages CDN", "Serves static web assets, 3D telemetry radar, and published JSON/TXT artifacts.")
+
+    Rel(user, pages, "Views live nodes, inspects URI parameters, and generates QR codes via", "HTTPS")
+    Rel(huntx, telegram, "Ingests raw protocol text and subscription blobs from", "MTProto / Bot API")
+    Rel(github_ci, huntx, "Triggers ingestion, geo-routing, and verification pipeline in", "Go 1.24 Runtime")
+    Rel(huntx, pages, "Publishes verified proxies.json, proxies.txt, and catalog manifest to", "Git Push / HTTPS")
+```
+
+---
+
+## 🚀 Quick Start
+
+### 1. Web Dashboard (Offline & GitHub Pages)
+
+Open the dashboard directly in any browser:
+```bash
+# Option A: Direct double-click offline file
+open docs/index.html   # macOS
+xdg-open docs/index.html # Linux
+start docs/index.html  # Windows
+
+# Option B: Local HTTP server
+python -m http.server 8000 --directory docs
+```
+
+### 2. Building and Running the Go Engine
 
 ```bash
-git clone https://github.com/your-username/huntx.git
-cd huntx
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e .
+# Clone the repository
+git clone https://github.com/AmirrezaFarnamTaheri/HUNTX.git
+cd HUNTX
+
+# Run all test suites
+go test ./...
+
+# Build the HUNTX ingestion engine binary
+go build -o bin/huntx-engine ./cmd/huntx-engine
+go build -o bin/huntx-tools ./cmd/huntx-tools
 ```
 
-Copy and edit the config:
+### 3. Pipeline Ingestion Execution
 
 ```bash
-cp configs/config.prod.yaml my_config.yaml
-export TELEGRAM_TOKEN="your-bot-token"
+# Run stream parser over raw proxy feeds
+./bin/huntx-engine --input data/raw/sources.txt --output docs/artifacts/dev/proxies.json
 ```
 
-For MTProto user session (history + public channels):
+---
 
-```bash
-python scripts/make_telethon_session.py
-```
-
-Run the pipeline (auto-delivers to all GatherX bot users after completion):
-
-```bash
-huntx --config my_config.yaml run
-```
-
-Run the GatherX bot persistently:
-
-```bash
-huntx bot
-```
-
-## CLI Commands
-
-### `huntx run`
-
-Run the full pipeline (ingest → transform → build → publish → auto-deliver → cleanup).
-
-| Flag | Description | Default |
-|---|---|---|
-| `--msg-fresh-hours N` | Text lookback hours for first-seen source | `2` |
-| `--file-fresh-hours N` | File lookback hours for first-seen source | `48` |
-| `--msg-subsequent-hours N` | Text lookback on subsequent runs (0=all new) | `0` |
-| `--file-subsequent-hours N` | File lookback on subsequent runs (0=all new) | `0` |
-| `--no-auto-deliver` | Skip automatic subscription delivery after pipeline | — |
-| `--no-publish` | Skip publishing artifacts to destination channels | — |
-
-After the pipeline completes, output files are sent to approved, unmuted GatherX users unless `--no-auto-deliver` is passed.
-
-### `huntx bot`
-
-Run the GatherX bot in persistent interactive mode (listens forever for DM commands).
-
-| Flag | Description | Default |
-|---|---|---|
-| `--token` | Bot token | `PUBLISH_BOT_TOKEN` or `TELEGRAM_TOKEN` |
-| `--api-id` | Telegram API ID | `TELEGRAM_API_ID` |
-| `--api-hash` | Telegram API hash | `TELEGRAM_API_HASH` |
-
-### `huntx clean`
-
-Delete all data, state, cache, and logs for a fresh start.
-
-| Flag | Description |
-|---|---|
-| `--yes` / `-y` | Skip confirmation prompt |
-
-### `huntx reset`
-
-Full factory reset — wipes ALL data, state, caches, outputs, and source offsets. More thorough than `clean`.
-
-| Flag | Description |
-|---|---|
-| `--yes` / `-y` | Skip confirmation prompt (otherwise requires typing `RESET`) |
-
-## GatherX Bot
-
-**GatherX** is the user-facing Telegram bot. A DM can create a pending registration, but an administrator must approve the user before commands or deliveries are enabled.
-
-### How It Works
-
-1. User sends `/start` → pending registration is created
-2. Administrator approves the user in the bot-user database/admin workflow
-3. After every pipeline run → bot sends outputs to approved, unmuted users
-4. Approved users can request specific formats on demand with `/get`
-5. Approved users can `/mute` to opt out, `/unmute` to opt back in
-
-### Bot Commands
-
-| Command | Description |
-|---|---|
-| `/start` | Register and receive latest configs |
-| `/get [format]` | Download configs (default: your preferred format) |
-| `/latest [days]` | Get all recent artifacts (default: 4 days) |
-| `/formats` | List all supported formats |
-| `/protocols` | Show supported proxy protocols |
-| `/count` | Proxy URI count per protocol (with bar chart) |
-| `/setformat <fmt>` | Set your preferred default format |
-| `/myinfo` | Your account info and preferences |
-| `/status` | Pipeline statistics (sources, files, records, users) |
-| `/mute` | Stop auto-delivery |
-| `/unmute` | Resume auto-delivery |
-| `/ping` | Check if bot is alive |
-| `/help` | Show help message |
-
-## Architecture
+## 📂 Repository Structure
 
 ```
-Sources (49+ Telegram channels)
-    │  ┌──────────────┐
-    ├──│ Worker 1      │──► Ingest ──► Raw Store
-    ├──│ Worker 2      │──► Ingest ──► Raw Store
-    └──│ Worker N      │──► Ingest ──► Raw Store
-       └──────────────┘
-                │
-        Transform (batch: 200 files/batch, format detection)
-                │
-        Build (merge + deduplicate per route, per format)
-                │
-          ┌─────┴──────────────────────┐
-     Publish       Decode          Re-encode        GatherX Bot
-     (ledgered)    (JSON artifact)  (base64 sub)    (approved DMs)
+HUNTX/
+├── cmd/
+│   ├── huntx-engine/          # High-performance Go ingestion & stream engine
+│   │   ├── benchmark/         # TCP/TLS latency & jitter benchmarker
+│   │   ├── georoute/          # IP & GeoIP regional classification engine
+│   │   ├── healing/           # Proactive node recovery daemon
+│   │   ├── internal/parse/    # Protocol grammar parsers (VLESS, VMess, Trojan, SS, Hy2)
+│   │   ├── stream/            # Stream tokenizer and payload isolator
+│   │   └── main.go            # Engine CLI entrypoint
+│   └── huntx-tools/           # Administrative utilities and manifest verifiers
+├── docs/                      # GitHub Pages Static Site & Telemetry SPA
+│   ├── index.html             # Pre-rendered cyber telemetry dashboard
+│   ├── architecture.html      # Interactive 3D isometric system topology map
+│   ├── C4_ARCHITECTURE.md     # Formal C4 architecture model document
+│   ├── DESIGN.md              # Master UI design tokens & accessibility specification
+│   ├── DEVELOPMENT.md         # Developer guide & technical notes
+│   ├── USER_GUIDE.md          # Comprehensive user manual & bot commands
+│   ├── catalog.json           # SHA-256 verified artifact manifest
+│   ├── artifacts/dev/         # Published proxy bundles (JSON, TXT, Base64 Sub)
+│   └── assets/js/
+│       ├── bundle.js          # CORS-immune standalone single-file bundle
+│       ├── app.js             # Reactive UI state controller & ARIA modal manager
+│       ├── data.js            # Node dataset, hub coordinates & catalog fallback
+│       ├── decoder.js         # Multi-protocol client-side URI parser
+│       ├── globe.js           # 3D WebGL Canvas radar engine
+│       └── qrcode.js          # Standalone SVG QR code matrix generator
+├── configs/                   # Production & development YAML configurations
+├── data/                      # Local cache, raw inboxes, and persistent state
+└── internal/                  # Shared Go packages (output verification, release manifests)
 ```
 
-**Pipeline phases:**
-1. **Ingest** — N workers pull sources from a shared queue, media filtered early
-2. **Transform** — batch format detection + parse into records, batch DB writes
-3. **Build** — merge records per route/format, decode proxy URIs to JSON, re-encode as base64 subscription
-4. **Publish** — send changed artifacts to destination channels
-5. **Deliver** — resume per-user delivery to approved, unmuted GatherX users
-6. **Cleanup** — prune processed raw blobs and old archives
+---
 
-## Supported Formats
+## 🛡️ Security & Privacy Model
 
-### Text-based
+1. **Client-Side URI Sanitization**: All proxy parameters, query arguments, and node titles are sanitized with `escapeHTML()` prior to DOM rendering, preventing stored and reflected XSS attacks.
+2. **Deny-by-Default Ingestion**: Non-proxy media (images, voice notes, APKs, executables) are automatically discarded at the stream boundary.
+3. **Redacted Telemetry**: Node passwords, UUIDs, and private keys are never logged or transmitted to third-party analytics services.
+4. **Offline Isolation**: The web application functions in full isolation without telemetry beacons, cookies, or remote tracking scripts.
 
-| Format ID | Extension | Client | Description |
-|---|---|---|---|
-| `npvt` | `.txt` / auto | v2rayN/NG, Xray, sing-box | Proxy URI lines (30+ schemes/aliases) |
-| `npvtsub` | `.npvtsub` | NapsternetV | Subscription proxy URIs |
-| `conf_lines` | `.conf` | Generic | Line-based config entries |
+---
 
-### Binary/opaque (ZIP archive)
+## 📜 License
 
-| Format ID | Extension | Client | Description |
-|---|---|---|---|
-| `ovpn` | `.ovpn` | OpenVPN | OpenVPN config files |
-| `npv4` | `.npv4` | NapsternetV v4 | Encrypted VPN config |
-| `ehi` | `.ehi` | HTTP Injector | Encrypted SSH/proxy config |
-| `hc` | `.hc` | HTTP Custom | Tunnel VPN config |
-| `hat` | `.hat` | HA Tunnel Plus | SSH/SSL/HTTP proxy config |
-| `sip` | `.sip` | SocksIP Tunnel | SOCKS tunnel config |
-| `nm` | `.nm` | NetMod VPN | SSH/V2Ray/OpenVPN/DNSTT config |
-| `dark` | `.dark` | Dark Tunnel VPN | Dark tunnel config |
-| `opaque_bundle` | fallback | N/A | Unrecognized binary files |
-
-### Derived outputs
-
-For `npvt` routes, the build phase also produces:
-- **`_decoded.json`** — structured JSON describing recognized proxy URIs
-- **`_b64sub.txt`** — base64-encoded subscription (v2rayN/v2rayNG import)
-- **`.singbox.json`** — sing-box 1.14+ configuration containing only URIs that can be represented faithfully in the current sing-box schema
-
-## Supported Proxy Protocols
-
-HUNTX recognizes and preserves these proxy URI families (including aliases):
-
-- VMess, VLESS, Trojan, Shadowsocks (`ss`), ShadowsocksR (`ssr`)
-- Hysteria 1, Hysteria2 (`hysteria2` / `hy2`), and Hysteria2 Realm share links
-- TUIC, AnyTLS, Juicity
-- SOCKS (`socks`, `socks4`, `socks4a`, `socks5`) and authenticated HTTP/HTTPS proxy endpoints
-- SSH and ShadowTLS
-- NaiveProxy (`naive+https` / `naive+quic`), including optional authentication and validated extra headers
-- Mieru (`mieru` / `mierus`)
-- WireGuard-style (`wireguard` / `wg`), WARP, DNS and DNSTT links
-
-The sing-box derivative is intentionally stricter than ingestion. It currently renders VMess, VLESS, Trojan, Shadowsocks, Hysteria 1, sufficiently complete Hysteria2/Realm links, TUIC, AnyTLS, SOCKS, authenticated HTTP(S), SSH, ShadowTLS, and representable authenticated `naive+https` links. `naive+quic`, Mieru, Juicity, SSR, WireGuard-style links, and other schemes without a verified current native mapping remain in the subscription/decoded output instead of being converted into invalid JSON.
-
-## GitHub Actions CI
-
-The workflow (`.github/workflows/huntx.yml`) runs every 2 hours (cron) and supports manual dispatch with these inputs:
-
-| Input | Description | Default |
-|---|---|---|
-| `max_workers` | Parallel ingestion workers | `2` |
-| `msg_fresh_hours` | Text lookback for first-seen sources | `2` |
-| `file_fresh_hours` | File/media lookback for first-seen source | `48` |
-| `msg_subsequent_hours` | Text lookback on subsequent runs | `0` |
-| `file_subsequent_hours` | File lookback on subsequent runs | `0` |
-| `reset` | Factory reset before run (checkbox) | `false` |
-| `reset_confirm` | Safety confirmation (type `RESET` to actually reset) | `""` |
-
-State persistence is **optional**:
-- If `S3_BUCKET` is configured, state DB + archive are restored/persisted to S3.
-- If `S3_BUCKET` is not configured, runs are stateless.
-
-## Environment Variables
-
-| Variable | Description | Default |
-|---|---|---|
-| `TELEGRAM_TOKEN` | Bot API token for ingestion | — |
-| `PUBLISH_BOT_TOKEN` | Bot token for GatherX (optional, falls back to `TELEGRAM_TOKEN`) | — |
-| `TELEGRAM_API_ID` | MTProto API ID | — |
-| `TELEGRAM_API_HASH` | MTProto API hash | — |
-| `TELEGRAM_USER_SESSION` | Telethon session string | — |
-| `HUNTX_MAX_WORKERS` | Parallel ingestion workers | `2` |
-| `HUNTX_DATA_DIR` | Data directory path | `./data` |
-| `HUNTX_STATE_DB_PATH` | SQLite DB path | `./data/state/state.db` |
-| `LOG_LEVEL` | Logging level | `INFO` |
-
-## Configuration
-
-See [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for full configuration reference.
-
-## Development
-
-```bash
-pip install -e ".[dev]"
-python -m pytest tests/ -v
-```
-
-See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for contribution guidelines.
-
-## License
-
-MIT
-
-## GatherX - Frontend
-
-GatherX is the frontend interface for browsing and downloading generated artifacts. It features a modern, responsive UI with search, filtering, and dark mode support.
-
-### Features
-- **Modern UI/UX**: Built with Tailwind CSS, Preact, and Lucide Icons.
-- **Search & Filter**: Fuzzy search powered by Fuse.js and type-based filtering.
-- **Dark Mode**: Toggle between light and dark themes.
-- **Responsive**: Fully responsive design for mobile and desktop.
-- **No Build Step**: Uses ES Modules and CDN-hosted libraries for zero-config deployment.
-
-### Generating Site Data
-To update the artifacts and catalog for the frontend, run:
-```bash
-python3 scripts/generate_site_data.py
-```
-This script:
-1. Scans `persist/data/dist` for artifacts.
-2. Extracts metadata and protocol tags.
-3. Generates `docs/catalog.json`.
-4. Copies artifacts to `docs/artifacts/`.
-
-### Viewing the Site
-Simply serve the `docs/` directory using any static file server:
-```bash
-python3 -m http.server -d docs 8080
-```
-Or enable GitHub Pages on the repository pointing to the `docs/` folder.
+MIT License. See [LICENSE](LICENSE) for details.

@@ -11,10 +11,12 @@ import (
 	"time"
 
 	"github.com/AmirrezaFarnamTaheri/HUNTX/cmd/huntx-engine/benchmark"
+	"github.com/AmirrezaFarnamTaheri/HUNTX/cmd/huntx-engine/chain"
 	"github.com/AmirrezaFarnamTaheri/HUNTX/cmd/huntx-engine/georoute"
 	"github.com/AmirrezaFarnamTaheri/HUNTX/cmd/huntx-engine/healing"
 	"github.com/AmirrezaFarnamTaheri/HUNTX/cmd/huntx-engine/internal/parse"
 	"github.com/AmirrezaFarnamTaheri/HUNTX/cmd/huntx-engine/stream"
+	"github.com/AmirrezaFarnamTaheri/HUNTX/cmd/huntx-engine/tlsdiag"
 )
 
 var (
@@ -80,7 +82,10 @@ func main() {
 		}
 
 		targets := strings.Split(*targetsFlag, ",")
-		bm := benchmark.NewBenchmarker(*timeoutFlag, *concurrencyFlag)
+		bm := benchmark.New(
+			benchmark.WithTimeout(*timeoutFlag),
+			benchmark.WithConcurrency(*concurrencyFlag),
+		)
 
 		ctx, cancel := context.WithTimeout(context.Background(), *timeoutFlag*2)
 		defer cancel()
@@ -127,6 +132,77 @@ func main() {
 		}
 		fmt.Println(string(out))
 
+	case "chain":
+		fs := flag.NewFlagSet("chain", flag.ExitOnError)
+		domesticFlag := fs.String("domestic", "IR", "Domestic ISO country code for entry relays")
+		maxLatencyFlag := fs.Duration("max-latency", 800*time.Millisecond, "Maximum composite RTT ceiling")
+		maxChainsFlag := fs.Int("max-chains", 20, "Maximum number of chains to synthesize")
+		if err := fs.Parse(os.Args[2:]); err != nil {
+			slog.Error("failed to parse flags", "error", err)
+			os.Exit(1)
+		}
+
+		synthesizer := chain.New(
+			chain.WithStrategy(chain.StrategyDomesticRelayInternationalExit),
+			chain.WithDomesticCountry(*domesticFlag),
+			chain.WithMaxLatencyCeiling(*maxLatencyFlag),
+			chain.WithMaxChains(*maxChainsFlag),
+		)
+
+		var pool []chain.Node
+		dec := json.NewDecoder(os.Stdin)
+		if err := dec.Decode(&pool); err != nil {
+			slog.Error("failed to decode node pool from stdin JSON", "error", err)
+			os.Exit(1)
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		chains, err := synthesizer.Synthesize(ctx, pool)
+		if err != nil {
+			slog.Error("chain synthesis failed", "error", err)
+			os.Exit(1)
+		}
+
+		out, err := json.MarshalIndent(chains, "", "  ")
+		if err != nil {
+			slog.Error("failed to marshal synthesized chains", "error", err)
+			os.Exit(1)
+		}
+		fmt.Println(string(out))
+
+	case "tlsdiag":
+		fs := flag.NewFlagSet("tlsdiag", flag.ExitOnError)
+		targetFlag := fs.String("target", "", "Target endpoint host:port (e.g. 1.1.1.1:443)")
+		sniFlag := fs.String("sni", "cloudflare.com", "Server Name Indication (SNI)")
+		timeoutFlag := fs.Duration("timeout", 3*time.Second, "TLS handshake timeout")
+		if err := fs.Parse(os.Args[2:]); err != nil {
+			slog.Error("failed to parse flags", "error", err)
+			os.Exit(1)
+		}
+
+		if *targetFlag == "" {
+			slog.Error("missing required flag", "flag", "--target")
+			os.Exit(1)
+		}
+
+		classifier := tlsdiag.NewClassifier(
+			tlsdiag.WithTimeout(*timeoutFlag),
+			tlsdiag.WithInsecureSkipVerify(true),
+		)
+
+		ctx, cancel := context.WithTimeout(context.Background(), *timeoutFlag*2)
+		defer cancel()
+
+		report := classifier.Probe(ctx, *targetFlag, *sniFlag)
+		out, err := json.MarshalIndent(report, "", "  ")
+		if err != nil {
+			slog.Error("failed to marshal TLS diagnostic report", "error", err)
+			os.Exit(1)
+		}
+		fmt.Println(string(out))
+
 	case "heal":
 		daemon := healing.NewDaemon(nil)
 		now := time.Now()
@@ -149,9 +225,11 @@ Usage:
   huntx-engine <command> [flags]
 
 Commands:
-  version                 Print engine version
-  parse [--file PATH]     Parse base64 or raw subscription stream into JSON records
-  benchmark --targets CSV High-concurrency TCP/TLS latency benchmark across targets
-  georoute [--region ISO] Tag and filter proxy stream by ISO country code
-  heal                    Run self-healing daemon status check`)
+  version                   Print engine version
+  parse [--file PATH]       Parse base64 or raw subscription stream into JSON records
+  benchmark --targets CSV   High-concurrency TCP/TLS latency benchmark across targets
+  georoute [--region ISO]   Tag and filter proxy stream by ISO country code
+  chain [--domestic ISO]    Synthesize multi-hop relay-to-exit proxy chains from stdin JSON
+  tlsdiag --target HOST:PORT Active TLS handshake probe, ALPN check, and JA4 fingerprint
+  heal                      Run self-healing daemon status check`)
 }

@@ -5,11 +5,23 @@ import struct
 import urllib.parse
 from typing import Any, Optional
 
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+try:
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import padding
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+    _HAVE_CRYPTOGRAPHY = True
+except Exception:  # pragma: no cover
+    default_backend = None
+    hashes = None
+    serialization = None
+    padding = None
+    Cipher = None
+    algorithms = None
+    modes = None
+    PBKDF2HMAC = None
+    _HAVE_CRYPTOGRAPHY = False
 
 logger = logging.getLogger(__name__)
 

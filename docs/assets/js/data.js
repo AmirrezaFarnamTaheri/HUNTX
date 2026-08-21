@@ -1,0 +1,216 @@
+// HUNTX Telemetry & Sample Proxy Node Data
+export const FALLBACK_CATALOG = {
+  generated_at: new Date().toISOString(),
+  total_files: 5,
+  total_size_str: "20.6 MB",
+  total_nodes: 616,
+  sources_count: 49,
+  protocols: {
+    vless: 521,
+    vmess: 66,
+    shadowsocks: 18,
+    trojan: 11
+  },
+  files: [
+    {
+      filename: "proxies.json",
+      path: "artifacts/dev/proxies.json",
+      size_str: "5.8 MB",
+      type: "JSON",
+      ext: "JSON",
+      tags: ["dev", "aggregated", "full-json"],
+      last_modified: "2026-02-16T17:21:36.187Z",
+      hash: "b609bf39"
+    },
+    {
+      filename: "proxies_b64sub.txt",
+      path: "artifacts/dev/proxies_b64sub.txt",
+      size_str: "5.8 MB",
+      type: "B64SUB",
+      ext: "TXT",
+      tags: ["dev", "subscription", "base64"],
+      last_modified: "2026-02-16T17:21:36.315Z",
+      hash: "fca50919"
+    },
+    {
+      filename: "proxies.txt",
+      path: "artifacts/dev/proxies.txt",
+      size_str: "4.4 MB",
+      type: "TXT",
+      ext: "TXT",
+      tags: ["dev", "raw-uris", "deduped"],
+      last_modified: "2026-02-16T17:21:36.255Z",
+      hash: "d03dc23a"
+    },
+    {
+      filename: "_manifest.json",
+      path: "artifacts/dev/_manifest.json",
+      size_str: "4.6 MB",
+      type: "JSON",
+      ext: "JSON",
+      tags: ["dev", "manifest", "telemetry"],
+      last_modified: "2026-02-16T17:21:36.119Z",
+      hash: "1f26eedc"
+    },
+    {
+      filename: "README.md",
+      path: "artifacts/dev/README.md",
+      size_str: "83 B",
+      type: "MD",
+      ext: "MD",
+      tags: ["dev", "docs"],
+      last_modified: "2026-02-16T17:21:36.099Z",
+      hash: "85361380"
+    }
+  ]
+};
+
+export const SAMPLE_PROXIES = [
+  {
+    id: "px-01",
+    protocol: "vless",
+    name: "DE-Frankfurt-Reality-01",
+    server: "ger4.azadrah.drpingi.shop",
+    port: 443,
+    country: "DE",
+    countryName: "Germany",
+    city: "Frankfurt",
+    lat: 50.1109,
+    lon: 8.6821,
+    transport: "Reality",
+    security: "reality",
+    sni: "ea.com",
+    ping: 38,
+    raw: "vless://1dab4c0f-a723-4f8b-98cb-76eab77bfb22@ger4.azadrah.drpingi.shop:443?type=tcp&encryption=none&path=%2F&host=divarcdn.com&headerType=http&security=reality&pbk=SE18-hr9HPPosy_BCLK4bh8fwNJdrJrNtkTBcsOqBGk&fp=chrome&sni=ea.com&sid=d128bc#DE-Frankfurt-Reality-01"
+  },
+  {
+    id: "px-02",
+    protocol: "vless",
+    name: "FI-Helsinki-gRPC-Fast",
+    server: "all.tellmethetrue.shop",
+    port: 443,
+    country: "FI",
+    countryName: "Finland",
+    city: "Helsinki",
+    lat: 60.1699,
+    lon: 24.9384,
+    transport: "gRPC",
+    security: "tls",
+    sni: "pqh29v8.carwashipdir.shop",
+    ping: 45,
+    raw: "vless://e4824193-4f54-453b-d037-88368e85ef0e@all.tellmethetrue.shop:443?encryption=none&security=tls&sni=pqh29v8.carwashipdir.shop&alpn=h2&insecure=1&type=grpc&mode=gun#FI-Helsinki-gRPC-Fast"
+  },
+  {
+    id: "px-03",
+    protocol: "vless",
+    name: "SG-Singapore-Edge-WS",
+    server: "104.17.57.173",
+    port: 80,
+    country: "SG",
+    countryName: "Singapore",
+    city: "Singapore",
+    lat: 1.3521,
+    lon: 103.8198,
+    transport: "WebSocket",
+    security: "none",
+    sni: "us3.rtacg.com",
+    ping: 82,
+    raw: "vless://435bda4c-fe5e-42c9-a3ad-15334943b38a@104.17.57.173:80?security=none&type=ws&host=us3.rtacg.com&path=/#SG-Singapore-Edge-WS"
+  },
+  {
+    id: "px-04",
+    protocol: "vmess",
+    name: "NL-Amsterdam-CF-CDN",
+    server: "creativecommons.org",
+    port: 443,
+    country: "NL",
+    countryName: "Netherlands",
+    city: "Amsterdam",
+    lat: 52.3676,
+    lon: 4.9041,
+    transport: "WebSocket",
+    security: "tls",
+    sni: "DiprOX.pages.DEV",
+    ping: 52,
+    raw: "vmess://eyJhZGQiOiJjcmVhdGl2ZWNvbW1vbnMub3JnIiwiYWlkIjoiMCIsImhvc3QiOiJkaXByb3gucGFnZXMuZGV2IiwiaWQiOiJkODlkNjY0MS0zYjFhLTRmNTEtYTE5NC05YzkxMDlmZDIxYjYiLCJuZXQiOiJ3cyIsInBhdGgiOiIvYXNzZXRzIiwicG9ydCI6IjQ0MyIsInBzIjoiTkwtQW1zdGVyZGFtLUNGLUNETiIsInNjeSI6ImF1dG8iLCJzbmkiOiJEaXByT1gucGFnZXMuREVWIiwidGxzIjoidGxzIiwidHlwZSI6Im5vbmUifQ=="
+  },
+  {
+    id: "px-05",
+    protocol: "trojan",
+    name: "GB-London-Secure-TLS",
+    server: "205.233.181.245",
+    port: 443,
+    country: "GB",
+    countryName: "United Kingdom",
+    city: "London",
+    lat: 51.5074,
+    lon: -0.1278,
+    transport: "WebSocket",
+    security: "tls",
+    sni: "kkg.ylks.link",
+    ping: 58,
+    raw: "trojan://a13df940-020c-465f-bc89-ee5279b5cd6a@205.233.181.245:443?security=tls&sni=kkg.ylks.link&type=ws&path=%2Fblue#GB-London-Secure-TLS"
+  },
+  {
+    id: "px-06",
+    protocol: "shadowsocks",
+    name: "US-Ashburn-AEAD-SS",
+    server: "104.20.1.252",
+    port: 80,
+    country: "US",
+    countryName: "United States",
+    city: "Ashburn",
+    lat: 39.0438,
+    lon: -77.4874,
+    transport: "TCP",
+    security: "chacha20-poly1305",
+    sni: "",
+    ping: 110,
+    raw: "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpwYXNzd29yZA==@104.20.1.252:80#US-Ashburn-AEAD-SS"
+  },
+  {
+    id: "px-07",
+    protocol: "hysteria2",
+    name: "TR-Istanbul-UDP-Extreme",
+    server: "tr-hub.fastnode.org",
+    port: 8443,
+    country: "TR",
+    countryName: "Turkey",
+    city: "Istanbul",
+    lat: 41.0082,
+    lon: 28.9784,
+    transport: "UDP/QUIC",
+    security: "tls",
+    sni: "tr-hub.fastnode.org",
+    ping: 28,
+    raw: "hysteria2://user1234@tr-hub.fastnode.org:8443?sni=tr-hub.fastnode.org&insecure=1#TR-Istanbul-UDP-Extreme"
+  },
+  {
+    id: "px-08",
+    protocol: "vless",
+    name: "JP-Tokyo-Direct-gRPC",
+    server: "ikonthailand.com",
+    port: 80,
+    country: "JP",
+    countryName: "Japan",
+    city: "Tokyo",
+    lat: 35.6762,
+    lon: 139.6503,
+    transport: "gRPC",
+    security: "none",
+    sni: "fastly.net",
+    ping: 135,
+    raw: "vless://6fe32852-5f46-4090-8306-f5b419d6a469@ikonthailand.com:80?security=&type=grpc&serviceName=gun&encryption=none#JP-Tokyo-Direct-gRPC"
+  }
+];
+
+export const GLOBE_HUBS = [
+  { name: "Frankfurt", lat: 50.11, lon: 8.68, count: 184, code: "DE", ping: 38 },
+  { name: "Amsterdam", lat: 52.37, lon: 4.90, count: 142, code: "NL", ping: 42 },
+  { name: "Helsinki", lat: 60.17, lon: 24.94, count: 96, code: "FI", ping: 48 },
+  { name: "Singapore", lat: 1.35, lon: 103.82, count: 88, code: "SG", ping: 82 },
+  { name: "London", lat: 51.51, lon: -0.13, count: 54, code: "GB", ping: 58 },
+  { name: "Ashburn", lat: 39.04, lon: -77.49, count: 32, code: "US", ping: 110 },
+  { name: "Istanbul", lat: 41.01, lon: 28.98, count: 16, code: "TR", ping: 28 },
+  { name: "Tokyo", lat: 35.68, lon: 139.65, count: 12, code: "JP", ping: 135 }
+];

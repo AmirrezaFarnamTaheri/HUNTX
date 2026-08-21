@@ -76,3 +76,10 @@ func TestNonPositivePurgeAgeIsNoOp(t *testing.T) {
 		t.Fatalf("node should remain after no-op purge, got %d", len(due))
 	}
 }
+
+func ExampleDaemon_PurgeStale() {
+	daemon := NewDaemon(nil)
+	now := time.Now()
+	daemon.RecordFailure("node_abc", "vless://u@node.example:443#DE", now.Add(-72*time.Hour))
+	_ = daemon.PurgeStale(48*time.Hour, now) // Returns 1
+}

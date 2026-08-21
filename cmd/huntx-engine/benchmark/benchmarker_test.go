@@ -62,8 +62,21 @@ func TestResolvePublicTargetsValidatesPort(t *testing.T) {
 }
 
 func TestCheckBatchEmptyInput(t *testing.T) {
-	bm := NewBenchmarker(time.Second, 4)
+	bm := New(WithTimeout(time.Second), WithConcurrency(4))
 	if results := bm.CheckBatch(context.Background(), nil); len(results) != 0 {
 		t.Fatalf("expected empty results, got %v", results)
+	}
+}
+
+func TestNewWithFunctionalOptions(t *testing.T) {
+	bm := New(
+		WithTimeout(500*time.Millisecond),
+		WithConcurrency(25),
+	)
+	if bm.Timeout != 500*time.Millisecond {
+		t.Fatalf("expected timeout 500ms, got %v", bm.Timeout)
+	}
+	if bm.Concurrency != 25 {
+		t.Fatalf("expected concurrency 25, got %d", bm.Concurrency)
 	}
 }

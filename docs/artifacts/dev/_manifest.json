@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-08-21T13:53:58.556Z",
+  "total_proxies": 8,
+  "protocols": [
+    "vless",
+    "vmess",
+    "trojan",
+    "shadowsocks",
+    "hysteria2"
+  ],
+  "generated_by": "HUNTX CI Pipeline"
+}
