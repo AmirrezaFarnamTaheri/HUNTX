@@ -1,154 +1,475 @@
 <!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GatherX - Artifact Repository</title>
-    <meta name="description" content="Generated artifacts and proxy configurations repository.">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HUNTX — Cyber Telemetry &amp; Node Intelligence Hub</title>
+  <meta name="description" content="Zero-budget sovereign proxy configuration aggregation, 3D telemetry radar, and real-time protocol decoder.">
 
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <!-- Typography & Preconnect -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com/3.4.17" integrity="sha384-igm5BeiBt36UU4gqwWS7imYmelpTsZlQ45FZf+XBn9MuJbn4nQr7yx1yFydocC/K" crossorigin="anonymous"></script>
+  <!-- Production-Grade Standalone Design Tokens & Cyber Styling -->
+  <style>
+    /* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V5 */
+    :root {
+      --bg-void: #070a0f;
+      --bg-surface: #0e131d;
+      --bg-elevated: #141b29;
+      --border-subtle: #1d2638;
+      --border-glow: rgba(0, 210, 255, 0.4);
+      --text-main: #edf2f9;
+      --text-muted: #8a99b5;
+      --accent-cyan: #00d2ff;
+      --accent-glow: rgba(0, 210, 255, 0.25);
+      --proto-vless: #10b981;
+      --proto-vmess: #f59e0b;
+      --proto-trojan: #a855f7;
+      --proto-ss: #38bdf8;
+      --proto-hysteria: #f43f5e;
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 24px;
+    }
 
-    <!-- ES Module Preloads with Subresource Integrity (SRI) -->
-    <link rel="modulepreload" href="https://esm.sh/preact@10.19.3" integrity="sha384-dqVmFbphN3oXb/KJvYn7cj2EOPBBIkOLCI3lh4eS8vY3GfjuN09FnQThjREc52jX" crossorigin="anonymous">
-    <link rel="modulepreload" href="https://esm.sh/preact@10.19.3/hooks" integrity="sha384-XL9P6gxQdPryxEKKO0QCxe9W/C7eURngB/I130STuTj34PcMvNr6JJmTQaqPuNHM" crossorigin="anonymous">
-    <link rel="modulepreload" href="https://esm.sh/htm@3.1.1" integrity="sha384-sSiaM0en9Bz57PyCPaF5zeh8OaFdFmSQRw0ynngAWx8Kz51qoisBTGbQRBTrDa6G" crossorigin="anonymous">
-    <link rel="modulepreload" href="https://esm.sh/fuse.js@7.0.0" integrity="sha384-KCj9W5uVay9z0KzO/Sqz25e5duWXw8o8fyq7Zrk5yxh+pikZBCzWz/9czeE6cP8q" crossorigin="anonymous">
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Plus Jakarta Sans', 'sans-serif'],
-                        mono: ['JetBrains Mono', 'monospace'],
-                    },
-                    colors: {
-                        brand: {
-                            50: '#f0f9ff',
-                            100: '#e0f2fe',
-                            200: '#bae6fd',
-                            300: '#7dd3fc',
-                            400: '#38bdf8',
-                            500: '#0ea5e9',
-                            600: '#0284c7',
-                            700: '#0369a1',
-                            800: '#075985',
-                            900: '#0c4a6e',
-                            950: '#082f49',
-                        }
-                    },
-                    animation: {
-                        'fade-in': 'fadeIn 0.5s ease-out forwards',
-                        'slide-up': 'slideUp 0.5s ease-out forwards',
-                    },
-                    keyframes: {
-                        fadeIn: {
-                            '0%': { opacity: '0' },
-                            '100%': { opacity: '1' },
-                        },
-                        slideUp: {
-                            '0%': { opacity: '0', transform: 'translateY(10px)' },
-                            '100%': { opacity: '1', transform: 'translateY(0)' },
-                        }
-                    }
-                }
-            }
-        }
-    </script>
+    html.light {
+      --bg-void: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-elevated: #f1f5f9;
+      --border-subtle: #e2e8f0;
+      --border-glow: rgba(2, 132, 199, 0.4);
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --accent-cyan: #0284c7;
+      --accent-glow: rgba(2, 132, 199, 0.15);
+    }
 
-    <!-- Custom Styles -->
-    <style type="text/tailwindcss">
-/* Global Reset & Base */
-body {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-}
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-}
+    html, body {
+      overflow-x: clip;
+      min-height: 100vh;
+      background-color: var(--bg-void);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
 
-::-webkit-scrollbar-track {
-    @apply bg-transparent;
-}
+    h1, h2, h3, h4, h5, h6 {
+      font-style: normal;
+      overflow-wrap: anywhere;
+      min-width: 0;
+    }
 
-::-webkit-scrollbar-thumb {
-    @apply bg-gray-300 dark:bg-gray-700 rounded-full;
-}
+    code, kbd, pre, .font-mono {
+      font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }
 
-::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-400 dark:bg-gray-600;
-}
+    /* Custom Cyber Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-void);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-subtle);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #2a374f;
+    }
 
-/* Glassmorphism & Cards */
-.glass {
-    @apply bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border border-gray-200/50 dark:border-gray-700/50;
-}
+    /* Ambient Background Radial Mesh */
+    .bg-cyber-mesh {
+      background-image:
+        radial-gradient(1200px 700px at 50% -10%, rgba(0, 210, 255, 0.08), transparent 70%),
+        radial-gradient(800px 500px at 90% 20%, rgba(99, 102, 241, 0.05), transparent 60%),
+        radial-gradient(900px 600px at 10% 40%, rgba(16, 185, 129, 0.04), transparent 60%);
+      background-attachment: fixed;
+    }
 
-.artifact-card {
-    @apply relative overflow-hidden transition-all duration-300 ease-out border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm hover:shadow-lg dark:hover:shadow-brand-900/10 hover:border-brand-500/30 dark:hover:border-brand-500/30 hover:-translate-y-1;
-}
+    .focus-ring:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px var(--accent-cyan), 0 0 0 4px var(--bg-void);
+    }
 
-/* Animated Gradient Text */
-.gradient-text {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-brand-600 via-sky-500 to-indigo-500 dark:from-brand-400 dark:via-sky-400 dark:to-indigo-400 bg-[length:200%_auto] animate-[shimmer_3s_linear_infinite];
-}
+    /* Animations */
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 0.8; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.04); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
 
-@keyframes shimmer {
-    0% { background-position: 0% 50%; }
-    100% { background-position: 200% 50%; }
-}
+    .animate-fade-in {
+      animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
 
-/* Toast Animation */
-.toast-enter {
-    transform: translateY(20px);
-    opacity: 0;
-}
-.toast-enter-active {
-    transform: translateY(0);
-    opacity: 1;
-    transition: all 300ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-.toast-exit {
-    transform: translateY(0);
-    opacity: 1;
-}
-.toast-exit-active {
-    transform: translateY(20px);
-    opacity: 0;
-    transition: all 300ms ease-in;
-}
+    /* Layout & Utility Classes */
+    .max-w-7xl { max-width: 80rem; margin-left: auto; margin-right: auto; }
+    .px-4 { padding-left: 1rem; padding-right: 1rem; }
+    .py-8 { padding-top: 2rem; padding-bottom: 2rem; }
+    .gap-2 { gap: 0.5rem; }
+    .gap-3 { gap: 0.75rem; }
+    .gap-4 { gap: 1rem; }
+    .gap-6 { gap: 1.5rem; }
+    .gap-8 { gap: 2rem; }
 
-/* Focus Ring Utility */
-.focus-ring {
-    @apply focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 rounded-lg transition-shadow duration-200;
-}
+    @media (min-width: 640px) {
+      .sm\:px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
+      .sm\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .sm\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .sm\:inline { display: inline !important; }
+      .sm\:flex-row { flex-direction: row !important; }
+      .sm\:text-5xl { font-size: 3rem; line-height: 1; }
+    }
+    @media (min-width: 768px) {
+      .md\:block { display: block !important; }
+      .md\:flex { display: flex !important; }
+      .md\:flex-row { flex-direction: row !important; }
+      .md\:w-auto { width: auto !important; }
+    }
+    @media (min-width: 1024px) {
+      .lg\:px-8 { padding-left: 2rem; padding-right: 2rem; }
+      .lg\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .lg\:grid-cols-12 { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+      .lg\:col-span-7 { grid-column: span 7 / span 7; }
+      .lg\:col-span-5 { grid-column: span 5 / span 5; }
+      .lg\:flex { display: flex !important; }
+      .lg\:text-6xl { font-size: 3.75rem; line-height: 1; }
+    }
 
-    </style>
+    .grid { display: grid; }
+    .flex { display: flex; }
+    .hidden { display: none !important; }
+    .items-center { align-items: center; }
+    .items-start { align-items: flex-start; }
+    .items-baseline { align-items: baseline; }
+    .justify-between { justify-content: space-between; }
+    .justify-center { justify-content: center; }
+    .justify-end { justify-content: flex-end; }
+    .flex-col { flex-direction: column; }
+    .flex-wrap { flex-wrap: wrap; }
+    .flex-1 { flex: 1 1 0%; }
+    .flex-grow { flex-grow: 1; }
+    .shrink-0 { flex-shrink: 0; }
+    .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .w-full { width: 100%; }
+    .h-full { height: 100%; }
+    .relative { position: relative; }
+    .absolute { position: absolute; }
+    .fixed { position: fixed; }
+    .sticky { position: sticky; }
+    .top-0 { top: 0px; }
+    .inset-0 { inset: 0px; }
+    .z-50 { z-index: 50; }
+    .z-100 { z-index: 100; }
+    .overflow-hidden { overflow: hidden; }
+    .rounded { border-radius: 0.25rem; }
+    .rounded-md { border-radius: 0.375rem; }
+    .rounded-lg { border-radius: 0.5rem; }
+    .rounded-xl { border-radius: 0.75rem; }
+    .rounded-2xl { border-radius: 1rem; }
+    .rounded-3xl { border-radius: 1.5rem; }
+    .rounded-full { border-radius: 9999px; }
+    .border { border-width: 1px; border-style: solid; }
+    .border-b { border-bottom-width: 1px; border-bottom-style: solid; }
+    .border-t { border-top-width: 1px; border-top-style: solid; }
+    .cursor-pointer { cursor: pointer; }
+    .cursor-grab { cursor: grab; }
+    .backdrop-blur-md { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+    .backdrop-blur-sm { backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+    .space-y-1 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.25rem; }
+    .space-y-3 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.75rem; }
+    .space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem; }
+    .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 1.5rem; }
+    .aspect-square { aspect-ratio: 1 / 1; }
+    .font-bold { font-weight: 700; }
+    .font-extrabold { font-weight: 800; }
+    .font-semibold { font-weight: 600; }
+    .font-medium { font-weight: 500; }
+    .uppercase { text-transform: uppercase; }
+    .tracking-tight { letter-spacing: -0.025em; }
+    .tracking-wider { letter-spacing: 0.05em; }
 
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@0.400.0/dist/umd/lucide.min.js" integrity="sha384-8aPDSS8PITpbbP5u/xl0pTc7N8yU/dHjXBQwa2hJzZ2FEFd73n1pK5dSgaIYSZOf" crossorigin="anonymous"></script>
+    /* Component Palette Defaults */
+    .bg-void { background-color: var(--bg-void); }
+    .bg-surface { background-color: var(--bg-surface); }
+    .bg-gray-900 { background-color: #0f172a; }
+    .bg-gray-950 { background-color: #020617; }
+    .text-white { color: #ffffff; }
+    .text-gray-100 { color: #f1f5f9; }
+    .text-gray-200 { color: #e2e8f0; }
+    .text-gray-300 { color: #cbd5e1; }
+    .text-gray-400 { color: #94a3b8; }
+    .text-gray-500 { color: #64748b; }
+    .text-cyan-300 { color: #67e8f9; }
+    .text-cyan-400 { color: #22d3ee; }
+    .text-emerald-400 { color: #34d399; }
+    .text-amber-400 { color: #fbbf24; }
+    .text-purple-400 { color: #c084fc; }
+    .text-indigo-400 { color: #818cf8; }
+    .text-rose-400 { color: #fb7185; }
+    .border-gray-800 { border-color: #1e293b; }
+    .border-cyan-500\/30 { border-color: rgba(6, 182, 212, 0.3); }
+    .border-cyan-500\/20 { border-color: rgba(6, 182, 212, 0.2); }
+    .bg-cyan-950\/60 { background-color: rgba(8, 51, 68, 0.6); }
+    .bg-cyan-950\/50 { background-color: rgba(8, 51, 68, 0.5); }
+    .bg-emerald-950\/50 { background-color: rgba(6, 78, 59, 0.5); }
+    .border-emerald-800\/40 { border-color: rgba(6, 95, 70, 0.4); }
+  </style>
+
+  <!-- Progressive Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com/3.4.17" defer></script>
 </head>
-<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen flex flex-col font-sans antialiased transition-colors duration-300 selection:bg-brand-500 selection:text-white">
+<body class="bg-cyber-mesh min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-black">
 
-    <div id="app" class="contents">
-        <!-- App mounts here -->
-        <div class="flex items-center justify-center h-screen">
-            <div class="relative w-24 h-24">
-                <div class="absolute top-0 left-0 w-full h-full border-4 border-gray-200 dark:border-gray-800 rounded-full"></div>
-                <div class="absolute top-0 left-0 w-full h-full border-4 border-brand-500 rounded-full animate-spin border-t-transparent"></div>
-            </div>
+  <!-- Sticky Cyber Header -->
+  <header id="main-header" class="sticky top-0 z-50 bg-[#070a0f]/80 backdrop-blur-md border-b border-[#1d2638]">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <a href="#" class="flex items-center gap-3 group focus-ring rounded-lg p-1" aria-label="HUNTX Home">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 via-blue-600 to-indigo-700 p-0.5 shadow-lg shadow-cyan-500/20">
+          <div class="w-full h-full bg-gray-950 rounded-[10px] flex items-center justify-center">
+            <svg class="w-5 h-5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 17 12 22 22 17"></polyline>
+              <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+          </div>
         </div>
-    </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-mono text-base font-bold tracking-tight text-white">HUNT<span class="text-cyan-400">X</span></span>
+            <span class="px-1.5 py-0.5 text-[9px] font-mono font-bold bg-cyan-950/80 text-cyan-400 border border-cyan-800/60 rounded">v2.4</span>
+          </div>
+          <span class="text-[10px] text-gray-400 font-mono tracking-wider">GATHERX TELEMETRY</span>
+        </div>
+      </a>
 
-    <script type="module" src="assets/js/app.js"></script>
+      <div class="flex-1 max-w-md hidden md:block">
+        <div class="relative group">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+          </div>
+          <input
+            id="global-search-input"
+            type="text"
+            class="w-full pl-9 pr-12 py-1.5 bg-gray-900/80 border border-gray-800 focus:border-cyan-500/60 rounded-xl text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus-ring"
+            placeholder="Search nodes, protocols, SNI, country..."
+            aria-label="Global Search"
+          />
+          <div class="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none">
+            <kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 text-[10px] font-mono text-gray-400 rounded">/</kbd>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 sm:gap-3">
+        <div class="hidden lg:flex items-center gap-2 px-3 py-1 bg-emerald-950/50 border border-emerald-800/40 rounded-full">
+          <span class="relative flex h-2 w-2">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span class="font-mono text-[11px] font-semibold text-emerald-400">PIPELINE ONLINE</span>
+        </div>
+
+        <button
+          id="btn-open-builder"
+          class="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 hover:border-cyan-400 text-cyan-300 text-xs font-mono font-medium rounded-xl transition-all shadow-sm focus-ring cursor-pointer"
+          title="Open Subscription Builder"
+          aria-label="Open Subscription Builder"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+          <span class="hidden sm:inline">Sub Builder</span>
+        </button>
+
+        <button
+          id="btn-open-decoder"
+          class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 text-gray-200 text-xs font-mono font-medium rounded-xl transition-all focus-ring cursor-pointer"
+          title="Open Protocol Decoder (Press D)"
+          aria-label="Open Protocol Decoder"
+        >
+          <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+          <span class="hidden sm:inline">Decoder</span>
+        </button>
+
+        <a
+          href="architecture.html"
+          target="_blank"
+          class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 text-gray-300 hover:text-white text-xs font-mono rounded-xl transition-all focus-ring"
+          title="Open 3D Architecture Topology"
+          aria-label="Open 3D Architecture Topology"
+        >
+          <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+          <span class="hidden md:inline">3D Topology</span>
+        </a>
+
+        <a
+          href="https://github.com/AmirrezaFarnamTaheri/HUNTX"
+          target="_blank"
+          class="p-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 text-gray-400 hover:text-white rounded-xl transition-all focus-ring"
+          title="GitHub Repository"
+          aria-label="GitHub Repository"
+        >
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"></path></svg>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Telemetry Workspace -->
+  <main class="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+    <!-- Hero & 3D Globe Radar -->
+    <section id="hero-section">
+      <div class="relative grid grid-cols-1 lg:grid-cols-12 gap-8 items-center py-10 lg:py-14 border-b border-gray-800/60 pb-12">
+        <div class="lg:col-span-7 space-y-6">
+          <div class="inline-flex items-center gap-2 px-3 py-1 bg-cyan-950/50 border border-cyan-500/30 rounded-full text-cyan-300 text-xs font-mono font-semibold uppercase tracking-wider">
+            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+            Zero-Budget Sovereign Proxy Ingestion
+          </div>
+
+          <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight">
+            Node Telemetry &amp; <br/>
+            <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-400 to-indigo-400">Cyber Intelligence</span>
+          </h1>
+
+          <p class="text-sm sm:text-base text-gray-400 font-sans max-w-xl leading-relaxed">
+            Automated multi-source ingestion aggregating 30+ proxy URI protocols across 49+ encrypted channels.
+            Deduplicated with SHA-256 integrity, decoded client-side, and synchronized continuously.
+          </p>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+            <div class="bg-gray-900/60 border border-gray-800/80 rounded-2xl p-3.5 backdrop-blur-sm">
+              <span class="text-[11px] font-mono text-gray-500 uppercase tracking-wider block">Active Nodes</span>
+              <div class="flex items-baseline gap-1.5 mt-1">
+                <span class="text-2xl font-mono font-bold text-cyan-400">616</span>
+                <span class="text-[10px] font-mono text-emerald-400">+12%</span>
+              </div>
+            </div>
+
+            <div class="bg-gray-900/60 border border-gray-800/80 rounded-2xl p-3.5 backdrop-blur-sm">
+              <span class="text-[11px] font-mono text-gray-500 uppercase tracking-wider block">Ingest Sources</span>
+              <div class="flex items-baseline gap-1.5 mt-1">
+                <span class="text-2xl font-mono font-bold text-indigo-400">49+</span>
+                <span class="text-[10px] font-mono text-gray-400">TG/Bot</span>
+              </div>
+            </div>
+
+            <div class="bg-gray-900/60 border border-gray-800/80 rounded-2xl p-3.5 backdrop-blur-sm">
+              <span class="text-[11px] font-mono text-gray-500 uppercase tracking-wider block">Parsers</span>
+              <div class="flex items-baseline gap-1.5 mt-1">
+                <span class="text-2xl font-mono font-bold text-emerald-400">12</span>
+                <span class="text-[10px] font-mono text-gray-400">formats</span>
+              </div>
+            </div>
+
+            <div class="bg-gray-900/60 border border-gray-800/80 rounded-2xl p-3.5 backdrop-blur-sm">
+              <span class="text-[11px] font-mono text-gray-500 uppercase tracking-wider block">Avg Latency</span>
+              <div class="flex items-baseline gap-1.5 mt-1">
+                <span class="text-2xl font-mono font-bold text-amber-400">42ms</span>
+                <span class="text-[10px] font-mono text-emerald-400">fast</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap gap-3 pt-2">
+            <button
+              id="hero-copy-sub"
+              class="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-gray-950 font-mono font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/25 transition-all focus-ring cursor-pointer flex items-center gap-2"
+              aria-label="Copy Unified Subscription URL"
+            >
+              <svg class="w-4 h-4 text-gray-950" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+              Copy Unified Subscription
+            </button>
+
+            <button
+              id="hero-download-json"
+              class="px-4 py-2.5 bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-cyan-500/40 text-gray-200 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-2"
+              aria-label="Download proxies.json"
+            >
+              <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+              Download proxies.json
+            </button>
+          </div>
+        </div>
+
+        <div class="lg:col-span-5 flex flex-col items-center justify-center relative">
+          <div class="relative w-full aspect-square max-w-[420px] rounded-3xl bg-gray-950 border border-cyan-500/20 shadow-2xl shadow-cyan-950/40 overflow-hidden flex items-center justify-center group">
+            <canvas id="telemetry-globe-canvas" class="w-full h-full cursor-grab active:cursor-grabbing block" aria-label="3D Telemetry Globe Radar"></canvas>
+
+            <div class="absolute top-4 left-4 pointer-events-none">
+              <span class="px-2.5 py-1 bg-gray-950/80 border border-cyan-500/30 rounded-lg text-[10px] font-mono text-cyan-300 backdrop-blur-md flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
+                <span>INTERACTIVE 3D GEO-RADAR</span>
+              </span>
+            </div>
+
+            <div class="absolute bottom-3 right-4 pointer-events-none text-right">
+              <span class="text-[9px] font-mono text-gray-500 block">DRAG TO ROTATE</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Protocol Filter Bar -->
+    <section id="filter-section"></section>
+
+    <!-- Node Telemetry Stream Grid -->
+    <section class="mt-4">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-base font-mono font-bold text-gray-200 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+          Live Proxy Endpoints
+        </h2>
+        <span class="text-xs font-mono text-gray-500">Auto-Deduplicated • SHA-256</span>
+      </div>
+      <div id="nodes-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Populated by JavaScript bundle -->
+      </div>
+    </section>
+
+    <!-- Live Client-Side Protocol Decoder Section -->
+    <section id="rule-studio-section"></section>
+
+    <!-- Live Client-Side Protocol Decoder Section -->
+    <section id="inline-decoder-section"></section>
+
+    <!-- Pipeline Artifacts Repository -->
+    <section id="artifact-section"></section>
+  </main>
+
+  <!-- Cyber Footer -->
+  <footer id="main-footer" class="bg-[#070a0f]/90 border-t border-[#1d2638]"></footer>
+
+  <!-- Modal Dialog Container -->
+  <div id="modal-overlay" class="hidden"></div>
+
+  <!-- Floating Toast Notification System -->
+  <div id="toast-container" class="fixed bottom-6 right-6 z-[9999] flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Zero-Dependency Standalone Bundle (CORS-Immune, works under file:/// and GitHub Pages) -->
+  <script src="assets/js/bundle.js"></script>
+
+  <!-- Resilient Non-Module Fallback -->
+  <script>
+    if (typeof AppState === 'undefined') {
+      console.warn('[HUNTX] Bundle loading fallback...');
+    }
+  </script>
 </body>
 </html>
