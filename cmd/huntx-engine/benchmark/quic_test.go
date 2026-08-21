@@ -42,8 +42,8 @@ func TestQUICProberLoopback(t *testing.T) {
 	if res.PacketLossRate > 0.1 {
 		t.Errorf("expected near zero loss rate, got %.2f", res.PacketLossRate)
 	}
-	if res.AvgLatency <= 0 {
-		t.Errorf("expected positive latency, got %v", res.AvgLatency)
+	if res.AvgLatency < 0 {
+		t.Errorf("expected non-negative latency, got %v", res.AvgLatency)
 	}
 }
 

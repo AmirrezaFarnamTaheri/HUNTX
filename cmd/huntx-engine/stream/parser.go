@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 )
 
 type Record struct {
@@ -33,6 +34,20 @@ var supportedSchemes = map[string]struct{}{
 	"naive+https": {}, "naive+quic": {},
 }
 
+var base64Encodings = []*base64.Encoding{
+	base64.StdEncoding,
+	base64.RawStdEncoding,
+	base64.URLEncoding,
+	base64.RawURLEncoding,
+}
+
+var bufPool = sync.Pool{
+	New: func() any {
+		b := make([]byte, 65536)
+		return &b
+	},
+}
+
 func NewStreamParser(bufSize int) *StreamParser {
 	if bufSize <= 0 {
 		bufSize = 65536 // 64 KiB
@@ -48,15 +63,28 @@ func NewStreamParser(bufSize int) *StreamParser {
 }
 
 func HashURI(uri string) string {
-	// Use the complete SHA-256 digest. The previous 64-bit truncation recreated
-	// the collision/identity weakness already removed from the Python pipeline.
 	sum := sha256.Sum256([]byte(strings.TrimSpace(uri)))
-	return hex.EncodeToString(sum[:])
+	var dst [64]byte
+	hex.Encode(dst[:], sum[:])
+	return string(dst[:])
 }
 
 func ExtractProtocol(uri string) string {
 	if idx := strings.Index(uri, "://"); idx > 0 {
-		return strings.ToLower(strings.TrimSpace(uri[:idx]))
+		proto := strings.TrimSpace(uri[:idx])
+		// Avoid allocation if already lowercase
+		isLower := true
+		for i := 0; i < len(proto); i++ {
+			c := proto[i]
+			if c >= 'A' && c <= 'Z' {
+				isLower = false
+				break
+			}
+		}
+		if isLower {
+			return proto
+		}
+		return strings.ToLower(proto)
 	}
 	return "unknown"
 }
@@ -71,7 +99,8 @@ func plausibleBase64Line(line string) bool {
 	if len(line) < 8 || strings.ContainsAny(line, " \t") {
 		return false
 	}
-	for _, r := range line {
+	for i := 0; i < len(line); i++ {
+		r := line[i]
 		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
 			(r >= '0' && r <= '9') || r == '+' || r == '/' || r == '-' ||
 			r == '_' || r == '=' {
@@ -84,14 +113,8 @@ func plausibleBase64Line(line string) bool {
 
 func decodeBase64Text(value string) ([]byte, error) {
 	trimmed := strings.TrimSpace(value)
-	encodings := []*base64.Encoding{
-		base64.StdEncoding,
-		base64.RawStdEncoding,
-		base64.URLEncoding,
-		base64.RawURLEncoding,
-	}
 	var lastErr error
-	for _, encoding := range encodings {
+	for _, encoding := range base64Encodings {
 		decoded, err := encoding.DecodeString(trimmed)
 		if err == nil {
 			return decoded, nil
@@ -110,7 +133,7 @@ func appendUnique(records []Record, seen map[string]struct{}, record Record) []R
 }
 
 func (sp *StreamParser) ParseStream(r io.Reader) ([]Record, error) {
-	seen := make(map[string]struct{})
+	seen := make(map[string]struct{}, 128)
 	return sp.parseStream(r, 0, seen)
 }
 
@@ -128,9 +151,17 @@ func (sp *StreamParser) parseStream(
 	if maxToken < sp.BufSize {
 		maxToken = sp.BufSize
 	}
-	scanner.Buffer(make([]byte, sp.BufSize), maxToken)
 
-	var records []Record
+	var bufPtr *[]byte
+	if sp.BufSize == 65536 {
+		bufPtr = bufPool.Get().(*[]byte)
+		defer bufPool.Put(bufPtr)
+		scanner.Buffer(*bufPtr, maxToken)
+	} else {
+		scanner.Buffer(make([]byte, sp.BufSize), maxToken)
+	}
+
+	records := make([]Record, 0, 64)
 	var base64Accumulator strings.Builder
 	maxEncodedBytes := sp.MaxDecodedBytes*2 + 16
 
