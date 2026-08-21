@@ -3,70 +3,577 @@
 'use strict';
 
 // HUNTX Telemetry & Sample Proxy Node Data
+// Authority: Unified Output Publication Model & Protocol Specifications
+
 const FALLBACK_CATALOG = {
-  generated_at: new Date().toISOString(),
-  total_files: 5,
-  total_size_str: "20.6 MB",
-  total_nodes: 616,
-  sources_count: 49,
-  protocols: {
-    vless: 521,
-    vmess: 66,
-    shadowsocks: 18,
-    trojan: 11
-  },
-  files: [
+  "files": [
     {
-      filename: "proxies.json",
-      path: "artifacts/dev/proxies.json",
-      size_str: "5.8 MB",
-      type: "JSON",
-      ext: "JSON",
-      tags: ["dev", "aggregated", "full-json"],
-      last_modified: "2026-02-16T17:21:36.187Z",
-      hash: "b609bf39"
+      "description": "Compact binary subscription feed for high-speed clients",
+      "ext": "NPVT",
+      "filename": "all_sources.npvt",
+      "hash": "d682c87e",
+      "last_modified": "2026-08-17T22:38:01.920674+00:00",
+      "media_type": "application/x-npvt-subscription",
+      "path": "artifacts/release/all_sources.npvt",
+      "section": "release",
+      "sha256": "d682c87e176265d3b8ad23c9b1871adeddfefe654f791ef6d777176dcb05adf5",
+      "size": 7929,
+      "size_str": "7.7 KB",
+      "tags": [
+        "release",
+        "production",
+        "subscription",
+        "binary-feed"
+      ],
+      "type": "NPVT"
     },
     {
-      filename: "proxies_b64sub.txt",
-      path: "artifacts/dev/proxies_b64sub.txt",
-      size_str: "5.8 MB",
-      type: "B64SUB",
-      ext: "TXT",
-      tags: ["dev", "subscription", "base64"],
-      last_modified: "2026-02-16T17:21:36.315Z",
-      hash: "fca50919"
+      "description": "Base64-encoded subscription feed for Shadowrocket, v2rayNG, and Streisand",
+      "ext": "B64SUB",
+      "filename": "all_sources.npvt.b64sub",
+      "hash": "258a4ae2",
+      "last_modified": "2026-08-17T22:38:01.920674+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/release/all_sources.npvt.b64sub",
+      "section": "release",
+      "sha256": "258a4ae2414eb767131a18e2add038011520df8705a7cdd3b1155f4df05724d1",
+      "size": 10532,
+      "size_str": "10.3 KB",
+      "tags": [
+        "release",
+        "production",
+        "subscription",
+        "base64",
+        "unified-feed"
+      ],
+      "type": "B64SUB"
     },
     {
-      filename: "proxies.txt",
-      path: "artifacts/dev/proxies.txt",
-      size_str: "4.4 MB",
-      type: "TXT",
-      ext: "TXT",
-      tags: ["dev", "raw-uris", "deduped"],
-      last_modified: "2026-02-16T17:21:36.255Z",
-      hash: "d03dc23a"
+      "description": "Parsed and structured proxy connection parameters JSON dataset",
+      "ext": "JSON",
+      "filename": "all_sources.npvt.decoded.json",
+      "hash": "167a8977",
+      "last_modified": "2026-08-17T22:38:01.921673+00:00",
+      "media_type": "application/json",
+      "path": "artifacts/release/all_sources.npvt.decoded.json",
+      "section": "release",
+      "sha256": "167a8977ccfe79e8fd1bf265a2ab5b44810437bd2650fb04d180e3952775f0ea",
+      "size": 24665,
+      "size_str": "24.1 KB",
+      "tags": [
+        "release",
+        "production",
+        "decoded",
+        "parameters",
+        "metadata"
+      ],
+      "type": "JSON"
     },
     {
-      filename: "_manifest.json",
-      path: "artifacts/dev/_manifest.json",
-      size_str: "4.6 MB",
-      type: "JSON",
-      ext: "JSON",
-      tags: ["dev", "manifest", "telemetry"],
-      last_modified: "2026-02-16T17:21:36.119Z",
-      hash: "1f26eedc"
+      "description": "Compiled Sing-box 1.10+ outbound routing profile with TLS/Reality rules",
+      "ext": "SINGBOX",
+      "filename": "all_sources.npvt.singbox.json",
+      "hash": "c3f703ba",
+      "last_modified": "2026-08-17T22:38:01.921673+00:00",
+      "media_type": "application/json",
+      "path": "artifacts/release/all_sources.npvt.singbox.json",
+      "section": "release",
+      "sha256": "c3f703ba7e63abf040bc6802ddfe706e1f352d96897491cbffe250573063e7fa",
+      "size": 19641,
+      "size_str": "19.2 KB",
+      "tags": [
+        "release",
+        "production",
+        "singbox",
+        "routing-profile",
+        "outbounds"
+      ],
+      "type": "SINGBOX"
     },
     {
-      filename: "README.md",
-      path: "artifacts/dev/README.md",
-      size_str: "83 B",
-      type: "MD",
-      ext: "MD",
-      tags: ["dev", "docs"],
-      last_modified: "2026-02-16T17:21:36.099Z",
-      hash: "85361380"
+      "description": "Cryptographically signed opaque proxy bundle",
+      "ext": "BUNDLE",
+      "filename": "all_sources.opaque_bundle",
+      "hash": "eddd1ca7",
+      "last_modified": "2026-08-17T22:38:01.924191+00:00",
+      "media_type": "application/octet-stream",
+      "path": "artifacts/release/all_sources.opaque_bundle",
+      "section": "release",
+      "sha256": "eddd1ca799674b0d4aa80f02707efa7c0dd34e0427f617152d150ed2de5c7d99",
+      "size": 186736,
+      "size_str": "182.4 KB",
+      "tags": [
+        "release",
+        "production",
+        "bundle",
+        "binary"
+      ],
+      "type": "BUNDLE"
+    },
+    {
+      "description": "Standard OpenVPN multi-gateway client profile with TLS auth",
+      "ext": "OVPN",
+      "filename": "all_sources.ovpn",
+      "hash": "9eb723c3",
+      "last_modified": "2026-08-17T22:38:01.924191+00:00",
+      "media_type": "application/x-openvpn-profile",
+      "path": "artifacts/release/all_sources.ovpn",
+      "section": "release",
+      "sha256": "9eb723c318ceffd3664b589c6a270f2df910e0381feaa4c61c731e63b67bb54e",
+      "size": 3754,
+      "size_str": "3.7 KB",
+      "tags": [
+        "release",
+        "production",
+        "openvpn",
+        "vpn",
+        "gateway"
+      ],
+      "type": "OVPN"
+    },
+    {
+      "description": "Base64-encoded subscription feed for Shadowrocket, v2rayNG, and Streisand",
+      "ext": "B64SUB",
+      "filename": "all_sources_npvt_b64sub.txt",
+      "hash": "258a4ae2",
+      "last_modified": "2026-08-17T22:38:01.924838+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/release/all_sources_npvt_b64sub.txt",
+      "section": "release",
+      "sha256": "258a4ae2414eb767131a18e2add038011520df8705a7cdd3b1155f4df05724d1",
+      "size": 10532,
+      "size_str": "10.3 KB",
+      "tags": [
+        "release",
+        "production",
+        "subscription",
+        "base64",
+        "unified-feed"
+      ],
+      "type": "B64SUB"
+    },
+    {
+      "description": "Parsed and structured proxy connection parameters JSON dataset",
+      "ext": "JSON",
+      "filename": "all_sources_npvt_decoded.json",
+      "hash": "167a8977",
+      "last_modified": "2026-08-17T22:38:01.924838+00:00",
+      "media_type": "application/json",
+      "path": "artifacts/release/all_sources_npvt_decoded.json",
+      "section": "release",
+      "sha256": "167a8977ccfe79e8fd1bf265a2ab5b44810437bd2650fb04d180e3952775f0ea",
+      "size": 24665,
+      "size_str": "24.1 KB",
+      "tags": [
+        "release",
+        "production",
+        "decoded",
+        "parameters",
+        "metadata"
+      ],
+      "type": "JSON"
+    },
+    {
+      "description": "Compiled Sing-box 1.10+ outbound routing profile with TLS/Reality rules",
+      "ext": "SINGBOX",
+      "filename": "all_sources_npvt_singbox.json",
+      "hash": "c3f703ba",
+      "last_modified": "2026-08-17T22:38:01.925850+00:00",
+      "media_type": "application/json",
+      "path": "artifacts/release/all_sources_npvt_singbox.json",
+      "section": "release",
+      "sha256": "c3f703ba7e63abf040bc6802ddfe706e1f352d96897491cbffe250573063e7fa",
+      "size": 19641,
+      "size_str": "19.2 KB",
+      "tags": [
+        "release",
+        "production",
+        "singbox",
+        "routing-profile",
+        "outbounds"
+      ],
+      "type": "SINGBOX"
+    },
+    {
+      "description": "Production release documentation and checksum index",
+      "ext": "MD",
+      "filename": "README.md",
+      "hash": "70156f4c",
+      "last_modified": "2026-04-20T11:52:06.307231+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/release/README.md",
+      "section": "release",
+      "sha256": "70156f4c51c472f39b0c4b4e48c602f9c2ec872c5432163018d2e408986d1ed6",
+      "size": 71,
+      "size_str": "71 B",
+      "tags": [
+        "release",
+        "production",
+        "documentation"
+      ],
+      "type": "MD"
+    },
+    {
+      "description": "Full Xray-core 1.8+ / V2Ray multi-protocol client configuration",
+      "ext": "XRAY",
+      "filename": "v2ray_test_config.json",
+      "hash": "ccf6e6ff",
+      "last_modified": "2026-04-20T11:52:06.307231+00:00",
+      "media_type": "application/json",
+      "path": "artifacts/release/v2ray_test_config.json",
+      "section": "release",
+      "sha256": "ccf6e6ffe7c6167bc985e4e2d08ed06a894ae7c8ccd8ad53f82c61d410aa606e",
+      "size": 408685,
+      "size_str": "399.1 KB",
+      "tags": [
+        "release",
+        "production",
+        "xray",
+        "v2ray",
+        "core-config"
+      ],
+      "type": "XRAY"
+    },
+    {
+      "description": "Durable cumulative first-seen timestamp manifest index",
+      "ext": "MANIFEST",
+      "filename": "_manifest.json",
+      "hash": "b8cbb3e3",
+      "last_modified": "2026-08-17T22:38:02.009396+00:00",
+      "media_type": "application/json",
+      "path": "artifacts/dev/_manifest.json",
+      "section": "dev",
+      "sha256": "b8cbb3e332b7be378f8e7435ee83b78206e85618232d44b78ab211c1a28148a4",
+      "size": 25303249,
+      "size_str": "24.1 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "manifest",
+        "telemetry",
+        "state"
+      ],
+      "type": "MANIFEST"
+    },
+    {
+      "description": "Complete all-time cumulative proxy dataset with first-seen timestamps",
+      "ext": "JSON",
+      "filename": "proxies.json",
+      "hash": "2ec2a1e5",
+      "last_modified": "2026-08-17T22:38:02.123256+00:00",
+      "media_type": "application/json",
+      "path": "artifacts/dev/proxies.json",
+      "section": "dev",
+      "sha256": "2ec2a1e5e944a4cf3243ea8a665ec100fa6f84f49b6523163c62bcc825e2513e",
+      "size": 32406244,
+      "size_str": "30.9 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "aggregated",
+        "all-time",
+        "full-json"
+      ],
+      "type": "JSON"
+    },
+    {
+      "description": "All-time cumulative raw proxy URI list (SHA-256 deduplicated)",
+      "ext": "TXT",
+      "filename": "proxies.txt",
+      "hash": "b23d8925",
+      "last_modified": "2026-08-17T22:38:02.209969+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/proxies.txt",
+      "section": "dev",
+      "sha256": "b23d892538e04e5ac37cb5d33142716f115d80eacbbd347dd081585dd176916a",
+      "size": 24158023,
+      "size_str": "23.0 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "raw-uris",
+        "deduped",
+        "all-time"
+      ],
+      "type": "TXT"
+    },
+    {
+      "description": "All-time cumulative Base64 subscription feed across 49+ sources",
+      "ext": "B64SUB",
+      "filename": "proxies_b64sub.txt",
+      "hash": "5d23b968",
+      "last_modified": "2026-08-17T22:38:02.335331+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/proxies_b64sub.txt",
+      "section": "dev",
+      "sha256": "5d23b968dc05574ea9a0c17efa81aca179f3ba61761274fcfff79603d99530c9",
+      "size": 32055566,
+      "size_str": "30.6 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "subscription",
+        "base64",
+        "all-time"
+      ],
+      "type": "B64SUB"
+    },
+    {
+      "description": "Lightweight split feed chunk (proxies_chunk_0001.txt) for bandwidth-constrained clients",
+      "ext": "CHUNK",
+      "filename": "proxies_chunk_0001.txt",
+      "hash": "977752f8",
+      "last_modified": "2026-05-26T12:33:38.166693+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/proxies_chunk_0001.txt",
+      "section": "dev",
+      "sha256": "977752f82ae65045f1314ae0e082186cd955d222e3f493fdac5d2d401497ddfc",
+      "size": 1671692,
+      "size_str": "1.6 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "chunk",
+        "split-feed",
+        "lightweight"
+      ],
+      "type": "CHUNK"
+    },
+    {
+      "description": "Lightweight split feed chunk (proxies_chunk_0002.txt) for bandwidth-constrained clients",
+      "ext": "CHUNK",
+      "filename": "proxies_chunk_0002.txt",
+      "hash": "930b55b2",
+      "last_modified": "2026-05-26T12:33:38.490700+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/proxies_chunk_0002.txt",
+      "section": "dev",
+      "sha256": "930b55b2b46ebe30e8700f93d551b45108c764939b62886ee2ef752bc765250b",
+      "size": 1437875,
+      "size_str": "1.4 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "chunk",
+        "split-feed",
+        "lightweight"
+      ],
+      "type": "CHUNK"
+    },
+    {
+      "description": "Lightweight split feed chunk (proxies_chunk_0003.txt) for bandwidth-constrained clients",
+      "ext": "CHUNK",
+      "filename": "proxies_chunk_0003.txt",
+      "hash": "eb1ff835",
+      "last_modified": "2026-05-26T12:33:38.865428+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/proxies_chunk_0003.txt",
+      "section": "dev",
+      "sha256": "eb1ff83588f092f01a138ecd28ec67e46db4d6d789684a0e36372654e3aab2e4",
+      "size": 2122326,
+      "size_str": "2.0 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "chunk",
+        "split-feed",
+        "lightweight"
+      ],
+      "type": "CHUNK"
+    },
+    {
+      "description": "Lightweight split feed chunk (proxies_chunk_0004.txt) for bandwidth-constrained clients",
+      "ext": "CHUNK",
+      "filename": "proxies_chunk_0004.txt",
+      "hash": "0d227e16",
+      "last_modified": "2026-05-26T12:33:39.137513+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/proxies_chunk_0004.txt",
+      "section": "dev",
+      "sha256": "0d227e161136cad241eb602cc8386570be0cdb1c6b64f30819b10fe3d3ef2836",
+      "size": 2264702,
+      "size_str": "2.2 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "chunk",
+        "split-feed",
+        "lightweight"
+      ],
+      "type": "CHUNK"
+    },
+    {
+      "description": "Lightweight split feed chunk (proxies_chunk_0005.txt) for bandwidth-constrained clients",
+      "ext": "CHUNK",
+      "filename": "proxies_chunk_0005.txt",
+      "hash": "1534ca5a",
+      "last_modified": "2026-05-26T12:33:39.399302+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/proxies_chunk_0005.txt",
+      "section": "dev",
+      "sha256": "1534ca5a49dd9782379296cb58090071b41a0099342c7d96e426f8bfeb3de750",
+      "size": 2027862,
+      "size_str": "1.9 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "chunk",
+        "split-feed",
+        "lightweight"
+      ],
+      "type": "CHUNK"
+    },
+    {
+      "description": "Lightweight split feed chunk (proxies_chunk_0006.txt) for bandwidth-constrained clients",
+      "ext": "CHUNK",
+      "filename": "proxies_chunk_0006.txt",
+      "hash": "c1b87403",
+      "last_modified": "2026-05-26T12:33:39.846354+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/proxies_chunk_0006.txt",
+      "section": "dev",
+      "sha256": "c1b87403f0195641be5f493a05b2860a2d0c1d7628321f23f9928b2e4a951a8f",
+      "size": 2342010,
+      "size_str": "2.2 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "chunk",
+        "split-feed",
+        "lightweight"
+      ],
+      "type": "CHUNK"
+    },
+    {
+      "description": "Lightweight split feed chunk (proxies_chunk_0007.txt) for bandwidth-constrained clients",
+      "ext": "CHUNK",
+      "filename": "proxies_chunk_0007.txt",
+      "hash": "cd791452",
+      "last_modified": "2026-05-26T12:33:40.214081+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/proxies_chunk_0007.txt",
+      "section": "dev",
+      "sha256": "cd791452e66c28f41ab98ec73bc0ea7e7111c996e6b18e56e3042566257a4c6f",
+      "size": 2175546,
+      "size_str": "2.1 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "chunk",
+        "split-feed",
+        "lightweight"
+      ],
+      "type": "CHUNK"
+    },
+    {
+      "description": "Lightweight split feed chunk (proxies_chunk_0008.txt) for bandwidth-constrained clients",
+      "ext": "CHUNK",
+      "filename": "proxies_chunk_0008.txt",
+      "hash": "f27be1f5",
+      "last_modified": "2026-05-26T12:33:40.617286+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/proxies_chunk_0008.txt",
+      "section": "dev",
+      "sha256": "f27be1f53489cb1f3ec3a562df0e5e75643807d9764deed683406e8fc063992b",
+      "size": 2257325,
+      "size_str": "2.2 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "chunk",
+        "split-feed",
+        "lightweight"
+      ],
+      "type": "CHUNK"
+    },
+    {
+      "description": "Lightweight split feed chunk (proxies_chunk_0009.txt) for bandwidth-constrained clients",
+      "ext": "CHUNK",
+      "filename": "proxies_chunk_0009.txt",
+      "hash": "3293bc22",
+      "last_modified": "2026-05-26T12:33:40.862150+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/proxies_chunk_0009.txt",
+      "section": "dev",
+      "sha256": "3293bc22f67ec317c28b0f0a430d502aab1e2a211bbc913062d2db66e137f912",
+      "size": 2206586,
+      "size_str": "2.1 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "chunk",
+        "split-feed",
+        "lightweight"
+      ],
+      "type": "CHUNK"
+    },
+    {
+      "description": "Lightweight split feed chunk (proxies_chunk_0010.txt) for bandwidth-constrained clients",
+      "ext": "CHUNK",
+      "filename": "proxies_chunk_0010.txt",
+      "hash": "14bcf665",
+      "last_modified": "2026-05-26T12:33:41.124850+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/proxies_chunk_0010.txt",
+      "section": "dev",
+      "sha256": "14bcf6651dff894ea822dc952ab42bace370f134e8541357687ed6004be7cdda",
+      "size": 2115592,
+      "size_str": "2.0 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "chunk",
+        "split-feed",
+        "lightweight"
+      ],
+      "type": "CHUNK"
+    },
+    {
+      "description": "Lightweight split feed chunk (proxies_chunk_0011.txt) for bandwidth-constrained clients",
+      "ext": "CHUNK",
+      "filename": "proxies_chunk_0011.txt",
+      "hash": "b084ea98",
+      "last_modified": "2026-05-26T12:33:41.445993+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/proxies_chunk_0011.txt",
+      "section": "dev",
+      "sha256": "b084ea9883727e23094637fdd69aa6cf144612f89c60f320b6d083ed6a33faad",
+      "size": 2113566,
+      "size_str": "2.0 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "chunk",
+        "split-feed",
+        "lightweight"
+      ],
+      "type": "CHUNK"
+    },
+    {
+      "description": "Development and cumulative output documentation",
+      "ext": "MD",
+      "filename": "README.md",
+      "hash": "23f00703",
+      "last_modified": "2026-04-20T11:52:06.307231+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/README.md",
+      "section": "dev",
+      "sha256": "23f00703e20b1224e15ed6c1821d703fa09ba16459b8d44a7bc8e8b17b9f75ff",
+      "size": 86,
+      "size_str": "86 B",
+      "tags": [
+        "dev",
+        "cumulative",
+        "documentation"
+      ],
+      "type": "MD"
     }
-  ]
+  ],
+  "generated_at": "2026-08-21T18:10:22.411115+00:00",
+  "schema_version": 1,
+  "total_files": 27,
+  "total_size": 137375101,
+  "total_size_str": "131.0 MB"
 };
 
 const SAMPLE_PROXIES = [
@@ -74,7 +581,7 @@ const SAMPLE_PROXIES = [
     id: "px-01",
     protocol: "vless",
     name: "DE-Frankfurt-Reality-01",
-    server: "ger4.azadrah.drpingi.shop",
+    server: "140.99.223.61",
     port: 443,
     country: "DE",
     countryName: "Germany",
@@ -83,15 +590,15 @@ const SAMPLE_PROXIES = [
     lon: 8.6821,
     transport: "Reality",
     security: "reality",
-    sni: "ea.com",
+    sni: "savesafe.run",
     ping: 38,
-    raw: "vless://1dab4c0f-a723-4f8b-98cb-76eab77bfb22@ger4.azadrah.drpingi.shop:443?type=tcp&encryption=none&path=%2F&host=divarcdn.com&headerType=http&security=reality&pbk=SE18-hr9HPPosy_BCLK4bh8fwNJdrJrNtkTBcsOqBGk&fp=chrome&sni=ea.com&sid=d128bc#DE-Frankfurt-Reality-01"
+    raw: "vless://b5ca5ab3-8cbc-4ac3-89da-9cd360589ecb@140.99.223.61:443?security=reality&encryption=none&pbk=wx4B5IBeGc_0h6XZW6714G7951zLUYILv6eNRSgPDl8&headerType=none&fp=firefox&type=tcp&flow=xtls-rprx-vision&sni=savesafe.run&sid=e4f6a3446ac34a24#vless-1"
   },
   {
     id: "px-02",
     protocol: "vless",
     name: "FI-Helsinki-gRPC-Fast",
-    server: "all.tellmethetrue.shop",
+    server: "199.232.78.159",
     port: 443,
     country: "FI",
     countryName: "Finland",
@@ -100,9 +607,9 @@ const SAMPLE_PROXIES = [
     lon: 24.9384,
     transport: "gRPC",
     security: "tls",
-    sni: "pqh29v8.carwashipdir.shop",
+    sni: "ssl.fastly.com",
     ping: 45,
-    raw: "vless://e4824193-4f54-453b-d037-88368e85ef0e@all.tellmethetrue.shop:443?encryption=none&security=tls&sni=pqh29v8.carwashipdir.shop&alpn=h2&insecure=1&type=grpc&mode=gun#FI-Helsinki-gRPC-Fast"
+    raw: "vless://e0454af2-6fe9-4983-a55d-05e1da202602@199.232.78.159:443?path=%2F&security=tls&encryption=none&host=lsjaoijji.global.ssl.fastly.neT.&fp=chrome&type=ws&sni=ssl.fastly.com#vless-2"
   },
   {
     id: "px-03",
@@ -219,7 +726,6 @@ const GLOBE_HUBS = [
   { name: "Tokyo", lat: 35.68, lon: 139.65, count: 12, code: "JP", ping: 135 }
 ];
 
-
 // Lightweight Pure Canvas/SVG QR Code Generator
 // Generates QR matrix with zero external dependencies
 
@@ -290,7 +796,6 @@ function hashString(str) {
   }
   return Math.abs(hash);
 }
-
 
 // HUNTX Client-Side Proxy Protocol Decoder & Parser
 // Hardened, IPv6-compliant, malformed URI resilient, and fully zero-dependency.
@@ -564,9 +1069,48 @@ function decodeProxyURI(rawUri) {
 }
 
 
+let wasmWorkerInstance = null;
+let messageIdCounter = 0;
+const pendingWorkerRequests = new Map();
+
+function getWasmWorker() {
+  if (typeof Worker === "undefined") return null;
+  if (!wasmWorkerInstance) {
+    try {
+      wasmWorkerInstance = new Worker(new URL("./wasm-worker.js", import.meta.url));
+      wasmWorkerInstance.onmessage = function (e) {
+        const { id, type, data, error } = e.data || {};
+        if (pendingWorkerRequests.has(id)) {
+          const { resolve, reject } = pendingWorkerRequests.get(id);
+          pendingWorkerRequests.delete(id);
+          if (error) {
+            reject(new Error(error));
+          } else {
+            resolve(data);
+          }
+        }
+      };
+    } catch (err) {
+      console.warn("Could not initialize Wasm Web Worker, falling back to main-thread JS:", err);
+    }
+  }
+  return wasmWorkerInstance;
+}
+
+export async function decodeSubscriptionAsync(rawPayload) {
+  const worker = getWasmWorker();
+  if (!worker) {
+    return decodeProxyURI(rawPayload);
+  }
+  const id = ++messageIdCounter;
+  return new Promise((resolve, reject) => {
+    pendingWorkerRequests.set(id, { resolve, reject });
+    worker.postMessage({ action: "DECODE_SUBSCRIPTION", payload: rawPayload, id });
+  });
+}
+
 // HUNTX Interactive 3D WebGL Telemetry Globe Engine
 // Zero-dependency, GPU-accelerated canvas renderer with interactive drag, node hubs, and flight arcs.
-
 
 
 function initTelemetryGlobe(canvasId, onNodeSelect) {
@@ -887,13 +1431,8 @@ function initTelemetryGlobe(canvasId, onNodeSelect) {
   };
 }
 
-
 // HUNTX / GatherX Node Intelligence & Telemetry Dashboard Application
 // Hardened, accessible, zero-dependency, and XSS-sanitized frontend controller.
-
-
-
-
 
 
 function escapeHTML(str) {
@@ -927,6 +1466,8 @@ class AppState {
     this.catalog = FALLBACK_CATALOG;
     this.proxies = [...SAMPLE_PROXIES];
     this.searchQuery = "";
+    this.artifactFilter = "ALL";
+    this.artifactSearchQuery = "";
     this.selectedProtocol = "ALL";
     this.selectedTransport = "ALL";
     this.selectedCountry = "ALL";
@@ -938,17 +1479,57 @@ class AppState {
   async init() {
     this.applyTheme(this.theme);
 
+    // 1. Fetch live catalog
     try {
       const res = await fetch("./catalog.json", { cache: "no-store" });
       if (res.ok) {
         const liveCatalog = await res.json();
-        if (liveCatalog && liveCatalog.files) {
+        if (liveCatalog && liveCatalog.files && liveCatalog.files.length > 0) {
           this.catalog = { ...this.catalog, ...liveCatalog };
-          console.log("[HUNTX] Live catalog synchronized.");
+          console.log(`[HUNTX] Live catalog synchronized (${this.catalog.files.length} artifacts).`);
         }
       }
     } catch (e) {
-      console.log("[HUNTX] Standalone/offline mode with built-in telemetry data.");
+      console.log("[HUNTX] Using built-in fallback catalog.");
+    }
+
+    // 2. Fetch live decoded proxies if available
+    try {
+      const decodedRes = await fetch("artifacts/release/all_sources.npvt.decoded.json", { cache: "no-store" });
+      if (decodedRes.ok) {
+        const decodedData = await decodedRes.json();
+        if (decodedData && decodedData.entries && decodedData.entries.length > 0) {
+          this.proxies = decodedData.entries.map((entry, idx) => {
+            const proto = (entry.protocol || "vless").toLowerCase();
+            const tag = entry.tag || `node-${idx + 1}`;
+            const host = entry.address || "127.0.0.1";
+            const port = entry.port || 443;
+            const sni = (entry.params && (entry.params.sni || entry.params.host)) || "";
+            const transport = (entry.params && (entry.params.type || entry.params.net)) || (entry.params && entry.params.security === "reality" ? "Reality" : "TCP");
+            const security = (entry.params && entry.params.security) || "none";
+            return {
+              id: `live-node-${idx + 1}`,
+              protocol: proto,
+              name: tag,
+              server: host,
+              port: port,
+              country: this.inferCountryFromTagOrHost(tag, host),
+              countryName: this.inferCountryName(tag, host),
+              city: "Global Edge",
+              lat: 50.1109 + (idx % 10) * 1.5,
+              lon: 8.6821 + (idx % 10) * 3.0,
+              transport: transport,
+              security: security,
+              sni: sni,
+              ping: 28 + (idx * 7) % 120,
+              raw: entry.raw || ""
+            };
+          });
+          console.log(`[HUNTX] Live decoded proxies ingested: ${this.proxies.length} nodes.`);
+        }
+      }
+    } catch (e) {
+      console.log("[HUNTX] Using sample proxy node dataset.");
     }
 
     this.renderHeader();
@@ -969,6 +1550,25 @@ class AppState {
         this.showToast(`Filtered by ${escapeHTML(hub.name)} (${escapeHTML(hub.code)})`);
       });
     }, 100);
+  }
+
+  inferCountryFromTagOrHost(tag, host) {
+    const upperTag = (tag || "").toUpperCase();
+    const matches = ["DE", "US", "NL", "FI", "SG", "GB", "TR", "JP", "FR", "CA", "IR"];
+    for (const code of matches) {
+      if (upperTag.includes(code) || upperTag.startsWith(code + "-")) return code;
+    }
+    return "DE";
+  }
+
+  inferCountryName(tag, host) {
+    const code = this.inferCountryFromTagOrHost(tag, host);
+    const names = {
+      DE: "Germany", US: "United States", NL: "Netherlands",
+      FI: "Finland", SG: "Singapore", GB: "United Kingdom",
+      TR: "Turkey", JP: "Japan", FR: "France", CA: "Canada", IR: "Iran"
+    };
+    return names[code] || "Global Edge";
   }
 
   applyTheme(t) {
@@ -1025,6 +1625,35 @@ class AppState {
     });
 
     return result;
+  }
+
+  getFilteredArtifacts() {
+    let list = this.catalog.files || [];
+    const filter = this.artifactFilter;
+
+    if (filter === "RELEASE") {
+      list = list.filter(f => f.section === "release" || (f.tags && f.tags.includes("release")));
+    } else if (filter === "DEV") {
+      list = list.filter(f => f.section === "dev" || (f.tags && f.tags.includes("dev")));
+    } else if (filter === "SUBSCRIPTIONS") {
+      list = list.filter(f => f.ext === "B64SUB" || f.ext === "NPVT" || (f.tags && f.tags.includes("subscription")));
+    } else if (filter === "CONFIGS") {
+      list = list.filter(f => ["SINGBOX", "XRAY", "OVPN"].includes(f.ext) || (f.tags && (f.tags.includes("singbox") || f.tags.includes("xray") || f.tags.includes("openvpn"))));
+    } else if (filter === "CHUNKS") {
+      list = list.filter(f => f.ext === "CHUNK" || (f.tags && f.tags.includes("chunk")));
+    }
+
+    if (this.artifactSearchQuery.trim()) {
+      const q = this.artifactSearchQuery.toLowerCase().trim();
+      list = list.filter(f =>
+        f.filename.toLowerCase().includes(q) ||
+        (f.description && f.description.toLowerCase().includes(q)) ||
+        (f.ext && f.ext.toLowerCase().includes(q)) ||
+        (f.tags && f.tags.some(t => t.toLowerCase().includes(q)))
+      );
+    }
+
+    return list;
   }
 
   showToast(msg, type = "success") {
@@ -1211,7 +1840,7 @@ class AppState {
           </div>
 
           <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight">
-            Node Telemetry & <br/>
+            Node Telemetry &amp; <br/>
             <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-400 to-indigo-400">Cyber Intelligence</span>
           </h1>
 
@@ -1224,7 +1853,7 @@ class AppState {
             <div class="bg-gray-900/60 border border-gray-800/80 rounded-2xl p-3.5 backdrop-blur-sm">
               <span class="text-[11px] font-mono text-gray-500 uppercase tracking-wider block">Active Nodes</span>
               <div class="flex items-baseline gap-1.5 mt-1">
-                <span class="text-2xl font-mono font-bold text-cyan-400">${this.catalog.total_nodes || 616}</span>
+                <span class="text-2xl font-mono font-bold text-cyan-400">${this.proxies.length || 616}</span>
                 <span class="text-[10px] font-mono text-emerald-400">+12%</span>
               </div>
             </div>
@@ -1238,10 +1867,10 @@ class AppState {
             </div>
 
             <div class="bg-gray-900/60 border border-gray-800/80 rounded-2xl p-3.5 backdrop-blur-sm">
-              <span class="text-[11px] font-mono text-gray-500 uppercase tracking-wider block">Parsers</span>
+              <span class="text-[11px] font-mono text-gray-500 uppercase tracking-wider block">Published Files</span>
               <div class="flex items-baseline gap-1.5 mt-1">
-                <span class="text-2xl font-mono font-bold text-emerald-400">12</span>
-                <span class="text-[10px] font-mono text-gray-400">formats</span>
+                <span class="text-2xl font-mono font-bold text-emerald-400">${this.catalog.total_files || 27}</span>
+                <span class="text-[10px] font-mono text-gray-400">${escapeHTML(this.catalog.total_size_str || '131 MB')}</span>
               </div>
             </div>
 
@@ -1254,24 +1883,48 @@ class AppState {
             </div>
           </div>
 
-          <div class="flex flex-wrap gap-3 pt-2">
+          <div class="flex flex-wrap gap-2.5 pt-2">
             <button
               id="hero-copy-sub"
-              class="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-gray-950 font-mono font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/25 transition-all focus-ring cursor-pointer flex items-center gap-2"
-              aria-label="Copy Unified Subscription URL"
+              class="px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-gray-950 font-mono font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/25 transition-all focus-ring cursor-pointer flex items-center gap-2"
+              aria-label="Copy Production Base64 Subscription URL"
             >
               <svg class="w-4 h-4 text-gray-950" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-              Copy Unified Subscription
+              Copy Production Feed
             </button>
 
-            <button
-              id="hero-download-json"
-              class="px-4 py-2.5 bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-cyan-500/40 text-gray-200 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-2"
-              aria-label="Download proxies.json"
+            <a
+              id="hero-download-singbox"
+              href="artifacts/release/all_sources.npvt.singbox.json"
+              download
+              class="px-3.5 py-2.5 bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 hover:border-cyan-400 text-cyan-300 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-1.5"
+              aria-label="Download Sing-box 1.10+ JSON"
             >
-              <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-              Download proxies.json
-            </button>
+              <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+              Sing-box Profile
+            </a>
+
+            <a
+              id="hero-download-xray"
+              href="artifacts/release/v2ray_test_config.json"
+              download
+              class="px-3.5 py-2.5 bg-indigo-950/60 hover:bg-indigo-900/60 border border-indigo-500/30 hover:border-indigo-400 text-indigo-300 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-1.5"
+              aria-label="Download Xray Config"
+            >
+              <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+              Xray Config
+            </a>
+
+            <a
+              id="hero-download-json"
+              href="artifacts/dev/proxies.json"
+              download
+              class="px-3.5 py-2.5 bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-cyan-500/40 text-gray-200 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-1.5"
+              aria-label="Download Full proxies.json"
+            >
+              <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+              Cumulative JSON
+            </a>
           </div>
         </div>
 
@@ -1295,12 +1948,8 @@ class AppState {
     `;
 
     document.getElementById("hero-copy-sub")?.addEventListener("click", () => {
-      const subUrl = new URL("artifacts/dev/proxies_b64sub.txt", window.location.href).href;
-      this.copyText(subUrl, "Subscription URL copied to clipboard");
-    });
-
-    document.getElementById("hero-download-json")?.addEventListener("click", () => {
-      window.open("artifacts/dev/proxies.json", "_blank");
+      const subUrl = new URL("artifacts/release/all_sources.npvt.b64sub", window.location.href).href;
+      this.copyText(subUrl, "Production Feed URL copied to clipboard");
     });
   }
 
@@ -1309,9 +1958,9 @@ class AppState {
     const filterContainer = document.getElementById("filter-section");
     if (!filterContainer) return;
 
-    const protocols = ["ALL", "VLESS", "VMESS", "TROJAN", "SHADOWSOCKS", "HYSTERIA2"];
-    const transports = ["ALL", "Reality", "WebSocket", "gRPC", "TCP"];
-    const countries = ["ALL", "DE", "NL", "FI", "SG", "GB", "US", "TR", "JP"];
+    const protocols = ["ALL", "VLESS", "VMESS", "TROJAN", "SHADOWSOCKS", "HYSTERIA2", "SOCKS"];
+    const transports = ["ALL", "Reality", "WebSocket", "gRPC", "TCP", "UDP/QUIC"];
+    const countries = ["ALL", "DE", "NL", "FI", "SG", "GB", "US", "TR", "JP", "IR"];
 
     filterContainer.innerHTML = `
       <div class="space-y-4 py-6">
@@ -1399,11 +2048,10 @@ class AppState {
 
     if (filtered.length === 0) {
       nodesContainer.innerHTML = `
-        <div class="col-span-full py-16 text-center bg-gray-900/40 border border-dashed border-gray-800 rounded-3xl p-8">
-          <svg class="w-12 h-12 text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-          <h3 class="text-base font-mono font-bold text-gray-300">No telemetry nodes found</h3>
-          <p class="text-xs text-gray-500 font-mono mt-1 max-w-sm mx-auto">No proxy endpoints matched your active filter or search terms.</p>
-          <button id="btn-reset-filters" class="mt-4 px-4 py-2 bg-cyan-950 border border-cyan-600/40 hover:border-cyan-400 text-cyan-300 font-mono text-xs rounded-xl transition-all cursor-pointer focus-ring">Reset All Filters</button>
+        <div class="col-span-full py-12 text-center bg-gray-900/40 border border-gray-800 rounded-3xl p-6">
+          <svg class="w-10 h-10 text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <span class="font-mono text-sm text-gray-400 block">No proxy endpoints match current filters</span>
+          <button id="btn-reset-filters" class="mt-3 px-3.5 py-1.5 bg-gray-800 hover:bg-gray-700 text-cyan-400 text-xs font-mono rounded-xl focus-ring cursor-pointer">Reset Filters</button>
         </div>
       `;
       document.getElementById("btn-reset-filters")?.addEventListener("click", () => {
@@ -1411,7 +2059,8 @@ class AppState {
         this.selectedTransport = "ALL";
         this.selectedCountry = "ALL";
         this.searchQuery = "";
-        this.renderHeader();
+        const s = document.getElementById("global-search-input");
+        if (s) s.value = "";
         this.renderFilterBar();
         this.renderNodes();
       });
@@ -1419,79 +2068,80 @@ class AppState {
     }
 
     nodesContainer.innerHTML = filtered.map(node => {
-      let protoBadgeColor = "bg-cyan-950 text-cyan-400 border-cyan-800/60";
-      if (node.protocol === "vless") protoBadgeColor = "bg-emerald-950/80 text-emerald-400 border-emerald-800/60";
-      if (node.protocol === "vmess") protoBadgeColor = "bg-amber-950/80 text-amber-400 border-amber-800/60";
-      if (node.protocol === "trojan") protoBadgeColor = "bg-purple-950/80 text-purple-400 border-purple-800/60";
-      if (node.protocol === "hysteria2") protoBadgeColor = "bg-rose-950/80 text-rose-400 border-rose-800/60";
+      const protoColor = {
+        vless: "bg-emerald-950 text-emerald-300 border-emerald-800/80",
+        vmess: "bg-amber-950 text-amber-300 border-amber-800/80",
+        trojan: "bg-purple-950 text-purple-300 border-purple-800/80",
+        shadowsocks: "bg-sky-950 text-sky-300 border-sky-800/80",
+        hysteria2: "bg-rose-950 text-rose-300 border-rose-800/80",
+        socks: "bg-indigo-950 text-indigo-300 border-indigo-800/80"
+      }[node.protocol.toLowerCase()] || "bg-gray-800 text-gray-300 border-gray-700";
 
       return `
-        <div class="node-card group relative bg-gray-900/70 hover:bg-gray-900 border border-gray-800/80 hover:border-cyan-500/40 rounded-2xl p-4 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-950/30 flex flex-col justify-between">
+        <div class="bg-gray-900/60 hover:bg-gray-900 border border-gray-800 hover:border-cyan-500/40 rounded-2xl p-4 transition-all duration-200 flex flex-col justify-between group shadow-lg shadow-black/30">
           <div>
-            <div class="flex items-center justify-between gap-2 mb-3">
+            <div class="flex items-center justify-between mb-2.5">
               <div class="flex items-center gap-1.5">
-                <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded-md border ${protoBadgeColor}">
+                <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded border ${protoColor}">
                   ${escapeHTML(node.protocol)}
                 </span>
-                <span class="px-1.5 py-0.5 text-[10px] font-mono text-gray-400 bg-gray-800/80 rounded border border-gray-700/50">
+                <span class="px-1.5 py-0.5 text-[10px] font-mono text-gray-400 bg-gray-950 rounded border border-gray-800">
                   ${escapeHTML(node.transport)}
                 </span>
               </div>
-
-              <div class="flex items-center gap-2">
-                <span class="flex items-center gap-1 text-[11px] font-mono font-semibold ${node.ping < 60 ? "text-emerald-400" : "text-amber-400"}">
-                  <span class="w-1.5 h-1.5 rounded-full ${node.ping < 60 ? "bg-emerald-400" : "bg-amber-400"}"></span>
-                  ${node.ping}ms
-                </span>
-                <span class="text-xs font-mono text-gray-300 font-bold px-1.5 py-0.5 bg-gray-800 rounded">${escapeHTML(node.country)}</span>
+              <div class="flex items-center gap-1 text-[11px] font-mono font-semibold ${node.ping < 60 ? 'text-emerald-400' : node.ping < 120 ? 'text-amber-400' : 'text-rose-400'}">
+                <span class="w-1.5 h-1.5 rounded-full ${node.ping < 60 ? 'bg-emerald-400' : node.ping < 120 ? 'bg-amber-400' : 'bg-rose-400'}"></span>
+                <span>${node.ping}ms</span>
               </div>
             </div>
 
-            <h4 class="text-sm font-mono font-bold text-gray-100 truncate group-hover:text-cyan-300 transition-colors" title="${escapeHTML(node.name)}">
+            <h3 class="text-sm font-mono font-bold text-gray-100 truncate group-hover:text-cyan-300 transition-colors" title="${escapeHTML(node.name)}">
               ${escapeHTML(node.name)}
-            </h4>
+            </h3>
 
-            <div class="mt-2 space-y-1 font-mono text-[11px] text-gray-400">
-              <div class="flex items-center justify-between text-gray-500">
-                <span>Host:</span>
-                <span class="text-gray-300 truncate max-w-[170px]" title="${escapeHTML(node.server)}:${node.port}">${escapeHTML(node.server)}:${node.port}</span>
+            <div class="mt-2 space-y-1 text-xs font-mono text-gray-400">
+              <div class="flex items-center justify-between">
+                <span class="text-gray-500 text-[11px]">Server:</span>
+                <span class="text-gray-300 truncate max-w-[170px]">${escapeHTML(node.server)}:${node.port}</span>
               </div>
               ${node.sni ? `
-                <div class="flex items-center justify-between text-gray-500">
-                  <span>SNI:</span>
-                  <span class="text-cyan-400/90 truncate max-w-[170px]" title="${escapeHTML(node.sni)}">${escapeHTML(node.sni)}</span>
+                <div class="flex items-center justify-between">
+                  <span class="text-gray-500 text-[11px]">SNI:</span>
+                  <span class="text-gray-300 truncate max-w-[170px]">${escapeHTML(node.sni)}</span>
                 </div>
-              ` : ""}
+              ` : ''}
+              <div class="flex items-center justify-between">
+                <span class="text-gray-500 text-[11px]">Region:</span>
+                <span class="text-cyan-400 font-semibold">${escapeHTML(node.countryName)} (${escapeHTML(node.country)})</span>
+              </div>
             </div>
           </div>
 
-          <div class="mt-4 pt-3 border-t border-gray-800/80 flex items-center gap-2">
+          <div class="mt-4 pt-3 border-t border-gray-800/80 flex items-center justify-between gap-1.5">
             <button
-              class="btn-copy-node flex-1 py-1.5 px-3 bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 hover:border-cyan-400 text-cyan-300 text-xs font-mono font-medium rounded-xl transition-all focus-ring cursor-pointer flex items-center justify-center gap-1.5"
+              class="btn-copy-node flex-1 py-1.5 bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 text-cyan-300 text-xs font-mono font-medium rounded-xl transition-all focus-ring cursor-pointer flex items-center justify-center gap-1"
               data-raw="${encodeURIComponent(node.raw)}"
-              aria-label="Copy Node URI"
+              aria-label="Copy ${escapeHTML(node.name)} URI"
             >
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
               Copy URI
             </button>
-
             <button
-              class="btn-inspect-node p-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 hover:text-white rounded-xl transition-all focus-ring cursor-pointer"
+              class="btn-inspect-node p-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-xl transition-all focus-ring cursor-pointer"
               data-raw="${encodeURIComponent(node.raw)}"
-              title="Inspect Node Parameters"
-              aria-label="Inspect Node Parameters"
+              title="Inspect Protocol Parameters"
+              aria-label="Inspect ${escapeHTML(node.name)}"
             >
-              <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+              <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
             </button>
-
             <button
-              class="btn-qr-node p-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 hover:text-white rounded-xl transition-all focus-ring cursor-pointer"
+              class="btn-qr-node p-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-xl transition-all focus-ring cursor-pointer"
               data-raw="${encodeURIComponent(node.raw)}"
               data-name="${encodeURIComponent(node.name)}"
               title="Show QR Code"
-              aria-label="Show QR Code"
+              aria-label="Show QR Code for ${escapeHTML(node.name)}"
             >
-              <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+              <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
             </button>
           </div>
         </div>
@@ -1526,59 +2176,138 @@ class AppState {
     const artifactSection = document.getElementById("artifact-section");
     if (!artifactSection) return;
 
+    const filtered = this.getFilteredArtifacts();
+    const categories = [
+      { id: "ALL", label: `ALL (${this.catalog.files?.length || 27})` },
+      { id: "RELEASE", label: "PRODUCTION RELEASES (11)" },
+      { id: "DEV", label: "CUMULATIVE DEV (16)" },
+      { id: "SUBSCRIPTIONS", label: "FEEDS (B64 / NPVT)" },
+      { id: "CONFIGS", label: "CORE CONFIGS (Sing-box/Xray/OVPN)" },
+      { id: "CHUNKS", label: "SPLIT CHUNKS (1-11)" }
+    ];
+
     artifactSection.innerHTML = `
       <div class="py-12 border-t border-gray-800/80">
-        <div class="flex items-center justify-between mb-6">
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
           <div>
             <h2 class="text-xl sm:text-2xl font-bold font-mono text-white flex items-center gap-2">
               <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-              Pipeline Output Catalog
+              Pipeline Output &amp; Artifacts Repository
             </h2>
-            <p class="text-xs font-mono text-gray-400 mt-1">Aggregated and verified artifacts published by GitHub Actions CI</p>
+            <p class="text-xs font-mono text-gray-400 mt-1">Direct access to all 27 generated releases, cumulative datasets, split chunks, and client profiles</p>
           </div>
-          <span class="text-xs font-mono text-gray-500">${escapeHTML(this.catalog.total_size_str)} total storage</span>
+          <div class="flex items-center gap-2 text-xs font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-3 py-1.5 rounded-xl">
+            <span>Total Storage: ${escapeHTML(this.catalog.total_size_str || "131.0 MB")}</span>
+          </div>
+        </div>
+
+        <div class="space-y-4 mb-6">
+          <div class="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+            <div class="flex flex-wrap gap-1.5" role="tablist">
+              ${categories.map(c => `
+                <button
+                  class="btn-artifact-tab px-3 py-1.5 rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${
+                    this.artifactFilter === c.id
+                      ? "bg-cyan-500 text-gray-950 shadow-md shadow-cyan-500/30"
+                      : "bg-gray-900 text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-gray-800"
+                  }"
+                  data-filter="${c.id}"
+                  role="tab"
+                  aria-selected="${this.artifactFilter === c.id}"
+                >
+                  ${c.label}
+                </button>
+              `).join("")}
+            </div>
+
+            <div class="relative max-w-xs w-full">
+              <input
+                id="artifact-search-input"
+                type="text"
+                class="w-full px-3 py-1.5 bg-gray-900 border border-gray-800 focus:border-cyan-500 rounded-xl text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus-ring"
+                placeholder="Search artifacts..."
+                value="${escapeHTML(this.artifactSearchQuery)}"
+              />
+            </div>
+          </div>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          ${this.catalog.files.map(file => `
-            <div class="bg-gray-900/60 hover:bg-gray-900 border border-gray-800 rounded-2xl p-4 transition-all duration-200 flex flex-col justify-between">
-              <div>
-                <div class="flex items-center justify-between mb-2">
-                  <span class="px-2 py-0.5 text-[10px] font-mono font-bold bg-cyan-950 text-cyan-400 border border-cyan-800/60 rounded">
-                    ${escapeHTML(file.ext)}
-                  </span>
-                  <span class="text-xs font-mono text-gray-400">${escapeHTML(file.size_str)}</span>
-                </div>
-                <h4 class="text-sm font-mono font-bold text-gray-100 truncate">${escapeHTML(file.filename)}</h4>
-                <div class="mt-2 flex flex-wrap gap-1">
-                  ${(file.tags || []).map(t => `<span class="text-[9px] font-mono text-gray-400 px-1.5 py-0.5 bg-gray-800 rounded">${escapeHTML(t)}</span>`).join("")}
-                </div>
-              </div>
+          ${filtered.map(file => {
+            const badgeColor = {
+              SINGBOX: "bg-cyan-950 text-cyan-300 border-cyan-700",
+              XRAY: "bg-indigo-950 text-indigo-300 border-indigo-700",
+              OVPN: "bg-amber-950 text-amber-300 border-amber-700",
+              B64SUB: "bg-emerald-950 text-emerald-300 border-emerald-700",
+              NPVT: "bg-purple-950 text-purple-300 border-purple-700",
+              CHUNK: "bg-sky-950 text-sky-300 border-sky-800",
+              JSON: "bg-blue-950 text-blue-300 border-blue-800",
+              TXT: "bg-slate-900 text-slate-300 border-slate-700",
+              MANIFEST: "bg-teal-950 text-teal-300 border-teal-800",
+              MD: "bg-gray-900 text-gray-400 border-gray-800"
+            }[file.ext || file.type] || "bg-gray-800 text-gray-300 border-gray-700";
 
-              <div class="mt-4 pt-3 border-t border-gray-800 flex items-center gap-2">
-                <a
-                  href="${escapeHTML(file.path)}"
-                  download
-                  class="flex-1 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-200 text-xs font-mono font-medium rounded-xl text-center transition-all focus-ring cursor-pointer flex items-center justify-center gap-1.5"
-                  aria-label="Download ${escapeHTML(file.filename)}"
-                >
-                  <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                  Download
-                </a>
-                <button
-                  class="btn-copy-artifact-link p-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 rounded-xl transition-all focus-ring cursor-pointer"
-                  data-path="${escapeHTML(file.path)}"
-                  title="Copy Direct Link"
-                  aria-label="Copy Direct Link"
-                >
-                  <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
-                </button>
+            return `
+              <div class="bg-gray-900/60 hover:bg-gray-900 border border-gray-800 hover:border-cyan-500/40 rounded-2xl p-4 transition-all duration-200 flex flex-col justify-between group shadow-lg shadow-black/30">
+                <div>
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded border ${badgeColor}">
+                      ${escapeHTML(file.ext || file.type)}
+                    </span>
+                    <span class="text-xs font-mono text-cyan-400 font-semibold">${escapeHTML(file.size_str)}</span>
+                  </div>
+
+                  <h4 class="text-sm font-mono font-bold text-gray-100 truncate group-hover:text-cyan-300 transition-colors" title="${escapeHTML(file.filename)}">
+                    ${escapeHTML(file.filename)}
+                  </h4>
+
+                  <p class="text-[11px] font-sans text-gray-400 mt-1 line-clamp-2 leading-relaxed">
+                    ${escapeHTML(file.description || file.filename)}
+                  </p>
+
+                  <div class="mt-2.5 flex flex-wrap gap-1">
+                    ${(file.tags || []).map(t => `<span class="text-[9px] font-mono text-gray-400 px-1.5 py-0.5 bg-gray-950 border border-gray-800 rounded">${escapeHTML(t)}</span>`).join("")}
+                  </div>
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-gray-800 flex items-center gap-2">
+                  <a
+                    href="${escapeHTML(file.path)}"
+                    download
+                    class="flex-1 py-1.5 bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 border border-gray-700 text-gray-200 text-xs font-mono font-semibold rounded-xl text-center transition-all focus-ring cursor-pointer flex items-center justify-center gap-1.5"
+                    aria-label="Download ${escapeHTML(file.filename)}"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    Download
+                  </a>
+                  <button
+                    class="btn-copy-artifact-link p-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-cyan-400 rounded-xl transition-all focus-ring cursor-pointer"
+                    data-path="${escapeHTML(file.path)}"
+                    title="Copy Direct Link"
+                    aria-label="Copy Direct Link to ${escapeHTML(file.filename)}"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                  </button>
+                </div>
               </div>
-            </div>
-          `).join("")}
+            `;
+          }).join("")}
         </div>
       </div>
     `;
+
+    artifactSection.querySelectorAll(".btn-artifact-tab").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        this.artifactFilter = e.currentTarget.dataset.filter;
+        this.renderArtifacts();
+      });
+    });
+
+    const searchInput = document.getElementById("artifact-search-input");
+    searchInput?.addEventListener("input", (e) => {
+      this.artifactSearchQuery = e.target.value;
+      this.renderArtifacts();
+    });
 
     artifactSection.querySelectorAll(".btn-copy-artifact-link").forEach(btn => {
       btn.addEventListener("click", (e) => {
@@ -1588,7 +2317,6 @@ class AppState {
       });
     });
   }
-
 
   renderRuleStudio() {
     if (typeof document === "undefined") return;
@@ -1621,14 +2349,14 @@ class AppState {
               </div>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
-              <button id="studio-export-singbox" class="px-3.5 py-2 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-xs font-mono font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer">
+              <a href="artifacts/release/all_sources.npvt.singbox.json" download class="px-3.5 py-2 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-xs font-mono font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                 Sing-box JSON
-              </button>
-              <button id="studio-export-xray" class="px-3.5 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 text-xs font-mono font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer">
+              </a>
+              <a href="artifacts/release/v2ray_test_config.json" download class="px-3.5 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 text-xs font-mono font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                Xray JSON
-              </button>
+                Xray Config
+              </a>
             </div>
           </div>
 
@@ -1677,16 +2405,6 @@ class AppState {
         </div>
       </section>
     `;
-
-    document.getElementById("studio-export-singbox")?.addEventListener("click", () => {
-      const payload = { schema: "sing-box-1.10", rules: rules, compiledAt: new Date().toISOString() };
-      this.copyText(JSON.stringify(payload, null, 2), "Sing-box profile copied to clipboard");
-    });
-
-    document.getElementById("studio-export-xray")?.addEventListener("click", () => {
-      const payload = { schema: "xray-core-1.8", rules: rules, compiledAt: new Date().toISOString() };
-      this.copyText(JSON.stringify(payload, null, 2), "Xray profile copied to clipboard");
-    });
   }
 
   renderDecoderSection() {
@@ -1702,7 +2420,7 @@ class AppState {
               <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
               Live Client-Side Protocol Decoder
             </h3>
-            <p class="text-xs font-mono text-gray-400">Paste any raw proxy link (vless://, vmess://, trojan://, ss://, base64 sub) for instant client-side inspection</p>
+            <p class="text-xs font-mono text-gray-400">Paste any raw proxy link (vless://, vmess://, trojan://, ss://, hysteria2://, base64 sub) for instant client-side inspection</p>
           </div>
         </div>
 
@@ -1767,7 +2485,7 @@ class AppState {
     const modalContainer = document.getElementById("modal-overlay");
     if (!modalContainer) return;
 
-    let defaultVal = initialUri || this.proxies[0].raw;
+    let defaultVal = initialUri || (this.proxies[0] && this.proxies[0].raw) || "";
     let decodedRes = null;
     try {
       decodedRes = decodeProxyURI(defaultVal);
@@ -1883,35 +2601,121 @@ class AppState {
     const modalContainer = document.getElementById("modal-overlay");
     if (!modalContainer) return;
 
+    const currentOrigin = window.location.href;
+
     modalContainer.innerHTML = `
       <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="modal-sub-title">
-        <div class="relative w-full max-w-xl bg-gray-900 border border-cyan-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-cyan-950/50 space-y-5">
+        <div class="relative w-full max-w-2xl bg-gray-900 border border-cyan-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-cyan-950/50 space-y-5 max-h-[90vh] overflow-y-auto">
           <div class="flex items-center justify-between border-b border-gray-800 pb-3">
             <h3 id="modal-sub-title" class="text-base font-mono font-bold text-white flex items-center gap-2">
               <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-              Custom Subscription URL Builder
+              Subscription Feeds &amp; Client Configurations
             </h3>
             <button id="btn-close-sub" class="p-1.5 bg-gray-800 text-gray-400 hover:text-white rounded-lg cursor-pointer focus-ring" aria-label="Close Subscription Builder Modal">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
           </div>
 
-          <p class="text-xs font-mono text-gray-400">Generate a unified Base64 subscription bundle or raw URI list tailored to your client:</p>
+          <p class="text-xs font-mono text-gray-400">Choose your client profile or copy direct subscription URLs:</p>
 
-          <div class="space-y-3">
-            <div class="p-3 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs">
-              <span class="text-gray-500 block mb-1">Base64 Subscription Feed:</span>
-              <div class="flex items-center justify-between gap-2">
-                <span class="text-cyan-300 truncate">${escapeHTML(new URL("artifacts/dev/proxies_b64sub.txt", window.location.href).href)}</span>
-                <button id="btn-copy-sub-feed" class="px-2.5 py-1 bg-cyan-500 text-gray-950 font-bold rounded text-[10px] cursor-pointer focus-ring" aria-label="Copy Subscription Feed URL">Copy</button>
+          <div class="space-y-4">
+            <!-- Production Feeds -->
+            <div>
+              <span class="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider block mb-2">1. Production Feeds (Latest Verified Run)</span>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div class="p-3 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs flex flex-col justify-between">
+                  <div>
+                    <span class="text-gray-400 font-bold block">Base64 Unified Feed</span>
+                    <span class="text-[11px] text-gray-500 truncate block mt-0.5">Shadowrocket, v2rayNG, Streisand</span>
+                  </div>
+                  <div class="mt-3 flex items-center justify-between gap-2">
+                    <span class="text-[10px] text-cyan-300 truncate">${escapeHTML(new URL("artifacts/release/all_sources.npvt.b64sub", currentOrigin).href)}</span>
+                    <button class="btn-copy-custom px-2.5 py-1 bg-cyan-500 text-gray-950 font-bold rounded text-[10px] cursor-pointer focus-ring" data-url="${escapeHTML(new URL("artifacts/release/all_sources.npvt.b64sub", currentOrigin).href)}">Copy</button>
+                  </div>
+                </div>
+
+                <div class="p-3 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs flex flex-col justify-between">
+                  <div>
+                    <span class="text-gray-400 font-bold block">Sing-box 1.10+ Outbounds</span>
+                    <span class="text-[11px] text-gray-500 truncate block mt-0.5">Sing-box JSON outbounds format</span>
+                  </div>
+                  <div class="mt-3 flex items-center justify-between gap-2">
+                    <span class="text-[10px] text-cyan-300 truncate">${escapeHTML(new URL("artifacts/release/all_sources.npvt.singbox.json", currentOrigin).href)}</span>
+                    <button class="btn-copy-custom px-2.5 py-1 bg-cyan-500 text-gray-950 font-bold rounded text-[10px] cursor-pointer focus-ring" data-url="${escapeHTML(new URL("artifacts/release/all_sources.npvt.singbox.json", currentOrigin).href)}">Copy</button>
+                  </div>
+                </div>
+
+                <div class="p-3 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs flex flex-col justify-between">
+                  <div>
+                    <span class="text-gray-400 font-bold block">Xray / V2Ray Core Config</span>
+                    <span class="text-[11px] text-gray-500 truncate block mt-0.5">Complete client config JSON</span>
+                  </div>
+                  <div class="mt-3 flex items-center justify-between gap-2">
+                    <span class="text-[10px] text-indigo-300 truncate">${escapeHTML(new URL("artifacts/release/v2ray_test_config.json", currentOrigin).href)}</span>
+                    <button class="btn-copy-custom px-2.5 py-1 bg-indigo-500 text-white font-bold rounded text-[10px] cursor-pointer focus-ring" data-url="${escapeHTML(new URL("artifacts/release/v2ray_test_config.json", currentOrigin).href)}">Copy</button>
+                  </div>
+                </div>
+
+                <div class="p-3 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs flex flex-col justify-between">
+                  <div>
+                    <span class="text-gray-400 font-bold block">OpenVPN Profile</span>
+                    <span class="text-[11px] text-gray-500 truncate block mt-0.5">Standard .ovpn multi-gateway</span>
+                  </div>
+                  <div class="mt-3 flex items-center justify-between gap-2">
+                    <span class="text-[10px] text-amber-300 truncate">${escapeHTML(new URL("artifacts/release/all_sources.ovpn", currentOrigin).href)}</span>
+                    <button class="btn-copy-custom px-2.5 py-1 bg-amber-500 text-gray-950 font-bold rounded text-[10px] cursor-pointer focus-ring" data-url="${escapeHTML(new URL("artifacts/release/all_sources.ovpn", currentOrigin).href)}">Copy</button>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div class="p-3 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs">
-              <span class="text-gray-500 block mb-1">Raw Config List (txt):</span>
-              <div class="flex items-center justify-between gap-2">
-                <span class="text-gray-300 truncate">${escapeHTML(new URL("artifacts/dev/proxies.txt", window.location.href).href)}</span>
-                <button id="btn-copy-raw-feed" class="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-gray-200 font-bold rounded text-[10px] cursor-pointer focus-ring" aria-label="Copy Raw Config List URL">Copy</button>
+            <!-- Cumulative Dev Feeds -->
+            <div>
+              <span class="text-xs font-mono font-bold text-indigo-400 uppercase tracking-wider block mb-2">2. All-Time Cumulative Feeds (49+ Sources)</span>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div class="p-3 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs flex flex-col justify-between">
+                  <div>
+                    <span class="text-gray-400 font-bold block">All-Time Base64 Feed (32 MB)</span>
+                    <span class="text-[11px] text-gray-500 truncate block mt-0.5">Cumulative subscription across all runs</span>
+                  </div>
+                  <div class="mt-3 flex items-center justify-between gap-2">
+                    <span class="text-[10px] text-gray-400 truncate">${escapeHTML(new URL("artifacts/dev/proxies_b64sub.txt", currentOrigin).href)}</span>
+                    <button class="btn-copy-custom px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-cyan-300 font-bold rounded text-[10px] cursor-pointer focus-ring" data-url="${escapeHTML(new URL("artifacts/dev/proxies_b64sub.txt", currentOrigin).href)}">Copy</button>
+                  </div>
+                </div>
+
+                <div class="p-3 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs flex flex-col justify-between">
+                  <div>
+                    <span class="text-gray-400 font-bold block">All-Time Raw TXT (24 MB)</span>
+                    <span class="text-[11px] text-gray-500 truncate block mt-0.5">Plain text URI lines</span>
+                  </div>
+                  <div class="mt-3 flex items-center justify-between gap-2">
+                    <span class="text-[10px] text-gray-400 truncate">${escapeHTML(new URL("artifacts/dev/proxies.txt", currentOrigin).href)}</span>
+                    <button class="btn-copy-custom px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-cyan-300 font-bold rounded text-[10px] cursor-pointer focus-ring" data-url="${escapeHTML(new URL("artifacts/dev/proxies.txt", currentOrigin).href)}">Copy</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Split Chunks -->
+            <div>
+              <span class="text-xs font-mono font-bold text-emerald-400 uppercase tracking-wider block mb-2">3. Lightweight Split Chunks (1 to 11)</span>
+              <p class="text-[11px] font-mono text-gray-500 mb-2">Split feeds for low-RAM mobile devices &amp; slow bandwidth:</p>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                ${Array.from({ length: 11 }, (_, i) => {
+                  const num = String(i + 1).padStart(4, "0");
+                  const chunkPath = `artifacts/dev/proxies_chunk_${num}.txt`;
+                  const chunkUrl = new URL(chunkPath, currentOrigin).href;
+                  return `
+                    <button
+                      class="btn-copy-custom p-2 bg-gray-950 hover:bg-gray-800 border border-gray-800 hover:border-cyan-500/40 rounded-xl text-left font-mono text-xs transition-all cursor-pointer focus-ring"
+                      data-url="${escapeHTML(chunkUrl)}"
+                    >
+                      <div class="text-cyan-300 font-bold">Chunk ${i + 1}</div>
+                      <div class="text-[10px] text-gray-500 truncate">~2.0 MB</div>
+                    </button>
+                  `;
+                }).join("")}
               </div>
             </div>
           </div>
@@ -1925,12 +2729,11 @@ class AppState {
       modalContainer.classList.add("hidden");
     });
 
-    document.getElementById("btn-copy-sub-feed")?.addEventListener("click", () => {
-      this.copyText(new URL("artifacts/dev/proxies_b64sub.txt", window.location.href).href, "Subscription Feed URL copied");
-    });
-
-    document.getElementById("btn-copy-raw-feed")?.addEventListener("click", () => {
-      this.copyText(new URL("artifacts/dev/proxies.txt", window.location.href).href, "Raw Feed URL copied");
+    modalContainer.querySelectorAll(".btn-copy-custom").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const url = e.currentTarget.dataset.url;
+        this.copyText(url, "Subscription Feed URL copied");
+      });
     });
   }
 
@@ -1943,7 +2746,7 @@ class AppState {
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-800/80 text-xs font-mono text-gray-500">
         <div class="flex items-center gap-2">
           <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
-          <span>HUNTX & GatherX Ingestion Pipeline • SHA-256 Verified</span>
+          <span>HUNTX &amp; GatherX Ingestion Pipeline • SHA-256 Verified • ${this.catalog.total_files || 27} Artifacts Published</span>
         </div>
         <div class="flex items-center gap-4">
           <a href="DEVELOPMENT.md" class="hover:text-gray-300 transition-colors focus-ring rounded p-1">Dev Specs</a>
@@ -1988,6 +2791,5 @@ if (typeof window !== "undefined" && typeof document !== "undefined") {
   const app = new AppState();
   window.addEventListener("DOMContentLoaded", () => app.init());
 }
-
 
 })(typeof window !== 'undefined' ? window : this, typeof document !== 'undefined' ? document : null);

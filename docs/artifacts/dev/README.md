@@ -1,2 +1,3 @@
-# HUNTX Aggregated Proxies
-Verified and deduplicated proxy nodes.
+# Dev Outputs
+
+Auto-generated as an all-time cumulative set. Do not edit manually.

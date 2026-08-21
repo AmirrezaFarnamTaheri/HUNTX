@@ -1,9 +1,10 @@
 // HUNTX ServiceWorker — Offline Cache-First Architecture
-const CACHE_NAME = 'huntx-cache-v2.5';
+const CACHE_NAME = 'huntx-cache-v2.6';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './architecture.html',
+  './catalog.json',
   './assets/js/bundle.js',
   './assets/js/decoder.js',
   './assets/js/wasm_exec.js',

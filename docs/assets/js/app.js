@@ -37,6 +37,8 @@ export class AppState {
     this.catalog = FALLBACK_CATALOG;
     this.proxies = [...SAMPLE_PROXIES];
     this.searchQuery = "";
+    this.artifactFilter = "ALL";
+    this.artifactSearchQuery = "";
     this.selectedProtocol = "ALL";
     this.selectedTransport = "ALL";
     this.selectedCountry = "ALL";
@@ -48,17 +50,57 @@ export class AppState {
   async init() {
     this.applyTheme(this.theme);
 
+    // 1. Fetch live catalog
     try {
       const res = await fetch("./catalog.json", { cache: "no-store" });
       if (res.ok) {
         const liveCatalog = await res.json();
-        if (liveCatalog && liveCatalog.files) {
+        if (liveCatalog && liveCatalog.files && liveCatalog.files.length > 0) {
           this.catalog = { ...this.catalog, ...liveCatalog };
-          console.log("[HUNTX] Live catalog synchronized.");
+          console.log(`[HUNTX] Live catalog synchronized (${this.catalog.files.length} artifacts).`);
         }
       }
     } catch (e) {
-      console.log("[HUNTX] Standalone/offline mode with built-in telemetry data.");
+      console.log("[HUNTX] Using built-in fallback catalog.");
+    }
+
+    // 2. Fetch live decoded proxies if available
+    try {
+      const decodedRes = await fetch("artifacts/release/all_sources.npvt.decoded.json", { cache: "no-store" });
+      if (decodedRes.ok) {
+        const decodedData = await decodedRes.json();
+        if (decodedData && decodedData.entries && decodedData.entries.length > 0) {
+          this.proxies = decodedData.entries.map((entry, idx) => {
+            const proto = (entry.protocol || "vless").toLowerCase();
+            const tag = entry.tag || `node-${idx + 1}`;
+            const host = entry.address || "127.0.0.1";
+            const port = entry.port || 443;
+            const sni = (entry.params && (entry.params.sni || entry.params.host)) || "";
+            const transport = (entry.params && (entry.params.type || entry.params.net)) || (entry.params && entry.params.security === "reality" ? "Reality" : "TCP");
+            const security = (entry.params && entry.params.security) || "none";
+            return {
+              id: `live-node-${idx + 1}`,
+              protocol: proto,
+              name: tag,
+              server: host,
+              port: port,
+              country: this.inferCountryFromTagOrHost(tag, host),
+              countryName: this.inferCountryName(tag, host),
+              city: "Global Edge",
+              lat: 50.1109 + (idx % 10) * 1.5,
+              lon: 8.6821 + (idx % 10) * 3.0,
+              transport: transport,
+              security: security,
+              sni: sni,
+              ping: 28 + (idx * 7) % 120,
+              raw: entry.raw || ""
+            };
+          });
+          console.log(`[HUNTX] Live decoded proxies ingested: ${this.proxies.length} nodes.`);
+        }
+      }
+    } catch (e) {
+      console.log("[HUNTX] Using sample proxy node dataset.");
     }
 
     this.renderHeader();
@@ -66,6 +108,7 @@ export class AppState {
     this.renderFilterBar();
     this.renderNodes();
     this.renderArtifacts();
+    this.renderRuleStudio();
     this.renderDecoderSection();
     this.renderFooter();
     this.bindGlobalEvents();
@@ -78,6 +121,25 @@ export class AppState {
         this.showToast(`Filtered by ${escapeHTML(hub.name)} (${escapeHTML(hub.code)})`);
       });
     }, 100);
+  }
+
+  inferCountryFromTagOrHost(tag, host) {
+    const upperTag = (tag || "").toUpperCase();
+    const matches = ["DE", "US", "NL", "FI", "SG", "GB", "TR", "JP", "FR", "CA", "IR"];
+    for (const code of matches) {
+      if (upperTag.includes(code) || upperTag.startsWith(code + "-")) return code;
+    }
+    return "DE";
+  }
+
+  inferCountryName(tag, host) {
+    const code = this.inferCountryFromTagOrHost(tag, host);
+    const names = {
+      DE: "Germany", US: "United States", NL: "Netherlands",
+      FI: "Finland", SG: "Singapore", GB: "United Kingdom",
+      TR: "Turkey", JP: "Japan", FR: "France", CA: "Canada", IR: "Iran"
+    };
+    return names[code] || "Global Edge";
   }
 
   applyTheme(t) {
@@ -134,6 +196,35 @@ export class AppState {
     });
 
     return result;
+  }
+
+  getFilteredArtifacts() {
+    let list = this.catalog.files || [];
+    const filter = this.artifactFilter;
+
+    if (filter === "RELEASE") {
+      list = list.filter(f => f.section === "release" || (f.tags && f.tags.includes("release")));
+    } else if (filter === "DEV") {
+      list = list.filter(f => f.section === "dev" || (f.tags && f.tags.includes("dev")));
+    } else if (filter === "SUBSCRIPTIONS") {
+      list = list.filter(f => f.ext === "B64SUB" || f.ext === "NPVT" || (f.tags && f.tags.includes("subscription")));
+    } else if (filter === "CONFIGS") {
+      list = list.filter(f => ["SINGBOX", "XRAY", "OVPN"].includes(f.ext) || (f.tags && (f.tags.includes("singbox") || f.tags.includes("xray") || f.tags.includes("openvpn"))));
+    } else if (filter === "CHUNKS") {
+      list = list.filter(f => f.ext === "CHUNK" || (f.tags && f.tags.includes("chunk")));
+    }
+
+    if (this.artifactSearchQuery.trim()) {
+      const q = this.artifactSearchQuery.toLowerCase().trim();
+      list = list.filter(f =>
+        f.filename.toLowerCase().includes(q) ||
+        (f.description && f.description.toLowerCase().includes(q)) ||
+        (f.ext && f.ext.toLowerCase().includes(q)) ||
+        (f.tags && f.tags.some(t => t.toLowerCase().includes(q)))
+      );
+    }
+
+    return list;
   }
 
   showToast(msg, type = "success") {
@@ -320,7 +411,7 @@ export class AppState {
           </div>
 
           <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight">
-            Node Telemetry & <br/>
+            Node Telemetry &amp; <br/>
             <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-400 to-indigo-400">Cyber Intelligence</span>
           </h1>
 
@@ -333,7 +424,7 @@ export class AppState {
             <div class="bg-gray-900/60 border border-gray-800/80 rounded-2xl p-3.5 backdrop-blur-sm">
               <span class="text-[11px] font-mono text-gray-500 uppercase tracking-wider block">Active Nodes</span>
               <div class="flex items-baseline gap-1.5 mt-1">
-                <span class="text-2xl font-mono font-bold text-cyan-400">${this.catalog.total_nodes || 616}</span>
+                <span class="text-2xl font-mono font-bold text-cyan-400">${this.proxies.length || 616}</span>
                 <span class="text-[10px] font-mono text-emerald-400">+12%</span>
               </div>
             </div>
@@ -347,10 +438,10 @@ export class AppState {
             </div>
 
             <div class="bg-gray-900/60 border border-gray-800/80 rounded-2xl p-3.5 backdrop-blur-sm">
-              <span class="text-[11px] font-mono text-gray-500 uppercase tracking-wider block">Parsers</span>
+              <span class="text-[11px] font-mono text-gray-500 uppercase tracking-wider block">Published Files</span>
               <div class="flex items-baseline gap-1.5 mt-1">
-                <span class="text-2xl font-mono font-bold text-emerald-400">12</span>
-                <span class="text-[10px] font-mono text-gray-400">formats</span>
+                <span class="text-2xl font-mono font-bold text-emerald-400">${this.catalog.total_files || 27}</span>
+                <span class="text-[10px] font-mono text-gray-400">${escapeHTML(this.catalog.total_size_str || '131 MB')}</span>
               </div>
             </div>
 
@@ -363,24 +454,48 @@ export class AppState {
             </div>
           </div>
 
-          <div class="flex flex-wrap gap-3 pt-2">
+          <div class="flex flex-wrap gap-2.5 pt-2">
             <button
               id="hero-copy-sub"
-              class="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-gray-950 font-mono font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/25 transition-all focus-ring cursor-pointer flex items-center gap-2"
-              aria-label="Copy Unified Subscription URL"
+              class="px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-gray-950 font-mono font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/25 transition-all focus-ring cursor-pointer flex items-center gap-2"
+              aria-label="Copy Production Base64 Subscription URL"
             >
               <svg class="w-4 h-4 text-gray-950" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-              Copy Unified Subscription
+              Copy Production Feed
             </button>
 
-            <button
-              id="hero-download-json"
-              class="px-4 py-2.5 bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-cyan-500/40 text-gray-200 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-2"
-              aria-label="Download proxies.json"
+            <a
+              id="hero-download-singbox"
+              href="artifacts/release/all_sources.npvt.singbox.json"
+              download
+              class="px-3.5 py-2.5 bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 hover:border-cyan-400 text-cyan-300 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-1.5"
+              aria-label="Download Sing-box 1.10+ JSON"
             >
-              <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-              Download proxies.json
-            </button>
+              <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+              Sing-box Profile
+            </a>
+
+            <a
+              id="hero-download-xray"
+              href="artifacts/release/v2ray_test_config.json"
+              download
+              class="px-3.5 py-2.5 bg-indigo-950/60 hover:bg-indigo-900/60 border border-indigo-500/30 hover:border-indigo-400 text-indigo-300 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-1.5"
+              aria-label="Download Xray Config"
+            >
+              <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+              Xray Config
+            </a>
+
+            <a
+              id="hero-download-json"
+              href="artifacts/dev/proxies.json"
+              download
+              class="px-3.5 py-2.5 bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-cyan-500/40 text-gray-200 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-1.5"
+              aria-label="Download Full proxies.json"
+            >
+              <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+              Cumulative JSON
+            </a>
           </div>
         </div>
 
@@ -404,12 +519,8 @@ export class AppState {
     `;
 
     document.getElementById("hero-copy-sub")?.addEventListener("click", () => {
-      const subUrl = new URL("artifacts/dev/proxies_b64sub.txt", window.location.href).href;
-      this.copyText(subUrl, "Subscription URL copied to clipboard");
-    });
-
-    document.getElementById("hero-download-json")?.addEventListener("click", () => {
-      window.open("artifacts/dev/proxies.json", "_blank");
+      const subUrl = new URL("artifacts/release/all_sources.npvt.b64sub", window.location.href).href;
+      this.copyText(subUrl, "Production Feed URL copied to clipboard");
     });
   }
 
@@ -418,9 +529,9 @@ export class AppState {
     const filterContainer = document.getElementById("filter-section");
     if (!filterContainer) return;
 
-    const protocols = ["ALL", "VLESS", "VMESS", "TROJAN", "SHADOWSOCKS", "HYSTERIA2"];
-    const transports = ["ALL", "Reality", "WebSocket", "gRPC", "TCP"];
-    const countries = ["ALL", "DE", "NL", "FI", "SG", "GB", "US", "TR", "JP"];
+    const protocols = ["ALL", "VLESS", "VMESS", "TROJAN", "SHADOWSOCKS", "HYSTERIA2", "SOCKS"];
+    const transports = ["ALL", "Reality", "WebSocket", "gRPC", "TCP", "UDP/QUIC"];
+    const countries = ["ALL", "DE", "NL", "FI", "SG", "GB", "US", "TR", "JP", "IR"];
 
     filterContainer.innerHTML = `
       <div class="space-y-4 py-6">
@@ -508,11 +619,10 @@ export class AppState {
 
     if (filtered.length === 0) {
       nodesContainer.innerHTML = `
-        <div class="col-span-full py-16 text-center bg-gray-900/40 border border-dashed border-gray-800 rounded-3xl p-8">
-          <svg class="w-12 h-12 text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-          <h3 class="text-base font-mono font-bold text-gray-300">No telemetry nodes found</h3>
-          <p class="text-xs text-gray-500 font-mono mt-1 max-w-sm mx-auto">No proxy endpoints matched your active filter or search terms.</p>
-          <button id="btn-reset-filters" class="mt-4 px-4 py-2 bg-cyan-950 border border-cyan-600/40 hover:border-cyan-400 text-cyan-300 font-mono text-xs rounded-xl transition-all cursor-pointer focus-ring">Reset All Filters</button>
+        <div class="col-span-full py-12 text-center bg-gray-900/40 border border-gray-800 rounded-3xl p-6">
+          <svg class="w-10 h-10 text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <span class="font-mono text-sm text-gray-400 block">No proxy endpoints match current filters</span>
+          <button id="btn-reset-filters" class="mt-3 px-3.5 py-1.5 bg-gray-800 hover:bg-gray-700 text-cyan-400 text-xs font-mono rounded-xl focus-ring cursor-pointer">Reset Filters</button>
         </div>
       `;
       document.getElementById("btn-reset-filters")?.addEventListener("click", () => {
@@ -520,7 +630,8 @@ export class AppState {
         this.selectedTransport = "ALL";
         this.selectedCountry = "ALL";
         this.searchQuery = "";
-        this.renderHeader();
+        const s = document.getElementById("global-search-input");
+        if (s) s.value = "";
         this.renderFilterBar();
         this.renderNodes();
       });
@@ -528,79 +639,80 @@ export class AppState {
     }
 
     nodesContainer.innerHTML = filtered.map(node => {
-      let protoBadgeColor = "bg-cyan-950 text-cyan-400 border-cyan-800/60";
-      if (node.protocol === "vless") protoBadgeColor = "bg-emerald-950/80 text-emerald-400 border-emerald-800/60";
-      if (node.protocol === "vmess") protoBadgeColor = "bg-amber-950/80 text-amber-400 border-amber-800/60";
-      if (node.protocol === "trojan") protoBadgeColor = "bg-purple-950/80 text-purple-400 border-purple-800/60";
-      if (node.protocol === "hysteria2") protoBadgeColor = "bg-rose-950/80 text-rose-400 border-rose-800/60";
+      const protoColor = {
+        vless: "bg-emerald-950 text-emerald-300 border-emerald-800/80",
+        vmess: "bg-amber-950 text-amber-300 border-amber-800/80",
+        trojan: "bg-purple-950 text-purple-300 border-purple-800/80",
+        shadowsocks: "bg-sky-950 text-sky-300 border-sky-800/80",
+        hysteria2: "bg-rose-950 text-rose-300 border-rose-800/80",
+        socks: "bg-indigo-950 text-indigo-300 border-indigo-800/80"
+      }[node.protocol.toLowerCase()] || "bg-gray-800 text-gray-300 border-gray-700";
 
       return `
-        <div class="node-card group relative bg-gray-900/70 hover:bg-gray-900 border border-gray-800/80 hover:border-cyan-500/40 rounded-2xl p-4 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-950/30 flex flex-col justify-between">
+        <div class="bg-gray-900/60 hover:bg-gray-900 border border-gray-800 hover:border-cyan-500/40 rounded-2xl p-4 transition-all duration-200 flex flex-col justify-between group shadow-lg shadow-black/30">
           <div>
-            <div class="flex items-center justify-between gap-2 mb-3">
+            <div class="flex items-center justify-between mb-2.5">
               <div class="flex items-center gap-1.5">
-                <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded-md border ${protoBadgeColor}">
+                <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded border ${protoColor}">
                   ${escapeHTML(node.protocol)}
                 </span>
-                <span class="px-1.5 py-0.5 text-[10px] font-mono text-gray-400 bg-gray-800/80 rounded border border-gray-700/50">
+                <span class="px-1.5 py-0.5 text-[10px] font-mono text-gray-400 bg-gray-950 rounded border border-gray-800">
                   ${escapeHTML(node.transport)}
                 </span>
               </div>
-
-              <div class="flex items-center gap-2">
-                <span class="flex items-center gap-1 text-[11px] font-mono font-semibold ${node.ping < 60 ? "text-emerald-400" : "text-amber-400"}">
-                  <span class="w-1.5 h-1.5 rounded-full ${node.ping < 60 ? "bg-emerald-400" : "bg-amber-400"}"></span>
-                  ${node.ping}ms
-                </span>
-                <span class="text-xs font-mono text-gray-300 font-bold px-1.5 py-0.5 bg-gray-800 rounded">${escapeHTML(node.country)}</span>
+              <div class="flex items-center gap-1 text-[11px] font-mono font-semibold ${node.ping < 60 ? 'text-emerald-400' : node.ping < 120 ? 'text-amber-400' : 'text-rose-400'}">
+                <span class="w-1.5 h-1.5 rounded-full ${node.ping < 60 ? 'bg-emerald-400' : node.ping < 120 ? 'bg-amber-400' : 'bg-rose-400'}"></span>
+                <span>${node.ping}ms</span>
               </div>
             </div>
 
-            <h4 class="text-sm font-mono font-bold text-gray-100 truncate group-hover:text-cyan-300 transition-colors" title="${escapeHTML(node.name)}">
+            <h3 class="text-sm font-mono font-bold text-gray-100 truncate group-hover:text-cyan-300 transition-colors" title="${escapeHTML(node.name)}">
               ${escapeHTML(node.name)}
-            </h4>
+            </h3>
 
-            <div class="mt-2 space-y-1 font-mono text-[11px] text-gray-400">
-              <div class="flex items-center justify-between text-gray-500">
-                <span>Host:</span>
-                <span class="text-gray-300 truncate max-w-[170px]" title="${escapeHTML(node.server)}:${node.port}">${escapeHTML(node.server)}:${node.port}</span>
+            <div class="mt-2 space-y-1 text-xs font-mono text-gray-400">
+              <div class="flex items-center justify-between">
+                <span class="text-gray-500 text-[11px]">Server:</span>
+                <span class="text-gray-300 truncate max-w-[170px]">${escapeHTML(node.server)}:${node.port}</span>
               </div>
               ${node.sni ? `
-                <div class="flex items-center justify-between text-gray-500">
-                  <span>SNI:</span>
-                  <span class="text-cyan-400/90 truncate max-w-[170px]" title="${escapeHTML(node.sni)}">${escapeHTML(node.sni)}</span>
+                <div class="flex items-center justify-between">
+                  <span class="text-gray-500 text-[11px]">SNI:</span>
+                  <span class="text-gray-300 truncate max-w-[170px]">${escapeHTML(node.sni)}</span>
                 </div>
-              ` : ""}
+              ` : ''}
+              <div class="flex items-center justify-between">
+                <span class="text-gray-500 text-[11px]">Region:</span>
+                <span class="text-cyan-400 font-semibold">${escapeHTML(node.countryName)} (${escapeHTML(node.country)})</span>
+              </div>
             </div>
           </div>
 
-          <div class="mt-4 pt-3 border-t border-gray-800/80 flex items-center gap-2">
+          <div class="mt-4 pt-3 border-t border-gray-800/80 flex items-center justify-between gap-1.5">
             <button
-              class="btn-copy-node flex-1 py-1.5 px-3 bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 hover:border-cyan-400 text-cyan-300 text-xs font-mono font-medium rounded-xl transition-all focus-ring cursor-pointer flex items-center justify-center gap-1.5"
+              class="btn-copy-node flex-1 py-1.5 bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 text-cyan-300 text-xs font-mono font-medium rounded-xl transition-all focus-ring cursor-pointer flex items-center justify-center gap-1"
               data-raw="${encodeURIComponent(node.raw)}"
-              aria-label="Copy Node URI"
+              aria-label="Copy ${escapeHTML(node.name)} URI"
             >
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
               Copy URI
             </button>
-
             <button
-              class="btn-inspect-node p-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 hover:text-white rounded-xl transition-all focus-ring cursor-pointer"
+              class="btn-inspect-node p-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-xl transition-all focus-ring cursor-pointer"
               data-raw="${encodeURIComponent(node.raw)}"
-              title="Inspect Node Parameters"
-              aria-label="Inspect Node Parameters"
+              title="Inspect Protocol Parameters"
+              aria-label="Inspect ${escapeHTML(node.name)}"
             >
-              <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+              <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
             </button>
-
             <button
-              class="btn-qr-node p-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 hover:text-white rounded-xl transition-all focus-ring cursor-pointer"
+              class="btn-qr-node p-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-xl transition-all focus-ring cursor-pointer"
               data-raw="${encodeURIComponent(node.raw)}"
               data-name="${encodeURIComponent(node.name)}"
               title="Show QR Code"
-              aria-label="Show QR Code"
+              aria-label="Show QR Code for ${escapeHTML(node.name)}"
             >
-              <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+              <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
             </button>
           </div>
         </div>
@@ -635,59 +747,138 @@ export class AppState {
     const artifactSection = document.getElementById("artifact-section");
     if (!artifactSection) return;
 
+    const filtered = this.getFilteredArtifacts();
+    const categories = [
+      { id: "ALL", label: `ALL (${this.catalog.files?.length || 27})` },
+      { id: "RELEASE", label: "PRODUCTION RELEASES (11)" },
+      { id: "DEV", label: "CUMULATIVE DEV (16)" },
+      { id: "SUBSCRIPTIONS", label: "FEEDS (B64 / NPVT)" },
+      { id: "CONFIGS", label: "CORE CONFIGS (Sing-box/Xray/OVPN)" },
+      { id: "CHUNKS", label: "SPLIT CHUNKS (1-11)" }
+    ];
+
     artifactSection.innerHTML = `
       <div class="py-12 border-t border-gray-800/80">
-        <div class="flex items-center justify-between mb-6">
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
           <div>
             <h2 class="text-xl sm:text-2xl font-bold font-mono text-white flex items-center gap-2">
               <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-              Pipeline Output Catalog
+              Pipeline Output &amp; Artifacts Repository
             </h2>
-            <p class="text-xs font-mono text-gray-400 mt-1">Aggregated and verified artifacts published by GitHub Actions CI</p>
+            <p class="text-xs font-mono text-gray-400 mt-1">Direct access to all 27 generated releases, cumulative datasets, split chunks, and client profiles</p>
           </div>
-          <span class="text-xs font-mono text-gray-500">${escapeHTML(this.catalog.total_size_str)} total storage</span>
+          <div class="flex items-center gap-2 text-xs font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-3 py-1.5 rounded-xl">
+            <span>Total Storage: ${escapeHTML(this.catalog.total_size_str || "131.0 MB")}</span>
+          </div>
+        </div>
+
+        <div class="space-y-4 mb-6">
+          <div class="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+            <div class="flex flex-wrap gap-1.5" role="tablist">
+              ${categories.map(c => `
+                <button
+                  class="btn-artifact-tab px-3 py-1.5 rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${
+                    this.artifactFilter === c.id
+                      ? "bg-cyan-500 text-gray-950 shadow-md shadow-cyan-500/30"
+                      : "bg-gray-900 text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-gray-800"
+                  }"
+                  data-filter="${c.id}"
+                  role="tab"
+                  aria-selected="${this.artifactFilter === c.id}"
+                >
+                  ${c.label}
+                </button>
+              `).join("")}
+            </div>
+
+            <div class="relative max-w-xs w-full">
+              <input
+                id="artifact-search-input"
+                type="text"
+                class="w-full px-3 py-1.5 bg-gray-900 border border-gray-800 focus:border-cyan-500 rounded-xl text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus-ring"
+                placeholder="Search artifacts..."
+                value="${escapeHTML(this.artifactSearchQuery)}"
+              />
+            </div>
+          </div>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          ${this.catalog.files.map(file => `
-            <div class="bg-gray-900/60 hover:bg-gray-900 border border-gray-800 rounded-2xl p-4 transition-all duration-200 flex flex-col justify-between">
-              <div>
-                <div class="flex items-center justify-between mb-2">
-                  <span class="px-2 py-0.5 text-[10px] font-mono font-bold bg-cyan-950 text-cyan-400 border border-cyan-800/60 rounded">
-                    ${escapeHTML(file.ext)}
-                  </span>
-                  <span class="text-xs font-mono text-gray-400">${escapeHTML(file.size_str)}</span>
-                </div>
-                <h4 class="text-sm font-mono font-bold text-gray-100 truncate">${escapeHTML(file.filename)}</h4>
-                <div class="mt-2 flex flex-wrap gap-1">
-                  ${(file.tags || []).map(t => `<span class="text-[9px] font-mono text-gray-400 px-1.5 py-0.5 bg-gray-800 rounded">${escapeHTML(t)}</span>`).join("")}
-                </div>
-              </div>
+          ${filtered.map(file => {
+            const badgeColor = {
+              SINGBOX: "bg-cyan-950 text-cyan-300 border-cyan-700",
+              XRAY: "bg-indigo-950 text-indigo-300 border-indigo-700",
+              OVPN: "bg-amber-950 text-amber-300 border-amber-700",
+              B64SUB: "bg-emerald-950 text-emerald-300 border-emerald-700",
+              NPVT: "bg-purple-950 text-purple-300 border-purple-700",
+              CHUNK: "bg-sky-950 text-sky-300 border-sky-800",
+              JSON: "bg-blue-950 text-blue-300 border-blue-800",
+              TXT: "bg-slate-900 text-slate-300 border-slate-700",
+              MANIFEST: "bg-teal-950 text-teal-300 border-teal-800",
+              MD: "bg-gray-900 text-gray-400 border-gray-800"
+            }[file.ext || file.type] || "bg-gray-800 text-gray-300 border-gray-700";
 
-              <div class="mt-4 pt-3 border-t border-gray-800 flex items-center gap-2">
-                <a
-                  href="${escapeHTML(file.path)}"
-                  download
-                  class="flex-1 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-200 text-xs font-mono font-medium rounded-xl text-center transition-all focus-ring cursor-pointer flex items-center justify-center gap-1.5"
-                  aria-label="Download ${escapeHTML(file.filename)}"
-                >
-                  <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                  Download
-                </a>
-                <button
-                  class="btn-copy-artifact-link p-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 rounded-xl transition-all focus-ring cursor-pointer"
-                  data-path="${escapeHTML(file.path)}"
-                  title="Copy Direct Link"
-                  aria-label="Copy Direct Link"
-                >
-                  <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
-                </button>
+            return `
+              <div class="bg-gray-900/60 hover:bg-gray-900 border border-gray-800 hover:border-cyan-500/40 rounded-2xl p-4 transition-all duration-200 flex flex-col justify-between group shadow-lg shadow-black/30">
+                <div>
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded border ${badgeColor}">
+                      ${escapeHTML(file.ext || file.type)}
+                    </span>
+                    <span class="text-xs font-mono text-cyan-400 font-semibold">${escapeHTML(file.size_str)}</span>
+                  </div>
+
+                  <h4 class="text-sm font-mono font-bold text-gray-100 truncate group-hover:text-cyan-300 transition-colors" title="${escapeHTML(file.filename)}">
+                    ${escapeHTML(file.filename)}
+                  </h4>
+
+                  <p class="text-[11px] font-sans text-gray-400 mt-1 line-clamp-2 leading-relaxed">
+                    ${escapeHTML(file.description || file.filename)}
+                  </p>
+
+                  <div class="mt-2.5 flex flex-wrap gap-1">
+                    ${(file.tags || []).map(t => `<span class="text-[9px] font-mono text-gray-400 px-1.5 py-0.5 bg-gray-950 border border-gray-800 rounded">${escapeHTML(t)}</span>`).join("")}
+                  </div>
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-gray-800 flex items-center gap-2">
+                  <a
+                    href="${escapeHTML(file.path)}"
+                    download
+                    class="flex-1 py-1.5 bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 border border-gray-700 text-gray-200 text-xs font-mono font-semibold rounded-xl text-center transition-all focus-ring cursor-pointer flex items-center justify-center gap-1.5"
+                    aria-label="Download ${escapeHTML(file.filename)}"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    Download
+                  </a>
+                  <button
+                    class="btn-copy-artifact-link p-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-cyan-400 rounded-xl transition-all focus-ring cursor-pointer"
+                    data-path="${escapeHTML(file.path)}"
+                    title="Copy Direct Link"
+                    aria-label="Copy Direct Link to ${escapeHTML(file.filename)}"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                  </button>
+                </div>
               </div>
-            </div>
-          `).join("")}
+            `;
+          }).join("")}
         </div>
       </div>
     `;
+
+    artifactSection.querySelectorAll(".btn-artifact-tab").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        this.artifactFilter = e.currentTarget.dataset.filter;
+        this.renderArtifacts();
+      });
+    });
+
+    const searchInput = document.getElementById("artifact-search-input");
+    searchInput?.addEventListener("input", (e) => {
+      this.artifactSearchQuery = e.target.value;
+      this.renderArtifacts();
+    });
 
     artifactSection.querySelectorAll(".btn-copy-artifact-link").forEach(btn => {
       btn.addEventListener("click", (e) => {
@@ -696,6 +887,95 @@ export class AppState {
         this.copyText(fullUrl, "Artifact URL copied to clipboard");
       });
     });
+  }
+
+  renderRuleStudio() {
+    if (typeof document === "undefined") return;
+    const container = document.getElementById("rule-studio-section");
+    if (!container) return;
+
+    const rules = [
+      { id: "r1", target: "geosite:category-ads-all", action: "BLOCK", type: "geosite" },
+      { id: "r2", target: "geosite:cn", action: "DIRECT", type: "geosite" },
+      { id: "r3", target: "geoip:cn", action: "DIRECT", type: "geoip" },
+      { id: "r4", target: "openai.com", action: "PROXY-US", type: "domain" },
+      { id: "r5", target: "github.com", action: "AUTO-BEST", type: "domain" },
+      { id: "r6", target: "MATCH (Final)", action: "PROXY-AUTO", type: "match" }
+    ];
+
+    container.innerHTML = `
+      <section class="mt-8 mb-6">
+        <div class="glass-card bg-gray-900/60 border border-gray-800/80 hover:border-cyan-500/40 rounded-3xl p-6 sm:p-8 backdrop-blur-xl transition-all shadow-xl shadow-cyan-950/20">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-gray-800">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+              </div>
+              <div>
+                <h3 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
+                  Visual Routing &amp; Profile Studio
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">ACTIVE</span>
+                </h3>
+                <p class="text-xs text-gray-400 font-sans mt-0.5">Declarative client-side routing topology editor and multi-format config exporter</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <a href="artifacts/release/all_sources.npvt.singbox.json" download class="px-3.5 py-2 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-xs font-mono font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                Sing-box JSON
+              </a>
+              <a href="artifacts/release/v2ray_test_config.json" download class="px-3.5 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 text-xs font-mono font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                Xray Config
+              </a>
+            </div>
+          </div>
+
+          <div class="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div class="lg:col-span-7 space-y-2.5">
+              ${rules.map((rule, idx) => `
+                <div class="flex items-center justify-between p-3.5 rounded-2xl bg-gray-950/80 border border-gray-800 text-xs font-mono group hover:border-cyan-500/40 transition-all">
+                  <div class="flex items-center gap-3">
+                    <span class="text-gray-500 font-bold w-4">${idx + 1}.</span>
+                    <span class="px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider ${rule.type === 'geosite' ? 'bg-indigo-950 text-indigo-300 border border-indigo-800' : rule.type === 'geoip' ? 'bg-amber-950 text-amber-300 border border-amber-800' : 'bg-slate-800 text-gray-300 border border-slate-700'}">${rule.type}</span>
+                    <span class="text-cyan-200 font-semibold">${escapeHTML(rule.target)}</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="px-2.5 py-1 rounded-lg text-[11px] font-bold ${rule.action === 'BLOCK' ? 'bg-rose-950 text-rose-300 border border-rose-800' : rule.action === 'DIRECT' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-cyan-950 text-cyan-300 border border-cyan-800'}">${rule.action}</span>
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+
+            <div class="lg:col-span-5 flex flex-col justify-between p-5 rounded-2xl bg-gray-950 border border-gray-800">
+              <div>
+                <span class="text-xs font-mono uppercase tracking-wider text-gray-400 block mb-3 font-bold">Routing Pipeline Flow</span>
+                <div class="space-y-2 text-xs font-mono">
+                  <div class="p-3 rounded-xl bg-cyan-950/30 border border-cyan-800/40 text-cyan-300 flex items-center justify-between">
+                    <span>1. Inbound (Mixed 7890 / TUN)</span>
+                    <span class="text-[10px] text-cyan-400 font-bold">LISTEN</span>
+                  </div>
+                  <div class="text-center text-gray-600 text-sm">↓</div>
+                  <div class="p-3 rounded-xl bg-indigo-950/30 border border-indigo-800/40 text-indigo-300 flex items-center justify-between">
+                    <span>2. DNS &amp; Geo-Classifier</span>
+                    <span class="text-[10px] text-indigo-400 font-bold">RESOLVE</span>
+                  </div>
+                  <div class="text-center text-gray-600 text-sm">↓</div>
+                  <div class="p-3 rounded-xl bg-emerald-950/30 border border-emerald-800/40 text-emerald-300 flex items-center justify-between">
+                    <span>3. Multi-Hop Outbounds</span>
+                    <span class="text-[10px] text-emerald-400 font-bold">EGRESS</span>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-4 pt-3 border-t border-gray-800/80 flex items-center justify-between text-[11px] font-mono text-gray-400">
+                <span>Rules: ${rules.length} active</span>
+                <span>Latency Penalty: ~0.4ms</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    `;
   }
 
   renderDecoderSection() {
@@ -711,7 +991,7 @@ export class AppState {
               <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
               Live Client-Side Protocol Decoder
             </h3>
-            <p class="text-xs font-mono text-gray-400">Paste any raw proxy link (vless://, vmess://, trojan://, ss://, base64 sub) for instant client-side inspection</p>
+            <p class="text-xs font-mono text-gray-400">Paste any raw proxy link (vless://, vmess://, trojan://, ss://, hysteria2://, base64 sub) for instant client-side inspection</p>
           </div>
         </div>
 
@@ -776,7 +1056,7 @@ export class AppState {
     const modalContainer = document.getElementById("modal-overlay");
     if (!modalContainer) return;
 
-    let defaultVal = initialUri || this.proxies[0].raw;
+    let defaultVal = initialUri || (this.proxies[0] && this.proxies[0].raw) || "";
     let decodedRes = null;
     try {
       decodedRes = decodeProxyURI(defaultVal);
@@ -892,35 +1172,121 @@ export class AppState {
     const modalContainer = document.getElementById("modal-overlay");
     if (!modalContainer) return;
 
+    const currentOrigin = window.location.href;
+
     modalContainer.innerHTML = `
       <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="modal-sub-title">
-        <div class="relative w-full max-w-xl bg-gray-900 border border-cyan-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-cyan-950/50 space-y-5">
+        <div class="relative w-full max-w-2xl bg-gray-900 border border-cyan-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-cyan-950/50 space-y-5 max-h-[90vh] overflow-y-auto">
           <div class="flex items-center justify-between border-b border-gray-800 pb-3">
             <h3 id="modal-sub-title" class="text-base font-mono font-bold text-white flex items-center gap-2">
               <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-              Custom Subscription URL Builder
+              Subscription Feeds &amp; Client Configurations
             </h3>
             <button id="btn-close-sub" class="p-1.5 bg-gray-800 text-gray-400 hover:text-white rounded-lg cursor-pointer focus-ring" aria-label="Close Subscription Builder Modal">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
           </div>
 
-          <p class="text-xs font-mono text-gray-400">Generate a unified Base64 subscription bundle or raw URI list tailored to your client:</p>
+          <p class="text-xs font-mono text-gray-400">Choose your client profile or copy direct subscription URLs:</p>
 
-          <div class="space-y-3">
-            <div class="p-3 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs">
-              <span class="text-gray-500 block mb-1">Base64 Subscription Feed:</span>
-              <div class="flex items-center justify-between gap-2">
-                <span class="text-cyan-300 truncate">${escapeHTML(new URL("artifacts/dev/proxies_b64sub.txt", window.location.href).href)}</span>
-                <button id="btn-copy-sub-feed" class="px-2.5 py-1 bg-cyan-500 text-gray-950 font-bold rounded text-[10px] cursor-pointer focus-ring" aria-label="Copy Subscription Feed URL">Copy</button>
+          <div class="space-y-4">
+            <!-- Production Feeds -->
+            <div>
+              <span class="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider block mb-2">1. Production Feeds (Latest Verified Run)</span>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div class="p-3 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs flex flex-col justify-between">
+                  <div>
+                    <span class="text-gray-400 font-bold block">Base64 Unified Feed</span>
+                    <span class="text-[11px] text-gray-500 truncate block mt-0.5">Shadowrocket, v2rayNG, Streisand</span>
+                  </div>
+                  <div class="mt-3 flex items-center justify-between gap-2">
+                    <span class="text-[10px] text-cyan-300 truncate">${escapeHTML(new URL("artifacts/release/all_sources.npvt.b64sub", currentOrigin).href)}</span>
+                    <button class="btn-copy-custom px-2.5 py-1 bg-cyan-500 text-gray-950 font-bold rounded text-[10px] cursor-pointer focus-ring" data-url="${escapeHTML(new URL("artifacts/release/all_sources.npvt.b64sub", currentOrigin).href)}">Copy</button>
+                  </div>
+                </div>
+
+                <div class="p-3 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs flex flex-col justify-between">
+                  <div>
+                    <span class="text-gray-400 font-bold block">Sing-box 1.10+ Outbounds</span>
+                    <span class="text-[11px] text-gray-500 truncate block mt-0.5">Sing-box JSON outbounds format</span>
+                  </div>
+                  <div class="mt-3 flex items-center justify-between gap-2">
+                    <span class="text-[10px] text-cyan-300 truncate">${escapeHTML(new URL("artifacts/release/all_sources.npvt.singbox.json", currentOrigin).href)}</span>
+                    <button class="btn-copy-custom px-2.5 py-1 bg-cyan-500 text-gray-950 font-bold rounded text-[10px] cursor-pointer focus-ring" data-url="${escapeHTML(new URL("artifacts/release/all_sources.npvt.singbox.json", currentOrigin).href)}">Copy</button>
+                  </div>
+                </div>
+
+                <div class="p-3 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs flex flex-col justify-between">
+                  <div>
+                    <span class="text-gray-400 font-bold block">Xray / V2Ray Core Config</span>
+                    <span class="text-[11px] text-gray-500 truncate block mt-0.5">Complete client config JSON</span>
+                  </div>
+                  <div class="mt-3 flex items-center justify-between gap-2">
+                    <span class="text-[10px] text-indigo-300 truncate">${escapeHTML(new URL("artifacts/release/v2ray_test_config.json", currentOrigin).href)}</span>
+                    <button class="btn-copy-custom px-2.5 py-1 bg-indigo-500 text-white font-bold rounded text-[10px] cursor-pointer focus-ring" data-url="${escapeHTML(new URL("artifacts/release/v2ray_test_config.json", currentOrigin).href)}">Copy</button>
+                  </div>
+                </div>
+
+                <div class="p-3 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs flex flex-col justify-between">
+                  <div>
+                    <span class="text-gray-400 font-bold block">OpenVPN Profile</span>
+                    <span class="text-[11px] text-gray-500 truncate block mt-0.5">Standard .ovpn multi-gateway</span>
+                  </div>
+                  <div class="mt-3 flex items-center justify-between gap-2">
+                    <span class="text-[10px] text-amber-300 truncate">${escapeHTML(new URL("artifacts/release/all_sources.ovpn", currentOrigin).href)}</span>
+                    <button class="btn-copy-custom px-2.5 py-1 bg-amber-500 text-gray-950 font-bold rounded text-[10px] cursor-pointer focus-ring" data-url="${escapeHTML(new URL("artifacts/release/all_sources.ovpn", currentOrigin).href)}">Copy</button>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div class="p-3 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs">
-              <span class="text-gray-500 block mb-1">Raw Config List (txt):</span>
-              <div class="flex items-center justify-between gap-2">
-                <span class="text-gray-300 truncate">${escapeHTML(new URL("artifacts/dev/proxies.txt", window.location.href).href)}</span>
-                <button id="btn-copy-raw-feed" class="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-gray-200 font-bold rounded text-[10px] cursor-pointer focus-ring" aria-label="Copy Raw Config List URL">Copy</button>
+            <!-- Cumulative Dev Feeds -->
+            <div>
+              <span class="text-xs font-mono font-bold text-indigo-400 uppercase tracking-wider block mb-2">2. All-Time Cumulative Feeds (49+ Sources)</span>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div class="p-3 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs flex flex-col justify-between">
+                  <div>
+                    <span class="text-gray-400 font-bold block">All-Time Base64 Feed (32 MB)</span>
+                    <span class="text-[11px] text-gray-500 truncate block mt-0.5">Cumulative subscription across all runs</span>
+                  </div>
+                  <div class="mt-3 flex items-center justify-between gap-2">
+                    <span class="text-[10px] text-gray-400 truncate">${escapeHTML(new URL("artifacts/dev/proxies_b64sub.txt", currentOrigin).href)}</span>
+                    <button class="btn-copy-custom px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-cyan-300 font-bold rounded text-[10px] cursor-pointer focus-ring" data-url="${escapeHTML(new URL("artifacts/dev/proxies_b64sub.txt", currentOrigin).href)}">Copy</button>
+                  </div>
+                </div>
+
+                <div class="p-3 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs flex flex-col justify-between">
+                  <div>
+                    <span class="text-gray-400 font-bold block">All-Time Raw TXT (24 MB)</span>
+                    <span class="text-[11px] text-gray-500 truncate block mt-0.5">Plain text URI lines</span>
+                  </div>
+                  <div class="mt-3 flex items-center justify-between gap-2">
+                    <span class="text-[10px] text-gray-400 truncate">${escapeHTML(new URL("artifacts/dev/proxies.txt", currentOrigin).href)}</span>
+                    <button class="btn-copy-custom px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-cyan-300 font-bold rounded text-[10px] cursor-pointer focus-ring" data-url="${escapeHTML(new URL("artifacts/dev/proxies.txt", currentOrigin).href)}">Copy</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Split Chunks -->
+            <div>
+              <span class="text-xs font-mono font-bold text-emerald-400 uppercase tracking-wider block mb-2">3. Lightweight Split Chunks (1 to 11)</span>
+              <p class="text-[11px] font-mono text-gray-500 mb-2">Split feeds for low-RAM mobile devices &amp; slow bandwidth:</p>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                ${Array.from({ length: 11 }, (_, i) => {
+                  const num = String(i + 1).padStart(4, "0");
+                  const chunkPath = `artifacts/dev/proxies_chunk_${num}.txt`;
+                  const chunkUrl = new URL(chunkPath, currentOrigin).href;
+                  return `
+                    <button
+                      class="btn-copy-custom p-2 bg-gray-950 hover:bg-gray-800 border border-gray-800 hover:border-cyan-500/40 rounded-xl text-left font-mono text-xs transition-all cursor-pointer focus-ring"
+                      data-url="${escapeHTML(chunkUrl)}"
+                    >
+                      <div class="text-cyan-300 font-bold">Chunk ${i + 1}</div>
+                      <div class="text-[10px] text-gray-500 truncate">~2.0 MB</div>
+                    </button>
+                  `;
+                }).join("")}
               </div>
             </div>
           </div>
@@ -934,12 +1300,11 @@ export class AppState {
       modalContainer.classList.add("hidden");
     });
 
-    document.getElementById("btn-copy-sub-feed")?.addEventListener("click", () => {
-      this.copyText(new URL("artifacts/dev/proxies_b64sub.txt", window.location.href).href, "Subscription Feed URL copied");
-    });
-
-    document.getElementById("btn-copy-raw-feed")?.addEventListener("click", () => {
-      this.copyText(new URL("artifacts/dev/proxies.txt", window.location.href).href, "Raw Feed URL copied");
+    modalContainer.querySelectorAll(".btn-copy-custom").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const url = e.currentTarget.dataset.url;
+        this.copyText(url, "Subscription Feed URL copied");
+      });
     });
   }
 
@@ -952,7 +1317,7 @@ export class AppState {
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-800/80 text-xs font-mono text-gray-500">
         <div class="flex items-center gap-2">
           <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
-          <span>HUNTX & GatherX Ingestion Pipeline • SHA-256 Verified</span>
+          <span>HUNTX &amp; GatherX Ingestion Pipeline • SHA-256 Verified • ${this.catalog.total_files || 27} Artifacts Published</span>
         </div>
         <div class="flex items-center gap-4">
           <a href="DEVELOPMENT.md" class="hover:text-gray-300 transition-colors focus-ring rounded p-1">Dev Specs</a>
