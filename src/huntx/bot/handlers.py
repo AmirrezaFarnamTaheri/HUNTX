@@ -119,7 +119,9 @@ class HandlersMixin:
         current = self._get_user_pref(user_id)
         formats_layout = [
             [("npvt", "📋 npvt"), ("b64sub", "🔗 b64sub")],
-            [("decoded.json", "📊 decoded"), ("ovpn", "🔐 ovpn")],
+            [("raw.txt", "📝 raw"), ("decoded.json", "📊 decoded")],
+            [("singbox.json", "📦 sing-box"), ("xray.json", "📦 xray")],
+            [("nekobox.json", "📦 nekobox"), ("ovpn", "🔐 ovpn")],
             [("ehi", "📱 ehi"), ("hc", "📱 hc")],
             [("hat", "📱 hat"), ("npv4", "📱 npv4")],
         ]
@@ -183,7 +185,9 @@ class HandlersMixin:
         if not args:
             buttons = [
                 [Button.inline("📋 Proxy List (npvt)", b"get:npvt"), Button.inline("🔗 Base64 Sub", b"get:b64sub")],
-                [Button.inline("📊 Decoded JSON", b"get:decoded.json")],
+                [Button.inline("📝 Raw Text", b"get:raw.txt"), Button.inline("📊 Decoded JSON", b"get:decoded.json")],
+                [Button.inline("📦 sing-box JSON", b"get:singbox.json"), Button.inline("📦 Xray JSON", b"get:xray.json")],
+                [Button.inline("📦 NekoBox JSON", b"get:nekobox.json")],
                 [Button.inline("🔐 OpenVPN", b"get:ovpn"), Button.inline("📱 HTTP Injector", b"get:ehi")],
                 [Button.inline("📱 HTTP Custom", b"get:hc"), Button.inline("📱 HA Tunnel", b"get:hat")],
             ]
@@ -225,10 +229,15 @@ class HandlersMixin:
         if not await self._require_named_access(event, "formats"):
             return
         self._register_user(str(event.sender_id), str(event.chat_id))
-        text_fmts = ["npvt", "npvtsub", "conf_lines", "b64sub", "decoded.json"]
+        text_fmts = ["npvt", "npvtsub", "conf_lines", "b64sub", "raw.txt"]
+        json_fmts = ["decoded.json", "singbox.json", "xray.json", "nekobox.json"]
         bin_fmts = ["ovpn", "npv4", "ehi", "hc", "hat", "sip", "nm", "dark"]
         lines = ["📋 **Available Formats**\n", "**Text-based** (proxy URIs):"]
         for fmt in text_fmts:
+            lines.append(f"  `{fmt}` — {_FORMAT_LABELS.get(fmt, fmt)}")
+        lines.append("")
+        lines.append("**Client / structured JSON:**")
+        for fmt in json_fmts:
             lines.append(f"  `{fmt}` — {_FORMAT_LABELS.get(fmt, fmt)}")
         lines.append("")
         lines.append("**Binary configs** (ZIP archives):")
@@ -356,10 +365,14 @@ class HandlersMixin:
 
     async def _respond_formats(self, chat_id: int):
         """Send the public format-name list to an already private chat."""
-        text_fmts = ["npvt", "npvtsub", "conf_lines", "b64sub", "decoded.json"]
+        text_fmts = ["npvt", "npvtsub", "conf_lines", "b64sub", "raw.txt"]
+        json_fmts = ["decoded.json", "singbox.json", "xray.json", "nekobox.json"]
         bin_fmts = ["ovpn", "npv4", "ehi", "hc", "hat", "sip", "nm", "dark"]
         lines = ["📋 **Available Formats**\n", "**Text-based:**"]
         for fmt in text_fmts:
+            lines.append(f"  `{fmt}` — {_FORMAT_LABELS.get(fmt, fmt)}")
+        lines.append("\n**Client / structured JSON:**")
+        for fmt in json_fmts:
             lines.append(f"  `{fmt}` — {_FORMAT_LABELS.get(fmt, fmt)}")
         lines.append("\n**Binary (ZIP):**")
         for fmt in bin_fmts:

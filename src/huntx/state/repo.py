@@ -341,15 +341,39 @@ class StateRepo:
             logger.error(f"Failed to get pending files: {e}")
             raise
 
-    def add_record(self, raw_hash: str, record_type: str, unique_hash: str, data: Dict[str, Any]):
+    def add_record(
+        self,
+        raw_hash: str,
+        record_type: str,
+        unique_hash: str,
+        data: Dict[str, Any],
+        *,
+        source_observation_id: int,
+    ) -> None:
+        if not isinstance(source_observation_id, int) or isinstance(source_observation_id, bool):
+            raise ValueError("source_observation_id must be an integer")
         try:
             with self.db.connect() as conn:
+                observation = conn.execute(
+                    "SELECT raw_hash FROM seen_files WHERE id = ?",
+                    (source_observation_id,),
+                ).fetchone()
+                if observation is None or str(observation["raw_hash"]) != raw_hash:
+                    raise ValueError("source_observation_id must identify the supplied raw_hash")
                 conn.execute(
                     """
-                    INSERT INTO records (source_file_hash, record_type, unique_hash, data_json)
-                    VALUES (?, ?, ?, ?)
+                    INSERT INTO records
+                        (source_file_hash, source_observation_id, record_type,
+                         unique_hash, data_json)
+                    VALUES (?, ?, ?, ?, ?)
                     """,
-                    (raw_hash, record_type, unique_hash, json.dumps(data)),
+                    (
+                        raw_hash,
+                        source_observation_id,
+                        record_type,
+                        unique_hash,
+                        json.dumps(data),
+                    ),
                 )
         except Exception as e:
             logger.exception(f"Failed to add record {unique_hash}: {e}")
@@ -443,26 +467,13 @@ class StateRepo:
                 where_extra = " AND s.id > ?"
                 args.append(int(min_seen_file_id))
 
-            # DISTINCT is required, not cosmetic: seen_files.raw_hash is NOT
-            # unique (only UNIQUE(source_id, external_id) is enforced), so the
-            # same content seen in N allowed sources produces N seen_files rows
-            # and this JOIN fans one record out to N identical rows. The dedup
-            # CTE below groups by (record_type, unique_hash) and keeps MAX(id),
-            # but the final join then re-matches every fanned-out row carrying
-            # that id — re-emitting the record N times into the built artifact
-            # (duplicate proxy lines and inflated counts). Every selected column
-            # comes from `records`, so DISTINCT collapses the fan-out exactly.
+            # source_observation_id binds each normalized record to the exact
+            # seen_files observation whose source identity authorized it.
             query = f"""
                 WITH filtered AS (
                     SELECT DISTINCT r.id, r.record_type, r.unique_hash, r.data_json
                     FROM records r
-                    JOIN seen_files s ON (
-                        r.source_observation_id = s.id
-                        OR (
-                            r.source_observation_id IS NULL
-                            AND r.source_file_hash = s.raw_hash
-                        )
-                    )
+                    JOIN seen_files s ON r.source_observation_id = s.id
                     WHERE r.record_type IN ({placeholders_types})
                       AND s.source_id IN ({placeholders_sources})
                       AND r.is_active = 1
@@ -511,9 +522,13 @@ class StateRepo:
                 conn.execute(
                     """
                     INSERT INTO published_artifacts (route_name, artifact_hash, metadata_json)
-                    VALUES (?, ?, ?)
+                    SELECT ?, ?, ?
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM published_artifacts
+                        WHERE route_name = ? AND artifact_hash = ?
+                    )
                     """,
-                    (route_name, artifact_hash, metadata_json),
+                    (route_name, artifact_hash, metadata_json, route_name, artifact_hash),
                 )
             logger.info(f"Marked artifact {artifact_hash} as published for {route_name}")
         except Exception as e:

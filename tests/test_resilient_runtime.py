@@ -20,14 +20,28 @@ def _telegram_source(source_id: str, peer: str):
     return SimpleNamespace(id=source_id, type="telegram_user", telegram_user=config)
 
 
-def test_numeric_canonicalization_avoids_network_and_deduplicates(monkeypatch):
-    class UnexpectedConnector:
-        def __init__(self, **kwargs):
-            raise AssertionError("numeric peers must not create a Telegram client")
+def test_numeric_canonicalization_checks_reachability_once_and_deduplicates(monkeypatch):
+    instances = []
+
+    class ReachableConnector:
+        def __init__(self, *, peer, **kwargs):
+            self.peer = peer
+            self.resolve_calls = 0
+            instances.append(self)
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def resolve_channel_id_async(self):
+            self.resolve_calls += 1
+            return 42
 
     monkeypatch.setattr(
         "huntx.core.optimized_orchestrator.WindowedTelegramUserConnector",
-        UnexpectedConnector,
+        ReachableConnector,
     )
     orchestrator = object.__new__(OptimizedHardenedOrchestrator)
     orchestrator._work_queue = MagicMock()
@@ -44,6 +58,8 @@ def test_numeric_canonicalization_avoids_network_and_deduplicates(monkeypatch):
     )
 
     assert [source.id for source in accepted] == ["primary"]
+    assert len(instances) == 1
+    assert instances[0].resolve_calls == 1
     orchestrator._work_queue.terminalize_source.assert_called_once()
     assert orchestrator._work_queue.terminalize_source.call_args.args[0] == "alias"
 

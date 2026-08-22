@@ -1,13 +1,12 @@
 import asyncio
 import logging
 import os
-from contextlib import nullcontext
-from pathlib import Path
 from typing import Optional
 
 from telethon import Button
 
 from ..store import paths
+from ..utils.env import env_bool
 
 logger = logging.getLogger(__name__)
 
@@ -246,65 +245,24 @@ class AdminMixin:
         )
 
     def _run_pipeline_blocking(self):
-        """Execute one bot-triggered run through the production runtime contract."""
-        from ..config.loader import load_config
-        from ..config.validate import validate_config
-        from ..core.locks import acquire_lock
-        from ..core.run_health import emit_run_health, evaluate_run_health
-        from ..core.runtime_factory import create_production_orchestrator
-        from ..core.session_lease import session_lease_path
+        """Execute one bot-triggered run through the shared governed runtime."""
+        from ..cli.run_service import execute_pipeline_run
 
         paths.set_paths(self.data_dir, self.db_path)
         config_path = os.environ.get("HUNTX_CONFIG", "config.yaml")
-        config = load_config(config_path)
-        validate_config(config)
+        no_publish = env_bool("HUNTX_BOT_NO_PUBLISH", False)
 
-        max_workers_raw = os.environ.get("HUNTX_MAX_WORKERS", "3")
-        try:
-            max_workers = max(1, int(max_workers_raw))
-        except ValueError:
-            logger.warning("Invalid HUNTX_MAX_WORKERS=%r; using 3", max_workers_raw)
-            max_workers = 3
-
-        timeout_raw = os.environ.get("HUNTX_RUN_TIMEOUT", "12600")
-        try:
-            run_timeout = float(timeout_raw)
-        except ValueError:
-            logger.warning("Invalid HUNTX_RUN_TIMEOUT=%r; using 12600", timeout_raw)
-            run_timeout = 12600.0
-
-        allow_partial_export = os.environ.get(
-            "HUNTX_ALLOW_PARTIAL_EXPORT", "true"
-        ).strip().lower() in {"1", "true", "yes", "on"}
-        no_publish = os.environ.get(
-            "HUNTX_BOT_NO_PUBLISH", "false"
-        ).strip().lower() in {"1", "true", "yes", "on"}
-
-        lock_path = paths.STATE_DIR / "huntx.lock"
-        session_identity = os.environ.get("TELEGRAM_USER_SESSION", "").strip()
-        session_lock = (
-            acquire_lock(session_lease_path(Path(paths.STATE_DIR), session_identity))
-            if session_identity
-            else nullcontext()
+        execution = execute_pipeline_run(
+            config_path,
+            no_publish=no_publish,
+            health_logger=logger,
         )
-        with acquire_lock(lock_path), session_lock:
-            orchestrator = create_production_orchestrator(
-                config,
-                max_workers=max_workers,
-            )
-            summary = orchestrator.run(
-                timeout=run_timeout,
-                no_publish=no_publish,
-                allow_partial_export=allow_partial_export,
-            )
-
-        health = evaluate_run_health(summary, no_publish=no_publish)
-        emit_run_health(summary, health, logger=logger)
-        if health.is_fatal:
+        if execution.health.is_fatal:
             raise RuntimeError(
-                f"Pipeline health gate failed: {', '.join(health.reasons) or health.status}"
+                "Pipeline health gate failed: "
+                f"{', '.join(execution.health.reasons) or execution.health.status}"
             )
-        return summary
+        return execution.summary
 
     async def _perform_admin_prune(self, event, days):
         """Invoke repo and raw-store pruning and report the resulting counts."""

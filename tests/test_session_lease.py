@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import os
 import tempfile
 import json
@@ -19,6 +20,15 @@ class TestSessionLease(unittest.IsolatedAsyncioTestCase):
 
     async def asyncTearDown(self) -> None:
         self.temp_dir.cleanup()
+
+    def test_lease_namespace_depends_only_on_root_and_session_identity(self) -> None:
+        identity = "stable-telegram-session"
+        digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:24]
+
+        self.assertEqual(
+            session_lease_path(self.root, identity),
+            self.root / "session-leases" / f"{digest}.lock",
+        )
 
     async def test_lease_is_exclusive_and_released(self) -> None:
         async with acquire_session_lease(self.root, "identity", timeout_seconds=0.1):

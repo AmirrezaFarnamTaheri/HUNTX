@@ -231,7 +231,7 @@ def test_validate_config_accepts_v2ray_collector_source(monkeypatch):
                 PublishRoute(
                     name="collector-output",
                     from_sources=["collector"],
-                    formats=["b64sub"],
+                    formats=["npvt"],
                     destinations=[],
                 )
             ]

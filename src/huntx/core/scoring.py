@@ -1,4 +1,21 @@
-from typing import Dict, Any, Optional
+from __future__ import annotations
+
+import math
+from typing import Any, Dict, Mapping, Optional
+
+
+def _finite_metric(value: Any, *, default: float, minimum: float, maximum: float | None = None) -> float:
+    """Coerce untrusted telemetry to a finite bounded float before scoring."""
+    if isinstance(value, bool):
+        return default
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return default
+    if not math.isfinite(parsed):
+        return default
+    parsed = max(minimum, parsed)
+    return min(parsed, maximum) if maximum is not None else parsed
 
 
 class ProxyScoringEngine:
@@ -75,10 +92,15 @@ class ProxyScoringEngine:
             "recommended": clamped >= 75.0,
         }
 
-    def score_proxy(self, record: Dict[str, Any]) -> float:
+    def score_proxy(self, record: Mapping[str, Any]) -> float:
         """Backward-compatible proxy score calculation."""
-        latency = record.get("latency_ms", 9999.0)
-        success_rate = record.get("historical_success_rate", 0.5)
+        latency = _finite_metric(record.get("latency_ms", 9999.0), default=9999.0, minimum=0.0)
+        success_rate = _finite_metric(
+            record.get("historical_success_rate", 0.5),
+            default=0.5,
+            minimum=0.0,
+            maximum=1.0,
+        )
 
         # 1. Latency Score (0 to 50 pts)
         if latency <= 100:
@@ -91,7 +113,7 @@ class ProxyScoringEngine:
             lat_score = 0.0
 
         # 2. Historical Success Score (0 to 50 pts)
-        hist_score = min(50.0, max(0.0, success_rate * 50.0))
+        hist_score = success_rate * 50.0
 
-        return round(lat_score + hist_score, 2)
+        return round(min(100.0, max(0.0, lat_score + hist_score)), 2)
 

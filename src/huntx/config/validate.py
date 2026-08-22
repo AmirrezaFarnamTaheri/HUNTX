@@ -6,8 +6,22 @@ from ..formats.registry import FormatRegistry
 from ..utils.safe_names import safe_component
 
 
-_DERIVED_FORMATS = {"b64sub", "decoded.json", "singbox.json"}
-_DERIVED_SUFFIXES = (".b64sub", ".decoded.json", ".singbox.json")
+_DERIVED_FORMATS = {
+    "b64sub",
+    "decoded.json",
+    "raw.txt",
+    "singbox.json",
+    "xray.json",
+    "nekobox.json",
+}
+_DERIVED_SUFFIXES = (
+    ".b64sub",
+    ".decoded.json",
+    ".raw.txt",
+    ".singbox.json",
+    ".xray.json",
+    ".nekobox.json",
+)
 
 
 def _configured_publish_token(destination_token: str | None) -> str | None:
@@ -15,10 +29,28 @@ def _configured_publish_token(destination_token: str | None) -> str | None:
     return destination_token or os.getenv("PUBLISH_BOT_TOKEN") or os.getenv("TELEGRAM_TOKEN")
 
 
+def _is_derived_output_format(fmt: str) -> bool:
+    return fmt in _DERIVED_FORMATS or any(fmt.endswith(suffix) for suffix in _DERIVED_SUFFIXES)
+
+
 def _validate_route_format(registry: FormatRegistry, route_name: str, fmt: str) -> None:
-    """Validate one requested output format against actual build capability."""
+    """Validate one requested route format against the actual build contract.
+
+    Proxy derivatives are build results, not independently buildable record
+    types. Configuring ``npvt``/``npvtsub`` automatically emits their supported
+    decoded/base64/raw/client-JSON derivatives. Accepting derivative IDs here
+    would make configuration validation succeed while the build loop has no
+    records or handler for that requested format.
+    """
     if not fmt:
         raise ValueError(f"Route {route_name} has empty format ID")
+
+    if _is_derived_output_format(fmt):
+        raise ValueError(
+            f"Route {route_name} format {fmt!r} is a derived output, not a route input; "
+            "configure 'npvt' and/or 'npvtsub' and HUNTX will generate supported "
+            "decoded/base64/raw/sing-box/Xray/NekoBox derivatives automatically"
+        )
 
     registered = set(registry.list_formats())
     if fmt in registered:
@@ -27,15 +59,6 @@ def _validate_route_format(registry: FormatRegistry, route_name: str, fmt: str) 
                 f"Route {route_name} format {fmt!r} is parse-only and cannot build artifacts"
             )
         return
-
-    if fmt in _DERIVED_FORMATS:
-        return
-
-    for suffix in _DERIVED_SUFFIXES:
-        if fmt.endswith(suffix):
-            base_fmt = fmt[: -len(suffix)]
-            if base_fmt in registered or base_fmt in {"npvt", "npvtsub"}:
-                return
 
     raise ValueError(f"Route {route_name} has unrecognized format ID: {fmt}")
 

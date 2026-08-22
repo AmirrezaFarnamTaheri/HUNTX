@@ -7,6 +7,7 @@ import time
 from typing import Any, Dict, List
 
 from ..config.schema import normalize_destination_mode
+from ..core.deadline import Deadline, DeadlineExceeded
 from ..publishers.telegram.publisher import (
     TelegramPublisher,
     UnknownPublicationOutcome,
@@ -56,7 +57,9 @@ class PublishPipeline:
         with self._hash_guard:
             self._hash_cache[unique_id] = artifact_hash
 
-    def run(self, build_result: Dict[str, Any], destinations: List[Dict[str, Any]]) -> bool:
+    def run(self, build_result: Dict[str, Any], destinations: List[Dict[str, Any]], *, deadline: Deadline | None = None) -> bool:
+        if deadline is not None:
+            deadline.raise_if_expired("publishing")
         route_name = build_result["route_name"]
         new_hash = build_result["artifact_hash"]
         fmt = build_result.get("format", "unknown")
@@ -117,6 +120,8 @@ class PublishPipeline:
         filename = f"{safe_route}_{safe_fmt}_{new_hash[:8]}{ext}"
 
         for dest in destinations:
+            if deadline is not None:
+                deadline.raise_if_expired("publishing")
             if not isinstance(dest, dict):
                 raise ValueError("Publish destination must be a mapping")
             chat_id = str(dest.get("chat_id") or "").strip()
@@ -193,8 +198,24 @@ class PublishPipeline:
                     stable_id,
                 )
                 self.state_repo.mark_delivery_sending(intent_id, destination_id)
-                with publisher_lock:
-                    receipt = publisher.publish(chat_id, data, filename, caption)
+                if deadline is None:
+                    with publisher_lock:
+                        receipt = publisher.publish(chat_id, data, filename, caption)
+                else:
+                    acquired = publisher_lock.acquire(timeout=deadline.clamp_timeout(3600.0))
+                    if not acquired:
+                        raise DeadlineExceeded("Global deadline exhausted waiting for publisher lock")
+                    try:
+                        deadline.raise_if_expired("publishing")
+                        receipt = publisher.publish(
+                            chat_id,
+                            data,
+                            filename,
+                            caption,
+                            deadline=deadline,
+                        )
+                    finally:
+                        publisher_lock.release()
                 self.state_repo.mark_delivery_confirmed(
                     intent_id,
                     destination_id,
@@ -217,6 +238,8 @@ class PublishPipeline:
                         UnknownPublicationOutcome,
                     ),
                 )
+                if isinstance(exc, DeadlineExceeded):
+                    raise
                 msg = f"destination={stable_id} error={type(exc).__name__}"
                 failures.append(msg)
                 logger.error("[Publish] Failed to publish to %s", msg)

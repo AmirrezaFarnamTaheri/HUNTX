@@ -8,6 +8,7 @@ import json
 
 import secrets
 
+from ...core.deadline import Deadline, DeadlineExceeded
 from ...utils.safe_names import safe_component
 
 logger = logging.getLogger(__name__)
@@ -75,6 +76,14 @@ def _coerce_retry_after(raw: object) -> "int | None":
     return delay
 
 
+def _safe_telegram_error(value: object, token: str) -> str:
+    """Bound and sanitize Telegram-controlled error text before log/raise."""
+    text = str(value).replace("\r", " ").replace("\n", " ")
+    if token:
+        text = text.replace(token, "<redacted>")
+    return text[:500]
+
+
 def _safe_multipart_filename(filename: str) -> str:
     """Return a filename safe to embed in a Content-Disposition header.
 
@@ -101,7 +110,7 @@ class TelegramPublisher:
                 "(expected the '<id>:<secret>' form); publishing will fail."
             )
 
-    def publish(self, chat_id: str, data: bytes, filename: str, caption: str = ""):
+    def publish(self, chat_id: str, data: bytes, filename: str, caption: str = "", *, deadline: Deadline | None = None):
         # Using multipart/form-data is complex with urllib standard lib.
         # But we must do it to send files.
         # To avoid dependencies like 'requests', we implement a simple multipart encoder.
@@ -147,8 +156,10 @@ class TelegramPublisher:
 
         max_attempts = 3
         for attempt in range(1, max_attempts + 1):
+            if deadline is not None:
+                deadline.raise_if_expired("Telegram publish")
             try:
-                with urllib.request.urlopen(req, timeout=60) as response:
+                with urllib.request.urlopen(req, timeout=deadline.clamp_timeout(60.0) if deadline is not None else 60.0) as response:
                     resp_code = response.getcode()
                     resp_body = response.read().decode("utf-8")
                     logger.debug(f"Telegram API Response Code: {resp_code}")
@@ -158,14 +169,14 @@ class TelegramPublisher:
                     except (json.JSONDecodeError, TypeError) as exc:
                         raise UnknownPublicationOutcome("Telegram returned an unreadable success response") from exc
                     if not payload.get("ok"):
-                        error_msg = payload.get("description", "Unknown Telegram error")
+                        error_msg = _safe_telegram_error(payload.get("description", "Unknown Telegram error"), self.token)
                         params = payload.get("parameters", {})
                         retry_after = _coerce_retry_after(params.get("retry_after"))
                         if retry_after is not None and attempt < max_attempts:
                             logger.warning(
                                 f"Telegram API rate limited (attempt {attempt}/{max_attempts}). Sleeping for {retry_after}s: {error_msg}"
                             )
-                            time.sleep(retry_after)
+                            deadline.sleep(retry_after) if deadline is not None else time.sleep(retry_after)
                             continue
                         raise RuntimeError(f"Telegram API error: {error_msg}")
 
@@ -174,7 +185,7 @@ class TelegramPublisher:
                 try:
                     resp_body = e.read().decode("utf-8")
                     payload = json.loads(resp_body)
-                    error_msg = payload.get("description", str(e))
+                    error_msg = _safe_telegram_error(payload.get("description", type(e).__name__), self.token)
 
                     if e.code == 429 and attempt < max_attempts:
                         params = payload.get("parameters", {})
@@ -184,7 +195,7 @@ class TelegramPublisher:
                         logger.warning(
                             f"Telegram API rate limited with HTTP 429 (attempt {attempt}/{max_attempts}). Sleeping for {retry_after}s: {error_msg}"
                         )
-                        time.sleep(retry_after)
+                        deadline.sleep(retry_after) if deadline is not None else time.sleep(retry_after)
                         continue
 
                     logger.error(f"Telegram API HTTP error {e.code}: {error_msg}")
@@ -192,19 +203,23 @@ class TelegramPublisher:
                 except RuntimeError:
                     raise
                 except Exception as ex:
-                    logger.error(f"Telegram API HTTP error {e.code}: {ex}")
+                    logger.error("Telegram API HTTP error %s: %s", e.code, type(ex).__name__)
                     raise
+            except DeadlineExceeded:
+                raise
             except UnknownPublicationOutcome:
                 raise
             except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
+                if deadline is not None and deadline.expired():
+                    raise DeadlineExceeded("Global deadline exhausted during Telegram transport") from exc
                 # Retrying an ambiguous transport failure can duplicate a
                 # document that Telegram accepted before the connection died.
                 raise UnknownPublicationOutcome(
                     "Telegram publication outcome is unknown after transport failure"
                 ) from exc
             except Exception as e:
-                logger.error(f"Telegram publish failed for {chat_id} (attempt {attempt}/{max_attempts}): {e}")
+                logger.error("Telegram publish failed for chat_id=%s (attempt %s/%s): %s", chat_id, attempt, max_attempts, type(e).__name__)
                 if attempt < max_attempts:
-                    time.sleep(2 * attempt)
+                    deadline.sleep(2 * attempt) if deadline is not None else time.sleep(2 * attempt)
                     continue
                 raise

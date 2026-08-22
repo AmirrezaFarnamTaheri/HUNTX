@@ -24,6 +24,7 @@ htmlcov/
 # Runtime data
 data/
 persist/
+data_archive/
 my_config.yaml
 *.session
 *.log

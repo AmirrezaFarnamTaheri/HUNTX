@@ -21,9 +21,18 @@ def output_filename(route: str, fmt: str) -> str:
     if fmt.endswith(".decoded.json"):
         base = safe_component(fmt.removesuffix(".decoded.json"), default="decoded")
         return f"{safe_route}_{base}_decoded.json"
+    if fmt.endswith(".raw.txt"):
+        base = safe_component(fmt.removesuffix(".raw.txt"), default="raw")
+        return f"{safe_route}_{base}_raw.txt"
     if fmt.endswith(".singbox.json"):
         base = safe_component(fmt.removesuffix(".singbox.json"), default="singbox")
         return f"{safe_route}_{base}_singbox.json"
+    if fmt.endswith(".xray.json"):
+        base = safe_component(fmt.removesuffix(".xray.json"), default="xray")
+        return f"{safe_route}_{base}_xray.json"
+    if fmt.endswith(".nekobox.json"):
+        base = safe_component(fmt.removesuffix(".nekobox.json"), default="nekobox")
+        return f"{safe_route}_{base}_nekobox.json"
     if fmt.endswith(".b64sub"):
         base = safe_component(fmt.removesuffix(".b64sub"), default="b64sub")
         return f"{safe_route}_{base}_b64sub.txt"

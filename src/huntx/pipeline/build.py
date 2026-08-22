@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+from ..core.deadline import Deadline, DeadlineExceeded
 import base64
 import hashlib
 import json
@@ -8,7 +10,9 @@ import time
 from collections import defaultdict
 from typing import Any, Optional
 from urllib.parse import parse_qs, unquote, urlparse
+from ..formats.common.nekobox import build_nekobox_outbounds_bytes
 from ..formats.common.singbox import build_singbox_config_bytes
+from ..formats.common.xray import build_xray_config_bytes
 from ..formats.registry import FormatRegistry
 from ..state.repo import StateRepo
 from ..store.artifact_store import ArtifactStore
@@ -217,18 +221,28 @@ class BuildPipeline:
             return b''
         return base64.b64encode(text.encode('utf-8')) if text else b''
 
-    def _proxy_derivatives(self, artifact_bytes: bytes) -> tuple[bytes, bytes, bytes]:
-        """Create decoded JSON, base64 subscription and sing-box config from one UTF-8 decode."""
+    def _proxy_derivatives(
+        self,
+        artifact_bytes: bytes,
+    ) -> tuple[bytes, bytes, bytes, bytes, bytes, bytes]:
+        """Create proxy derivative artifacts from one UTF-8 decode."""
         try:
             text = artifact_bytes.decode('utf-8', errors='ignore')
         except (AttributeError, UnicodeDecodeError):
-            return b'', b'', b''
+            return b'', b'', b'', b'', b'', b''
         stripped = text.strip()
         if not stripped:
-            return b'', b'', b''
-        return self._decode_proxy_text(text), base64.b64encode(stripped.encode('utf-8')), build_singbox_config_bytes(text)
+            return b'', b'', b'', b'', b'', b''
+        return (
+            self._decode_proxy_text(text),
+            base64.b64encode(stripped.encode('utf-8')),
+            artifact_bytes,
+            build_singbox_config_bytes(text),
+            build_xray_config_bytes(text),
+            build_nekobox_outbounds_bytes(text),
+        )
 
-    def run(self, route_config: dict[str, Any], *, records: Optional[list[dict[str, Any]]] = None) -> list[dict[str, Any]]:
+    def run(self, route_config: dict[str, Any], *, records: Optional[list[dict[str, Any]]] = None, deadline: Deadline | None = None) -> list[dict[str, Any]]:
         """Build one route with a single record grouping pass."""
         route_start = time.monotonic()
         route_name = str(route_config['name'])
@@ -236,9 +250,13 @@ class BuildPipeline:
         allowed_source_ids = list(dict.fromkeys(route_config.get('from_sources', [])))
         min_seen_file_id = route_config.get('min_seen_file_id')
         logger.info('[Build] route=%s formats=%s sources=%s delta_seen_files_id>%s', route_name, formats, len(allowed_source_ids), min_seen_file_id if min_seen_file_id is not None else 'all')
+        if deadline is not None:
+            deadline.raise_if_expired("build")
         fetch_start = time.monotonic()
         if records is None:
             records = self.state_repo.get_records_for_build(formats, allowed_source_ids, min_seen_file_id=min_seen_file_id)
+        if deadline is not None:
+            deadline.raise_if_expired("build")
         fetch_duration = time.monotonic() - fetch_start
         records_by_type: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for record in records:
@@ -251,6 +269,7 @@ class BuildPipeline:
         if not records:
             return []
         results: list[dict[str, Any]] = []
+        build_failures: list[tuple[str, str]] = []
         built_formats: list[str] = []
         empty_formats: list[str] = []
         total_build_seconds = 0.0
@@ -262,11 +281,26 @@ class BuildPipeline:
             handler = self.registry.get(format_id)
             if handler is None:
                 logger.error('[Build] No handler for format=%s', format_id)
+                build_failures.append((format_id, "missing_handler"))
                 continue
             try:
+                if deadline is not None:
+                    deadline.raise_if_expired("build")
                 build_start = time.monotonic()
-                with self._format_lock(format_id):
-                    artifact_bytes = handler.build(format_records)
+                format_lock = self._format_lock(format_id)
+                if deadline is None:
+                    with format_lock:
+                        artifact_bytes = handler.build(format_records)
+                else:
+                    acquired = format_lock.acquire(timeout=deadline.clamp_timeout(3600.0))
+                    if not acquired:
+                        raise DeadlineExceeded("Global deadline exhausted waiting for format lock")
+                    try:
+                        deadline.raise_if_expired("build")
+                        artifact_bytes = handler.build(format_records)
+                        deadline.raise_if_expired("build")
+                    finally:
+                        format_lock.release()
                 build_duration = time.monotonic() - build_start
                 total_build_seconds += build_duration
                 if not artifact_bytes:
@@ -277,7 +311,9 @@ class BuildPipeline:
                 built_formats.append(format_id)
                 format_count = len(format_records)
                 if format_id in _DERIVED_PROXY_FORMATS:
-                    decoded, reencoded, singbox = self._proxy_derivatives(artifact_bytes)
+                    decoded, reencoded, raw, singbox, xray, nekobox = self._proxy_derivatives(
+                        artifact_bytes
+                    )
                     if decoded:
                         derived_format = f'{format_id}.decoded.json'
                         self.artifact_store.save_output(route_name, derived_format, decoded)
@@ -286,14 +322,34 @@ class BuildPipeline:
                         derived_format = f'{format_id}.b64sub'
                         self.artifact_store.save_output(route_name, derived_format, reencoded)
                         results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(reencoded).hexdigest(), 'data': reencoded, 'count': format_count})
+                    if raw:
+                        derived_format = f'{format_id}.raw.txt'
+                        self.artifact_store.save_output(route_name, derived_format, raw)
+                        results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(raw).hexdigest(), 'data': raw, 'count': format_count})
                     if singbox:
                         derived_format = f'{format_id}.singbox.json'
                         self.artifact_store.save_output(route_name, derived_format, singbox)
                         results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(singbox).hexdigest(), 'data': singbox, 'count': format_count})
+                    if xray:
+                        derived_format = f'{format_id}.xray.json'
+                        self.artifact_store.save_output(route_name, derived_format, xray)
+                        results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(xray).hexdigest(), 'data': xray, 'count': format_count})
+                    if nekobox:
+                        derived_format = f'{format_id}.nekobox.json'
+                        self.artifact_store.save_output(route_name, derived_format, nekobox)
+                        results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(nekobox).hexdigest(), 'data': nekobox, 'count': format_count})
                 results.append({'route_name': route_name, 'format': format_id, 'unique_id': f'{route_name}:{format_id}', 'artifact_hash': artifact_hash, 'data': artifact_bytes, 'count': format_count})
                 logger.info('[Build] route=%s format=%s records=%s bytes=%s build_seconds=%.3f hash=%s', route_name, format_id, format_count, len(artifact_bytes), build_duration, artifact_hash[:12] if artifact_hash else 'N/A')
-            except Exception:
+            except DeadlineExceeded:
+                raise
+            except Exception as exc:
                 logger.exception('[Build] Failed for %s/%s', route_name, format_id)
+                build_failures.append((format_id, type(exc).__name__))
+        if build_failures:
+            details = ", ".join(f"{fmt}:{error}" for fmt, error in build_failures)
+            raise RuntimeError(
+                f"Route {route_name} build failed for {len(build_failures)} format(s): {details}"
+            )
         route_duration = time.monotonic() - route_start
         logger.info('[Build] route=%s artifacts=%s built=%s empty=%s fetch_seconds=%.3f build_seconds=%.3f total_seconds=%.3f', route_name, len(results), built_formats, empty_formats, fetch_duration, total_build_seconds, route_duration)
         return results

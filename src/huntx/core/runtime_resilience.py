@@ -14,6 +14,9 @@ from .hardened_orchestrator import HardenedOrchestrator
 from .optimized_orchestrator import OptimizedHardenedOrchestrator
 from .orchestrator import Orchestrator
 from .transform_contract import install_transform_contract
+from ..connectors.base import maybe_await
+from ..connectors.telegram_user.connector import TelegramUserConnector
+from ..connectors.telegram_user.failure_policy import is_permanent_telegram_peer_error
 from ..connectors.telegram_user.windowed import WindowedTelegramUserConnector
 
 logger = logging.getLogger(__name__)
@@ -54,6 +57,27 @@ def _numeric_channel_id(peer: Any) -> Optional[int]:
     return None
 
 
+async def _resolve_channel_id_strict_async(
+    self: TelegramUserConnector,
+) -> Optional[int]:
+    """Resolve a Telegram peer without collapsing lookup failures to ``None``."""
+    client = self._client()
+    await self._ensure_connected_async(client)
+    entity = await maybe_await(
+        client.get_entity(int(self.peer) if self.peer.lstrip("-").isdigit() else self.peer)
+    )
+    raw_id = getattr(entity, "id", None)
+    if raw_id:
+        logger.info("[MTProto] Resolved peer %s -> channel_id=%s", self.peer, raw_id)
+    return raw_id
+
+
+# The resilience module already owns runtime method installation. Keep the
+# connector's existing best-effort resolve_channel_id_async() API unchanged,
+# while exposing a strict seam for governed preflight classification.
+TelegramUserConnector.resolve_channel_id_strict_async = _resolve_channel_id_strict_async  # type: ignore[attr-defined]
+
+
 async def _close_canonical_connector(
     self: OptimizedHardenedOrchestrator,
     connector: Optional[WindowedTelegramUserConnector],
@@ -76,7 +100,7 @@ async def _canonical_ingestion_sources(
     self: OptimizedHardenedOrchestrator,
     sources: list[Any],
 ) -> list[Any]:
-    """Return one configured source per canonical Telegram channel."""
+    """Return reachable, canonicalized Telegram sources plus direct sources."""
     accepted: list[Any] = []
     canonical_owner: dict[int, str] = {}
     connector: Optional[WindowedTelegramUserConnector] = None
@@ -96,84 +120,147 @@ async def _canonical_ingestion_sources(
                 )
                 continue
 
-            channel_id = _numeric_channel_id(config.peer)
-            if channel_id is None:
-                stop = getattr(self, "_ingestion_stop_monotonic", None)
-                remaining = None if stop is None else stop - time.monotonic()
-                if remaining is not None and remaining <= 0:
-                    self._ingestion_budget_exhausted = True
-                    accepted.append(source)
+            configured_channel_id = _numeric_channel_id(config.peer)
+            if configured_channel_id is not None:
+                existing = canonical_owner.get(configured_channel_id)
+                if existing is not None:
+                    reason = (
+                        f"duplicate canonical Telegram channel {configured_channel_id}; "
+                        f"owned by {existing}"
+                    )
+                    terminalized = self._work_queue.terminalize_source(
+                        str(source.id),
+                        reason,
+                    )
+                    logger.warning(
+                        "[LIFO] Skipping numeric alias source %s for canonical "
+                        "channel %s already owned by %s; terminalized=%s",
+                        source.id,
+                        configured_channel_id,
+                        existing,
+                        terminalized,
+                    )
                     continue
 
-                operation_timeout = _canonical_timeout(self)
-                if remaining is not None:
-                    operation_timeout = max(0.01, min(operation_timeout, remaining))
+            stop = getattr(self, "_ingestion_stop_monotonic", None)
+            remaining = None if stop is None else stop - time.monotonic()
+            if remaining is not None and remaining <= 0:
+                self._ingestion_budget_exhausted = True
+                accepted.append(source)
+                continue
 
-                key = (int(config.api_id), str(config.api_hash), str(config.session))
-                if connector is None or connector_key != key:
-                    await _close_canonical_connector(self, connector)
-                    connector_class = optimized_module.WindowedTelegramUserConnector
-                    connector = connector_class(
-                        api_id=config.api_id,
-                        api_hash=config.api_hash,
-                        session=config.session,
-                        peer=config.peer,
-                        state=None,
-                        fetch_windows=None,
-                    )
-                    connector_key = key
-                    try:
-                        await asyncio.wait_for(
-                            connector.__aenter__(),
-                            timeout=operation_timeout,
-                        )
-                    except asyncio.TimeoutError:
-                        logger.error(
-                            "[LIFO] Timed out acquiring Telegram session for %s; preserving source",
-                            source.id,
-                        )
-                        connector = None
-                        connector_key = None
-                        accepted.append(source)
-                        continue
-                    except Exception:
-                        logger.exception(
-                            "[LIFO] Failed acquiring Telegram session for %s; preserving source",
-                            source.id,
-                        )
-                        connector = None
-                        connector_key = None
-                        accepted.append(source)
-                        continue
+            operation_timeout = _canonical_timeout(self)
+            if remaining is not None:
+                operation_timeout = max(0.01, min(operation_timeout, remaining))
 
-                connector.peer = config.peer
+            key = (int(config.api_id), str(config.api_hash), str(config.session))
+            if connector is None or connector_key != key:
+                await _close_canonical_connector(self, connector)
+                connector_class = optimized_module.WindowedTelegramUserConnector
+                connector = connector_class(
+                    api_id=config.api_id,
+                    api_hash=config.api_hash,
+                    session=config.session,
+                    peer=config.peer,
+                    state=None,
+                    fetch_windows=None,
+                )
+                connector_key = key
                 try:
-                    channel_id = await asyncio.wait_for(
-                        connector.resolve_channel_id_async(),
+                    await asyncio.wait_for(
+                        connector.__aenter__(),
                         timeout=operation_timeout,
                     )
                 except asyncio.TimeoutError:
                     logger.error(
-                        "[LIFO] Canonical resolution timed out for %s after %.2fs; preserving source",
+                        "[LIFO] Timed out acquiring Telegram session for %s; preserving source",
                         source.id,
-                        operation_timeout,
                     )
-                    await _close_canonical_connector(self, connector)
                     connector = None
                     connector_key = None
                     accepted.append(source)
                     continue
                 except Exception:
                     logger.exception(
-                        "[LIFO] Could not resolve canonical channel for %s; preserving source",
+                        "[LIFO] Failed acquiring Telegram session for %s; preserving source",
                         source.id,
                     )
-                    await _close_canonical_connector(self, connector)
                     connector = None
                     connector_key = None
                     accepted.append(source)
                     continue
 
+            connector.peer = config.peer
+            try:
+                resolver = getattr(
+                    connector,
+                    "resolve_channel_id_strict_async",
+                    connector.resolve_channel_id_async,
+                )
+                resolved_channel_id = await asyncio.wait_for(
+                    resolver(),
+                    timeout=operation_timeout,
+                )
+            except asyncio.TimeoutError:
+                logger.error(
+                    "[LIFO] Canonical resolution timed out for %s after %.2fs; preserving source",
+                    source.id,
+                    operation_timeout,
+                )
+                await _close_canonical_connector(self, connector)
+                connector = None
+                connector_key = None
+                accepted.append(source)
+                continue
+            except Exception as exc:
+                if is_permanent_telegram_peer_error(exc):
+                    reason = (
+                        "permanent Telegram peer failure during canonical preflight: "
+                        f"{type(exc).__name__}"
+                    )
+                    terminalized = self._work_queue.terminalize_source(
+                        str(source.id),
+                        reason,
+                    )
+                    logger.warning(
+                        "[LIFO] Excluding permanently unavailable Telegram source=%s "
+                        "type=%s terminalized=%s",
+                        source.id,
+                        type(exc).__name__,
+                        terminalized,
+                    )
+                    continue
+
+                logger.exception(
+                    "[LIFO] Could not resolve canonical channel for %s; preserving source",
+                    source.id,
+                )
+                await _close_canonical_connector(self, connector)
+                connector = None
+                connector_key = None
+                accepted.append(source)
+                continue
+
+            if resolved_channel_id is None and configured_channel_id is not None:
+                reason = "numeric Telegram peer is unreachable with the configured session"
+                terminalized = self._work_queue.terminalize_source(
+                    str(source.id),
+                    reason,
+                )
+                logger.warning(
+                    "[LIFO] Excluding unreachable numeric Telegram source=%s "
+                    "channel=%s terminalized=%s",
+                    source.id,
+                    configured_channel_id,
+                    terminalized,
+                )
+                continue
+
+            channel_id = (
+                int(resolved_channel_id)
+                if resolved_channel_id is not None
+                else configured_channel_id
+            )
             if channel_id is None:
                 accepted.append(source)
                 continue

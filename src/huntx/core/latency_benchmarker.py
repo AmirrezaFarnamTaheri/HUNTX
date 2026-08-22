@@ -3,12 +3,15 @@
 import asyncio
 import ipaddress
 import logging
+import math
 import socket
 import time
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
+
+_MAX_PROBE_CONCURRENCY = 1000
 
 
 def _public_addresses(address_info: list[tuple[Any, ...]]) -> list[tuple[int, str]]:
@@ -40,19 +43,47 @@ def _public_addresses(address_info: list[tuple[Any, ...]]) -> list[tuple[int, st
     return result
 
 
+def _finite_positive(value: Any, name: str) -> float:
+    if isinstance(value, bool):
+        raise ValueError(f"{name} must be a finite positive number")
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be a finite positive number") from exc
+    if not math.isfinite(parsed) or parsed <= 0:
+        raise ValueError(f"{name} must be a finite positive number")
+    return parsed
+
+
+def _bounded_concurrency(value: Any) -> int:
+    if isinstance(value, bool):
+        raise ValueError("concurrency must be a positive integer")
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("concurrency must be a positive integer") from exc
+    if parsed != value or parsed < 1 or parsed > _MAX_PROBE_CONCURRENCY:
+        raise ValueError(
+            f"concurrency must be an integer from 1 to {_MAX_PROBE_CONCURRENCY}"
+        )
+    return parsed
+
+
 async def check_proxy_latency(proxy_url: str, timeout: float = 3.0) -> Optional[float]:
     """Measure TCP latency without allowing probes into private address space.
 
     The endpoint hostname is resolved once, every candidate address is checked
     with :mod:`ipaddress`, and the connection is made to the accepted numeric
-    address rather than resolving the attacker-controlled hostname again.  This
-    prevents loopback/private/link-local/reserved DNS answers and DNS rebinding
-    from turning the benchmark helper into an internal port scanner.
+    address rather than resolving the attacker-controlled hostname again.
     """
+    if not isinstance(proxy_url, str) or not proxy_url:
+        return None
     try:
-        if not proxy_url or not isinstance(proxy_url, str) or timeout <= 0:
-            return None
+        timeout_seconds = _finite_positive(timeout, "timeout")
+    except ValueError:
+        return None
 
+    try:
         parsed = urlparse(proxy_url)
         host = parsed.hostname
         try:
@@ -73,14 +104,10 @@ async def check_proxy_latency(proxy_url: str, timeout: float = 3.0) -> Optional[
             return None
 
         loop = asyncio.get_running_loop()
-        deadline = time.monotonic() + timeout
+        deadline = time.monotonic() + timeout_seconds
         address_info = await asyncio.wait_for(
-            loop.getaddrinfo(
-                host,
-                int(port),
-                type=socket.SOCK_STREAM,
-            ),
-            timeout=timeout,
+            loop.getaddrinfo(host, int(port), type=socket.SOCK_STREAM),
+            timeout=timeout_seconds,
         )
         candidates = _public_addresses(address_info)
         if not candidates:
@@ -93,11 +120,7 @@ async def check_proxy_latency(proxy_url: str, timeout: float = 3.0) -> Optional[
             start_time = time.monotonic()
             try:
                 reader, writer = await asyncio.wait_for(
-                    asyncio.open_connection(
-                        address,
-                        int(port),
-                        family=family,
-                    ),
+                    asyncio.open_connection(address, int(port), family=family),
                     timeout=remaining,
                 )
             except (OSError, asyncio.TimeoutError):
@@ -114,7 +137,8 @@ async def check_proxy_latency(proxy_url: str, timeout: float = 3.0) -> Optional[
                     await wait_result
             return elapsed_ms
         return None
-    except Exception:
+    except (OSError, TypeError, ValueError, asyncio.TimeoutError) as exc:
+        logger.debug("Latency probe failed safely: %s", type(exc).__name__)
         return None
 
 
@@ -147,30 +171,41 @@ async def filter_proxies_by_latency(
     concurrency: int = 50,
     timeout: float = 2.0,
 ) -> List[Dict[str, Any]]:
-    """Return only proxy records that complete a public-endpoint probe in time."""
+    """Return proxies passing a bounded public-endpoint latency probe.
+
+    A fixed worker set is used instead of constructing one task per proxy, so
+    memory/task growth is bounded by the configured concurrency even for very
+    large input lists. Successful results retain input order.
+    """
     if not proxies:
         return []
 
-    semaphore = asyncio.Semaphore(max(1, int(concurrency)))
+    threshold = _finite_positive(max_latency_ms, "max_latency_ms")
+    timeout_seconds = _finite_positive(timeout, "timeout")
+    worker_count = min(_bounded_concurrency(concurrency), len(proxies))
+    accepted: list[Optional[Dict[str, Any]]] = [None] * len(proxies)
+    next_index = 0
 
-    async def _worker(record: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        line = _extract_proxy_uri(record)
-        async with semaphore:
-            latency = await check_proxy_latency(line, timeout=timeout)
-            if latency is not None and latency <= max_latency_ms:
-                result = dict(record)
-                if "data" in result and isinstance(result["data"], dict):
-                    result["data"] = dict(result["data"])
-                    result["data"]["latency_ms"] = round(latency, 2)
-                else:
-                    result["latency_ms"] = round(latency, 2)
-                return result
-            return None
+    async def _worker() -> None:
+        nonlocal next_index
+        while next_index < len(proxies):
+            index = next_index
+            next_index += 1
+            record = proxies[index]
+            line = _extract_proxy_uri(record)
+            latency = await check_proxy_latency(line, timeout=timeout_seconds)
+            if latency is None or latency > threshold:
+                continue
+            result = dict(record)
+            if isinstance(result.get("data"), dict):
+                result["data"] = dict(result["data"])
+                result["data"]["latency_ms"] = round(latency, 2)
+            else:
+                result["latency_ms"] = round(latency, 2)
+            accepted[index] = result
 
-    tasks = [_worker(proxy) for proxy in proxies]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-
-    valid_proxies = [result for result in results if isinstance(result, dict)]
+    await asyncio.gather(*(_worker() for _ in range(worker_count)))
+    valid_proxies = [result for result in accepted if result is not None]
     logger.info(
         "Latency Benchmarker: %d/%d proxies passed latency filter",
         len(valid_proxies),
