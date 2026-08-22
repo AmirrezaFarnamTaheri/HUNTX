@@ -1,3 +1,7 @@
+PrivateKey = GKItpM/8AAuGnwKa90KfrZR1Npaq55fn+fYYUYMMFVA=
+Address = 10.104.1.162/32
+PublicKey = TMGRzMA3dim95ClL5uVDkkrhNtxLrSPXbLf+T+Dc2DA=
+Endpoint = 145.239.255.68:25018
 PrivateKey = eNI9PLQSegXNkBoSB+0RoKGJ4pEsAJPzM01PCUtREm0=
 Address = 10.104.3.163/32
 PublicKey = Rn6w1t6actF9XC0bMIXxO25rf31uFqm2/n5sYyK1UzQ=
@@ -6,10 +10,6 @@ PrivateKey = aOsMP7aWl4YT53p+24FWd7S8qWA/LbcLN02YUVLuN1o=
 Address = 10.104.1.63/32
 PublicKey = Mop45Icu1QOf7eq2x0xc2hzyO0cDEq7LGL35nYt7d2Q=
 Endpoint = 142.4.216.196:25018
-PrivateKey = GKItpM/8AAuGnwKa90KfrZR1Npaq55fn+fYYUYMMFVA=
-Address = 10.104.1.162/32
-PublicKey = TMGRzMA3dim95ClL5uVDkkrhNtxLrSPXbLf+T+Dc2DA=
-Endpoint = 145.239.255.68:25018
 [Interface]
 PrivateKey = eEQDZJ87ZXkHwvaEIaF7lBslRmv7+hxpzTziA/Zsnlg=
 Address = 10.104.3.53/32
