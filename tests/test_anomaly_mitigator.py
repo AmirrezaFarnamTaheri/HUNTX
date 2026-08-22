@@ -2,12 +2,14 @@
 # Authority: NIST SP 800-137, Welford Online Variance Method
 from huntx.pipeline.anomaly_mitigator import AnomalyMitigator, NodeHealthState
 
+
 def test_anomaly_mitigator_initial_healthy_state():
     mitigator = AnomalyMitigator(z_threshold=2.5, consecutive_spikes_to_trip=2)
     # Feed stable baseline observations (50ms +- 2ms)
     for _ in range(20):
         state = mitigator.observe("node-1", latency_ms=50.0)
         assert state == NodeHealthState.HEALTHY
+
 
 def test_anomaly_mitigator_quarantines_on_sudden_latency_spike():
     mitigator = AnomalyMitigator(z_threshold=2.5, consecutive_spikes_to_trip=2)
@@ -23,6 +25,7 @@ def test_anomaly_mitigator_quarantines_on_sudden_latency_spike():
     s2 = mitigator.observe("node-1", latency_ms=450.0)
     assert s2 == NodeHealthState.QUARANTINED
     assert mitigator.is_available("node-1") is False
+
 
 def test_anomaly_mitigator_probation_and_recovery():
     mitigator = AnomalyMitigator(z_threshold=2.5, consecutive_spikes_to_trip=1)

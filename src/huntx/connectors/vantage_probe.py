@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
 import math
 
+
 @dataclass
 class VantageProbeObservation:
     """Individual measurement from a distributed edge vantage agent."""
@@ -17,6 +18,7 @@ class VantageProbeObservation:
     latency_ms: float
     protocol: Optional[str]
     timestamp: str
+
 
 class VantageProbeConnector:
     """Ingests multi-region vantage telemetry matrices into HUNTX."""

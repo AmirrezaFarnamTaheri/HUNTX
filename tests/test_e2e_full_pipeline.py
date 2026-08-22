@@ -6,6 +6,7 @@ from huntx.pipeline.sign import SupplyChainSigner
 from huntx.formats.singbox import SingboxCompiler
 from huntx.formats.xray import XrayCompiler
 
+
 def test_full_spectrum_pipeline_lifecycle_e2e():
     # 1. Raw Node Ingestion & Provenance
     nodes = [

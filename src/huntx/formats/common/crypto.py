@@ -13,14 +13,18 @@ try:
     from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
     _HAVE_CRYPTOGRAPHY = True
 except Exception:  # pragma: no cover
-    default_backend = None
-    hashes = None
-    serialization = None
-    padding = None
-    Cipher = None
-    algorithms = None
-    modes = None
-    PBKDF2HMAC = None
+    # Keep optional cryptography imports usable when the dependency is absent.
+    # The imported symbols are typed as concrete cryptography objects in the
+    # success branch, so mypy needs an explicit ignore for their ``None``
+    # fallback values.
+    default_backend = None  # type: ignore[assignment]
+    hashes = None  # type: ignore[assignment]
+    serialization = None  # type: ignore[assignment]
+    padding = None  # type: ignore[assignment]
+    Cipher = None  # type: ignore[assignment,misc]
+    algorithms = None  # type: ignore[assignment]
+    modes = None  # type: ignore[assignment]
+    PBKDF2HMAC = None  # type: ignore[assignment,misc]
     _HAVE_CRYPTOGRAPHY = False
 
 logger = logging.getLogger(__name__)

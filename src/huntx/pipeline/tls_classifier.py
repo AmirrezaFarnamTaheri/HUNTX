@@ -9,6 +9,7 @@ import hashlib
 from dataclasses import dataclass
 from typing import Dict, Any, List, Optional
 
+
 @dataclass
 class TLSProfileScore:
     """Statistical DPI-resilience and stealth classification of a node."""
@@ -18,6 +19,7 @@ class TLSProfileScore:
     has_sni: bool
     has_alpn: bool
     security_layer: str
+
 
 class TLSClassifier:
     """Analyzes TLS parameters and evaluates active firewall detection risk."""
@@ -33,7 +35,8 @@ class TLSClassifier:
         """Compute standard FoxIO JA4S server fingerprint."""
         # Section A: Protocol (t) + Version (13/12) + ALPN (2 chars) + Ext Count (2 hex digits)
         alpn_clean = alpn.strip().lower()
-        alpn_tag = (alpn_clean[:1] + alpn_clean[-1:]) if len(alpn_clean) >= 2 else (alpn_clean.ljust(2, "0") if alpn_clean else "00")
+        alpn_tag = (alpn_clean[:1] + alpn_clean[-1:]
+                    ) if len(alpn_clean) >= 2 else (alpn_clean.ljust(2, "0") if alpn_clean else "00")
         sec_a = f"t{tls_version}{alpn_tag}{num_extensions:02d}"
 
         # Section B: Cipher Hash (first 12 chars of SHA-256 over comma-separated hex ciphers)

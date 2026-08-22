@@ -870,6 +870,7 @@ INDEX_HTML = """<!DOCTYPE html>
 </html>
 """
 
+
 def write_index():
     import json
     proxies_count = 0
@@ -901,6 +902,7 @@ def write_index():
         f.write(content)
     print(f"✅ Successfully generated docs/index.html (Proxies: {proxies_count}, Artifacts: {artifacts_count})")
 
+
 def bundle():
     order = ['data.js', 'globe.js', 'qrcode.js', 'decoder.js', 'app.js']
     parts = []
@@ -917,15 +919,14 @@ def bundle():
             content = re.sub(r'export\s*default\s+', '', content)
             content = re.sub(r'export\s*\{[\s\S]*?\};?', '', content)
             parts.append(f'// === Module: {f} ===\n' + content)
-    
+
     bundle_code = '(function() {\n"use strict";\n\n' + '\n\n'.join(parts) + '\n})();\n'
     out_path = os.path.join('docs', 'assets', 'js', 'bundle.js')
     with open(out_path, 'w', encoding='utf-8') as out:
         out.write(bundle_code)
     print(f"✅ Bundle generated: {out_path} ({len(bundle_code)} bytes)")
 
+
 if __name__ == "__main__":
     write_index()
     bundle()
-
-

@@ -6,6 +6,7 @@ Authority:
 """
 from typing import Dict, Any, List
 
+
 class XrayCompiler:
     """Compiles normalized proxy records into Xray-core 1.8+ JSON configuration."""
 
@@ -20,10 +21,10 @@ class XrayCompiler:
         for node in nodes:
             proto = str(node.get("protocol", "")).lower()
             tag = node.get("tag") or f"{proto.upper()}-{node.get('server')}:{node.get('port')}"
-            
+
             if proto == "vless":
                 stream_settings: Dict[str, Any] = {"network": node.get("network", "tcp")}
-                if node.get("pbk"): # Reality security
+                if node.get("pbk"):  # Reality security
                     stream_settings["security"] = "reality"
                     stream_settings["realitySettings"] = {
                         "show": False,
@@ -70,8 +71,16 @@ class XrayCompiler:
                         "serverName": node.get("sni") or node.get("server"),
                     }
                 if node.get("network") == "ws":
-                    stream_settings["wsSettings"] = {"path": node.get("ws_path", "/"), "headers": {"Host": node.get("host") or node.get("sni", "")}}
-                outbounds.append({"tag": tag, "protocol": "trojan", "settings": {"servers": [{"address": node.get("server"), "port": int(node.get("port", 443)), "password": node.get("password", "")} ]}, "streamSettings": stream_settings})
+                    stream_settings["wsSettings"] = {
+                        "path": node.get(
+                            "ws_path",
+                            "/"),
+                        "headers": {
+                            "Host": node.get("host") or node.get(
+                                "sni",
+                                "")}}
+                outbounds.append({"tag": tag, "protocol": "trojan", "settings": {"servers": [{"address": node.get("server"), "port": int(
+                    node.get("port", 443)), "password": node.get("password", "")}]}, "streamSettings": stream_settings})
             elif proto == "vmess":
                 stream_settings = {"network": node.get("network", "tcp")}
                 if node.get("network") == "ws":

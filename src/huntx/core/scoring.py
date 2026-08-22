@@ -116,4 +116,3 @@ class ProxyScoringEngine:
         hist_score = success_rate * 50.0
 
         return round(min(100.0, max(0.0, lat_score + hist_score)), 2)
-

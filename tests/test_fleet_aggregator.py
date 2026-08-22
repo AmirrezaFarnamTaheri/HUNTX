@@ -3,6 +3,7 @@
 import pytest
 from huntx.pipeline.fleet_aggregator import VantageFleetAggregator, ProbeObservation, FleetConsensusVerdict
 
+
 def test_fleet_aggregator_consensus_all_alive():
     aggregator = VantageFleetAggregator()
     observations = [
@@ -18,6 +19,7 @@ def test_fleet_aggregator_consensus_all_alive():
     assert verdict.reporting_probes_count == 4
     assert verdict.median_latency_ms == 75.0
     assert verdict.is_geoblocked is False
+
 
 def test_fleet_aggregator_detects_domestic_geoblock():
     aggregator = VantageFleetAggregator(domestic_region="IR")

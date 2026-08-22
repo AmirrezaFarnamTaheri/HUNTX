@@ -7,6 +7,7 @@ Authority:
 """
 from typing import Dict, Any, List, Optional
 
+
 class SingboxCompiler:
     """Compiles normalized proxy records into Sing-box 1.10+ JSON schemas."""
 
@@ -82,9 +83,23 @@ class SingboxCompiler:
                     "password": node.get("password", ""),
                 }
                 if node.get("tls", True):
-                    outbound["tls"] = {"enabled": True, "server_name": node.get("sni") or node.get("server"), "insecure": bool(node.get("allow_insecure", False))}
+                    outbound["tls"] = {
+                        "enabled": True,
+                        "server_name": node.get("sni") or node.get("server"),
+                        "insecure": bool(
+                            node.get(
+                                "allow_insecure",
+                                False))}
                 if node.get("network") == "ws":
-                    outbound["transport"] = {"type": "ws", "path": node.get("ws_path", "/"), "headers": {"Host": node.get("host") or node.get("sni", "")}}
+                    outbound["transport"] = {
+                        "type": "ws",
+                        "path": node.get(
+                            "ws_path",
+                            "/"),
+                        "headers": {
+                            "Host": node.get("host") or node.get(
+                                "sni",
+                                "")}}
                 outbounds.append(outbound)
             elif proto == "vmess":
                 outbound = {
@@ -93,9 +108,23 @@ class SingboxCompiler:
                     "security": node.get("security", "auto"),
                 }
                 if node.get("tls"):
-                    outbound["tls"] = {"enabled": True, "server_name": node.get("sni") or node.get("server"), "insecure": bool(node.get("allow_insecure", False))}
+                    outbound["tls"] = {
+                        "enabled": True,
+                        "server_name": node.get("sni") or node.get("server"),
+                        "insecure": bool(
+                            node.get(
+                                "allow_insecure",
+                                False))}
                 if node.get("network") == "ws":
-                    outbound["transport"] = {"type": "ws", "path": node.get("ws_path", "/"), "headers": {"Host": node.get("host") or node.get("sni", "")}}
+                    outbound["transport"] = {
+                        "type": "ws",
+                        "path": node.get(
+                            "ws_path",
+                            "/"),
+                        "headers": {
+                            "Host": node.get("host") or node.get(
+                                "sni",
+                                "")}}
                 outbounds.append(outbound)
             elif proto == "shadowsocks":
                 outbounds.append({
@@ -115,25 +144,23 @@ class SingboxCompiler:
             {"type": "dns", "tag": "dns-out"},
         ]
         if node_tags:
-            system_outbounds = [
-            {
-                "type": "selector",
-                "tag": "PROXY-AUTO",
-                "outbounds": ["AUTO-BEST"] + node_tags,
-                "default": default_route if default_route in node_tags else (node_tags[0] if node_tags else "direct")
-            },
-            {
-                "type": "urltest",
-                "tag": "AUTO-BEST",
-                "outbounds": node_tags,
-                "url": "http://www.gstatic.com/generate_204",
-                "interval": "3m",
-                "tolerance": 50
-            },
-            {"type": "direct", "tag": "direct"},
-            {"type": "block", "tag": "block"},
-            {"type": "dns", "tag": "dns-out"},
-        ]
+            system_outbounds = [{"type": "selector",
+                                 "tag": "PROXY-AUTO",
+                                 "outbounds": ["AUTO-BEST"] + node_tags,
+                                 "default": default_route if default_route in node_tags else (node_tags[0] if node_tags else "direct")},
+                                {"type": "urltest",
+                                 "tag": "AUTO-BEST",
+                                 "outbounds": node_tags,
+                                 "url": "http://www.gstatic.com/generate_204",
+                                 "interval": "3m",
+                                 "tolerance": 50},
+                                {"type": "direct",
+                                 "tag": "direct"},
+                                {"type": "block",
+                                 "tag": "block"},
+                                {"type": "dns",
+                                 "tag": "dns-out"},
+                                ]
 
         inbounds: List[Dict[str, Any]] = [
             {

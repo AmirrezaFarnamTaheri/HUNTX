@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import List, Dict, Any, Set
 
+
 class OONIAnomalyType(str, Enum):
     """Types of network interference detected by OONI observation probes."""
     SNI_BLOCKING = "sni_blocking"
@@ -14,6 +15,7 @@ class OONIAnomalyType(str, Enum):
     HTTP_THROTTLING = "http_throttling"
     TCP_RESET = "tcp_reset"
     UNKNOWN = "unknown"
+
 
 @dataclass
 class NetworkInterferenceAlert:
@@ -25,6 +27,7 @@ class NetworkInterferenceAlert:
     anomaly_rate: float
     is_critical: bool
     timestamp: str
+
 
 class OONIAnomalyBridge:
     """Correlates global network interference observations with candidate proxy nodes."""

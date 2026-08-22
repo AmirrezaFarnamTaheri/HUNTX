@@ -8,11 +8,13 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import List, Dict, Any
 
+
 class ChainStrategy(str, Enum):
     """Synthesis strategy heuristics for multi-hop mesh generation."""
     LOWEST_LATENCY = "lowest_latency"
     DOMESTIC_RELAY_INTERNATIONAL_EXIT = "domestic_relay_international_exit"
     MULTI_REGION_MESH = "multi_region_mesh"
+
 
 @dataclass
 class SynthesizedProxyChain:
@@ -32,6 +34,7 @@ class SynthesizedProxyChain:
             "composite_latency_ms": self.composite_latency_ms,
             "strategy": self.strategy.value
         }
+
 
 class DynamicChainSynthesizer:
     """Evaluates node pools and pairs relays with egress nodes."""
@@ -83,7 +86,7 @@ class DynamicChainSynthesizer:
                     r_ctry = str(r.get("country", "")).upper()
                     x_ctry = str(x.get("country", "")).upper()
                     if r_ctry and x_ctry and r_ctry == x_ctry:
-                        continue # Require diverse regions
+                        continue  # Require diverse regions
                     if r.get("server") == x.get("server"):
                         continue
                     latency = float(r.get("ping", 50)) + float(x.get("ping", 50))
@@ -95,7 +98,7 @@ class DynamicChainSynthesizer:
                             composite_latency_ms=latency,
                             strategy=self.strategy
                         ))
-        else: # LOWEST_LATENCY
+        else:  # LOWEST_LATENCY
             for i, r in enumerate(alive_nodes):
                 for x in alive_nodes[i + 1:]:
                     if r.get("server") == x.get("server"):

@@ -9,12 +9,14 @@ from enum import Enum
 from dataclasses import dataclass
 from typing import Dict
 
+
 class NodeHealthState(str, Enum):
     """Health classification and circuit breaker states."""
     HEALTHY = "healthy"
     SUSPECT = "suspect"
     QUARANTINED = "quarantined"
     PROBATION = "probation"
+
 
 @dataclass
 class NodeTelemetryBaseline:
@@ -43,6 +45,7 @@ class NodeTelemetryBaseline:
     def std_dev(self) -> float:
         """Sample standard deviation; a flat baseline is handled conservatively."""
         return math.sqrt(self.variance)
+
 
 class AnomalyMitigator:
     """Detects statistical latency anomalies and executes automated circuit-breaker quarantine."""
@@ -105,7 +108,8 @@ class AnomalyMitigator:
                         node.state = NodeHealthState.HEALTHY
                 return node.state
             node.spike_count += 1
-            node.state = (NodeHealthState.QUARANTINED if node.spike_count >= self.consecutive_spikes_to_trip else NodeHealthState.SUSPECT)
+            node.state = (NodeHealthState.QUARANTINED if node.spike_count >=
+                          self.consecutive_spikes_to_trip else NodeHealthState.SUSPECT)
             return node.state
         z_score = (latency_ms - node.mean) / node.std_dev
 

@@ -8,12 +8,14 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Set
 
+
 class ASNTier(str, Enum):
     """Hierarchical classification of Autonomous Systems."""
     TIER_1 = "tier_1"        # Settlement-free global backbone (Lumen, Telia, Cogent, NTT, HE)
     TIER_2 = "tier_2"        # Regional Transit / Content Providers (Cloudflare, Fastly, Akamai)
     EYEBALL = "eyeball"      # Last-mile retail / Consumer ISPs
     UNKNOWN = "unknown"
+
 
 # Canonical Tier 1 Global Transit Backbones
 TIER_1_ASNS: Set[int] = {
@@ -36,16 +38,17 @@ TIER_1_ASNS: Set[int] = {
 
 # Major Content Delivery Networks & Hyperscalers
 TIER_2_ASNS: Set[int] = {
-    13335, # Cloudflare
-    15169, # Google
-    16509, # Amazon AWS
+    13335,  # Cloudflare
+    15169,  # Google
+    16509,  # Amazon AWS
     8075,  # Microsoft Azure
-    20940, # Akamai
-    54113, # Fastly
-    24940, # Hetzner
-    16276, # OVH
-    31898, # Oracle Cloud
+    20940,  # Akamai
+    54113,  # Fastly
+    24940,  # Hetzner
+    16276,  # OVH
+    31898,  # Oracle Cloud
 }
+
 
 @dataclass
 class CarrierQualityScore:
@@ -56,6 +59,7 @@ class CarrierQualityScore:
     quality_index: int
     congestion_risk: str
     is_tier1_transit: bool
+
 
 class BGPPeeringIntegrator:
     """Maps BGP topology and ranks proxy routes based on autonomous system connectivity."""
@@ -81,7 +85,7 @@ class BGPPeeringIntegrator:
         elif tier == ASNTier.TIER_2:
             quality = 85
             congestion_risk = "low"
-        else: # Eyeball
+        else:  # Eyeball
             quality = 55
             congestion_risk = "medium" if base_rtt < 80 else "high"
 

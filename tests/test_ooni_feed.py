@@ -2,11 +2,13 @@
 # Authority: Open Observatory of Network Interference (OONI) Data Spec: https://ooni.org/data/
 from huntx.pipeline.ooni import OONIAnomalyBridge, OONIAnomalyType, NetworkInterferenceAlert
 
+
 def test_ooni_anomaly_type_classification():
     assert OONIAnomalyType.SNI_BLOCKING.value == "sni_blocking"
     assert OONIAnomalyType.DNS_TAMPERING.value == "dns_tampering"
     assert OONIAnomalyType.HTTP_THROTTLING.value == "http_throttling"
     assert OONIAnomalyType.TCP_RESET.value == "tcp_reset"
+
 
 def test_ooni_bridge_ingests_anomalies_and_flags_nodes():
     bridge = OONIAnomalyBridge()

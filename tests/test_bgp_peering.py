@@ -2,15 +2,17 @@
 # Authority: PeeringDB API & RFC 4271 (A Border Gateway Protocol 4)
 from huntx.pipeline.bgp import BGPPeeringIntegrator, ASNTier, CarrierQualityScore
 
+
 def test_asn_tier_classification():
     integrator = BGPPeeringIntegrator()
     # Tier 1 ASNs (Level3/Lumen, Telia/Arelion, Cogent, NTT, HE)
-    assert integrator.classify_asn_tier(3356) == ASNTier.TIER_1 # Lumen / Level 3
-    assert integrator.classify_asn_tier(1299) == ASNTier.TIER_1 # Arelion / Telia
+    assert integrator.classify_asn_tier(3356) == ASNTier.TIER_1  # Lumen / Level 3
+    assert integrator.classify_asn_tier(1299) == ASNTier.TIER_1  # Arelion / Telia
     assert integrator.classify_asn_tier(174) == ASNTier.TIER_1  # Cogent
-    assert integrator.classify_asn_tier(2914) == ASNTier.TIER_1 # NTT
-    assert integrator.classify_asn_tier(13335) == ASNTier.TIER_2 # Cloudflare CDN
-    assert integrator.classify_asn_tier(58224) == ASNTier.EYEBALL # Iran Telecommunication Company
+    assert integrator.classify_asn_tier(2914) == ASNTier.TIER_1  # NTT
+    assert integrator.classify_asn_tier(13335) == ASNTier.TIER_2  # Cloudflare CDN
+    assert integrator.classify_asn_tier(58224) == ASNTier.EYEBALL  # Iran Telecommunication Company
+
 
 def test_carrier_quality_evaluation():
     integrator = BGPPeeringIntegrator()

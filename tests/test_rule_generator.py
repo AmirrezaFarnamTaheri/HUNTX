@@ -2,6 +2,7 @@
 # Authority: Sing-box Route Rule Specification & Clash Rule-Set Spec
 from huntx.pipeline.rule_gen import SmartRuleGenerator, RuleCategory
 
+
 def test_rule_category_enum():
     assert RuleCategory.STREAMING.value == "streaming"
     assert RuleCategory.AI.value == "ai"
@@ -9,10 +10,11 @@ def test_rule_category_enum():
     assert RuleCategory.DOMESTIC_DIRECT.value == "domestic_direct"
     assert RuleCategory.AD_BLOCKING.value == "ad_blocking"
 
+
 def test_rule_generator_generates_categorized_rulesets():
     gen = SmartRuleGenerator()
     singbox_rules = gen.generate_singbox_rules()
-    
+
     # Verify categories exist in Sing-box rules
     outbounds = [r.get("outbound") for r in singbox_rules]
     assert "PROXY-STREAMING" in outbounds

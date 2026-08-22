@@ -1,6 +1,7 @@
 # Tests for Vantage Probe Cluster Connector (Python Plane)
 from huntx.connectors.vantage_probe import VantageProbeConnector, VantageProbeObservation
 
+
 def test_vantage_connector_ingests_reports():
     connector = VantageProbeConnector()
     sample_payload = {
@@ -20,6 +21,7 @@ def test_vantage_connector_ingests_reports():
     assert obs[0].alive is True
     assert obs[0].latency_ms == 12.4
     assert obs[1].alive is False
+
 
 def test_vantage_connector_rejects_malformed_payload():
     connector = VantageProbeConnector()

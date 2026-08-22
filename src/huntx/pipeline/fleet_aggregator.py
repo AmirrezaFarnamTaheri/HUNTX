@@ -8,6 +8,7 @@ import statistics
 from dataclasses import dataclass, field
 from typing import List, Dict
 
+
 @dataclass
 class ProbeObservation:
     """Telemetry report from an individual edge vantage probe."""
@@ -16,6 +17,7 @@ class ProbeObservation:
     target_id: str
     latency_ms: float
     is_alive: bool
+
 
 @dataclass
 class FleetConsensusVerdict:
@@ -27,6 +29,7 @@ class FleetConsensusVerdict:
     is_geoblocked: bool
     blocked_regions: List[str] = field(default_factory=list)
     regional_latencies: Dict[str, float] = field(default_factory=dict)
+
 
 class VantageFleetAggregator:
     """Aggregates distributed probe observations to produce consensus health scores."""

@@ -2,6 +2,7 @@
 # Authority: NIST FIPS 180-4 (SHA-256) & Sigstore Manifest Spec
 from huntx.pipeline.sign import SupplyChainSigner, ManifestVerificationResult
 
+
 def test_manifest_hash_generation():
     signer = SupplyChainSigner(secret_key="test-signing-key")
     files_payload = {
@@ -14,6 +15,7 @@ def test_manifest_hash_generation():
     assert manifest["entries"]["proxies.json"]["sha256"] != ""
     assert manifest["entries"]["proxies.txt"]["sha256"] != ""
 
+
 def test_manifest_signature_and_verification():
     signer = SupplyChainSigner(secret_key="master-signing-key")
     files_payload = {
@@ -22,7 +24,7 @@ def test_manifest_signature_and_verification():
     }
     manifest = signer.generate_manifest(files_payload)
     sig = signer.sign_manifest(manifest)
-    assert len(sig) == 64 # HMAC-SHA256 hex length
+    assert len(sig) == 64  # HMAC-SHA256 hex length
 
     # Verify valid signature
     res_valid = signer.verify_manifest(manifest, sig)

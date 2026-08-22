@@ -7,6 +7,7 @@ import asyncio
 from dataclasses import dataclass
 from typing import Dict, Any, Set
 
+
 @dataclass
 class TelemetryEvent:
     """Structured telemetry broadcast event."""
@@ -18,6 +19,7 @@ class TelemetryEvent:
             "event_type": self.event_type,
             "payload": self.payload
         }
+
 
 class TelemetryServer:
     """Async event broadcaster managing active WebSocket subscribers."""

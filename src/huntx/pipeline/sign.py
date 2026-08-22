@@ -11,12 +11,14 @@ import os
 from dataclasses import dataclass
 from typing import Dict, Any, Optional
 
+
 @dataclass
 class ManifestVerificationResult:
     """Outcome of manifest cryptographic validation."""
     is_valid: bool
     root_hash: str
     error_message: Optional[str] = None
+
 
 class SupplyChainSigner:
     """Generates cryptographic root digests and validates release payload integrity."""
@@ -51,7 +53,8 @@ class SupplyChainSigner:
 
         for name in sorted_keys:
             val = files[name]
-            content_bytes = val.encode("utf-8") if isinstance(val, str) else json.dumps(val, sort_keys=True).encode("utf-8")
+            content_bytes = val.encode("utf-8") if isinstance(val, str) else json.dumps(val,
+                                                                                        sort_keys=True).encode("utf-8")
             digest = hashlib.sha256(content_bytes).hexdigest()
             entries[name] = {
                 "sha256": digest,

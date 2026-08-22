@@ -101,9 +101,9 @@ def format_enriched_remark(uri: str, counter: dict, metadata: dict | None = None
         op = metadata.get('operator') or _detect_operator(uri)
         op_tag = f"-{op}" if op else ""
         proto_tag = scheme.upper()
-        
+
         parts = [f"{flag} {country}{op_tag}", proto_tag]
-        
+
         if 'latency_ms' in metadata:
             parts.append(f"⚡{metadata['latency_ms']}ms")
         if 'health_grade' in metadata:

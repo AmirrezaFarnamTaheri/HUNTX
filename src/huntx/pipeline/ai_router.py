@@ -8,6 +8,7 @@ import math
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
+
 @dataclass
 class RouterArmStats:
     """Statistical tracker for an individual proxy node arm."""
@@ -22,6 +23,7 @@ class RouterArmStats:
         self.total_reward += reward
         self.average_reward = self.total_reward / self.pull_count
         self.last_latency_ms = latency_ms
+
 
 class UCB1ProxyRouter:
     """Multi-Armed Bandit router balancing latency exploitation and exploration."""

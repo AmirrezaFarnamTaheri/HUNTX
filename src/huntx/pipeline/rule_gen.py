@@ -7,6 +7,7 @@ Authority:
 from enum import Enum
 from typing import List, Dict, Any
 
+
 class RuleCategory(str, Enum):
     """Semantic domain categories for selective proxy routing."""
     STREAMING = "streaming"
@@ -14,6 +15,7 @@ class RuleCategory(str, Enum):
     DEVELOPER = "developer"
     DOMESTIC_DIRECT = "domestic_direct"
     AD_BLOCKING = "ad_blocking"
+
 
 # Domain dictionaries by category
 STREAMING_DOMAINS = [
@@ -30,6 +32,7 @@ DEV_DOMAINS = [
     "github.com", "githubusercontent.com", "gitlab.com", "docker.com",
     "npmjs.org", "pypi.org", "crates.io", "golang.org"
 ]
+
 
 class SmartRuleGenerator:
     """Generates multi-protocol domain rulesets for client configurations."""
