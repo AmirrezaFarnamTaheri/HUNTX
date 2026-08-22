@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/AmirrezaFarnamTaheri/HUNTX/internal/releasemanifest"
@@ -13,13 +14,17 @@ import (
 )
 
 type Entry struct {
-	Filename   string   `json:"filename"`
-	Path       string   `json:"path"`
-	Size       int64    `json:"size"`
-	SizeString string   `json:"size_str"`
-	MediaType  string   `json:"media_type"`
-	SHA256     string   `json:"sha256"`
-	Tags       []string `json:"tags"`
+	Filename    string   `json:"filename"`
+	Path        string   `json:"path"`
+	Size        int64    `json:"size"`
+	SizeString  string   `json:"size_str"`
+	MediaType   string   `json:"media_type"`
+	SHA256      string   `json:"sha256"`
+	Tags        []string `json:"tags"`
+	Section     string   `json:"section"`
+	Type        string   `json:"type"`
+	Ext         string   `json:"ext"`
+	Description string   `json:"description"`
 }
 
 type Catalog struct {
@@ -55,7 +60,7 @@ func Generate(dataDir, docsDir string, generatedAt time.Time) (Catalog, error) {
 	var total int64
 	for _, record := range manifest.Artifacts {
 		source := filepath.Join(dist, filepath.FromSlash(record.Path))
-		destination := filepath.Join(stage, filepath.FromSlash(record.Path))
+		destination := filepath.Join(stage, "release", filepath.FromSlash(record.Path))
 		if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
 			return Catalog{}, err
 		}
@@ -67,13 +72,17 @@ func Generate(dataDir, docsDir string, generatedAt time.Time) (Catalog, error) {
 			return Catalog{}, err
 		}
 		entries = append(entries, Entry{
-			Filename:   filepath.Base(record.Path),
-			Path:       filepath.ToSlash(filepath.Join("artifacts", record.Path)),
-			Size:       record.Size,
-			SizeString: formatSize(record.Size),
-			MediaType:  record.MediaType,
-			SHA256:     record.SHA256,
-			Tags:       []string{"release"},
+			Filename:    filepath.Base(record.Path),
+			Path:        filepath.ToSlash(filepath.Join("artifacts", "release", record.Path)),
+			Size:        record.Size,
+			SizeString:  formatSize(record.Size),
+			MediaType:   record.MediaType,
+			SHA256:      record.SHA256,
+			Tags:        []string{"release", "verified"},
+			Section:     "release",
+			Type:        artifactType(record.Path),
+			Ext:         artifactType(record.Path),
+			Description: "Verified artifact from the latest published run",
 		})
 		total += record.Size
 	}
@@ -82,14 +91,14 @@ func Generate(dataDir, docsDir string, generatedAt time.Time) (Catalog, error) {
 	if err != nil {
 		return Catalog{}, err
 	}
-	if err := runtimegen.WriteBytesAtomic(filepath.Join(stage, "manifest.json"), manifestBytes, 0o600); err != nil {
+	if err := runtimegen.WriteBytesAtomic(filepath.Join(stage, "release", "manifest.json"), manifestBytes, 0o600); err != nil {
 		return Catalog{}, err
 	}
 
 	catalog := Catalog{
 		SchemaVersion:   1,
 		GeneratedAt:     generatedAt.UTC().Format(time.RFC3339Nano),
-		ReleaseManifest: "artifacts/manifest.json",
+		ReleaseManifest: "artifacts/release/manifest.json",
 		TotalFiles:      len(entries),
 		TotalSize:       total,
 		TotalSizeString: formatSize(total),
@@ -168,4 +177,21 @@ func formatSize(size int64) string {
 		return fmt.Sprintf("%.1f KB", float64(size)/1024)
 	}
 	return fmt.Sprintf("%.1f MB", float64(size)/(1024*1024))
+}
+
+func artifactType(path string) string {
+	filename := strings.ToLower(filepath.Base(path))
+	switch {
+	case strings.HasSuffix(filename, ".singbox.json"):
+		return "SINGBOX"
+	case strings.HasSuffix(filename, ".b64sub"):
+		return "B64SUB"
+	case strings.HasSuffix(filename, ".ovpn"):
+		return "OVPN"
+	case strings.HasSuffix(filename, ".json"):
+		return "JSON"
+	case strings.HasSuffix(filename, ".txt"):
+		return "TXT"
+	}
+	return strings.TrimPrefix(strings.ToUpper(filepath.Ext(filename)), ".")
 }

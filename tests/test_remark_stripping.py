@@ -120,6 +120,31 @@ class TestAddCleanRemark(unittest.TestCase):
         add_clean_remark("vless://c@h:3", counter)
         self.assertEqual(counter, {"vless": 2, "trojan": 1})
 
+    def test_enriched_remark(self):
+        counter = {}
+        meta = {"country": "DE", "operator": "CF", "latency_ms": 42, "health_grade": "A+"}
+        result = add_clean_remark("vless://a@h:443", counter, meta)
+        self.assertIn("DE-CF", result)
+        self.assertIn("VLESS", result)
+        self.assertIn("⚡42ms", result)
+        self.assertIn("⭐A+", result)
+        self.assertIn("#001", result)
+
+    def test_enriched_vmess_remark(self):
+        obj = {"v": "2", "add": "mci.example.com", "port": "443", "id": "uuid"}
+        b64 = base64.b64encode(json.dumps(obj).encode()).decode()
+        uri = f"vmess://{b64}"
+        counter = {}
+        meta = {"country": "IR", "latency_ms": 35}
+        result = add_clean_remark(uri, counter, meta)
+        inner_b64 = result[8:]
+        padding = 4 - len(inner_b64) % 4
+        if padding != 4:
+            inner_b64 += "=" * padding
+        decoded = json.loads(base64.b64decode(inner_b64).decode())
+        self.assertIn("IR-MCI", decoded["ps"])
+        self.assertIn("⚡35ms", decoded["ps"])
+
 
 class TestNpvtDedup(unittest.TestCase):
     """Test that NpvtHandler deduplicates same-proxy-different-remark URIs."""

@@ -58,7 +58,7 @@ class TransformPipeline:
         """Parse one pending observation without writing to the database."""
         file_start = time.monotonic()
         raw_hash = row["raw_hash"]
-        observation_id = int(row["id"])
+        observation_id = int(row.get("id") or 0)
         source_id = row["source_id"]
         filename = row["filename"] or "unknown"
         result: Dict[str, Any] = {

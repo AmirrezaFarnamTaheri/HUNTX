@@ -50,11 +50,79 @@ def strip_proxy_remark(uri: str) -> str:
     return uri
 
 
-def add_clean_remark(uri: str, counter: dict) -> str:
-    """Attach a deterministic display remark to a proxy URI."""
+def _country_to_flag(code: str) -> str:
+    """Convert ISO 2-letter country code to emoji flag."""
+    code = code.upper().strip()
+    if len(code) != 2 or not code.isalpha():
+        return "🌐"
+    return chr(ord(code[0]) + 127397) + chr(ord(code[1]) + 127397)
+
+
+def _detect_operator(uri: str) -> str:
+    """Infer operator or CDN name from URI string."""
+    low = uri.lower()
+    if uri.startswith('vmess://'):
+        try:
+            b64 = uri[8:]
+            decoded_text = _b64_decode_safe(b64).lower()
+            low = f"{low} {decoded_text}"
+        except Exception:
+            pass
+    if any(k in low for k in ("mci", "mcci", "hamrah")):
+        return "MCI"
+    if any(k in low for k in ("mtn", "irancell")):
+        return "MTN"
+    if any(k in low for k in ("rtl", "rightel")):
+        return "RTL"
+    if any(k in low for k in ("cloudflare", "cf-", "workers.dev", "pages.dev")):
+        return "CF"
+    if any(k in low for k in ("hetzner", "your-server.de")):
+        return "Hetzner"
+    if any(k in low for k in ("digitalocean", "do-")):
+        return "DO"
+    if "ovh" in low:
+        return "OVH"
+    if "arvan" in low:
+        return "Arvan"
+    return ""
+
+
+def format_enriched_remark(uri: str, counter: dict, metadata: dict | None = None) -> str:
+    """Format an information-dense display remark with geo, protocol, and stats."""
     scheme = uri.split('://')[0].lower() if '://' in uri else 'proxy'
     counter[scheme] = counter.get(scheme, 0) + 1
-    tag = f'{scheme}-{counter[scheme]}'
+    idx = counter[scheme]
+
+    if not metadata:
+        tag = f'{scheme}-{idx}'
+    else:
+        country = metadata.get('country', 'DE').upper()
+        flag = _country_to_flag(country)
+        op = metadata.get('operator') or _detect_operator(uri)
+        op_tag = f"-{op}" if op else ""
+        proto_tag = scheme.upper()
+
+        parts = [f"{flag} {country}{op_tag}", proto_tag]
+
+        if 'latency_ms' in metadata:
+            parts.append(f"⚡{metadata['latency_ms']}ms")
+        if 'health_grade' in metadata:
+            parts.append(f"⭐{metadata['health_grade']}")
+        parts.append(f"#{idx:03d}")
+        tag = " | ".join(parts)
+
+    return tag
+
+
+def add_clean_remark(uri: str, counter: dict, metadata: dict | None = None) -> str:
+    """Attach a deterministic display remark to a proxy URI."""
+    if metadata:
+        tag = format_enriched_remark(uri, counter, metadata)
+    else:
+        scheme = uri.split('://')[0].lower() if '://' in uri else 'proxy'
+        counter[scheme] = counter.get(scheme, 0) + 1
+        tag = f'{scheme}-{counter[scheme]}'
+
     if uri.startswith('vmess://'):
         try:
             b64 = uri[8:]

@@ -62,3 +62,12 @@ func TestClassifyAndFilter(t *testing.T) {
 		t.Errorf("Expected 1 US record, got %v", usOnly)
 	}
 }
+
+func ExampleEngine_Classify() {
+	engine := NewEngine()
+	record := engine.Classify(ProxyRecord{
+		RawURI:   "vless://uuid@node.example.de:443#DE-Fast",
+		Protocol: "VLESS",
+	})
+	_ = record.CountryCode // "DE"
+}

@@ -1,3 +1,5 @@
+// Package healing provides self-healing, exponential backoff retrying, and state pruning
+// for degraded or intermittently failing proxy endpoints.
 package healing
 
 import (
@@ -6,20 +8,23 @@ import (
 	"time"
 )
 
+// DegradedNode represents an endpoint that failed one or more reachability checks.
 type DegradedNode struct {
-	UniqueHash    string
-	RawURI        string
-	FailCount     int
-	FirstFailedAt time.Time
-	NextCheckAt   time.Time
+	UniqueHash    string    `json:"unique_hash"`
+	RawURI        string    `json:"raw_uri"`
+	FailCount     int       `json:"fail_count"`
+	FirstFailedAt time.Time `json:"first_failed_at"`
+	NextCheckAt   time.Time `json:"next_check_at"`
 }
 
+// Daemon coordinates exponential backoff retesting and pruning of stale degraded nodes.
 type Daemon struct {
 	mu              sync.RWMutex
 	degraded        map[string]*DegradedNode
 	backoffSchedule []time.Duration
 }
 
+// NewDaemon initializes a Daemon with a custom or default backoff schedule.
 func NewDaemon(backoff []time.Duration) *Daemon {
 	if len(backoff) == 0 {
 		backoff = []time.Duration{
@@ -44,6 +49,7 @@ func NewDaemon(backoff []time.Duration) *Daemon {
 	}
 }
 
+// RecordFailure tracks a connection or benchmark failure, incrementing the fail count and computing the next check time.
 func (d *Daemon) RecordFailure(hash, uri string, now time.Time) (int, time.Time) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -74,6 +80,7 @@ func (d *Daemon) RecordFailure(hash, uri string, now time.Time) (int, time.Time)
 	return failCount, nextCheck
 }
 
+// Reinstate removes a recovered node from the degraded registry.
 func (d *Daemon) Reinstate(hash string) bool {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -85,6 +92,7 @@ func (d *Daemon) Reinstate(hash string) bool {
 	return false
 }
 
+// GetDueForRetest returns a copy of all degraded nodes whose NextCheckAt is before or equal to now.
 func (d *Daemon) GetDueForRetest(now time.Time) []*DegradedNode {
 	// Return defensive copies. Returning internal pointers after releasing the
 	// mutex lets callers mutate daemon state without synchronization.
@@ -109,6 +117,7 @@ func (d *Daemon) GetDueForRetest(now time.Time) []*DegradedNode {
 	return due
 }
 
+// PurgeStale removes all nodes that have been continuously failing longer than maxAge.
 func (d *Daemon) PurgeStale(maxAge time.Duration, now time.Time) int {
 	if maxAge <= 0 {
 		return 0

@@ -1,3 +1,5 @@
+// Package georoute provides ISO-3166-1 alpha-2 geolocation classification and filtering
+// for proxy URI configurations based on URL remarks and hostname top-level domains.
 package georoute
 
 import (
@@ -20,6 +22,7 @@ var (
 	}
 )
 
+// ProxyRecord represents a single proxy endpoint with classification metadata.
 type ProxyRecord struct {
 	UniqueHash  string `json:"unique_hash"`
 	RawURI      string `json:"raw_uri"`
@@ -28,8 +31,10 @@ type ProxyRecord struct {
 	RegionTier  int    `json:"region_tier"`
 }
 
+// Engine performs geolocation tag extraction and routing tier classification.
 type Engine struct{}
 
+// NewEngine creates a new geolocation routing engine.
 func NewEngine() *Engine {
 	return &Engine{}
 }
@@ -68,6 +73,8 @@ func countryFromHostname(hostname string) string {
 	return "XX"
 }
 
+// InferCountryCode extracts an ISO country code from the URI remark fragment or hostname TLD.
+// Returns "XX" if no valid country code could be identified.
 func (e *Engine) InferCountryCode(uri string) string {
 	// Parse only the structured URI fragment and hostname. Searching the full
 	// URI for strings such as ".de" lets passwords, query parameters and paths
@@ -83,6 +90,7 @@ func (e *Engine) InferCountryCode(uri string) string {
 	return countryFromHostname(parsed.Hostname())
 }
 
+// NormalizeProtocol standardizes protocol aliases to canonical names (e.g. ss -> shadowsocks).
 func NormalizeProtocol(proto string) string {
 	p := strings.ToLower(strings.TrimSpace(proto))
 	switch p {
@@ -97,6 +105,7 @@ func NormalizeProtocol(proto string) string {
 	}
 }
 
+// Classify enriches a ProxyRecord with its inferred CountryCode, normalized Protocol, and RegionTier.
 func (e *Engine) Classify(rec ProxyRecord) ProxyRecord {
 	country := e.InferCountryCode(rec.RawURI)
 	proto := NormalizeProtocol(rec.Protocol)
@@ -112,6 +121,7 @@ func (e *Engine) Classify(rec ProxyRecord) ProxyRecord {
 	return rec
 }
 
+// FilterByRegion returns a new slice containing only records matching the target ISO country code.
 func FilterByRegion(records []ProxyRecord, country string) []ProxyRecord {
 	target := strings.ToUpper(strings.TrimSpace(country))
 	var filtered []ProxyRecord

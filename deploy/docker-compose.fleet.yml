@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  huntx-daemon:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.daemon
+    ports:
+      - "127.0.0.1:9090:9090"
+    restart: unless-stopped
+    environment:
+      - LISTEN_ADDR=0.0.0.0:9090
+      - HUNTX_DAEMON_CONTROL_TOKEN=${HUNTX_DAEMON_CONTROL_TOKEN:?set HUNTX_DAEMON_CONTROL_TOKEN}
+
+  probe-us-east:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.probe
+    environment:
+      - PROBE_ID=probe-us-east-01
+      - REGION=US
+      - ORCHESTRATOR_URL=${HUNTX_ORCHESTRATOR_URL:?set HUNTX_ORCHESTRATOR_URL}
+      - ORCHESTRATOR_BEARER_TOKEN=${HUNTX_ORCHESTRATOR_BEARER_TOKEN:-}
+      - PROBE_TARGETS=${HUNTX_PROBE_TARGETS:-1.1.1.1:443}
+    restart: unless-stopped
+
+  probe-eu-central:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.probe
+    environment:
+      - PROBE_ID=probe-eu-central-01
+      - REGION=DE
+      - ORCHESTRATOR_URL=${HUNTX_ORCHESTRATOR_URL:?set HUNTX_ORCHESTRATOR_URL}
+      - ORCHESTRATOR_BEARER_TOKEN=${HUNTX_ORCHESTRATOR_BEARER_TOKEN:-}
+      - PROBE_TARGETS=${HUNTX_PROBE_TARGETS:-1.1.1.1:443}
+    restart: unless-stopped
+
+  probe-me-tehran:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.probe
+    environment:
+      - PROBE_ID=probe-me-tehran-01
+      - REGION=IR
+      - ORCHESTRATOR_URL=${HUNTX_ORCHESTRATOR_URL:?set HUNTX_ORCHESTRATOR_URL}
+      - ORCHESTRATOR_BEARER_TOKEN=${HUNTX_ORCHESTRATOR_BEARER_TOKEN:-}
+      - PROBE_TARGETS=${HUNTX_PROBE_TARGETS:-1.1.1.1:443}
+    restart: unless-stopped

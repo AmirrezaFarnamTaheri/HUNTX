@@ -1,0 +1,17 @@
+{
+  "name": "HUNTX Cyber Intelligence Hub",
+  "short_name": "HUNTX",
+  "description": "Published proxy snapshot dashboard and protocol decoder",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#070a0f",
+  "theme_color": "#00d2ff",
+  "icons": [
+    {
+      "src": "./assets/images/huntx-v2-render.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

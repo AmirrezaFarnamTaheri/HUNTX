@@ -1,0 +1,43 @@
+replicaCount: 3
+nameOverride: ""
+
+daemon:
+  image:
+    repository: ghcr.io/amirrezaw/huntx-daemon
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  service:
+    port: 9090
+  controlToken: ""
+
+image:
+  repository: ghcr.io/amirrezaw/huntx-probe
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 9091
+
+orchestratorUrl: ""
+orchestratorBearerToken: ""
+probeTargets: "1.1.1.1:443"
+
+probes:
+  - id: probe-us-east
+    region: US
+    targets: ""
+  - id: probe-eu-central
+    region: DE
+    targets: ""
+  - id: probe-me-south
+    region: IR
+    targets: ""
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 128Mi
+  requests:
+    cpu: 50m
+    memory: 32Mi

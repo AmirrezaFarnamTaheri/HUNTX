@@ -443,8 +443,15 @@ jobs:
               return 1
             fi
             .bin/huntx-tools verify-output --data-dir persist/data || return 1
+            # Keep the versioned dashboard shell. site-data replaces only the
+            # verified artifacts and catalog within this candidate directory.
             rm -rf "$candidate_dir"
+            mkdir -p "$candidate_dir"
+            cp -a docs/. "$candidate_dir/"
             .bin/huntx-tools site-data --data-dir persist/data --docs-dir "$candidate_dir" || return 1
+            test -f "$candidate_dir/index.html"
+            test -f "$candidate_dir/assets/js/bundle.js"
+            test -f "$candidate_dir/sw.js"
             rm -rf docs
             mv "$candidate_dir" docs
           }

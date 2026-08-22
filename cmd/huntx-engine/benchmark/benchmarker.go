@@ -1,3 +1,6 @@
+// Package benchmark provides high-concurrency, safe TCP/TLS network latency measurement
+// across heterogeneous proxy endpoints. It enforces strict public IP filtering to prevent SSRF
+// against internal and private network blocks.
 package benchmark
 
 import (
@@ -9,13 +12,25 @@ import (
 	"time"
 )
 
-type CheckResult struct {
-	Target  string
-	Latency time.Duration
-	Alive   bool
-	Err     error
+// Prober defines the contract for probing network targets.
+type Prober interface {
+	// CheckTarget probes a single host:port endpoint.
+	CheckTarget(ctx context.Context, target string) CheckResult
+	// CheckBatch probes a list of host:port endpoints concurrently.
+	CheckBatch(ctx context.Context, targets []string) []CheckResult
 }
 
+var _ Prober = (*Benchmarker)(nil)
+
+// CheckResult stores the latency and alive status of a probed endpoint.
+type CheckResult struct {
+	Target  string        `json:"target"`
+	Latency time.Duration `json:"latency_ms"`
+	Alive   bool          `json:"alive"`
+	Err     error         `json:"error,omitempty"`
+}
+
+// Benchmarker manages network latency checks with bounded concurrency and timeouts.
 type Benchmarker struct {
 	Timeout     time.Duration
 	Concurrency int
@@ -110,19 +125,29 @@ func resolvePublicTargets(ctx context.Context, target string) ([]string, error) 
 	return resolved, nil
 }
 
-func NewBenchmarker(timeout time.Duration, concurrency int) *Benchmarker {
-	if timeout <= 0 {
-		timeout = 3 * time.Second
+// New creates a new Benchmarker configured with functional options.
+// Defaults: 3s dial timeout, 100 max concurrent workers.
+func New(opts ...Option) *Benchmarker {
+	b := &Benchmarker{
+		Timeout:     3 * time.Second,
+		Concurrency: 100,
 	}
-	if concurrency <= 0 {
-		concurrency = 100
+	for _, opt := range opts {
+		opt(b)
 	}
-	return &Benchmarker{
-		Timeout:     timeout,
-		Concurrency: concurrency,
-	}
+	return b
 }
 
+// NewBenchmarker creates a Benchmarker with explicit parameters for backward compatibility.
+func NewBenchmarker(timeout time.Duration, concurrency int) *Benchmarker {
+	return New(
+		WithTimeout(timeout),
+		WithConcurrency(concurrency),
+	)
+}
+
+// CheckTarget probes a single target endpoint, resolving DNS records and selecting the first
+// responsive public IP within the configured timeout.
 func (b *Benchmarker) CheckTarget(ctx context.Context, target string) CheckResult {
 	ctxTimeout, cancel := context.WithTimeout(ctx, b.Timeout)
 	defer cancel()
