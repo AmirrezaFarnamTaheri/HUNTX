@@ -208,16 +208,22 @@ jobs:
           mkdir -p state-input/data/{raw,outputs,outputs_dev,dist,rejects,archive,state,logs}
           touch state-input/.state-bundle
           if [[ -z "$S3_BUCKET" ]]; then
-            echo "Stateless run: no S3 bucket configured."
-            exit 0
+            echo "S3_BUCKET is required for the production workflow." >&2
+            exit 1
           fi
 
           aws sts get-caller-identity --no-cli-pager >/dev/null
-          if ! aws s3 cp "s3://$S3_BUCKET/current.json" current.json --only-show-errors; then
+          if ! aws s3api head-object --bucket "$S3_BUCKET" --key current.json --no-cli-pager >/dev/null 2>restore-error.log; then
+            if ! grep -Eq 'NotFound|404|NoSuchKey' restore-error.log; then
+              cat restore-error.log >&2
+              echo "Unable to determine whether durable state exists; refusing a fresh run." >&2
+              exit 1
+            fi
             echo "No current generation; starting fresh."
             echo "mode=fresh" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          aws s3 cp "s3://$S3_BUCKET/current.json" current.json --only-show-errors
 
           generation="$(.bin/huntx-tools runtime-generation validate-pointer --pointer current.json)"
           aws s3 cp \
@@ -658,8 +664,8 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "$S3_BUCKET" ]]; then
-            echo "No S3 bucket configured; verified checkpoint remains ephemeral."
-            exit 0
+            echo "S3_BUCKET is required before a production checkpoint can persist." >&2
+            exit 1
           fi
           generation="${{ steps.generation.outputs.id }}"
           prefix="generations/$generation"
@@ -689,8 +695,8 @@ jobs:
 
   deploy-pages:
     name: deploy-pages
-    needs: run
-    if: ${{ always() && needs.run.result == 'success' && needs.run.outputs.package_ready == 'true' }}
+    needs: [run, persist]
+    if: ${{ always() && needs.run.result == 'success' && needs.persist.result == 'success' && needs.run.outputs.package_ready == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     permissions:

@@ -234,11 +234,14 @@ vless://uuid-1@198.51.100.1:443?security=tls#Node-1-Duplicate
 	defer cancel()
 
 	reader := bytes.NewReader([]byte(rawInput))
-	ch := stream.Ingest(ctx, reader, 100)
+	ch, errs := stream.Ingest(ctx, reader, 100)
 
 	var nodes []stream.NormalizedNode
 	for node := range ch {
 		nodes = append(nodes, node)
+	}
+	for err := range errs {
+		t.Fatalf("unexpected stream ingestion error: %v", err)
 	}
 
 	// Expect 3 unique valid nodes (Node 1, Node 2, Node 3)

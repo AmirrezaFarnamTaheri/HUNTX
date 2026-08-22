@@ -3,6 +3,7 @@
 
 import { FALLBACK_CATALOG, SAMPLE_PROXIES, GLOBE_HUBS, INGEST_STATS } from "./data.js";
 import { initTelemetryGlobe } from "./globe.js";
+import { i18n } from "./i18n.js";
 import {
   decodeProxyURI,
   extractAllURIs,
@@ -402,6 +403,10 @@ export class AppState {
     this.unmaskedNodes = new Set();
     this.activeQRNodes = new Set();
     this.livePings = new Map();
+    this.liveDataState = "idle";
+    this.liveRefreshTimer = null;
+    this.liveRefreshInFlight = false;
+    this.boundVisibilityRefresh = null;
   }
 
   getInitialPageTab() {
@@ -479,28 +484,55 @@ export class AppState {
     }
   }
 
+  getDecodedArtifactRecord(catalog = this.catalog) {
+    const files = Array.isArray(catalog?.files) ? catalog.files : [];
+    return files.find((file) => file?.filename === "all_sources.npvt.decoded.json"
+      && typeof file.path === "string"
+      && /^artifacts\/release\/[A-Za-z0-9._/-]+$/.test(file.path)
+      && typeof file.sha256 === "string"
+      && /^[a-f0-9]{64}$/i.test(file.sha256)) || null;
+  }
+
+  async loadVerifiedJsonArtifact(artifact) {
+    if (!artifact || !globalThis.crypto?.subtle) {
+      throw new Error("Web Crypto is required to verify published artifacts");
+    }
+    const response = await fetch(artifact.path, { cache: "no-store" });
+    if (!response.ok) throw new Error(`Artifact request failed: ${response.status}`);
+    const bytes = await response.arrayBuffer();
+    const digest = await crypto.subtle.digest("SHA-256", bytes);
+    const actualHash = Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, "0")).join("");
+    if (actualHash !== artifact.sha256.toLowerCase()) {
+      throw new Error("Published artifact integrity check failed");
+    }
+    return JSON.parse(new TextDecoder().decode(bytes));
+  }
+
   async loadLiveData() {
     this.liveDataState = "loading";
-    let loadedFreshData = false;
-    // 1. Fetch live catalog
+    let catalogCandidate = null;
+    let proxyCandidate = null;
+    let globeCandidate = null;
+
+    // Keep the catalog and its decoded proxy data as one verified snapshot. A
+    // new catalog must never be rendered beside stale bundled proxy records.
     try {
       const res = await fetch("catalog.json", { cache: "no-store" });
       if (res.ok) {
         const liveCatalog = await res.json();
         if (liveCatalog && Array.isArray(liveCatalog.files) && liveCatalog.files.length > 0) {
-          this.catalog = liveCatalog;
-          loadedFreshData = true;
+          catalogCandidate = liveCatalog;
         }
       }
-    } catch (e) { this.liveDataState = "stale"; }
+    } catch (e) {}
 
-    // 2. Published release data is authoritative even when smaller than the demo bundle.
+    // Published release data is authoritative even when smaller than the demo bundle.
     try {
-      const decodedRes = await fetch("artifacts/release/all_sources.npvt.decoded.json", { cache: "no-store" });
-      if (decodedRes.ok) {
-        const decodedData = await decodedRes.json();
+      const decodedArtifact = this.getDecodedArtifactRecord(catalogCandidate);
+      if (decodedArtifact) {
+        const decodedData = await this.loadVerifiedJsonArtifact(decodedArtifact);
         if (decodedData && Array.isArray(decodedData.entries) && decodedData.entries.length > 0) {
-          this.proxies = decodedData.entries.map((entry, idx) => {
+          proxyCandidate = decodedData.entries.map((entry, idx) => {
             const proto = (entry.protocol || "vless").toLowerCase();
             const tag = entry.tag || `${proto}-${idx + 1}`;
             const host = entry.address || "127.0.0.1";
@@ -548,16 +580,76 @@ export class AppState {
             };
           });
 
-          this.globeHubs = clusterGlobeHubs(this.proxies);
-          loadedFreshData = true;
+          globeCandidate = clusterGlobeHubs(proxyCandidate);
         }
       }
-    } catch (e) {}
-    if (loadedFreshData) {
+    } catch (e) {
+      this.liveDataState = "integrity-error";
+    }
+
+    if (catalogCandidate && proxyCandidate) {
+      this.catalog = catalogCandidate;
+      this.proxies = proxyCandidate;
+      this.globeHubs = globeCandidate;
       this.liveDataState = "ready";
     } else if (this.liveDataState === "loading") {
       this.liveDataState = "stale";
     }
+  }
+
+  getPublishedDataFingerprint() {
+    const catalog = this.catalog || {};
+    const files = Array.isArray(catalog.files) ? catalog.files : [];
+    return [
+      catalog.generated_at || "",
+      catalog.release_manifest || "",
+      catalog.total_files || files.length,
+      catalog.total_size || ""
+    ].join("|");
+  }
+
+  mountGlobe() {
+    this.globeInstance?.destroy?.();
+    this.globeInstance = initTelemetryGlobe("telemetry-globe-canvas", (hub) => {
+      this.selectedCountry = hub.code;
+      this.renderFilterBar();
+      this.renderNodes();
+      this.switchPageTab("proxies", true);
+      this.showToast(`Filtered by ${escapeHTML(hub.name)} (${escapeHTML(hub.code)})`);
+    }, this.globeHubs);
+  }
+
+  async refreshPublishedData({ notify = true } = {}) {
+    if (this.liveRefreshInFlight) return false;
+    this.liveRefreshInFlight = true;
+    const previousFingerprint = this.getPublishedDataFingerprint();
+    try {
+      await this.loadLiveData();
+      if (previousFingerprint === this.getPublishedDataFingerprint()) return false;
+      this.renderHeader();
+      this.renderHero();
+      this.renderRadarDiagnostics();
+      this.renderFilterBar();
+      this.renderNodes();
+      this.renderArtifacts();
+      this.renderRuleStudio();
+      this.renderFooter();
+      this.switchPageTab(this.activePageTab, false);
+      this.mountGlobe();
+      if (notify) this.showToast("Published data updated");
+      return true;
+    } finally {
+      this.liveRefreshInFlight = false;
+    }
+  }
+
+  startPublishedDataRefresh() {
+    const refreshWhenVisible = () => {
+      if (!document.hidden) this.refreshPublishedData();
+    };
+    this.boundVisibilityRefresh = refreshWhenVisible;
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    this.liveRefreshTimer = window.setInterval(refreshWhenVisible, 300000);
   }
 
   async init() {
@@ -576,15 +668,8 @@ export class AppState {
     this.switchPageTab(this.activePageTab, false);
     this.bindGlobalEvents();
 
-    setTimeout(() => {
-      this.globeInstance = initTelemetryGlobe("telemetry-globe-canvas", (hub) => {
-        this.selectedCountry = hub.code;
-        this.renderFilterBar();
-        this.renderNodes();
-        this.switchPageTab("proxies", true);
-        this.showToast(`Filtered by ${escapeHTML(hub.name)} (${escapeHTML(hub.code)})`);
-      }, this.globeHubs);
-    }, 100);
+    setTimeout(() => this.mountGlobe(), 100);
+    this.startPublishedDataRefresh();
   }
 
   inferCountryFromTagOrHost(tag, host) {
@@ -938,6 +1023,21 @@ export class AppState {
             <span class="font-mono text-[11px] font-semibold text-emerald-400">PIPELINE ONLINE</span>
           </div>
 
+          <label class="sr-only" for="language-selector">${i18n.translate("Language")}</label>
+          <select
+            id="language-selector"
+            data-i18n-ignore
+            dir="ltr"
+            class="min-h-[40px] w-[76px] sm:w-[92px] px-2 bg-gray-900 border border-gray-700 text-gray-200 text-xs font-mono rounded-xl focus-ring cursor-pointer"
+            aria-label="${i18n.translate("Language")}"
+            title="${i18n.translate("Language")}"
+          >
+            <option value="en" ${i18n.getLocale() === "en" ? "selected" : ""}>English</option>
+            <option value="fa" ${i18n.getLocale() === "fa" ? "selected" : ""}>فارسی</option>
+            <option value="zh-CN" ${i18n.getLocale() === "zh-CN" ? "selected" : ""}>中文</option>
+            <option value="ru" ${i18n.getLocale() === "ru" ? "selected" : ""}>Русский</option>
+          </select>
+
           <button
             id="btn-open-scanner"
             class="flex items-center gap-1.5 px-3.5 py-2 min-h-[40px] bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/30 hover:border-emerald-400 text-emerald-300 text-xs font-mono font-medium rounded-xl transition-all shadow-sm focus-ring cursor-pointer"
@@ -1031,6 +1131,10 @@ export class AppState {
 
     document.getElementById("btn-toggle-theme")?.addEventListener("click", () => {
       this.toggleTheme();
+    });
+
+    document.getElementById("language-selector")?.addEventListener("change", (event) => {
+      i18n.setLocale(event.target.value);
     });
   }
 

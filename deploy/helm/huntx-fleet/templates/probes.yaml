@@ -29,7 +29,6 @@ spec:
                 secretKeyRef:
                   name: {{ include "huntx-fleet.fullname" $ }}-control
                   key: orchestrator-token
-                  optional: true
             - name: PROBE_TARGETS
               value: {{ default $.Values.probeTargets .targets | quote }}
 {{- end }}

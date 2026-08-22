@@ -15,6 +15,18 @@ spec:
           image: "{{ .Values.daemon.image.repository }}:{{ .Values.daemon.image.tag }}"
           imagePullPolicy: {{ .Values.daemon.image.pullPolicy }}
           ports: [{ name: http, containerPort: {{ .Values.daemon.service.port }} }]
+          startupProbe:
+            httpGet: { path: /status, port: http }
+            failureThreshold: 12
+            periodSeconds: 5
+          readinessProbe:
+            httpGet: { path: /ready, port: http }
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: { path: /status, port: http }
+            periodSeconds: 20
+            failureThreshold: 3
           resources:
 {{ toYaml .Values.resources | indent 12 }}
           env:
@@ -22,6 +34,8 @@ spec:
               value: "0.0.0.0:{{ .Values.daemon.service.port }}"
             - name: HUNTX_DAEMON_CONTROL_TOKEN
               valueFrom: { secretKeyRef: { name: {{ include "huntx-fleet.fullname" . }}-control, key: token } }
+            - name: HUNTX_DAEMON_NODES_JSON
+              value: {{ required "daemon.nodesJson is required" .Values.daemon.nodesJson | quote }}
 ---
 apiVersion: v1
 kind: Service

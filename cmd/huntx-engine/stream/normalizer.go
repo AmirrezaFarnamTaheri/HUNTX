@@ -617,16 +617,21 @@ func (d *StreamDeduplicator) Count() int {
 	return len(d.seen)
 }
 
-// Ingest reads lines from an io.Reader and streams unique, normalized nodes over a channel.
-func Ingest(ctx context.Context, r io.Reader, bufferSize int) <-chan NormalizedNode {
+// Ingest reads lines from an io.Reader and streams unique, normalized nodes.
+// The returned error channel reports reader/scanner failures that would otherwise
+// be indistinguishable from a clean EOF. Callers must not publish partial output
+// until the channel closes without an error.
+func Ingest(ctx context.Context, r io.Reader, bufferSize int) (<-chan NormalizedNode, <-chan error) {
 	if bufferSize <= 0 {
 		bufferSize = 256
 	}
 	out := make(chan NormalizedNode, bufferSize)
+	errs := make(chan error, 1)
 	dedup := NewStreamDeduplicator(100000)
 
 	go func() {
 		defer close(out)
+		defer close(errs)
 		scanner := bufio.NewScanner(r)
 		// Allocate 64KB scan buffer
 		buf := make([]byte, 64*1024)
@@ -657,9 +662,13 @@ func Ingest(ctx context.Context, r io.Reader, bufferSize int) <-chan NormalizedN
 				}
 			}
 		}
+
+		if err := scanner.Err(); err != nil {
+			errs <- fmt.Errorf("stream ingestion: %w", err)
+		}
 	}()
 
-	return out
+	return out, errs
 }
 
 // base64DecodeAuto handles both standard and URL base64 encodings with optional padding.

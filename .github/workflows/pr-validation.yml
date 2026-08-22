@@ -8,6 +8,8 @@ on:
       - "configs/**"
       - "docs/**"
       - "go.mod"
+      - "go.sum"
+      - "deploy/**"
       - "cmd/**"
       - "internal/**"
       - "pyproject.toml"
@@ -25,6 +27,8 @@ on:
       - "configs/**"
       - "docs/**"
       - "go.mod"
+      - "go.sum"
+      - "deploy/**"
       - "cmd/**"
       - "internal/**"
       - "pyproject.toml"
@@ -78,6 +82,23 @@ jobs:
           go vet ./...
           go build ./cmd/huntx-tools
           go build ./cmd/huntx-engine
+          go build ./cmd/huntx-daemon
+          go build ./cmd/huntx-probe
+
+      - name: Validate fleet deployment manifests
+        run: |
+          set -euo pipefail
+          docker build -f deploy/Dockerfile.daemon .
+          docker build -f deploy/Dockerfile.probe .
+          curl -fsSL https://get.helm.sh/helm-v3.17.3-linux-amd64.tar.gz | tar -xz
+          helm_args=(
+            --set-string daemon.controlToken=ci-control-token
+            --set-file daemon.nodesJson=deploy/helm/huntx-fleet/ci-nodes.json
+            --set-string orchestratorBearerToken=ci-orchestrator-token
+            --set-string orchestratorUrl=https://receiver.invalid/api/vantage/report
+          )
+          ./linux-amd64/helm lint deploy/helm/huntx-fleet "${helm_args[@]}"
+          ./linux-amd64/helm template huntx deploy/helm/huntx-fleet "${helm_args[@]}" >/dev/null
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:

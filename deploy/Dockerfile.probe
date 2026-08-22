@@ -1,12 +1,12 @@
 # Multi-stage minimal container for HUNTX Edge Vantage Probe Agent
 # Authority: OCI Image Format Specification
-FROM golang:1.22-alpine AS builder
+FROM golang:1.25-alpine AS builder
 WORKDIR /app
-COPY go.mod ./
-RUN go mod download || true
+COPY go.mod go.sum ./
+RUN go mod download
 COPY cmd/huntx-probe/ ./cmd/huntx-probe/
 COPY cmd/huntx-engine/ ./cmd/huntx-engine/
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /huntx-probe ./cmd/huntx-probe
+RUN CGO_ENABLED=0 GOOS=linux go build -mod=readonly -ldflags="-s -w" -o /huntx-probe ./cmd/huntx-probe
 
 FROM alpine:3.20
 RUN adduser -D -u 10001 huntx

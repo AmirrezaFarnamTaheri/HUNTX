@@ -6,13 +6,20 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
+
+// HealthCheck evaluates one node and returns its observed latency.
+type HealthCheck func(context.Context, DaemonNode) (time.Duration, error)
 
 // DaemonNode represents an evaluated proxy endpoint in the daemon's rotation pool.
 type DaemonNode struct {
@@ -55,6 +62,18 @@ type Daemon struct {
 	startTime     time.Time
 	listenAddr    string
 	checkInterval time.Duration
+}
+
+func (d *Daemon) pacDirective(node DaemonNode) (string, error) {
+	address := net.JoinHostPort(node.Server, strconv.Itoa(node.Port))
+	switch strings.ToLower(node.Protocol) {
+	case "http", "https":
+		return "PROXY " + address, nil
+	case "socks5":
+		return "SOCKS5 " + address, nil
+	default:
+		return "", fmt.Errorf("unsupported PAC protocol %q", node.Protocol)
+	}
 }
 
 // NewDaemon initializes a new proxy management daemon.
@@ -106,6 +125,52 @@ func (d *Daemon) RotateNode() DaemonNode {
 	return DaemonNode{ID: "none", Alive: false}
 }
 
+// StartHealthChecks continuously refreshes node health and automatically moves
+// away from a failed active node. The goroutine ends with ctx.
+func (d *Daemon) StartHealthChecks(ctx context.Context, check HealthCheck) {
+	if check == nil {
+		return
+	}
+	interval := d.checkInterval
+	if interval <= 0 {
+		interval = 30 * time.Second
+	}
+
+	run := func() {
+		d.mu.RLock()
+		nodes := append([]DaemonNode(nil), d.nodes...)
+		d.mu.RUnlock()
+		for index, node := range nodes {
+			latency, err := check(ctx, node)
+			d.mu.Lock()
+			if index < len(d.nodes) && d.nodes[index].ID == node.ID {
+				d.nodes[index].Alive = err == nil
+				if err == nil {
+					d.nodes[index].Latency = latency
+				}
+			}
+			d.mu.Unlock()
+		}
+		if !d.ActiveNode().Alive {
+			d.RotateNode()
+		}
+	}
+
+	go func() {
+		run()
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				run()
+			}
+		}
+	}()
+}
+
 // GetStatus returns the operational snapshot of the daemon.
 func (d *Daemon) GetStatus() DaemonStatus {
 	d.mu.RLock()
@@ -133,6 +198,14 @@ func (d *Daemon) Handler() http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		status := d.GetStatus()
 		_ = json.NewEncoder(w).Encode(status)
+	})
+
+	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
+		if !d.ActiveNode().Alive {
+			http.Error(w, "No live proxy node available", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	})
 
 	mux.HandleFunc("/rotate", func(w http.ResponseWriter, r *http.Request) {
@@ -163,12 +236,17 @@ func (d *Daemon) Handler() http.Handler {
 			http.Error(w, "No live proxy node available", http.StatusServiceUnavailable)
 			return
 		}
+		directive, err := d.pacDirective(active)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusServiceUnavailable)
+			return
+		}
 		pacScript := fmt.Sprintf(`function FindProxyForURL(url, host) {
     if (shExpMatch(host, "*.local") || isInNet(dnsResolve(host), "10.0.0.0", "255.0.0.0") || isInNet(dnsResolve(host), "192.168.0.0", "255.255.0.0")) {
         return "DIRECT";
     }
-    return "PROXY %s:%d; DIRECT";
-}`, active.Server, active.Port)
+    return %s;
+}`, strconv.Quote(directive))
 		w.Header().Set("Content-Type", "application/x-ns-proxy-autoconfig")
 		_, _ = w.Write([]byte(pacScript))
 	})

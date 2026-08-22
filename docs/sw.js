@@ -1,5 +1,5 @@
-// HUNTX ServiceWorker — Offline Cache-First Architecture
-const CACHE_NAME = 'huntx-cache-v2.8';
+// HUNTX ServiceWorker — offline fallback with deployment-aware freshness.
+const CACHE_NAME = 'huntx-cache-v3.0';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -15,11 +15,19 @@ const ASSETS_TO_CACHE = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE).catch((err) => {
-        console.warn('[HUNTX-SW] Cache prefetch partial warning:', err);
-      });
-    }).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then(async (cache) => {
+      const results = await Promise.allSettled(ASSETS_TO_CACHE.map(async (asset) => {
+        const response = await fetch(asset, { cache: 'reload' });
+        if (!response.ok) throw new Error(`Cache prefetch failed: ${asset} (${response.status})`);
+        await cache.put(asset, response);
+      }));
+      const failed = results.filter((result) => result.status === 'rejected');
+      if (failed.length) {
+        await caches.delete(CACHE_NAME);
+        throw new Error(`[HUNTX-SW] Cache prefetch failed for ${failed.length} required asset(s)`);
+      }
+      await self.skipWaiting();
+    })
   );
 });
 
@@ -28,7 +36,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((k) => {
-          if (k !== CACHE_NAME) {
+          if (k.startsWith('huntx-cache-') && k !== CACHE_NAME) {
             return caches.delete(k);
           }
         })
@@ -40,30 +48,44 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const path = new URL(event.request.url).pathname;
-  // Published feeds must not lag behind their catalog after a deployment.
+  // Published feeds and the deployment shell must not lag after a deployment.
   const freshReleaseData = path.endsWith('/catalog.json') || path.includes('/artifacts/release/');
+  const deploymentShell = event.request.mode === 'navigate'
+    || path.endsWith('/index.html')
+    || path.endsWith('/assets/js/bundle.js')
+    || path.endsWith('/sw.js');
+  const networkFirst = (request) => fetch(request).then(async (response) => {
+    if (response && response.ok) {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.put(request, response.clone());
+    }
+    return response;
+  }).catch(() => caches.match(request));
   event.respondWith(
-    freshReleaseData ? fetch(event.request).then((response) => {
-      if (response && response.ok) caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
-      return response;
-    }).catch(() => caches.match(event.request)) :
+    (freshReleaseData || deploymentShell) ? networkFirst(event.request).then((response) => {
+      if (response) return response;
+      if (event.request.mode === 'navigate') return caches.match('./index.html');
+      return new Response('Offline resource unavailable', { status: 503, statusText: 'Service Unavailable' });
+    }) :
     caches.match(event.request).then((cached) => {
       if (cached) {
         // Return cached and update in background
-        fetch(event.request).then((resp) => {
+        event.waitUntil(fetch(event.request).then(async (resp) => {
           if (resp && resp.status === 200) {
             const copy = resp.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+            const cache = await caches.open(CACHE_NAME);
+            await cache.put(event.request, copy);
           }
-        }).catch(() => {});
+        }).catch(() => {}));
         return cached;
       }
-      return fetch(event.request).then((resp) => {
+      return fetch(event.request).then(async (resp) => {
         if (!resp || resp.status !== 200 || resp.type !== 'basic') {
           return resp;
         }
         const copy = resp.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        const cache = await caches.open(CACHE_NAME);
+        await cache.put(event.request, copy);
         return resp;
       });
     }).catch(() => event.request.mode === 'navigate'
