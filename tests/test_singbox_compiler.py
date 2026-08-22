@@ -86,4 +86,5 @@ def test_singbox_compiler_compiles_vless_and_hysteria2_outbounds():
 def test_singbox_compiler_handles_empty_nodes():
     compiler = SingboxCompiler()
     config = compiler.compile([])
-    assert len(config["outbounds"]) == 5 # PROXY-AUTO, AUTO-BEST, direct, block, dns-out
+    assert [outbound["tag"] for outbound in config["outbounds"]] == ["direct", "block", "dns-out"]
+    assert config["dns"]["servers"][0]["detour"] == "direct"

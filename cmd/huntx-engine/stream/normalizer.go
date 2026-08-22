@@ -66,7 +66,7 @@ func (n *NormalizedNode) IdentityKey() string {
 	if authKey == "" {
 		authKey = n.Password
 	}
-	raw := fmt.Sprintf("%s://%s@%s:%d%s?sec=%s&net=%s&sni=%s",
+	raw := fmt.Sprintf("%s://%s@%s:%d%s?sec=%s&net=%s&sni=%s&cipher=%s&alpn=%s&fp=%s&pbk=%s&sid=%s&spx=%s&host=%s&service=%s&insecure=%t",
 		n.Protocol,
 		authKey,
 		strings.ToLower(n.Host),
@@ -75,6 +75,15 @@ func (n *NormalizedNode) IdentityKey() string {
 		n.Security,
 		n.Network,
 		strings.ToLower(n.SNI),
+		n.Cipher,
+		n.ALPN,
+		n.Fingerprint,
+		n.PublicKey,
+		n.ShortID,
+		n.SpiderX,
+		n.HostHeader,
+		n.ServiceName,
+		n.Insecure,
 	)
 	hash := sha256.Sum256([]byte(raw))
 	return hex.EncodeToString(hash[:])

@@ -1,5 +1,5 @@
 // HUNTX ServiceWorker — Offline Cache-First Architecture
-const CACHE_NAME = 'huntx-cache-v2.6';
+const CACHE_NAME = 'huntx-cache-v2.8';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -39,7 +39,14 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  const path = new URL(event.request.url).pathname;
+  // Published feeds must not lag behind their catalog after a deployment.
+  const freshReleaseData = path.endsWith('/catalog.json') || path.includes('/artifacts/release/');
   event.respondWith(
+    freshReleaseData ? fetch(event.request).then((response) => {
+      if (response && response.ok) caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
+      return response;
+    }).catch(() => caches.match(event.request)) :
     caches.match(event.request).then((cached) => {
       if (cached) {
         // Return cached and update in background
@@ -59,6 +66,8 @@ self.addEventListener('fetch', (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
         return resp;
       });
-    }).catch(() => caches.match('./index.html'))
+    }).catch(() => event.request.mode === 'navigate'
+      ? caches.match('./index.html')
+      : new Response('Offline resource unavailable', { status: 503, statusText: 'Service Unavailable' }))
   );
 });

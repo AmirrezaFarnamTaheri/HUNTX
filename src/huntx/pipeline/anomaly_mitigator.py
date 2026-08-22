@@ -41,8 +41,8 @@ class NodeTelemetryBaseline:
 
     @property
     def std_dev(self) -> float:
-        """Standard deviation with a non-zero floor."""
-        return math.sqrt(max(1.0, self.variance))
+        """Sample standard deviation; a flat baseline is handled conservatively."""
+        return math.sqrt(self.variance)
 
 class AnomalyMitigator:
     """Detects statistical latency anomalies and executes automated circuit-breaker quarantine."""
@@ -80,6 +80,8 @@ class AnomalyMitigator:
 
     def observe(self, node_id: str, latency_ms: float) -> NodeHealthState:
         """Process incoming latency measurement and update state machine."""
+        if not math.isfinite(latency_ms) or latency_ms < 0:
+            return self.get_state(node_id)
         node = self._get_node(node_id)
 
         # Warmup phase: establish initial statistical distribution
@@ -89,6 +91,22 @@ class AnomalyMitigator:
             return node.state
 
         # Compute Z-score against running baseline
+        # A zero-variance baseline has no meaningful Z-score.  Treat small
+        # jitter as baseline growth, but retain a conservative absolute guard
+        # for genuine step changes so a flat baseline cannot hide outages.
+        if node.std_dev == 0:
+            jitter_budget = max(25.0, node.mean * 0.25)
+            if latency_ms - node.mean <= jitter_budget:
+                node.update(latency_ms)
+                node.spike_count = 0
+                if node.state == NodeHealthState.PROBATION:
+                    node.probation_successes += 1
+                    if node.probation_successes >= 2:
+                        node.state = NodeHealthState.HEALTHY
+                return node.state
+            node.spike_count += 1
+            node.state = (NodeHealthState.QUARANTINED if node.spike_count >= self.consecutive_spikes_to_trip else NodeHealthState.SUSPECT)
+            return node.state
         z_score = (latency_ms - node.mean) / node.std_dev
 
         if z_score > self.z_threshold:

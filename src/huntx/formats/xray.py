@@ -39,6 +39,11 @@ class XrayCompiler:
                         "allowInsecure": bool(node.get("allow_insecure", False)),
                         "serverName": node.get("sni") or node.get("server")
                     }
+                if node.get("network") == "ws":
+                    stream_settings["wsSettings"] = {
+                        "path": node.get("ws_path", "/"),
+                        "headers": {"Host": node.get("host") or node.get("sni", "")},
+                    }
 
                 outbounds.append({
                     "tag": tag,
@@ -56,6 +61,17 @@ class XrayCompiler:
                     },
                     "streamSettings": stream_settings
                 })
+            elif proto == "trojan":
+                stream_settings = {"network": node.get("network", "tcp")}
+                if node.get("tls", True):
+                    stream_settings["security"] = "tls"
+                    stream_settings["tlsSettings"] = {
+                        "allowInsecure": bool(node.get("allow_insecure", False)),
+                        "serverName": node.get("sni") or node.get("server"),
+                    }
+                if node.get("network") == "ws":
+                    stream_settings["wsSettings"] = {"path": node.get("ws_path", "/"), "headers": {"Host": node.get("host") or node.get("sni", "")}}
+                outbounds.append({"tag": tag, "protocol": "trojan", "settings": {"servers": [{"address": node.get("server"), "port": int(node.get("port", 443)), "password": node.get("password", "")} ]}, "streamSettings": stream_settings})
             elif proto == "vmess":
                 stream_settings = {"network": node.get("network", "tcp")}
                 if node.get("network") == "ws":

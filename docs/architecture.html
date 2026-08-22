@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>HUNTX — 3D Architecture &amp; Data-Flow Topology</title>
-  <meta name="description" content="Interactive 3D Isometric Architecture and Data-Flow Topology for HUNTX Cyber Telemetry System.">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HUNTX — Architecture Field Guide</title>
+  <meta name="description" content="Interactive repository architecture map for tracing HUNTX components, data contracts, and published-output delivery.">
   <style>
     /* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V5 */
     :root {
@@ -104,6 +104,26 @@
       background: var(--surface-elevated);
       border-color: var(--cyan);
       box-shadow: 0 0 12px var(--cyan-glow);
+    }
+
+    .skip-link {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      z-index: 100;
+      transform: translateY(-150%);
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      background: var(--cyan);
+      color: #041018;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .skip-link:focus { transform: translateY(0); }
+
+    button:focus-visible, a:focus-visible, input:focus-visible, .flow-head:focus-visible, .step-row:focus-visible {
+      outline: 2px solid var(--cyan);
+      outline-offset: 3px;
     }
 
     .brand-wrap {
@@ -362,8 +382,8 @@
       backdrop-filter: blur(8px);
     }
     .ctl-btn {
-      width: 34px;
-      height: 32px;
+      min-width: 44px;
+      min-height: 44px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -371,7 +391,9 @@
       border: none;
       border-right: 1px solid var(--border-subtle);
       color: var(--text-secondary);
-      font-size: 13px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      font-weight: 800;
       cursor: pointer;
       transition: all 0.12s ease;
     }
@@ -393,14 +415,11 @@
     }
 
     #filterToggleBtn {
-      position: absolute;
-      top: 14px;
-      right: 14px;
-      z-index: 20;
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 7px 12px;
+      min-height: 44px;
+      padding: 7px 14px;
       background: var(--surface-overlay);
       border: 1px solid var(--border-subtle);
       border-radius: var(--radius-md);
@@ -419,8 +438,8 @@
 
     #filterFlyout {
       position: absolute;
-      top: 56px;
-      right: 14px;
+      top: 62px;
+      right: 16px;
       width: 280px;
       background: var(--surface-overlay);
       border: 1px solid var(--border-subtle);
@@ -485,7 +504,7 @@
       background: var(--surface-overlay);
       border: 1px solid var(--border-subtle);
       border-radius: 9999px;
-      padding: 5px 14px;
+      padding: 8px 14px;
       white-space: nowrap;
       backdrop-filter: blur(8px);
       pointer-events: none;
@@ -522,7 +541,11 @@
       background: transparent;
       border: none;
       color: var(--text-muted);
-      font-size: 16px;
+      min-height: 44px;
+      min-width: 44px;
+      font-size: 10px;
+      font-family: var(--font-mono);
+      font-weight: 800;
       cursor: pointer;
       line-height: 1;
       padding: 4px;
@@ -642,6 +665,7 @@
     }
     .side-tab-btn {
       flex: 1;
+      min-height: 44px;
       padding: 12px 8px;
       background: transparent;
       border: none;
@@ -779,6 +803,7 @@
       border: 1px solid var(--border-subtle);
       border-radius: var(--radius-sm);
       color: var(--text-primary);
+      min-height: 44px;
       padding: 5px 10px;
       font-size: 11px;
       font-weight: 700;
@@ -907,58 +932,69 @@
       font-family: var(--font-mono);
     }
 
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+    }
+
     @media (max-width: 1024px) {
       #sidebar { width: 340px; min-width: 340px; }
       #inspector { width: 360px; }
     }
     @media (max-width: 768px) {
-      #mainContent { flex-direction: column; }
-      #sidebar { width: 100%; min-width: 0; height: 48vh; border-left: none; border-top: 1px solid var(--border-subtle); }
-      #stageWrap { height: 52vh; }
+      html, body, #app { height: auto; min-height: 100vh; overflow: auto; }
+      #topNav { min-height: 64px; height: auto; padding: 10px 12px; align-items: flex-start; }
+      #mainContent { flex-direction: column; min-height: calc(100vh - 64px); }
+      #sidebar { width: 100%; min-width: 0; height: auto; min-height: 44vh; border-left: none; border-top: 1px solid var(--border-subtle); }
+      #stageWrap { height: 56vh; min-height: 420px; }
       .nav-center { display: none; }
+      .brand-title { font-size: 12px; }
+      .status-badge { display: none; }
+      #stageHint { max-width: calc(100% - 28px); white-space: normal; text-align: center; }
+      #filterFlyout { left: 14px; right: 14px; top: 68px; width: auto; }
     }
   </style>
 </head>
 <body>
+<a class="skip-link" href="#stageWrap">Skip to architecture map</a>
 <div id="app">
-  <!-- Top Cyber Navigation Bar -->
+  <!-- Architecture context bar -->
   <header id="topNav">
     <div class="nav-left">
-      <a href="index.html" class="back-btn" title="Return to Sovereign Cyber Dashboard">
-        <span>←</span> Dashboard
+      <a href="index.html" class="back-btn" title="Return to the HUNTX dashboard">
+        <span aria-hidden="true">←</span> Dashboard
       </a>
       <div class="brand-wrap">
-        <div class="brand-title">HUNTX <span class="accent">TOPOLOGY</span></div>
-        <div class="status-badge"><span class="status-dot"></span> LIVE 3D ENGINE</div>
+        <div class="brand-title">HUNTX <span class="accent">ARCHITECTURE</span></div>
+        <div class="status-badge"><span class="status-dot"></span> REPOSITORY SNAPSHOT</div>
       </div>
     </div>
     <div class="nav-center">
-      <div class="meta-pill"><span>Branch:</span> <b>feat/huntx-remediation-and-hardening</b></div>
-      <div class="meta-pill"><span>Nodes:</span> <b>36</b></div>
-      <div class="meta-pill"><span>Edges:</span> <b>59</b></div>
-      <div class="meta-pill"><span>Flows:</span> <b>16</b></div>
+      <div class="meta-pill"><span>Map:</span> <b id="snapshotLabel">repository model</b></div>
+      <div class="meta-pill"><span>Nodes:</span> <b id="nodeCount">—</b></div>
+      <div class="meta-pill"><span>Edges:</span> <b id="edgeCount">—</b></div>
+      <div class="meta-pill"><span>Flows:</span> <b id="flowCount">—</b></div>
     </div>
     <div class="nav-right">
-      <button id="filterToggleBtn" title="Toggle Layer &amp; Edge Legend">⚙ Legend / Filters</button>
+      <button id="filterToggleBtn" type="button" aria-expanded="false" aria-controls="filterFlyout" title="Show layers and edge filters">Filters</button>
     </div>
   </header>
 
   <!-- Main 3D Topology Area -->
   <div id="mainContent">
-    <div id="stageWrap">
+    <main id="stageWrap" aria-label="Interactive architecture map">
       <!-- On-Stage Floating Controls -->
       <div id="stageControls">
         <div class="ctl-btn-group">
-          <button class="ctl-btn" id="fitBtn" title="Fit to Screen">⛶</button>
-          <button class="ctl-btn" id="zinBtn" title="Zoom In">＋</button>
-          <button class="ctl-btn" id="zoutBtn" title="Zoom Out">−</button>
-          <button class="ctl-btn" id="resetBtn" title="Reset Highlight &amp; Focus">⌫</button>
+          <button class="ctl-btn" id="fitBtn" type="button" title="Fit map to screen">Fit</button>
+          <button class="ctl-btn" id="zinBtn" type="button" title="Zoom in">+</button>
+          <button class="ctl-btn" id="zoutBtn" type="button" title="Zoom out">−</button>
+          <button class="ctl-btn" id="resetBtn" type="button" title="Clear selection">Reset</button>
         </div>
         <div class="zoom-display" id="zoomLabel">100%</div>
       </div>
 
       <!-- Filters & Legend Flyout -->
-      <div id="filterFlyout">
+      <div id="filterFlyout" role="region" aria-label="Map filters">
         <div class="flyout-title">Architectural Layers</div>
         <div id="layerFilter"></div>
         <div class="flyout-sep"></div>
@@ -966,14 +1002,13 @@
         <div id="typeFilter"></div>
         <div class="flyout-sep"></div>
         <div style="font-size:10.5px;color:var(--text-muted);line-height:1.45">
-          • Hover node to spotlight links<br>
-          • Click node or edge for deep contract<br>
-          • Click flow to animate end-to-end
+          Select a node or connection to inspect its contract.<br>
+          Select a flow to trace its ordered execution steps.
         </div>
       </div>
 
       <!-- Isometric 3D SVG Stage -->
-      <svg id="isoSvg" preserveAspectRatio="xMidYMid meet">
+      <svg id="isoSvg" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Architecture topology diagram. Use filters, search, and execution flows to inspect components.">
         <defs>
           <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
             <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.6"/>
@@ -982,11 +1017,11 @@
         <g id="viewRoot"></g>
       </svg>
 
-      <div id="stageHint">pan · drag &nbsp;|&nbsp; zoom · scroll &nbsp;|&nbsp; click node · inspect &nbsp;|&nbsp; click flow · trace</div>
+      <div id="stageHint">Drag to pan · scroll to zoom · select a node, connection, or flow to inspect it</div>
 
       <!-- Floating Inspector Card -->
       <div id="inspector">
-        <button id="inspCloseBtn">✕</button>
+        <button id="inspCloseBtn" type="button" aria-label="Close architecture inspector">Close</button>
         <div id="inspHeader">
           <div id="inspTitle"></div>
           <div id="inspSub"></div>
@@ -996,30 +1031,30 @@
 
       <!-- Hover Tooltip -->
       <div id="tooltip"></div>
-    </div>
+    </main>
 
     <!-- Control Deck & Flows Sidebar -->
-    <aside id="sidebar">
+    <aside id="sidebar" aria-label="Architecture exploration controls">
       <div class="side-tabs">
-        <button class="side-tab-btn active" id="tabFlows">Execution Flows (16)</button>
-        <button class="side-tab-btn" id="tabStats">Telemetry &amp; Stats</button>
+        <button class="side-tab-btn active" id="tabFlows" type="button" role="tab" aria-selected="true" aria-controls="panelFlows">Execution flows</button>
+        <button class="side-tab-btn" id="tabStats" type="button" role="tab" aria-selected="false" aria-controls="panelStats">Map summary</button>
       </div>
 
       <div class="side-search-bar">
         <div class="search-input-wrap">
-          <span class="search-icon">🔍</span>
+          <span class="search-icon" aria-hidden="true">⌕</span>
           <input id="sideSearch" type="search" placeholder="Search node, id, protocol, layer…">
         </div>
       </div>
 
       <div class="side-scroll-area">
         <!-- Flows Tab Content -->
-        <div id="panelFlows">
+        <div id="panelFlows" role="tabpanel" aria-labelledby="tabFlows">
           <div id="flowList"></div>
         </div>
 
         <!-- Stats Tab Content -->
-        <div id="panelStats" style="display:none">
+        <div id="panelStats" role="tabpanel" aria-labelledby="tabStats" style="display:none">
           <div class="stat-grid" id="statGrid"></div>
           <div class="insp-section-title">Edge Protocols</div>
           <div id="protoList" style="margin-bottom:16px"></div>
@@ -1369,6 +1404,9 @@
       item.className = 'flow-item'; item.dataset.fid = f.id;
       const head = document.createElement('div');
       head.className = 'flow-head';
+      head.tabIndex = 0;
+      head.setAttribute('role', 'button');
+      head.setAttribute('aria-expanded', 'false');
       head.innerHTML = '<span class="flow-idx"></span><span class="flow-title"></span><span class="flow-steps-cnt"></span>';
       head.querySelector('.flow-idx').textContent = String(fi+1).padStart(2,'0');
       head.querySelector('.flow-title').textContent = f.name;
@@ -1376,8 +1414,13 @@
       head.addEventListener('click', ()=>{
         document.querySelectorAll('.flow-item').forEach(x=>x.classList.remove('open'));
         document.querySelectorAll('.flow-head').forEach(x=>x.classList.remove('active'));
+        document.querySelectorAll('.flow-head').forEach(x=>x.setAttribute('aria-expanded', 'false'));
         item.classList.add('open'); head.classList.add('active');
+        head.setAttribute('aria-expanded', 'true');
         highlightFlow(f.id, -1);
+      });
+      head.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); head.click(); }
       });
       const body = document.createElement('div');
       body.className = 'flow-body';
@@ -1389,15 +1432,18 @@
       acts.className = 'flow-actions';
       const play = document.createElement('button');
       play.className = 'btn-action primary'; play.textContent = '▶ Play';
+      play.type = 'button';
       play.title = 'Animate all steps in sequence';
       play.addEventListener('click', (ev)=>{ ev.stopPropagation(); playFlow(f.id); });
       const stepBtn = document.createElement('button');
       stepBtn.className = 'btn-action';
+      stepBtn.type = 'button';
       stepBtn.textContent = 'Step ▶';
       stepBtn.title = 'Advance one step at a time';
       stepBtn.addEventListener('click', (ev)=>{ ev.stopPropagation(); stepFlow(f.id); });
       const clearBtn = document.createElement('button');
       clearBtn.className = 'btn-action ghost'; clearBtn.textContent = '✕ Reset';
+      clearBtn.type = 'button';
       clearBtn.title = 'Clear highlight';
       clearBtn.addEventListener('click', (ev)=>{ ev.stopPropagation(); resetHighlight(); });
       acts.append(play, stepBtn, clearBtn);
@@ -1406,6 +1452,8 @@
       f.steps.forEach((s, i)=>{
         const row = document.createElement('div');
         row.className = 'step-row'; row.dataset.idx = i;
+        row.tabIndex = 0;
+        row.setAttribute('role', 'button');
         const num = document.createElement('div');
         num.className = 'step-num'; num.textContent = s.step_number;
         const main = document.createElement('div');
@@ -1421,6 +1469,9 @@
         main.append(title, pay, cite);
         row.append(num, main);
         row.addEventListener('click', (ev)=>{ ev.stopPropagation(); stepRowClick(f.id, i); });
+        row.addEventListener('keydown', (ev) => {
+          if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); row.click(); }
+        });
         body.appendChild(row);
       });
       item.append(head, body);
@@ -1640,8 +1691,12 @@
       const lb = document.createElement('span'); lb.textContent = EDGE_STYLE[t].label + cnt;
       row.append(inp, sw, lb); tf.appendChild(row);
     }
-    document.getElementById('filterToggleBtn').addEventListener('click', ()=>
-      document.getElementById('filterFlyout').classList.toggle('show'));
+    const filterButton = document.getElementById('filterToggleBtn');
+    const filterFlyout = document.getElementById('filterFlyout');
+    filterButton.addEventListener('click', () => {
+      const open = filterFlyout.classList.toggle('show');
+      filterButton.setAttribute('aria-expanded', String(open));
+    });
   }
 
   function buildStats(){
@@ -1650,7 +1705,7 @@
       ['Total Nodes', summary.nodes_total || data.nodes.length],
       ['Total Edges', summary.edges_total || data.edges.length],
       ['Execution Flows', summary.flows_total || data.flows.length],
-      ['Config Sources', (summary.source_scale||{}).config_sources || 85]
+      ['Config Sources', (summary.source_scale||{}).config_sources ?? '—']
     ];
     for (const [k,v] of cells){
       const c = document.createElement('div'); c.className = 'stat-card';
@@ -1675,17 +1730,33 @@
 
     tabFlows.addEventListener('click', ()=>{
       tabFlows.classList.add('active'); tabStats.classList.remove('active');
+      tabFlows.setAttribute('aria-selected', 'true'); tabStats.setAttribute('aria-selected', 'false');
       panelFlows.style.display = 'block'; panelStats.style.display = 'none';
     });
     tabStats.addEventListener('click', ()=>{
       tabStats.classList.add('active'); tabFlows.classList.remove('active');
+      tabStats.setAttribute('aria-selected', 'true'); tabFlows.setAttribute('aria-selected', 'false');
       panelStats.style.display = 'block'; panelFlows.style.display = 'none';
     });
+    [tabFlows, tabStats].forEach((tab, index, tabs) => tab.addEventListener('keydown', (ev) => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(ev.key)) return;
+      ev.preventDefault();
+      const next = ev.key === 'Home' ? 0 : ev.key === 'End' ? tabs.length - 1 : (index + (ev.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+      tabs[next].focus();
+      tabs[next].click();
+    }));
   }
 
   function init(){
     buildFloors(); buildGrid(); buildNodes(); buildEdges();
     initView(); buildFlowPanel(); buildFilterControls(); buildStats(); initFilters(); initTabs();
+
+    document.getElementById('snapshotLabel').textContent = data.metadata?.analyzed_at
+      ? 'snapshot ' + data.metadata.analyzed_at.slice(0, 10)
+      : 'repository model';
+    document.getElementById('nodeCount').textContent = summary.nodes_total ?? data.nodes.length;
+    document.getElementById('edgeCount').textContent = summary.edges_total ?? data.edges.length;
+    document.getElementById('flowCount').textContent = summary.flows_total ?? data.flows.length;
 
     document.getElementById('fitBtn').addEventListener('click', fit);
     document.getElementById('zinBtn').addEventListener('click', ()=>zoomBy(1.25));

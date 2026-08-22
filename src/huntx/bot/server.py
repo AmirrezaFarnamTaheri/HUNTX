@@ -38,6 +38,8 @@ class TelemetryServer:
         msg = event.to_dict()
         for q in list(self.active_clients):
             try:
-                await q.put(msg)
+                q.put_nowait(msg)
+            except asyncio.QueueFull:
+                self.unregister_client(q)
             except Exception:
                 self.unregister_client(q)

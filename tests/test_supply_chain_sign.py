@@ -3,7 +3,7 @@
 from huntx.pipeline.sign import SupplyChainSigner, ManifestVerificationResult
 
 def test_manifest_hash_generation():
-    signer = SupplyChainSigner()
+    signer = SupplyChainSigner(secret_key="test-signing-key")
     files_payload = {
         "proxies.json": "sample-content-1",
         "proxies.txt": "sample-content-2"
@@ -32,3 +32,6 @@ def test_manifest_signature_and_verification():
     # Verify invalid signature
     res_tampered = signer.verify_manifest(manifest, "bad_signature_deadbeef")
     assert res_tampered.is_valid is False
+
+    manifest["entries"]["proxies.json"]["sha256"] = "0" * 64
+    assert signer.verify_manifest(manifest, sig).is_valid is False

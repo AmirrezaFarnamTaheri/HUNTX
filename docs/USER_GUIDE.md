@@ -19,6 +19,10 @@
 
 ## Configuration
 
+### Runtime Secrets
+
+Set secrets outside committed configuration. `HUNTX_SIGNING_KEY` is required whenever supply-chain manifests are signed, and daemon control requests require `HUNTX_DAEMON_CONTROL_TOKEN`. Fleet probes require an explicit private orchestrator endpoint and target list; if that receiver uses bearer auth, set `HUNTX_ORCHESTRATOR_BEARER_TOKEN`. A static dashboard does not itself receive or display live probe reports.
+
 HUNTX is controlled by a YAML configuration file with environment variable expansion (`${VAR}`).
 
 ### Sources
@@ -61,8 +65,8 @@ sources:
 publishing:
   routes:
     - name: "merged_vpn"
-      selector:
-        include_formats: ["npvt"]
+      from_sources: ["source_channel_1"]
+      formats: ["npvt"]
       destinations:
         - chat_id: "-1001234567890"
           mode: "telegram"
@@ -108,15 +112,25 @@ HUNTX natively parses, sanitizes, and normalizes the following proxy URI protoco
 
 ### Option 1: Go Engine Ingestion
 ```bash
-# Run Go ingestion stream parser
-go run ./cmd/huntx-engine --input data/raw/sources.txt --output docs/artifacts/dev/proxies.json
+# Parse a subscription file to JSON. The engine writes to stdout;
+# redirect only after reviewing the result.
+go run ./cmd/huntx-engine parse --file data/raw/sources.txt > parsed.json
 ```
+
+Other supported engine commands are `benchmark`, `georoute`, `chain`, and
+`tlsdiag`; run `go run ./cmd/huntx-engine` to see their required flags. The
+engine is an analysis tool and does not publish artifacts.
 
 ### Option 2: Python Orchestration Pipeline
 ```bash
-# Run full python pipeline with auto-delivery
-python -m huntx.cli.main --config configs/config.prod.yaml run
+# Build with production orchestration but do not publish or auto-deliver.
+huntx --config configs/config.prod.yaml run --no-publish --no-auto-deliver
 ```
+
+Remove the two safety flags only after validating source access and the
+destination configuration. A run can retain verified output while reporting a
+degraded health disposition; inspect the structured log and artifact manifest
+before treating it as a release.
 
 ---
 
@@ -127,26 +141,42 @@ python -m huntx.cli.main --config configs/config.prod.yaml run
 | `run` | `huntx --config config.yaml run` | Execute ingestion, merge, build, and delivery |
 | `bot` | `huntx --config config.yaml bot` | Run persistent GatherX Telegram bot |
 | `clean` | `huntx --config config.yaml clean` | Prune stale raw blobs and expired cache |
-| `reset` | `huntx --config config.yaml reset` | Full reset of database and stored offsets |
+| `reset` | `huntx --config config.yaml reset` | Factory reset of data, outputs, caches, and source offsets |
+| `prune` | `huntx --config config.yaml prune --days 30` | Remove expired database records and unreferenced raw blobs |
+
+`clean` and `reset` are destructive. Both prompt by default. `clean` preserves
+registered bot users when it can back them up; `reset` also writes a local
+`state.db.bak` before removing the state directory. Do not pass `--yes` until
+you have copied any required artifacts and verified the backup location. Both
+commands make every source look first-seen on its next ingestion pass.
 
 ---
 
 ## Interactive Web Telemetry Dashboard
 
-HUNTX includes a sovereign, offline-first Web Dashboard located at [`docs/index.html`](index.html).
+HUNTX includes a static dashboard located at [`docs/index.html`](index.html).
 
 ### Features
-1. **Interactive 3D Geo-Radar**: GPU-accelerated canvas globe rendering global node hubs (Frankfurt, Amsterdam, Helsinki, Singapore, London, New York, Istanbul, Tokyo) with click-to-filter capability.
+1. **Interactive 3D Geo-Radar**: Canvas globe for filtering the published snapshot by mapped hub.
 2. **Real-Time Client-Side Protocol Decoder**: Press `D` or click **Decoder** to paste raw proxy URIs for instant JSON parameter inspection.
 3. **Standalone QR Code Generator**: Click the QR icon on any node card to generate a scannable SVG QR code for mobile import (v2rayNG, Sing-box, Shadowrocket).
 4. **Subscription Feed Generator**: Generate Base64 subscription URLs (`proxies_b64sub.txt`) or plain text config feeds (`proxies.txt`).
 5. **Interactive 3D Architecture Topology**: Explore the system data flow via [`docs/architecture.html`](architecture.html).
 
 ### Offline / Local Use
-You can open [`docs/index.html`](index.html) directly via `file:///` double-click or host it on any static server:
+
+The page and JavaScript bundle can open directly, but the checked-in page uses
+CDN fonts and utility CSS. Use a local HTTP server for the supported preview;
+for a truly offline deployment, vendor those external assets before making that
+claim.
+
 ```bash
 python -m http.server 8000 --directory docs
 ```
+
+The dashboard displays a published snapshot. Labels or latency values are not
+live measurements unless the artifact producer has populated them from an
+actual probe integration.
 
 ---
 
@@ -185,3 +215,26 @@ Detailed C4 Architecture diagrams and component contracts are documented in:
 | **Base64 Subscription** | `docs/artifacts/dev/proxies_b64sub.txt` | Base64-encoded subscription feed for proxy clients |
 | **Catalog Manifest** | `docs/catalog.json` | Cryptographic SHA-256 catalog with file sizes and timestamps |
 | **Output Manifest** | `docs/artifacts/dev/_manifest.json` | Pipeline generation metadata |
+
+## Daemon and probe fleet
+
+The daemon is a small PAC/control service, separate from the Python pipeline.
+It binds to `127.0.0.1:9090` by default. `GET /status` and `GET /proxy.pac`
+are read-only; `POST /rotate` requires this header:
+
+```text
+Authorization: Bearer <HUNTX_DAEMON_CONTROL_TOKEN>
+```
+
+Do not publish the control API through an unauthenticated load balancer. The
+Compose file deliberately maps it to `127.0.0.1:9090` on the host.
+
+Probe agents read `PROBE_ID`, `REGION`, `ORCHESTRATOR_URL`,
+`ORCHESTRATOR_BEARER_TOKEN`, and `PROBE_TARGETS` (the runtime variable
+populated from `HUNTX_PROBE_TARGETS` in Compose or `probeTargets` in Helm;
+comma, semicolon, or space separated), sweep their targets every 30 seconds,
+and POST a report to `ORCHESTRATOR_URL`. HUNTX does not ship the receiver at
+that URL; make the receiver private and use `ORCHESTRATOR_BEARER_TOKEN` when
+it requires bearer authentication. See
+[Development](DEVELOPMENT.md#6-fleet-deployment-boundary) for Compose and Helm
+prerequisites.

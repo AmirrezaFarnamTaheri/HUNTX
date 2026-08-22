@@ -6,10 +6,11 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile.daemon
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     restart: unless-stopped
     environment:
       - LISTEN_ADDR=0.0.0.0:9090
+      - HUNTX_DAEMON_CONTROL_TOKEN=${HUNTX_DAEMON_CONTROL_TOKEN:?set HUNTX_DAEMON_CONTROL_TOKEN}
 
   probe-us-east:
     build:
@@ -18,9 +19,9 @@ services:
     environment:
       - PROBE_ID=probe-us-east-01
       - REGION=US
-      - DAEMON_URL=http://huntx-daemon:9090
-    ports:
-      - "9091:9091"
+      - ORCHESTRATOR_URL=${HUNTX_ORCHESTRATOR_URL:?set HUNTX_ORCHESTRATOR_URL}
+      - ORCHESTRATOR_BEARER_TOKEN=${HUNTX_ORCHESTRATOR_BEARER_TOKEN:-}
+      - PROBE_TARGETS=${HUNTX_PROBE_TARGETS:-1.1.1.1:443}
     restart: unless-stopped
 
   probe-eu-central:
@@ -30,9 +31,9 @@ services:
     environment:
       - PROBE_ID=probe-eu-central-01
       - REGION=DE
-      - DAEMON_URL=http://huntx-daemon:9090
-    ports:
-      - "9092:9091"
+      - ORCHESTRATOR_URL=${HUNTX_ORCHESTRATOR_URL:?set HUNTX_ORCHESTRATOR_URL}
+      - ORCHESTRATOR_BEARER_TOKEN=${HUNTX_ORCHESTRATOR_BEARER_TOKEN:-}
+      - PROBE_TARGETS=${HUNTX_PROBE_TARGETS:-1.1.1.1:443}
     restart: unless-stopped
 
   probe-me-tehran:
@@ -42,7 +43,7 @@ services:
     environment:
       - PROBE_ID=probe-me-tehran-01
       - REGION=IR
-      - DAEMON_URL=http://huntx-daemon:9090
-    ports:
-      - "9093:9091"
+      - ORCHESTRATOR_URL=${HUNTX_ORCHESTRATOR_URL:?set HUNTX_ORCHESTRATOR_URL}
+      - ORCHESTRATOR_BEARER_TOKEN=${HUNTX_ORCHESTRATOR_BEARER_TOKEN:-}
+      - PROBE_TARGETS=${HUNTX_PROBE_TARGETS:-1.1.1.1:443}
     restart: unless-stopped

@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HUNTX — Cyber Telemetry &amp; Node Intelligence Hub</title>
-  <meta name="description" content="Zero-budget sovereign proxy configuration aggregation, 3D telemetry radar, multi-format matrix converter, and real-time protocol decoder.">
+  <meta name="description" content="Published proxy snapshot dashboard, protocol decoder, and deterministic artifact browser for HUNTX releases.">
+  <meta name="huntx-public-base-url" content="">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#00d2ff">
 
@@ -170,6 +171,14 @@
       box-shadow: 0 0 0 2px var(--accent-cyan), 0 0 0 4px var(--bg-void);
     }
 
+    /* Keep pointer targets usable on touch screens, including dynamically rendered controls. */
+    button,
+    .nav-tab-btn,
+    a[download],
+    [role="button"] {
+      min-height: 44px !important;
+    }
+
     /* Animations */
     @keyframes pulseGlow {
       0%, 100% { opacity: 0.8; transform: scale(1); }
@@ -221,7 +230,13 @@
     .grid { display: grid; }
     .flex { display: flex; }
     .hidden, [hidden], .tab-panel.hidden, .tab-panel[hidden] { display: none !important; }
+    @media (min-width: 640px) { .hidden.sm\:inline { display: inline !important; } .hidden.sm\:flex { display: flex !important; } }
+    @media (min-width: 768px) { .hidden.md\:block { display: block !important; } .hidden.md\:flex { display: flex !important; } }
+    @media (min-width: 1024px) { .hidden.lg\:flex { display: flex !important; } }
     .tab-panel:not(.hidden):not([hidden]) { display: block !important; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+    }
     .items-center { align-items: center; }
     .items-start { align-items: flex-start; }
     .items-baseline { align-items: baseline; }
@@ -699,6 +714,7 @@
           data-tab-target="radar"
           role="tab"
           aria-selected="true"
+          aria-controls="tab-panel-radar"
           id="tab-btn-radar"
         >
           <svg class="w-4 h-4 text-cyan-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -716,6 +732,7 @@
           data-tab-target="proxies"
           role="tab"
           aria-selected="false"
+          aria-controls="tab-panel-proxies"
           id="tab-btn-proxies"
         >
           <svg class="w-4 h-4 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -731,6 +748,7 @@
           data-tab-target="studio"
           role="tab"
           aria-selected="false"
+          aria-controls="tab-panel-studio"
           id="tab-btn-studio"
         >
           <svg class="w-4 h-4 text-indigo-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -746,6 +764,7 @@
           data-tab-target="decoder"
           role="tab"
           aria-selected="false"
+          aria-controls="tab-panel-decoder"
           id="tab-btn-decoder"
         >
           <svg class="w-4 h-4 text-purple-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -761,6 +780,7 @@
           data-tab-target="artifacts"
           role="tab"
           aria-selected="false"
+          aria-controls="tab-panel-artifacts"
           id="tab-btn-artifacts"
         >
           <svg class="w-4 h-4 text-amber-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -820,9 +840,9 @@
   <div id="modal-overlay" class="hidden"></div>
 
   <!-- Floating Toast Notification System -->
-  <div id="toast-container" class="fixed bottom-6 right-6 z-[9999] flex flex-col gap-2 pointer-events-none"></div>
+  <div id="toast-container" role="status" aria-live="polite" aria-atomic="true" class="fixed bottom-6 right-6 z-[9999] flex flex-col gap-2 pointer-events-none"></div>
 
-  <!-- Zero-Dependency Standalone Bundle (CORS-Immune, works under file:/// and GitHub Pages) -->
+  <!-- Checked-in standalone bundle. Supported delivery mode is HTTP/HTTPS. -->
   <script src="assets/js/bundle.js"></script>
 
   <!-- Resilient Non-Module Fallback -->

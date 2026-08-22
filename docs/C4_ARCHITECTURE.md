@@ -22,13 +22,12 @@ C4Context
     System_Ext(telegram, "Encrypted TG Channels & Bots", "Upstream raw proxy feeds, subscription channels, and bulletin broadcasts.")
     System_Ext(github_ci, "GitHub Actions CI/CD", "Automated scheduled ingestion runners (Cron/Workflow Dispatch).")
     System_Ext(clients, "Proxy Clients (v2rayNG, Sing-box, Clash, Shadowrocket)", "Fetches Base64 subscription URLs and connects via configured outbound nodes.")
-    System_Ext(pages, "GitHub Pages CDN", "Serves static web assets, 3D telemetry radar, and published JSON/TXT artifacts.")
+    System_Ext(pages, "GitHub Pages CDN", "Serves static web assets and published JSON/TXT snapshot artifacts.")
 
     Rel(admin, huntx, "Configures sources and inspects health via", "CLI / Config YAML")
-    Rel(user, pages, "Views live nodes, inspects URI parameters, and generates QR codes via", "HTTPS")
-    Rel(user, huntx, "Copies unified subscription URLs", "HTTPS")
+    Rel(user, pages, "Views published snapshots, inspects URI parameters, and generates QR codes via", "HTTPS")
     Rel(huntx, telegram, "Ingests raw protocol text and subscription blobs from", "MTProto / Bot API / Scraping")
-    Rel(github_ci, huntx, "Triggers ingestion, geo-routing, and verification pipeline in", "Go 1.24 Runtime")
+    Rel(github_ci, huntx, "Triggers ingestion, verification, and publication pipeline in", "Python / Go tooling")
     Rel(huntx, pages, "Publishes verified proxies.json, proxies.txt, and catalog manifest to", "Git Push / HTTPS")
     Rel(clients, pages, "Pulls base64 subscription feed from", "HTTPS")
 ```
@@ -36,7 +35,7 @@ C4Context
 ### Personas & Trust Boundaries
 - **Proxy Consumer**: Untrusted external client querying the public web UI. Data rendered in the browser is strictly sanitized to prevent XSS.
 - **Upstream Channels**: Untrusted external sources. Every ingested URI is treated as malicious until validated, sanitized, and parsed through strict regex/URL grammars.
-- **GitHub Actions Runner**: Trusted execution environment executing Go binaries to generate immutable, SHA-256 verified artifact bundles.
+- **GitHub Actions Runner**: Trusted execution environment that runs the Python pipeline and repository Go tooling to generate and verify artifact bundles.
 
 ---
 
@@ -51,9 +50,10 @@ C4Container
     Person(user, "User / Proxy Client", "Accesses web dashboard or pulls subscription feeds.")
     
     System_Boundary(c1, "HUNTX Platform Containers") {
-        Container(frontend, "Telemetry Web SPA", "HTML5, Vanilla ES Modules, Canvas 3D, Tailwind CSS", "Provides zero-dependency interactive 3D Geo-Radar, client-side protocol decoder, and QR code generator.")
+        Container(frontend, "Dashboard", "HTML5, Vanilla JavaScript, Canvas 3D, generated bundle", "Displays a published snapshot and provides client-side decoding and QR generation.")
         
-        Container(engine, "HUNTX Engine Daemon", "Go (cmd/huntx-engine)", "High-throughput stream parser, benchmark tester, deduplicator, geo-routing engine, and healing daemon.")
+        Container(pipeline, "HUNTX Pipeline", "Python (src/huntx)", "Production ingestion, normalization, policy, artifact build, signing, and publication.")
+        Container(engine, "HUNTX Engine CLI", "Go (cmd/huntx-engine)", "Operator parser, benchmark, geo-route, chain, and TLS diagnostic commands.")
         
         Container(tools, "HUNTX CLI Tools", "Go (cmd/huntx-tools)", "Operator utilities for catalog generation, output verification, and runtime manifest validation.")
         
@@ -66,49 +66,51 @@ C4Container
     Rel(user, frontend, "Interacts with", "HTTPS / Local file://")
     Rel(user, artifacts, "Downloads raw subscription from", "HTTPS")
     Rel(frontend, artifacts, "Fetches catalog.json & proxies.json from", "Fetch API (with local fallback)")
-    Rel(engine, upstream, "Polls & streams proxy payloads from", "TCP / HTTPS / MTProto")
-    Rel(engine, artifacts, "Writes verified, deduplicated proxy sets to", "Disk / File I/O")
+    Rel(pipeline, upstream, "Ingests configured proxy payloads from", "MTProto / Bot API / configured connectors")
+    Rel(pipeline, artifacts, "Writes verified, deduplicated proxy sets to", "Disk / File I/O")
     Rel(tools, artifacts, "Calculates SHA-256 checksums & updates catalog.json in", "Disk / File I/O")
     Rel(artifacts, ghpages, "Deployed to", "GitHub Pages Deploy Step")
 ```
 
 ### Container Specifications
 1. **Frontend Telemetry SPA (`docs/`)**:
-   - Zero external runtime dependencies (100% offline and `file:///` compliant).
+   - Serves a published snapshot; the checked-in UI has CDN font and utility-CSS dependencies, so it is not a fully offline product without vendoring those assets.
    - High-performance 2D/3D Canvas engine rendering Fibonacci sphere radar.
    - Client-side decoder supporting VLESS Reality, VMess Base64 JSON, Trojan TLS, Shadowsocks, and Hysteria2.
-2. **HUNTX Engine Daemon (`cmd/huntx-engine`)**:
-   - Concurrency-safe Go pipeline processing thousands of proxy URIs per second.
+2. **HUNTX production pipeline (`src/huntx/`)**:
+   - Owns configured ingestion, artifact construction, signing, and publication.
+3. **HUNTX Engine CLI (`cmd/huntx-engine`)**:
+   - Concurrency-safe Go analysis commands that read files or standard input and emit results to standard output.
    - GeoRoute Engine (`georoute`) mapping IP/domain endpoints to ISO-3166 alpha-2 country codes.
    - Stream Parser (`stream`) with automatic protocol detection and normalization.
    - Healing Daemon (`healing`) for proactive node recovery and dead-node pruning.
-3. **Artifact Store (`docs/artifacts/dev/` & `data/artifacts`)**:
+4. **Artifact Store (`docs/artifacts/dev/` & `data/artifacts`)**:
    - Flat-file storage model optimized for Git LFS/Pages caching and instant CDN delivery.
 
 ---
 
 ## 3. Level 3: Component Diagram
 
-### 3.1 Backend: HUNTX Go Engine Components
+### 3.1 Go analysis tool components
 
 ```mermaid
 C4Component
-    title Component Diagram — HUNTX Engine (Go)
+    title Component Diagram — HUNTX Engine CLI (Go)
 
     Container_Boundary(engine_boundary, "HUNTX Engine (cmd/huntx-engine)") {
-        Component(main, "Engine Entrypoint", "main.go", "CLI argument parser, worker pool coordinator, and lifecycle manager.")
+        Component(main, "Engine Entrypoint", "main.go", "CLI argument parser and command dispatcher.")
         Component(stream_parser, "Stream Parser", "stream/parser.go", "Tokenizes raw input streams, strips ANSI/metadata, and isolates URI payloads.")
         Component(internal_parse, "Protocol Parser", "internal/parse/parse.go", "Grammar-based parser for VLESS, VMess, Trojan, SS, and Hysteria2 URIs.")
         Component(georoute, "GeoRoute Engine", "georoute/engine.go", "Performs IP/CIDR/GeoIP lookups and attaches country tags.")
         Component(benchmarker, "Benchmark Runner", "benchmark/benchmarker.go", "Measures TCP handshake, TLS negotiation latency, and ping jitter.")
-        Component(healing, "Healing Daemon", "healing/daemon.go", "Monitors node degradation and attempts fallback reconnects.")
+        Component(healing, "Healing helper", "healing/daemon.go", "Supports the `heal` status-check command.")
     }
 
     Rel(main, stream_parser, "Feeds raw stream to")
     Rel(stream_parser, internal_parse, "Passes isolated URIs to")
-    Rel(internal_parse, georoute, "Decorates nodes with geo-metadata via")
-    Rel(internal_parse, benchmarker, "Submits parsed nodes for latency benchmarking to")
-    Rel(benchmarker, healing, "Reports node health metrics to")
+    Rel(main, georoute, "Invokes independently for country filtering")
+    Rel(main, benchmarker, "Invokes independently for TCP checks")
+    Rel(main, healing, "Invokes for status checks")
 ```
 
 ### 3.2 Frontend: Telemetry SPA Components
@@ -141,19 +143,18 @@ The diagram below traces the end-to-end lifecycle of a proxy URI from raw ingest
 sequenceDiagram
     autonumber
     participant Source as Upstream TG/Bot Channel
-    participant Ingest as Go Stream Parser
-    participant Parser as Protocol Parser (internal/parse)
-    participant Bench as Benchmarker & GeoRoute
+    participant Ingest as Python Pipeline
+    participant Parser as Python Formats & Policy
+    participant Build as Artifact Build & Sign
     participant Disk as Artifact Store (proxies.json)
     participant UI as Frontend AppState (app.js)
     participant Canvas as 3D Globe Radar (globe.js)
     participant Client as End-User / Proxy App
 
-    Source->>Ingest: Stream raw text / Base64 chunks
-    Ingest->>Parser: Extract protocol URIs (vless://, vmess://, etc.)
-    Parser->>Bench: Validate parameters, extract SNI & port
-    Bench->>Bench: Measure TCP/TLS latency & resolve GeoIP
-    Bench->>Disk: Deduplicate via SHA-256 hash and write artifacts
+    Source->>Ingest: Configured source messages/files
+    Ingest->>Parser: Normalize and validate supported formats
+    Parser->>Build: Apply policy and build route artifacts
+    Build->>Disk: Write and verify manifest-backed artifacts
     Disk->>UI: Synchronize catalog.json & proxies.json
     UI->>Canvas: Project node coordinates (lat/lon to 3D Cartesian)
     Canvas-->>UI: User clicks hub (e.g. Frankfurt / DE)
@@ -168,8 +169,8 @@ sequenceDiagram
 
 | Attribute | Architectural Decision | Verification Method |
 | :--- | :--- | :--- |
-| **Zero-Dependency Resilience** | Frontend operates 100% offline with zero CDN dependencies via embedded CSS tokens and vanilla ES modules. | Tested via `file:///` local protocol and browser sandboxing. |
+| **Static dashboard boundary** | The frontend displays a release snapshot; it does not itself receive fleet telemetry. CDN dependencies must be vendored before claiming full offline support. | Serve it over local HTTP and test with network access disabled after vendoring. |
 | **XSS Elimination** | All user and proxy-supplied strings are escaped via `escapeHTML()` before DOM injection. | Unit test audit with malformed HTML/JS payloads. |
 | **Deduplication Integrity** | Proxies are indexed and deduplicated by SHA-256 fingerprint of normalized configuration parameters. | `internal/outputverify` test suite. |
 | **Low-Resource Graphics** | Canvas DPR capped at 2.0; RAF loops pause automatically when `document.hidden == true`. | Profiled under Chromium DevTools Performance tab. |
-| **Multi-Platform Support** | Support for VLESS Reality, VMess, Trojan, Shadowsocks, and Hysteria2. | Verified across decoder test suites in Go and Node.js. |
+| **Protocol support** | Decoders and compilers have distinct contracts; unsupported compiler mappings must be rejected rather than emitted as invalid client configuration. | Parser/compiler regression tests and target-client validation where available. |

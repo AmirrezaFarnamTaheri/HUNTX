@@ -8,6 +8,10 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
 	"time"
 )
 
@@ -46,13 +50,18 @@ func WithOrchestratorEndpoint(url string) ProbeAgentOption {
 	return func(a *ProbeAgent) { a.OrchestratorURL = url }
 }
 
+func WithOrchestratorBearerToken(token string) ProbeAgentOption {
+	return func(a *ProbeAgent) { a.OrchestratorBearerToken = token }
+}
+
 // ProbeAgent runs telemetry sweeps and pushes metrics to the orchestrator.
 type ProbeAgent struct {
-	RegionID        string
-	Provider        string
-	Timeout         time.Duration
-	OrchestratorURL string
-	client          *http.Client
+	RegionID                string
+	Provider                string
+	Timeout                 time.Duration
+	OrchestratorURL         string
+	OrchestratorBearerToken string
+	client                  *http.Client
 }
 
 // NewProbeAgent initializes a new probe agent.
@@ -118,6 +127,9 @@ func (a *ProbeAgent) SubmitReport(ctx context.Context, report VantageReport) err
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if a.OrchestratorBearerToken != "" {
+		req.Header.Set("Authorization", "Bearer "+a.OrchestratorBearerToken)
+	}
 
 	resp, err := a.client.Do(req)
 	if err != nil {
@@ -132,6 +144,43 @@ func (a *ProbeAgent) SubmitReport(ctx context.Context, report VantageReport) err
 }
 
 func main() {
-	agent := NewProbeAgent()
-	fmt.Printf("[HUNTX-PROBE] Initialized vantage agent %s (%s)\n", agent.RegionID, agent.Provider)
+	region := os.Getenv("REGION")
+	if region == "" {
+		region = "default-vantage"
+	}
+	provider := os.Getenv("PROBE_ID")
+	if provider == "" {
+		provider = "generic"
+	}
+	endpoint := os.Getenv("ORCHESTRATOR_URL")
+	if endpoint == "" {
+		endpoint = "http://localhost:8080/api/vantage/report"
+	}
+	orchestratorToken := strings.TrimSpace(os.Getenv("ORCHESTRATOR_BEARER_TOKEN"))
+	targets := strings.FieldsFunc(os.Getenv("PROBE_TARGETS"), func(r rune) bool { return r == ',' || r == ';' || r == ' ' })
+	if len(targets) == 0 {
+		targets = []string{"1.1.1.1:443"}
+	}
+	agent := NewProbeAgent(
+		WithRegionID(region),
+		WithVantageProvider(provider),
+		WithOrchestratorEndpoint(endpoint),
+		WithOrchestratorBearerToken(orchestratorToken),
+	)
+	fmt.Printf("[HUNTX-PROBE] Started vantage agent %s (%s)\n", agent.RegionID, agent.Provider)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for {
+		report := agent.EvaluateTargets(ctx, targets)
+		if err := agent.SubmitReport(ctx, report); err != nil {
+			fmt.Fprintf(os.Stderr, "[HUNTX-PROBE] report submission failed: %v\n", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
 }

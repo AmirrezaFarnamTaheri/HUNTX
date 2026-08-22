@@ -68,7 +68,7 @@ This plan details the technical implementation of the next-generation architectu
 ### Phase 1: Zero-Copy Streaming Ingestion Engine
 
 #### Task 1.1: Implement `StreamingChunkParser`
-- **File**: [`src/huntx/formats/streaming.py`](file:///D:/GitHub/HUNTX/src/huntx/formats/streaming.py)
+- **File**: [`src/huntx/formats/streaming.py`](../../src/huntx/formats/streaming.py)
 - **Description**: Create a memory-efficient chunked iterator (`parse_stream`) reading streams in 64KB blocks. Automatically detects base64 encoding vs line-separated subscription links without accumulating the entire payload in memory.
 - **Contract**:
   ```python
@@ -82,7 +82,7 @@ This plan details the technical implementation of the next-generation architectu
 - **Verification**: Ensure RAM footprint stays flat (<50MB) during processing of a 10MB test stream payload.
 
 #### Task 1.2: Add Streaming Parser Unit Test Suite
-- **File**: [`tests/test_streaming_parser.py`](file:///D:/GitHub/HUNTX/tests/test_streaming_parser.py)
+- **File**: [`tests/test_streaming_parser.py`](../../tests/test_streaming_parser.py)
 - **Description**: Verify chunked decoding of base64-encoded proxy lists, raw line feeds, and malformed streams.
 - **Verification Command**: `python -m pytest tests/test_streaming_parser.py`
 
@@ -91,7 +91,7 @@ This plan details the technical implementation of the next-generation architectu
 ### Phase 2: Intelligent Geo-Clustering & Dynamic Target Routing
 
 #### Task 2.1: Implement `GeoRoutingEngine`
-- **File**: [`src/huntx/core/geo_routing.py`](file:///D:/GitHub/HUNTX/src/huntx/core/geo_routing.py)
+- **File**: [`src/huntx/core/geo_routing.py`](../../src/huntx/core/geo_routing.py)
 - **Description**: Analyze proxy endpoint hostnames and IP addresses against country code lookup mechanisms and regex patterns. Classify protocol types (`vless`, `vmess`, `trojan`, `shadowsocks`, `hysteria2`, `tuic`, `wireguard`). Provide routing methods to filter top-performing proxies by region.
 - **Contract**:
   ```python
@@ -105,7 +105,7 @@ This plan details the technical implementation of the next-generation architectu
 - **Verification**: Unit test regex and classification routines on representative URI samples.
 
 #### Task 2.2: Add Geo-Routing Unit Test Suite
-- **File**: [`tests/test_geo_routing.py`](file:///D:/GitHub/HUNTX/tests/test_geo_routing.py)
+- **File**: [`tests/test_geo_routing.py`](../../tests/test_geo_routing.py)
 - **Description**: Test classification of IP addresses, domain TLDs, protocol schemes, and regional routing filters.
 - **Verification Command**: `python -m pytest tests/test_geo_routing.py`
 
@@ -114,7 +114,7 @@ This plan details the technical implementation of the next-generation architectu
 ### Phase 3: Autonomous Self-Healing Daemon
 
 #### Task 3.1: Implement `SelfHealingDaemon`
-- **File**: [`src/huntx/core/self_healing.py`](file:///D:/GitHub/HUNTX/src/huntx/core/self_healing.py)
+- **File**: [`src/huntx/core/self_healing.py`](../../src/huntx/core/self_healing.py)
 - **Description**: Async daemon task that queries degraded proxy records from the state store, applies exponential backoff re-testing intervals (5m -> 15m -> 1h -> 6h), auto-reinstates recovered nodes to active status, and purges nodes unreachable for >48 hours.
 - **Contract**:
   ```python
@@ -131,7 +131,7 @@ This plan details the technical implementation of the next-generation architectu
 - **Verification**: Mock clock transitions and verify retry schedules, node reinstatements, and 48-hour purge logic.
 
 #### Task 3.2: Add Self-Healing Unit Test Suite
-- **File**: [`tests/test_self_healing.py`](file:///D:/GitHub/HUNTX/tests/test_self_healing.py)
+- **File**: [`tests/test_self_healing.py`](../../tests/test_self_healing.py)
 - **Description**: Test retry interval escalation, state recovery, and purge execution against an isolated SQLite test database.
 - **Verification Command**: `python -m pytest tests/test_self_healing.py`
 
@@ -140,7 +140,7 @@ This plan details the technical implementation of the next-generation architectu
 ### Phase 4: Unified Orchestration & System Verification
 
 #### Task 4.1: Wire Next-Gen Components into `UnifiedOrchestrator`
-- **File**: [`src/huntx/core/unified_orchestrator.py`](file:///D:/GitHub/HUNTX/src/huntx/core/unified_orchestrator.py)
+- **File**: [`src/huntx/core/unified_orchestrator.py`](../../src/huntx/core/unified_orchestrator.py)
 - **Description**: Update `UnifiedOrchestrator` to instantiate and expose `StreamingChunkParser`, `GeoRoutingEngine`, and `SelfHealingDaemon`.
 - **Verification**: Run `tests/test_unified_orchestrator.py` to confirm backwards compatibility and integrated pipeline execution.
 

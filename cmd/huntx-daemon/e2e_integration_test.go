@@ -10,6 +10,7 @@ import (
 )
 
 func TestE2EDaemonLifecycleAndLivePACServing(t *testing.T) {
+	t.Setenv("HUNTX_DAEMON_CONTROL_TOKEN", "test-control-token")
 	// 1. Ingest initial evaluated proxy nodes
 	initialNodes := []DaemonNode{
 		{ID: "ir-relay-01", Protocol: "vless", Server: "185.10.10.1", Port: 443, Latency: 22 * time.Millisecond, Alive: true},
@@ -51,7 +52,7 @@ func TestE2EDaemonLifecycleAndLivePACServing(t *testing.T) {
 	}
 
 	// 4. Trigger node rotation / failover
-	reqRotate := httptest.NewRequest(http.MethodPost, "/rotate", nil)
+	reqRotate := authorizedRequest(http.MethodPost, "/rotate")
 	recRotate := httptest.NewRecorder()
 	handler.ServeHTTP(recRotate, reqRotate)
 

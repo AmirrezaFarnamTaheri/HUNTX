@@ -35,6 +35,9 @@ func TestProbeAgentHTTPDispatch(t *testing.T) {
 	var receivedReport bool
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" && r.URL.Path == "/api/vantage/report" {
+			if got := r.Header.Get("Authorization"); got != "Bearer probe-token" {
+				t.Fatalf("expected authorization header, got %q", got)
+			}
 			receivedReport = true
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"status":"ack"}`))
@@ -42,7 +45,10 @@ func TestProbeAgentHTTPDispatch(t *testing.T) {
 	}))
 	defer server.Close()
 
-	agent := NewProbeAgent(WithOrchestratorEndpoint(server.URL + "/api/vantage/report"))
+	agent := NewProbeAgent(
+		WithOrchestratorEndpoint(server.URL+"/api/vantage/report"),
+		WithOrchestratorBearerToken("probe-token"),
+	)
 	err := agent.SubmitReport(context.Background(), VantageReport{
 		RegionID:  "us-east-iad",
 		Timestamp: time.Now().UTC().Format(time.RFC3339),

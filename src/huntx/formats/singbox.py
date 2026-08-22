@@ -26,12 +26,13 @@ class SingboxCompiler:
         """Compile proxy records into a full Sing-box configuration dictionary."""
         outbounds: List[Dict[str, Any]] = []
         node_tags: List[str] = []
+        reserved_tags = {"PROXY-AUTO", "AUTO-BEST", "direct", "block", "dns-out"}
 
         for node in nodes:
             proto = str(node.get("protocol", "")).lower()
             tag = node.get("tag") or f"{proto.upper()}-{node.get('server')}:{node.get('port')}"
-            node_tags.append(tag)
-
+            if tag in reserved_tags or tag in node_tags:
+                continue
             if proto == "vless":
                 outbound: Dict[str, Any] = {
                     "type": "vless",
@@ -72,16 +73,49 @@ class SingboxCompiler:
                         "password": node.get("obfs_password", "")
                     }
                 outbounds.append(outbound)
-            elif proto in ("trojan", "vmess", "shadowsocks"):
-                outbounds.append({
+            elif proto == "trojan":
+                outbound = {
                     "type": proto,
                     "tag": tag,
                     "server": node.get("server"),
                     "server_port": int(node.get("port", 443)),
                     "password": node.get("password", ""),
+                }
+                if node.get("tls", True):
+                    outbound["tls"] = {"enabled": True, "server_name": node.get("sni") or node.get("server"), "insecure": bool(node.get("allow_insecure", False))}
+                if node.get("network") == "ws":
+                    outbound["transport"] = {"type": "ws", "path": node.get("ws_path", "/"), "headers": {"Host": node.get("host") or node.get("sni", "")}}
+                outbounds.append(outbound)
+            elif proto == "vmess":
+                outbound = {
+                    "type": "vmess", "tag": tag, "server": node.get("server"),
+                    "server_port": int(node.get("port", 443)), "uuid": node.get("uuid", ""),
+                    "security": node.get("security", "auto"),
+                }
+                if node.get("tls"):
+                    outbound["tls"] = {"enabled": True, "server_name": node.get("sni") or node.get("server"), "insecure": bool(node.get("allow_insecure", False))}
+                if node.get("network") == "ws":
+                    outbound["transport"] = {"type": "ws", "path": node.get("ws_path", "/"), "headers": {"Host": node.get("host") or node.get("sni", "")}}
+                outbounds.append(outbound)
+            elif proto == "shadowsocks":
+                outbounds.append({
+                    "type": "shadowsocks", "tag": tag, "server": node.get("server"),
+                    "server_port": int(node.get("port", 8388)), "method": node.get("method") or node.get("cipher", ""),
+                    "password": node.get("password", ""),
                 })
+            else:
+                continue
+            node_tags.append(tag)
+
+        proxy_detour = "PROXY-AUTO" if node_tags else "direct"
 
         system_outbounds: List[Dict[str, Any]] = [
+            {"type": "direct", "tag": "direct"},
+            {"type": "block", "tag": "block"},
+            {"type": "dns", "tag": "dns-out"},
+        ]
+        if node_tags:
+            system_outbounds = [
             {
                 "type": "selector",
                 "tag": "PROXY-AUTO",
@@ -98,7 +132,7 @@ class SingboxCompiler:
             },
             {"type": "direct", "tag": "direct"},
             {"type": "block", "tag": "block"},
-            {"type": "dns", "tag": "dns-out"}
+            {"type": "dns", "tag": "dns-out"},
         ]
 
         inbounds: List[Dict[str, Any]] = [
@@ -126,7 +160,7 @@ class SingboxCompiler:
             "log": {"level": "info", "timestamp": True},
             "dns": {
                 "servers": [
-                    {"tag": "remote-dns", "address": self.foreign_dns, "detour": "PROXY-AUTO"},
+                    {"tag": "remote-dns", "address": self.foreign_dns, "detour": proxy_detour},
                     {"tag": "local-dns", "address": self.domestic_dns, "detour": "direct"}
                 ],
                 "rules": [

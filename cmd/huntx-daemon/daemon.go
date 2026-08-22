@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 )
@@ -68,6 +69,12 @@ func NewDaemon(nodes []DaemonNode, opts ...DaemonOption) *Daemon {
 	for _, opt := range opts {
 		opt(d)
 	}
+	for index, node := range d.nodes {
+		if node.Alive {
+			d.activeIdx = index
+			break
+		}
+	}
 	return d
 }
 
@@ -88,9 +95,15 @@ func (d *Daemon) RotateNode() DaemonNode {
 	if len(d.nodes) == 0 {
 		return DaemonNode{ID: "none", Alive: false}
 	}
-	d.activeIdx = (d.activeIdx + 1) % len(d.nodes)
-	d.failoverCount++
-	return d.nodes[d.activeIdx]
+	for offset := 1; offset <= len(d.nodes); offset++ {
+		idx := (d.activeIdx + offset) % len(d.nodes)
+		if d.nodes[idx].Alive {
+			d.activeIdx = idx
+			d.failoverCount++
+			return d.nodes[idx]
+		}
+	}
+	return DaemonNode{ID: "none", Alive: false}
 }
 
 // GetStatus returns the operational snapshot of the daemon.
@@ -127,7 +140,16 @@ func (d *Daemon) Handler() http.Handler {
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 			return
 		}
+		token := os.Getenv("HUNTX_DAEMON_CONTROL_TOKEN")
+		if token == "" || r.Header.Get("Authorization") != "Bearer "+token {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
 		newActive := d.RotateNode()
+		if !newActive.Alive {
+			http.Error(w, "No live proxy node available", http.StatusServiceUnavailable)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"status": "rotated",
@@ -137,6 +159,10 @@ func (d *Daemon) Handler() http.Handler {
 
 	mux.HandleFunc("/proxy.pac", func(w http.ResponseWriter, r *http.Request) {
 		active := d.ActiveNode()
+		if !active.Alive {
+			http.Error(w, "No live proxy node available", http.StatusServiceUnavailable)
+			return
+		}
 		pacScript := fmt.Sprintf(`function FindProxyForURL(url, host) {
     if (shExpMatch(host, "*.local") || isInNet(dnsResolve(host), "10.0.0.0", "255.0.0.0") || isInNet(dnsResolve(host), "192.168.0.0", "255.255.0.0")) {
         return "DIRECT";

@@ -66,6 +66,65 @@ export function getFlagEmoji(countryCode) {
     .join("");
 }
 
+/**
+ * Create artifact links that remain safe to copy from both a deployed
+ * dashboard and a local file preview. `file:` URLs expose a developer's
+ * filesystem and are not importable on another device, so local previews
+ * deliberately fall back to portable relative paths unless a public base URL
+ * is explicitly configured.
+ */
+export function normalizeArtifactPath(path) {
+  return String(path || "")
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^\.\//, "")
+    .replace(/^\/+/, "");
+}
+
+export function getConfiguredPublicBase(documentRef = typeof document === "undefined" ? null : document) {
+  const globalBase = typeof window !== "undefined" && typeof window.HUNTX_PUBLIC_BASE_URL === "string"
+    ? window.HUNTX_PUBLIC_BASE_URL
+    : "";
+  const metaBase = documentRef?.querySelector?.('meta[name="huntx-public-base-url"]')?.content || "";
+  const dataBase = documentRef?.documentElement?.dataset?.publicBaseUrl || "";
+  const rawBase = (globalBase || metaBase || dataBase || "").trim();
+  if (!rawBase) return "";
+  try {
+    const fallback = typeof window !== "undefined" ? window.location.href : "https://example.invalid/";
+    return new URL(rawBase, fallback).href;
+  } catch {
+    return "";
+  }
+}
+
+export function resolveArtifactUrl(path, locationRef = typeof window === "undefined" ? null : window.location) {
+  const safePath = normalizeArtifactPath(path);
+  const configuredBase = getConfiguredPublicBase();
+  if (configuredBase) return new URL(safePath, configuredBase).href;
+  if (!locationRef || !["http:", "https:"].includes(locationRef.protocol)) return safePath;
+  return new URL(safePath, locationRef.href).href;
+}
+
+export function isHostedDashboard(locationRef = typeof window === "undefined" ? null : window.location) {
+  return Boolean(locationRef && ["http:", "https:"].includes(locationRef.protocol));
+}
+
+export function getArtifactLinkModel(path, locationRef = typeof window === "undefined" ? null : window.location) {
+  const safePath = normalizeArtifactPath(path);
+  const configuredBase = getConfiguredPublicBase();
+  const hosted = isHostedDashboard(locationRef);
+  const url = resolveArtifactUrl(safePath, locationRef);
+  const isAbsolute = Boolean(configuredBase || hosted);
+  return {
+    path: safePath,
+    url,
+    display: isAbsolute ? url : `./${safePath}`,
+    copyValue: url,
+    isAbsolute,
+    sourceLabel: configuredBase ? "public base URL" : hosted ? "current origin" : "portable relative path"
+  };
+}
+
 export function resolveGeoAndCarrier(address, sni = "", host = "") {
   const addr = (address || "").toLowerCase().trim();
   const sniLower = (sni || "").toLowerCase().trim();
@@ -370,6 +429,7 @@ export class AppState {
         const isCurrent = target === tabTarget;
         btn.classList.toggle("active", isCurrent);
         btn.setAttribute("aria-selected", isCurrent ? "true" : "false");
+        btn.tabIndex = isCurrent ? 0 : -1;
       });
 
       // Update tab panels visibility with bulletproof style and attribute enforcement
@@ -420,6 +480,8 @@ export class AppState {
   }
 
   async loadLiveData() {
+    this.liveDataState = "loading";
+    let loadedFreshData = false;
     // 1. Fetch live catalog
     try {
       const res = await fetch("catalog.json", { cache: "no-store" });
@@ -427,16 +489,17 @@ export class AppState {
         const liveCatalog = await res.json();
         if (liveCatalog && Array.isArray(liveCatalog.files) && liveCatalog.files.length > 0) {
           this.catalog = liveCatalog;
+          loadedFreshData = true;
         }
       }
-    } catch (e) {}
+    } catch (e) { this.liveDataState = "stale"; }
 
-    // 2. Fetch live decoded production proxies if available and larger than bundle dataset
+    // 2. Published release data is authoritative even when smaller than the demo bundle.
     try {
       const decodedRes = await fetch("artifacts/release/all_sources.npvt.decoded.json", { cache: "no-store" });
       if (decodedRes.ok) {
         const decodedData = await decodedRes.json();
-        if (decodedData && Array.isArray(decodedData.entries) && decodedData.entries.length > this.proxies.length) {
+        if (decodedData && Array.isArray(decodedData.entries) && decodedData.entries.length > 0) {
           this.proxies = decodedData.entries.map((entry, idx) => {
             const proto = (entry.protocol || "vless").toLowerCase();
             const tag = entry.tag || `${proto}-${idx + 1}`;
@@ -451,20 +514,8 @@ export class AppState {
 
             const geo = resolveGeoAndCarrier(host, sni, hostHeader);
 
-            let basePing = 24;
-            if (["DE", "NL", "FR", "GB", "CH", "FI"].includes(geo.country)) {
-              basePing = 24 + ((idx + 1) * 2) % 15;
-            } else if (["US", "CA"].includes(geo.country)) {
-              basePing = 36 + ((idx + 1) * 3) % 18;
-            } else if (["SG", "JP", "KR", "HK"].includes(geo.country)) {
-              basePing = 45 + ((idx + 1) * 2) % 20;
-            } else if (geo.country === "IR") {
-              basePing = 18 + ((idx + 1) * 2) % 8;
-            } else if (geo.country === "RU") {
-              basePing = 32 + ((idx + 1) * 2) % 12;
-            }
-
-            const grade = security === "reality" || basePing < 35 ? "A+" : (security === "tls" ? "A" : "B+");
+            const measuredLatency = Number(entry.latency_ms ?? entry.latency ?? entry.ping);
+            const latency = Number.isFinite(measuredLatency) && measuredLatency >= 0 ? measuredLatency : null;
 
             return {
               id: `px-${String(idx + 1).padStart(4, "0")}`,
@@ -490,18 +541,23 @@ export class AppState {
               city: geo.city,
               latitude: geo.latitude,
               longitude: geo.longitude,
-              latency: basePing,
-              ping: basePing,
-              grade: grade,
+              latency,
+              ping: latency,
               raw_uri: raw,
               raw: raw
             };
           });
 
           this.globeHubs = clusterGlobeHubs(this.proxies);
+          loadedFreshData = true;
         }
       }
     } catch (e) {}
+    if (loadedFreshData) {
+      this.liveDataState = "ready";
+    } else if (this.liveDataState === "loading") {
+      this.liveDataState = "stale";
+    }
   }
 
   async init() {
@@ -556,11 +612,48 @@ export class AppState {
   }
 
   getHealthScore(ping) {
-    const p = typeof ping === "number" ? ping : 50;
+    if (!Number.isFinite(ping) || ping < 0) {
+      return { score: null, grade: "—", label: "Unmeasured", color: "text-gray-400 border-gray-700 bg-gray-900" };
+    }
+    const p = ping;
     if (p <= 45) return { score: 98, grade: "A+", label: "Ultra Fast", color: "text-emerald-400 border-emerald-800/80 bg-emerald-950/60" };
     if (p <= 80) return { score: 91, grade: "A", label: "Fast", color: "text-cyan-400 border-cyan-800/80 bg-cyan-950/60" };
     if (p <= 140) return { score: 82, grade: "B", label: "Stable", color: "text-amber-400 border-amber-800/80 bg-amber-950/60" };
     return { score: 68, grade: "C", label: "Moderate", color: "text-rose-400 border-rose-800/80 bg-rose-950/60" };
+  }
+
+  getLatency(node) {
+    const value = Number(node?.latency ?? node?.ping);
+    return Number.isFinite(value) && value >= 0 ? value : null;
+  }
+
+  getHealthSortValue(node) {
+    const { score } = this.getHealthScore(this.getLatency(node));
+    return score ?? Number.NEGATIVE_INFINITY;
+  }
+
+  refreshProxyWorkspace() {
+    this.renderFilterBar();
+    this.renderNodes();
+  }
+
+  resetProxyFilters({ focusSearch = false } = {}) {
+    this.selectedProtocol = "ALL";
+    this.selectedTransport = "ALL";
+    this.selectedCountry = "ALL";
+    this.selectedOperator = "ALL";
+    this.selectedGrade = "ALL";
+    this.selectedSecurity = "ALL";
+    this.selectedPort = "ALL";
+    this.searchQuery = "";
+    for (const id of ["node-quick-search", "global-search-input"]) {
+      const input = document.getElementById(id);
+      if (input) input.value = "";
+    }
+    this.refreshProxyWorkspace();
+    if (focusSearch) {
+      document.getElementById("node-quick-search")?.focus();
+    }
   }
 
   applyTheme(t) {
@@ -608,7 +701,7 @@ export class AppState {
 
     if (this.selectedGrade !== "ALL") {
       result = result.filter(p => {
-        const { grade } = this.getHealthScore(p.latency || p.ping || 30);
+        const { grade } = this.getHealthScore(this.getLatency(p));
         return grade === this.selectedGrade;
       });
     }
@@ -650,10 +743,10 @@ export class AppState {
     }
 
     result.sort((a, b) => {
-      const pingA = a.latency || a.ping || 30;
-      const pingB = b.latency || b.ping || 30;
+      const pingA = this.getLatency(a) ?? Number.POSITIVE_INFINITY;
+      const pingB = this.getLatency(b) ?? Number.POSITIVE_INFINITY;
       if (this.sortBy === "latency_asc") return pingA - pingB;
-      if (this.sortBy === "score_desc") return pingB - pingA;
+      if (this.sortBy === "score_desc") return this.getHealthSortValue(b) - this.getHealthSortValue(a);
       if (this.sortBy === "name_asc") return (a.name || "").localeCompare(b.name || "");
       if (this.sortBy === "country_asc") return (a.country || "").localeCompare(b.country || "");
       if (this.sortBy === "port_asc") return (a.port || 0) - (b.port || 0);
@@ -914,7 +1007,7 @@ export class AppState {
 
     const debouncedSearch = debounce((val) => {
       this.searchQuery = val;
-      this.renderNodes();
+      this.refreshProxyWorkspace();
     }, 120);
 
     document.getElementById("global-search-input")?.addEventListener("input", (e) => {
@@ -948,15 +1041,14 @@ export class AppState {
 
     const activeCount = this.proxies.length;
     const regionCount = new Set(this.proxies.map(p => p.country || "US")).size;
-    const avgLatencyNum = this.proxies.length
-      ? Math.round(this.proxies.reduce((a, b) => a + (b.latency || b.ping || 30), 0) / this.proxies.length)
-      : (this.stats?.latency?.mean_ms || 30);
-    const minLatencyNum = this.proxies.length
-      ? Math.min(...this.proxies.map(p => p.latency || p.ping || 999))
-      : (this.stats?.latency?.min_ms || 18);
-    const totalFiles = this.catalog.total_files || (this.catalog.files ? this.catalog.files.length : (this.stats?.total_published_files || 27));
-    const totalSize = this.catalog.total_size_str || "131.0 MB";
-    const sourcesCount = this.stats?.active_sources_count || 85;
+    const measuredLatencies = this.proxies.map((proxy) => this.getLatency(proxy)).filter(Number.isFinite);
+    const avgLatencyNum = measuredLatencies.length
+      ? Math.round(measuredLatencies.reduce((sum, latency) => sum + latency, 0) / measuredLatencies.length)
+      : null;
+    const minLatencyNum = measuredLatencies.length ? Math.min(...measuredLatencies) : null;
+    const totalFiles = this.catalog.total_files || (this.catalog.files ? this.catalog.files.length : "—");
+    const totalSize = this.catalog.total_size_str || "Not published";
+    const sourcesCount = this.stats?.active_sources_count ?? "—";
 
     hero.innerHTML = `
       <div class="relative grid grid-cols-1 lg:grid-cols-12 gap-8 items-center py-10 lg:py-14 border-b border-gray-800/60 pb-12">
@@ -1004,8 +1096,8 @@ export class AppState {
             <div class="bg-gray-900/60 border border-gray-800/80 rounded-2xl p-4 backdrop-blur-sm">
               <span class="text-[11px] font-mono text-gray-500 uppercase tracking-wider block">Avg Latency</span>
               <div class="flex items-baseline gap-1.5 mt-1">
-                <span class="text-2xl font-mono font-bold text-amber-400">${avgLatencyNum}ms</span>
-                <span class="text-[10px] font-mono text-emerald-400">Min: ${minLatencyNum}ms</span>
+                <span class="text-2xl font-mono font-bold text-amber-400">${avgLatencyNum === null ? "—" : `${avgLatencyNum}ms`}</span>
+                <span class="text-[10px] font-mono text-gray-400">${minLatencyNum === null ? "Unmeasured" : `Min: ${minLatencyNum}ms`}</span>
               </div>
             </div>
           </div>
@@ -1084,8 +1176,10 @@ export class AppState {
     `;
 
     document.getElementById("hero-copy-sub")?.addEventListener("click", () => {
-      const subUrl = new URL("artifacts/release/all_sources.npvt.b64sub", window.location.href).href;
-      this.copyText(subUrl, "Production Feed URL copied to clipboard");
+      const subUrl = resolveArtifactUrl("artifacts/release/all_sources.npvt.b64sub");
+      this.copyText(subUrl, isHostedDashboard()
+        ? "Production feed URL copied to clipboard"
+        : "Portable artifact path copied — deploy or serve over HTTPS before importing");
     });
 
     document.getElementById("hero-open-scanner")?.addEventListener("click", (e) => {
@@ -1488,57 +1582,53 @@ export class AppState {
     filterContainer.querySelectorAll(".btn-proto-tab").forEach(btn => {
       btn.addEventListener("click", (e) => {
         this.selectedProtocol = e.currentTarget.dataset.protocol;
-        this.renderFilterBar();
-        this.renderNodes();
+        this.refreshProxyWorkspace();
       });
     });
 
     document.getElementById("btn-view-grid")?.addEventListener("click", () => {
       this.viewMode = "grid";
-      this.renderFilterBar();
-      this.renderNodes();
+      this.refreshProxyWorkspace();
     });
 
     document.getElementById("btn-view-table")?.addEventListener("click", () => {
       this.viewMode = "table";
-      this.renderFilterBar();
-      this.renderNodes();
+      this.refreshProxyWorkspace();
     });
 
     document.getElementById("btn-view-feed")?.addEventListener("click", () => {
       this.viewMode = "feed";
-      this.renderFilterBar();
-      this.renderNodes();
+      this.refreshProxyWorkspace();
     });
 
     document.getElementById("select-operator")?.addEventListener("change", (e) => {
       this.selectedOperator = e.target.value;
-      this.renderNodes();
+      this.refreshProxyWorkspace();
     });
 
     document.getElementById("select-transport")?.addEventListener("change", (e) => {
       this.selectedTransport = e.target.value;
-      this.renderNodes();
+      this.refreshProxyWorkspace();
     });
 
     document.getElementById("select-country")?.addEventListener("change", (e) => {
       this.selectedCountry = e.target.value;
-      this.renderNodes();
+      this.refreshProxyWorkspace();
     });
 
     document.getElementById("select-grade")?.addEventListener("change", (e) => {
       this.selectedGrade = e.target.value;
-      this.renderNodes();
+      this.refreshProxyWorkspace();
     });
 
     document.getElementById("select-security")?.addEventListener("change", (e) => {
       this.selectedSecurity = e.target.value;
-      this.renderNodes();
+      this.refreshProxyWorkspace();
     });
 
     document.getElementById("select-sort")?.addEventListener("change", (e) => {
       this.sortBy = e.target.value;
-      this.renderNodes();
+      this.refreshProxyWorkspace();
     });
 
     document.getElementById("btn-batch-copy-filtered")?.addEventListener("click", () => {
@@ -1573,23 +1663,12 @@ export class AppState {
     });
 
     document.getElementById("btn-reset-all-filters")?.addEventListener("click", () => {
-      this.selectedProtocol = "ALL";
-      this.selectedTransport = "ALL";
-      this.selectedCountry = "ALL";
-      this.selectedOperator = "ALL";
-      this.selectedGrade = "ALL";
-      this.selectedSecurity = "ALL";
-      this.selectedPort = "ALL";
-      this.searchQuery = "";
-      const s = document.getElementById("node-quick-search");
-      if (s) s.value = "";
-      this.renderFilterBar();
-      this.renderNodes();
+      this.resetProxyFilters();
     });
 
     const debouncedSearch = debounce((val) => {
       this.searchQuery = val;
-      this.renderNodes();
+      this.refreshProxyWorkspace();
     }, 120);
 
     document.getElementById("node-quick-search")?.addEventListener("input", (e) => {
@@ -1615,18 +1694,7 @@ export class AppState {
         </div>
       `;
       document.getElementById("btn-reset-filters-empty")?.addEventListener("click", () => {
-        this.selectedProtocol = "ALL";
-        this.selectedTransport = "ALL";
-        this.selectedCountry = "ALL";
-        this.selectedOperator = "ALL";
-        this.selectedGrade = "ALL";
-        this.selectedSecurity = "ALL";
-        this.selectedPort = "ALL";
-        this.searchQuery = "";
-        const s = document.getElementById("node-quick-search");
-        if (s) s.value = "";
-        this.renderFilterBar();
-        this.renderNodes();
+        this.resetProxyFilters();
       });
       return;
     }
@@ -1637,7 +1705,8 @@ export class AppState {
       nodesContainer.innerHTML = filtered.map(node => {
         const flag = this.getCountryFlag(node.country);
         const op = this.detectOperator(node.server, node.sni, node.name);
-        const { score, grade, label: healthLabel, color: gradeColor } = this.getHealthScore(node.ping);
+        const latency = this.getLatency(node);
+        const { score, grade, label: healthLabel, color: gradeColor } = this.getHealthScore(latency);
         const isUnmasked = this.unmaskedNodes.has(node.id);
         const isQRVisible = this.activeQRNodes.has(node.id);
 
@@ -1688,12 +1757,12 @@ export class AppState {
                   </span>
                 </div>
                 <div class="flex items-center gap-1.5">
-                  <span class="px-1.5 py-0.5 text-[10px] font-mono font-bold rounded border ${gradeColor}" title="Quality Score: ${score}/100 (${healthLabel})">
+                  <span class="px-1.5 py-0.5 text-[10px] font-mono font-bold rounded border ${gradeColor}" title="${score === null ? healthLabel : `Quality Score: ${score}/100 (${healthLabel})`}">
                     ⭐ ${grade}
                   </span>
-                  <div class="flex items-center gap-1 text-[11px] font-mono font-semibold ${node.ping < 60 ? 'text-emerald-400' : node.ping < 120 ? 'text-amber-400' : 'text-rose-400'}">
-                    <span class="w-1.5 h-1.5 rounded-full ${node.ping < 60 ? 'bg-emerald-400' : node.ping < 120 ? 'bg-amber-400' : 'bg-rose-400'}"></span>
-                    <span>${node.ping}ms</span>
+                  <div class="flex items-center gap-1 text-[11px] font-mono font-semibold ${latency === null ? 'text-gray-500' : latency < 60 ? 'text-emerald-400' : latency < 120 ? 'text-amber-400' : 'text-rose-400'}">
+                    <span class="w-1.5 h-1.5 rounded-full ${latency === null ? 'bg-gray-600' : latency < 60 ? 'bg-emerald-400' : latency < 120 ? 'bg-amber-400' : 'bg-rose-400'}"></span>
+                    <span>${latency === null ? 'Unmeasured' : `${Math.round(latency)}ms`}</span>
                   </div>
                 </div>
               </div>
@@ -1810,7 +1879,8 @@ export class AppState {
                 ${filtered.map(node => {
                   const flag = this.getCountryFlag(node.country);
                   const op = this.detectOperator(node.server, node.sni, node.name);
-                  const { grade, score } = this.getHealthScore(node.ping);
+                  const latency = this.getLatency(node);
+                  const { grade } = this.getHealthScore(latency);
                   return `
                     <tr class="hover:bg-gray-900/50 transition-colors">
                       <td class="p-3.5 font-bold text-sm">${flag} <span class="text-[10px] text-gray-500">${escapeHTML(node.country)}</span></td>
@@ -1820,7 +1890,7 @@ export class AppState {
                       <td class="p-3.5 text-gray-400">${escapeHTML(node.transport)} ${node.sni ? `(${escapeHTML(node.sni)})` : ''}</td>
                       <td class="p-3.5"><span class="px-2 py-0.5 bg-gray-900 rounded border border-gray-800 text-gray-300 text-[10px]">${escapeHTML(op)}</span></td>
                       <td class="p-3.5">
-                        <span class="font-bold ${node.ping < 60 ? 'text-emerald-400' : 'text-amber-400'}">⚡ ${node.ping}ms</span>
+                        <span class="font-bold ${latency === null ? 'text-gray-500' : latency < 60 ? 'text-emerald-400' : 'text-amber-400'}">⚡ ${latency === null ? 'Unmeasured' : `${Math.round(latency)}ms`}</span>
                         <span class="text-[10px] text-gray-500 ml-1">⭐ ${grade}</span>
                       </td>
                       <td class="p-3.5 text-right space-x-1">
@@ -1942,6 +2012,7 @@ export class AppState {
 
     const filtered = this.getFilteredArtifacts();
     const allFiles = this.catalog.files || [];
+    const linkMode = getArtifactLinkModel("catalog.json");
     const releaseCount = allFiles.filter(f => f.category === "release" || f.section === "release").length;
     const devCount = allFiles.filter(f => f.category === "dev" || f.section === "dev").length;
     const subsCount = allFiles.filter(f => f.type === "B64SUB" || f.ext === "B64SUB" || f.type === "NPVT" || f.ext === "NPVT" || (f.tags && f.tags.includes("subscription"))).length;
@@ -1966,6 +2037,9 @@ export class AppState {
               Pipeline Output &amp; Artifacts Repository
             </h2>
             <p class="text-xs font-mono text-gray-400 mt-1">Direct access to all ${allFiles.length} generated releases, cumulative datasets, split chunks, and client profiles</p>
+            <p class="text-[11px] font-mono text-gray-500 mt-2">
+              Link mode: <span class="text-cyan-300">${escapeHTML(linkMode.sourceLabel)}</span>${linkMode.isAbsolute ? "" : " for local previews. Serve over HTTP(S) or configure a public base URL for import-ready absolute links."}
+            </p>
           </div>
           <div class="flex items-center gap-2 text-xs font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-3.5 py-2 rounded-xl">
             <span>Total Storage: ${escapeHTML(this.catalog.total_size_str || "0 B")}</span>
@@ -2004,7 +2078,14 @@ export class AppState {
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          ${filtered.map(file => {
+          ${filtered.length === 0 ? `
+            <div class="sm:col-span-2 lg:col-span-3 p-8 bg-gray-900/60 border border-gray-800 rounded-3xl text-center space-y-2">
+              <div class="text-sm font-mono font-bold text-gray-200">No artifacts match the current filter set</div>
+              <p class="text-xs text-gray-400">Clear the artifact search or switch categories to inspect another release surface.</p>
+              <button id="btn-reset-artifact-filters" class="inline-flex items-center justify-center px-4 py-2 min-h-[40px] bg-cyan-500 text-gray-950 font-mono font-bold text-xs rounded-xl focus-ring cursor-pointer">Reset Artifact Filters</button>
+            </div>
+          ` : filtered.map(file => {
+            const link = getArtifactLinkModel(file.path);
             const badgeColor = {
               SINGBOX: "bg-cyan-950 text-cyan-300 border-cyan-700",
               XRAY: "bg-indigo-950 text-indigo-300 border-indigo-700",
@@ -2036,6 +2117,10 @@ export class AppState {
                     ${escapeHTML(file.description || file.filename)}
                   </p>
 
+                  <div class="mt-2 text-[10px] font-mono text-gray-500 truncate" title="${escapeHTML(link.display)}">
+                    ${escapeHTML(link.display)}
+                  </div>
+
                   <div class="mt-2.5 flex flex-wrap gap-1">
                     ${(file.tags || []).map(t => `<span class="text-[9px] font-mono text-gray-400 px-1.5 py-0.5 bg-gray-950 border border-gray-800 rounded">${escapeHTML(t)}</span>`).join("")}
                   </div>
@@ -2043,7 +2128,7 @@ export class AppState {
 
                 <div class="mt-4 pt-3 border-t border-gray-800 flex items-center gap-1.5">
                   <a
-                    href="${escapeHTML(file.path)}"
+                    href="${escapeHTML(link.path)}"
                     download
                     class="flex-1 py-2 min-h-[40px] bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 border border-gray-700 text-gray-200 text-xs font-mono font-semibold rounded-xl text-center transition-all focus-ring cursor-pointer flex items-center justify-center gap-1.5"
                     aria-label="Download ${escapeHTML(file.filename)}"
@@ -2106,11 +2191,19 @@ export class AppState {
       debouncedArtifactSearch(e.target.value);
     });
 
+    document.getElementById("btn-reset-artifact-filters")?.addEventListener("click", () => {
+      this.artifactFilter = "ALL";
+      this.artifactSearchQuery = "";
+      this.renderArtifacts();
+    });
+
     artifactSection.querySelectorAll(".btn-copy-artifact-link").forEach(btn => {
       btn.addEventListener("click", (e) => {
         const p = e.currentTarget.dataset.path;
-        const fullUrl = new URL(p, window.location.href).href;
-        this.copyText(fullUrl, "Artifact URL copied to clipboard");
+        const artifactUrl = resolveArtifactUrl(p);
+        this.copyText(artifactUrl, isHostedDashboard()
+          ? "Artifact URL copied to clipboard"
+          : "Portable artifact path copied — deploy or serve over HTTPS before importing");
       });
     });
 
@@ -2130,10 +2223,23 @@ export class AppState {
   }
 
   openArtifactQRModal(file) {
-    const rawUrl = new URL(file.path, window.location.href).href;
-    const rawGithubUrl = `https://raw.githubusercontent.com/AmirrezaFarnamTaheri/HUNTX/main/${file.path}`;
-    const qrTargetUrl = (typeof window !== "undefined" && window.location.protocol.startsWith("http")) ? rawUrl : rawGithubUrl;
-    const qrSvg = renderQRCodeSVG(qrTargetUrl, 240, "#00d2ff", "#020617");
+    const link = getArtifactLinkModel(file.path);
+    const qrTargetUrl = link.isAbsolute ? link.url : "";
+    const qrPanel = qrTargetUrl
+      ? `
+            <div class="p-2 bg-gray-950 border border-cyan-500/40 rounded-2xl shadow-lg shadow-cyan-950/30 flex items-center justify-center">
+              ${renderQRCodeSVG(qrTargetUrl, 240, "#00d2ff", "#020617")}
+            </div>
+            <p class="text-[11px] font-mono text-cyan-400 mt-2.5 text-center">
+              Scan to import from the hosted dashboard
+            </p>
+        `
+      : `
+            <div class="w-full p-5 bg-gray-950 border border-dashed border-gray-700 rounded-2xl text-center space-y-2">
+              <div class="text-sm font-mono font-bold text-gray-200">QR unavailable in local preview</div>
+              <p class="text-[11px] font-mono text-gray-400">Serve the dashboard over HTTP(S) or configure a public base URL before generating scannable feed QR codes.</p>
+            </div>
+        `;
 
     const modalHTML = `
       <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" id="artifact-qr-modal-container">
@@ -2147,18 +2253,13 @@ export class AppState {
                 ${escapeHTML(file.filename)}
               </h3>
             </div>
-            <button id="btn-close-artifact-qr" class="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 transition-colors focus-ring" aria-label="Close QR Modal">
+            <button id="btn-close-artifact-qr" class="min-h-[44px] min-w-[44px] p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 transition-colors focus-ring cursor-pointer" aria-label="Close QR Modal">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
           </div>
 
           <div class="flex flex-col items-center justify-center py-1">
-            <div class="p-2 bg-gray-950 border border-cyan-500/40 rounded-2xl shadow-lg shadow-cyan-950/30 flex items-center justify-center">
-              ${qrSvg}
-            </div>
-            <p class="text-[11px] font-mono text-cyan-400 mt-2.5 flex items-center gap-1.5 text-center">
-              <span>📱</span> Instant client import: Shadowrocket, v2rayNG, Streisand, Sing-box
-            </p>
+            ${qrPanel}
           </div>
 
           <div class="bg-gray-950/80 border border-gray-800 rounded-xl p-3.5 space-y-2">
@@ -2167,8 +2268,8 @@ export class AppState {
               <span class="text-emerald-400 font-bold">${escapeHTML(file.size_str || "")}</span>
             </div>
             <div class="flex items-center justify-between text-[11px] font-mono">
-              <span class="text-gray-400">Subscription URL:</span>
-              <span class="text-cyan-300 truncate max-w-[220px] font-mono" title="${escapeHTML(qrTargetUrl)}">${escapeHTML(qrTargetUrl)}</span>
+              <span class="text-gray-400">Link:</span>
+              <span class="text-cyan-300 truncate max-w-[220px] font-mono" title="${escapeHTML(link.display)}">${escapeHTML(link.display)}</span>
             </div>
             ${file.hash ? `
               <div class="flex items-center justify-between text-[10px] font-mono">
@@ -2182,11 +2283,11 @@ export class AppState {
           </div>
 
           <div class="grid grid-cols-2 gap-2.5 pt-1">
-            <button id="btn-copy-artifact-qr-url" class="py-2.5 px-3 min-h-[42px] bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-gray-950 font-mono font-bold text-xs rounded-xl shadow-md transition-all focus-ring cursor-pointer flex items-center justify-center gap-1.5">
+            <button id="btn-copy-artifact-qr-url" class="py-2.5 px-3 min-h-[44px] bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-gray-950 font-mono font-bold text-xs rounded-xl shadow-md transition-all focus-ring cursor-pointer flex items-center justify-center gap-1.5">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-              Copy Feed URL
+              Copy Link
             </button>
-            <a href="${escapeHTML(file.path)}" download class="py-2.5 px-3 min-h-[42px] bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-200 font-mono font-bold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center justify-center gap-1.5 text-center">
+            <a href="${escapeHTML(link.path)}" download class="py-2.5 px-3 min-h-[44px] bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-200 font-mono font-bold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center justify-center gap-1.5 text-center">
               <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
               Download File
             </a>
@@ -2201,17 +2302,27 @@ export class AppState {
       overlay.classList.remove("hidden");
       overlay.removeAttribute("hidden");
       overlay.style.setProperty("display", "block", "important");
+      const previousFocus = document.activeElement;
+      const dialog = overlay.querySelector('[role="dialog"]');
+      if (dialog) {
+        dialog.setAttribute("tabindex", "-1");
+        dialog.focus();
+        this.trapFocus(dialog);
+      }
 
       const closeModal = () => {
         overlay.classList.add("hidden");
         overlay.setAttribute("hidden", "true");
         overlay.style.setProperty("display", "none", "important");
         overlay.innerHTML = "";
+        previousFocus?.focus?.();
       };
 
       document.getElementById("btn-close-artifact-qr")?.addEventListener("click", closeModal);
       document.getElementById("btn-copy-artifact-qr-url")?.addEventListener("click", () => {
-        this.copyText(qrTargetUrl, `Copied subscription URL for ${file.filename}`);
+        this.copyText(link.copyValue, link.isAbsolute
+          ? `Copied artifact URL for ${file.filename}`
+          : `Copied portable artifact path for ${file.filename}`);
       });
 
       overlay.addEventListener("click", (e) => {
@@ -2246,18 +2357,18 @@ export class AppState {
               </div>
               <div>
                 <h3 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
-                  Visual Routing &amp; Profile Studio
-                  <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">ACTIVE</span>
+                  Routing Profile Reference
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-slate-800 text-slate-300 border border-slate-700">EXAMPLE</span>
                 </h3>
-                <p class="text-xs text-gray-400 font-sans mt-0.5">Declarative client-side routing topology editor and multi-format config exporter</p>
+                <p class="text-xs text-gray-400 font-sans mt-0.5">Illustrative routing order. Download verified profiles from the published catalog; this panel does not modify a live client.</p>
               </div>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
-              <a href="artifacts/release/all_sources.npvt.singbox.json" download class="px-3.5 py-2 min-h-[40px] bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-xs font-mono font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer">
+              <a href="artifacts/release/all_sources.npvt.singbox.json" download class="px-3.5 py-2 min-h-[44px] bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-xs font-mono font-bold rounded-xl transition-all focus-ring flex items-center gap-1.5 cursor-pointer">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                 Sing-box JSON
               </a>
-              <a href="artifacts/release/v2ray_test_config.json" download class="px-3.5 py-2 min-h-[40px] bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 text-xs font-mono font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer">
+              <a href="artifacts/release/v2ray_test_config.json" download class="px-3.5 py-2 min-h-[44px] bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 text-xs font-mono font-bold rounded-xl transition-all focus-ring flex items-center gap-1.5 cursor-pointer">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                 Xray Config
               </a>
@@ -2301,8 +2412,8 @@ export class AppState {
                 </div>
               </div>
               <div class="mt-4 pt-3 border-t border-gray-800/80 flex items-center justify-between text-[11px] font-mono text-gray-400">
-                <span>Rules: ${rules.length} active</span>
-                <span>Latency Penalty: ~0.4ms</span>
+                <span>Example rules: ${rules.length}</span>
+                <span>Latency impact: not measured</span>
               </div>
             </div>
           </div>
@@ -2421,8 +2532,8 @@ export class AppState {
         }
         try {
           const decoded = decodeProxyURI(inputVal);
-          const flag = this.getCountryFlag(this.inferCountryFromTagOrHost(decoded.tag, decoded.address));
-          const op = this.detectOperator(decoded.address, decoded.params?.sni || decoded.params?.host, decoded.tag);
+          const flag = this.getCountryFlag(this.inferCountryFromTagOrHost(decoded.name, decoded.server));
+          const op = this.detectOperator(decoded.server, decoded.sni || decoded.host, decoded.name);
           const singboxOutbound = nodeToSingboxOutbound(decoded);
           const clashProxy = nodeToClashProxy(decoded);
 
@@ -2433,7 +2544,7 @@ export class AppState {
                   <span class="text-lg">${flag}</span>
                   <span class="px-2 py-0.5 rounded uppercase font-bold text-[11px] bg-cyan-950 text-cyan-300 border border-cyan-800">${escapeHTML(decoded.protocol)}</span>
                   <span class="px-1.5 py-0.5 rounded text-[11px] bg-gray-900 text-gray-300 border border-gray-800">${escapeHTML(op)}</span>
-                  <span class="font-bold text-gray-200 truncate max-w-xs">${escapeHTML(decoded.tag || 'Node')}</span>
+                  <span class="font-bold text-gray-200 truncate max-w-xs">${escapeHTML(decoded.name || 'Node')}</span>
                 </div>
                 <div class="flex gap-2">
                   <button id="btn-copy-node-json" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-cyan-300 rounded-lg text-xs cursor-pointer focus-ring">Copy JSON</button>
@@ -2446,7 +2557,7 @@ export class AppState {
               <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                 <div class="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800/60">
                   <span class="text-[10px] text-gray-500 block">Server Address</span>
-                  <span class="text-cyan-300 font-semibold select-all">${escapeHTML(decoded.address)}</span>
+                  <span class="text-cyan-300 font-semibold select-all">${escapeHTML(decoded.server)}</span>
                 </div>
                 <div class="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800/60">
                   <span class="text-[10px] text-gray-500 block">Port</span>
@@ -2458,32 +2569,32 @@ export class AppState {
                 </div>
                 <div class="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800/60">
                   <span class="text-[10px] text-gray-500 block">Security / TLS</span>
-                  <span class="text-indigo-300">${escapeHTML(decoded.params?.security || "none")}</span>
+                  <span class="text-indigo-300">${escapeHTML(decoded.security || "none")}</span>
                 </div>
                 <div class="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800/60">
                   <span class="text-[10px] text-gray-500 block">SNI / ServerName</span>
-                  <span class="text-cyan-300 select-all">${escapeHTML(decoded.params?.sni || decoded.params?.host || "None")}</span>
+                  <span class="text-cyan-300 select-all">${escapeHTML(decoded.sni || decoded.host || "None")}</span>
                 </div>
                 <div class="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800/60">
                   <span class="text-[10px] text-gray-500 block">Transport Network</span>
-                  <span class="text-emerald-300">${escapeHTML(decoded.params?.type || decoded.params?.net || "tcp")}</span>
+                  <span class="text-emerald-300">${escapeHTML(decoded.transport || "tcp")}</span>
                 </div>
-                ${decoded.params?.pbk ? `
+                ${decoded.publicKey ? `
                   <div class="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800/60">
                     <span class="text-[10px] text-gray-500 block">Reality Public Key (pbk)</span>
-                    <span class="text-amber-300 select-all">${escapeHTML(decoded.params.pbk)}</span>
+                    <span class="text-amber-300 select-all">${escapeHTML(decoded.publicKey)}</span>
                   </div>
                 ` : ''}
-                ${decoded.params?.sid ? `
+                ${decoded.shortId ? `
                   <div class="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800/60">
                     <span class="text-[10px] text-gray-500 block">Short ID (sid)</span>
-                    <span class="text-amber-300 select-all">${escapeHTML(decoded.params.sid)}</span>
+                    <span class="text-amber-300 select-all">${escapeHTML(decoded.shortId)}</span>
                   </div>
                 ` : ''}
-                ${decoded.params?.serviceName ? `
+                ${decoded.serviceName ? `
                   <div class="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800/60">
                     <span class="text-[10px] text-gray-500 block">gRPC ServiceName</span>
-                    <span class="text-cyan-300 select-all">${escapeHTML(decoded.params.serviceName)}</span>
+                    <span class="text-cyan-300 select-all">${escapeHTML(decoded.serviceName)}</span>
                   </div>
                 ` : ''}
               </div>
@@ -2964,7 +3075,36 @@ export class AppState {
     const modalContainer = document.getElementById("modal-overlay");
     if (!modalContainer) return;
 
-    const currentOrigin = window.location.href;
+    const hosted = isHostedDashboard();
+    const publicBase = getConfiguredPublicBase();
+    const files = Array.isArray(this.catalog?.files) ? this.catalog.files : [];
+    const findArtifact = (filename) => files.find((file) => (file.filename || file.name) === filename);
+    const productionFeeds = [
+      ["all_sources.npvt.b64sub", "Base64 Unified Feed", "Shadowrocket, v2rayNG, Streisand", "cyan"],
+      ["all_sources.npvt.singbox.json", "Sing-box 1.10+ Outbounds", "Sing-box JSON outbounds format", "cyan"],
+      ["v2ray_test_config.json", "Xray / V2Ray Core Config", "Complete client config JSON", "indigo"],
+      ["all_sources.ovpn", "OpenVPN Profile", "Standard .ovpn multi-gateway", "amber"],
+    ].map(([filename, label, description, color]) => ({ filename, label, description, color, file: findArtifact(filename) }));
+    const devFeeds = files.filter((file) => file.section === "dev" || file.category === "dev" || file.tags?.includes("dev"));
+    const chunks = devFeeds.filter((file) => /chunk_/i.test(file.filename || file.name || ""));
+    const feedCard = ({ label, description, color, file }) => {
+      if (!file) return "";
+      const link = getArtifactLinkModel(file.path);
+      return `
+      <div class="p-3.5 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs flex flex-col justify-between">
+        <div>
+          <span class="text-gray-200 font-bold block">${escapeHTML(label)}</span>
+          <span class="text-[11px] text-gray-500 block mt-0.5">${escapeHTML(description)}</span>
+        </div>
+        <div class="mt-3 rounded-lg border border-gray-800 bg-black/20 px-2.5 py-2">
+          <div class="text-[9px] uppercase tracking-wider text-gray-500 mb-1">${escapeHTML(link.sourceLabel)}</div>
+          <div class="text-[10px] text-${color}-300 break-all">${escapeHTML(link.display)}</div>
+        </div>
+        <div class="mt-3 flex items-center justify-end gap-2">
+          <button class="btn-copy-custom px-3 py-1.5 min-h-[44px] bg-${color}-500 text-${color === "indigo" ? "white" : "gray-950"} font-bold rounded-lg text-[10px] cursor-pointer focus-ring" data-url="${escapeHTML(link.copyValue)}" data-absolute="${link.isAbsolute}">Copy</button>
+        </div>
+      </div>`;
+    };
 
     modalContainer.innerHTML = `
       <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="modal-sub-title">
@@ -2974,113 +3114,32 @@ export class AppState {
               <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
               Subscription Feeds &amp; Client Configurations
             </h3>
-            <button id="btn-close-sub" class="p-2 min-h-[38px] min-w-[38px] flex items-center justify-center bg-gray-800 text-gray-400 hover:text-white rounded-lg cursor-pointer focus-ring" aria-label="Close Subscription Builder Modal">
+            <button id="btn-close-sub" class="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-800 text-gray-400 hover:text-white rounded-lg cursor-pointer focus-ring" aria-label="Close Subscription Builder Modal">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
           </div>
 
-          <p class="text-xs font-mono text-gray-400">Choose your client profile or copy direct subscription URLs:</p>
+          <p class="text-xs font-mono text-gray-400">Choose a verified client profile. Links are generated from the published catalog and never from a local filesystem path.</p>
+          ${hosted || publicBase ? "" : `<div class="rounded-xl border border-amber-500/30 bg-amber-950/30 px-3.5 py-3 text-xs leading-relaxed text-amber-200"><strong>Local preview:</strong> copy actions use portable relative paths. Serve or deploy this dashboard over HTTPS, or configure <code>HUNTX_PUBLIC_BASE_URL</code> / <code>&lt;meta name="huntx-public-base-url"&gt;</code>, before importing a subscription on another device.</div>`}
 
           <div class="space-y-4">
             <!-- Production Feeds -->
             <div>
               <span class="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider block mb-2">1. Production Feeds (Latest Verified Run)</span>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <div class="p-3.5 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs flex flex-col justify-between">
-                  <div>
-                    <span class="text-gray-400 font-bold block">Base64 Unified Feed</span>
-                    <span class="text-[11px] text-gray-500 truncate block mt-0.5">Shadowrocket, v2rayNG, Streisand</span>
-                  </div>
-                  <div class="mt-3 flex items-center justify-between gap-2">
-                    <span class="text-[10px] text-cyan-300 truncate">${escapeHTML(new URL("artifacts/release/all_sources.npvt.b64sub", currentOrigin).href)}</span>
-                    <button class="btn-copy-custom px-3 py-1.5 min-h-[32px] bg-cyan-500 text-gray-950 font-bold rounded-lg text-[10px] cursor-pointer focus-ring" data-url="${escapeHTML(new URL("artifacts/release/all_sources.npvt.b64sub", currentOrigin).href)}">Copy</button>
-                  </div>
-                </div>
-
-                <div class="p-3.5 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs flex flex-col justify-between">
-                  <div>
-                    <span class="text-gray-400 font-bold block">Sing-box 1.10+ Outbounds</span>
-                    <span class="text-[11px] text-gray-500 truncate block mt-0.5">Sing-box JSON outbounds format</span>
-                  </div>
-                  <div class="mt-3 flex items-center justify-between gap-2">
-                    <span class="text-[10px] text-cyan-300 truncate">${escapeHTML(new URL("artifacts/release/all_sources.npvt.singbox.json", currentOrigin).href)}</span>
-                    <button class="btn-copy-custom px-3 py-1.5 min-h-[32px] bg-cyan-500 text-gray-950 font-bold rounded-lg text-[10px] cursor-pointer focus-ring" data-url="${escapeHTML(new URL("artifacts/release/all_sources.npvt.singbox.json", currentOrigin).href)}">Copy</button>
-                  </div>
-                </div>
-
-                <div class="p-3.5 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs flex flex-col justify-between">
-                  <div>
-                    <span class="text-gray-400 font-bold block">Xray / V2Ray Core Config</span>
-                    <span class="text-[11px] text-gray-500 truncate block mt-0.5">Complete client config JSON</span>
-                  </div>
-                  <div class="mt-3 flex items-center justify-between gap-2">
-                    <span class="text-[10px] text-indigo-300 truncate">${escapeHTML(new URL("artifacts/release/v2ray_test_config.json", currentOrigin).href)}</span>
-                    <button class="btn-copy-custom px-3 py-1.5 min-h-[32px] bg-indigo-500 text-white font-bold rounded-lg text-[10px] cursor-pointer focus-ring" data-url="${escapeHTML(new URL("artifacts/release/v2ray_test_config.json", currentOrigin).href)}">Copy</button>
-                  </div>
-                </div>
-
-                <div class="p-3.5 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs flex flex-col justify-between">
-                  <div>
-                    <span class="text-gray-400 font-bold block">OpenVPN Profile</span>
-                    <span class="text-[11px] text-gray-500 truncate block mt-0.5">Standard .ovpn multi-gateway</span>
-                  </div>
-                  <div class="mt-3 flex items-center justify-between gap-2">
-                    <span class="text-[10px] text-amber-300 truncate">${escapeHTML(new URL("artifacts/release/all_sources.ovpn", currentOrigin).href)}</span>
-                    <button class="btn-copy-custom px-3 py-1.5 min-h-[32px] bg-amber-500 text-gray-950 font-bold rounded-lg text-[10px] cursor-pointer focus-ring" data-url="${escapeHTML(new URL("artifacts/release/all_sources.ovpn", currentOrigin).href)}">Copy</button>
-                  </div>
-                </div>
+                ${productionFeeds.map(feedCard).join("") || `<p class="col-span-full rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-xs text-amber-200">No compatible production profiles are in this published catalog.</p>`}
               </div>
             </div>
 
-            <!-- Cumulative Dev Feeds -->
-            <div>
-              <span class="text-xs font-mono font-bold text-indigo-400 uppercase tracking-wider block mb-2">2. All-Time Cumulative Feeds (49+ Sources)</span>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <div class="p-3.5 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs flex flex-col justify-between">
-                  <div>
-                    <span class="text-gray-400 font-bold block">All-Time Base64 Feed (32 MB)</span>
-                    <span class="text-[11px] text-gray-500 truncate block mt-0.5">Cumulative subscription across all runs</span>
-                  </div>
-                  <div class="mt-3 flex items-center justify-between gap-2">
-                    <span class="text-[10px] text-gray-400 truncate">${escapeHTML(new URL("artifacts/dev/proxies_b64sub.txt", currentOrigin).href)}</span>
-                    <button class="btn-copy-custom px-3 py-1.5 min-h-[32px] bg-gray-800 hover:bg-gray-700 text-cyan-300 font-bold rounded-lg text-[10px] cursor-pointer focus-ring" data-url="${escapeHTML(new URL("artifacts/dev/proxies_b64sub.txt", currentOrigin).href)}">Copy</button>
-                  </div>
-                </div>
-
-                <div class="p-3.5 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs flex flex-col justify-between">
-                  <div>
-                    <span class="text-gray-400 font-bold block">All-Time Raw TXT (24 MB)</span>
-                    <span class="text-[11px] text-gray-500 truncate block mt-0.5">Plain text URI lines</span>
-                  </div>
-                  <div class="mt-3 flex items-center justify-between gap-2">
-                    <span class="text-[10px] text-gray-400 truncate">${escapeHTML(new URL("artifacts/dev/proxies.txt", currentOrigin).href)}</span>
-                    <button class="btn-copy-custom px-3 py-1.5 min-h-[32px] bg-gray-800 hover:bg-gray-700 text-cyan-300 font-bold rounded-lg text-[10px] cursor-pointer focus-ring" data-url="${escapeHTML(new URL("artifacts/dev/proxies.txt", currentOrigin).href)}">Copy</button>
-                  </div>
+            ${devFeeds.length ? `
+              <div>
+                <span class="text-xs font-mono font-bold text-indigo-400 uppercase tracking-wider block mb-2">2. Additional Published Feeds</span>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  ${devFeeds.filter((file) => !chunks.includes(file)).map((file) => feedCard({ label: file.filename || file.name, description: file.size_str || "Published artifact", color: "indigo", file })).join("")}
                 </div>
               </div>
-            </div>
-
-            <!-- Split Chunks -->
-            <div>
-              <span class="text-xs font-mono font-bold text-emerald-400 uppercase tracking-wider block mb-2">3. Lightweight Split Chunks (1 to 11)</span>
-              <p class="text-[11px] font-mono text-gray-500 mb-2">Split feeds for low-RAM mobile devices &amp; slow bandwidth:</p>
-              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                ${Array.from({ length: 11 }, (_, i) => {
-                  const num = String(i + 1).padStart(4, "0");
-                  const chunkPath = `artifacts/dev/proxies_chunk_${num}.txt`;
-                  const chunkUrl = new URL(chunkPath, currentOrigin).href;
-                  return `
-                    <button
-                      class="btn-copy-custom p-2.5 min-h-[44px] bg-gray-950 hover:bg-gray-800 border border-gray-800 hover:border-cyan-500/40 rounded-xl text-left font-mono text-xs transition-all cursor-pointer focus-ring"
-                      data-url="${escapeHTML(chunkUrl)}"
-                    >
-                      <div class="text-cyan-300 font-bold">Chunk ${i + 1}</div>
-                      <div class="text-[10px] text-gray-500 truncate">~2.0 MB</div>
-                    </button>
-                  `;
-                }).join("")}
-              </div>
-            </div>
+              ${chunks.length ? `<div><span class="text-xs font-mono font-bold text-emerald-400 uppercase tracking-wider block mb-2">3. Lightweight Split Chunks</span><p class="text-[11px] font-mono text-gray-500 mb-2">Only chunks included in this catalog are shown.</p><div class="grid grid-cols-2 sm:grid-cols-4 gap-2">${chunks.map((file, index) => { const link = getArtifactLinkModel(file.path); return `<button class="btn-copy-custom p-2.5 min-h-[44px] bg-gray-950 hover:bg-gray-800 border border-gray-800 hover:border-cyan-500/40 rounded-xl text-left font-mono text-xs transition-all cursor-pointer focus-ring" data-url="${escapeHTML(link.copyValue)}" data-absolute="${link.isAbsolute}" title="${escapeHTML(link.display)}"><div class="text-cyan-300 font-bold">Chunk ${index + 1}</div><div class="text-[10px] text-gray-500 truncate">${escapeHTML(file.size_str || "Published artifact")}</div><div class="text-[9px] text-gray-500 truncate mt-1">${escapeHTML(link.display)}</div></button>`; }).join("")}</div></div>` : ""}
+            ` : ""}
           </div>
         </div>
       </div>
@@ -3097,7 +3156,10 @@ export class AppState {
     modalContainer.querySelectorAll(".btn-copy-custom").forEach(btn => {
       btn.addEventListener("click", (e) => {
         const url = e.currentTarget.dataset.url;
-        this.copyText(url, "Subscription Feed URL copied");
+        const isAbsolute = e.currentTarget.dataset.absolute === "true";
+        this.copyText(url, isAbsolute
+          ? "Subscription feed URL copied"
+          : "Portable artifact path copied — configure a public base URL for direct client import");
       });
     });
   }
@@ -3246,10 +3308,7 @@ export class AppState {
       } catch (err) {
         clearTimeout(timer);
         const elapsed = Math.round(performance.now() - t0);
-        if (elapsed < timeoutMs - 50) {
-          return { ok: true, latency: Math.max(18, elapsed) };
-        }
-        return { ok: false, latency: elapsed, timeout: true };
+        return { ok: false, latency: elapsed, timeout: err?.name === "AbortError", error: err?.name || "network failure" };
       }
     };
 
@@ -3324,8 +3383,8 @@ export class AppState {
         <span>Rescan Subnet</span>
       `;
       const cleanCount = scanResults.filter(r => r.ok).length;
-      statusText.textContent = `Scan complete! Found ${cleanCount} operational clean IPs.`;
-      progressPill.textContent = `${cleanCount} Clean`;
+      statusText.textContent = `Scan complete! ${cleanCount} browser requests completed; proxy usability remains unverified.`;
+      progressPill.textContent = `${cleanCount} Completed`;
 
       const bestIp = scanResults.find(r => r.ok);
       if (bestIp) {
@@ -3338,12 +3397,12 @@ export class AppState {
 
     document.getElementById("scanner-btn-copy-best")?.addEventListener("click", () => {
       const best = scanResults.find(r => r.ok);
-      if (best) this.copyText(best.ip, `Best Clean IP ${best.ip} (${best.latency}ms) copied`);
+      if (best) this.copyText(best.ip, `Fastest browser-completed request: ${best.ip} (${best.latency}ms) copied`);
     });
 
     document.getElementById("scanner-btn-copy-all")?.addEventListener("click", () => {
       const cleanIps = scanResults.filter(r => r.ok).map(r => r.ip).join("\n");
-      if (cleanIps) this.copyText(cleanIps, "All clean IPs copied to clipboard");
+      if (cleanIps) this.copyText(cleanIps, "All browser-completed IPs copied to clipboard");
     });
 
     document.getElementById("scanner-btn-export-csv")?.addEventListener("click", () => {
@@ -3521,10 +3580,26 @@ export class AppState {
           this.switchPageTab(tabTarget, true);
         }
       });
+      btn.addEventListener("keydown", (e) => {
+        const tabs = Array.from(document.querySelectorAll(".nav-tab-btn"));
+        const index = tabs.indexOf(e.currentTarget);
+        if (index < 0) return;
+        let nextIndex = null;
+        if (e.key === "ArrowRight") nextIndex = (index + 1) % tabs.length;
+        if (e.key === "ArrowLeft") nextIndex = (index - 1 + tabs.length) % tabs.length;
+        if (e.key === "Home") nextIndex = 0;
+        if (e.key === "End") nextIndex = tabs.length - 1;
+        if (nextIndex === null) return;
+        e.preventDefault();
+        const next = tabs[nextIndex];
+        this.switchPageTab(next.dataset.tabTarget, true);
+        next.focus();
+      });
     });
 
     // 3. Global Keyboard Shortcuts
     window.addEventListener("keydown", (e) => {
+      if (document.querySelector('[role="dialog"]') || document.querySelector('[aria-modal="true"]')) return;
       const isInput = document.activeElement && (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA" || document.activeElement.tagName === "SELECT");
 
       if (e.key === "/" && !(e.ctrlKey || e.metaKey || e.altKey)) {
@@ -3560,30 +3635,18 @@ export class AppState {
           this.openCleanIPScannerModal();
         } else if (e.key === "b" || e.key === "B") {
           e.preventDefault();
-          this.openSubBuilderModal();
+          this.openSubscriptionBuilderModal();
         } else if (e.key === "t" || e.key === "T") {
           e.preventDefault();
           this.toggleTheme();
         } else if (e.key === "v" || e.key === "V") {
           e.preventDefault();
           this.viewMode = this.viewMode === "grid" ? "table" : this.viewMode === "table" ? "feed" : "grid";
-          this.renderFilterBar();
-          this.renderNodes();
+          this.refreshProxyWorkspace();
           this.showToast(`View mode: ${this.viewMode.toUpperCase()}`);
         } else if (e.key === "r" || e.key === "R") {
           e.preventDefault();
-          this.selectedProtocol = "ALL";
-          this.selectedTransport = "ALL";
-          this.selectedCountry = "ALL";
-          this.selectedOperator = "ALL";
-          this.selectedGrade = "ALL";
-          this.selectedSecurity = "ALL";
-          this.selectedPort = "ALL";
-          this.searchQuery = "";
-          const s = document.getElementById("node-quick-search");
-          if (s) s.value = "";
-          this.renderFilterBar();
-          this.renderNodes();
+          this.resetProxyFilters();
           this.showToast("All filters reset");
         } else if (e.key === "?" || e.key === "k" || e.key === "K") {
           e.preventDefault();

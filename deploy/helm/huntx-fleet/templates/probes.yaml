@@ -1,0 +1,35 @@
+{{- range .Values.probes }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: {{ include "huntx-fleet.fullname" $ }}-{{ .id }} }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app.kubernetes.io/name: {{ include "huntx-fleet.name" $ }}, app.kubernetes.io/component: probe, app.kubernetes.io/instance: {{ .id }} }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: {{ include "huntx-fleet.name" $ }}, app.kubernetes.io/component: probe, app.kubernetes.io/instance: {{ .id }} }
+    spec:
+      containers:
+        - name: probe
+          image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          resources:
+{{ toYaml $.Values.resources | indent 12 }}
+          env:
+            - name: PROBE_ID
+              value: {{ .id | quote }}
+            - name: REGION
+              value: {{ .region | quote }}
+            - name: ORCHESTRATOR_URL
+              value: {{ required "probes require orchestratorUrl" $.Values.orchestratorUrl | quote }}
+            - name: ORCHESTRATOR_BEARER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "huntx-fleet.fullname" $ }}-control
+                  key: orchestrator-token
+                  optional: true
+            - name: PROBE_TARGETS
+              value: {{ default $.Values.probeTargets .targets | quote }}
+{{- end }}

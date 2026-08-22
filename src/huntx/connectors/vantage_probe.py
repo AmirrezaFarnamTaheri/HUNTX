@@ -5,6 +5,7 @@ Authority:
 """
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
+import math
 
 @dataclass
 class VantageProbeObservation:
@@ -40,12 +41,23 @@ class VantageProbeConnector:
             target = obs.get("target")
             if not target:
                 continue
+            alive = obs.get("alive")
+            if not isinstance(alive, bool):
+                continue
+            if not isinstance(target, str) or not target.strip():
+                continue
+            try:
+                latency_ms = float(obs.get("latency_ms", 0.0))
+            except (TypeError, ValueError):
+                continue
+            if not math.isfinite(latency_ms) or latency_ms < 0:
+                continue
             results.append(VantageProbeObservation(
                 region_id=region_id,
                 provider=provider,
                 target=target,
-                alive=bool(obs.get("alive", False)),
-                latency_ms=float(obs.get("latency_ms", 0.0)),
+                alive=alive,
+                latency_ms=latency_ms,
                 protocol=obs.get("protocol"),
                 timestamp=timestamp
             ))

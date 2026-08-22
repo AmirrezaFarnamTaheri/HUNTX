@@ -7,6 +7,8 @@ repository-owned configurations should use the canonical spelling:
 publishing:
   routes:
     - name: all_sources
+      from_sources: [source_channel_1]
+      formats: [npvt]
       destinations:
         - chat_id: "-1001234567890"
           mode: telegram
