@@ -115,6 +115,7 @@ func Generate(dataDir, docsDir string, generatedAt time.Time) (Catalog, error) {
 	if err := runtimegen.WriteBytesAtomic(catalogStage, append(payload, '\n'), 0o600); err != nil {
 		return Catalog{}, err
 	}
+	defer os.Remove(catalogStage)
 
 	target := filepath.Join(docsDir, "artifacts")
 	backup := target + ".backup"
@@ -148,6 +149,10 @@ func Generate(dataDir, docsDir string, generatedAt time.Time) (Catalog, error) {
 		}
 		hadOldCatalog = true
 	} else if !os.IsNotExist(err) {
+		_ = os.RemoveAll(target)
+		if hadOld {
+			_ = os.Rename(backup, target)
+		}
 		return Catalog{}, err
 	}
 	if err := os.Rename(catalogStage, catalogTarget); err != nil {

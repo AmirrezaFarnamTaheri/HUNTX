@@ -278,7 +278,9 @@ export class I18nRuntime {
   constructor() {
     this.locale = "en";
     this.textSources = new WeakMap();
+    this.lastWrittenText = new WeakMap();
     this.attributeSources = new WeakMap();
+    this.lastWrittenAttributes = new WeakMap();
     this.observer = null;
     this.isTranslating = false;
   }
@@ -336,7 +338,12 @@ export class I18nRuntime {
     const content = source.trim();
     if (!content) return;
     const translated = this.translate(content);
-    node.nodeValue = source.replace(content, translated);
+    const output = source.replace(content, translated);
+    if (node.nodeValue !== output) {
+      const pending = this.lastWrittenText.get(node);
+      this.lastWrittenText.set(node, { value: output, count: (pending?.count || 0) + 1 });
+      node.nodeValue = output;
+    }
   }
 
   translateAttributes(element) {
@@ -348,7 +355,19 @@ export class I18nRuntime {
     }
     for (const name of ["aria-label", "title", "placeholder"]) {
       if (element.hasAttribute(name) && !sources.has(name)) sources.set(name, element.getAttribute(name));
-      if (sources.has(name)) element.setAttribute(name, this.translate(sources.get(name)));
+      if (sources.has(name)) {
+        const output = this.translate(sources.get(name));
+        if (element.getAttribute(name) !== output) {
+          let writes = this.lastWrittenAttributes.get(element);
+          if (!writes) {
+            writes = new Map();
+            this.lastWrittenAttributes.set(element, writes);
+          }
+          const pending = writes.get(name);
+          writes.set(name, { value: output, count: (pending?.count || 0) + 1 });
+          element.setAttribute(name, output);
+        }
+      }
     }
   }
 
@@ -396,14 +415,31 @@ export class I18nRuntime {
       if (this.isTranslating) return;
       for (const mutation of mutations) {
         if (mutation.type === "characterData") {
-          this.textSources.set(mutation.target, mutation.target.nodeValue || "");
+          const currentValue = mutation.target.nodeValue || "";
+          const pending = this.lastWrittenText.get(mutation.target);
+          if (pending?.value === currentValue && pending.count > 0) {
+            if (pending.count === 1) this.lastWrittenText.delete(mutation.target);
+            else pending.count -= 1;
+            continue;
+          }
+          this.textSources.set(mutation.target, currentValue);
           this.isTranslating = true;
           try { this.translateTextNode(mutation.target); } finally { this.isTranslating = false; }
           continue;
         }
         if (mutation.type === "attributes") {
+          const attributeName = mutation.attributeName;
+          const currentValue = mutation.target.getAttribute(attributeName);
+          const writes = this.lastWrittenAttributes.get(mutation.target);
+          const pending = writes?.get(attributeName);
+          if (pending?.value === currentValue && pending.count > 0) {
+            if (pending.count === 1) writes.delete(attributeName);
+            else pending.count -= 1;
+            if (writes.size === 0) this.lastWrittenAttributes.delete(mutation.target);
+            continue;
+          }
           const sources = this.attributeSources.get(mutation.target);
-          if (sources) sources.delete(mutation.attributeName);
+          if (sources) sources.delete(attributeName);
           this.isTranslating = true;
           try { this.translateAttributes(mutation.target); } finally { this.isTranslating = false; }
           continue;

@@ -860,7 +860,7 @@ INDEX_HTML = """<!DOCTYPE html>
   <div id="modal-overlay" class="hidden"></div>
 
   <!-- Floating Toast Notification System -->
-  <div id="toast-container" class="fixed bottom-6 right-6 z-[9999] flex flex-col gap-2 pointer-events-none"></div>
+  <div id="toast-container" role="status" aria-live="polite" aria-atomic="true" class="fixed bottom-6 right-6 z-[9999] flex flex-col gap-2 pointer-events-none"></div>
 
   <!-- Checked-in standalone bundle. Supported delivery mode is HTTP/HTTPS. -->
   <script src="assets/js/bundle.js"></script>
