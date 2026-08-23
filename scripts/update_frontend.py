@@ -621,6 +621,13 @@ INDEX_HTML = """<!DOCTYPE html>
   <script src="https://cdn.tailwindcss.com/3.4.17" defer></script>
 </head>
 <body class="bg-cyber-mesh min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-black">
+  <div id="data-status-pill" role="status" aria-live="polite" class="data-status data-status-loading">Bundled snapshot</div>
+  <style>
+    .data-status{position:fixed;left:12px;bottom:12px;z-index:80;font:600 11px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.02em;padding:6px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.35);background:rgba(7,10,15,.85);color:#94a3b8}
+    .data-status-ready{color:#34d399;border-color:rgba(52,211,153,.45)}
+    .data-status-stale{color:#fbbf24;border-color:rgba(251,191,36,.5)}
+    @media (prefers-reduced-motion: reduce){.data-status{transition:none}}
+  </style>
 
   <!-- Sticky Cyber Header -->
   <header id="main-header" class="sticky top-0 z-50 bg-[#070a0f]/80 backdrop-blur-md border-b border-[#1d2638]">

@@ -7,6 +7,19 @@ import shutil
 from pathlib import Path, PurePosixPath
 
 ALLOWED_ROOTS = {"outputs", "outputs_dev"}
+# The SPA dashboard data is pipeline-generated too, but the hand-maintained
+# shell (index.html, assets/, sw.js, ...) must never become machine-managed.
+MANAGED_DOCS_PATHS = {
+    "docs/catalog.json",
+    "docs/index.html",
+    "docs/assets/js/bundle.js",
+    "docs/assets/js/data.js",
+}
+MANAGED_DOCS_PREFIXES = ("docs/artifacts/",)
+
+
+def _is_managed_docs_path(value: str) -> bool:
+    return value in MANAGED_DOCS_PATHS or value.startswith(MANAGED_DOCS_PREFIXES)
 
 
 def parse_managed_path(raw: str) -> Path:
@@ -16,8 +29,16 @@ def parse_managed_path(raw: str) -> Path:
     path = PurePosixPath(value)
     if path.is_absolute() or ".." in path.parts:
         raise ValueError(f"unsafe managed path: {value}")
+    if path.parts[0] == "docs":
+        if not _is_managed_docs_path(value) or len(path.parts) < 2:
+            raise ValueError(
+                f"managed docs path must be catalog.json or below docs/artifacts/: {value}"
+            )
+        return Path(*path.parts)
     if len(path.parts) < 2 or path.parts[0] not in ALLOWED_ROOTS:
-        raise ValueError(f"managed path must be below outputs/ or outputs_dev/: {value}")
+        raise ValueError(
+            f"managed path must be below outputs/, outputs_dev/, or managed docs paths: {value}"
+        )
     return Path(*path.parts)
 
 

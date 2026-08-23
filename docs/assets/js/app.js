@@ -404,6 +404,7 @@ export class AppState {
     this.activeQRNodes = new Set();
     this.livePings = new Map();
     this.liveDataState = "idle";
+    this.renderDataStatus();
     this.liveRefreshTimer = null;
     this.liveRefreshInFlight = false;
     this.boundVisibilityRefresh = null;
@@ -510,6 +511,7 @@ export class AppState {
 
   async loadLiveData() {
     this.liveDataState = "loading";
+    this.renderDataStatus();
     let catalogCandidate = null;
     let proxyCandidate = null;
     let globeCandidate = null;
@@ -585,6 +587,7 @@ export class AppState {
       }
     } catch (e) {
       this.liveDataState = "integrity-error";
+      this.renderDataStatus();
     }
 
     if (catalogCandidate && proxyCandidate) {
@@ -592,9 +595,27 @@ export class AppState {
       this.proxies = proxyCandidate;
       this.globeHubs = globeCandidate;
       this.liveDataState = "ready";
+      this.renderDataStatus();
     } else if (this.liveDataState === "loading") {
       this.liveDataState = "stale";
+      this.renderDataStatus();
     }
+  }
+
+  renderDataStatus() {
+    const pill = document.getElementById("data-status-pill");
+    if (!pill) return;
+    const when = escapeHTML(this.catalog?.generated_at || "");
+    const map = {
+      ready: { cls: "data-status-ready", text: `Live verified snapshot${when ? " · " + when : ""}` },
+      stale: { cls: "data-status-stale", text: "Bundled snapshot — live data unavailable" },
+      "integrity-error": { cls: "data-status-stale", text: "Integrity check failed — bundled snapshot shown" },
+      loading: { cls: "data-status-loading", text: "Verifying published snapshot…" },
+      idle: { cls: "data-status-loading", text: "Bundled snapshot" }
+    };
+    const info = map[this.liveDataState] || map.idle;
+    pill.className = `data-status ${info.cls}`;
+    pill.textContent = info.text;
   }
 
   getPublishedDataFingerprint() {

@@ -310,7 +310,10 @@ def require_nonempty_tree(path: Path | None, label: str) -> Path:
 
 def write_main_sync_inventory(destination: Path) -> None:
     managed: list[str] = []
-    for directory in (destination / "outputs", destination / "outputs_dev"):
+    for name in ("outputs", "outputs_dev", "docs"):
+        directory = destination / name
+        if not directory.is_dir():
+            continue
         for path in sorted(directory.rglob("*")):
             if path.is_file():
                 managed.append(path.relative_to(destination).as_posix())
@@ -346,6 +349,8 @@ def assemble_snapshot(
     source_created_at: str,
     previous_snapshot_root: Path | None = None,
     legacy_dev_root: Path | None = None,
+    dashboard_root: Path | None = None,
+    shell_root: Path | None = None,
 ) -> dict[str, Any]:
     if destination.exists():
         shutil.rmtree(destination)
@@ -371,6 +376,28 @@ def assemble_snapshot(
     cumulative_manifest = merge_dev_manifests(cumulative_manifest, current_manifest)
     write_dev_outputs(destination / "outputs_dev", cumulative_manifest, source_created_at)
 
+    dashboard_file_count = 0
+    if dashboard_root is not None:
+        if not dashboard_root.is_dir():
+            raise ValueError(f"missing dashboard data directory: {dashboard_root}")
+        copy_tree(dashboard_root, destination / "docs")
+        dev_artifacts = destination / "docs" / "artifacts" / "dev"
+        dev_artifacts.mkdir(parents=True, exist_ok=True)
+        for name in ("proxies.json", "proxies.txt", "proxies_b64sub.txt"):
+            source = destination / "outputs_dev" / name
+            if source.is_file():
+                shutil.copy2(source, dev_artifacts / name)
+        if shell_root is not None:
+            if not shell_root.is_dir():
+                raise ValueError(f"missing dashboard shell directory: {shell_root}")
+            for rel in ("index.html", "assets/js/bundle.js", "assets/js/data.js"):
+                source_file = shell_root / rel
+                if source_file.is_file():
+                    target_file = destination / "docs" / rel
+                    target_file.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(source_file, target_file)
+        dashboard_file_count = sum(1 for p in (destination / "docs").rglob("*") if p.is_file())
+
     logs = first_dir(logs_root, "logs") or logs_root
     summary = next(logs.rglob("run-summary.json"), None)
     if summary:
@@ -392,6 +419,7 @@ def assemble_snapshot(
         "outputs_dev_legacy_count": len(legacy_manifest),
         "outputs_dev_current_count": len(current_manifest),
         "outputs_dev_cumulative_count": len(cumulative_manifest),
+        "dashboard_file_count": dashboard_file_count,
     }
     (manifests / "publication.json").write_text(
         json.dumps(payload, indent=2) + "\n",
@@ -418,6 +446,8 @@ def main() -> int:
     parser.add_argument("--destination", type=Path, required=True)
     parser.add_argument("--previous-snapshot-root", type=Path)
     parser.add_argument("--legacy-dev-root", type=Path)
+    parser.add_argument("--dashboard-root", type=Path)
+    parser.add_argument("--shell-root", type=Path)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--run-attempt", required=True)
     parser.add_argument("--head-sha", required=True)
@@ -437,6 +467,8 @@ def main() -> int:
         source_created_at=args.source_created_at,
         previous_snapshot_root=args.previous_snapshot_root,
         legacy_dev_root=args.legacy_dev_root,
+        dashboard_root=args.dashboard_root,
+        shell_root=args.shell_root,
     )
     print(
         "Assembled generated snapshot: "

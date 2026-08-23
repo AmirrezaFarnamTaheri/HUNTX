@@ -123,4 +123,5 @@ jobs:
           python -m compileall -q -j 0 src tests scripts
           python -m flake8 src/huntx tests scripts --count --statistics
           python -m mypy src/huntx
+          python scripts/update_frontend.py --check
           python -m pytest -q -m "not perf" --strict-config --strict-markers --durations=20 --junitxml=pytest-results.xml

@@ -142,6 +142,90 @@ class TestGeneratedSnapshotAssembly(unittest.TestCase):
             self.assertEqual(_tree_bytes(destinations[0]), _tree_bytes(destinations[1]))
 
 
+class TestDashboardDataWiring(unittest.TestCase):
+    """The published snapshot must carry fresh SPA data (catalog + artifacts).
+
+    Regression context: the publication pipeline mirrored only outputs/ and
+    outputs_dev/ to main, so docs/catalog.json and docs/artifacts/** stayed on
+    their last manual commit while ingestion kept producing fresh releases.
+    """
+
+    def _dashboard_fixture(self, root: Path) -> Path:
+        dashboard = root / "dashboard"
+        (dashboard / "artifacts" / "release").mkdir(parents=True)
+        (dashboard / "catalog.json").write_text('{"total_files": 1}\n', encoding="utf-8")
+        (dashboard / "artifacts" / "release" / "manifest.json").write_text("{}\n", encoding="utf-8")
+        return dashboard
+
+    def test_dashboard_data_is_staged_into_snapshot_and_inventory(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            checkpoint, previous, dist, logs = (
+                TestGeneratedSnapshotAssembly._build_fixture(self, root)
+            )
+            dashboard = self._dashboard_fixture(root)
+            destination = root / "snapshot"
+
+            payload = ASSEMBLER.assemble_snapshot(
+                checkpoint_root=checkpoint,
+                dist_root=dist,
+                logs_root=logs,
+                destination=destination,
+                run_id="123",
+                run_attempt="2",
+                head_sha="abc123",
+                head_branch="main",
+                source_created_at="2026-07-30T17:24:27Z",
+                previous_snapshot_root=previous,
+                dashboard_root=dashboard,
+            )
+
+            self.assertEqual(
+                (destination / "docs" / "catalog.json").read_text(),
+                '{"total_files": 1}\n',
+            )
+            self.assertTrue(
+                (destination / "docs" / "artifacts" / "release" / "manifest.json").exists()
+            )
+            # The SPA's dev download links point at artifacts/dev/*; they must
+            # carry the cumulative dev trio so downloads are never stale.
+            for name in ("proxies.json", "proxies.txt", "proxies_b64sub.txt"):
+                self.assertTrue(
+                    (destination / "docs" / "artifacts" / "dev" / name).exists(),
+                    f"missing dev artifact: {name}",
+                )
+            inventory = (destination / "manifests" / "main-sync-files.txt").read_text().splitlines()
+            self.assertIn("docs/catalog.json", inventory)
+            self.assertIn("docs/artifacts/release/manifest.json", inventory)
+            self.assertIn("docs/artifacts/dev/proxies_b64sub.txt", inventory)
+            self.assertGreaterEqual(payload["dashboard_file_count"], 5)
+
+    def test_assembly_without_dashboard_root_stays_back_compatible(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            checkpoint, previous, dist, logs = (
+                TestGeneratedSnapshotAssembly._build_fixture(self, root)
+            )
+            destination = root / "snapshot"
+
+            ASSEMBLER.assemble_snapshot(
+                checkpoint_root=checkpoint,
+                dist_root=dist,
+                logs_root=logs,
+                destination=destination,
+                run_id="123",
+                run_attempt="2",
+                head_sha="abc123",
+                head_branch="main",
+                source_created_at="2026-07-30T17:24:27Z",
+                previous_snapshot_root=previous,
+            )
+
+            self.assertFalse((destination / "docs").exists())
+            inventory = (destination / "manifests" / "main-sync-files.txt").read_text().splitlines()
+            self.assertFalse(any(line.startswith("docs/") for line in inventory))
+
+
 class TestGeneratedMainSync(unittest.TestCase):
     def test_sync_removes_only_managed_stale_files_and_preserves_helpers(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -202,6 +286,70 @@ class TestGeneratedMainSync(unittest.TestCase):
                     inventory_path=Path(".github/huntx-generated-files.txt"),
                 )
             self.assertFalse((root / "escape.txt").exists())
+
+    def test_sync_copies_dashboard_data_and_prunes_stale_docs_artifacts(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            snapshot = root / "snapshot"
+            repo = root / "repo"
+
+            fresh_catalog = snapshot / "docs" / "catalog.json"
+            fresh_release = snapshot / "docs" / "artifacts" / "release" / "manifest.json"
+            fresh_dev = snapshot / "docs" / "artifacts" / "dev" / "proxies.json"
+            fresh_dev_b64 = snapshot / "docs" / "artifacts" / "dev" / "proxies_b64sub.txt"
+            for path in (fresh_catalog, fresh_release, fresh_dev, fresh_dev_b64):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("{}\n", encoding="utf-8")
+            (snapshot / "outputs").mkdir(parents=True)
+            (snapshot / "outputs" / "current.txt").write_text("current-run\n", encoding="utf-8")
+            (snapshot / "manifests").mkdir(parents=True)
+            new_inventory = [
+                "outputs/current.txt",
+                "docs/catalog.json",
+                "docs/artifacts/release/manifest.json",
+                "docs/artifacts/dev/proxies_b64sub.txt",
+            ]
+            (snapshot / "manifests" / "main-sync-files.txt").write_text(
+                "\n".join(new_inventory) + "\n",
+                encoding="utf-8",
+            )
+
+            (repo / "outputs").mkdir(parents=True)
+            (repo / "outputs" / "stale.txt").write_text("stale\n", encoding="utf-8")
+            (repo / ".github").mkdir(parents=True, exist_ok=True)
+            stale_docs_dev = repo / "docs" / "artifacts" / "dev" / "proxies.txt"
+            stale_docs_dev.parent.mkdir(parents=True)
+            stale_docs_dev.write_text("stale\n", encoding="utf-8")
+            helper = repo / "docs" / "index.html"
+            helper.write_text("<html>hand-maintained shell</html>\n", encoding="utf-8")
+            inventory = repo / ".github" / "huntx-generated-files.txt"
+            inventory.write_text(
+                "outputs/stale.txt\ndocs/artifacts/dev/proxies.txt\n",
+                encoding="utf-8",
+            )
+
+            copied, removed = SYNCER.sync_generated_outputs(
+                snapshot_root=snapshot,
+                repo_root=repo,
+                inventory_path=inventory,
+            )
+
+            self.assertEqual(copied, 4)
+            self.assertEqual(removed, 2)
+            self.assertTrue((repo / "docs" / "catalog.json").exists())
+            self.assertTrue((repo / "docs" / "artifacts" / "release" / "manifest.json").exists())
+            self.assertFalse(stale_docs_dev.exists())
+            self.assertTrue(helper.exists(), "hand-maintained shell must not be touched")
+
+    def test_sync_rejects_unmanaged_docs_paths(self):
+        for value in (
+            "docs/assets/js/app.js",
+            "docs/assets/css/site.css",
+            "docs/secrets.txt",
+            "doc/catalog.json",
+        ):
+            with self.assertRaises(ValueError):
+                SYNCER.parse_managed_path(value)
 
 
 if __name__ == "__main__":

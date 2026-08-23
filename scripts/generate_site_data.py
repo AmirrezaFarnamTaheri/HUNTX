@@ -1,10 +1,18 @@
 import hashlib
 import json
 import mimetypes
+import os
 import shutil
 import urllib.parse
 from datetime import datetime, timezone
 from pathlib import Path
+
+
+def _generated_at() -> str:
+    override = os.environ.get("HUNTX_GENERATED_AT", "").strip()
+    if override:
+        return override
+    return datetime.now(timezone.utc).isoformat()
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 OUTPUTS_DIR = REPO_ROOT / "outputs"
@@ -573,7 +581,7 @@ def compute_aggregate_stats(proxies: list[dict], catalog: dict) -> dict:
     max_lat = max(latencies) if latencies else 0
 
     return {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": _generated_at(),
         "total_production_nodes": len(proxies),
         "total_cumulative_nodes": cum_count,
         "total_published_files": catalog["total_files"],
@@ -650,7 +658,7 @@ def generate_all() -> None:
     total_size = sum(e["size"] for e in catalog_entries)
     catalog = {
         "schema_version": 1,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": _generated_at(),
         "total_files": len(catalog_entries),
         "total_size": total_size,
         "total_size_str": _format_size(total_size),
@@ -689,7 +697,7 @@ def generate_all() -> None:
     data_js_content = f"""/**
  * HUNTX Telemetry & Artifacts Data Store
  * Dynamically generated from outputs/ and outputs_dev/ pipeline outputs.
- * Timestamp: {datetime.now(timezone.utc).isoformat()}
+ * Timestamp: {_generated_at()}
  */
 
 export const FALLBACK_CATALOG = {json.dumps(catalog, indent=2)};
