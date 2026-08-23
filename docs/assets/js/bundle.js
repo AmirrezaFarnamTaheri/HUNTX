@@ -32,7 +32,7 @@ const FALLBACK_CATALOG = {
       "sha256": "78a4d30548291bc65e00b75e34cc590902d3d0a7414cfa759126125b0e145d46",
       "hash": "78a4d305",
       "media_type": "text/plain",
-      "last_modified": "2026-08-23T17:18:45.414043+00:00"
+      "last_modified": "2026-08-23T17:21:46.921822+00:00"
     },
     {
       "filename": "all_sources.conf_lines",
@@ -50,7 +50,7 @@ const FALLBACK_CATALOG = {
       "sha256": "828881ee48575efcee32cf643f4acd938221e04a5304f543f7e51d0c0d86f708",
       "hash": "828881ee",
       "media_type": "application/octet-stream",
-      "last_modified": "2026-08-23T17:18:45.414157+00:00"
+      "last_modified": "2026-08-23T17:21:46.921932+00:00"
     },
     {
       "filename": "all_sources.dark",
@@ -68,7 +68,7 @@ const FALLBACK_CATALOG = {
       "sha256": "5057d7d615c931a2333650cc0bc88f88f48f724ce9b81b35ab76ba8d9a20edb2",
       "hash": "5057d7d6",
       "media_type": "application/octet-stream",
-      "last_modified": "2026-08-23T17:18:45.414157+00:00"
+      "last_modified": "2026-08-23T17:21:46.921932+00:00"
     },
     {
       "filename": "all_sources.ehi",
@@ -86,7 +86,7 @@ const FALLBACK_CATALOG = {
       "sha256": "ebff8931e51ec447d651e2fd73d181becd580c39642c9c819ff6d87fc4c9c2e6",
       "hash": "ebff8931",
       "media_type": "application/octet-stream",
-      "last_modified": "2026-08-23T17:18:45.414157+00:00"
+      "last_modified": "2026-08-23T17:21:46.921932+00:00"
     },
     {
       "filename": "all_sources.npvt",
@@ -106,7 +106,7 @@ const FALLBACK_CATALOG = {
       "sha256": "af467a29e688a9670c93b773883a379442521440d306ce877ae3236eef29b66e",
       "hash": "af467a29",
       "media_type": "application/x-npvt-subscription",
-      "last_modified": "2026-08-23T17:18:45.414157+00:00"
+      "last_modified": "2026-08-23T17:21:46.921932+00:00"
     },
     {
       "filename": "all_sources.npvt.b64sub",
@@ -127,7 +127,7 @@ const FALLBACK_CATALOG = {
       "sha256": "60ecee9c8cd78b516daa2028483f86da839e41a872a1b8d238dec279c3c87448",
       "hash": "60ecee9c",
       "media_type": "text/plain",
-      "last_modified": "2026-08-23T17:18:45.414157+00:00"
+      "last_modified": "2026-08-23T17:21:46.922107+00:00"
     },
     {
       "filename": "all_sources.npvt.decoded.json",
@@ -148,7 +148,7 @@ const FALLBACK_CATALOG = {
       "sha256": "8bcbbc9500bbe2f03e882719352bfa9b53ca92266e7f1ec2fb7edee29766db8a",
       "hash": "8bcbbc95",
       "media_type": "application/json",
-      "last_modified": "2026-08-23T17:19:07.673648+00:00"
+      "last_modified": "2026-08-23T17:21:59.984706+00:00"
     },
     {
       "filename": "all_sources.npvt.nekobox.json",
@@ -168,7 +168,7 @@ const FALLBACK_CATALOG = {
       "sha256": "462bc049fef957d65769ae6fc957683996d1502df6090c82ec73c0714740a1ed",
       "hash": "462bc049",
       "media_type": "application/json",
-      "last_modified": "2026-08-23T17:18:45.414711+00:00"
+      "last_modified": "2026-08-23T17:21:46.922107+00:00"
     },
     {
       "filename": "all_sources.npvt.raw.txt",
@@ -188,7 +188,7 @@ const FALLBACK_CATALOG = {
       "sha256": "af467a29e688a9670c93b773883a379442521440d306ce877ae3236eef29b66e",
       "hash": "af467a29",
       "media_type": "text/plain",
-      "last_modified": "2026-08-23T17:18:45.414711+00:00"
+      "last_modified": "2026-08-23T17:21:46.922107+00:00"
     },
     {
       "filename": "all_sources.npvt.singbox.json",
@@ -209,7 +209,7 @@ const FALLBACK_CATALOG = {
       "sha256": "ce66ce5b363b3f07d0bf78cc8bb648ee4cbb39f843edb40f2c1643ff39364ae5",
       "hash": "ce66ce5b",
       "media_type": "application/json",
-      "last_modified": "2026-08-23T17:18:45.414711+00:00"
+      "last_modified": "2026-08-23T17:21:46.922107+00:00"
     },
     {
       "filename": "all_sources.npvt.xray.json",
@@ -230,7 +230,7 @@ const FALLBACK_CATALOG = {
       "sha256": "bffe1538cecdc5de8b7c61884286432a520cf3e0de015265d1b06830e5759ead",
       "hash": "bffe1538",
       "media_type": "application/json",
-      "last_modified": "2026-08-23T17:18:45.414711+00:00"
+      "last_modified": "2026-08-23T17:21:46.923107+00:00"
     },
     {
       "filename": "all_sources.opaque_bundle",
@@ -250,7 +250,7 @@ const FALLBACK_CATALOG = {
       "sha256": "6342c8b3c3fb760389a9cee0a3e7708537a5185795565ad1c8794e0078c96942",
       "hash": "6342c8b3",
       "media_type": "application/octet-stream",
-      "last_modified": "2026-08-23T17:18:45.416711+00:00"
+      "last_modified": "2026-08-23T17:21:46.924107+00:00"
     },
     {
       "filename": "all_sources.ovpn",
@@ -271,7 +271,7 @@ const FALLBACK_CATALOG = {
       "sha256": "1f3a10232fbbc9aea402d30dfda83ed2fff7d3e32d816a866697807853e46f28",
       "hash": "1f3a1023",
       "media_type": "application/x-openvpn-profile",
-      "last_modified": "2026-08-23T17:18:45.416711+00:00"
+      "last_modified": "2026-08-23T17:21:46.924107+00:00"
     },
     {
       "filename": "all_sources.sip",
@@ -289,7 +289,7 @@ const FALLBACK_CATALOG = {
       "sha256": "801473c856654eb906d8646522dd9d0805b7e16202de50e00b7582fe92aba32a",
       "hash": "801473c8",
       "media_type": "application/octet-stream",
-      "last_modified": "2026-08-23T17:18:45.416711+00:00"
+      "last_modified": "2026-08-23T17:21:46.924107+00:00"
     },
     {
       "filename": "v2ray_test_config.json",
@@ -310,7 +310,7 @@ const FALLBACK_CATALOG = {
       "sha256": "5f4a1cfc7f3120101204478cad19b8713700f824408131865f633e292b43ab41",
       "hash": "5f4a1cfc",
       "media_type": "application/json",
-      "last_modified": "2026-08-23T17:18:45.416711+00:00"
+      "last_modified": "2026-08-23T17:21:46.925107+00:00"
     },
     {
       "filename": "README.md",
@@ -329,7 +329,7 @@ const FALLBACK_CATALOG = {
       "sha256": "6f520cc0d6a0ae41bb82a85275cae980009de77cc95b5f61e60e46a90d4c2ee6",
       "hash": "6f520cc0",
       "media_type": "text/plain",
-      "last_modified": "2026-08-23T17:18:45.416711+00:00"
+      "last_modified": "2026-08-23T17:21:46.925107+00:00"
     },
     {
       "filename": "_manifest.json",
@@ -350,7 +350,7 @@ const FALLBACK_CATALOG = {
       "sha256": "13c053f5d7f2f8b06c5bbc7762b0ec15a5879c7c91f7e15a0a339990b182e1cd",
       "hash": "13c053f5",
       "media_type": "application/json",
-      "last_modified": "2026-08-23T17:18:45.461711+00:00"
+      "last_modified": "2026-08-23T17:21:46.933107+00:00"
     },
     {
       "filename": "proxies.json",
@@ -371,7 +371,7 @@ const FALLBACK_CATALOG = {
       "sha256": "ce4e827709d2bf5c3dff94eb2b5f1a91c00a08febb8b86b4a5affd586cb3acab",
       "hash": "ce4e8277",
       "media_type": "application/json",
-      "last_modified": "2026-08-23T17:18:45.517711+00:00"
+      "last_modified": "2026-08-23T17:21:46.992109+00:00"
     },
     {
       "filename": "proxies.txt",
@@ -392,7 +392,7 @@ const FALLBACK_CATALOG = {
       "sha256": "f51fac62738005fdc329c873925b3c74b55d17a6fd22e2476c7f5b6670317980",
       "hash": "f51fac62",
       "media_type": "text/plain",
-      "last_modified": "2026-08-23T17:18:45.566711+00:00"
+      "last_modified": "2026-08-23T17:21:47.045110+00:00"
     },
     {
       "filename": "proxies_b64sub.txt",
@@ -413,7 +413,7 @@ const FALLBACK_CATALOG = {
       "sha256": "dab2328dcd726ae0a6f4d93d7decf74b46f36c7a56267517d9a32c5b9cf4c06e",
       "hash": "dab2328d",
       "media_type": "text/plain",
-      "last_modified": "2026-08-23T17:18:45.577711+00:00"
+      "last_modified": "2026-08-23T17:21:47.129112+00:00"
     },
     {
       "filename": "proxies_chunk_0001.txt",
@@ -434,7 +434,7 @@ const FALLBACK_CATALOG = {
       "sha256": "e7a2fd087496d782031247c9af66100a32715b62e1f1e2c8beb67870c73ce07b",
       "hash": "e7a2fd08",
       "media_type": "text/plain",
-      "last_modified": "2026-08-23T17:18:45.582711+00:00"
+      "last_modified": "2026-08-23T17:21:47.134112+00:00"
     },
     {
       "filename": "proxies_chunk_0002.txt",
@@ -455,7 +455,7 @@ const FALLBACK_CATALOG = {
       "sha256": "d014171ac014fd2fdc7de07344eb33ef1da7c6128112bf05d59c5b33682d24d9",
       "hash": "d014171a",
       "media_type": "text/plain",
-      "last_modified": "2026-08-23T17:18:45.585711+00:00"
+      "last_modified": "2026-08-23T17:21:47.138112+00:00"
     },
     {
       "filename": "proxies_chunk_0003.txt",
@@ -476,7 +476,7 @@ const FALLBACK_CATALOG = {
       "sha256": "90e29c44a149e4e0bf167e85277927fe6fb775c0131c662cf145932aaab7c3a2",
       "hash": "90e29c44",
       "media_type": "text/plain",
-      "last_modified": "2026-08-23T17:18:45.589711+00:00"
+      "last_modified": "2026-08-23T17:21:47.142112+00:00"
     },
     {
       "filename": "proxies_chunk_0004.txt",
@@ -497,7 +497,7 @@ const FALLBACK_CATALOG = {
       "sha256": "ee8a2c79f52d6821f4cdf7edf3a029f2e70df5dddf3df53a9bf136899c15c314",
       "hash": "ee8a2c79",
       "media_type": "text/plain",
-      "last_modified": "2026-08-23T17:18:45.590711+00:00"
+      "last_modified": "2026-08-23T17:21:47.143112+00:00"
     },
     {
       "filename": "proxies_chunk_0005.txt",
@@ -518,7 +518,7 @@ const FALLBACK_CATALOG = {
       "sha256": "24b881051bf79bfe0ef2ff546207c0253adb885dacd2833b9771e3db31e2f4c4",
       "hash": "24b88105",
       "media_type": "text/plain",
-      "last_modified": "2026-08-23T17:18:45.594711+00:00"
+      "last_modified": "2026-08-23T17:21:47.147112+00:00"
     },
     {
       "filename": "proxies_chunk_0006.txt",
@@ -539,7 +539,7 @@ const FALLBACK_CATALOG = {
       "sha256": "8432fcac2085f163ef92c3597897d6c75933b030c9c9034ae18b5d09d6e387b0",
       "hash": "8432fcac",
       "media_type": "text/plain",
-      "last_modified": "2026-08-23T17:18:45.595711+00:00"
+      "last_modified": "2026-08-23T17:21:47.148112+00:00"
     },
     {
       "filename": "proxies_chunk_0007.txt",
@@ -560,7 +560,7 @@ const FALLBACK_CATALOG = {
       "sha256": "4c2bebbb7f1b44560031b9ae2a030007a192e5ebdaf0467cfae468d4396fe4a2",
       "hash": "4c2bebbb",
       "media_type": "text/plain",
-      "last_modified": "2026-08-23T17:18:45.599711+00:00"
+      "last_modified": "2026-08-23T17:21:47.153112+00:00"
     },
     {
       "filename": "proxies_chunk_0008.txt",
@@ -581,7 +581,7 @@ const FALLBACK_CATALOG = {
       "sha256": "90fa243633c42dec59107b04a73ecb0b989f4963c2afb73c3c98cbfdee40d727",
       "hash": "90fa2436",
       "media_type": "text/plain",
-      "last_modified": "2026-08-23T17:18:45.600711+00:00"
+      "last_modified": "2026-08-23T17:21:47.153112+00:00"
     },
     {
       "filename": "proxies_chunk_0009.txt",
@@ -602,7 +602,7 @@ const FALLBACK_CATALOG = {
       "sha256": "5e92e0d7edfc57c29d4312158c06f314bb7ce0bccf36b1d1c5b206425c512980",
       "hash": "5e92e0d7",
       "media_type": "text/plain",
-      "last_modified": "2026-08-23T17:18:45.601711+00:00"
+      "last_modified": "2026-08-23T17:21:47.154112+00:00"
     },
     {
       "filename": "proxies_chunk_0010.txt",
@@ -623,7 +623,7 @@ const FALLBACK_CATALOG = {
       "sha256": "5cae79703ac6aaad784f37e01a50104f1fb1c1dd85548673e370218601766ada",
       "hash": "5cae7970",
       "media_type": "text/plain",
-      "last_modified": "2026-08-23T17:18:45.605711+00:00"
+      "last_modified": "2026-08-23T17:21:47.158112+00:00"
     },
     {
       "filename": "proxies_chunk_0011.txt",
@@ -644,7 +644,7 @@ const FALLBACK_CATALOG = {
       "sha256": "d482b6467b073e518851ad6960b65429c246c1c8496ee70841c3ff5006e0b579",
       "hash": "d482b646",
       "media_type": "text/plain",
-      "last_modified": "2026-08-23T17:18:45.609711+00:00"
+      "last_modified": "2026-08-23T17:21:47.163112+00:00"
     }
   ]
 };
