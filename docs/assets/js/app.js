@@ -1244,6 +1244,7 @@ export class AppState {
 
             <a
               id="hero-download-singbox"
+              data-artifact="all_sources.npvt.singbox.json"
               href="artifacts/release/all_sources.npvt.singbox.json"
               download
               class="px-3.5 py-2.5 min-h-[44px] bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 hover:border-cyan-400 text-cyan-300 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-1.5"
@@ -1255,7 +1256,8 @@ export class AppState {
 
             <a
               id="hero-download-xray"
-              href="artifacts/release/v2ray_test_config.json"
+              data-artifact="all_sources.npvt.xray.json"
+              href="artifacts/release/all_sources.npvt.xray.json"
               download
               class="px-3.5 py-2.5 min-h-[44px] bg-indigo-950/60 hover:bg-indigo-900/60 border border-indigo-500/30 hover:border-indigo-400 text-indigo-300 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-1.5"
               aria-label="Download Xray Config"
@@ -1315,6 +1317,28 @@ export class AppState {
     document.getElementById("hero-open-scanner")?.addEventListener("click", (e) => {
       this.lastFocusedElement = e.currentTarget;
       this.openCleanIPScannerModal();
+    });
+
+    this.reconcileArtifactLinks(hero);
+  }
+
+  // Hero download buttons must never 404: resolve every data-artifact anchor
+  // against the published catalog and hide buttons whose file is absent.
+  reconcileArtifactLinks(root = document) {
+    if (typeof document === "undefined") return;
+    const files = Array.isArray(this.catalog?.files) ? this.catalog.files : [];
+    const byName = new Map(files.map((file) => [file.filename, file]));
+    root.querySelectorAll("a[data-artifact]").forEach((anchor) => {
+      const entry = byName.get(anchor.dataset.artifact);
+      if (!entry || typeof entry.path !== "string") {
+        anchor.hidden = true;
+        anchor.setAttribute("aria-hidden", "true");
+        anchor.removeAttribute("href");
+        return;
+      }
+      anchor.hidden = false;
+      anchor.removeAttribute("aria-hidden");
+      anchor.setAttribute("href", entry.path);
     });
   }
 
