@@ -3,7 +3,7 @@
 [![Go Tests](https://github.com/AmirrezaFarnamTaheri/HUNTX/actions/workflows/ci.yml/badge.svg)](https://github.com/AmirrezaFarnamTaheri/HUNTX/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-blue)](https://github.com/AmirrezaFarnamTaheri/HUNTX)
-[![Architecture: C4 Model](https://img.shields.io/badge/Architecture-C4%20Model-cyan)](docs/C4_ARCHITECTURE.md)
+[![Architecture: C4 Model](https://img.shields.io/badge/Architecture-C4%20Model-cyan)](#architecture)
 
 **HUNTX** (powered by GatherX) is a proxy-configuration ingestion, normalization, and publishing platform. It ingests approved sources, produces deterministic artifacts, and ships a static dashboard for inspecting the latest published snapshot. Runtime probe telemetry is an optional deployment integration that depends on a separate private receiver; it is not implied by the static dashboard.
 
@@ -21,30 +21,138 @@
 
 ---
 
-## 🏗️ C4 Architecture & System Topology
+<a id="architecture"></a>
 
-Detailed C4 diagrams and specifications are available in [`docs/C4_ARCHITECTURE.md`](docs/C4_ARCHITECTURE.md) and the interactive [3D Architecture Map](docs/architecture.html).
+## 🏗️ Architecture (C4)
+
+One model, three zoom levels. This section is the **single source of truth** for HUNTX diagrams — the former 3D topology page and the standalone C4 document were consolidated here. Shapes: rounded = person · box = system or container · cylinder = datastore · dashed border = optional or partial.
+
+### Level 1 — System context
+
+*Who interacts with HUNTX, over what protocol?*
 
 ```mermaid
-C4Context
-    title System Context Diagram for HUNTX (GatherX)
+flowchart TB
+    user(["Proxy consumer"])
+    admin(["Maintainer"])
 
-    Person(user, "Proxy Consumer / Network Engineer", "Searches, filters, inspects, and downloads verified proxy configs via web UI or subscription URLs.")
-    Enterprise_Boundary(b0, "HUNTX Ecosystem") {
-        System(huntx, "HUNTX Node Intelligence Platform", "Aggregates, decodes, benchmarks, deduplicates, and publishes sovereign proxy endpoints.")
-    }
-    System_Ext(telegram, "Encrypted TG Channels & Bots", "Upstream raw proxy feeds, subscription channels, and bulletin broadcasts.")
-    System_Ext(github_ci, "GitHub Actions CI/CD", "Automated scheduled ingestion runners.")
-    System_Ext(pages, "GitHub Pages CDN", "Serves static web assets, 3D telemetry radar, and published JSON/TXT artifacts.")
+    subgraph HUNTX["HUNTX (GatherX)"]
+        huntx["Node intelligence platform:<br>ingest · decode · dedupe · publish"]
+    end
 
-    Rel(user, pages, "Views published snapshots, inspects URI parameters, and generates QR codes via", "HTTPS")
-    Rel(huntx, telegram, "Ingests raw protocol text and subscription blobs from", "MTProto / Bot API")
-    Rel(github_ci, huntx, "Triggers ingestion, verification, and publication pipeline in", "Python / Go tooling")
-    Rel(huntx, pages, "Publishes verified proxies.json, proxies.txt, and catalog manifest to", "Git Push / HTTPS")
+    tg["Telegram channels + bots"]
+    ci["GitHub Actions"]
+    s3["S3 generation state"]
+    cdn["GitHub Pages CDN"]
+    clients["Proxy clients<br>(v2rayNG, sing-box, Clash…)"]
+
+    admin -- "source config · health checks" --> huntx
+    tg -- "MTProto / Bot API feeds" --> huntx
+    ci -- "scheduled runs every 2 h" --> huntx
+    s3 -. "optional durable state" .- ci
+    huntx -- "git push verified snapshot" --> cdn
+    cdn -- "dashboard + JSON/TXT feeds" --> user
+    cdn -- "base64 subscriptions" --> clients
+
+    classDef person fill:#fef3c7,stroke:#b45309,color:#78350f
+    classDef system fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e
+    classDef external fill:#f1f5f9,stroke:#64748b,color:#334155
+    classDef optional fill:#fffbeb,stroke:#d97706,color:#92400e,stroke-dasharray:4 3
+    class user,admin person
+    class huntx system
+    class tg,ci,cdn,clients external
+    class s3 optional
 ```
 
----
+### Level 2 — Containers
 
+*What runtime units make up the platform?*
+
+```mermaid
+flowchart LR
+    tg["Telegram sources"]
+
+    subgraph PIPE["Ingestion plane — Python"]
+        pipe["huntx pipeline<br>(src/huntx)"]
+        db[("SQLite + raw store")]
+    end
+
+    subgraph GOV["Governance plane — Go"]
+        engine["huntx-engine<br>parse · bench · georoute"]
+        tools["huntx-tools<br>verify · manifest · site-data"]
+    end
+
+    subgraph DELIVER["Delivery plane"]
+        dist[("Release artifacts<br>dist/ + manifests")]
+        spa["Dashboard SPA<br>(docs/, static PWA)"]
+    end
+
+    subgraph FLEET["Optional fleet — partial"]
+        daemon["huntx-daemon<br>PAC / control API"]
+        probe["huntx-probe<br>TCP vantage reports"]
+    end
+
+    ci["GitHub Actions"]
+    s3["S3 state"]
+    cdn["GitHub Pages CDN"]
+    clients["Proxy clients"]
+
+    tg -- "raw streams" --> pipe
+    pipe <-- "state · checkpoints" --> db
+    pipe -- "outputs" --> dist
+    engine -- "analysis commands" --> pipe
+    tools -- "verify · SHA-256 catalog" --> dist
+    tools -- "site-data" --> spa
+    dist -. "unread telemetry" .-> daemon
+    daemon <-- "reports" --> probe
+    ci -- "run · verify · publish" --> PIPE
+    s3 -. "restore / persist" .- ci
+    ci -- "deploy" --> cdn
+    spa --- cdn
+    cdn -- "feeds" --> clients
+
+    classDef container fill:#dcfce7,stroke:#15803d,color:#14532d
+    classDef datastore fill:#ede9fe,stroke:#6d28d9,color:#4c1d95
+    classDef external fill:#f1f5f9,stroke:#64748b,color:#334155
+    classDef optional fill:#fffbeb,stroke:#d97706,color:#92400e,stroke-dasharray:4 3
+    class pipe,engine,tools,spa container
+    class db,dist datastore
+    class tg,ci,cdn,clients external
+    class daemon,probe,s3 optional
+```
+
+### Runtime — publication flow per scheduled run
+
+*How does a run move data from backend to frontend?*
+
+```mermaid
+flowchart LR
+    cron(["cron every 2 h"]) --> gate["quality gate<br>Go + Python tests"]
+    gate --> restore{"Restore state"}
+    restore -- "S3 configured" --> dur["restore + verify generation"]
+    restore -- "no S3 keys" --> fresh["explicit fresh start"]
+    dur --> runn
+    fresh --> runn["ingest · build · package"]
+    runn --> chk[("checkpoint artifact<br>manifest-verified")]
+    chk --> persist{"Persist"}
+    persist -- "S3 configured" --> ptr["advance S3 pointer"]
+    persist -- "stateless" --> done["skip durable upload"]
+    chk --> pages["deploy-pages<br>fresh SPA data live"]
+    chk --> pub["publish workflow"]
+    pub --> mirror[("main branch:<br>outputs + docs/catalog.json<br>+ docs/artifacts")]
+
+    classDef event fill:#fef3c7,stroke:#b45309,color:#78350f
+    classDef step fill:#dcfce7,stroke:#15803d,color:#14532d
+    classDef decision fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e
+    classDef data fill:#ede9fe,stroke:#6d28d9,color:#4c1d95
+    class cron event
+    class gate,runn,dur,fresh,pages,pub,done step
+    class restore,persist decision
+    class chk,mirror data
+    class ptr optional
+```
+
+The two dashed paths are the **no-cloud mode**: without any AWS/S3 configuration the production workflow starts from a verified-empty state, keeps checkpoints as run artifacts, and still ships a fresh dashboard — and the publication mirror lands both `outputs*/` and the SPA's `docs/catalog.json` + `docs/artifacts/**`, so the checked-in frontend can never lag behind the backend.
 ## 🚀 Quick Start
 
 ### 1. Web Dashboard (Local preview & GitHub Pages)
@@ -131,8 +239,7 @@ HUNTX/
 │   └── huntx-probe/           # TCP vantage probe reporter
 ├── docs/                      # GitHub Pages Static Site & Telemetry SPA
 │   ├── index.html             # Pre-rendered cyber telemetry dashboard
-│   ├── architecture.html      # Interactive 3D isometric system topology map
-│   ├── C4_ARCHITECTURE.md     # Formal C4 architecture model document
+│   ├── C4_ARCHITECTURE.md     # Pointer to the canonical C4 model (README#architecture)
 │   ├── DESIGN.md              # Master UI design tokens & accessibility specification
 │   ├── DEVELOPMENT.md         # Developer guide & technical notes
 │   ├── USER_GUIDE.md          # Comprehensive user manual & bot commands

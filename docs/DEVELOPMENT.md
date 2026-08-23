@@ -36,7 +36,6 @@ HUNTX/
 │   └── state/                 # SQLite WAL state database repository
 ├── docs/                      # GitHub Pages static dashboard & documentation
 │   ├── index.html             # Master pre-rendered cyber telemetry dashboard
-│   ├── architecture.html      # Interactive 3D isometric system topology map
 │   ├── C4_ARCHITECTURE.md     # Formal C4 architecture model document
 │   ├── DESIGN.md              # Master UI design tokens & accessibility specification
 │   ├── DEVELOPMENT.md         # This development guide

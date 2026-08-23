@@ -161,7 +161,7 @@ HUNTX includes a static dashboard located at [`docs/index.html`](index.html).
 2. **Real-Time Client-Side Protocol Decoder**: Press `D` or click **Decoder** to paste raw proxy URIs for instant JSON parameter inspection.
 3. **Standalone QR Code Generator**: Click the QR icon on any node card to generate a scannable SVG QR code for mobile import (v2rayNG, Sing-box, Shadowrocket).
 4. **Subscription Feed Generator**: Generate Base64 subscription URLs (`proxies_b64sub.txt`) or plain text config feeds (`proxies.txt`).
-5. **Interactive 3D Architecture Topology**: Explore the system data flow via [`docs/architecture.html`](architecture.html).
+5. **Architecture (C4)**: Explore the system data flow in the [unified C4 model](https://github.com/AmirrezaFarnamTaheri/HUNTX#architecture).
 
 ### Offline / Local Use
 
