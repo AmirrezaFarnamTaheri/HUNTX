@@ -90,12 +90,16 @@ jobs:
           set -euo pipefail
           docker build -f deploy/Dockerfile.daemon .
           docker build -f deploy/Dockerfile.probe .
-          curl -fsSL https://get.helm.sh/helm-v3.17.3-linux-amd64.tar.gz | tar -xz
+          curl -fsSL https://get.helm.sh/helm-v3.17.3-linux-amd64.tar.gz -o helm.tar.gz
+          echo "ee88b3c851ae6466a3de507f7be73fe94d54cbf2987cbaa3d1a3832ea331f2cd  helm.tar.gz" | sha256sum -c -
+          tar -xzf helm.tar.gz
           helm_args=(
             --set-string daemon.controlToken=ci-control-token
             --set-file daemon.nodesJson=deploy/helm/huntx-fleet/ci-nodes.json
             --set-string orchestratorBearerToken=ci-orchestrator-token
             --set-string orchestratorUrl=https://receiver.invalid/api/vantage/report
+            --set-string daemon.image.tag=ci
+            --set-string image.tag=ci
           )
           ./linux-amd64/helm lint deploy/helm/huntx-fleet "${helm_args[@]}"
           ./linux-amd64/helm template huntx deploy/helm/huntx-fleet "${helm_args[@]}" >/dev/null
