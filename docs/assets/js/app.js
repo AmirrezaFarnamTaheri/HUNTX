@@ -1535,8 +1535,8 @@ export class AppState {
               Protocol:
             </span>
             ${protocols.map(proto => {
-              const count = proto === "ALL" 
-                ? allProxies.length 
+              const count = proto === "ALL"
+                ? allProxies.length
                 : allProxies.filter(p => (p.protocol || "").toLowerCase() === proto.toLowerCase()).length;
               if (count === 0 && proto !== "ALL") return "";
               return `
@@ -2887,7 +2887,7 @@ export class AppState {
       container.innerHTML = `
         <div class="space-y-4">
           <p class="text-xs font-mono text-gray-400">Paste bulk proxies from multiple sources to eliminate duplicates, strip tracking queries, and generate clean identities.</p>
-          
+
           <textarea
             id="dedup-input-text"
             rows="4"
@@ -3484,7 +3484,7 @@ export class AppState {
       const count = parseInt(document.getElementById("scanner-count-input").value, 10) || 12;
       const statusText = document.getElementById("scanner-status-text");
       const progressPill = document.getElementById("scanner-progress-pill");
-      
+
       startBtn.disabled = true;
       startBtn.innerHTML = `
         <svg class="w-4 h-4 animate-spin text-gray-950" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>

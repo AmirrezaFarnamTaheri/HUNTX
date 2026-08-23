@@ -31,7 +31,7 @@ function safeAtob(b64Str) {
 
 function parseHostAndPort(hostAndPort, defaultPort = 443) {
   if (!hostAndPort) return { server: "", port: defaultPort };
-  
+
   // IPv6 bracket format: [2001:db8::1]:443 or [2001:db8::1]
   if (hostAndPort.startsWith("[")) {
     const endBracket = hostAndPort.indexOf("]");
