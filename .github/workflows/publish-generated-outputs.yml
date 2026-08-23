@@ -260,6 +260,11 @@ jobs:
           RESTORED_SHA: ${{ steps.previous.outputs.sha }}
         run: |
           set -euo pipefail
+          # The dashboard step regenerates tracked files in-place while
+          # assembling the snapshot; this step works on the pristine
+          # branches, so discard that working-copy dirt first.
+          git checkout -- . >/dev/null 2>&1 || true
+          git clean -fdq
 
           remote_sha="$(git ls-remote --heads origin refs/heads/generated-outputs | awk '{print $1}')"
           if [[ "$remote_sha" != "$RESTORED_SHA" ]]; then
