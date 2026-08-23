@@ -168,6 +168,7 @@ jobs:
       contents: read
       id-token: write
     env:
+      S3_BUCKET: ${{ secrets.S3_BUCKET }}
       AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
     steps:
       - name: Checkout integrity verifier
@@ -188,8 +189,24 @@ jobs:
           mkdir -p .bin
           go build -o .bin/huntx-tools ./cmd/huntx-tools
 
+      - name: Restore GitHub-hosted state
+        id: github_state
+        if: env.S3_BUCKET == ''
+        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: checkpoint-package
+          key: huntx-runtime-state-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            huntx-runtime-state-
+
+      - name: Require OIDC role for optional S3 backend
+        if: env.S3_BUCKET != '' && env.AWS_ROLE_ARN == ''
+        run: |
+          echo "::error title=AWS role missing::S3_BUCKET is configured, so AWS_ROLE_ARN is required. Static AWS access keys are intentionally unsupported."
+          exit 1
+
       - name: Configure AWS credentials
-        if: env.AWS_ROLE_ARN != ''
+        if: env.S3_BUCKET != '' && env.AWS_ROLE_ARN != ''
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
@@ -198,17 +215,42 @@ jobs:
       - name: Restore and verify immutable generation
         id: restore_state
         env:
-          S3_BUCKET: ${{ secrets.S3_BUCKET }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_STATE_CACHE_KEY: ${{ steps.github_state.outputs.cache-matched-key }}
           AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
         run: |
           set -euo pipefail
           echo "mode=stateless" >> "$GITHUB_OUTPUT"
           mkdir -p state-input/data/{raw,outputs,outputs_dev,dist,rejects,archive,state,logs}
           touch state-input/.state-bundle
+
           if [[ -z "$S3_BUCKET" ]]; then
-            echo "Stateless run: no S3 bucket configured."
+            if [[ -z "$GITHUB_STATE_CACHE_KEY" ]]; then
+              echo "No GitHub-hosted state cache yet; starting fresh."
+              echo "mode=fresh" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            for required in \
+              checkpoint-package/next-current.json \
+              checkpoint-package/generation-manifest.json \
+              checkpoint-package/payload; do
+              if [[ ! -e "$required" ]]; then
+                echo "::error title=Invalid GitHub state cache::Missing $required in $GITHUB_STATE_CACHE_KEY"
+                exit 1
+              fi
+            done
+            generation="$(.bin/huntx-tools runtime-generation validate-pointer \
+              --pointer checkpoint-package/next-current.json \
+              --manifest checkpoint-package/generation-manifest.json)"
+            .bin/huntx-tools runtime-generation verify \
+              --root checkpoint-package/payload \
+              --manifest checkpoint-package/generation-manifest.json
+            rm -rf state-input
+            cp -a checkpoint-package/payload state-input
+            mkdir -p state-input/data/{raw,outputs,outputs_dev,dist,rejects,archive,state,logs}
+            touch state-input/.state-bundle
+            echo "GitHub-hosted state restored from $GITHUB_STATE_CACHE_KEY."
+            echo "mode=github-cache" >> "$GITHUB_OUTPUT"
+            echo "generation=$generation" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -248,9 +290,6 @@ jobs:
       - name: Back up reset pointer and clear restored state
         if: ${{ inputs.reset == true }}
         env:
-          S3_BUCKET: ${{ secrets.S3_BUCKET }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
         run: |
           set -euo pipefail
@@ -610,6 +649,7 @@ jobs:
       contents: read
       id-token: write
     env:
+      S3_BUCKET: ${{ secrets.S3_BUCKET }}
       AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
     steps:
       - name: Checkout integrity verifier
@@ -648,8 +688,21 @@ jobs:
             --manifest checkpoint-package/generation-manifest.json
           echo "id=$generation" >> "$GITHUB_OUTPUT"
 
+      - name: Save verified state to GitHub cache
+        if: env.S3_BUCKET == ''
+        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: checkpoint-package
+          key: huntx-runtime-state-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Require OIDC role for optional S3 backend
+        if: env.S3_BUCKET != '' && env.AWS_ROLE_ARN == ''
+        run: |
+          echo "::error title=AWS role missing::S3_BUCKET is configured, so AWS_ROLE_ARN is required. Static AWS access keys are intentionally unsupported."
+          exit 1
+
       - name: Configure AWS credentials
-        if: env.AWS_ROLE_ARN != ''
+        if: env.S3_BUCKET != '' && env.AWS_ROLE_ARN != ''
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
@@ -657,14 +710,11 @@ jobs:
 
       - name: Upload generation then atomically advance pointer
         env:
-          S3_BUCKET: ${{ secrets.S3_BUCKET }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
         run: |
           set -euo pipefail
           if [[ -z "$S3_BUCKET" ]]; then
-            echo "No S3 bucket configured; verified checkpoint remains ephemeral."
+            echo "Verified checkpoint persisted in GitHub cache; no external storage keys required."
             exit 0
           fi
           generation="${{ steps.generation.outputs.id }}"
@@ -684,9 +734,12 @@ jobs:
       - name: Summarize immutable persistence
         if: always()
         run: |
+          backend="s3"
+          [[ -z "$S3_BUCKET" ]] && backend="github-cache"
           {
             echo "## Immutable state persistence"
             echo
+            echo "- Backend: \`$backend\`"
             echo "- Generation: \`${{ steps.generation.outputs.id || 'unavailable' }}\`"
             echo "- Runtime disposition: \`${{ needs.run.outputs.runtime_disposition || 'unknown' }}\`"
             echo "- Package source: \`${{ needs.run.outputs.package_source || 'none' }}\`"
