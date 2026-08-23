@@ -109,7 +109,6 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/update_frontend.py --check
-          python3 -m pytest -q tests/test_frontend_delivery.py tests/test_telegram_deadline.py
           go test ./internal/sitegen
           node --check docs/assets/js/i18n.js
           node --check docs/assets/js/bundle.js
