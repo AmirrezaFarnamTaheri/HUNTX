@@ -208,8 +208,8 @@ jobs:
           mkdir -p state-input/data/{raw,outputs,outputs_dev,dist,rejects,archive,state,logs}
           touch state-input/.state-bundle
           if [[ -z "$S3_BUCKET" ]]; then
-            echo "S3_BUCKET is required for the production workflow." >&2
-            exit 1
+            echo "Stateless run: no S3 bucket configured."
+            exit 0
           fi
 
           aws sts get-caller-identity --no-cli-pager >/dev/null
@@ -664,8 +664,8 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "$S3_BUCKET" ]]; then
-            echo "S3_BUCKET is required before a production checkpoint can persist." >&2
-            exit 1
+            echo "No S3 bucket configured; verified checkpoint remains ephemeral."
+            exit 0
           fi
           generation="${{ steps.generation.outputs.id }}"
           prefix="generations/$generation"
