@@ -14,6 +14,7 @@ def _generated_at() -> str:
         return override
     return datetime.now(timezone.utc).isoformat()
 
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 OUTPUTS_DIR = REPO_ROOT / "outputs"
 OUTPUTS_DEV_DIR = REPO_ROOT / "outputs_dev"
