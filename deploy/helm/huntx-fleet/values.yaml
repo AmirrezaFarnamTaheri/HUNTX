@@ -5,15 +5,19 @@ daemon:
   image:
     repository: ghcr.io/amirrezaw/huntx-daemon
     pullPolicy: IfNotPresent
-    tag: "latest"
+    # Set this to the immutable release tag during deployment.
+    tag: "REQUIRED"
   service:
     port: 9090
   controlToken: ""
+  # JSON array from a verified HUNTX release; no demo node is permitted.
+  nodesJson: ""
 
 image:
   repository: ghcr.io/amirrezaw/huntx-probe
   pullPolicy: IfNotPresent
-  tag: "latest"
+  # Set this to the immutable release tag during deployment.
+  tag: "REQUIRED"
 
 service:
   type: ClusterIP

@@ -115,10 +115,14 @@ func Generate(dataDir, docsDir string, generatedAt time.Time) (Catalog, error) {
 	if err := runtimegen.WriteBytesAtomic(catalogStage, append(payload, '\n'), 0o600); err != nil {
 		return Catalog{}, err
 	}
+	defer os.Remove(catalogStage)
 
 	target := filepath.Join(docsDir, "artifacts")
 	backup := target + ".backup"
+	catalogTarget := filepath.Join(docsDir, "catalog.json")
+	catalogBackup := catalogTarget + ".backup"
 	_ = os.RemoveAll(backup)
+	_ = os.Remove(catalogBackup)
 	hadOld := false
 	if _, err := os.Stat(target); err == nil {
 		if err := os.Rename(target, backup); err != nil {
@@ -134,15 +138,38 @@ func Generate(dataDir, docsDir string, generatedAt time.Time) (Catalog, error) {
 		}
 		return Catalog{}, err
 	}
-	if err := os.Rename(catalogStage, filepath.Join(docsDir, "catalog.json")); err != nil {
+	hadOldCatalog := false
+	if _, err := os.Stat(catalogTarget); err == nil {
+		if err := os.Rename(catalogTarget, catalogBackup); err != nil {
+			_ = os.RemoveAll(target)
+			if hadOld {
+				_ = os.Rename(backup, target)
+			}
+			return Catalog{}, err
+		}
+		hadOldCatalog = true
+	} else if !os.IsNotExist(err) {
 		_ = os.RemoveAll(target)
 		if hadOld {
 			_ = os.Rename(backup, target)
 		}
 		return Catalog{}, err
 	}
+	if err := os.Rename(catalogStage, catalogTarget); err != nil {
+		_ = os.RemoveAll(target)
+		if hadOld {
+			_ = os.Rename(backup, target)
+		}
+		if hadOldCatalog {
+			_ = os.Rename(catalogBackup, catalogTarget)
+		}
+		return Catalog{}, err
+	}
 	if hadOld {
 		_ = os.RemoveAll(backup)
+	}
+	if hadOldCatalog {
+		_ = os.Remove(catalogBackup)
 	}
 	return catalog, nil
 }

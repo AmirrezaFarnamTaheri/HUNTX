@@ -72,8 +72,10 @@ func BenchmarkStreamIngest_1000Nodes(b *testing.B) {
 	for b.Loop() {
 		ctx := context.Background()
 		r := bytes.NewReader(data)
-		ch := stream.Ingest(ctx, r, 256)
+		ch, errs := stream.Ingest(ctx, r, 256)
 		for range ch {
+		}
+		for range errs {
 		}
 	}
 }

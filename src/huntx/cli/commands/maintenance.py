@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import shutil
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +21,10 @@ def backup_bot_users(db_path: str | Path) -> list[dict[str, Any]] | None:
     if not path.exists():
         return None
     try:
-        with sqlite3.connect(path) as conn:
+        # sqlite3.Connection's transaction context manager does not close the
+        # file handle. Explicitly close it before clean/reset removes state.db,
+        # otherwise Windows keeps the database locked.
+        with closing(sqlite3.connect(path)) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute(

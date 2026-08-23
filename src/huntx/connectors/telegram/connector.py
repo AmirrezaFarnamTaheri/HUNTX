@@ -73,6 +73,25 @@ class TelegramConnector(SourceConnector):
                 "The provided token does not contain a colon. Ensure this is a valid Telegram Bot API token."
             )
 
+    def _remaining_deadline(self) -> Optional[float]:
+        """Return seconds left in the ingestion budget, or None when unbounded."""
+        if self.deadline is None:
+            return None
+        remaining = self.deadline - time.time()
+        if remaining <= 0:
+            raise TimeoutError("Telegram connector ingestion deadline exceeded")
+        return remaining
+
+    def _request_timeout(self, maximum: float) -> float:
+        """Bound blocking urllib work by the remaining pipeline deadline."""
+        remaining = self._remaining_deadline()
+        return maximum if remaining is None else min(maximum, remaining)
+
+    def _retry_delay(self, attempt: int) -> float:
+        delay = float(BACKOFF_FACTOR * (2**attempt))
+        remaining = self._remaining_deadline()
+        return delay if remaining is None else min(delay, remaining)
+
     def _make_request(self, method: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         url = f"{self.base_url}/{method}"
         start_time = time.time()
@@ -87,7 +106,7 @@ class TelegramConnector(SourceConnector):
 
         for attempt in range(MAX_RETRIES + 1):
             try:
-                with urllib.request.urlopen(req, timeout=30) as response:
+                with urllib.request.urlopen(req, timeout=self._request_timeout(30)) as response:
                     res = json.loads(response.read().decode("utf-8"))
                     duration = time.time() - start_time
                     # Only log slow requests or if debug
@@ -103,23 +122,25 @@ class TelegramConnector(SourceConnector):
                         "409 Conflict: Telegram bot token is already in use by another active getUpdates session."
                     )
                 if attempt < MAX_RETRIES:
-                    sleep_time = BACKOFF_FACTOR * (2**attempt)
+                    sleep_time = self._retry_delay(attempt)
                     logger.warning(
                         f"Telegram API HTTP error {e.code} (attempt {attempt + 1}/{MAX_RETRIES + 1}): {e.reason}. "
                         f"Retrying in {sleep_time}s..."
                     )
-                    time.sleep(sleep_time)
+                    if sleep_time > 0:
+                        time.sleep(sleep_time)
                 else:
                     logger.error(f"Telegram API HTTP error {e.code} (final attempt) for {method}: {e.reason}")
                     return {"ok": False}
             except urllib.error.URLError as e:
                 if attempt < MAX_RETRIES:
-                    sleep_time = BACKOFF_FACTOR * (2**attempt)
+                    sleep_time = self._retry_delay(attempt)
                     logger.warning(
                         f"Telegram API error (attempt {attempt + 1}/{MAX_RETRIES + 1}): {e}. "
                         f"Retrying in {sleep_time}s..."
                     )
-                    time.sleep(sleep_time)
+                    if sleep_time > 0:
+                        time.sleep(sleep_time)
                 else:
                     logger.error(f"Telegram API error (final attempt) for {method}: {e}")
                     return {"ok": False}
@@ -133,7 +154,7 @@ class TelegramConnector(SourceConnector):
         for attempt in range(MAX_RETRIES + 1):
             try:
                 start_time = time.time()
-                with urllib.request.urlopen(url, timeout=60) as response:
+                with urllib.request.urlopen(url, timeout=self._request_timeout(60)) as response:
                     # Bounded read: the pre-download size check trusts
                     # API-reported metadata, so the cap must also be enforced
                     # on the bytes actually received. read(amt) returns at
@@ -152,11 +173,12 @@ class TelegramConnector(SourceConnector):
                     return data
             except Exception as e:
                 if attempt < MAX_RETRIES:
-                    sleep_time = BACKOFF_FACTOR * (2**attempt)
+                    sleep_time = self._retry_delay(attempt)
                     logger.warning(
                         f"Download failed (attempt {attempt + 1}/{MAX_RETRIES + 1}): {e}. Retrying in {sleep_time}s..."
                     )
-                    time.sleep(sleep_time)
+                    if sleep_time > 0:
+                        time.sleep(sleep_time)
                 else:
                     logger.error(f"Download failed (final attempt): {e}")
                     return None

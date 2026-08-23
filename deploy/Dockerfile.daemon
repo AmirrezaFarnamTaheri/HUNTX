@@ -1,11 +1,11 @@
 # Multi-stage minimal container for HUNTX Proxy Daemon & PAC Server
 # Authority: OCI Image Format Specification
-FROM golang:1.22-alpine AS builder
+FROM golang:1.25-alpine AS builder
 WORKDIR /app
-COPY go.mod ./
-RUN go mod download || true
+COPY go.mod go.sum ./
+RUN go mod download
 COPY cmd/huntx-daemon/ ./cmd/huntx-daemon/
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /huntx-daemon ./cmd/huntx-daemon
+RUN CGO_ENABLED=0 GOOS=linux go build -mod=readonly -ldflags="-s -w" -o /huntx-daemon ./cmd/huntx-daemon
 
 FROM alpine:3.20
 RUN adduser -D -u 10001 huntx

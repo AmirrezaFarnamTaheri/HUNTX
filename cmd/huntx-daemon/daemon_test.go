@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -16,8 +18,8 @@ func authorizedRequest(method, target string) *http.Request {
 
 func TestDaemonInitializationAndStatus(t *testing.T) {
 	nodes := []DaemonNode{
-		{ID: "node-1", Protocol: "vless", Server: "1.1.1.1", Port: 443, Latency: 35 * time.Millisecond, Alive: true},
-		{ID: "node-2", Protocol: "hysteria2", Server: "8.8.8.8", Port: 8443, Latency: 60 * time.Millisecond, Alive: true},
+		{ID: "node-1", Protocol: "http", Server: "1.1.1.1", Port: 443, Latency: 35 * time.Millisecond, Alive: true},
+		{ID: "node-2", Protocol: "socks5", Server: "8.8.8.8", Port: 8443, Latency: 60 * time.Millisecond, Alive: true},
 	}
 
 	d := NewDaemon(nodes, WithListenAddr("127.0.0.1:0"), WithCheckInterval(100*time.Millisecond))
@@ -33,8 +35,8 @@ func TestDaemonInitializationAndStatus(t *testing.T) {
 
 func TestDaemonRotateNode(t *testing.T) {
 	nodes := []DaemonNode{
-		{ID: "node-1", Protocol: "vless", Server: "1.1.1.1", Port: 443, Latency: 35 * time.Millisecond, Alive: true},
-		{ID: "node-2", Protocol: "hysteria2", Server: "8.8.8.8", Port: 8443, Latency: 60 * time.Millisecond, Alive: true},
+		{ID: "node-1", Protocol: "http", Server: "1.1.1.1", Port: 443, Latency: 35 * time.Millisecond, Alive: true},
+		{ID: "node-2", Protocol: "socks5", Server: "8.8.8.8", Port: 8443, Latency: 60 * time.Millisecond, Alive: true},
 	}
 
 	d := NewDaemon(nodes)
@@ -50,8 +52,8 @@ func TestDaemonRotateNode(t *testing.T) {
 func TestDaemonHTTPHandlerEndpoints(t *testing.T) {
 	t.Setenv("HUNTX_DAEMON_CONTROL_TOKEN", "test-control-token")
 	nodes := []DaemonNode{
-		{ID: "node-1", Protocol: "vless", Server: "1.1.1.1", Port: 443, Latency: 35 * time.Millisecond, Alive: true},
-		{ID: "node-2", Protocol: "hysteria2", Server: "8.8.8.8", Port: 8443, Latency: 60 * time.Millisecond, Alive: true},
+		{ID: "node-1", Protocol: "http", Server: "1.1.1.1", Port: 443, Latency: 35 * time.Millisecond, Alive: true},
+		{ID: "node-2", Protocol: "socks5", Server: "8.8.8.8", Port: 8443, Latency: 60 * time.Millisecond, Alive: true},
 	}
 	d := NewDaemon(nodes)
 	handler := d.Handler()
@@ -92,5 +94,38 @@ func TestDaemonRotateSkipsDeadNodes(t *testing.T) {
 	d := NewDaemon([]DaemonNode{{ID: "live-1", Alive: true}, {ID: "dead", Alive: false}, {ID: "live-2", Alive: true}})
 	if got := d.RotateNode(); got.ID != "live-2" {
 		t.Fatalf("expected live-2, got %#v", got)
+	}
+}
+
+func TestDaemonReadinessRequiresLiveNode(t *testing.T) {
+	d := NewDaemon([]DaemonNode{{ID: "dead", Server: "127.0.0.1", Port: 1, Alive: false}})
+	rr := httptest.NewRecorder()
+	d.Handler().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/ready", nil))
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected unavailable readiness, got %d", rr.Code)
+	}
+}
+
+func TestDaemonHealthCheckRotatesAwayFromFailedActiveNode(t *testing.T) {
+	d := NewDaemon(
+		[]DaemonNode{{ID: "active", Alive: true}, {ID: "standby", Alive: true}},
+		WithCheckInterval(time.Millisecond),
+	)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	d.StartHealthChecks(ctx, func(_ context.Context, node DaemonNode) (time.Duration, error) {
+		if node.ID == "active" {
+			return 0, errors.New("dial failed")
+		}
+		return time.Millisecond, nil
+	})
+
+	deadline := time.After(time.Second)
+	for d.ActiveNode().ID != "standby" {
+		select {
+		case <-deadline:
+			t.Fatalf("expected standby after health failure, got %#v", d.ActiveNode())
+		case <-time.After(time.Millisecond):
+		}
 	}
 }

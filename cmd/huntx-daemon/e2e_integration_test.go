@@ -13,9 +13,9 @@ func TestE2EDaemonLifecycleAndLivePACServing(t *testing.T) {
 	t.Setenv("HUNTX_DAEMON_CONTROL_TOKEN", "test-control-token")
 	// 1. Ingest initial evaluated proxy nodes
 	initialNodes := []DaemonNode{
-		{ID: "ir-relay-01", Protocol: "vless", Server: "185.10.10.1", Port: 443, Latency: 22 * time.Millisecond, Alive: true},
-		{ID: "de-exit-02", Protocol: "hysteria2", Server: "95.216.1.1", Port: 8443, Latency: 65 * time.Millisecond, Alive: true},
-		{ID: "us-exit-03", Protocol: "trojan", Server: "104.20.0.1", Port: 443, Latency: 120 * time.Millisecond, Alive: true},
+		{ID: "ir-relay-01", Protocol: "http", Server: "185.10.10.1", Port: 443, Latency: 22 * time.Millisecond, Alive: true},
+		{ID: "de-exit-02", Protocol: "socks5", Server: "95.216.1.1", Port: 8443, Latency: 65 * time.Millisecond, Alive: true},
+		{ID: "us-exit-03", Protocol: "http", Server: "104.20.0.1", Port: 443, Latency: 120 * time.Millisecond, Alive: true},
 	}
 
 	daemon := NewDaemon(initialNodes, WithListenAddr("127.0.0.1:0"), WithCheckInterval(50*time.Millisecond))
@@ -66,8 +66,8 @@ func TestE2EDaemonLifecycleAndLivePACServing(t *testing.T) {
 	handler.ServeHTTP(recPac2, reqPac2)
 
 	pacBody2 := recPac2.Body.String()
-	if !strings.Contains(pacBody2, "PROXY 95.216.1.1:8443") {
-		t.Errorf("expected PAC to point to 95.216.1.1:8443 after rotation, got: %s", pacBody2)
+	if !strings.Contains(pacBody2, "SOCKS5 95.216.1.1:8443") {
+		t.Errorf("expected PAC to point to SOCKS5 95.216.1.1:8443 after rotation, got: %s", pacBody2)
 	}
 
 	// 6. Verify failover counter

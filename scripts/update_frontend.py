@@ -1,6 +1,8 @@
 # update_frontend.py
 import os
 import re
+import sys
+from pathlib import Path
 
 INDEX_HTML = """<!DOCTYPE html>
 <html lang="en" class="dark">
@@ -77,6 +79,20 @@ INDEX_HTML = """<!DOCTYPE html>
       --radius-md: 14px;
       --radius-lg: 20px;
       --radius-xl: 28px;
+    }
+
+    html[dir="rtl"] body,
+    html[dir="rtl"] input,
+    html[dir="rtl"] textarea {
+      text-align: right;
+    }
+
+    html[dir="rtl"] .text-left {
+      text-align: right !important;
+    }
+
+    html[dir="rtl"] .text-right {
+      text-align: left !important;
     }
 
     html.light {
@@ -844,7 +860,7 @@ INDEX_HTML = """<!DOCTYPE html>
   <div id="modal-overlay" class="hidden"></div>
 
   <!-- Floating Toast Notification System -->
-  <div id="toast-container" class="fixed bottom-6 right-6 z-[9999] flex flex-col gap-2 pointer-events-none"></div>
+  <div id="toast-container" role="status" aria-live="polite" aria-atomic="true" class="fixed bottom-6 right-6 z-[9999] flex flex-col gap-2 pointer-events-none"></div>
 
   <!-- Checked-in standalone bundle. Supported delivery mode is HTTP/HTTPS. -->
   <script src="assets/js/bundle.js"></script>
@@ -903,7 +919,7 @@ def write_index():
     print(f"✅ Successfully generated docs/index.html (Proxies: {proxies_count}, Artifacts: {artifacts_count})")
 
 
-def bundle():
+def legacy_bundle():
     order = ['data.js', 'globe.js', 'qrcode.js', 'decoder.js', 'app.js']
     parts = []
     for f in order:
@@ -927,6 +943,45 @@ def bundle():
     print(f"✅ Bundle generated: {out_path} ({len(bundle_code)} bytes)")
 
 
+MODULE_ORDER = ('data.js', 'globe.js', 'qrcode.js', 'decoder.js', 'i18n.js', 'app.js')
+
+
+def build_bundle_code(root: Path | None = None) -> str:
+    """Build the exact browser bundle from the checked-in frontend modules."""
+    project_root = root or Path(__file__).resolve().parents[1]
+    parts = []
+    for filename in MODULE_ORDER:
+        path = project_root / 'docs' / 'assets' / 'js' / filename
+        if not path.is_file():
+            raise FileNotFoundError(f"Frontend module not found: {path}")
+        content = path.read_text(encoding='utf-8')
+        content = re.sub(r'import\s+[\s\S]*?from\s+[\'\"][^\'\"]+[\'\"];?', '', content)
+        content = re.sub(r'import\s+[\'\"][^\'\"]+[\'\"];?', '', content)
+        content = re.sub(r'export\s+(async\s+)?(function|class|const|let|var)\s+', r'\1\2 ', content)
+        content = re.sub(r'export\s*default\s+', '', content)
+        content = re.sub(r'export\s*\{[\s\S]*?\};?', '', content)
+        parts.append(f'// === Module: {filename} ===\n' + content)
+    return '(function() {\n"use strict";\n\n' + '\n\n'.join(parts) + '\n})();\n'
+
+
+def bundle(root: Path | None = None) -> None:
+    project_root = root or Path(__file__).resolve().parents[1]
+    bundle_code = build_bundle_code(project_root)
+    out_path = project_root / 'docs' / 'assets' / 'js' / 'bundle.js'
+    temporary_path = out_path.with_suffix('.js.tmp')
+    temporary_path.write_text(bundle_code, encoding='utf-8')
+    temporary_path.replace(out_path)
+    print(f"✅ Bundle generated: {out_path} ({len(bundle_code)} bytes)")
+
+
 if __name__ == "__main__":
+    if sys.argv[1:] == ['--check']:
+        root = Path(__file__).resolve().parents[1]
+        expected = build_bundle_code(root)
+        actual = (root / 'docs' / 'assets' / 'js' / 'bundle.js').read_text(encoding='utf-8')
+        if actual != expected:
+            raise SystemExit('Frontend bundle is stale; run scripts/update_frontend.py and commit bundle.js.')
+        print('Frontend bundle is current.')
+        raise SystemExit(0)
     write_index()
     bundle()

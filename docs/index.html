@@ -75,6 +75,20 @@
       --radius-xl: 28px;
     }
 
+    html[dir="rtl"] body,
+    html[dir="rtl"] input,
+    html[dir="rtl"] textarea {
+      text-align: right;
+    }
+
+    html[dir="rtl"] .text-left {
+      text-align: right !important;
+    }
+
+    html[dir="rtl"] .text-right {
+      text-align: left !important;
+    }
+
     html.light {
       color-scheme: light;
       --bg-void: #f8fafc;
