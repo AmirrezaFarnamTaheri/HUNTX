@@ -1,3 +1,4 @@
+# Trigger the one-time PR review remediation workflow.
 name: pr82-final-review-fixup
 
 on:
