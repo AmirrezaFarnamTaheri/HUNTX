@@ -33432,12 +33432,17 @@ class AppState {
   }
 
   startPublishedDataRefresh() {
+    const MIN_REFRESH_INTERVAL_MS = 300000;
+    let lastRefreshAt = Date.now();
     const refreshWhenVisible = () => {
-      if (!document.hidden) this.refreshPublishedData();
+      if (document.hidden) return;
+      if (Date.now() - lastRefreshAt < MIN_REFRESH_INTERVAL_MS) return;
+      lastRefreshAt = Date.now();
+      this.refreshPublishedData();
     };
     this.boundVisibilityRefresh = refreshWhenVisible;
     document.addEventListener("visibilitychange", refreshWhenVisible);
-    this.liveRefreshTimer = window.setInterval(refreshWhenVisible, 300000);
+    this.liveRefreshTimer = window.setInterval(refreshWhenVisible, MIN_REFRESH_INTERVAL_MS);
   }
 
   async init() {
