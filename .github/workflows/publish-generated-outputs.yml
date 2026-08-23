@@ -319,7 +319,7 @@ jobs:
             test -s outputs_dev/_manifest.json
             test -f scripts/verify_output.py
 
-            git add -- outputs outputs_dev .github/huntx-generated-files.txt
+            git add -- outputs outputs_dev docs .github/huntx-generated-files.txt
             git diff --cached --check
             if git diff --cached --quiet; then
               echo "Main output mirror is already current."
