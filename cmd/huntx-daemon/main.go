@@ -54,8 +54,9 @@ func loadNodes() ([]DaemonNode, error) {
 	if len(nodes) == 0 {
 		return nil, fmt.Errorf("HUNTX_DAEMON_NODES_JSON must contain at least one node")
 	}
-	for _, node := range nodes {
-		node.Protocol = strings.ToLower(strings.TrimSpace(node.Protocol))
+	for index := range nodes {
+		nodes[index].Protocol = strings.ToLower(strings.TrimSpace(nodes[index].Protocol))
+		node := nodes[index]
 		if node.ID == "" || !validProxyHost(node.Server) || node.Port < 1 || node.Port > 65535 || !supportedProtocol(node.Protocol) {
 			return nil, fmt.Errorf("invalid daemon node %q", node.ID)
 		}
@@ -78,35 +79,23 @@ func main() {
 	defer cancelHealthChecks()
 	daemon.StartHealthChecks(healthCtx, func(ctx context.Context, node DaemonNode) (time.Duration, error) {
 		start := time.Now()
-		connection, err := (&net.Dialer{Timeout: 5 * time.Second}).DialContext(
-			ctx, "tcp", fmt.Sprintf("%s:%d", node.Server, node.Port),
-		)
+		connection, err := (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, "tcp", fmt.Sprintf("%s:%d", node.Server, node.Port))
 		if err != nil {
 			return 0, err
 		}
 		_ = connection.Close()
 		return time.Since(start), nil
 	})
-	server := &http.Server{
-		Addr:              listenAddr,
-		Handler:           daemon.Handler(),
-		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      15 * time.Second,
-		IdleTimeout:       60 * time.Second,
-	}
-
+	server := &http.Server{Addr: listenAddr, Handler: daemon.Handler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second}
 	go func() {
 		fmt.Printf("[HUNTX-DAEMON] Control API active on http://%s\n", listenAddr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			fmt.Fprintf(os.Stderr, "server error: %v\n", err)
 		}
 	}()
-
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	<-sigChan
-
 	fmt.Println("[HUNTX-DAEMON] Shutting down gracefully...")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
