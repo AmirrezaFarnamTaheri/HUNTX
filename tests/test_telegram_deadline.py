@@ -30,5 +30,8 @@ def test_request_refuses_work_after_deadline() -> None:
     connector = TelegramConnector("123:token", "1")
     connector.deadline = time.time() - 0.01
 
-    with pytest.raises(TimeoutError, match="deadline exceeded"):
-        connector._make_request("getMe")
+    with patch("urllib.request.urlopen") as mock_urlopen:
+        with pytest.raises(TimeoutError, match="deadline exceeded"):
+            connector._make_request("getMe")
+
+    mock_urlopen.assert_not_called()
