@@ -23,7 +23,8 @@ def test_request_timeout_is_clamped_to_remaining_deadline(mock_urlopen: MagicMoc
     mock_urlopen.return_value = _response({"ok": True})
 
     assert connector._make_request("getMe")["ok"] is True
-    assert mock_urlopen.call_args.kwargs["timeout"] < 1
+    timeout = mock_urlopen.call_args.kwargs["timeout"]
+    assert 0 < timeout <= 0.5
 
 
 def test_request_refuses_work_after_deadline() -> None:
