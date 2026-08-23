@@ -180,6 +180,7 @@ jobs:
 
       - name: Build verified dashboard data from release dist
         env:
+          SOURCE_ROOT: ${{ runner.temp }}/huntx-publication
           SOURCE_DIST: ${{ runner.temp }}/huntx-publication/dist
           SOURCE_CREATED_AT: ${{ steps.source.outputs.created_at }}
           DASHBOARD_ROOT: ${{ runner.temp }}/huntx-dashboard/docs
