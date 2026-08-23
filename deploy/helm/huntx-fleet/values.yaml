@@ -5,8 +5,8 @@ daemon:
   image:
     repository: ghcr.io/amirrezaw/huntx-daemon
     pullPolicy: IfNotPresent
-    # Set this to the immutable release tag or image digest during deployment.
-    tag: ""
+    # Set this to the immutable release tag during deployment.
+    tag: "REQUIRED"
   service:
     port: 9090
   controlToken: ""
@@ -16,8 +16,8 @@ daemon:
 image:
   repository: ghcr.io/amirrezaw/huntx-probe
   pullPolicy: IfNotPresent
-  # Set this to the immutable release tag or image digest during deployment.
-  tag: ""
+  # Set this to the immutable release tag during deployment.
+  tag: "REQUIRED"
 
 service:
   type: ClusterIP
