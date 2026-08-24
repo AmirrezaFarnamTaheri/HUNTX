@@ -22,50 +22,50 @@
     },
     {
       "path": "all_sources.npvt",
-      "size": 7415,
-      "sha256": "32695c01b4cd61f3b8e6184b9e09906e8dd61428b7a58a9cb5062adb039e5424",
+      "size": 3576,
+      "sha256": "86c02483c8cb7da14c1bf92677f2802d3c80aded161ca88c14cd35eb04beea5b",
       "media_type": "application/octet-stream"
     },
     {
       "path": "all_sources.npvt.b64sub",
-      "size": 9888,
-      "sha256": "b61fa25764b63aaf0e301d443a23231ad9fec968155a15519662dc9422579316",
+      "size": 4768,
+      "sha256": "27a5864d44b8f3aa21afe83de46e706c017d35c0c80ed6d9a9ffc90924003a19",
       "media_type": "application/octet-stream"
     },
     {
       "path": "all_sources.npvt.decoded.json",
-      "size": 23027,
-      "sha256": "2016a0a0fbb1361f470184520d12110e21633b9bab75847fd037e205de488b9c",
+      "size": 11934,
+      "sha256": "e1e20b05a3232ff52040a8f070503db84df0ef5aef72e0beb14bc9b1a01fde2c",
       "media_type": "application/json"
     },
     {
       "path": "all_sources.npvt.nekobox.json",
-      "size": 16070,
-      "sha256": "4b6d666934058fe82aa152be6784295b1ccd156fcecb7b02138e22d68f76d359",
+      "size": 8844,
+      "sha256": "969e74092afa98af5c696f00470d6f06755644d640ceb80f9fb87f9aeb25fd47",
       "media_type": "application/json"
     },
     {
       "path": "all_sources.npvt.raw.txt",
-      "size": 7415,
-      "sha256": "32695c01b4cd61f3b8e6184b9e09906e8dd61428b7a58a9cb5062adb039e5424",
+      "size": 3576,
+      "sha256": "86c02483c8cb7da14c1bf92677f2802d3c80aded161ca88c14cd35eb04beea5b",
       "media_type": "text/plain"
     },
     {
       "path": "all_sources.npvt.singbox.json",
-      "size": 18835,
-      "sha256": "02d45c10aa77a6f0eb53026c8a77bd11354a52257224a01ecc78d163de101452",
+      "size": 11029,
+      "sha256": "6dcfffb0ef26f3105fd403d7368ad21b72a8f99505f3b2b157988f93690eaded",
       "media_type": "application/json"
     },
     {
       "path": "all_sources.npvt.xray.json",
-      "size": 13838,
-      "sha256": "3f8933581ed31494c72bd3a09d036727b4533a8f24ec8cd9cb06db8701d7aafd",
+      "size": 5582,
+      "sha256": "a8c3ee944629c7248ac4b91ef49b56cd1ed315b61030e772b736e6f5cb76b75e",
       "media_type": "application/json"
     },
     {
       "path": "all_sources.opaque_bundle",
-      "size": 17296,
-      "sha256": "0319a210b94ac997a860ed28f0cf72ac03e6110ef92e090b42263225906fc3fa",
+      "size": 1344,
+      "sha256": "4567507b7d6d5f92f68561a249a14f8b854c3dc5e6af9b82e06a572f571ee278",
       "media_type": "application/octet-stream"
     },
     {
