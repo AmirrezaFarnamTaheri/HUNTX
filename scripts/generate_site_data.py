@@ -539,12 +539,13 @@ def cluster_globe_hubs(proxies: list[dict]) -> list[dict]:
                 "carrier": p["carrier"],
                 "count": 0
             }
-        hub_map[code]["pings"].append(p["latency"])
+        if isinstance(p["latency"], (int, float)) and p["latency"] > 0:
+            hub_map[code]["pings"].append(p["latency"])
         hub_map[code]["count"] += 1
 
     hubs = []
     for code, h in hub_map.items():
-        avg_ping = round(sum(h["pings"]) / len(h["pings"])) if h["pings"] else 30
+        avg_ping = round(sum(h["pings"]) / len(h["pings"])) if h["pings"] else None
         hubs.append({
             "name": h["name"],
             "lat": h["lat"],
