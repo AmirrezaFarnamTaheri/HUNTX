@@ -19,20 +19,20 @@
       "tag": "vless-1",
       "protocol": "vless",
       "settings": {
-        "address": "104.19.110.50",
+        "address": "151.101.128.155",
         "port": 443,
-        "id": "d9eb0df3-3190-4447-86b6-656fe5ff1119",
+        "id": "68da4304-05a7-4d0a-b983-8e2ea5080442",
         "encryption": "none"
       },
       "streamSettings": {
         "method": "websocket",
         "security": "tls",
         "wsSettings": {
-          "path": "/TElEGRAM-MARAMBASHI-MARAMBASHI?ed=2048",
-          "host": "mmdv2.pages.dev"
+          "path": "/",
+          "host": "farm.vpn.farm.vpnbdhdjwj.sbs"
         },
         "tlsSettings": {
-          "serverName": "mmdv2.pages.dev"
+          "serverName": "www.elledecor.com"
         }
       }
     },
@@ -40,176 +40,67 @@
       "tag": "vless-2",
       "protocol": "vless",
       "settings": {
-        "address": "104.21.2.232",
+        "address": "81.31.210.140",
         "port": 443,
-        "id": "1f48f432-fff4-474f-c3a6-08cf1db5b709",
-        "encryption": "none"
+        "id": "419f25c1-bc35-412e-93fb-258efee859b5",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
       },
       "streamSettings": {
-        "method": "websocket",
-        "security": "tls",
-        "wsSettings": {
-          "path": "/image/20992",
-          "host": "pay.technator.net"
-        },
-        "tlsSettings": {
-          "serverName": "pay.technator.net"
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "nl3.murhost.network",
+          "fingerprint": "firefox",
+          "password": "XOcyZvF63CHDPnh3UCL-u-X8HYeNGiRtrwDVRLBC1DI",
+          "shortId": "f41bc0b00ca1a978"
         }
       }
     },
     {
-      "tag": "vless-7",
+      "tag": "vless-4",
       "protocol": "vless",
       "settings": {
-        "address": "104.21.60.80",
-        "port": 2096,
-        "id": "8d975dee-ef51-43e0-b2b5-51e0b3725d50",
-        "encryption": "none"
-      },
-      "streamSettings": {
-        "method": "websocket",
-        "security": "tls",
-        "wsSettings": {
-          "host": "test.moviijmusic.space"
-        },
-        "tlsSettings": {
-          "serverName": "test.moviijmusic.space",
-          "fingerprint": "chrome"
-        }
-      }
-    },
-    {
-      "tag": "vless-9",
-      "protocol": "vless",
-      "settings": {
-        "address": "195-154-118-228.rev.poneytelecom.eu",
+        "address": "104.19.230.57",
         "port": 443,
-        "id": "8b2212a4-ac3d-49e7-bc15-49854cb77027",
+        "id": "89b3cbba-e6ac-485a-9481-976a0415eab9",
         "encryption": "none"
       },
       "streamSettings": {
         "method": "websocket",
         "security": "tls",
         "wsSettings": {
-          "path": "49854cb77027",
-          "host": "195-154-118-228.rev.poneytelecom.eu"
+          "path": "/Telegram-------V2rayi_net_-_-_-_-Telegram-------V2rayi_net/?ed=2048",
+          "host": "523AfB17.IRS23.pagES.DEv"
         },
         "tlsSettings": {
-          "serverName": "195-154-118-228.rev.poneytelecom.eu"
-        }
-      }
-    },
-    {
-      "tag": "vless-11",
-      "protocol": "vless",
-      "settings": {
-        "address": "188.114.97.141",
-        "port": 443,
-        "id": "d7bbfe83-b037-48ae-996c-b98ed0441ba2",
-        "encryption": "none"
-      },
-      "streamSettings": {
-        "method": "websocket",
-        "security": "tls",
-        "wsSettings": {
-          "path": "/Telegram-@proxy_mtm/?ed=2560",
-          "host": "e10c0e4b.oodaeq2.pages.dev"
-        },
-        "tlsSettings": {
-          "serverName": "e10c0e4b.oodaeq2.pages.dev",
-          "fingerprint": "chrome"
-        }
-      }
-    },
-    {
-      "tag": "vless-12",
-      "protocol": "vless",
-      "settings": {
-        "address": "172.67.69.236",
-        "port": 8443,
-        "id": "51d19c6d-d0bf-4e0b-8eef-9a1d3f13c7e6",
-        "encryption": "none"
-      },
-      "streamSettings": {
-        "method": "websocket",
-        "security": "tls",
-        "wsSettings": {
-          "path": "vless-ws/?ed",
-          "host": "vip-romax-tiktok.hsjsak.ir"
-        },
-        "tlsSettings": {
-          "serverName": "vip-romax-tiktok.hsjsak.ir",
-          "fingerprint": "random"
-        }
-      }
-    },
-    {
-      "tag": "vless-13",
-      "protocol": "vless",
-      "settings": {
-        "address": "188.114.97.4",
-        "port": 8443,
-        "id": "f798a2c4-c51b-409d-b349-ca8455b36796",
-        "encryption": "none"
-      },
-      "streamSettings": {
-        "method": "websocket",
-        "security": "tls",
-        "wsSettings": {
-          "path": "/download.php",
-          "host": "chopin.adaspoloandco.com"
-        },
-        "tlsSettings": {
-          "serverName": "chopin.adaspoloandco.com",
-          "fingerprint": "chrome"
-        }
-      }
-    },
-    {
-      "tag": "vless-14",
-      "protocol": "vless",
-      "settings": {
-        "address": "104.26.14.16",
-        "port": 8443,
-        "id": "51d19c6d-d0bf-4e0b-8eef-9a1d3f13c7e6",
-        "encryption": "none"
-      },
-      "streamSettings": {
-        "method": "websocket",
-        "security": "tls",
-        "wsSettings": {
-          "path": "vless-ws/?ed",
-          "host": "vip-romax-tiktok.hsjsak.ir"
-        },
-        "tlsSettings": {
-          "serverName": "vip-romax-tiktok.hsjsak.ir",
-          "fingerprint": "random"
-        }
-      }
-    },
-    {
-      "tag": "vless-16",
-      "protocol": "vless",
-      "settings": {
-        "address": "104.17.147.22",
-        "port": 2087,
-        "id": "c40c1a95-eb33-4663-a426-8193da67e081",
-        "encryption": "none"
-      },
-      "streamSettings": {
-        "method": "websocket",
-        "security": "tls",
-        "wsSettings": {
-          "path": "/@LIGHTNING6-TEL--@LIGHTNING6-TEL--@LIGHTNING6-TEL--@LIGHTNING6-JOIN-@LIGHTNING6-TEL--@LIGHTNING6-JOIN-@LIGHTNING6-TEL-@LIGHTNING6-TEL--@LIGHTNING6-JOIN-@LIGHTNING6-TEL--@LIGHTNING6-@LiV2ray?ed=2048",
-          "host": "LiV2ry.lightning1.ir"
-        },
-        "tlsSettings": {
-          "serverName": "LiV2ry.lightning1.ir",
+          "serverName": "523afb17.IRS23.pAgES.Dev",
           "alpn": [
             "h2",
             "http/1.1"
           ],
-          "fingerprint": "ios"
+          "fingerprint": "randomized"
+        }
+      }
+    },
+    {
+      "tag": "vless-5",
+      "protocol": "vless",
+      "settings": {
+        "address": "185.146.173.37",
+        "port": 443,
+        "id": "24166122-2e99-491e-9fae-11310aa18068",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "tls",
+        "grpcSettings": {
+          "serviceName": "grpc"
+        },
+        "tlsSettings": {
+          "serverName": "xn--mgbaasql3ledele.pinocchio1.ir.",
+          "fingerprint": "chrome"
         }
       }
     },
