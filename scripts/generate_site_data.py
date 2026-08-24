@@ -16,6 +16,37 @@ def _generated_at() -> str:
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _configured_sources_count():
+    """Count source entries actually configured for production ingestion.
+
+    Returns None when the config cannot be parsed so the UI can show an
+    honest dash instead of an invented number.
+    """
+    text = CONFIG_PROD_FILE.read_text(encoding="utf-8") if CONFIG_PROD_FILE.exists() else ""
+    if not text:
+        return None
+    try:
+        import yaml
+
+        config = yaml.safe_load(text) or {}
+        sources = config.get("sources") or []
+        return len(sources) or None
+    except Exception:
+        in_sources = False
+        count = 0
+        for line in text.splitlines():
+            if line.startswith("sources:"):
+                in_sources = True
+                continue
+            if in_sources and line and not line[0].isspace():
+                break
+            if in_sources and line.lstrip().startswith("- "):
+                count += 1
+        return count or None
+
+
 OUTPUTS_DIR = REPO_ROOT / "outputs"
 OUTPUTS_DEV_DIR = REPO_ROOT / "outputs_dev"
 DOCS_DIR = REPO_ROOT / "docs"
@@ -452,20 +483,10 @@ def parse_production_proxies() -> list[dict]:
 
         geo = resolve_geo_and_carrier(address, sni=sni, host=host)
 
-        # Calculate estimated ping based on protocol and geographic hop
-        base_ping = 22
-        if geo["country"] in ("DE", "NL", "FR", "GB", "CH", "FI"):
-            base_ping = 24 + (idx * 2) % 15
-        elif geo["country"] in ("US", "CA"):
-            base_ping = 36 + (idx * 3) % 18
-        elif geo["country"] in ("SG", "JP", "KR", "HK"):
-            base_ping = 45 + (idx * 2) % 20
-        elif geo["country"] == "IR":
-            base_ping = 18 + (idx * 2) % 8
-        elif geo["country"] == "RU":
-            base_ping = 32 + (idx * 2) % 12
+        # No live probing exists in the static pipeline: latency stays
+        # unmeasured instead of being invented from geography.
 
-        grade = "A+" if security == "reality" or base_ping < 35 else ("A" if security == "tls" else "B+")
+        grade = "A+" if security == "reality" else ("A" if security == "tls" else "B+")
 
         proxy_obj = {
             "id": f"px-{idx:04d}",
@@ -491,7 +512,7 @@ def parse_production_proxies() -> list[dict]:
             "city": geo["city"],
             "latitude": geo["latitude"],
             "longitude": geo["longitude"],
-            "latency": base_ping,
+            "latency": None,
             "grade": grade,
             "raw_uri": raw
         }
@@ -542,7 +563,7 @@ def cluster_globe_hubs(proxies: list[dict]) -> list[dict]:
 
 def compute_aggregate_stats(proxies: list[dict], catalog: dict) -> dict:
     dev_proxies_file = OUTPUTS_DEV_DIR / "proxies.json"
-    cum_count = 116221
+    cum_count = 0
     if dev_proxies_file.exists():
         try:
             cum_data = json.loads(dev_proxies_file.read_text(encoding="utf-8"))
@@ -550,7 +571,7 @@ def compute_aggregate_stats(proxies: list[dict], catalog: dict) -> dict:
         except Exception:
             pass
 
-    active_sources = 85
+    active_sources = _configured_sources_count()
 
     proto_counts = {}
     sec_counts = {}
@@ -575,11 +596,12 @@ def compute_aggregate_stats(proxies: list[dict], catalog: dict) -> dict:
         car = p["carrier"]
         carrier_counts[car] = carrier_counts.get(car, 0) + 1
 
-        latencies.append(p["latency"])
+        if isinstance(p["latency"], (int, float)) and p["latency"] > 0:
+            latencies.append(p["latency"])
 
-    avg_lat = round(sum(latencies) / len(latencies)) if latencies else 0
-    min_lat = min(latencies) if latencies else 0
-    max_lat = max(latencies) if latencies else 0
+    avg_lat = round(sum(latencies) / len(latencies)) if latencies else None
+    min_lat = min(latencies) if latencies else None
+    max_lat = max(latencies) if latencies else None
 
     return {
         "generated_at": _generated_at(),

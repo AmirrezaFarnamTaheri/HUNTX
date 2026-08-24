@@ -153,7 +153,14 @@ class TestDashboardDataWiring(unittest.TestCase):
     def _dashboard_fixture(self, root: Path) -> Path:
         dashboard = root / "dashboard"
         (dashboard / "artifacts" / "release").mkdir(parents=True)
-        (dashboard / "catalog.json").write_text('{"total_files": 1}\n', encoding="utf-8")
+        release_entry = {
+            "filename": "all_sources.conf_lines",
+            "path": "artifacts/release/all_sources.conf_lines",
+            "size": 10,
+            "sha256": "a" * 64,
+        }
+        catalog = {"total_files": 1, "total_size": 10, "files": [release_entry]}
+        (dashboard / "catalog.json").write_text(json.dumps(catalog), encoding="utf-8")
         (dashboard / "artifacts" / "release" / "manifest.json").write_text("{}\n", encoding="utf-8")
         return dashboard
 
@@ -180,10 +187,12 @@ class TestDashboardDataWiring(unittest.TestCase):
                 dashboard_root=dashboard,
             )
 
-            self.assertEqual(
-                (destination / "docs" / "catalog.json").read_text(),
-                '{"total_files": 1}\n',
-            )
+            staged_catalog = json.loads((destination / "docs" / "catalog.json").read_text())
+            dev_entries = [f for f in staged_catalog["files"] if f.get("section") == "dev"]
+            assert len(dev_entries) == 3
+            assert staged_catalog["total_files"] == 4
+            assert all(f["path"].startswith("artifacts/dev/") for f in dev_entries)
+            assert all(len(f["sha256"]) == 64 for f in dev_entries)
             self.assertTrue(
                 (destination / "docs" / "artifacts" / "release" / "manifest.json").exists()
             )

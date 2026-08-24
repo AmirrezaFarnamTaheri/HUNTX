@@ -308,6 +308,62 @@ def require_nonempty_tree(path: Path | None, label: str) -> Path:
     return path
 
 
+def _format_size(size_bytes: int) -> str:
+    value = float(size_bytes)
+    for unit in ("B", "KB", "MB", "GB"):
+        if value < 1024 or unit == "GB":
+            return f"{value:.1f} {unit}" if unit != "B" else f"{int(value)} B"
+        value /= 1024
+
+
+def _catalog_dev_trio(docs_dir: Path, dev_dir: Path) -> None:
+    """Append the cumulative dev datasets to the staged catalog.
+
+    The release catalog only knows dist artifacts; without this the SPA's
+    artifacts browser reports CUMULATIVE DEV (0) even though the trio is
+    deployed next to it.
+    """
+    catalog_path = docs_dir / "catalog.json"
+    if not catalog_path.is_file():
+        return
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    files_list = catalog.get("files") or []
+    known = {entry.get("filename") for entry in files_list}
+    media_types = {"proxies.json": "application/json", "proxies.txt": "text/plain", "proxies_b64sub.txt": "text/plain"}
+    total_size = int(catalog.get("total_size") or 0)
+    added = False
+    for name in ("proxies.json", "proxies.txt", "proxies_b64sub.txt"):
+        source = dev_dir / name
+        if not source.is_file() or name in known:
+            continue
+        payload = source.read_bytes()
+        total_size += len(payload)
+        tags = ["dev"]
+        if name == "proxies_b64sub.txt":
+            tags.append("subscription")
+        files_list.append({
+            "filename": name,
+            "path": f"artifacts/dev/{name}",
+            "size": len(payload),
+            "size_str": _format_size(len(payload)),
+            "media_type": media_types[name],
+            "sha256": hashlib.sha256(payload).hexdigest(),
+            "tags": tags,
+            "section": "dev",
+            "type": "DEV",
+            "ext": name.rsplit(".", 1)[-1].upper(),
+            "description": "All-time cumulative dataset (outside the release manifest)",
+        })
+        added = True
+    if not added:
+        return
+    catalog["files"] = files_list
+    catalog["total_files"] = len(files_list)
+    catalog["total_size"] = total_size
+    catalog["total_size_str"] = _format_size(total_size)
+    catalog_path.write_text(json.dumps(catalog, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
 def write_main_sync_inventory(destination: Path) -> None:
     managed: list[str] = []
     for name in ("outputs", "outputs_dev", "docs"):
@@ -396,6 +452,7 @@ def assemble_snapshot(
                     target_file = destination / "docs" / rel
                     target_file.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(source_file, target_file)
+        _catalog_dev_trio(destination / "docs", destination / "docs" / "artifacts" / "dev")
         dashboard_file_count = sum(1 for p in (destination / "docs").rglob("*") if p.is_file())
 
     logs = first_dir(logs_root, "logs") or logs_root

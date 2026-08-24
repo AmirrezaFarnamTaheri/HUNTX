@@ -40100,12 +40100,13 @@ function clusterGlobeHubs(proxies) {
         count: 0
       };
     }
-    hubMap[code].pings.push(p.latency || p.ping || 30);
+    const measured = Number.isFinite(p.latency) && p.latency > 0 ? p.latency : null;
+    if (measured !== null) hubMap[code].pings.push(measured);
     hubMap[code].count += 1;
   }
 
   const hubs = Object.values(hubMap).map(h => {
-    const avgPing = h.pings.length > 0 ? Math.round(h.pings.reduce((a, b) => a + b, 0) / h.pings.length) : 30;
+    const avgPing = h.pings.length > 0 ? Math.round(h.pings.reduce((a, b) => a + b, 0) / h.pings.length) : null;
     return {
       name: h.name,
       lat: h.lat,
@@ -40397,6 +40398,36 @@ class AppState {
     const info = map[this.liveDataState] || map.idle;
     pill.className = `data-status ${info.cls}`;
     pill.textContent = info.text;
+
+    const pipelineBadge = document.getElementById("pipeline-state-badge");
+    if (pipelineBadge) {
+      const states = {
+        ready: { dot: "bg-emerald-500", glow: "bg-emerald-400 opacity-75 animate-ping", text: "PIPELINE ONLINE", tone: "text-emerald-400", frame: "bg-emerald-950/50 border-emerald-800/40" },
+        stale: { dot: "bg-amber-500", glow: "", text: "BUNDLED SNAPSHOT", tone: "text-amber-400", frame: "bg-amber-950/40 border-amber-800/40" },
+        "integrity-error": { dot: "bg-rose-500", glow: "", text: "INTEGRITY CHECK FAILED", tone: "text-rose-400", frame: "bg-rose-950/40 border-rose-800/40" },
+        loading: { dot: "bg-slate-400", glow: "", text: "SYNCING", tone: "text-slate-300", frame: "bg-slate-900/60 border-slate-700/50" },
+        idle: { dot: "bg-slate-400", glow: "", text: "BUNDLED SNAPSHOT", tone: "text-slate-300", frame: "bg-slate-900/60 border-slate-700/50" }
+      };
+      const s = states[this.liveDataState] || states.idle;
+      pipelineBadge.className = `hidden lg:flex items-center gap-2 px-3 py-1.5 ${s.frame} rounded-full`;
+      pipelineBadge.innerHTML = `
+        <span class="relative flex h-2 w-2">
+          ${s.glow ? `<span class="animate-ping absolute inline-flex h-full w-full rounded-full ${s.glow}"></span>` : ""}
+          <span class="relative inline-flex rounded-full h-2 w-2 ${s.dot}"></span>
+        </span>
+        <span class="font-mono text-[11px] font-semibold ${s.tone}">${s.text}</span>`;
+    }
+
+    const radarBadge = document.getElementById("radar-live-badge");
+    if (radarBadge) {
+      const live = this.liveDataState === "ready";
+      radarBadge.textContent = live ? "LIVE" : "SAMPLE";
+      radarBadge.className = `px-1.5 py-0.5 text-[9px] font-bold rounded border ${
+        live
+          ? "bg-cyan-950/80 text-cyan-300 border-cyan-800/60"
+          : "bg-amber-950/80 text-amber-300 border-amber-800/60"
+      }`;
+    }
   }
 
   getPublishedDataFingerprint() {
@@ -40822,12 +40853,11 @@ class AppState {
         </div>
 
         <div class="flex items-center gap-2 sm:gap-3">
-          <div class="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-emerald-950/50 border border-emerald-800/40 rounded-full">
+          <div id="pipeline-state-badge" class="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-slate-900/60 border border-slate-700/50 rounded-full">
             <span class="relative flex h-2 w-2">
-              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-slate-400"></span>
             </span>
-            <span class="font-mono text-[11px] font-semibold text-emerald-400">PIPELINE ONLINE</span>
+            <span class="font-mono text-[11px] font-semibold text-slate-300">SYNCING</span>
           </div>
 
           <label class="sr-only" for="language-selector">${i18n.translate("Language")}</label>
@@ -40952,7 +40982,9 @@ class AppState {
 
     const activeCount = this.proxies.length;
     const regionCount = new Set(this.proxies.map(p => p.country || "US")).size;
-    const measuredLatencies = this.proxies.map((proxy) => this.getLatency(proxy)).filter(Number.isFinite);
+    const measuredLatencies = this.proxies
+      .map((proxy) => this.getLatency(proxy))
+      .filter((value) => Number.isFinite(value) && value > 0);
     const avgLatencyNum = measuredLatencies.length
       ? Math.round(measuredLatencies.reduce((sum, latency) => sum + latency, 0) / measuredLatencies.length)
       : null;
@@ -40975,7 +41007,7 @@ class AppState {
           </h1>
 
           <p class="text-sm sm:text-base text-gray-400 font-sans max-w-xl leading-relaxed">
-            Automated multi-source ingestion aggregating sovereign proxy protocols across ${sourcesCount}+ validated pipeline channels.
+            Automated multi-source ingestion aggregating sovereign proxy protocols across ${sourcesCount === "—" ? "validated" : sourcesCount} configured pipeline channel${sourcesCount === 1 ? "" : "s"}.
             Deduplicated with SHA-256 integrity, decoded client-side, and synchronized continuously.
           </p>
 
@@ -41136,20 +41168,22 @@ class AppState {
         carrierMap[cName] = { name: cName, count: 0, pings: [] };
       }
       carrierMap[cName].count += 1;
-      carrierMap[cName].pings.push(p.latency || p.ping || 30);
+      const measured = Number(p.latency) === p.latency && p.latency !== null && p.latency > 0 ? p.latency : null;
+      if (measured !== null) carrierMap[cName].pings.push(measured);
     }
 
     const sortedCarriers = Object.values(carrierMap).sort((a, b) => b.count - a.count);
     const operators = sortedCarriers.slice(0, 8).map(c => {
-      const avgPing = Math.round(c.pings.reduce((a, b) => a + b, 0) / c.pings.length);
-      const grade = avgPing <= 35 ? "A+" : (avgPing <= 55 ? "A" : "B+");
-      const status = avgPing <= 28 ? "Ultra" : (avgPing <= 45 ? "Optimal" : "Stable");
+      const hasProbe = c.pings.length > 0;
+      const avgPing = hasProbe ? Math.round(c.pings.reduce((a, b) => a + b, 0) / c.pings.length) : null;
+      const grade = !hasProbe ? "—" : (avgPing <= 35 ? "A+" : (avgPing <= 55 ? "A" : "B+"));
+      const status = !hasProbe ? "No probe data" : (avgPing <= 28 ? "Ultra" : (avgPing <= 45 ? "Optimal" : "Stable"));
       return {
         name: c.name,
         tag: c.name,
-        ping: `${avgPing}ms`,
+        ping: hasProbe ? `${avgPing}ms` : "—",
         status: status,
-        loss: "0.0%",
+        loss: "—",
         grade: grade,
         count: c.count
       };
@@ -41175,7 +41209,7 @@ class AppState {
             <div>
               <h3 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
                 <span>📡</span> Live Carrier Latency &amp; Ingress Matrix
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">PROBE ACTIVE</span>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">NO LIVE PROBES</span>
               </h3>
               <p class="text-xs text-gray-400 font-sans mt-0.5">Real-time operator routing &amp; packet performance across sovereign networks (${this.proxies.length} nodes analyzed)</p>
             </div>
@@ -41490,7 +41524,7 @@ class AppState {
         <div class="flex flex-wrap items-center justify-between gap-3 p-3 bg-gray-950/80 border border-gray-800/80 rounded-2xl text-xs font-mono">
           <div class="flex items-center gap-2 text-gray-300">
             <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-            <span>Displaying <strong class="text-cyan-400">${filtered.length}</strong> of ${allProxies.length} nodes</span>
+            <span>Displaying <strong class="text-cyan-400">${filtered.length}</strong> of ${allProxies.length} nodes · latest verified run</span>
             ${this.selectedCountry !== "ALL" ? `<span class="px-2 py-0.5 bg-gray-900 border border-gray-800 rounded text-[10px] text-cyan-300">${this.selectedCountry}</span>` : ''}
             ${this.selectedOperator !== "ALL" ? `<span class="px-2 py-0.5 bg-gray-900 border border-gray-800 rounded text-[10px] text-blue-300">${this.selectedOperator}</span>` : ''}
           </div>
@@ -41961,7 +41995,7 @@ class AppState {
       { id: "SUBSCRIPTIONS", label: `FEEDS (B64 / NPVT) (${subsCount})` },
       { id: "CONFIGS", label: `CORE CONFIGS (${configsCount})` },
       { id: "CHUNKS", label: `SPLIT CHUNKS (${chunksCount})` }
-    ];
+    ].filter((category) => category.id === "ALL" || !category.label.endsWith("(0)"));
 
     artifactSection.innerHTML = `
       <div class="py-12 border-t border-gray-800/80">
