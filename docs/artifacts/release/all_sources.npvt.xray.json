@@ -19,77 +19,31 @@
       "tag": "vless-1",
       "protocol": "vless",
       "settings": {
-        "address": "gb1.wba-pn.ru",
-        "port": 443,
-        "id": "4bc8ff7a-20b4-41b2-9751-dfca869f0553",
+        "address": "188.114.97.4",
+        "port": 8443,
+        "id": "f798a2c4-c51b-409d-b349-ca8455b36796",
         "encryption": "none"
       },
       "streamSettings": {
         "method": "websocket",
         "security": "tls",
         "wsSettings": {
-          "path": "/",
-          "host": "gb1.wba-pn.ru"
+          "path": "/download.php#TELEGRAM-MARAMBASHI?ed=512",
+          "host": "chopin.adaspoloandco.com"
         },
         "tlsSettings": {
-          "serverName": "gb1.wba-pn.ru",
-          "fingerprint": "qq"
-        }
-      }
-    },
-    {
-      "tag": "vless-3",
-      "protocol": "vless",
-      "settings": {
-        "address": "69.46.46.123",
-        "port": 443,
-        "id": "77e8c26d-f139-16c4-dba1-fdb9dd604127",
-        "encryption": "none"
-      },
-      "streamSettings": {
-        "method": "websocket",
-        "security": "tls",
-        "wsSettings": {
-          "path": "/ws/77e8c26d-f139-16c4-dba1-fdb9dd604127",
-          "host": "sr-production-32df.up.railway.app"
-        },
-        "tlsSettings": {
-          "serverName": "sr-production-32df.up.railway.app",
-          "alpn": [
-            "http/1.1"
-          ],
+          "serverName": "chopin.adaspoloandco.com",
           "fingerprint": "chrome"
         }
       }
     },
     {
-      "tag": "vless-5",
+      "tag": "vless-2",
       "protocol": "vless",
       "settings": {
-        "address": "188.114.97.6",
-        "port": 8443,
-        "id": "05cf7b0e-ad1a-42bb-80e7-73ae45b1019a",
-        "encryption": "none"
-      },
-      "streamSettings": {
-        "method": "websocket",
-        "security": "tls",
-        "wsSettings": {
-          "path": "/api/voip/updates/static/x9i2",
-          "host": "france.io-com-de-dev.org"
-        },
-        "tlsSettings": {
-          "serverName": "france.io-com-de-dev.org"
-        }
-      }
-    },
-    {
-      "tag": "vless-7",
-      "protocol": "vless",
-      "settings": {
-        "address": "85.155.228.58",
+        "address": "103.126.50.203",
         "port": 443,
-        "id": "2ab5d143-d8be-4506-b8ae-039fee32dfa2",
+        "id": "76f6b7fe-5de8-4637-87a0-6ddd33d67b3e",
         "encryption": "none",
         "flow": "xtls-rprx-vision"
       },
@@ -97,154 +51,36 @@
         "method": "raw",
         "security": "reality",
         "realitySettings": {
-          "serverName": "al1.cdn-global.pro",
+          "serverName": "ro.getvlessvpn.com",
           "fingerprint": "firefox",
-          "password": "7zCzgzF_vJYAVe3uvFLfkZ_YS-4FQ0SZM9Bjf_r9OBg",
-          "shortId": "b868b87c347a451e"
+          "password": "xp7g5asMyVx4aI7vEwfZZPrpd57izUvnNzAOpBs4mh0",
+          "shortId": "b9f8f9772217538f"
         }
       }
     },
     {
-      "tag": "vless-8",
+      "tag": "vless-3",
       "protocol": "vless",
       "settings": {
-        "address": "104.21.69.44",
-        "port": 8443,
-        "id": "fbfb16f8-8332-47e5-ba31-6769029b1d69",
-        "encryption": "none"
-      },
-      "streamSettings": {
-        "method": "grpc",
-        "security": "tls",
-        "grpcSettings": {
-          "serviceName": "OfflineNet-vnpr3-u3ervpn"
-        },
-        "tlsSettings": {
-          "serverName": "offlinenet-some1274.aminho3ien.ir",
-          "alpn": [
-            "h2",
-            "http/1.1"
-          ],
-          "fingerprint": "chrome"
-        }
-      }
-    },
-    {
-      "tag": "vless-11",
-      "protocol": "vless",
-      "settings": {
-        "address": "avval.ir",
-        "port": 8443,
-        "id": "51d19c6d-d0bf-4e0b-8eef-9a1d3f13c7e6",
-        "encryption": "none"
-      },
-      "streamSettings": {
-        "method": "websocket",
-        "security": "tls",
-        "wsSettings": {
-          "path": "vless-ws/?ed",
-          "host": "vip-romax-tiktok.hsjsak.ir"
-        },
-        "tlsSettings": {
-          "serverName": "vip-romax-tiktok.hsjsak.ir",
-          "fingerprint": "random"
-        }
-      }
-    },
-    {
-      "tag": "vless-13",
-      "protocol": "vless",
-      "settings": {
-        "address": "104.18.37.228",
+        "address": "104.21.71.238",
         "port": 443,
-        "id": "e5cc16a6-ea42-46b2-82ae-ad2157e1641b",
+        "id": "cf39fab0-bb85-42cb-9945-2ad69d78e575",
         "encryption": "none"
       },
       "streamSettings": {
         "method": "websocket",
         "security": "tls",
         "wsSettings": {
-          "path": "/fp",
-          "host": "hhlfy.twiladaphne.ndjp.net"
+          "path": "/GOrbEh#TELEGRAM-MARAMBASHI?ed=512",
+          "host": "rubifen.adaspoloandco.com"
         },
         "tlsSettings": {
-          "serverName": "hhlfy.twiladaphne.ndjp.net"
+          "serverName": "rubifen.adaspoloandco.com"
         }
       }
     },
     {
-      "tag": "vless-18",
-      "protocol": "vless",
-      "settings": {
-        "address": "104.17.147.22",
-        "port": 8443,
-        "id": "8bf2d75b-2bfc-4aef-a73b-5ea3c6b5783e",
-        "encryption": "none"
-      },
-      "streamSettings": {
-        "method": "websocket",
-        "security": "tls",
-        "wsSettings": {
-          "path": "/",
-          "host": "support.37bsjwiowiejjejisjejEejbkss--dbjd37bdka--bc.shOp."
-        },
-        "tlsSettings": {
-          "serverName": "support.37bsjwiowiejjejisjejEejbkss--dbjd37bdka--bc.shOp.",
-          "alpn": [
-            "http/1.1"
-          ],
-          "fingerprint": "chrome"
-        }
-      }
-    },
-    {
-      "tag": "vless-22",
-      "protocol": "vless",
-      "settings": {
-        "address": "104.16.181.38",
-        "port": 443,
-        "id": "7f035a95-4b51-4e0b-8995-59864a9cde22",
-        "encryption": "none"
-      },
-      "streamSettings": {
-        "method": "websocket",
-        "security": "tls",
-        "wsSettings": {
-          "path": "@Selinc",
-          "host": "mSDONOr.Pages.dEv"
-        },
-        "tlsSettings": {
-          "serverName": "MSdOnoR.pagEs.dEV",
-          "alpn": [
-            "h2",
-            "http/1.1"
-          ],
-          "fingerprint": "chrome"
-        }
-      }
-    },
-    {
-      "tag": "trojan-1",
-      "protocol": "trojan",
-      "settings": {
-        "address": "104.16.174.121",
-        "port": 443,
-        "password": "humanity"
-      },
-      "streamSettings": {
-        "method": "websocket",
-        "security": "tls",
-        "wsSettings": {
-          "path": "/assignment",
-          "host": "www.ignitelimit.com"
-        },
-        "tlsSettings": {
-          "serverName": "www.ignitelimit.com"
-        }
-      }
-    },
-    {
-      "tag": "vless-24",
+      "tag": "vless-4",
       "protocol": "vless",
       "settings": {
         "address": "89.47.55.7",
@@ -267,12 +103,167 @@
       }
     },
     {
-      "tag": "vless-26",
+      "tag": "vless-5",
       "protocol": "vless",
       "settings": {
-        "address": "89.167.0.184",
-        "port": 1234,
-        "id": "22fff84b-dd89-489d-bc4c-794f664b92a2",
+        "address": "104.16.79.73",
+        "port": 443,
+        "id": "83afd88f-200f-4d89-bfc7-66eff160c1d8",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/?TELEGRAM-MARAMBASHI?ed=2560",
+          "host": "josni.hoyes.cloudns.ch"
+        },
+        "tlsSettings": {
+          "serverName": "josni.hoyes.cloudns.ch"
+        }
+      }
+    },
+    {
+      "tag": "vless-6",
+      "protocol": "vless",
+      "settings": {
+        "address": "104.26.14.85",
+        "port": 8443,
+        "id": "f798a2c4-c51b-409d-b349-ca8455b36796",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/download.php#TELEGRAM-MARAMBASHI?ed=512",
+          "host": "chopin.adaspoloandco.com"
+        },
+        "tlsSettings": {
+          "serverName": "chopin.adaspoloandco.com",
+          "fingerprint": "chrome"
+        }
+      }
+    },
+    {
+      "tag": "vless-7",
+      "protocol": "vless",
+      "settings": {
+        "address": "104.16.117.43",
+        "port": 443,
+        "id": "83afd88f-200f-4d89-bfc7-66eff160c1d8",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/?TELEGRAM-MARAMBASHI?ed=512",
+          "host": "josni.hoyes.cloudns.ch"
+        },
+        "tlsSettings": {
+          "serverName": "josni.hoyes.cloudns.ch"
+        }
+      }
+    },
+    {
+      "tag": "vless-8",
+      "protocol": "vless",
+      "settings": {
+        "address": "172.66.44.97",
+        "port": 443,
+        "id": "83afd88f-200f-4d89-bfc7-66eff160c1d8",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/?TELEGRAM-MARAMBASHI?ed=512",
+          "host": "josni.hoyes.cloudns.ch"
+        },
+        "tlsSettings": {
+          "serverName": "josni.hoyes.cloudns.ch"
+        }
+      }
+    },
+    {
+      "tag": "vless-9",
+      "protocol": "vless",
+      "settings": {
+        "address": "129.121.95.159",
+        "port": 443,
+        "id": "f6190ff2-864c-46cf-ac16-93908c069b75",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/connect/?TELEGRAM-MARAMBASHI?ed=512",
+          "host": "129.121.95.159"
+        },
+        "tlsSettings": {
+          "serverName": "129.121.95.159",
+          "fingerprint": "firefox"
+        }
+      }
+    },
+    {
+      "tag": "trojan-1",
+      "protocol": "trojan",
+      "settings": {
+        "address": "140.248.185.253",
+        "port": 443,
+        "password": "MiTiVPN"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/---@MiTiVPN---@MiTiVPN/---@MiTiVPN---@MiTiVPN/---@MiTiVPN---@MiTiVPN/s-w@MiTiVPN---@MiTiVPN/---@MiTiVPN---@MiTiVPN/---@MiTiVPN---@MiTiVPN",
+          "host": "4x-mitivpn--mitivpn------mitivpn.global.ssl.fastly.net"
+        },
+        "tlsSettings": {
+          "serverName": "ssl.fastly.com"
+        }
+      }
+    },
+    {
+      "tag": "ss-1",
+      "protocol": "shadowsocks",
+      "settings": {
+        "address": "switcher-nick-croquet.freesocks.work",
+        "port": 443,
+        "method": "chacha20-ietf-poly1305",
+        "password": "wwzVn2ZnHfqYa6l8EWh3eY"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "none"
+      }
+    },
+    {
+      "tag": "ss-2",
+      "protocol": "shadowsocks",
+      "settings": {
+        "address": "ca4.levikogjgfdd.ir",
+        "port": 8388,
+        "method": "chacha20-ietf-poly1305",
+        "password": "FD3rCuOsxOay"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "none"
+      }
+    },
+    {
+      "tag": "vless-12",
+      "protocol": "vless",
+      "settings": {
+        "address": "85.155.226.133",
+        "port": 443,
+        "id": "39c42b0a-b823-4c93-bb99-74b4183e518d",
         "encryption": "none",
         "flow": "xtls-rprx-vision"
       },
@@ -280,25 +271,201 @@
         "method": "raw",
         "security": "reality",
         "realitySettings": {
-          "serverName": "updates.cdn-apple.com",
+          "serverName": "getsavesafe.net",
           "fingerprint": "chrome",
-          "password": "4sT8gYkbYI1RUPlO-SFVpJENKfGgMWoYQpflbcfspkI",
-          "shortId": "4844fb0c077b20b7"
+          "password": "5Z6PwoPSNBLPIsX8lZtHM7-Y-psMMR1vz5Pit0EVISs",
+          "shortId": "82f5d3a1e9c0b661"
         }
       }
     },
     {
-      "tag": "vmess-3",
+      "tag": "vless-13",
+      "protocol": "vless",
+      "settings": {
+        "address": "104.26.14.85",
+        "port": 443,
+        "id": "cf39fab0-bb85-42cb-9945-2ad69d78e575",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/GOrbEh",
+          "host": "rubifen.adaspoloandco.com"
+        },
+        "tlsSettings": {
+          "serverName": "rubifen.adaspoloandco.com",
+          "fingerprint": "chrome"
+        }
+      }
+    },
+    {
+      "tag": "vmess-1",
       "protocol": "vmess",
       "settings": {
-        "address": "43.228.126.187",
-        "port": 47630,
-        "id": "9e5c6ebf-35f9-49a3-9f12-cba2b7cdbccb",
+        "address": "2001:bc8:32d7:1a9::2",
+        "port": 23388,
+        "id": "3a966d20-7b9d-48cc-ba2c-8d38161b6d3a",
         "security": "auto"
       },
       "streamSettings": {
+        "method": "websocket",
+        "security": "none",
+        "wsSettings": {
+          "path": "/github.com/Alvin9999-newpac/fanqiang"
+        }
+      }
+    },
+    {
+      "tag": "vless-16",
+      "protocol": "vless",
+      "settings": {
+        "address": "104.16.79.73",
+        "port": 443,
+        "id": "83afd88f-200f-4d89-bfc7-66eff160c1d8",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/?TELEGRAM-TOOTFFARANGI?ed=512",
+          "host": "josni.hoyes.cloudns.ch"
+        },
+        "tlsSettings": {
+          "serverName": "josni.hoyes.cloudns.ch"
+        }
+      }
+    },
+    {
+      "tag": "vless-18",
+      "protocol": "vless",
+      "settings": {
+        "address": "172.64.150.28",
+        "port": 443,
+        "id": "e5cc16a6-ea42-46b2-82ae-ad2157e1641b",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/fp",
+          "host": "hhlfy.twiladaphne.ndjp.net"
+        },
+        "tlsSettings": {
+          "serverName": "hhlfy.twiladaphne.ndjp.net",
+          "fingerprint": "chrome"
+        }
+      }
+    },
+    {
+      "tag": "vless-20",
+      "protocol": "vless",
+      "settings": {
+        "address": "spider-bcue-production.up.railway.app",
+        "port": 443,
+        "id": "a7b6d98c-99eb-453f-be0c-98eff9afbd12",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/ws/a7b6d98c-99eb-453f-be0c-98eff9afbd12",
+          "host": "spider-bcue-production.up.railway.app"
+        },
+        "tlsSettings": {
+          "serverName": "spider-bcue-production.up.railway.app",
+          "alpn": [
+            "http/1.1"
+          ],
+          "fingerprint": "chrome"
+        }
+      }
+    },
+    {
+      "tag": "vless-22",
+      "protocol": "vless",
+      "settings": {
+        "address": "45.150.66.31",
+        "port": 443,
+        "id": "4bc8ff7a-20b4-41b2-9751-dfca869f0553",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/"
+        },
+        "tlsSettings": {
+          "serverName": "gb1.wba-pn.ru"
+        }
+      }
+    },
+    {
+      "tag": "vless-23",
+      "protocol": "vless",
+      "settings": {
+        "address": "128.128.90.72",
+        "port": 443,
+        "id": "ec31f6d7-c71a-413d-93aa-24296805a594",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
         "method": "raw",
-        "security": "none"
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "www.bing.com",
+          "fingerprint": "firefox",
+          "password": "FL9zvOg48NhHk_YWJMcDXNOseisuzeBW7d8KitUaAQM",
+          "shortId": "dc941fb0778384e2"
+        }
+      }
+    },
+    {
+      "tag": "vless-24",
+      "protocol": "vless",
+      "settings": {
+        "address": "199.232.78.159",
+        "port": 443,
+        "id": "22fff84b-dd89-489d-bc4c-794f664b92a2",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/",
+          "host": "7wwwspeedtestnet.global.ssl.fastly.net"
+        },
+        "tlsSettings": {
+          "serverName": "ssl.fastly.com"
+        }
+      }
+    },
+    {
+      "tag": "vless-25",
+      "protocol": "vless",
+      "settings": {
+        "address": "sw2.nihaovpn.ru",
+        "port": 443,
+        "id": "00506574-3b10-4f7d-9b2f-8afdc5919b93",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "stackoverflow.com",
+          "fingerprint": "firefox",
+          "password": "74SXgBukkhFPB8lpegdqaqbOStHLaR3RT24DuvXMZnY",
+          "shortId": "3f5c0f7f7af1"
+        }
       }
     },
     {
