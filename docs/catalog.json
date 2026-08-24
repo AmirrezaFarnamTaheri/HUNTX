@@ -1,218 +1,264 @@
 {
-  "schema_version": 1,
-  "generated_at": "2026-08-24T14:38:47Z",
-  "release_manifest": "artifacts/release/manifest.json",
-  "total_files": 13,
-  "total_size": 945953,
-  "total_size_str": "923.8 KB",
   "files": [
     {
+      "description": "Verified artifact from the latest published run",
+      "ext": "CONF_LINES",
       "filename": "all_sources.conf_lines",
+      "media_type": "application/octet-stream",
       "path": "artifacts/release/all_sources.conf_lines",
+      "section": "release",
+      "sha256": "828881ee48575efcee32cf643f4acd938221e04a5304f543f7e51d0c0d86f708",
       "size": 2645,
       "size_str": "2.6 KB",
-      "media_type": "application/octet-stream",
-      "sha256": "828881ee48575efcee32cf643f4acd938221e04a5304f543f7e51d0c0d86f708",
       "tags": [
         "release",
         "verified"
       ],
-      "section": "release",
-      "type": "CONF_LINES",
-      "ext": "CONF_LINES",
-      "description": "Verified artifact from the latest published run"
+      "type": "CONF_LINES"
     },
     {
+      "description": "Verified artifact from the latest published run",
+      "ext": "DARK",
       "filename": "all_sources.dark",
+      "media_type": "application/octet-stream",
       "path": "artifacts/release/all_sources.dark",
+      "section": "release",
+      "sha256": "5057d7d615c931a2333650cc0bc88f88f48f724ce9b81b35ab76ba8d9a20edb2",
       "size": 11679,
       "size_str": "11.4 KB",
-      "media_type": "application/octet-stream",
-      "sha256": "5057d7d615c931a2333650cc0bc88f88f48f724ce9b81b35ab76ba8d9a20edb2",
       "tags": [
         "release",
         "verified"
       ],
-      "section": "release",
-      "type": "DARK",
-      "ext": "DARK",
-      "description": "Verified artifact from the latest published run"
+      "type": "DARK"
     },
     {
+      "description": "Verified artifact from the latest published run",
+      "ext": "EHI",
       "filename": "all_sources.ehi",
+      "media_type": "application/octet-stream",
       "path": "artifacts/release/all_sources.ehi",
+      "section": "release",
+      "sha256": "17975442bd22a414d7ad8771612b6225222497e1feb962be8e60bde8a3939abd",
       "size": 13691,
       "size_str": "13.4 KB",
-      "media_type": "application/octet-stream",
-      "sha256": "17975442bd22a414d7ad8771612b6225222497e1feb962be8e60bde8a3939abd",
       "tags": [
         "release",
         "verified"
       ],
-      "section": "release",
-      "type": "EHI",
-      "ext": "EHI",
-      "description": "Verified artifact from the latest published run"
+      "type": "EHI"
     },
     {
-      "filename": "all_sources.npvt",
-      "path": "artifacts/release/all_sources.npvt",
-      "size": 66253,
-      "size_str": "64.7 KB",
-      "media_type": "application/octet-stream",
-      "sha256": "844b2f49add86798fce46b590083784997820d25e747b7bcb06f9583b7caebae",
-      "tags": [
-        "release",
-        "verified"
-      ],
-      "section": "release",
-      "type": "NPVT",
+      "description": "Verified artifact from the latest published run",
       "ext": "NPVT",
-      "description": "Verified artifact from the latest published run"
-    },
-    {
-      "filename": "all_sources.npvt.b64sub",
-      "path": "artifacts/release/all_sources.npvt.b64sub",
-      "size": 88340,
-      "size_str": "86.3 KB",
+      "filename": "all_sources.npvt",
       "media_type": "application/octet-stream",
-      "sha256": "283077ddf74267f301c79d9637aeaae7787b9fb069b132c7082de09f5a336cb2",
+      "path": "artifacts/release/all_sources.npvt",
+      "section": "release",
+      "sha256": "0663df43cac3921177aefb3b20d8b2cfb903d687df4c14715d9c2fb8cecd1ada",
+      "size": 42764,
+      "size_str": "41.8 KB",
       "tags": [
         "release",
         "verified"
       ],
-      "section": "release",
-      "type": "B64SUB",
+      "type": "NPVT"
+    },
+    {
+      "description": "Verified artifact from the latest published run",
       "ext": "B64SUB",
-      "description": "Verified artifact from the latest published run"
-    },
-    {
-      "filename": "all_sources.npvt.decoded.json",
-      "path": "artifacts/release/all_sources.npvt.decoded.json",
-      "size": 196254,
-      "size_str": "191.7 KB",
-      "media_type": "application/json",
-      "sha256": "f322f20ab78e14a192604b6bb12321c5189a24024df196b0ec485c862c091320",
-      "tags": [
-        "release",
-        "verified"
-      ],
-      "section": "release",
-      "type": "JSON",
-      "ext": "JSON",
-      "description": "Verified artifact from the latest published run"
-    },
-    {
-      "filename": "all_sources.npvt.nekobox.json",
-      "path": "artifacts/release/all_sources.npvt.nekobox.json",
-      "size": 123853,
-      "size_str": "121.0 KB",
-      "media_type": "application/json",
-      "sha256": "f831a612afbc1ca1a886f33bd486033b3dd22bccf8e7246edb012e47fdd6f2bb",
-      "tags": [
-        "release",
-        "verified"
-      ],
-      "section": "release",
-      "type": "JSON",
-      "ext": "JSON",
-      "description": "Verified artifact from the latest published run"
-    },
-    {
-      "filename": "all_sources.npvt.raw.txt",
-      "path": "artifacts/release/all_sources.npvt.raw.txt",
-      "size": 66253,
-      "size_str": "64.7 KB",
-      "media_type": "text/plain",
-      "sha256": "844b2f49add86798fce46b590083784997820d25e747b7bcb06f9583b7caebae",
-      "tags": [
-        "release",
-        "verified"
-      ],
-      "section": "release",
-      "type": "TXT",
-      "ext": "TXT",
-      "description": "Verified artifact from the latest published run"
-    },
-    {
-      "filename": "all_sources.npvt.singbox.json",
-      "path": "artifacts/release/all_sources.npvt.singbox.json",
-      "size": 138864,
-      "size_str": "135.6 KB",
-      "media_type": "application/json",
-      "sha256": "3e227fd45d4235b3a0e339ed98dcace88b4f6907085c6ee16813fe420f6fba9d",
-      "tags": [
-        "release",
-        "verified"
-      ],
-      "section": "release",
-      "type": "SINGBOX",
-      "ext": "SINGBOX",
-      "description": "Verified artifact from the latest published run"
-    },
-    {
-      "filename": "all_sources.npvt.xray.json",
-      "path": "artifacts/release/all_sources.npvt.xray.json",
-      "size": 109988,
-      "size_str": "107.4 KB",
-      "media_type": "application/json",
-      "sha256": "dd60a477d8d8eeee8068cd6e74b04229607f67cbe0f58d95bf3493c0d8b97431",
-      "tags": [
-        "release",
-        "verified"
-      ],
-      "section": "release",
-      "type": "JSON",
-      "ext": "JSON",
-      "description": "Verified artifact from the latest published run"
-    },
-    {
-      "filename": "all_sources.opaque_bundle",
-      "path": "artifacts/release/all_sources.opaque_bundle",
-      "size": 101666,
-      "size_str": "99.3 KB",
+      "filename": "all_sources.npvt.b64sub",
       "media_type": "application/octet-stream",
-      "sha256": "b9b170430b4410103571379092e828823e5629607988dfe906fd966d69ba823a",
+      "path": "artifacts/release/all_sources.npvt.b64sub",
+      "section": "release",
+      "sha256": "b135d296cc078ca470651e4729040b9d7d287b84ae2f4e2294069a640f9faa96",
+      "size": 57020,
+      "size_str": "55.7 KB",
       "tags": [
         "release",
         "verified"
       ],
+      "type": "B64SUB"
+    },
+    {
+      "description": "Verified artifact from the latest published run",
+      "ext": "JSON",
+      "filename": "all_sources.npvt.decoded.json",
+      "media_type": "application/json",
+      "path": "artifacts/release/all_sources.npvt.decoded.json",
       "section": "release",
-      "type": "OPAQUE_BUNDLE",
+      "sha256": "f6c5572ab775958c39a0aa3544af2d0c0ac426af63ab21bdf88485996f4eb673",
+      "size": 135812,
+      "size_str": "132.6 KB",
+      "tags": [
+        "release",
+        "verified"
+      ],
+      "type": "JSON"
+    },
+    {
+      "description": "Verified artifact from the latest published run",
+      "ext": "JSON",
+      "filename": "all_sources.npvt.nekobox.json",
+      "media_type": "application/json",
+      "path": "artifacts/release/all_sources.npvt.nekobox.json",
+      "section": "release",
+      "sha256": "81a2590f7873b94620ff4d357d127533f80a70282c35345c43faddb92db926a7",
+      "size": 95560,
+      "size_str": "93.3 KB",
+      "tags": [
+        "release",
+        "verified"
+      ],
+      "type": "JSON"
+    },
+    {
+      "description": "Verified artifact from the latest published run",
+      "ext": "TXT",
+      "filename": "all_sources.npvt.raw.txt",
+      "media_type": "text/plain",
+      "path": "artifacts/release/all_sources.npvt.raw.txt",
+      "section": "release",
+      "sha256": "0663df43cac3921177aefb3b20d8b2cfb903d687df4c14715d9c2fb8cecd1ada",
+      "size": 42764,
+      "size_str": "41.8 KB",
+      "tags": [
+        "release",
+        "verified"
+      ],
+      "type": "TXT"
+    },
+    {
+      "description": "Verified artifact from the latest published run",
+      "ext": "SINGBOX",
+      "filename": "all_sources.npvt.singbox.json",
+      "media_type": "application/json",
+      "path": "artifacts/release/all_sources.npvt.singbox.json",
+      "section": "release",
+      "sha256": "b62fb0264ba555bab321843a84956b3369a2ce82b55d4c6893bceb4a269a02f2",
+      "size": 105809,
+      "size_str": "103.3 KB",
+      "tags": [
+        "release",
+        "verified"
+      ],
+      "type": "SINGBOX"
+    },
+    {
+      "description": "Verified artifact from the latest published run",
+      "ext": "JSON",
+      "filename": "all_sources.npvt.xray.json",
+      "media_type": "application/json",
+      "path": "artifacts/release/all_sources.npvt.xray.json",
+      "section": "release",
+      "sha256": "7a25d6c3d18f743f35c1f3d891510385ec02e39596fd054c299145873148d1e0",
+      "size": 80265,
+      "size_str": "78.4 KB",
+      "tags": [
+        "release",
+        "verified"
+      ],
+      "type": "JSON"
+    },
+    {
+      "description": "Verified artifact from the latest published run",
       "ext": "OPAQUE_BUNDLE",
-      "description": "Verified artifact from the latest published run"
-    },
-    {
-      "filename": "all_sources.ovpn",
-      "path": "artifacts/release/all_sources.ovpn",
-      "size": 15724,
-      "size_str": "15.4 KB",
-      "media_type": "application/x-openvpn-profile",
-      "sha256": "71e4d3cdc362fa8ebb311a0038642cc56383d5e6dcf7e2a501622a53d678260a",
+      "filename": "all_sources.opaque_bundle",
+      "media_type": "application/octet-stream",
+      "path": "artifacts/release/all_sources.opaque_bundle",
+      "section": "release",
+      "sha256": "ef69596f7d4db93d2932693cfb68d75b78d5abf01a1a9ff4bb204f62f7651680",
+      "size": 284615,
+      "size_str": "277.9 KB",
       "tags": [
         "release",
         "verified"
       ],
-      "section": "release",
-      "type": "OVPN",
-      "ext": "OVPN",
-      "description": "Verified artifact from the latest published run"
+      "type": "OPAQUE_BUNDLE"
     },
     {
+      "description": "Verified artifact from the latest published run",
+      "ext": "OVPN",
+      "filename": "all_sources.ovpn",
+      "media_type": "application/x-openvpn-profile",
+      "path": "artifacts/release/all_sources.ovpn",
+      "section": "release",
+      "sha256": "991556f93c065ffcd5bec2c6e6a183ea98be63380bc1bfda690934ffd9c455b2",
+      "size": 14442,
+      "size_str": "14.1 KB",
+      "tags": [
+        "release",
+        "verified"
+      ],
+      "type": "OVPN"
+    },
+    {
+      "description": "Verified artifact from the latest published run",
+      "ext": "SIP",
       "filename": "all_sources.sip",
+      "media_type": "application/octet-stream",
       "path": "artifacts/release/all_sources.sip",
+      "section": "release",
+      "sha256": "801473c856654eb906d8646522dd9d0805b7e16202de50e00b7582fe92aba32a",
       "size": 10743,
       "size_str": "10.5 KB",
-      "media_type": "application/octet-stream",
-      "sha256": "801473c856654eb906d8646522dd9d0805b7e16202de50e00b7582fe92aba32a",
       "tags": [
         "release",
         "verified"
       ],
-      "section": "release",
-      "type": "SIP",
-      "ext": "SIP",
-      "description": "Verified artifact from the latest published run"
+      "type": "SIP"
+    },
+    {
+      "description": "All-time cumulative dataset (outside the release manifest)",
+      "ext": "JSON",
+      "filename": "proxies.json",
+      "media_type": "application/json",
+      "path": "artifacts/dev/proxies.json",
+      "section": "dev",
+      "sha256": "33cb5c7eed56e5a88a141bbfc13d609964b0a1725bcaf55e28f22533c82d4d98",
+      "size": 32114758,
+      "size_str": "30.6 MB",
+      "tags": [
+        "dev"
+      ],
+      "type": "DEV"
+    },
+    {
+      "description": "All-time cumulative dataset (outside the release manifest)",
+      "ext": "TXT",
+      "filename": "proxies.txt",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/proxies.txt",
+      "section": "dev",
+      "sha256": "d73153a23856b127b1f82da3fc41a27163adda5497aa2b35cc01f603ff8f42f4",
+      "size": 24174059,
+      "size_str": "23.1 MB",
+      "tags": [
+        "dev"
+      ],
+      "type": "DEV"
+    },
+    {
+      "description": "All-time cumulative dataset (outside the release manifest)",
+      "ext": "TXT",
+      "filename": "proxies_b64sub.txt",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/proxies_b64sub.txt",
+      "section": "dev",
+      "sha256": "dab2328dcd726ae0a6f4d93d7decf74b46f36c7a56267517d9a32c5b9cf4c06e",
+      "size": 32231913,
+      "size_str": "30.7 MB",
+      "tags": [
+        "dev",
+        "subscription"
+      ],
+      "type": "DEV"
     }
-  ]
+  ],
+  "generated_at": "2026-08-23T22:18:49Z",
+  "release_manifest": "artifacts/release/manifest.json",
+  "schema_version": 1,
+  "total_files": 16,
+  "total_size": 89418539,
+  "total_size_str": "85.3 MB"
 }
