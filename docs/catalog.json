@@ -55,9 +55,9 @@
       "media_type": "application/octet-stream",
       "path": "artifacts/release/all_sources.npvt",
       "section": "release",
-      "sha256": "5e18c0e004a1c5d78303964eb967b6f1e4a823a094b93f6c5e907f7a00960fa5",
-      "size": 9825,
-      "size_str": "9.6 KB",
+      "sha256": "26da51e1cecbf610bdbead6f31d9904f17b9a9b8162ae2b255df87074fd2238b",
+      "size": 202469,
+      "size_str": "197.7 KB",
       "tags": [
         "release",
         "verified"
@@ -71,9 +71,9 @@
       "media_type": "application/octet-stream",
       "path": "artifacts/release/all_sources.npvt.b64sub",
       "section": "release",
-      "sha256": "3b1351e0c19f0ed4ba860ac2ee5bfad250292f29325d2b2fc07d5983b2331dbe",
-      "size": 13100,
-      "size_str": "12.8 KB",
+      "sha256": "065df5028ac78d992ff9a716728c59d60d0c1a1ff54a20b3b6fc788dd8fd22ec",
+      "size": 269960,
+      "size_str": "263.6 KB",
       "tags": [
         "release",
         "verified"
@@ -87,9 +87,9 @@
       "media_type": "application/json",
       "path": "artifacts/release/all_sources.npvt.decoded.json",
       "section": "release",
-      "sha256": "e31b0cc3859480a842cdf30429a89ca8614b407bb273b8a02c3df5795205ce38",
-      "size": 31394,
-      "size_str": "30.7 KB",
+      "sha256": "8ed071f578a05971efc17d8875833cb9a1139eaccf136f6ccb5d8e01efb5c055",
+      "size": 616973,
+      "size_str": "602.5 KB",
       "tags": [
         "release",
         "verified"
@@ -103,9 +103,9 @@
       "media_type": "application/json",
       "path": "artifacts/release/all_sources.npvt.nekobox.json",
       "section": "release",
-      "sha256": "a88e487cf2e7016326b8f62bdc5b9c5e8fce17517078395b10a4f3bd07f13517",
-      "size": 21825,
-      "size_str": "21.3 KB",
+      "sha256": "27d6e8e32d0d9697a4a8e0aec8ceb6429d40aa7cc31fbc2ef19b5af44f54a59c",
+      "size": 404386,
+      "size_str": "394.9 KB",
       "tags": [
         "release",
         "verified"
@@ -119,9 +119,9 @@
       "media_type": "text/plain",
       "path": "artifacts/release/all_sources.npvt.raw.txt",
       "section": "release",
-      "sha256": "5e18c0e004a1c5d78303964eb967b6f1e4a823a094b93f6c5e907f7a00960fa5",
-      "size": 9825,
-      "size_str": "9.6 KB",
+      "sha256": "26da51e1cecbf610bdbead6f31d9904f17b9a9b8162ae2b255df87074fd2238b",
+      "size": 202469,
+      "size_str": "197.7 KB",
       "tags": [
         "release",
         "verified"
@@ -135,9 +135,9 @@
       "media_type": "application/json",
       "path": "artifacts/release/all_sources.npvt.singbox.json",
       "section": "release",
-      "sha256": "7451f071e74d8e804fe194f5bdb9c65b6768ce37e76e364e89d46e5fa8a03ca1",
-      "size": 25178,
-      "size_str": "24.6 KB",
+      "sha256": "242790ad2717df8e2660fa0693d93065f5ab523b1c732b9d082d0d30eb538399",
+      "size": 449933,
+      "size_str": "439.4 KB",
       "tags": [
         "release",
         "verified"
@@ -151,9 +151,9 @@
       "media_type": "application/json",
       "path": "artifacts/release/all_sources.npvt.xray.json",
       "section": "release",
-      "sha256": "9775c9cd837b8d009bf8b8e421afcf106590f2d455d8eefa555b116f7492a7ed",
-      "size": 19906,
-      "size_str": "19.4 KB",
+      "sha256": "3ce21e3dabb957363fc63baa7cb2691fee7c6c443ea2d1c316d4e07cdb64a45a",
+      "size": 330461,
+      "size_str": "322.7 KB",
       "tags": [
         "release",
         "verified"
@@ -167,9 +167,9 @@
       "media_type": "application/octet-stream",
       "path": "artifacts/release/all_sources.opaque_bundle",
       "section": "release",
-      "sha256": "3b6662f747452f255dcfbd1dc0401b36c4963f4d3601d5b4c6f9a20017253822",
-      "size": 404666,
-      "size_str": "395.2 KB",
+      "sha256": "3dd838e11be8549fe6e2bb475470666e78c4eef78c37ed5f7c6f3357ba93f68a",
+      "size": 753229,
+      "size_str": "735.6 KB",
       "tags": [
         "release",
         "verified"
@@ -183,9 +183,9 @@
       "media_type": "application/x-openvpn-profile",
       "path": "artifacts/release/all_sources.ovpn",
       "section": "release",
-      "sha256": "3faed4d6c8c0b28f9196ef57e37884c1bbbf2383b327bd50aac283506f367cb1",
-      "size": 15724,
-      "size_str": "15.4 KB",
+      "sha256": "95a6a2c160f24af04babf16865a8647a2d2c1a228d7979bea0cb7303ed7960bb",
+      "size": 3661,
+      "size_str": "3.6 KB",
       "tags": [
         "release",
         "verified"
@@ -215,7 +215,7 @@
       "media_type": "application/json",
       "path": "artifacts/dev/proxies.json",
       "section": "dev",
-      "sha256": "35d239352fcba52dfa84573aba925b1823bee1d7e7123f2ec9e9a7e310dc9e4f",
+      "sha256": "aab91479afdcfc3e1ce532665d2927dec656cc4e59caf758eea4970c0c4c6fcf",
       "size": 32114758,
       "size_str": "30.6 MB",
       "tags": [
@@ -230,7 +230,7 @@
       "media_type": "text/plain",
       "path": "artifacts/dev/proxies.txt",
       "section": "dev",
-      "sha256": "f312dc871a9dc6e0bdba57c639b1ccec57c5a809e868bfa6c4be98f3178b376a",
+      "sha256": "e90d12fe2652dca167856192f916ad007712b0ed787101cbfc17e00ec5beaae4",
       "size": 24174059,
       "size_str": "23.1 MB",
       "tags": [
@@ -255,10 +255,10 @@
       "type": "DEV"
     }
   ],
-  "generated_at": "2026-08-25T10:29:30Z",
+  "generated_at": "2026-08-25T12:42:01Z",
   "release_manifest": "artifacts/release/manifest.json",
   "schema_version": 1,
   "total_files": 16,
-  "total_size": 89111297,
-  "total_size_str": "85.0 MB"
+  "total_size": 91793395,
+  "total_size_str": "87.5 MB"
 }
