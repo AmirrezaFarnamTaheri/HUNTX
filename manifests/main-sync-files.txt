@@ -1,6 +1,7 @@
 outputs/all_sources.conf_lines
 outputs/all_sources.dark
 outputs/all_sources.ehi
+outputs/all_sources.hc
 outputs/all_sources.npvt
 outputs/all_sources.npvt.b64sub
 outputs/all_sources.npvt.decoded.json
@@ -21,6 +22,7 @@ docs/artifacts/dev/proxies_b64sub.txt
 docs/artifacts/release/all_sources.conf_lines
 docs/artifacts/release/all_sources.dark
 docs/artifacts/release/all_sources.ehi
+docs/artifacts/release/all_sources.hc
 docs/artifacts/release/all_sources.npvt
 docs/artifacts/release/all_sources.npvt.b64sub
 docs/artifacts/release/all_sources.npvt.decoded.json
