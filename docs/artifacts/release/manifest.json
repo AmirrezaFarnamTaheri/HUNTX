@@ -10,8 +10,8 @@
     },
     {
       "path": "all_sources.dark",
-      "size": 58382,
-      "sha256": "b31ad0c59e7b385595055d63344fb82d3f98eeddc7cf9190b4fbb5d654d665b4",
+      "size": 30175,
+      "sha256": "b0b33b43921eda04a721fc9146f48770ff9026883a193e7a1e8c00307ee9c657",
       "media_type": "application/octet-stream"
     },
     {
@@ -34,56 +34,56 @@
     },
     {
       "path": "all_sources.npvt",
-      "size": 92998,
-      "sha256": "f6c3946b66700fadd421c1e09a6e58da34962dfa2ad0489a882115700d209c8b",
+      "size": 140946,
+      "sha256": "beb2ce8902447e4d574920d6cbf682d8c29c8b3d22a7294364af72732fe239a4",
       "media_type": "application/octet-stream"
     },
     {
       "path": "all_sources.npvt.b64sub",
-      "size": 124000,
-      "sha256": "3014803862050978a067e3b724faf36ed29cbb2d9fac237035501d8df786cb05",
+      "size": 187928,
+      "sha256": "20a6f6835480966ceff217644f6bbd1228e7dd28cd6f6bde145942e4c4156cc9",
       "media_type": "application/octet-stream"
     },
     {
       "path": "all_sources.npvt.decoded.json",
-      "size": 284609,
-      "sha256": "cf6b6d7681a82586444c47b0fd0ef3d384d110dc3216e6e953cde25b9a7fcdec",
+      "size": 450469,
+      "sha256": "677a9d71b2181589d39cab6c65134542b0140bd5f21f34b6bbe32fefc01e8a15",
       "media_type": "application/json"
     },
     {
       "path": "all_sources.npvt.nekobox.json",
-      "size": 186352,
-      "sha256": "525055a30bf97f4224f9ff02ca360b1ab34fd0b892aace4a443c86b20205844c",
+      "size": 325043,
+      "sha256": "6320748a40d7a5eef50ec933ebe2d02cae8e22187cafba3c715cd34558a7c5bd",
       "media_type": "application/json"
     },
     {
       "path": "all_sources.npvt.raw.txt",
-      "size": 92998,
-      "sha256": "f6c3946b66700fadd421c1e09a6e58da34962dfa2ad0489a882115700d209c8b",
+      "size": 140946,
+      "sha256": "beb2ce8902447e4d574920d6cbf682d8c29c8b3d22a7294364af72732fe239a4",
       "media_type": "text/plain"
     },
     {
       "path": "all_sources.npvt.singbox.json",
-      "size": 206932,
-      "sha256": "f470c9892e0cebf8e9cc592a259d7c542fa372b203308fb25a2586c1ef306cab",
+      "size": 355833,
+      "sha256": "9249aa1256ff7290252d6fd1b254f99084474ceb2fe11301b221b3e3957a0df7",
       "media_type": "application/json"
     },
     {
       "path": "all_sources.npvt.xray.json",
-      "size": 136410,
-      "sha256": "4d8ac1df3d21295496d2ff442ad04f898f27e633e302529c1dc6727702f97275",
+      "size": 283786,
+      "sha256": "356ec7a5a12491ae1f4beea1d785dca06370f90bbfe64656827b8dd5c1526bd1",
       "media_type": "application/json"
     },
     {
       "path": "all_sources.opaque_bundle",
-      "size": 9693881,
-      "sha256": "8f92d24ea9b50356b9d3e4ac214c6679644537f58b1131c5c28d3d1917154934",
+      "size": 1344569,
+      "sha256": "d57bc73d613c2177238a6c98fb0194fa492127a9959c43d55d846c27a5eec662",
       "media_type": "application/octet-stream"
     },
     {
       "path": "all_sources.ovpn",
       "size": 29441,
-      "sha256": "3714fb1449fdf3efdc8388998bc9b5d30e79f3d6e57124968b21e258c4a1ae33",
+      "sha256": "8839f75d14cb2437ac9bb9d2154e3c6302dab795537d9d1f4e72e4992c8afc6a",
       "media_type": "application/x-openvpn-profile"
     },
     {
