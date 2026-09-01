@@ -956,19 +956,34 @@ export class AppState {
     }, 2800);
   }
 
-  copyText(text, label = "Copied to clipboard") {
+  copyText(text, label = "Copied to clipboard", triggerBtn = null) {
+    const applyFeedback = () => {
+      this.showToast(label);
+      if (triggerBtn && triggerBtn.classList) {
+        const originalContent = triggerBtn.innerHTML;
+        triggerBtn.dataset.originalHtml = originalContent;
+        triggerBtn.innerHTML = `✓ Copied!`;
+        triggerBtn.classList.add("!bg-emerald-500", "!text-gray-950", "!border-emerald-400");
+        setTimeout(() => {
+          if (triggerBtn.dataset.originalHtml) {
+            triggerBtn.innerHTML = triggerBtn.dataset.originalHtml;
+            delete triggerBtn.dataset.originalHtml;
+          }
+          triggerBtn.classList.remove("!bg-emerald-500", "!text-gray-950", "!border-emerald-400");
+        }, 1400);
+      }
+    };
+
     if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(() => {
-        this.showToast(label);
-      }).catch(() => {
-        this.fallbackCopy(text, label);
+      navigator.clipboard.writeText(text).then(applyFeedback).catch(() => {
+        this.fallbackCopy(text, label, triggerBtn);
       });
     } else {
-      this.fallbackCopy(text, label);
+      this.fallbackCopy(text, label, triggerBtn);
     }
   }
 
-  fallbackCopy(text, label) {
+  fallbackCopy(text, label, triggerBtn = null) {
     if (typeof document === "undefined") return;
     const ta = document.createElement("textarea");
     ta.value = text;
@@ -979,6 +994,19 @@ export class AppState {
     try {
       document.execCommand("copy");
       this.showToast(label);
+      if (triggerBtn && triggerBtn.classList) {
+        const originalContent = triggerBtn.innerHTML;
+        triggerBtn.dataset.originalHtml = originalContent;
+        triggerBtn.innerHTML = `✓ Copied!`;
+        triggerBtn.classList.add("!bg-emerald-500", "!text-gray-950", "!border-emerald-400");
+        setTimeout(() => {
+          if (triggerBtn.dataset.originalHtml) {
+            triggerBtn.innerHTML = triggerBtn.dataset.originalHtml;
+            delete triggerBtn.dataset.originalHtml;
+          }
+          triggerBtn.classList.remove("!bg-emerald-500", "!text-gray-950", "!border-emerald-400");
+        }, 1400);
+      }
     } catch (e) {
       this.showToast("Failed to copy", "error");
     }
@@ -1048,7 +1076,7 @@ export class AppState {
               <span class="font-mono text-base font-bold tracking-tight text-white">HUNT<span class="text-cyan-400">X</span></span>
               <span class="px-1.5 py-0.5 text-[9px] font-mono font-bold bg-cyan-950/80 text-cyan-400 border border-cyan-800/60 rounded">v2.5</span>
             </div>
-            <span class="text-[10px] text-gray-400 font-mono tracking-wider">GATHERX TELEMETRY</span>
+            <span class="text-[10px] text-gray-400 font-mono tracking-wider">NODE TELEMETRY</span>
           </div>
         </a>
 
@@ -1141,11 +1169,11 @@ export class AppState {
             href="architecture.html"
             target="_blank"
             class="hidden sm:flex items-center gap-1.5 px-3 py-2 min-h-[40px] bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 text-gray-300 hover:text-white text-xs font-mono rounded-xl transition-all focus-ring"
-            title="Open 3D Architecture Topology"
-            aria-label="Open 3D Architecture Topology"
+            title="Open Interactive System Architecture"
+            aria-label="Open Interactive System Architecture"
           >
             <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
-            <span class="hidden md:inline">3D Topology</span>
+            <span class="hidden md:inline">Architecture</span>
           </a>
 
           <a
@@ -1217,17 +1245,17 @@ export class AppState {
         <div class="lg:col-span-7 space-y-6">
           <div class="inline-flex items-center gap-2 px-3.5 py-1.5 bg-cyan-950/50 border border-cyan-500/30 rounded-full text-cyan-300 text-xs font-mono font-semibold uppercase tracking-wider">
             <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-            Zero-Budget Sovereign Proxy Ingestion
+            Automated Multi-Source Collector
           </div>
 
           <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight">
-            Node Telemetry &amp; <br/>
-            <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-400 to-indigo-400">Cyber Intelligence</span>
+            Proxy Telemetry &amp; <br/>
+            <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-400 to-indigo-400">Node Diagnostics</span>
           </h1>
 
           <p class="text-sm sm:text-base text-gray-400 font-sans max-w-xl leading-relaxed">
-            Automated multi-source ingestion aggregating sovereign proxy protocols across ${sourcesCount === "—" ? "validated" : sourcesCount} configured pipeline channel${sourcesCount === 1 ? "" : "s"}.
-            Deduplicated with SHA-256 integrity, decoded client-side, and synchronized continuously.
+            Automated multi-source collector aggregating verified proxy protocols across ${sourcesCount === "—" ? "configured" : sourcesCount} pipeline channel${sourcesCount === 1 ? "" : "s"}.
+            Deduplicated with SHA-256 checksums, decoded client-side, and synchronized continuously.
           </p>
 
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
@@ -1339,11 +1367,11 @@ export class AppState {
       </div>
     `;
 
-    document.getElementById("hero-copy-sub")?.addEventListener("click", () => {
+    document.getElementById("hero-copy-sub")?.addEventListener("click", (e) => {
       const subUrl = resolveArtifactUrl("artifacts/release/all_sources.npvt.b64sub");
       this.copyText(subUrl, isHostedDashboard()
         ? "Production feed URL copied to clipboard"
-        : "Portable artifact path copied — deploy or serve over HTTPS before importing");
+        : "Portable artifact path copied — deploy or serve over HTTPS before importing", e.currentTarget);
     });
 
     document.getElementById("hero-open-scanner")?.addEventListener("click", (e) => {
@@ -1430,7 +1458,7 @@ export class AppState {
                 <span>📡</span> Live Carrier Latency &amp; Ingress Matrix
                 <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">NO LIVE PROBES</span>
               </h3>
-              <p class="text-xs text-gray-400 font-sans mt-0.5">Real-time operator routing &amp; packet performance across sovereign networks (${this.proxies.length} nodes analyzed)</p>
+              <p class="text-xs text-gray-400 font-sans mt-0.5">Observed operator latency and routing distribution (${this.proxies.length} nodes analyzed)</p>
             </div>
           </div>
 
@@ -1459,10 +1487,10 @@ export class AppState {
           <div class="flex items-center justify-between pb-4 border-b border-gray-800 mb-4">
             <div>
               <h3 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
-                <span>🌍</span> Strategic Geo-Cluster Density
+                <span>🌍</span> Geographic Node Distribution
                 <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">${sortedCountries.length} REGIONS</span>
               </h3>
-              <p class="text-xs text-gray-400 font-sans mt-0.5">Top node density distribution across sovereign edge locations</p>
+              <p class="text-xs text-gray-400 font-sans mt-0.5">Node density across active edge regions and data centers</p>
             </div>
           </div>
 
@@ -1492,10 +1520,10 @@ export class AppState {
       <div class="cyber-card p-6 bg-gradient-to-r from-cyan-950/40 via-gray-900/60 to-indigo-950/40 border border-cyan-500/30 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
         <div class="space-y-1">
           <h4 class="text-base font-mono font-bold text-white flex items-center gap-2">
-            <span>⚡</span> Telemetry Pipeline Synchronized &amp; Verified
+            <span>⚡</span> Ingestion Pipeline Synchronized &amp; Verified
           </h4>
           <p class="text-xs font-sans text-gray-300">
-            ${this.proxies.length} healthy proxy endpoints ready for high-speed routing, sovereign tunneling, and subscription export.
+            ${this.proxies.length} verified proxy endpoints ready for client routing, configuration export, and subscriptions.
           </p>
         </div>
         <button id="btn-explore-live-proxies" class="px-5 py-3 min-h-[44px] bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-gray-950 font-mono font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/25 transition-all cursor-pointer shrink-0">
@@ -1819,32 +1847,32 @@ export class AppState {
       this.refreshProxyWorkspace();
     });
 
-    document.getElementById("btn-batch-copy-filtered")?.addEventListener("click", () => {
+    document.getElementById("btn-batch-copy-filtered")?.addEventListener("click", (e) => {
       const uris = filtered.map(p => p.raw).filter(Boolean).join("\n");
       if (uris) {
-        this.copyText(uris, `Copied ${filtered.length} filtered proxy URIs`);
+        this.copyText(uris, `Copied ${filtered.length} filtered proxy URIs`, e.currentTarget);
       } else {
         this.showToast("No active nodes to copy", "error");
       }
     });
 
-    document.getElementById("btn-batch-export-singbox")?.addEventListener("click", () => {
+    document.getElementById("btn-batch-export-singbox")?.addEventListener("click", (e) => {
       try {
         const config = buildSingboxConfig(filtered.map(p => {
           try { return decodeProxyURI(p.raw); } catch { return p; }
         }));
-        this.copyText(JSON.stringify(config, null, 2), `Sing-box profile for ${filtered.length} nodes copied`);
+        this.copyText(JSON.stringify(config, null, 2), `Sing-box profile for ${filtered.length} nodes copied`, e.currentTarget);
       } catch (err) {
         this.showToast(`Export failed: ${err.message}`, "error");
       }
     });
 
-    document.getElementById("btn-batch-export-clash")?.addEventListener("click", () => {
+    document.getElementById("btn-batch-export-clash")?.addEventListener("click", (e) => {
       try {
         const yaml = buildClashMetaYAML(filtered.map(p => {
           try { return decodeProxyURI(p.raw); } catch { return p; }
         }));
-        this.copyText(yaml, `Clash Meta profile for ${filtered.length} nodes copied`);
+        this.copyText(yaml, `Clash Meta profile for ${filtered.length} nodes copied`, e.currentTarget);
       } catch (err) {
         this.showToast(`Export failed: ${err.message}`, "error");
       }
@@ -2128,7 +2156,7 @@ export class AppState {
     nodesContainer.querySelectorAll(".btn-copy-node").forEach(btn => {
       btn.addEventListener("click", (e) => {
         const raw = decodeURIComponent(e.currentTarget.dataset.raw);
-        this.copyText(raw, "Node URI copied to clipboard");
+        this.copyText(raw, "Node URI copied to clipboard", e.currentTarget);
       });
     });
 
@@ -2623,7 +2651,7 @@ export class AppState {
           <div>
             <h3 class="text-lg font-mono font-bold text-white flex items-center gap-2">
               <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
-              Universal Protocol Converter &amp; Inspection Studio
+              Protocol Converter &amp; Inspection Studio
             </h3>
             <p class="text-xs font-mono text-gray-400 mt-0.5">High-performance client-side converter for Sing-box 1.10+, Clash Meta / Mihomo, Xray JSON, Base64 &amp; QR Codes</p>
           </div>
@@ -3627,7 +3655,7 @@ export class AppState {
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-800/80 text-xs font-mono text-gray-500">
         <div class="flex items-center gap-2">
           <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
-          <span>HUNTX &amp; GatherX Ingestion Pipeline • SHA-256 Verified • ${this.catalog.total_files || 27} Artifacts Published</span>
+          <span>HUNTX Ingestion Pipeline • SHA-256 Verified • ${this.catalog.total_files || 27} Artifacts Published</span>
         </div>
         <div class="flex items-center gap-4">
           <a href="DEVELOPMENT.md" class="hover:text-gray-300 transition-colors focus-ring rounded p-1">Dev Specs</a>

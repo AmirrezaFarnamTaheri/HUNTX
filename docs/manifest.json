@@ -1,7 +1,7 @@
 {
-  "name": "HUNTX Cyber Intelligence Hub",
+  "name": "HUNTX Proxy Telemetry & Node Dashboard",
   "short_name": "HUNTX",
-  "description": "Published proxy snapshot dashboard and protocol decoder",
+  "description": "Production proxy dashboard, protocol decoder, and artifact repository for HUNTX.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#070a0f",
@@ -15,3 +15,4 @@
     }
   ]
 }
+
