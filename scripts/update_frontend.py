@@ -9,8 +9,8 @@ INDEX_HTML = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HUNTX — Cyber Telemetry &amp; Node Intelligence Hub</title>
-  <meta name="description" content="Published proxy snapshot dashboard, protocol decoder, and deterministic artifact browser for HUNTX releases.">
+  <title>HUNTX — Proxy Telemetry &amp; Node Dashboard</title>
+  <meta name="description" content="Production proxy dashboard, protocol decoder, and artifact repository for HUNTX.">
   <meta name="huntx-public-base-url" content="">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#00d2ff">
@@ -647,7 +647,7 @@ INDEX_HTML = """<!DOCTYPE html>
             <span class="font-mono text-base font-bold tracking-tight text-white">HUNT<span class="text-cyan-400">X</span></span>
             <span class="px-1.5 py-0.5 text-[9px] font-mono font-bold bg-cyan-950/80 text-cyan-400 border border-cyan-800/60 rounded">v2.5</span>
           </div>
-          <span class="text-[10px] text-gray-400 font-mono tracking-wider">GATHERX TELEMETRY</span>
+          <span class="text-[10px] text-gray-400 font-mono tracking-wider">NODE TELEMETRY</span>
         </div>
       </a>
 
@@ -711,11 +711,11 @@ INDEX_HTML = """<!DOCTYPE html>
           href="architecture.html"
           target="_blank"
           class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 text-gray-300 hover:text-white text-xs font-mono rounded-xl transition-all focus-ring"
-          title="Open 3D Architecture Topology"
-          aria-label="Open 3D Architecture Topology"
+          title="Open Interactive System Architecture"
+          aria-label="Open Interactive System Architecture"
         >
           <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
-          <span class="hidden md:inline">3D Topology</span>
+          <span class="hidden md:inline">Architecture</span>
         </a>
 
         <a
@@ -797,7 +797,7 @@ INDEX_HTML = """<!DOCTYPE html>
           <svg class="w-4 h-4 text-purple-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
           </svg>
-          <span>Deep Inspector</span>
+          <span>Protocol Inspector</span>
           <span class="px-1.5 py-0.5 text-[9px] font-bold rounded bg-purple-950/80 text-purple-300 border border-purple-800/60">RAW</span>
         </button>
 

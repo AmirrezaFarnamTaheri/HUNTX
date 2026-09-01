@@ -1,8 +1,8 @@
 # HUNTX / GatherX Master Design System & Architectural Specification (DESIGN.md)
 
 > **Status:** Authoritative Design System Source of Truth | **Compliance:** UI/UX Pro Max, Elite Frontend Architecture, WCAG 2.2 AA, ECC API Design  
-> **Last Updated:** 2026-08-21 | **Version:** 2.4.0  
-> **Target Surfaces:** Dashboard UI (`docs/index.html`), Telemetry Canvas (`docs/assets/js/globe.js`), Sovereign Decoder (`docs/assets/js/decoder.js`), Rule Studio (`docs/assets/js/rule-studio.js`), PWA Radar (`docs/sw.js`), API & Feeds (`outputs/`, `docs/catalog.json`)
+> **Last Updated:** 2026-09-01 | **Version:** 2.5.0  
+> **Target Surfaces:** Dashboard UI (`docs/index.html`), Telemetry Canvas (`docs/assets/js/globe.js`), Decoder & Studio (`docs/assets/js/decoder.js`), Rule Studio (`docs/assets/js/rule-studio.js`), Interactive Architecture (`docs/architecture.html`), PWA Radar (`docs/sw.js`), API & Feeds (`outputs/`, `docs/catalog.json`)
 
 ---
 
@@ -265,7 +265,7 @@ The main dashboard is partitioned into 5 focused workspaces, providing clean men
 [Tab 1: 🛰️ Telemetry Radar]  -> 3D WebGL Globe, Ingress Matrix, Carrier Latency, Regional Geo-Clusters
 [Tab 2: ⚡ Live Proxies]       -> 6D Filter Bar, Streaming Card Grid, Table View, Raw Stream, Instant QR
 [Tab 3: 🎛️ Protocol Studio]    -> Visual Routing Topology, Simulated Egress Pipeline, Universal Converter
-[Tab 4: 🔍 Deep Inspector]     -> In-Browser Protocol Inspector, Single-URI Decoders, Client Profile Export
+[Tab 4: 🔍 Protocol Inspector] -> In-Browser Protocol Inspector, Single-URI Decoders, Client Profile Export
 [Tab 5: 📦 Artifacts & Feeds]   -> 27 Generated Subscriptions, Split Feed Chunks, Metadata Manifest Registry
 ```
 

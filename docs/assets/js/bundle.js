@@ -35581,12 +35581,14 @@ function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null) {
 
   let rotX = 0.28; // tilt
   let rotY = 0.0;  // spin
+  let velX = 0.0;
   let velY = 0.0032;
   let isDragging = false;
   let startX = 0;
   let startY = 0;
   let lastX = 0;
   let lastY = 0;
+  let lastMoveTime = 0;
   let rafId = 0;
   let isVisible = !document.hidden;
   let isIntersecting = true;
@@ -35824,8 +35826,16 @@ function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null) {
     const centerY = height / 2;
     const radius = Math.min(width, height) * 0.42;
 
+    // Inertia physics & rotation
     if (!isDragging && !reduceMotion) {
       rotY += velY;
+      rotX += velX;
+      // Damping friction
+      velX *= 0.92;
+      if (Math.abs(velY - 0.0032) > 0.0001) {
+        velY = velY * 0.94 + 0.0032 * 0.06;
+      }
+      rotX = Math.max(-0.85, Math.min(0.85, rotX));
     }
 
     const cosY = Math.cos(rotY);
@@ -35905,7 +35915,7 @@ function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null) {
       h.screenZ = z2;
     }
 
-    // 5. Draw Dynamic Multi-Hub Mesh Telemetry Flight Arcs & Traveling Photons
+    // 5. Draw Dynamic Multi-Hub Mesh Telemetry Flight Arcs & Traveling Photons with Trails
     for (let l = 0; l < MESH_LINKS.length; l++) {
       const [srcIdx, dstIdx] = MESH_LINKS[l];
       const src = hubs[srcIdx];
@@ -35925,7 +35935,7 @@ function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null) {
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Traveling Energy Photon
+        // Traveling Energy Photon with Decaying Trail
         if (!reduceMotion) {
           photonProgress[l] = (photonProgress[l] + 0.007) % 1.0;
           const t = photonProgress[l];
@@ -35933,6 +35943,19 @@ function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null) {
           const px = (1 - t) * (1 - t) * src.screenX + 2 * (1 - t) * t * midX + t * t * dst.screenX;
           const py = (1 - t) * (1 - t) * src.screenY + 2 * (1 - t) * t * midY + t * t * dst.screenY;
 
+          // Photon Trail
+          const trailT = Math.max(0, t - 0.04);
+          const tx = (1 - trailT) * (1 - trailT) * src.screenX + 2 * (1 - trailT) * trailT * midX + trailT * trailT * dst.screenX;
+          const ty = (1 - trailT) * (1 - trailT) * src.screenY + 2 * (1 - trailT) * trailT * midY + trailT * trailT * dst.screenY;
+
+          ctx.strokeStyle = "rgba(52, 211, 153, 0.4)";
+          ctx.lineWidth = 2.0;
+          ctx.beginPath();
+          ctx.moveTo(tx, ty);
+          ctx.lineTo(px, py);
+          ctx.stroke();
+
+          // Photon Core
           ctx.fillStyle = "#34d399"; // Neon Emerald Photon
           ctx.beginPath();
           ctx.arc(px, py, 2.6, 0, Math.PI * 2);
@@ -35942,6 +35965,8 @@ function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null) {
     }
 
     // 6. Draw Hub Markers, Pulsing Neon Halos & Labels
+    const isLight = typeof document !== "undefined" && document.documentElement && document.documentElement.classList.contains("light");
+
     for (let i = 0; i < hubs.length; i++) {
       const h = hubs[i];
       if (h.screenZ > -0.1) {
@@ -35956,6 +35981,15 @@ function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null) {
         ctx.arc(h.screenX, h.screenY, ringRadius, 0, Math.PI * 2);
         ctx.stroke();
 
+        // Secondary Harmonic Ring for Hovered Hub
+        if (h === hoveredHub) {
+          ctx.strokeStyle = "rgba(52, 211, 153, 0.6)";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(h.screenX, h.screenY, 8 + pulseScale * 8, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
         // Inner Solid Luminous Core
         ctx.fillStyle = h === hoveredHub ? "#34d399" : "#00d2ff";
         ctx.beginPath();
@@ -35964,40 +35998,91 @@ function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null) {
 
         // Hub Text Tag (Render label if front-facing or hovered)
         if (h.screenZ > 0.2 || h === hoveredHub) {
-          const isLight = typeof document !== "undefined" && document.documentElement && document.documentElement.classList.contains("light");
-          ctx.font = "bold 10px monospace";
+          ctx.font = "bold 10px JetBrains Mono, monospace";
           ctx.fillStyle = isLight ? "#0f172a" : "#ffffff";
           ctx.fillText(h.code, h.screenX + 8, h.screenY - 4);
 
-          ctx.font = "9px monospace";
+          ctx.font = "9px JetBrains Mono, monospace";
           ctx.fillStyle = isLight ? "#0284c7" : "#22d3ee";
           ctx.fillText(`${h.count} nodes`, h.screenX + 8, h.screenY + 7);
         }
       }
     }
 
+    // 7. Interactive Canvas Tooltip Card when hovering a hub
+    if (hoveredHub && hoveredHub.screenZ > -0.1) {
+      const h = hoveredHub;
+      const cardW = 124;
+      const cardH = 46;
+      let cardX = h.screenX + 14;
+      let cardY = h.screenY - 24;
+
+      if (cardX + cardW > width - 8) cardX = h.screenX - cardW - 14;
+      if (cardX < 8) cardX = 8;
+      if (cardY + cardH > height - 8) cardY = height - cardH - 8;
+      if (cardY < 8) cardY = 8;
+
+      // Card Background
+      ctx.fillStyle = isLight ? "rgba(255, 255, 255, 0.95)" : "rgba(7, 10, 15, 0.92)";
+      ctx.strokeStyle = isLight ? "#cbd5e1" : "rgba(0, 210, 255, 0.4)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === "function") {
+        ctx.roundRect(cardX, cardY, cardW, cardH, 8);
+      } else {
+        ctx.rect(cardX, cardY, cardW, cardH);
+      }
+      ctx.fill();
+      ctx.stroke();
+
+      // Card Content
+      ctx.font = "bold 11px Plus Jakarta Sans, sans-serif";
+      ctx.fillStyle = isLight ? "#0f172a" : "#f1f5f9";
+      ctx.fillText(h.name || h.code, cardX + 8, cardY + 16);
+
+      ctx.font = "600 10px JetBrains Mono, monospace";
+      ctx.fillStyle = "#34d399";
+      ctx.fillText(`${h.count} Proxies`, cardX + 8, cardY + 34);
+
+      if (h.ping) {
+        ctx.fillStyle = isLight ? "#475569" : "#94a3b8";
+        ctx.fillText(`· ${h.ping}ms`, cardX + 72, cardY + 34);
+      }
+    }
+
     rafId = requestAnimationFrame(render);
   }
 
-  // Pointer Interaction Listeners
+  // Pointer Interaction Listeners with Inertia Physics
   function onPointerDown(e) {
     isDragging = true;
     startX = e.clientX;
     startY = e.clientY;
     lastX = e.clientX;
     lastY = e.clientY;
+    lastMoveTime = performance.now();
+    velX = 0;
+    velY = 0;
     canvas.setPointerCapture(e.pointerId);
   }
 
   function onPointerMove(e) {
     if (isDragging) {
+      const now = performance.now();
+      const dt = Math.max(1, now - lastMoveTime);
       const deltaX = e.clientX - lastX;
       const deltaY = e.clientY - lastY;
+
+      velY = (deltaX * 0.006) / (dt / 16);
+      velX = (deltaY * 0.006) / (dt / 16);
+
       rotY += deltaX * 0.006;
       rotX += deltaY * 0.006;
-      rotX = Math.max(-0.9, Math.min(0.9, rotX));
+      rotX = Math.max(-0.85, Math.min(0.85, rotX));
+
       lastX = e.clientX;
       lastY = e.clientY;
+      lastMoveTime = now;
     } else {
       // Check hover on hubs
       const rect = canvas.getBoundingClientRect();
@@ -36009,7 +36094,7 @@ function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null) {
         const h = hubs[i];
         if (h.screenZ > 0) {
           const dist = Math.hypot(mx - h.screenX, my - h.screenY);
-          if (dist < 18) {
+          if (dist < 20) {
             hoveredHub = h;
             canvas.style.cursor = "pointer";
             break;
@@ -36040,7 +36125,7 @@ function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null) {
           const h = hubs[i];
           if (h.screenZ > 0) {
             const dist = Math.hypot(mx - h.screenX, my - h.screenY);
-            if (dist < 22) {
+            if (dist < 24) {
               if (typeof onNodeSelect === "function") {
                 onNodeSelect(h);
               }
@@ -37187,6 +37272,7 @@ const SUPPORTED_LOCALES = Object.freeze(["en", "fa", "zh-CN", "ru"]);
 const TRANSLATIONS = Object.freeze({
   fa: {
     "GATHERX TELEMETRY": "تله‌متری GATHERX",
+    "NODE TELEMETRY": "تله‌متری گره‌ها",
     "PIPELINE ONLINE": "خط پردازش آنلاین",
     "IP Scanner": "اسکنر IP",
     "Sub Builder": "سازنده اشتراک",
@@ -37197,8 +37283,10 @@ const TRANSLATIONS = Object.freeze({
     "Studio": "استودیو",
     "Artifacts": "خروجی‌ها",
     "Zero-Budget Sovereign Proxy Ingestion": "گردآوری مستقل پروکسی بدون هزینه",
-    "Node Telemetry &": "تله‌متری گره‌ها و",
+    "Automated Multi-Source Collector": "گردآوری خودکار و چندمنبعی پروکسی",
+    "Proxy Telemetry &": "تله‌متری پروکسی و",
     "Cyber Intelligence": "هوش سایبری",
+    "Node Diagnostics": "تشخیص سلامت و عملکرد",
     "Active Nodes": "گره‌های فعال",
     "Ingest Sources": "منابع ورودی",
     "Published Files": "فایل‌های منتشرشده",
@@ -37236,12 +37324,16 @@ const TRANSLATIONS = Object.freeze({
     "Open Protocol Decoder": "باز کردن رمزگشای پروتکل",
     "GitHub Repository": "مخزن گیت‌هاب",
     "Telemetry Pipeline Synchronized & Verified": "خط تله‌متری همگام و تأییدشده",
+    "Ingestion Pipeline Synchronized & Verified": "خط پردازش ورودی همگام و تأیید شد",
     "INTERACTIVE 3D GEO-RADAR": "رادار جغرافیایی سه‌بعدی تعاملی",
     "CLICK HUB TO FILTER": "برای فیلتر روی مرکز کلیک کنید",
     "Live Carrier Latency & Ingress Matrix": "ماتریس زنده تأخیر اپراتور و ورودی",
     "Strategic Geo-Cluster Density": "تراکم راهبردی خوشه‌های جغرافیایی",
+    "Geographic Node Distribution": "توزیع جغرافیایی گره‌ها",
     "Universal Protocol Converter & Inspection Studio": "استودیوی تبدیل و بررسی همه‌منظوره پروتکل",
+    "Protocol Converter & Inspection Studio": "استودیوی تبدیل و بررسی پروتکل",
     "Proxy Protocol Inspector": "بازرس پروتکل پروکسی",
+    "Protocol Inspector": "بازرس پروتکل",
     "Universal Converter": "مبدل همه‌منظوره",
     "Bulk Deduplicator": "حذف گروهی موارد تکراری",
     "QR Code Studio": "استودیوی کد QR",
@@ -37277,6 +37369,7 @@ const TRANSLATIONS = Object.freeze({
   },
   "zh-CN": {
     "GATHERX TELEMETRY": "GATHERX 遥测",
+    "NODE TELEMETRY": "节点遥测",
     "PIPELINE ONLINE": "流水线在线",
     "IP Scanner": "IP 扫描器",
     "Sub Builder": "订阅生成器",
@@ -37287,8 +37380,10 @@ const TRANSLATIONS = Object.freeze({
     "Studio": "工作室",
     "Artifacts": "构建产物",
     "Zero-Budget Sovereign Proxy Ingestion": "零成本自主代理采集",
-    "Node Telemetry &": "节点遥测与",
+    "Automated Multi-Source Collector": "多源自动化代理采集器",
+    "Proxy Telemetry &": "代理遥测与",
     "Cyber Intelligence": "网络情报",
+    "Node Diagnostics": "健康与性能诊断",
     "Active Nodes": "活跃节点",
     "Ingest Sources": "采集来源",
     "Published Files": "已发布文件",
@@ -37326,12 +37421,16 @@ const TRANSLATIONS = Object.freeze({
     "Open Protocol Decoder": "打开协议解码器",
     "GitHub Repository": "GitHub 仓库",
     "Telemetry Pipeline Synchronized & Verified": "遥测流水线已同步并验证",
+    "Ingestion Pipeline Synchronized & Verified": "采集流水线已同步并验证",
     "INTERACTIVE 3D GEO-RADAR": "交互式三维地理雷达",
     "CLICK HUB TO FILTER": "点击枢纽进行筛选",
     "Live Carrier Latency & Ingress Matrix": "实时运营商延迟与入口矩阵",
     "Strategic Geo-Cluster Density": "战略地理集群密度",
+    "Geographic Node Distribution": "地理节点分布",
     "Universal Protocol Converter & Inspection Studio": "通用协议转换与检查工作室",
+    "Protocol Converter & Inspection Studio": "协议转换与检查工作室",
     "Proxy Protocol Inspector": "代理协议检查器",
+    "Protocol Inspector": "协议检查器",
     "Universal Converter": "通用转换器",
     "Bulk Deduplicator": "批量去重器",
     "QR Code Studio": "二维码工作室",
@@ -37367,6 +37466,7 @@ const TRANSLATIONS = Object.freeze({
   },
   ru: {
     "GATHERX TELEMETRY": "ТЕЛЕМЕТРИЯ GATHERX",
+    "NODE TELEMETRY": "ТЕЛЕМЕТРИЯ УЗЛОВ",
     "PIPELINE ONLINE": "КОНВЕЙЕР В СЕТИ",
     "IP Scanner": "Сканер IP",
     "Sub Builder": "Сборщик подписки",
@@ -37377,8 +37477,10 @@ const TRANSLATIONS = Object.freeze({
     "Studio": "Студия",
     "Artifacts": "Артефакты",
     "Zero-Budget Sovereign Proxy Ingestion": "Автономный сбор прокси без затрат",
-    "Node Telemetry &": "Телеметрия узлов и",
+    "Automated Multi-Source Collector": "Автоматический сборщик прокси из нескольких источников",
+    "Proxy Telemetry &": "Телеметрия прокси и",
     "Cyber Intelligence": "киберразведка",
+    "Node Diagnostics": "диагностика состояния",
     "Active Nodes": "Активные узлы",
     "Ingest Sources": "Источники сбора",
     "Published Files": "Опубликованные файлы",
@@ -37416,12 +37518,16 @@ const TRANSLATIONS = Object.freeze({
     "Open Protocol Decoder": "Открыть декодер протоколов",
     "GitHub Repository": "Репозиторий GitHub",
     "Telemetry Pipeline Synchronized & Verified": "Конвейер телеметрии синхронизирован и проверен",
+    "Ingestion Pipeline Synchronized & Verified": "Конвейер сбора синхронизирован и проверен",
     "INTERACTIVE 3D GEO-RADAR": "ИНТЕРАКТИВНЫЙ 3D-ГЕОРАДАР",
     "CLICK HUB TO FILTER": "НАЖМИТЕ НА УЗЕЛ ДЛЯ ФИЛЬТРАЦИИ",
     "Live Carrier Latency & Ingress Matrix": "Матрица задержки операторов и входящего трафика",
     "Strategic Geo-Cluster Density": "Плотность стратегических геокластеров",
+    "Geographic Node Distribution": "Географическое распределение узлов",
     "Universal Protocol Converter & Inspection Studio": "Универсальная студия конвертации и анализа протоколов",
+    "Protocol Converter & Inspection Studio": "Студия конвертации и анализа протоколов",
     "Proxy Protocol Inspector": "Инспектор прокси-протоколов",
+    "Protocol Inspector": "Инспектор протоколов",
     "Universal Converter": "Универсальный конвертер",
     "Bulk Deduplicator": "Пакетное удаление дубликатов",
     "QR Code Studio": "Студия QR-кодов",
@@ -38035,6 +38141,7 @@ class AppState {
     this.theme = getStoredTheme();
     this.globeInstance = null;
     this.lastFocusedElement = null;
+    this.copyFeedbackStates = new WeakMap();
     this.unmaskedNodes = new Set();
     this.activeQRNodes = new Set();
     this.livePings = new Map();
@@ -38590,19 +38697,41 @@ class AppState {
     }, 2800);
   }
 
-  copyText(text, label = "Copied to clipboard") {
+  showCopyFeedback(label, triggerBtn) {
+    this.showToast(label);
+    if (!triggerBtn || !triggerBtn.classList) return;
+
+    const activeFeedback = this.copyFeedbackStates.get(triggerBtn);
+    if (activeFeedback) clearTimeout(activeFeedback.timeoutId);
+
+    const feedback = {
+      originalHtml: activeFeedback ? activeFeedback.originalHtml : triggerBtn.innerHTML,
+      timeoutId: null
+    };
+    triggerBtn.innerHTML = `✓ Copied!`;
+    triggerBtn.classList.add("!bg-emerald-500", "!text-gray-950", "!border-emerald-400");
+    feedback.timeoutId = setTimeout(() => {
+      if (this.copyFeedbackStates.get(triggerBtn) !== feedback) return;
+      triggerBtn.innerHTML = feedback.originalHtml;
+      triggerBtn.classList.remove("!bg-emerald-500", "!text-gray-950", "!border-emerald-400");
+      this.copyFeedbackStates.delete(triggerBtn);
+    }, 1400);
+    this.copyFeedbackStates.set(triggerBtn, feedback);
+  }
+
+  copyText(text, label = "Copied to clipboard", triggerBtn = null) {
+    const applyFeedback = () => this.showCopyFeedback(label, triggerBtn);
+
     if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(() => {
-        this.showToast(label);
-      }).catch(() => {
-        this.fallbackCopy(text, label);
+      navigator.clipboard.writeText(text).then(applyFeedback).catch(() => {
+        this.fallbackCopy(text, label, triggerBtn);
       });
     } else {
-      this.fallbackCopy(text, label);
+      this.fallbackCopy(text, label, triggerBtn);
     }
   }
 
-  fallbackCopy(text, label) {
+  fallbackCopy(text, label, triggerBtn = null) {
     if (typeof document === "undefined") return;
     const ta = document.createElement("textarea");
     ta.value = text;
@@ -38612,7 +38741,7 @@ class AppState {
     ta.select();
     try {
       document.execCommand("copy");
-      this.showToast(label);
+      this.showCopyFeedback(label, triggerBtn);
     } catch (e) {
       this.showToast("Failed to copy", "error");
     }
@@ -38682,7 +38811,7 @@ class AppState {
               <span class="font-mono text-base font-bold tracking-tight text-white">HUNT<span class="text-cyan-400">X</span></span>
               <span class="px-1.5 py-0.5 text-[9px] font-mono font-bold bg-cyan-950/80 text-cyan-400 border border-cyan-800/60 rounded">v2.5</span>
             </div>
-            <span class="text-[10px] text-gray-400 font-mono tracking-wider">GATHERX TELEMETRY</span>
+            <span class="text-[10px] text-gray-400 font-mono tracking-wider">NODE TELEMETRY</span>
           </div>
         </a>
 
@@ -38775,11 +38904,11 @@ class AppState {
             href="architecture.html"
             target="_blank"
             class="hidden sm:flex items-center gap-1.5 px-3 py-2 min-h-[40px] bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 text-gray-300 hover:text-white text-xs font-mono rounded-xl transition-all focus-ring"
-            title="Open 3D Architecture Topology"
-            aria-label="Open 3D Architecture Topology"
+            title="Open Interactive System Architecture"
+            aria-label="Open Interactive System Architecture"
           >
             <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
-            <span class="hidden md:inline">3D Topology</span>
+            <span class="hidden md:inline">Architecture</span>
           </a>
 
           <a
@@ -38851,17 +38980,17 @@ class AppState {
         <div class="lg:col-span-7 space-y-6">
           <div class="inline-flex items-center gap-2 px-3.5 py-1.5 bg-cyan-950/50 border border-cyan-500/30 rounded-full text-cyan-300 text-xs font-mono font-semibold uppercase tracking-wider">
             <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-            Zero-Budget Sovereign Proxy Ingestion
+            Automated Multi-Source Collector
           </div>
 
           <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight">
-            Node Telemetry &amp; <br/>
-            <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-400 to-indigo-400">Cyber Intelligence</span>
+            Proxy Telemetry &amp; <br/>
+            <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-400 to-indigo-400">Node Diagnostics</span>
           </h1>
 
           <p class="text-sm sm:text-base text-gray-400 font-sans max-w-xl leading-relaxed">
-            Automated multi-source ingestion aggregating sovereign proxy protocols across ${sourcesCount === "—" ? "validated" : sourcesCount} configured pipeline channel${sourcesCount === 1 ? "" : "s"}.
-            Deduplicated with SHA-256 integrity, decoded client-side, and synchronized continuously.
+            Automated multi-source collector aggregating verified proxy protocols across ${sourcesCount === "—" ? "configured" : sourcesCount} pipeline channel${sourcesCount === 1 ? "" : "s"}.
+            Deduplicated with SHA-256 checksums, decoded client-side, and synchronized continuously.
           </p>
 
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
@@ -38973,11 +39102,11 @@ class AppState {
       </div>
     `;
 
-    document.getElementById("hero-copy-sub")?.addEventListener("click", () => {
+    document.getElementById("hero-copy-sub")?.addEventListener("click", (e) => {
       const subUrl = resolveArtifactUrl("artifacts/release/all_sources.npvt.b64sub");
       this.copyText(subUrl, isHostedDashboard()
         ? "Production feed URL copied to clipboard"
-        : "Portable artifact path copied — deploy or serve over HTTPS before importing");
+        : "Portable artifact path copied — deploy or serve over HTTPS before importing", e.currentTarget);
     });
 
     document.getElementById("hero-open-scanner")?.addEventListener("click", (e) => {
@@ -39064,7 +39193,7 @@ class AppState {
                 <span>📡</span> Live Carrier Latency &amp; Ingress Matrix
                 <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">NO LIVE PROBES</span>
               </h3>
-              <p class="text-xs text-gray-400 font-sans mt-0.5">Real-time operator routing &amp; packet performance across sovereign networks (${this.proxies.length} nodes analyzed)</p>
+              <p class="text-xs text-gray-400 font-sans mt-0.5">Observed operator latency and routing distribution (${this.proxies.length} nodes analyzed)</p>
             </div>
           </div>
 
@@ -39093,10 +39222,10 @@ class AppState {
           <div class="flex items-center justify-between pb-4 border-b border-gray-800 mb-4">
             <div>
               <h3 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
-                <span>🌍</span> Strategic Geo-Cluster Density
+                <span>🌍</span> Geographic Node Distribution
                 <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">${sortedCountries.length} REGIONS</span>
               </h3>
-              <p class="text-xs text-gray-400 font-sans mt-0.5">Top node density distribution across sovereign edge locations</p>
+              <p class="text-xs text-gray-400 font-sans mt-0.5">Node density across active edge regions and data centers</p>
             </div>
           </div>
 
@@ -39126,10 +39255,10 @@ class AppState {
       <div class="cyber-card p-6 bg-gradient-to-r from-cyan-950/40 via-gray-900/60 to-indigo-950/40 border border-cyan-500/30 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
         <div class="space-y-1">
           <h4 class="text-base font-mono font-bold text-white flex items-center gap-2">
-            <span>⚡</span> Telemetry Pipeline Synchronized &amp; Verified
+            <span>⚡</span> Ingestion Pipeline Synchronized &amp; Verified
           </h4>
           <p class="text-xs font-sans text-gray-300">
-            ${this.proxies.length} healthy proxy endpoints ready for high-speed routing, sovereign tunneling, and subscription export.
+            ${this.proxies.length} verified proxy endpoints ready for client routing, configuration export, and subscriptions.
           </p>
         </div>
         <button id="btn-explore-live-proxies" class="px-5 py-3 min-h-[44px] bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-gray-950 font-mono font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/25 transition-all cursor-pointer shrink-0">
@@ -39453,32 +39582,32 @@ class AppState {
       this.refreshProxyWorkspace();
     });
 
-    document.getElementById("btn-batch-copy-filtered")?.addEventListener("click", () => {
+    document.getElementById("btn-batch-copy-filtered")?.addEventListener("click", (e) => {
       const uris = filtered.map(p => p.raw).filter(Boolean).join("\n");
       if (uris) {
-        this.copyText(uris, `Copied ${filtered.length} filtered proxy URIs`);
+        this.copyText(uris, `Copied ${filtered.length} filtered proxy URIs`, e.currentTarget);
       } else {
         this.showToast("No active nodes to copy", "error");
       }
     });
 
-    document.getElementById("btn-batch-export-singbox")?.addEventListener("click", () => {
+    document.getElementById("btn-batch-export-singbox")?.addEventListener("click", (e) => {
       try {
         const config = buildSingboxConfig(filtered.map(p => {
           try { return decodeProxyURI(p.raw); } catch { return p; }
         }));
-        this.copyText(JSON.stringify(config, null, 2), `Sing-box profile for ${filtered.length} nodes copied`);
+        this.copyText(JSON.stringify(config, null, 2), `Sing-box profile for ${filtered.length} nodes copied`, e.currentTarget);
       } catch (err) {
         this.showToast(`Export failed: ${err.message}`, "error");
       }
     });
 
-    document.getElementById("btn-batch-export-clash")?.addEventListener("click", () => {
+    document.getElementById("btn-batch-export-clash")?.addEventListener("click", (e) => {
       try {
         const yaml = buildClashMetaYAML(filtered.map(p => {
           try { return decodeProxyURI(p.raw); } catch { return p; }
         }));
-        this.copyText(yaml, `Clash Meta profile for ${filtered.length} nodes copied`);
+        this.copyText(yaml, `Clash Meta profile for ${filtered.length} nodes copied`, e.currentTarget);
       } catch (err) {
         this.showToast(`Export failed: ${err.message}`, "error");
       }
@@ -39762,7 +39891,7 @@ class AppState {
     nodesContainer.querySelectorAll(".btn-copy-node").forEach(btn => {
       btn.addEventListener("click", (e) => {
         const raw = decodeURIComponent(e.currentTarget.dataset.raw);
-        this.copyText(raw, "Node URI copied to clipboard");
+        this.copyText(raw, "Node URI copied to clipboard", e.currentTarget);
       });
     });
 
@@ -40257,7 +40386,7 @@ class AppState {
           <div>
             <h3 class="text-lg font-mono font-bold text-white flex items-center gap-2">
               <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
-              Universal Protocol Converter &amp; Inspection Studio
+              Protocol Converter &amp; Inspection Studio
             </h3>
             <p class="text-xs font-mono text-gray-400 mt-0.5">High-performance client-side converter for Sing-box 1.10+, Clash Meta / Mihomo, Xray JSON, Base64 &amp; QR Codes</p>
           </div>
@@ -41261,7 +41390,7 @@ class AppState {
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-800/80 text-xs font-mono text-gray-500">
         <div class="flex items-center gap-2">
           <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
-          <span>HUNTX &amp; GatherX Ingestion Pipeline • SHA-256 Verified • ${this.catalog.total_files || 27} Artifacts Published</span>
+          <span>HUNTX Ingestion Pipeline • SHA-256 Verified • ${this.catalog.total_files || 27} Artifacts Published</span>
         </div>
         <div class="flex items-center gap-4">
           <a href="DEVELOPMENT.md" class="hover:text-gray-300 transition-colors focus-ring rounded p-1">Dev Specs</a>
