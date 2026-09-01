@@ -454,6 +454,7 @@ export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null) {
       let cardY = h.screenY - 24;
 
       if (cardX + cardW > width - 8) cardX = h.screenX - cardW - 14;
+      if (cardX < 8) cardX = 8;
       if (cardY + cardH > height - 8) cardY = height - cardH - 8;
       if (cardY < 8) cardY = 8;
 

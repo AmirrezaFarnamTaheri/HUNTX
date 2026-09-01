@@ -38165,6 +38165,7 @@ function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null) {
       let cardY = h.screenY - 24;
 
       if (cardX + cardW > width - 8) cardX = h.screenX - cardW - 14;
+      if (cardX < 8) cardX = 8;
       if (cardY + cardH > height - 8) cardY = height - cardH - 8;
       if (cardY < 8) cardY = 8;
 
@@ -39430,7 +39431,7 @@ const TRANSLATIONS = Object.freeze({
     "Artifacts": "خروجی‌ها",
     "Zero-Budget Sovereign Proxy Ingestion": "گردآوری مستقل پروکسی بدون هزینه",
     "Automated Multi-Source Collector": "گردآوری خودکار و چندمنبعی پروکسی",
-    "Node Telemetry &": "تله‌متری گره‌ها و",
+    "Proxy Telemetry &": "تله‌متری پروکسی و",
     "Cyber Intelligence": "هوش سایبری",
     "Node Diagnostics": "تشخیص سلامت و عملکرد",
     "Active Nodes": "گره‌های فعال",
@@ -39527,7 +39528,7 @@ const TRANSLATIONS = Object.freeze({
     "Artifacts": "构建产物",
     "Zero-Budget Sovereign Proxy Ingestion": "零成本自主代理采集",
     "Automated Multi-Source Collector": "多源自动化代理采集器",
-    "Node Telemetry &": "节点遥测与",
+    "Proxy Telemetry &": "代理遥测与",
     "Cyber Intelligence": "网络情报",
     "Node Diagnostics": "健康与性能诊断",
     "Active Nodes": "活跃节点",
@@ -39624,7 +39625,7 @@ const TRANSLATIONS = Object.freeze({
     "Artifacts": "Артефакты",
     "Zero-Budget Sovereign Proxy Ingestion": "Автономный сбор прокси без затрат",
     "Automated Multi-Source Collector": "Автоматический сборщик прокси из нескольких источников",
-    "Node Telemetry &": "Телеметрия узлов и",
+    "Proxy Telemetry &": "Телеметрия прокси и",
     "Cyber Intelligence": "киберразведка",
     "Node Diagnostics": "диагностика состояния",
     "Active Nodes": "Активные узлы",
@@ -40287,6 +40288,7 @@ class AppState {
     this.theme = getStoredTheme();
     this.globeInstance = null;
     this.lastFocusedElement = null;
+    this.copyFeedbackStates = new WeakMap();
     this.unmaskedNodes = new Set();
     this.activeQRNodes = new Set();
     this.livePings = new Map();
@@ -40842,23 +40844,30 @@ class AppState {
     }, 2800);
   }
 
-  copyText(text, label = "Copied to clipboard", triggerBtn = null) {
-    const applyFeedback = () => {
-      this.showToast(label);
-      if (triggerBtn && triggerBtn.classList) {
-        const originalContent = triggerBtn.innerHTML;
-        triggerBtn.dataset.originalHtml = originalContent;
-        triggerBtn.innerHTML = `✓ Copied!`;
-        triggerBtn.classList.add("!bg-emerald-500", "!text-gray-950", "!border-emerald-400");
-        setTimeout(() => {
-          if (triggerBtn.dataset.originalHtml) {
-            triggerBtn.innerHTML = triggerBtn.dataset.originalHtml;
-            delete triggerBtn.dataset.originalHtml;
-          }
-          triggerBtn.classList.remove("!bg-emerald-500", "!text-gray-950", "!border-emerald-400");
-        }, 1400);
-      }
+  showCopyFeedback(label, triggerBtn) {
+    this.showToast(label);
+    if (!triggerBtn || !triggerBtn.classList) return;
+
+    const activeFeedback = this.copyFeedbackStates.get(triggerBtn);
+    if (activeFeedback) clearTimeout(activeFeedback.timeoutId);
+
+    const feedback = {
+      originalHtml: activeFeedback ? activeFeedback.originalHtml : triggerBtn.innerHTML,
+      timeoutId: null
     };
+    triggerBtn.innerHTML = `✓ Copied!`;
+    triggerBtn.classList.add("!bg-emerald-500", "!text-gray-950", "!border-emerald-400");
+    feedback.timeoutId = setTimeout(() => {
+      if (this.copyFeedbackStates.get(triggerBtn) !== feedback) return;
+      triggerBtn.innerHTML = feedback.originalHtml;
+      triggerBtn.classList.remove("!bg-emerald-500", "!text-gray-950", "!border-emerald-400");
+      this.copyFeedbackStates.delete(triggerBtn);
+    }, 1400);
+    this.copyFeedbackStates.set(triggerBtn, feedback);
+  }
+
+  copyText(text, label = "Copied to clipboard", triggerBtn = null) {
+    const applyFeedback = () => this.showCopyFeedback(label, triggerBtn);
 
     if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(applyFeedback).catch(() => {
@@ -40879,20 +40888,7 @@ class AppState {
     ta.select();
     try {
       document.execCommand("copy");
-      this.showToast(label);
-      if (triggerBtn && triggerBtn.classList) {
-        const originalContent = triggerBtn.innerHTML;
-        triggerBtn.dataset.originalHtml = originalContent;
-        triggerBtn.innerHTML = `✓ Copied!`;
-        triggerBtn.classList.add("!bg-emerald-500", "!text-gray-950", "!border-emerald-400");
-        setTimeout(() => {
-          if (triggerBtn.dataset.originalHtml) {
-            triggerBtn.innerHTML = triggerBtn.dataset.originalHtml;
-            delete triggerBtn.dataset.originalHtml;
-          }
-          triggerBtn.classList.remove("!bg-emerald-500", "!text-gray-950", "!border-emerald-400");
-        }, 1400);
-      }
+      this.showCopyFeedback(label, triggerBtn);
     } catch (e) {
       this.showToast("Failed to copy", "error");
     }
