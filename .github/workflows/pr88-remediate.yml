@@ -22,7 +22,7 @@ jobs:
   remediate:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -38,74 +38,90 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: "3.12"
-      - name: Apply and validate remediation waves
+
+      - name: Apply, finish, validate, and push non-workflow remediation
         shell: bash
         run: |
           set -euo pipefail
           rm .github/workflows/pr88-remediate.yml
+
           python - <<'PY'
           from pathlib import Path
           path = Path("scripts/pr88_remediation.py")
           text = path.read_text(encoding="utf-8")
 
-          helper = '''    updated, count = re.subn(pattern, replacement, text, count=1, flags=flags)\n'''
-          if helper in text:
-              text = text.replace(helper, '''    updated, count = re.subn(pattern, lambda _match: replacement, text, count=1, flags=flags)\n''', 1)
-
+          text = text.replace(
+              '    updated, count = re.subn(pattern, replacement, text, count=1, flags=flags)\n',
+              '    updated, count = re.subn(pattern, lambda _match: replacement, text, count=1, flags=flags)\n',
+              1,
+          )
           line = '''    app = replace_once(app, 'class="text-[10px] font-mono text-gray-500 truncate" title="${escapeHTML(link.display)}"', 'class="technical-ltr text-[10px] font-mono text-gray-500 truncate" title="${escapeHTML(link.display)}"', "artifact link bidi")\n'''
           if line in text:
               text = text.replace(line, '''    if 'class="text-[10px] font-mono text-gray-500 truncate" title="${escapeHTML(link.display)}"' in app:\n        app = replace_once(app, 'class="text-[10px] font-mono text-gray-500 truncate" title="${escapeHTML(link.display)}"', 'class="technical-ltr text-[10px] font-mono text-gray-500 truncate" title="${escapeHTML(link.display)}"', "artifact link bidi")\n''', 1)
-
-          locale_line = '''        marker = f"  {locale}: {{\\n"\n'''
-          if locale_line in text:
-              text = text.replace(locale_line, '''        marker = f'  "{locale}": {{\\n' if "-" in locale else f"  {locale}: {{\\n"\n''', 1)
-
-          ctor_test = '''  const app = new AppState();\n  assert.equal(app.getLatency({ latency: null, ping: null }), null);\n  assert.equal(app.getLatency({}), null);\n'''
-          if ctor_test in text:
-              text = text.replace(ctor_test, '''  const getLatency = AppState.prototype.getLatency;\n  assert.equal(getLatency.call({}, { latency: null, ping: null }), null);\n  assert.equal(getLatency.call({}, {}), null);\n''', 1)
-
+          text = text.replace(
+              '        marker = f"  {locale}: {{\\n"\n',
+              '        marker = f\'  "{locale}": {{\\n\' if "-" in locale else f"  {locale}: {{\\n"\n',
+              1,
+          )
+          text = text.replace(
+              '''  const app = new AppState();\n  assert.equal(app.getLatency({ latency: null, ping: null }), null);\n  assert.equal(app.getLatency({}), null);\n''',
+              '''  const getLatency = AppState.prototype.getLatency;\n  assert.equal(getLatency.call({}, { latency: null, ping: null }), null);\n  assert.equal(getLatency.call({}, {}), null);\n''',
+              1,
+          )
           dependency_anchor = '''    run("go", "get", "golang.org/x/net@v0.58.0", cwd="src/huntx/connectors/v2ray_collector")\n    run("go", "mod", "tidy", cwd="src/huntx/connectors/v2ray_collector")\n'''
           if dependency_anchor in text:
               text = text.replace(dependency_anchor, '''    run("go", "get", "golang.org/x/crypto@v0.56.0")\n    run("go", "mod", "tidy")\n    run("go", "mod", "edit", "-go=1.26.8")\n    run("go", "get", "golang.org/x/net@v0.58.0", cwd="src/huntx/connectors/v2ray_collector")\n    run("go", "mod", "tidy", cwd="src/huntx/connectors/v2ray_collector")\n    run("go", "mod", "edit", "-go=1.26.8", cwd="src/huntx/connectors/v2ray_collector")\n''', 1)
-
           root_gate = '''          go test -race ./...\n          go vet ./...\n          (\n            cd src/huntx/connectors/v2ray_collector\n'''
-          root_gate_replacement = '''          go test -race ./...\n          go vet ./...\n          go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...\n          (\n            cd src/huntx/connectors/v2ray_collector\n'''
-          text = text.replace(root_gate, root_gate_replacement)
-
+          text = text.replace(root_gate, '''          go test -race ./...\n          go vet ./...\n          go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...\n          (\n            cd src/huntx/connectors/v2ray_collector\n''')
           final_anchor = '''    run("node", "--experimental-default-type=module", "--test", "tests/frontend_runtime.test.mjs")\n    run("go", "test", "-race", "./...", cwd="src/huntx/connectors/v2ray_collector")\n'''
           if final_anchor in text:
               text = text.replace(final_anchor, '''    run("node", "--experimental-default-type=module", "--test", "tests/frontend_runtime.test.mjs")\n    run("go", "run", "golang.org/x/vuln/cmd/govulncheck@v1.7.0", "./...")\n    run("go", "test", "-race", "./...", cwd="src/huntx/connectors/v2ray_collector")\n''', 1)
-
           path.write_text(text, encoding="utf-8")
           PY
 
+          : > /tmp/pr88-remediation.log
           set +e
-          python scripts/pr88_remediation.py 2>&1 | tee /tmp/pr88-remediation.log
+          python scripts/pr88_remediation.py 2>&1 | tee -a /tmp/pr88-remediation.log
           remediation_status=${PIPESTATUS[0]}
+          finish_status=0
+          if [[ "$remediation_status" -eq 0 ]]; then
+            python -m pip install -q pytest
+            python scripts/pr88_finish.py 2>&1 | tee -a /tmp/pr88-remediation.log
+            finish_status=${PIPESTATUS[0]}
+          fi
           set -e
+
+          if [[ "$remediation_status" -eq 0 && "$finish_status" -eq 0 ]]; then
+            rm -f scripts/pr88_finish.py
+            git add -A
+            git commit -m "fix(frontend): finish responsive offline and browser QA"
+          fi
 
           git diff --name-status "$GITHUB_SHA" HEAD > /tmp/pr88-changed-files.txt || true
           git diff "$GITHUB_SHA" HEAD --binary > /tmp/pr88-final.patch || true
           : > /tmp/pr88-existing-files.nul
           while IFS= read -r file; do
-            if [[ -f "$file" ]]; then
-              printf '%s\0' "$file" >> /tmp/pr88-existing-files.nul
-            fi
+            if [[ -f "$file" ]]; then printf '%s\0' "$file" >> /tmp/pr88-existing-files.nul; fi
           done < <(git diff --name-only "$GITHUB_SHA" HEAD)
           tar --null -czf /tmp/pr88-final-files.tar.gz -T /tmp/pr88-existing-files.nul
-
-          push_status=0
-          if git log --format=%s "${GITHUB_SHA}..HEAD" | grep -Fxq "ci: cover frontend runtime, nested Go module, and dependency security"; then
-            echo "All four remediation commits exist; attempting to push them."
-            git push origin HEAD:fix/mobile-touch-target-hardening || push_status=$?
-          else
-            echo "Refusing to push an incomplete remediation sequence."
-            push_status=1
-          fi
+          cp .github/workflows/huntx.yml /tmp/huntx.yml 2>/dev/null || true
+          cp .github/workflows/pr-validation.yml /tmp/pr-validation.yml 2>/dev/null || true
 
           if [[ "$remediation_status" -ne 0 ]]; then exit "$remediation_status"; fi
-          exit "$push_status"
-      - name: Upload remediation diagnostics and final tree
+          if [[ "$finish_status" -ne 0 ]]; then exit "$finish_status"; fi
+
+          git checkout "$GITHUB_SHA" -- .github/workflows/huntx.yml .github/workflows/pr-validation.yml .github/workflows/pr88-remediate.yml
+          git reset --soft "$GITHUB_SHA"
+          git add -A
+          if git diff --cached --name-only | grep -q '^.github/workflows/'; then
+            echo "Refusing to push: squashed commit still changes workflow files."
+            git diff --cached --name-status
+            exit 1
+          fi
+          git commit -m "fix: complete PR 88 remediation"
+          git push origin HEAD:fix/mobile-touch-target-hardening
+
+      - name: Upload remediation diagnostics and desired workflow files
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
@@ -115,5 +131,7 @@ jobs:
             /tmp/pr88-changed-files.txt
             /tmp/pr88-final.patch
             /tmp/pr88-final-files.tar.gz
+            /tmp/huntx.yml
+            /tmp/pr-validation.yml
           if-no-files-found: warn
           retention-days: 1
