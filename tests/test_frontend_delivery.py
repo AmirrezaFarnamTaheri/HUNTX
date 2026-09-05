@@ -19,13 +19,16 @@ def _load_frontend_builder():
     return module
 
 
-def test_checked_in_bundle_matches_frontend_modules() -> None:
+def test_checked_in_index_matches_frontend_generator() -> None:
     builder = _load_frontend_builder()
-
-    expected = builder.build_bundle_code(ROOT)
-    published = (ROOT / "docs" / "assets" / "js" / "bundle.js").read_text(encoding="utf-8")
-
+    expected = builder.build_index_content(ROOT)
+    published = (ROOT / "docs" / "index.html").read_text(encoding="utf-8")
     assert published == expected
+    assert 'src="assets/js/bundle.js"' not in published
+    assert 'type="module" src="assets/js/app.js"' in published
+    assert 'cdn.tailwindcss.com' not in published
+    assert 'assets/css/tailwind.css' in published
+    assert not (ROOT / "docs" / "assets" / "js" / "bundle.js").exists()
 
 
 def test_service_worker_uses_network_first_for_deployment_shell() -> None:
@@ -33,6 +36,9 @@ def test_service_worker_uses_network_first_for_deployment_shell() -> None:
 
     assert "const deploymentShell" in worker
     assert "(freshReleaseData || deploymentShell) ? networkFirst(event.request)" in worker
+    assert "assets/js/app.js" in worker
+    assert "assets/css/tailwind.css" in worker
+    assert "assets/js/bundle.js" not in worker
     assert "Promise.allSettled" in worker
     assert "await caches.delete(CACHE_NAME)" in worker
     assert "throw new Error(`[HUNTX-SW] Cache prefetch failed" in worker
@@ -59,11 +65,37 @@ def test_frontend_i18n_supports_requested_locales_and_rtl() -> None:
     assert 'new URLSearchParams(globalThis.location?.search || "").get("lang")' in i18n
     assert 'id="language-selector"' in application
     assert "i18n.setLocale" in application
-    assert "characterData: true" in i18n
+    # Runtime rendering now translates newly inserted subtrees only. Watching every
+    # character/attribute mutation caused unnecessary full-document churn on rerenders.
+    assert "characterData: true" not in i18n
+    assert "attributeFilter:" not in i18n
+    assert "childList: true" in i18n
+    assert "subtree: true" in i18n
+    for key in ("Telemetry Radar", "Live Proxies", "Protocol Studio", "Protocol Inspector", "Artifacts & Feeds", "Germany", "United States", "Iran"):
+        assert f'"{key}"' in i18n
     assert 'id="toast-container" role="status" aria-live="polite" aria-atomic="true"' in html
 
 
 def test_i18n_module_is_included_before_application_module() -> None:
     builder = _load_frontend_builder()
 
-    assert builder.MODULE_ORDER.index("i18n.js") < builder.MODULE_ORDER.index("app.js")
+    html = builder.build_index_content(ROOT)
+    assert 'type="module" src="assets/js/app.js"' in html
+    assert 'import { i18n } from "./i18n.js";' in (ROOT / "docs" / "assets" / "js" / "app.js").read_text(encoding="utf-8")
+
+
+def test_cloudflare_anycast_geo_is_not_fabricated() -> None:
+    """The static producer must not turn an anycast prefix into a fictional city."""
+    import importlib.util
+
+    module_path = ROOT / "scripts" / "generate_site_data.py"
+    spec = importlib.util.spec_from_file_location("huntx_site_generator_test", module_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    geo = module.resolve_geo_and_carrier("104.21.12.34")
+    assert geo["country"] == "ZZ"
+    assert geo["carrier"] == "Cloudflare Anycast"
+    assert geo["latitude"] is None
+    assert geo["longitude"] is None
+    assert geo["geo_source"] == "anycast-provider"

@@ -9,6 +9,10 @@ on:
       - "docs/**"
       - "go.mod"
       - "go.sum"
+      - "package.json"
+      - "package-lock.json"
+      - "playwright.config.mjs"
+      - "tailwind.config.cjs"
       - "deploy/**"
       - "cmd/**"
       - "internal/**"
@@ -28,6 +32,10 @@ on:
       - "docs/**"
       - "go.mod"
       - "go.sum"
+      - "package.json"
+      - "package-lock.json"
+      - "playwright.config.mjs"
+      - "tailwind.config.cjs"
       - "deploy/**"
       - "cmd/**"
       - "internal/**"
@@ -48,7 +56,7 @@ jobs:
   validate:
     name: quality-gate
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -70,7 +78,7 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Go quality gate
+      - name: Go quality and vulnerability gate
         run: |
           set -euo pipefail
           formatting="$(gofmt -l .)"
@@ -80,10 +88,17 @@ jobs:
           }
           go test -race ./...
           go vet ./...
+          go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
           go build ./cmd/huntx-tools
           go build ./cmd/huntx-engine
           go build ./cmd/huntx-daemon
           go build ./cmd/huntx-probe
+          (
+            cd src/huntx/connectors/v2ray_collector
+            go test -race ./...
+            go vet ./...
+            go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
+          )
 
       - name: Validate fleet deployment manifests
         run: |
@@ -104,6 +119,22 @@ jobs:
           ./linux-amd64/helm lint deploy/helm/huntx-fleet "${helm_args[@]}"
           ./linux-amd64/helm template huntx deploy/helm/huntx-fleet "${helm_args[@]}" >/dev/null
 
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Frontend runtime and production asset gate
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          npm run build:css
+          git diff --exit-code -- docs/assets/css/tailwind.css
+          node --experimental-default-type=module --test tests/frontend_runtime.test.mjs
+          npx playwright install --with-deps chromium
+          npx playwright test
+          python scripts/update_frontend.py --check
+
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
@@ -123,5 +154,4 @@ jobs:
           python -m compileall -q -j 0 src tests scripts
           python -m flake8 src/huntx tests scripts --count --statistics
           python -m mypy src/huntx
-          python scripts/update_frontend.py --check
           python -m pytest -q -m "not perf" --strict-config --strict-markers --durations=20 --junitxml=pytest-results.xml

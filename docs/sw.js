@@ -1,11 +1,15 @@
 // HUNTX ServiceWorker — offline fallback with deployment-aware freshness.
-const CACHE_NAME = 'huntx-cache-v3.0';
+const CACHE_NAME = 'huntx-cache-v4.0';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './architecture.html',
   './catalog.json',
-  './assets/js/bundle.js',
+  './assets/css/tailwind.css',
+  './assets/js/app.js',
+  './assets/js/globe.js',
+  './assets/js/i18n.js',
+  './assets/js/qrcode.js',
   './assets/js/decoder.js',
   './assets/js/wasm_exec.js',
   './assets/js/rule-studio.js',
@@ -52,7 +56,8 @@ self.addEventListener('fetch', (event) => {
   const freshReleaseData = path.endsWith('/catalog.json') || path.includes('/artifacts/release/');
   const deploymentShell = event.request.mode === 'navigate'
     || path.endsWith('/index.html')
-    || path.endsWith('/assets/js/bundle.js')
+    || path.endsWith('/assets/js/app.js')
+    || path.endsWith('/assets/css/tailwind.css')
     || path.endsWith('/sw.js');
   const networkFirst = (request) => fetch(request).then(async (response) => {
     if (response && response.ok) {

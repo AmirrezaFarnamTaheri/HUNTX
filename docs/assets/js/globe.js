@@ -2,9 +2,8 @@
 // Cyber Neon Heatmap Edition: 1,500 Dense Fibonacci Points, 20 Global Geo-Clusters,
 // Multi-Hub Cyber Mesh Telemetry Arcs with Traveling Photons, and Zero-Allocation Mathematical Transforms.
 
-import { GLOBE_HUBS } from "./data.js";
-
-export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null) {
+/** Mount the telemetry globe with explicit touch-gating and evidence-backed hubs. */
+export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null, options = {}) {
   const canvas = document.getElementById(canvasId);
   if (!canvas || typeof canvas.getContext !== "function") return { destroy: () => {} };
 
@@ -143,9 +142,9 @@ export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null) {
     { name: "Tehran Edge", lat: 35.69, lon: 51.39, count: 1, code: "IR", ping: 20 }
   ];
 
-  const sourceHubs = (customHubs && Array.isArray(customHubs) && customHubs.length > 0)
-    ? customHubs
-    : ((typeof GLOBE_HUBS !== "undefined" && Array.isArray(GLOBE_HUBS) && GLOBE_HUBS.length > 0) ? GLOBE_HUBS : DEFAULT_HUBS);
+  // An explicit empty hub list is authoritative. Only null/omitted input opts
+  // into demo hubs; the dashboard passes [] when no evidence-backed hubs exist.
+  const sourceHubs = Array.isArray(customHubs) ? customHubs : DEFAULT_HUBS;
 
   // Pre-calculate Hub Coordinates
   const hubs = sourceHubs.map(hub => {
@@ -489,8 +488,65 @@ export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null) {
     rafId = requestAnimationFrame(render);
   }
 
+  // Touch interaction gating for coarse pointer devices. The timeout is
+  // activity-based and owned by this component so remounts cannot leak stale timers.
+  let isTouchActive = false;
+  let touchInactivityTimer = null;
+  const TOUCH_IDLE_TIMEOUT_MS = 12000;
+  canvas.style.touchAction = "pan-y";
+
+  function notifyTouchMode() {
+    if (typeof options.onTouchModeChange === "function") options.onTouchModeChange(isTouchActive);
+  }
+
+  function scheduleTouchInactivityTimeout() {
+    if (touchInactivityTimer) clearTimeout(touchInactivityTimer);
+    touchInactivityTimer = null;
+    if (!isTouchActive) return;
+    touchInactivityTimer = setTimeout(() => setTouchInteractive(false), TOUCH_IDLE_TIMEOUT_MS);
+  }
+
+  function noteTouchActivity() {
+    if (isTouchActive) scheduleTouchInactivityTimeout();
+  }
+
+  function setTouchInteractive(active) {
+    isTouchActive = !!active;
+    canvas.style.touchAction = isTouchActive ? "none" : "pan-y";
+    scheduleTouchInactivityTimeout();
+    notifyTouchMode();
+  }
+
+  function checkHubClick(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = clientX - rect.left;
+    const my = clientY - rect.top;
+
+    for (let i = 0; i < hubs.length; i++) {
+      const h = hubs[i];
+      if (h.screenZ > 0) {
+        const dist = Math.hypot(mx - h.screenX, my - h.screenY);
+        if (dist < 24) {
+          if (typeof onNodeSelect === "function") {
+            onNodeSelect(h);
+          }
+          break;
+        }
+      }
+    }
+  }
+
   // Pointer Interaction Listeners with Inertia Physics
   function onPointerDown(e) {
+    if (e.pointerType === "touch") noteTouchActivity();
+    if (e.pointerType === "touch" && !isTouchActive) {
+      // Allow native page vertical scrolling without touch capture
+      startX = e.clientX;
+      startY = e.clientY;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      return;
+    }
     isDragging = true;
     startX = e.clientX;
     startY = e.clientY;
@@ -499,10 +555,13 @@ export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null) {
     lastMoveTime = performance.now();
     velX = 0;
     velY = 0;
-    canvas.setPointerCapture(e.pointerId);
+    try {
+      canvas.setPointerCapture(e.pointerId);
+    } catch (err) {}
   }
 
   function onPointerMove(e) {
+    if (e.pointerType === "touch" && isDragging) noteTouchActivity();
     if (isDragging) {
       const now = performance.now();
       const dt = Math.max(1, now - lastMoveTime);
@@ -544,6 +603,7 @@ export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null) {
   }
 
   function onPointerUp(e) {
+    if (e.pointerType === "touch") noteTouchActivity();
     if (isDragging) {
       const moveDist = Math.hypot(e.clientX - startX, e.clientY - startY);
       isDragging = false;
@@ -553,30 +613,30 @@ export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null) {
 
       // Click Hub Detection
       if (moveDist < 6) {
-        const rect = canvas.getBoundingClientRect();
-        const mx = e.clientX - rect.left;
-        const my = e.clientY - rect.top;
-
-        for (let i = 0; i < hubs.length; i++) {
-          const h = hubs[i];
-          if (h.screenZ > 0) {
-            const dist = Math.hypot(mx - h.screenX, my - h.screenY);
-            if (dist < 24) {
-              if (typeof onNodeSelect === "function") {
-                onNodeSelect(h);
-              }
-              break;
-            }
-          }
-        }
+        checkHubClick(e.clientX, e.clientY);
+      }
+    } else if (e.pointerType === "touch" && !isTouchActive) {
+      // Quick tap detection on mobile when gate is inactive
+      const tapDist = Math.hypot(e.clientX - startX, e.clientY - startY);
+      if (tapDist < 8) {
+        checkHubClick(e.clientX, e.clientY);
       }
     }
+  }
+
+  function onPointerCancel(e) {
+    isDragging = false;
+    velX = 0;
+    velY = reduceMotion ? 0 : 0.0032;
+    try {
+      canvas.releasePointerCapture(e.pointerId);
+    } catch (err) {}
   }
 
   canvas.addEventListener("pointerdown", onPointerDown);
   canvas.addEventListener("pointermove", onPointerMove);
   canvas.addEventListener("pointerup", onPointerUp);
-  canvas.addEventListener("pointercancel", onPointerUp);
+  canvas.addEventListener("pointercancel", onPointerCancel);
 
   const resizeObserver = new ResizeObserver(() => resize());
   resizeObserver.observe(canvas);
@@ -613,15 +673,19 @@ export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null) {
       resize();
       rafId = requestAnimationFrame(render);
     },
+    setTouchInteractive,
+    isTouchInteractive: () => isTouchActive,
     destroy: () => {
       cancelAnimationFrame(rafId);
+      if (touchInactivityTimer) clearTimeout(touchInactivityTimer);
+      touchInactivityTimer = null;
       resizeObserver.disconnect();
       intersectionObserver.disconnect();
       document.removeEventListener("visibilitychange", handleVisibility);
       canvas.removeEventListener("pointerdown", onPointerDown);
       canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerup", onPointerUp);
-      canvas.removeEventListener("pointercancel", onPointerUp);
+      canvas.removeEventListener("pointercancel", onPointerCancel);
     }
   };
 }
