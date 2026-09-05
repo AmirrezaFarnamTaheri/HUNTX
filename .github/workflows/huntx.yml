@@ -192,7 +192,7 @@ jobs:
       - name: Restore GitHub-hosted state
         id: github_state
         if: env.S3_BUCKET == ''
-        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: checkpoint-package
           key: huntx-runtime-state-${{ github.run_id }}-${{ github.run_attempt }}
@@ -207,7 +207,7 @@ jobs:
 
       - name: Configure AWS credentials
         if: env.S3_BUCKET != '' && env.AWS_ROLE_ARN != ''
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
@@ -690,7 +690,7 @@ jobs:
 
       - name: Save verified state to GitHub cache
         if: env.S3_BUCKET == ''
-        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: checkpoint-package
           key: huntx-runtime-state-${{ github.run_id }}-${{ github.run_attempt }}
@@ -703,7 +703,7 @@ jobs:
 
       - name: Configure AWS credentials
         if: env.S3_BUCKET != '' && env.AWS_ROLE_ARN != ''
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
@@ -764,4 +764,4 @@ jobs:
 
       - name: Deploy Pages
         id: deployment
-        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
