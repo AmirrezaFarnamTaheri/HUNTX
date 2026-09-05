@@ -6,6 +6,8 @@ on:
       - fix/mobile-touch-target-hardening
     paths:
       - scripts/pr88_remediation.py
+      - scripts/pr88_finish.py
+      - tests/test_frontend_delivery.py
       - .github/workflows/pr88-remediate.yml
 
 concurrency:
