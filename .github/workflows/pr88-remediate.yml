@@ -61,5 +61,18 @@ jobs:
               text = text.replace(ctor_test, '''  const getLatency = AppState.prototype.getLatency;\n  assert.equal(getLatency.call({}, { latency: null, ping: null }), null);\n  assert.equal(getLatency.call({}, {}), null);\n''', 1)
           path.write_text(text, encoding="utf-8")
           PY
+
+          set +e
           python scripts/pr88_remediation.py
-          git push origin HEAD:fix/mobile-touch-target-hardening
+          remediation_status=$?
+          set -e
+
+          if git log --format=%s "${GITHUB_SHA}..HEAD" | grep -Fxq "ci: cover frontend runtime, nested Go module, and dependency security"; then
+            echo "All four remediation commits exist; pushing them before reporting final validation status."
+            git push origin HEAD:fix/mobile-touch-target-hardening
+          else
+            echo "Refusing to push an incomplete remediation sequence."
+            exit "${remediation_status:-1}"
+          fi
+
+          exit "$remediation_status"
