@@ -1,0 +1,213 @@
+name: PR 88 final cleanup
+
+on:
+  push:
+    branches:
+      - fix/mobile-touch-target-hardening
+    paths:
+      - .github/workflows/pr88-final-cleanup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: fix/mobile-touch-target-hardening
+          fetch-depth: 1
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+          cache: npm
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+
+      - name: Apply final truthfulness and review cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace_once(path: str, old: str, new: str, label: str) -> None:
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected 1 occurrence, found {count}")
+              p.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          def regex_once(path: str, pattern: str, replacement: str, label: str) -> None:
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              updated, count = re.subn(pattern, lambda _m: replacement, text, count=1, flags=re.S)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected 1 regex match, found {count}")
+              p.write_text(updated, encoding="utf-8")
+
+          replace_once(
+              "docs/assets/js/globe.js",
+              '''  const sourceHubs = (customHubs && Array.isArray(customHubs) && customHubs.length > 0)\n    ? customHubs\n    : DEFAULT_HUBS;''',
+              '''  // An explicit empty hub list is authoritative. Only null/omitted input opts\n  // into demo hubs; the dashboard passes [] when no evidence-backed hubs exist.\n  const sourceHubs = Array.isArray(customHubs) ? customHubs : DEFAULT_HUBS;''',
+              "preserve explicit empty globe hubs",
+          )
+
+          regex_once(
+              "docs/assets/js/app.js",
+              r'''  \} else if \(addr\.startsWith\("162\.159\."\) \|\| addr\.startsWith\("172\.67\."\) \|\| addr\.startsWith\("104\.18\."\) \|\| addr\.startsWith\("104\.19\."\) \|\| addr\.startsWith\("104\.21\."\) \|\| addr\.startsWith\("104\.16\."\) \|\| addr\.startsWith\("172\.64\."\)\) \{\n    const parts = addr\.split\("\."\);\n    const oct3 = parts\.length >= 3 && !isNaN\(Number\(parts\[2\]\)\) \? Number\(parts\[2\]\) : 0;\n    const cfRoutes = \[[\s\S]*?\n    const \[c, car\] = cfRoutes\[oct3 % cfRoutes\.length\];\n    country = c;\n    carrier = car;''',
+              '''  } else if (addr.startsWith("162.159.") || addr.startsWith("172.67.") || addr.startsWith("104.18.") || addr.startsWith("104.19.") || addr.startsWith("104.21.") || addr.startsWith("104.16.") || addr.startsWith("172.64.")) {
+    // Cloudflare addresses are anycast. The address alone cannot truthfully
+    // identify a country or city, so retain provider evidence without inventing geography.
+    return {
+      country: "ZZ",
+      country_name: "Unknown",
+      flag: "🌐",
+      carrier: "Cloudflare Anycast",
+      org: "Cloudflare",
+      city: "Unknown",
+      latitude: null,
+      longitude: null,
+      geo_source: "anycast-provider",
+      geo_verified: false
+    };''',
+              "remove arbitrary Cloudflare city routing",
+          )
+
+          regex_once(
+              "scripts/generate_site_data.py",
+              r'''    elif addr\.startswith\(\("162\.159\.", "172\.67\.", "104\.18\.", "104\.19\.", "104\.21\.", "104\.16\.", "172\.64\."\)\):\n        oct3 = int\(addr\.split\("\."\)\[2\]\) if len\(addr\.split\("\."\)\) >= 3 and addr\.split\("\."\)\[2\]\.isdigit\(\) else 0\n        cf_routes = \[[\s\S]*?\n        country, carrier = cf_routes\[oct3 % len\(cf_routes\)\]''',
+              '''    elif addr.startswith(("162.159.", "172.67.", "104.18.", "104.19.", "104.21.", "104.16.", "172.64.")):
+        # Cloudflare IPs are anycast; provider identity is evidence, location is not.
+        return {
+            "country": "ZZ",
+            "country_name": "Unknown",
+            "flag": "🌐",
+            "carrier": "Cloudflare Anycast",
+            "org": "Cloudflare",
+            "city": "Unknown",
+            "latitude": None,
+            "longitude": None,
+            "geo_source": "anycast-provider",
+            "geo_verified": False,
+        }''',
+              "remove arbitrary Cloudflare city routing in generator",
+          )
+
+          replace_once(
+              "scripts/generate_site_data.py",
+              '''    country = "US"\n    carrier = "Direct Carrier"''',
+              '''    country = None\n    carrier = None''',
+              "truthful geo defaults",
+          )
+
+          replace_once(
+              "docs/assets/js/i18n.js",
+              '    const regionsBadgeMatch = source.match(/^(\\d+)\\s+REGIONS$/i);',
+              '    const regionsBadgeMatch = source.match(/^(\\d+)\\s+REGIONS$/);',
+              "exact uppercase region badge",
+          )
+
+          # Add concise documentation to the functions touched by the remediation so
+          # CodeRabbit's documentation-coverage warning is addressed rather than ignored.
+          js_docs = [
+              ("docs/assets/js/app.js", 'export function resolveGeoAndCarrier(address, sni = "", host = "") {', '/** Infer coarse provider/region metadata without fabricating unknown or anycast locations. */\nexport function resolveGeoAndCarrier(address, sni = "", host = "") {'),
+              ("docs/assets/js/app.js", 'export function healthForLatency(ping) {', '/** Map a measured latency value to the canonical dashboard health grade. */\nexport function healthForLatency(ping) {'),
+              ("docs/assets/js/app.js", 'export function securityGrade(security) {', '/** Grade transport security independently from latency health. */\nexport function securityGrade(security) {'),
+              ("docs/assets/js/app.js", 'export function clusterGlobeHubs(proxies) {', '/** Cluster only evidence-backed proxy coordinates into globe hubs. */\nexport function clusterGlobeHubs(proxies) {'),
+              ("docs/assets/js/globe.js", 'export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null, options = {}) {', '/** Mount the telemetry globe with explicit touch-gating and evidence-backed hubs. */\nexport function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null, options = {}) {'),
+          ]
+          for path, old, new in js_docs:
+              text = Path(path).read_text(encoding="utf-8")
+              if new.split("\n", 1)[0] not in text:
+                  if text.count(old) != 1:
+                      raise SystemExit(f"docstring target missing: {path} {old}")
+                  Path(path).write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          py_docs = {
+              "scripts/generate_site_data.py": {
+                  "def _generated_at() -> str:": '    """Return the reproducible generation timestamp when configured, otherwise UTC now."""',
+                  "def _format_size(size_bytes: int) -> str:": '    """Format a byte count for compact dashboard display."""',
+                  "def _sha256(path: Path) -> str:": '    """Compute the SHA-256 digest of a generated artifact."""',
+                  "def _infer_media_type(path: Path) -> str:": '    """Infer the published MIME type from HUNTX artifact naming conventions."""',
+                  "def _infer_tags_and_type(path: Path, section: str) -> tuple[str, list[str], str]:": '    """Derive dashboard type, tags, and description for a published artifact."""',
+                  "def _country_flag(code: str) -> str:": '    """Render a two-letter country code as an emoji flag when possible."""',
+                  "def resolve_geo_and_carrier(address: str, sni: str = \"\", host: str = \"\") -> dict:": '    """Infer coarse metadata while keeping unknown and anycast geography explicitly unknown."""',
+                  "def _parse_proxy_uri(uri: str) -> dict | None:": '    """Parse one supported proxy URI into normalized connection metadata."""',
+                  "def parse_production_proxies() -> list[dict]:": '    """Load and normalize the production proxy snapshot for static publishing."""',
+                  "def compute_aggregate_stats(proxies: list[dict], catalog: dict) -> dict:": '    """Compute aggregate dashboard statistics without inventing unavailable measurements."""',
+                  "def generate_all() -> None:": '    """Generate the static artifact catalog and frontend data module."""',
+              },
+              "scripts/update_frontend.py": {
+                  "def build_index_content(root: Path | None = None) -> str:": '    """Render the checked-in dashboard index from the canonical template and current counts."""',
+                  "def write_index(root: Path | None = None) -> None:": '    """Write the rendered dashboard index to docs/index.html."""',
+              },
+          }
+          for path, docs in py_docs.items():
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              for signature, doc in docs.items():
+                  target = signature + "\n"
+                  documented = signature + "\n" + doc + "\n"
+                  if documented in text:
+                      continue
+                  if text.count(target) != 1:
+                      raise SystemExit(f"python doc target missing: {path} {signature}")
+                  text = text.replace(target, documented, 1)
+              p.write_text(text, encoding="utf-8")
+
+          runtime = Path("tests/frontend_runtime.test.mjs")
+          runtime_text = runtime.read_text(encoding="utf-8")
+          anchor = '''test("unknown endpoints do not receive fabricated geography", () => {\n  const geo = resolveGeoAndCarrier("203.0.113.199", "", "");\n  assert.equal(geo.country, "ZZ");\n  assert.equal(geo.carrier, "Unverified");\n  assert.equal(geo.latitude, null);\n  assert.equal(geo.longitude, null);\n  assert.equal(geo.geo_source, "unknown");\n  assert.equal(geo.geo_verified, false);\n});\n'''
+          addition = anchor + '''\n\ntest("Cloudflare anycast keeps provider evidence without invented geography", () => {\n  const geo = resolveGeoAndCarrier("104.21.12.34", "", "");\n  assert.equal(geo.country, "ZZ");\n  assert.equal(geo.carrier, "Cloudflare Anycast");\n  assert.equal(geo.org, "Cloudflare");\n  assert.equal(geo.latitude, null);\n  assert.equal(geo.longitude, null);\n  assert.equal(geo.geo_source, "anycast-provider");\n});\n'''
+          if 'test("Cloudflare anycast keeps provider evidence without invented geography"' not in runtime_text:
+              if runtime_text.count(anchor) != 1:
+                  raise SystemExit("runtime geo test anchor missing")
+              runtime_text = runtime_text.replace(anchor, addition, 1)
+          runtime_text = runtime_text.replace(
+              '  assert.match(source, /clearTimeout\\(touchInactivityTimer\\)/);\n',
+              '  assert.match(source, /clearTimeout\\(touchInactivityTimer\\)/);\n  assert.match(source, /const sourceHubs = Array\\.isArray\\(customHubs\\) \\? customHubs : DEFAULT_HUBS/);\n  assert.doesNotMatch(source, /customHubs\\.length > 0/);\n',
+              1,
+          )
+          runtime.write_text(runtime_text, encoding="utf-8")
+
+          delivery = Path("tests/test_frontend_delivery.py")
+          delivery_text = delivery.read_text(encoding="utf-8")
+          if "def test_cloudflare_anycast_geo_is_not_fabricated()" not in delivery_text:
+              delivery_text += '''\n\ndef test_cloudflare_anycast_geo_is_not_fabricated() -> None:\n    """The static producer must not turn an anycast prefix into a fictional city."""\n    import importlib.util\n\n    module_path = ROOT / "scripts" / "generate_site_data.py"\n    spec = importlib.util.spec_from_file_location("huntx_site_generator_test", module_path)\n    assert spec is not None and spec.loader is not None\n    module = importlib.util.module_from_spec(spec)\n    spec.loader.exec_module(module)\n    geo = module.resolve_geo_and_carrier("104.21.12.34")\n    assert geo["country"] == "ZZ"\n    assert geo["carrier"] == "Cloudflare Anycast"\n    assert geo["latitude"] is None\n    assert geo["longitude"] is None\n    assert geo["geo_source"] == "anycast-provider"\n'''
+              delivery.write_text(delivery_text, encoding="utf-8")
+          PY
+
+      - name: Validate cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          npm run build:css
+          git diff --exit-code -- docs/assets/css/tailwind.css
+          node --experimental-default-type=module --test tests/frontend_runtime.test.mjs
+          python -m compileall -q scripts/generate_site_data.py scripts/update_frontend.py tests/test_frontend_delivery.py
+          python -m pytest -q tests/test_frontend_delivery.py
+          python scripts/update_frontend.py --check
+          git diff --check
+
+      - name: Commit source cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "huntx-pr88-finalizer"
+          git config user.email "actions@users.noreply.github.com"
+          git add docs/assets/js/app.js docs/assets/js/globe.js docs/assets/js/i18n.js scripts/generate_site_data.py scripts/update_frontend.py tests/frontend_runtime.test.mjs tests/test_frontend_delivery.py
+          if git diff --cached --quiet; then
+            echo "No final cleanup changes needed."
+            exit 0
+          fi
+          git commit -m "fix(review): close remaining telemetry truthfulness gaps"
+          git push origin HEAD:fix/mobile-touch-target-hardening
