@@ -60,6 +60,8 @@ def test_frontend_i18n_supports_requested_locales_and_rtl() -> None:
     assert 'id="language-selector"' in application
     assert "i18n.setLocale" in application
     assert "characterData: true" in i18n
+    for key in ("Telemetry Radar", "Live Proxies", "Protocol Studio", "Protocol Inspector", "Artifacts & Feeds", "Germany", "United States", "Iran"):
+        assert f'"{key}"' in i18n
     assert 'id="toast-container" role="status" aria-live="polite" aria-atomic="true"' in html
 
 
