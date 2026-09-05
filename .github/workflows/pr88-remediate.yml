@@ -56,6 +56,9 @@ jobs:
           locale_line = '''        marker = f"  {locale}: {{\\n"\n'''
           if locale_line in text:
               text = text.replace(locale_line, '''        marker = f'  "{locale}": {{\\n' if "-" in locale else f"  {locale}: {{\\n"\n''', 1)
+          ctor_test = '''  const app = new AppState();\n  assert.equal(app.getLatency({ latency: null, ping: null }), null);\n  assert.equal(app.getLatency({}), null);\n'''
+          if ctor_test in text:
+              text = text.replace(ctor_test, '''  const getLatency = AppState.prototype.getLatency;\n  assert.equal(getLatency.call({}, { latency: null, ping: null }), null);\n  assert.equal(getLatency.call({}, {}), null);\n''', 1)
           path.write_text(text, encoding="utf-8")
           PY
           python scripts/pr88_remediation.py
