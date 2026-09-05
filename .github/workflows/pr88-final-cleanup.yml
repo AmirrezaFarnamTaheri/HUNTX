@@ -22,7 +22,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: fix/mobile-touch-target-hardening
-          fetch-depth: 50
+          fetch-depth: 30
+          filter: blob:none
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
