@@ -42,6 +42,7 @@ test("globe module owns touch inactivity and does not treat cancellation as clic
   assert.doesNotMatch(source, /pointercancel", onPointerUp/);
   assert.match(source, /scheduleTouchInactivityTimeout/);
   assert.match(source, /clearTimeout\(touchInactivityTimer\)/);
+  assert.match(source, /function onPointerUp\(e\) \{\n    if \(e\.pointerType === "touch"\) noteTouchActivity\(\);/);
 });
 
 
@@ -71,4 +72,11 @@ test("runtime localization covers dynamic user feedback", async () => {
   assert.notEqual(i18n.translate("Filtered proxies for operator: Example", "fa"), "Filtered proxies for operator: Example");
   assert.notEqual(i18n.translate("Loaded 42 active nodes into converter", "zh-CN"), "Loaded 42 active nodes into converter");
   assert.notEqual(i18n.translate("Deduplication complete: 9 unique nodes.", "ru"), "Deduplication complete: 9 unique nodes.");
+});
+
+
+test("region localization distinguishes badge casing", async () => {
+  const { i18n } = await import("../docs/assets/js/i18n.js");
+  assert.equal(i18n.translate("5 Regions", "ru"), "5 регионов");
+  assert.equal(i18n.translate("5 REGIONS", "ru"), "5 РЕГИОНОВ");
 });

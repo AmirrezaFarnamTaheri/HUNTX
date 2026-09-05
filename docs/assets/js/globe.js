@@ -602,6 +602,7 @@ export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null, op
   }
 
   function onPointerUp(e) {
+    if (e.pointerType === "touch") noteTouchActivity();
     if (isDragging) {
       const moveDist = Math.hypot(e.clientX - startX, e.clientY - startY);
       isDragging = false;
