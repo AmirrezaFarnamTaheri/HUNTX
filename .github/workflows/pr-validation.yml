@@ -105,7 +105,7 @@ jobs:
           set -euo pipefail
           docker build -f deploy/Dockerfile.daemon .
           docker build -f deploy/Dockerfile.probe .
-          curl -fsSL https://get.helm.sh/helm-v3.17.3-linux-am64.tar.gz -o helm.tar.gz
+          curl -fsSL https://get.helm.sh/helm-v3.17.3-linux-amd64.tar.gz -o helm.tar.gz
           echo "ee88b3c851ae6466a3de507f7be73fe94d54cbf2987cbaa3d1a3832ea331f2cd  helm.tar.gz" | sha256sum -c -
           tar -xzf helm.tar.gz
           helm_args=(
