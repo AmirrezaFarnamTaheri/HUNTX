@@ -15,15 +15,14 @@ permissions:
   contents: write
 
 jobs:
-  cleanup:
+  finalize:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: fix/mobile-touch-target-hardening
-          fetch-depth: 30
-          filter: blob:none
+          fetch-depth: 1
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
@@ -34,63 +33,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Merge main and resolve expected generated-output conflicts
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "huntx-pr88-finalizer"
-          git config user.email "actions@users.noreply.github.com"
-          git fetch --no-tags --depth=20 origin main:refs/remotes/origin/main
-
-          set +e
-          git merge --no-commit --no-ff origin/main
-          merge_status=$?
-          set -e
-
-          if [ "$merge_status" -ne 0 ]; then
-            unexpected=""
-            while IFS= read -r path; do
-              [ -z "$path" ] && continue
-              case "$path" in
-                docs/assets/js/bundle.js)
-                  # PR intentionally moved to native ES modules; keep bundle deletion.
-                  git rm -f -- "$path"
-                  ;;
-                docs/index.html)
-                  # Keep the PR's structural/UI work, then regenerate live counts below.
-                  git checkout --ours -- "$path"
-                  git add -- "$path"
-                  ;;
-                docs/assets/js/data.js|docs/catalog.json|docs/artifacts/*)
-                  # These are newer generated telemetry outputs from main; keep them.
-                  git checkout --theirs -- "$path"
-                  git add -- "$path"
-                  ;;
-                *)
-                  unexpected="${unexpected}${path}\n"
-                  ;;
-              esac
-            done < <(git diff --name-only --diff-filter=U)
-
-            if [ -n "$unexpected" ]; then
-              printf 'Unexpected conflicts; refusing to guess:\n%b' "$unexpected"
-              exit 1
-            fi
-          fi
-
-          remaining="$(git diff --name-only --diff-filter=U)"
-          if [ -n "$remaining" ]; then
-            printf 'Unresolved conflicts remain:\n%s\n' "$remaining"
-            exit 1
-          fi
-
-      - name: Apply final review cleanup
-        run: python scripts/pr88_final_cleanup.py
-
-      - name: Refresh generated frontend shell
+      - name: Regenerate frontend shell from resolved artifacts
         run: python scripts/update_frontend.py
 
-      - name: Validate cleanup and merge resolution
+      - name: Validate final frontend state
         shell: bash
         run: |
           set -euo pipefail
@@ -102,17 +48,26 @@ jobs:
           python -m compileall -q scripts/generate_site_data.py scripts/update_frontend.py tests/test_frontend_delivery.py
           python -m pytest -q tests/test_frontend_delivery.py
           python scripts/update_frontend.py --check
-          test -z "$(git diff --name-only --diff-filter=U)"
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          total = json.loads(Path("docs/artifacts/release/all_sources.npvt.decoded.json").read_text(encoding="utf-8"))["total"]
+          html = Path("docs/index.html").read_text(encoding="utf-8")
+          match = re.search(r'id="tab-proxies-count-badge"[^>]*>(\d+)</span>', html)
+          assert match is not None, "proxy count badge missing"
+          assert int(match.group(1)) == int(total), (match.group(1), total)
+          PY
           git diff --check
 
-      - name: Commit and push resolved branch
+      - name: Remove temporary remediation machinery and push
         shell: bash
         run: |
           set -euo pipefail
+          git config user.name "huntx-pr88-finalizer"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/pr88-final-cleanup.yml scripts/pr88_final_cleanup.py
           git add -A
-          if git diff --cached --quiet && [ ! -f .git/MERGE_HEAD ]; then
-            echo "No changes needed."
-            exit 0
-          fi
-          git commit -m "merge: resolve PR 88 conflicts and close review gaps"
+          git commit -m "chore: finalize PR 88 conflict and review cleanup"
           git push origin HEAD:fix/mobile-touch-target-hardening
