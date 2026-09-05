@@ -7,6 +7,9 @@ dist/
 build/
 .venv/
 
+# JavaScript dependencies
+node_modules/
+
 # IDE
 .vscode/
 .idea/
