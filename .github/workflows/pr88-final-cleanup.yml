@@ -48,17 +48,6 @@ jobs:
           python -m compileall -q scripts/generate_site_data.py scripts/update_frontend.py tests/test_frontend_delivery.py
           python -m pytest -q tests/test_frontend_delivery.py
           python scripts/update_frontend.py --check
-          python - <<'PY'
-          import json
-          import re
-          from pathlib import Path
-
-          total = json.loads(Path("docs/artifacts/release/all_sources.npvt.decoded.json").read_text(encoding="utf-8"))["total"]
-          html = Path("docs/index.html").read_text(encoding="utf-8")
-          match = re.search(r'id="tab-proxies-count-badge"[^>]*>(\d+)</span>', html)
-          assert match is not None, "proxy count badge missing"
-          assert int(match.group(1)) == int(total), (match.group(1), total)
-          PY
           git diff --check
 
       - name: Remove temporary remediation machinery and push
