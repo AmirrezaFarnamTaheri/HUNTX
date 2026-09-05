@@ -296,32 +296,21 @@ def resolve_geo_and_carrier(address: str, sni: str = "", host: str = "") -> dict
     elif addr.startswith("210.3."):
         country, carrier = "HK", "HKBN Hong Kong"
     else:
-        # Balanced hash fallback across global tier-1 sovereign nodes
-        h = sum(ord(c) for c in addr)
-        pool = [
-            ("DE", "Hetzner Cloud Frankfurt"),
-            ("NL", "Serverius Amsterdam"),
-            ("FI", "Hetzner Online Helsinki"),
-            ("FR", "OVHcloud Paris"),
-            ("GB", "Virgin Media London"),
-            ("SG", "Zenlayer Singapore"),
-            ("JP", "AWS Tokyo Edge"),
-            ("HK", "Alibaba Cloud Hong Kong"),
-            ("SE", "Telia Stockholm"),
-            ("CH", "Swisscom Zurich"),
-            ("TR", "Turkcell Istanbul"),
-            ("US", "AWS Virginia"),
-            ("CA", "OVH Montreal"),
-            ("IR", "MCI Tehran"),
-            ("RU", "Selectel Moscow"),
-            ("TW", "Chunghwa Taipei"),
-            ("IN", "Bharti Airtel Mumbai"),
-            ("UA", "Kyivstar Kyiv"),
-        ]
-        country, carrier = pool[h % len(pool)]
+        return {
+            "country": "ZZ",
+            "country_name": "Unknown",
+            "flag": "🌐",
+            "carrier": "Unverified",
+            "org": "Unverified",
+            "city": "Unknown",
+            "latitude": None,
+            "longitude": None,
+            "geo_source": "unknown",
+            "geo_verified": False,
+        }
 
-    lat, lon, hub_name = GEO_COORDINATES.get(country, (37.7749, -122.4194, "Global Hub"))
-    country_name = COUNTRY_NAMES.get(country, "International")
+    lat, lon, hub_name = GEO_COORDINATES[country]
+    country_name = COUNTRY_NAMES.get(country, "Unknown")
     flag = _country_flag(country)
 
     return {
@@ -333,6 +322,8 @@ def resolve_geo_and_carrier(address: str, sni: str = "", host: str = "") -> dict
         "city": hub_name,
         "latitude": lat,
         "longitude": lon,
+        "geo_source": "inferred",
+        "geo_verified": False,
     }
 
 
@@ -486,7 +477,7 @@ def parse_production_proxies() -> list[dict]:
         # No live probing exists in the static pipeline: latency stays
         # unmeasured instead of being invented from geography.
 
-        grade = "A+" if security == "reality" else ("A" if security == "tls" else "B+")
+        security_grade = "A+" if security == "reality" else ("A" if security == "tls" else "B+")
 
         proxy_obj = {
             "id": f"px-{idx:04d}",
@@ -512,8 +503,11 @@ def parse_production_proxies() -> list[dict]:
             "city": geo["city"],
             "latitude": geo["latitude"],
             "longitude": geo["longitude"],
+            "geo_source": geo["geo_source"],
+            "geo_verified": geo["geo_verified"],
             "latency": None,
-            "grade": grade,
+            "latency_grade": None,
+            "security_grade": security_grade,
             "raw_uri": raw
         }
         proxies.append(proxy_obj)
@@ -527,6 +521,8 @@ def cluster_globe_hubs(proxies: list[dict]) -> list[dict]:
 
     for p in proxies:
         code = p["country"]
+        if code == "ZZ" or not isinstance(p.get("latitude"), (int, float)) or not isinstance(p.get("longitude"), (int, float)):
+            continue
         if code not in hub_map:
             lat, lon, city = GEO_COORDINATES.get(code, (p["latitude"], p["longitude"], f"{code} Hub"))
             hub_map[code] = {

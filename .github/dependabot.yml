@@ -27,3 +27,39 @@ updates:
       python-development:
         dependency-type: development
     open-pull-requests-limit: 5
+
+  - package-ecosystem: gomod
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Helsinki
+    groups:
+      go-runtime:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: gomod
+    directory: "/src/huntx/connectors/v2ray_collector"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:15"
+      timezone: Europe/Helsinki
+    groups:
+      collector-go-runtime:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:30"
+      timezone: Europe/Helsinki
+    open-pull-requests-limit: 5
+

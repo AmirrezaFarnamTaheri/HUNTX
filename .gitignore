@@ -56,3 +56,5 @@ temp_state.db
 temp_bot_init/
 temp_test_output/
 .reviews/
+playwright-report/
+test-results/

@@ -16,40 +16,8 @@ INDEX_HTML = """<!DOCTYPE html>
   <meta name="theme-color" content="#00d2ff">
 
   <!-- Typography & Preconnect -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <!-- Tailwind CSS 3.4 CDN with Dark Mode Class Support -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Plus Jakarta Sans', 'sans-serif'],
-            mono: ['JetBrains Mono', 'monospace'],
-          },
-          colors: {
-            brand: {
-              50: '#f0f9ff',
-              100: '#e0f2fe',
-              200: '#bae6fd',
-              300: '#7dd3fc',
-              400: '#38bdf8',
-              500: '#0ea5e9',
-              600: '#0284c7',
-              700: '#0369a1',
-              800: '#075985',
-              900: '#0c4a6e',
-              950: '#082f49',
-            }
-          }
-        }
-      }
-    };
-  </script>
+  <link rel="stylesheet" href="assets/css/tailwind.css">
 
   <!-- Production-Grade Standalone Design Tokens & Cyber Styling -->
   <style>
@@ -223,6 +191,42 @@ INDEX_HTML = """<!DOCTYPE html>
     /* Safe-area inset support for mobile screens */
     body {
       padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    #toast-container {
+      bottom: max(1.5rem, calc(0.75rem + env(safe-area-inset-bottom, 0px))) !important;
+      padding-left: env(safe-area-inset-left, 0px);
+      padding-right: env(safe-area-inset-right, 0px);
+    }
+
+    #data-status-pill {
+      bottom: max(12px, calc(8px + env(safe-area-inset-bottom, 0px))) !important;
+      left: max(12px, calc(8px + env(safe-area-inset-left, 0px))) !important;
+    }
+
+    .technical-ltr,
+    code,
+    pre,
+    textarea.font-mono {
+      direction: ltr;
+      unicode-bidi: plaintext;
+      text-align: left;
+    }
+
+    #page-tabs-nav .nav-tab-btn {
+      scroll-snap-align: start;
+    }
+    #page-tabs-nav > div {
+      scroll-snap-type: x proximity;
+    }
+    @media (max-width: 1023px) {
+      #page-tabs-nav .no-scrollbar {
+        scrollbar-width: thin;
+      }
+      #page-tabs-nav .no-scrollbar::-webkit-scrollbar {
+        display: block;
+        height: 3px;
+      }
     }
 
     /* Animations */
@@ -643,8 +647,6 @@ INDEX_HTML = """<!DOCTYPE html>
     }
   </style>
 
-  <!-- Progressive Tailwind CDN -->
-  <script src="https://cdn.tailwindcss.com/3.4.17" defer></script>
 </head>
 <body class="bg-cyber-mesh min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-black">
   <div id="data-status-pill" role="status" aria-live="polite" class="data-status data-status-loading">Bundled snapshot</div>
@@ -779,7 +781,7 @@ INDEX_HTML = """<!DOCTYPE html>
           <span id="radar-live-badge" class="px-1.5 py-0.5 text-[9px] font-bold rounded bg-slate-950/80 text-slate-300 border border-slate-800/60">SYNCING</span>
         </button>
 
-        <!-- Tab 2: Live Proxies -->
+        <!-- Tab 2: Published Proxies -->
         <button
           class="nav-tab-btn px-3.5 py-2 rounded-xl text-xs font-mono font-semibold flex items-center gap-2 border transition-all focus-ring cursor-pointer"
           data-tab-target="proxies"
@@ -791,7 +793,7 @@ INDEX_HTML = """<!DOCTYPE html>
           <svg class="w-4 h-4 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
           </svg>
-          <span>Live Proxies</span>
+          <span>Published Proxies</span>
           <span id="tab-proxies-count-badge" class="px-1.5 py-0.5 text-[9px] font-bold rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/60">{{PROXIES_COUNT}}</span>
         </button>
 
@@ -858,7 +860,7 @@ INDEX_HTML = """<!DOCTYPE html>
       <section id="radar-diagnostics" class="space-y-6"></section>
     </div>
 
-    <!-- TAB 2 PANEL: Live Proxies Stream Grid -->
+    <!-- TAB 2 PANEL: Published Proxies Stream Grid -->
     <div id="tab-panel-proxies" class="tab-panel hidden space-y-6" role="tabpanel" aria-labelledby="tab-btn-proxies" hidden style="display: none !important;">
       <section id="filter-bar" class="relative mb-6"></section>
       <section class="mt-4">
@@ -895,15 +897,8 @@ INDEX_HTML = """<!DOCTYPE html>
   <!-- Floating Toast Notification System -->
   <div id="toast-container" role="status" aria-live="polite" aria-atomic="true" class="fixed bottom-6 inset-x-4 sm:inset-x-auto sm:right-6 z-[9999] flex flex-col items-center sm:items-end gap-2 pointer-events-none max-w-md mx-auto sm:mx-0"></div>
 
-  <!-- Checked-in standalone bundle. Supported delivery mode is HTTP/HTTPS. -->
-  <script src="assets/js/bundle.js"></script>
-
-  <!-- Resilient Non-Module Fallback -->
-  <script>
-    if (typeof AppState === 'undefined') {
-      console.warn('[HUNTX] Bundle loading fallback...');
-    }
-  </script>
+  <!-- Native ES-module entrypoint; fallback data is lazy-loaded on demand. -->
+  <script type="module" src="assets/js/app.js"></script>
 
   <!-- Progressive Web App (PWA) Offline ServiceWorker Registration -->
   <script>
@@ -920,101 +915,46 @@ INDEX_HTML = """<!DOCTYPE html>
 """
 
 
-def write_index():
+def build_index_content(root: Path | None = None) -> str:
     import json
+    project_root = root or Path(__file__).resolve().parents[1]
     proxies_count = 0
     artifacts_count = 0
     try:
-        if os.path.exists("docs/assets/js/data.js"):
-            with open("docs/assets/js/data.js", "r", encoding="utf-8") as f:
-                data_js = f.read()
-                m = re.search(r'const SAMPLE_PROXIES = (\[[\s\S]*?\]);', data_js)
-                if m:
-                    # quick estimate or parse
-                    proxies_count = data_js.count('"id": "px-')
-                m_stat = re.search(r'"total_production_nodes":\s*(\d+)', data_js)
-                if m_stat:
-                    proxies_count = int(m_stat.group(1))
-        if os.path.exists("docs/catalog.json"):
-            with open("docs/catalog.json", "r", encoding="utf-8") as f:
-                cat = json.load(f)
-                if isinstance(cat, dict) and "files" in cat:
-                    artifacts_count = len(cat["files"])
+        data_path = project_root / "docs" / "assets" / "js" / "data.js"
+        if data_path.exists():
+            data_js = data_path.read_text(encoding="utf-8")
+            proxies_count = data_js.count('"id": "px-')
+            m_stat = re.search(r'"total_production_nodes":\s*(\d+)', data_js)
+            if m_stat:
+                proxies_count = int(m_stat.group(1))
+        catalog_path = project_root / "docs" / "catalog.json"
+        if catalog_path.exists():
+            cat = json.loads(catalog_path.read_text(encoding="utf-8"))
+            if isinstance(cat, dict) and isinstance(cat.get("files"), list):
+                artifacts_count = len(cat["files"])
     except Exception:
         pass
-
-    content = INDEX_HTML
-    content = content.replace("{{PROXIES_COUNT}}", str(proxies_count))
-    content = content.replace("{{ARTIFACTS_COUNT}}", str(artifacts_count))
-
-    with open("docs/index.html", "w", encoding="utf-8") as f:
-        f.write(content)
-    print(f"✅ Successfully generated docs/index.html (Proxies: {proxies_count}, Artifacts: {artifacts_count})")
+    return INDEX_HTML.replace("{{PROXIES_COUNT}}", str(proxies_count)).replace("{{ARTIFACTS_COUNT}}", str(artifacts_count))
 
 
-def legacy_bundle():
-    order = ['data.js', 'globe.js', 'qrcode.js', 'decoder.js', 'app.js']
-    parts = []
-    for f in order:
-        path = os.path.join('docs', 'assets', 'js', f)
-        if not os.path.exists(path):
-            print(f"Error: {path} not found")
-            return
-        with open(path, 'r', encoding='utf-8') as fh:
-            content = fh.read()
-            content = re.sub(r'import\s+[\s\S]*?from\s+[\'"][^\'"]+[\'"];?', '', content)
-            content = re.sub(r'import\s+[\'"][^\'"]+[\'"];?', '', content)
-            content = re.sub(r'export\s+(async\s+)?(function|class|const|let|var)\s+', r'\1\2 ', content)
-            content = re.sub(r'export\s*default\s+', '', content)
-            content = re.sub(r'export\s*\{[\s\S]*?\};?', '', content)
-            parts.append(f'// === Module: {f} ===\n' + content)
-
-    bundle_code = '(function() {\n"use strict";\n\n' + '\n\n'.join(parts) + '\n})();\n'
-    out_path = os.path.join('docs', 'assets', 'js', 'bundle.js')
-    with open(out_path, 'w', encoding='utf-8') as out:
-        out.write(bundle_code)
-    print(f"✅ Bundle generated: {out_path} ({len(bundle_code)} bytes)")
-
-
-MODULE_ORDER = ('data.js', 'globe.js', 'qrcode.js', 'decoder.js', 'i18n.js', 'app.js')
-
-
-def build_bundle_code(root: Path | None = None) -> str:
-    """Build the exact browser bundle from the checked-in frontend modules."""
+def write_index(root: Path | None = None) -> None:
     project_root = root or Path(__file__).resolve().parents[1]
-    parts = []
-    for filename in MODULE_ORDER:
-        path = project_root / 'docs' / 'assets' / 'js' / filename
-        if not path.is_file():
-            raise FileNotFoundError(f"Frontend module not found: {path}")
-        content = path.read_text(encoding='utf-8')
-        content = re.sub(r'import\s+[\s\S]*?from\s+[\'\"][^\'\"]+[\'\"];?', '', content)
-        content = re.sub(r'import\s+[\'\"][^\'\"]+[\'\"];?', '', content)
-        content = re.sub(r'export\s+(async\s+)?(function|class|const|let|var)\s+', r'\1\2 ', content)
-        content = re.sub(r'export\s*default\s+', '', content)
-        content = re.sub(r'export\s*\{[\s\S]*?\};?', '', content)
-        parts.append(f'// === Module: {filename} ===\n' + content)
-    return '(function() {\n"use strict";\n\n' + '\n\n'.join(parts) + '\n})();\n'
-
-
-def bundle(root: Path | None = None) -> None:
-    project_root = root or Path(__file__).resolve().parents[1]
-    bundle_code = build_bundle_code(project_root)
-    out_path = project_root / 'docs' / 'assets' / 'js' / 'bundle.js'
-    temporary_path = out_path.with_suffix('.js.tmp')
-    temporary_path.write_text(bundle_code, encoding='utf-8')
-    temporary_path.replace(out_path)
-    print(f"✅ Bundle generated: {out_path} ({len(bundle_code)} bytes)")
+    content = build_index_content(project_root)
+    output = project_root / "docs" / "index.html"
+    output.write_text(content, encoding="utf-8")
+    print(f"Generated {output}")
 
 
 if __name__ == "__main__":
-    if sys.argv[1:] == ['--check']:
-        root = Path(__file__).resolve().parents[1]
-        expected = build_bundle_code(root)
-        actual = (root / 'docs' / 'assets' / 'js' / 'bundle.js').read_text(encoding='utf-8')
+    root = Path(__file__).resolve().parents[1]
+    if sys.argv[1:] == ["--check"]:
+        expected = build_index_content(root)
+        actual = (root / "docs" / "index.html").read_text(encoding="utf-8")
         if actual != expected:
-            raise SystemExit('Frontend bundle is stale; run scripts/update_frontend.py and commit bundle.js.')
-        print('Frontend bundle is current.')
+            raise SystemExit("Frontend index is stale; run scripts/update_frontend.py and commit docs/index.html.")
+        if (root / "docs" / "assets" / "js" / "bundle.js").exists():
+            raise SystemExit("Legacy bundle.js must not be checked in; native modules are the production entrypoint.")
+        print("Frontend index is current and legacy bundle is absent.")
         raise SystemExit(0)
-    write_index()
-    bundle()
+    write_index(root)

@@ -1,7 +1,6 @@
 // HUNTX / GatherX Node Intelligence & Telemetry Dashboard Application
 // High-Craft Cyber Telemetry Interface adhering to UI/UX Pro Max, Elite Frontend Architecture, and WCAG 2.1 AA.
 
-import { FALLBACK_CATALOG, SAMPLE_PROXIES, GLOBE_HUBS, INGEST_STATS } from "./data.js";
 import { initTelemetryGlobe } from "./globe.js";
 import { i18n } from "./i18n.js";
 import {
@@ -29,7 +28,7 @@ export const COUNTRY_NAMES = {
   HK: "Hong Kong", TR: "Turkey", SE: "Sweden", CH: "Switzerland", CA: "Canada",
   IR: "Iran", RU: "Russia", AU: "Australia", BR: "Brazil", ZA: "South Africa",
   IT: "Italy", ES: "Spain", AE: "UAE", IN: "India", TW: "Taiwan", UA: "Ukraine",
-  IE: "Ireland"
+  IE: "Ireland", ZZ: "Unknown"
 };
 
 export const GEO_COORDINATES = {
@@ -59,7 +58,7 @@ export const GEO_COORDINATES = {
 };
 
 export function getFlagEmoji(countryCode) {
-  if (!countryCode || countryCode.length !== 2) return "🌐";
+  if (!countryCode || countryCode.length !== 2 || String(countryCode).toUpperCase() === "ZZ") return "🌐";
   return countryCode
     .toUpperCase()
     .split("")
@@ -132,8 +131,8 @@ export function resolveGeoAndCarrier(address, sni = "", host = "") {
   const hostLower = (host || "").toLowerCase().trim();
   const full = `${addr} ${sniLower} ${hostLower}`;
 
-  let country = "US";
-  let carrier = "Direct Carrier";
+  let country = null;
+  let carrier = null;
 
   // 1. Explicit domain TLDs & contextual keywords
   if (addr.includes(".ir") || full.includes("iran") || full.includes("tehran") || full.includes("soundfiy") || full.includes("zula.ir")) {
@@ -259,35 +258,22 @@ export function resolveGeoAndCarrier(address, sni = "", host = "") {
     country = "HK";
     carrier = "HKBN Hong Kong";
   } else {
-    let h = 0;
-    for (let i = 0; i < addr.length; i++) h += addr.charCodeAt(i);
-    const pool = [
-      ["DE", "Hetzner Cloud Frankfurt"],
-      ["NL", "Serverius Amsterdam"],
-      ["FI", "Hetzner Online Helsinki"],
-      ["FR", "OVHcloud Paris"],
-      ["GB", "Virgin Media London"],
-      ["SG", "Zenlayer Singapore"],
-      ["JP", "AWS Tokyo Edge"],
-      ["HK", "Alibaba Cloud Hong Kong"],
-      ["SE", "Telia Stockholm"],
-      ["CH", "Swisscom Zurich"],
-      ["TR", "Turkcell Istanbul"],
-      ["US", "AWS Virginia"],
-      ["CA", "OVH Montreal"],
-      ["IR", "MCI Tehran"],
-      ["RU", "Selectel Moscow"],
-      ["TW", "Chunghwa Taipei"],
-      ["IN", "Bharti Airtel Mumbai"],
-      ["UA", "Kyivstar Kyiv"],
-    ];
-    const [c, car] = pool[h % pool.length];
-    country = c;
-    carrier = car;
+    return {
+      country: "ZZ",
+      country_name: "Unknown",
+      flag: "🌐",
+      carrier: "Unverified",
+      org: "Unverified",
+      city: "Unknown",
+      latitude: null,
+      longitude: null,
+      geo_source: "unknown",
+      geo_verified: false
+    };
   }
 
-  const geoInfo = GEO_COORDINATES[country] || { lat: 37.7749, lon: -122.4194, city: "Global Hub" };
-  const countryName = COUNTRY_NAMES[country] || "International";
+  const geoInfo = GEO_COORDINATES[country];
+  const countryName = COUNTRY_NAMES[country] || "Unknown";
   const flag = getFlagEmoji(country);
 
   return {
@@ -298,16 +284,21 @@ export function resolveGeoAndCarrier(address, sni = "", host = "") {
     org: carrier,
     city: geoInfo.city,
     latitude: geoInfo.lat,
-    longitude: geoInfo.lon
+    longitude: geoInfo.lon,
+    geo_source: "inferred",
+    geo_verified: false
   };
 }
 
 export function clusterGlobeHubs(proxies) {
   const hubMap = {};
   for (const p of proxies) {
-    const code = p.country || "US";
+    const code = String(p.country || "ZZ").toUpperCase();
+    const latitude = Number(p.latitude);
+    const longitude = Number(p.longitude);
+    if (code === "ZZ" || !Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
     if (!hubMap[code]) {
-      const geo = GEO_COORDINATES[code] || { lat: p.latitude || 37.7749, lon: p.longitude || -122.4194, city: `${code} Hub` };
+      const geo = GEO_COORDINATES[code] || { lat: latitude, lon: longitude, city: `${code} Hub` };
       hubMap[code] = {
         name: geo.city,
         lat: geo.lat,
@@ -362,6 +353,32 @@ function debounce(fn, delay = 150) {
   };
 }
 
+export const HEALTH_GRADES = Object.freeze([
+  Object.freeze({ id: "A+", maxLatency: 45, score: 98, label: "Ultra Fast", color: "text-emerald-400 border-emerald-800/80 bg-emerald-950/60" }),
+  Object.freeze({ id: "A", maxLatency: 80, score: 91, label: "Fast", color: "text-cyan-400 border-cyan-800/80 bg-cyan-950/60" }),
+  Object.freeze({ id: "B", maxLatency: 140, score: 82, label: "Stable", color: "text-amber-400 border-amber-800/80 bg-amber-950/60" }),
+  Object.freeze({ id: "C", maxLatency: Number.POSITIVE_INFINITY, score: 68, label: "Moderate", color: "text-rose-400 border-rose-800/80 bg-rose-950/60" })
+]);
+
+export function healthForLatency(ping) {
+  if (ping === null || ping === undefined || ping === "") {
+    return { score: null, grade: "—", label: "Unmeasured", color: "text-gray-400 border-gray-700 bg-gray-900" };
+  }
+  const value = Number(ping);
+  if (!Number.isFinite(value) || value < 0) {
+    return { score: null, grade: "—", label: "Unmeasured", color: "text-gray-400 border-gray-700 bg-gray-900" };
+  }
+  const grade = HEALTH_GRADES.find((candidate) => value <= candidate.maxLatency) || HEALTH_GRADES[HEALTH_GRADES.length - 1];
+  return { score: grade.score, grade: grade.id, label: grade.label, color: grade.color };
+}
+
+export function securityGrade(security) {
+  const value = String(security || "none").toLowerCase();
+  if (value === "reality") return "A+";
+  if (value === "tls") return "A";
+  return "B+";
+}
+
 function getStoredTheme() {
   try {
     return (typeof localStorage !== "undefined" && localStorage.getItem("huntx_theme")) || "dark";
@@ -380,10 +397,11 @@ function setStoredTheme(theme) {
 
 export class AppState {
   constructor() {
-    this.catalog = FALLBACK_CATALOG;
-    this.proxies = [...SAMPLE_PROXIES];
-    this.globeHubs = [...(GLOBE_HUBS || [])];
-    this.stats = INGEST_STATS || {};
+    this.catalog = { files: [], total_files: 0, total_size: 0, total_size_str: "0 B" };
+    this.proxies = [];
+    this.globeHubs = [];
+    this.stats = {};
+    this.fallbackLoaded = false;
     this.searchQuery = "";
     this.artifactFilter = "ALL";
     this.artifactSearchQuery = "";
@@ -440,7 +458,8 @@ export class AppState {
         btn.tabIndex = isCurrent ? 0 : -1;
         if (isCurrent && typeof btn.scrollIntoView === "function") {
           try {
-            btn.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+            const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+            btn.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "nearest", inline: "center" });
           } catch (e) {
             btn.scrollIntoView();
           }
@@ -484,7 +503,7 @@ export class AppState {
     // Dynamic Title Management
     const titles = {
       radar: "HUNTX — 3D Telemetry Radar & Diagnostics",
-      proxies: `HUNTX — Live Proxies (${this.proxies.length} Endpoints)`,
+      proxies: `HUNTX — Published Proxies (${this.proxies.length} Endpoints)`,
       studio: "HUNTX — Protocol & Subscription Studio",
       decoder: "HUNTX — Deep Protocol Inspector & In-Browser Parser",
       artifacts: `HUNTX — Pipeline Artifacts & Feeds (${this.catalog.files ? this.catalog.files.length : (this.catalog.total_files || 0)})`
@@ -516,6 +535,29 @@ export class AppState {
       throw new Error("Published artifact integrity check failed");
     }
     return JSON.parse(new TextDecoder().decode(bytes));
+  }
+
+  async loadBundledFallback() {
+    if (this.fallbackLoaded) return;
+    const data = await import("./data.js");
+    this.catalog = data.FALLBACK_CATALOG || this.catalog;
+    this.proxies = (data.SAMPLE_PROXIES || []).map((proxy) => {
+      const rawLatency = proxy?.latency ?? proxy?.ping;
+      const measured = rawLatency === null || rawLatency === undefined || rawLatency === "" ? null : Number(rawLatency);
+      const latency = Number.isFinite(measured) && measured >= 0 ? measured : null;
+      return {
+        ...proxy,
+        latency,
+        ping: latency,
+        latency_grade: healthForLatency(latency).grade,
+        security_grade: proxy.security_grade || securityGrade(proxy.security),
+        geo_source: proxy.geo_source || "legacy-estimate",
+        geo_verified: Boolean(proxy.geo_verified)
+      };
+    });
+    this.globeHubs = clusterGlobeHubs(this.proxies);
+    this.stats = data.INGEST_STATS || {};
+    this.fallbackLoaded = true;
   }
 
   async loadLiveData() {
@@ -557,7 +599,8 @@ export class AppState {
 
             const geo = resolveGeoAndCarrier(host, sni, hostHeader);
 
-            const measuredLatency = Number(entry.latency_ms ?? entry.latency ?? entry.ping);
+            const rawLatency = entry.latency_ms ?? entry.latency ?? entry.ping;
+            const measuredLatency = rawLatency === null || rawLatency === undefined || rawLatency === "" ? null : Number(rawLatency);
             const latency = Number.isFinite(measuredLatency) && measuredLatency >= 0 ? measuredLatency : null;
 
             return {
@@ -584,6 +627,10 @@ export class AppState {
               city: geo.city,
               latitude: geo.latitude,
               longitude: geo.longitude,
+              geo_source: geo.geo_source,
+              geo_verified: geo.geo_verified,
+              security_grade: securityGrade(security),
+              latency_grade: healthForLatency(latency).grade,
               latency,
               ping: latency,
               raw_uri: raw,
@@ -605,8 +652,9 @@ export class AppState {
       this.globeHubs = globeCandidate;
       this.liveDataState = "ready";
       this.renderDataStatus();
-    } else if (this.liveDataState === "loading") {
-      this.liveDataState = "stale";
+    } else {
+      await this.loadBundledFallback();
+      if (this.liveDataState === "loading") this.liveDataState = "stale";
       this.renderDataStatus();
     }
   }
@@ -616,8 +664,8 @@ export class AppState {
     if (!pill) return;
     const when = escapeHTML(this.catalog?.generated_at || "");
     const map = {
-      ready: { cls: "data-status-ready", text: `Live verified snapshot${when ? " · " + when : ""}` },
-      stale: { cls: "data-status-stale", text: "Bundled snapshot — live data unavailable" },
+      ready: { cls: "data-status-ready", text: `Artifact integrity verified${when ? " · " + when : ""}` },
+      stale: { cls: "data-status-stale", text: "Bundled snapshot — published data unavailable" },
       "integrity-error": { cls: "data-status-stale", text: "Integrity check failed — bundled snapshot shown" },
       loading: { cls: "data-status-loading", text: "Verifying published snapshot…" },
       idle: { cls: "data-status-loading", text: "Bundled snapshot" }
@@ -629,7 +677,7 @@ export class AppState {
     const pipelineBadge = document.getElementById("pipeline-state-badge");
     if (pipelineBadge) {
       const states = {
-        ready: { dot: "bg-emerald-500", glow: "bg-emerald-400 opacity-75 animate-ping", text: "PIPELINE ONLINE", tone: "text-emerald-400", frame: "bg-emerald-950/50 border-emerald-800/40" },
+        ready: { dot: "bg-emerald-500", glow: "", text: "SNAPSHOT VERIFIED", tone: "text-emerald-400", frame: "bg-emerald-950/50 border-emerald-800/40" },
         stale: { dot: "bg-amber-500", glow: "", text: "BUNDLED SNAPSHOT", tone: "text-amber-400", frame: "bg-amber-950/40 border-amber-800/40" },
         "integrity-error": { dot: "bg-rose-500", glow: "", text: "INTEGRITY CHECK FAILED", tone: "text-rose-400", frame: "bg-rose-950/40 border-rose-800/40" },
         loading: { dot: "bg-slate-400", glow: "", text: "SYNCING", tone: "text-slate-300", frame: "bg-slate-900/60 border-slate-700/50" },
@@ -648,7 +696,7 @@ export class AppState {
     const radarBadge = document.getElementById("radar-live-badge");
     if (radarBadge) {
       const live = this.liveDataState === "ready";
-      radarBadge.textContent = live ? "LIVE" : "SAMPLE";
+      radarBadge.textContent = live ? "VERIFIED" : "BUNDLED";
       radarBadge.className = `px-1.5 py-0.5 text-[9px] font-bold rounded border ${
         live
           ? "bg-cyan-950/80 text-cyan-300 border-cyan-800/60"
@@ -668,6 +716,20 @@ export class AppState {
     ].join("|");
   }
 
+  syncGlobeTouchControl(active) {
+    const touchBtn = document.getElementById("btn-globe-touch-toggle");
+    const label = document.getElementById("globe-touch-label");
+    if (!touchBtn) return;
+    const enabled = Boolean(active);
+    touchBtn.setAttribute("aria-pressed", enabled ? "true" : "false");
+    if (label) label.textContent = enabled ? "Exit 3D Mode" : "Explore 3D Globe";
+    touchBtn.classList.toggle("bg-cyan-500", enabled);
+    touchBtn.classList.toggle("text-gray-950", enabled);
+    touchBtn.classList.toggle("border-cyan-400", enabled);
+    touchBtn.classList.toggle("bg-gray-950/90", !enabled);
+    touchBtn.classList.toggle("text-cyan-300", !enabled);
+  }
+
   mountGlobe() {
     this.globeInstance?.destroy?.();
     this.globeInstance = initTelemetryGlobe("telemetry-globe-canvas", (hub) => {
@@ -676,7 +738,10 @@ export class AppState {
       this.renderNodes();
       this.switchPageTab("proxies", true);
       this.showToast(`Filtered by ${escapeHTML(hub.name)} (${escapeHTML(hub.code)})`);
-    }, this.globeHubs);
+    }, this.globeHubs, {
+      onTouchModeChange: (active) => this.syncGlobeTouchControl(active)
+    });
+    this.syncGlobeTouchControl(this.globeInstance?.isTouchInteractive?.() || false);
   }
 
   async refreshPublishedData({ notify = true } = {}) {
@@ -696,7 +761,7 @@ export class AppState {
       this.renderFooter();
       this.switchPageTab(this.activePageTab, false);
       this.mountGlobe();
-      if (notify) this.showToast("Published data updated");
+      if (notify) this.showToast("Published snapshot updated");
       return true;
     } finally {
       this.liveRefreshInFlight = false;
@@ -762,18 +827,13 @@ export class AppState {
   }
 
   getHealthScore(ping) {
-    if (!Number.isFinite(ping) || ping < 0) {
-      return { score: null, grade: "—", label: "Unmeasured", color: "text-gray-400 border-gray-700 bg-gray-900" };
-    }
-    const p = ping;
-    if (p <= 45) return { score: 98, grade: "A+", label: "Ultra Fast", color: "text-emerald-400 border-emerald-800/80 bg-emerald-950/60" };
-    if (p <= 80) return { score: 91, grade: "A", label: "Fast", color: "text-cyan-400 border-cyan-800/80 bg-cyan-950/60" };
-    if (p <= 140) return { score: 82, grade: "B", label: "Stable", color: "text-amber-400 border-amber-800/80 bg-amber-950/60" };
-    return { score: 68, grade: "C", label: "Moderate", color: "text-rose-400 border-rose-800/80 bg-rose-950/60" };
+    return healthForLatency(ping);
   }
 
   getLatency(node) {
-    const value = Number(node?.latency ?? node?.ping);
+    const raw = node?.latency ?? node?.ping;
+    if (raw === null || raw === undefined || raw === "") return null;
+    const value = Number(raw);
     return Number.isFinite(value) && value >= 0 ? value : null;
   }
 
@@ -948,7 +1008,7 @@ export class AppState {
     }`;
     el.innerHTML = `
       <div class="w-2 h-2 rounded-full ${type === 'success' ? 'bg-emerald-400' : 'bg-cyan-400'} animate-pulse shrink-0"></div>
-      <span class="truncate max-w-[280px]">${escapeHTML(msg)}</span>
+      <span class="truncate max-w-[280px]">${escapeHTML(i18n.translate(msg))}</span>
     `;
 
     container.appendChild(el);
@@ -1062,8 +1122,8 @@ export class AppState {
     if (!header) return;
 
     header.innerHTML = `
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-        <a href="#" class="flex items-center gap-3 group focus-ring rounded-xl p-1" aria-label="HUNTX Home">
+      <div class="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-4">
+        <a href="#" class="flex shrink-0 items-center gap-2 group focus-ring rounded-xl p-1" aria-label="HUNTX Home">
           <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 via-blue-600 to-indigo-700 p-0.5 shadow-lg shadow-cyan-500/20 group-hover:scale-105 transition-transform duration-200">
             <div class="w-full h-full bg-gray-950 rounded-[10px] flex items-center justify-center">
               <svg class="w-5 h-5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1076,7 +1136,7 @@ export class AppState {
           <div>
             <div class="flex items-center gap-2">
               <span class="font-mono text-base font-bold tracking-tight text-white">HUNT<span class="text-cyan-400">X</span></span>
-              <span class="px-1.5 py-0.5 text-[9px] font-mono font-bold bg-cyan-950/80 text-cyan-400 border border-cyan-800/60 rounded">v2.5</span>
+              <span class="hidden sm:inline px-1.5 py-0.5 text-[9px] font-mono font-bold bg-cyan-950/80 text-cyan-400 border border-cyan-800/60 rounded">v2.5</span>
             </div>
             <span class="text-[10px] text-gray-400 font-mono tracking-wider hidden sm:block">NODE TELEMETRY</span>
           </div>
@@ -1101,8 +1161,8 @@ export class AppState {
           </div>
         </div>
 
-        <div class="flex items-center gap-1.5 sm:gap-2.5">
-          <div id="pipeline-state-badge" class="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-slate-900/60 border border-slate-700/50 rounded-full">
+        <div class="relative shrink-0 flex items-center gap-1 sm:gap-2.5">
+          <div id="pipeline-state-badge" class="hidden xl:flex items-center gap-2 px-3 py-1.5 bg-slate-900/60 border border-slate-700/50 rounded-full">
             <span class="relative flex h-2 w-2">
               <span class="relative inline-flex rounded-full h-2 w-2 bg-slate-400"></span>
             </span>
@@ -1114,7 +1174,7 @@ export class AppState {
             id="language-selector"
             data-i18n-ignore
             dir="ltr"
-            class="min-h-[44px] w-[72px] sm:w-[92px] px-1.5 sm:px-2 bg-gray-900 border border-gray-700 text-gray-200 text-xs font-mono rounded-xl focus-ring cursor-pointer"
+            class="min-h-[44px] w-[64px] sm:w-[92px] px-1.5 sm:px-2 bg-gray-900 border border-gray-700 text-gray-200 text-xs font-mono rounded-xl focus-ring cursor-pointer"
             aria-label="${i18n.translate("Language")}"
             title="${i18n.translate("Language")}"
           >
@@ -1126,7 +1186,7 @@ export class AppState {
 
           <button
             id="btn-open-scanner"
-            class="flex items-center justify-center gap-1.5 p-2 sm:px-3.5 sm:py-2 min-h-[44px] min-w-[44px] bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/30 hover:border-emerald-400 text-emerald-300 text-xs font-mono font-medium rounded-xl transition-all shadow-sm focus-ring cursor-pointer"
+            class="hidden 2xl:flex items-center justify-center gap-1.5 p-2 sm:px-3.5 sm:py-2 min-h-[44px] min-w-[44px] bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/30 hover:border-emerald-400 text-emerald-300 text-xs font-mono font-medium rounded-xl transition-all shadow-sm focus-ring cursor-pointer"
             title="Open Clean IP Scanner (Press S)"
             aria-label="Open Clean IP Scanner"
           >
@@ -1136,7 +1196,7 @@ export class AppState {
 
           <button
             id="btn-open-builder"
-            class="flex items-center justify-center gap-1.5 p-2 sm:px-3.5 sm:py-2 min-h-[44px] min-w-[44px] bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 hover:border-cyan-400 text-cyan-300 text-xs font-mono font-medium rounded-xl transition-all shadow-sm focus-ring cursor-pointer"
+            class="hidden 2xl:flex items-center justify-center gap-1.5 p-2 sm:px-3.5 sm:py-2 min-h-[44px] min-w-[44px] bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 hover:border-cyan-400 text-cyan-300 text-xs font-mono font-medium rounded-xl transition-all shadow-sm focus-ring cursor-pointer"
             title="Open Subscription Builder"
             aria-label="Open Subscription Builder"
           >
@@ -1146,7 +1206,7 @@ export class AppState {
 
           <button
             id="btn-open-decoder"
-            class="hidden sm:flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 text-gray-200 text-xs font-mono font-medium rounded-xl transition-all focus-ring cursor-pointer"
+            class="hidden 2xl:flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 text-gray-200 text-xs font-mono font-medium rounded-xl transition-all focus-ring cursor-pointer"
             title="Open Protocol Decoder (Press D)"
             aria-label="Open Protocol Decoder"
           >
@@ -1170,7 +1230,7 @@ export class AppState {
           <a
             href="architecture.html"
             target="_blank"
-            class="hidden sm:flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 text-gray-300 hover:text-white text-xs font-mono rounded-xl transition-all focus-ring"
+            class="hidden 2xl:flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 text-gray-300 hover:text-white text-xs font-mono rounded-xl transition-all focus-ring"
             title="Open Interactive System Architecture"
             aria-label="Open Interactive System Architecture"
           >
@@ -1181,12 +1241,38 @@ export class AppState {
           <a
             href="https://github.com/AmirrezaFarnamTaheri/HUNTX"
             target="_blank"
-            class="hidden sm:flex p-2 min-h-[44px] min-w-[44px] items-center justify-center bg-gray-900 hover:bg-gray-800 border border-gray-800 text-gray-400 hover:text-white rounded-xl transition-all focus-ring"
+            class="hidden 2xl:flex p-2 min-h-[44px] min-w-[44px] items-center justify-center bg-gray-900 hover:bg-gray-800 border border-gray-800 text-gray-400 hover:text-white rounded-xl transition-all focus-ring"
             title="GitHub Repository"
             aria-label="GitHub Repository"
           >
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"></path></svg>
           </a>
+
+
+          <button
+            id="btn-header-tools"
+            class="2xl:hidden p-2 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-cyan-500/40 text-gray-300 hover:text-cyan-300 rounded-xl transition-all focus-ring cursor-pointer"
+            title="${i18n.translate("Tools")}"
+            aria-label="${i18n.translate("Tools")}"
+            aria-haspopup="menu"
+            aria-expanded="false"
+            aria-controls="header-tools-menu"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+          </button>
+
+          <div
+            id="header-tools-menu"
+            class="hidden absolute top-[52px] right-0 z-[70] w-56 p-2 bg-gray-950/98 backdrop-blur-xl border border-gray-700 rounded-2xl shadow-2xl shadow-black/40"
+            role="menu"
+            aria-label="${i18n.translate("Tools")}"
+          >
+            <button id="menu-open-scanner" role="menuitem" class="w-full min-h-[44px] px-3 py-2 text-left text-xs font-mono text-emerald-300 hover:bg-gray-900 rounded-xl focus-ring">${i18n.translate("IP Scanner")}</button>
+            <button id="menu-open-builder" role="menuitem" class="w-full min-h-[44px] px-3 py-2 text-left text-xs font-mono text-cyan-300 hover:bg-gray-900 rounded-xl focus-ring">${i18n.translate("Sub Builder")}</button>
+            <button id="menu-open-decoder" role="menuitem" class="w-full min-h-[44px] px-3 py-2 text-left text-xs font-mono text-gray-200 hover:bg-gray-900 rounded-xl focus-ring">${i18n.translate("Decoder")}</button>
+            <a href="architecture.html" target="_blank" role="menuitem" class="flex items-center min-h-[44px] px-3 py-2 text-xs font-mono text-indigo-300 hover:bg-gray-900 rounded-xl focus-ring">${i18n.translate("Architecture")}</a>
+            <a href="https://github.com/AmirrezaFarnamTaheri/HUNTX" target="_blank" rel="noopener noreferrer" role="menuitem" class="flex items-center min-h-[44px] px-3 py-2 text-xs font-mono text-gray-300 hover:bg-gray-900 rounded-xl focus-ring">GitHub</a>
+          </div>
         </div>
       </div>
     `;
@@ -1219,8 +1305,48 @@ export class AppState {
       this.toggleTheme();
     });
 
+    const toolsButton = document.getElementById("btn-header-tools");
+    const toolsMenu = document.getElementById("header-tools-menu");
+    const setToolsOpen = (open) => {
+      if (!toolsButton || !toolsMenu) return;
+      const expanded = Boolean(open);
+      toolsButton.setAttribute("aria-expanded", expanded ? "true" : "false");
+      toolsMenu.classList.toggle("hidden", !expanded);
+      if (expanded) toolsMenu.querySelector('[role="menuitem"]')?.focus();
+    };
+    toolsButton?.addEventListener("click", () => setToolsOpen(toolsButton.getAttribute("aria-expanded") !== "true"));
+    header.onkeydown = (event) => {
+      if (event.key === "Escape" && toolsButton?.getAttribute("aria-expanded") === "true") {
+        setToolsOpen(false);
+        toolsButton.focus();
+      }
+    };
+    document.getElementById("menu-open-scanner")?.addEventListener("click", () => {
+      this.lastFocusedElement = toolsButton;
+      setToolsOpen(false);
+      this.openCleanIPScannerModal();
+    });
+    document.getElementById("menu-open-builder")?.addEventListener("click", () => {
+      this.lastFocusedElement = toolsButton;
+      setToolsOpen(false);
+      this.openSubscriptionBuilderModal();
+    });
+    document.getElementById("menu-open-decoder")?.addEventListener("click", () => {
+      this.lastFocusedElement = toolsButton;
+      setToolsOpen(false);
+      this.openDecoderModal();
+    });
+    toolsMenu?.querySelectorAll("a").forEach((link) => link.addEventListener("click", () => setToolsOpen(false)));
+
     document.getElementById("language-selector")?.addEventListener("change", (event) => {
       i18n.setLocale(event.target.value);
+      const selector = document.getElementById("language-selector");
+      const localizedLabel = i18n.translate("Language");
+      selector?.setAttribute("aria-label", localizedLabel);
+      selector?.setAttribute("title", localizedLabel);
+      toolsButton?.setAttribute("aria-label", i18n.translate("Tools"));
+      toolsButton?.setAttribute("title", i18n.translate("Tools"));
+      toolsMenu?.setAttribute("aria-label", i18n.translate("Tools"));
     });
   }
 
@@ -1362,12 +1488,13 @@ export class AppState {
             </div>
 
             <!-- Mobile Touch Interaction Gate Bar -->
-            <div id="globe-touch-gate" class="absolute bottom-3 left-3 right-3 z-10 flex items-center justify-between pointer-events-auto md:hidden">
+            <div id="globe-touch-gate" class="absolute bottom-3 left-3 right-3 z-10 hidden items-center justify-between pointer-events-auto">
               <button
                 id="btn-globe-touch-toggle"
                 type="button"
                 class="min-h-[44px] px-3.5 py-2 bg-gray-950/90 hover:bg-cyan-950 border border-cyan-500/40 hover:border-cyan-400 text-cyan-300 font-mono text-xs font-semibold rounded-xl shadow-lg backdrop-blur-md flex items-center gap-2 transition-all active:scale-95 focus-ring cursor-pointer"
                 aria-label="Toggle Interactive 3D Mode"
+                aria-pressed="false"
               >
                 <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                 <span id="globe-touch-label">Explore 3D Globe</span>
@@ -1383,35 +1510,15 @@ export class AppState {
       </div>
     `;
 
+    const touchGate = document.getElementById("globe-touch-gate");
     const touchBtn = document.getElementById("btn-globe-touch-toggle");
+    const hasCoarsePointer = typeof window !== "undefined" && window.matchMedia?.("(any-pointer: coarse)")?.matches;
+    if (touchGate) touchGate.classList.toggle("hidden", !hasCoarsePointer);
     touchBtn?.addEventListener("click", () => {
       if (!this.globeInstance) return;
-      const isCurrentlyActive = !!this.globeInstance.isTouchInteractive?.();
-      const nextState = !isCurrentlyActive;
-      this.globeInstance.setTouchInteractive?.(nextState);
-
-      const label = document.getElementById("globe-touch-label");
-      if (nextState) {
-        if (label) label.textContent = "Exit 3D Mode";
-        touchBtn.classList.add("bg-cyan-500", "text-gray-950", "border-cyan-400");
-        touchBtn.classList.remove("bg-gray-950/90", "text-cyan-300");
-
-        clearTimeout(this._globeInactivityTimer);
-        this._globeInactivityTimer = setTimeout(() => {
-          if (this.globeInstance?.isTouchInteractive?.()) {
-            this.globeInstance.setTouchInteractive(false);
-            if (label) label.textContent = "Explore 3D Globe";
-            touchBtn.classList.remove("bg-cyan-500", "text-gray-950", "border-cyan-400");
-            touchBtn.classList.add("bg-gray-950/90", "text-cyan-300");
-          }
-        }, 12000);
-      } else {
-        if (label) label.textContent = "Explore 3D Globe";
-        touchBtn.classList.remove("bg-cyan-500", "text-gray-950", "border-cyan-400");
-        touchBtn.classList.add("bg-gray-950/90", "text-cyan-300");
-        clearTimeout(this._globeInactivityTimer);
-      }
+      this.globeInstance.setTouchInteractive?.(!this.globeInstance.isTouchInteractive?.());
     });
+    this.syncGlobeTouchControl(this.globeInstance?.isTouchInteractive?.() || false);
 
     document.getElementById("hero-copy-sub")?.addEventListener("click", (e) => {
       const subUrl = resolveArtifactUrl("artifacts/release/all_sources.npvt.b64sub");
@@ -1569,11 +1676,11 @@ export class AppState {
             <span>⚡</span> Ingestion Pipeline Synchronized &amp; Verified
           </h4>
           <p class="text-xs font-sans text-gray-300">
-            ${this.proxies.length} verified proxy endpoints ready for client routing, configuration export, and subscriptions.
+            ${this.proxies.length} published proxy endpoints ready for client routing, configuration export, and subscriptions.
           </p>
         </div>
         <button id="btn-explore-live-proxies" class="px-5 py-3 min-h-[44px] bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-gray-950 font-mono font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/25 transition-all cursor-pointer shrink-0">
-          Explore Live Proxies (${this.proxies.length}) →
+          Explore Published Proxies (${this.proxies.length}) →
         </button>
       </div>
     `;
@@ -1640,12 +1747,19 @@ export class AppState {
       }))
     ];
 
-    const grades = [
-      { id: "ALL", label: "All Health Grades" },
-      { id: "A+", label: "Grade A+ (<35ms)" },
-      { id: "A", label: "Grade A (<55ms)" },
-      { id: "B+", label: "Grade B+ (Stable)" }
-    ];
+    const hasMeasuredLatency = allProxies.some((proxy) => this.getLatency(proxy) !== null);
+    if (!hasMeasuredLatency && this.selectedGrade !== "ALL") this.selectedGrade = "ALL";
+    const grades = hasMeasuredLatency
+      ? [
+          { id: "ALL", label: "All Latency Grades" },
+          ...HEALTH_GRADES.map((grade) => ({
+            id: grade.id,
+            label: Number.isFinite(grade.maxLatency)
+              ? `Grade ${grade.id} (≤${grade.maxLatency}ms)`
+              : `Grade ${grade.id} (>${HEALTH_GRADES[HEALTH_GRADES.length - 2].maxLatency}ms)`
+          }))
+        ]
+      : [{ id: "ALL", label: "Latency unmeasured" }];
 
     const securities = [
       { id: "ALL", label: "All Security Types" },
@@ -2038,20 +2152,20 @@ export class AppState {
               <div class="mt-2.5 space-y-1.5 text-xs font-mono bg-gray-950/60 p-2.5 rounded-xl border border-gray-800/60">
                 <div class="flex items-center justify-between text-[11px]">
                   <span class="text-gray-400">Endpoint:</span>
-                  <span class="text-gray-300 truncate max-w-[170px] select-all">${escapeHTML(node.server)}:${node.port}</span>
+                  <span class="technical-ltr text-gray-300 truncate max-w-[170px] select-all">${escapeHTML(node.server)}:${node.port}</span>
                 </div>
 
                 ${node.sni ? `
                   <div class="flex items-center justify-between text-[11px]">
                     <span class="text-gray-400">SNI / Host:</span>
-                    <span class="text-cyan-300 truncate max-w-[170px] select-all">${escapeHTML(node.sni)}</span>
+                    <span class="technical-ltr text-cyan-300 truncate max-w-[170px] select-all">${escapeHTML(node.sni)}</span>
                   </div>
                 ` : ''}
 
                 <div class="flex items-center justify-between text-[11px]">
                   <span class="text-gray-400">Credential:</span>
                   <div class="flex items-center gap-1">
-                    <span class="text-gray-400 font-mono text-[10px]">${escapeHTML(displayUUID)}</span>
+                    <span class="technical-ltr text-gray-400 font-mono text-[10px]">${escapeHTML(displayUUID)}</span>
                     <button
                       class="btn-toggle-mask text-gray-400 hover:text-cyan-400 cursor-pointer p-2 min-h-[44px] min-w-[44px] flex items-center justify-center focus-ring rounded-lg transition-colors"
                       data-node-id="${node.id}"
@@ -2068,7 +2182,7 @@ export class AppState {
 
                 <div class="flex items-center justify-between text-[11px] pt-1 border-t border-gray-800/40">
                   <span class="text-gray-400">Geo &amp; Carrier:</span>
-                  <span class="text-gray-300 font-semibold">${flag} ${escapeHTML(node.countryName)} • ${escapeHTML(op)}</span>
+                  <span class="text-gray-300 font-semibold">${flag} ${escapeHTML(node.countryName || node.country_name || "Unknown")} • ${escapeHTML(op)} <span class="text-[9px] text-gray-500">(${node.geo_verified ? "verified" : node.geo_source === "unknown" ? "unknown" : "estimated"})</span></span>
                 </div>
               </div>
 
@@ -2539,7 +2653,7 @@ export class AppState {
             ${file.hash ? `
               <div class="flex items-center justify-between text-[10px] font-mono">
                 <span class="text-gray-500">SHA-256:</span>
-                <span class="text-gray-400 font-mono truncate max-w-[220px]">${escapeHTML(file.hash.slice(0, 16))}...</span>
+                <span class="technical-ltr text-gray-400 font-mono truncate max-w-[220px]">${escapeHTML(file.hash.slice(0, 16))}...</span>
               </div>
             ` : ""}
             <p class="text-[11px] font-sans text-gray-400 pt-1.5 border-t border-gray-800/60 leading-relaxed">
@@ -3254,7 +3368,7 @@ export class AppState {
             >${escapeHTML(defaultVal)}</textarea>
           </div>
 
-          <div id="modal-decoder-output" class="p-4 bg-gray-950 border border-gray-800 rounded-2xl max-h-[300px] overflow-y-auto font-mono text-xs">
+          <div id="modal-decoder-output" class="technical-ltr p-4 bg-gray-950 border border-gray-800 rounded-2xl max-h-[300px] overflow-y-auto font-mono text-xs">
             ${decodedRes ? `<pre class="text-gray-300 text-[11px]">${escapeHTML(JSON.stringify(decodedRes, null, 2))}</pre>` : `<span class="text-gray-500">Click parse to inspect</span>`}
           </div>
 

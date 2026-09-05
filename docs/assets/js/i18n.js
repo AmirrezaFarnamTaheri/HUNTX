@@ -3,6 +3,31 @@ export const SUPPORTED_LOCALES = Object.freeze(["en", "fa", "zh-CN", "ru"]);
 
 export const TRANSLATIONS = Object.freeze({
   fa: {
+    "Tools": "ابزارها",
+    "Production feed URL copied to clipboard": "نشانی اشتراک تولیدی در کلیپ‌بورد کپی شد",
+    "Portable artifact path copied — deploy or serve over HTTPS before importing": "مسیر بسته کپی شد — پیش از وارد کردن، آن را روی HTTPS منتشر کنید",
+    "Failed to copy": "کپی ناموفق بود",
+    "No active nodes to copy": "گره فعالی برای کپی وجود ندارد",
+    "Please enter proxy URIs to convert": "نشانی‌های پروکسی را برای تبدیل وارد کنید",
+    "Batch conversion complete": "تبدیل گروهی کامل شد",
+    "Cannot copy invalid JSON": "JSON نامعتبر قابل کپی نیست",
+    "Clean IPs exported as CSV": "IPهای پاک به CSV صادر شدند",
+    "Clean IPs exported as JSON": "IPهای پاک به JSON صادر شدند",
+    "All filters reset": "همه فیلترها بازنشانی شدند",
+    "Published Proxies": "پروکسی‌های منتشرشده",
+    "Published Node Inventory": "فهرست گره‌های منتشرشده",
+    "Artifact integrity verified": "یکپارچگی فایل منتشرشده تأیید شد",
+    "SNAPSHOT VERIFIED": "نسخه منتشرشده تأیید شد",
+    "VERIFIED": "تأییدشده",
+    "BUNDLED": "نسخه محلی",
+    "Published snapshot updated": "نسخه منتشرشده به‌روزرسانی شد",
+    "Latency unmeasured": "تأخیر اندازه‌گیری نشده",
+    "All Latency Grades": "همه رتبه‌های تأخیر",
+    "Unknown": "نامشخص",
+    "Unverified": "تأییدنشده",
+    "estimated": "تخمینی",
+    "verified": "تأییدشده",
+    "unknown": "نامشخص",
     // Navigation & Primary Headers
     "GATHERX TELEMETRY": "تله‌متری GATHERX",
     "NODE TELEMETRY": "تله‌متری گره‌ها",
@@ -246,6 +271,31 @@ export const TRANSLATIONS = Object.freeze({
     "Ireland": "ایرلند"
   },
   "zh-CN": {
+    "Tools": "工具",
+    "Production feed URL copied to clipboard": "生产订阅地址已复制到剪贴板",
+    "Portable artifact path copied — deploy or serve over HTTPS before importing": "已复制便携文件路径——导入前请通过 HTTPS 部署或提供服务",
+    "Failed to copy": "复制失败",
+    "No active nodes to copy": "没有可复制的活动节点",
+    "Please enter proxy URIs to convert": "请输入要转换的代理 URI",
+    "Batch conversion complete": "批量转换完成",
+    "Cannot copy invalid JSON": "无法复制无效 JSON",
+    "Clean IPs exported as CSV": "Clean IP 已导出为 CSV",
+    "Clean IPs exported as JSON": "Clean IP 已导出为 JSON",
+    "All filters reset": "所有筛选条件已重置",
+    "Published Proxies": "已发布代理",
+    "Published Node Inventory": "已发布节点清单",
+    "Artifact integrity verified": "发布文件完整性已验证",
+    "SNAPSHOT VERIFIED": "快照已验证",
+    "VERIFIED": "已验证",
+    "BUNDLED": "内置快照",
+    "Published snapshot updated": "发布快照已更新",
+    "Latency unmeasured": "延迟未测量",
+    "All Latency Grades": "全部延迟等级",
+    "Unknown": "未知",
+    "Unverified": "未验证",
+    "estimated": "估算",
+    "verified": "已验证",
+    "unknown": "未知",
     // Navigation & Primary Headers
     "GATHERX TELEMETRY": "GATHERX 遥测",
     "NODE TELEMETRY": "节点遥测",
@@ -489,6 +539,31 @@ export const TRANSLATIONS = Object.freeze({
     "Ireland": "爱尔兰"
   },
   ru: {
+    "Tools": "Инструменты",
+    "Production feed URL copied to clipboard": "Адрес рабочей подписки скопирован",
+    "Portable artifact path copied — deploy or serve over HTTPS before importing": "Путь к артефакту скопирован — перед импортом опубликуйте его по HTTPS",
+    "Failed to copy": "Не удалось скопировать",
+    "No active nodes to copy": "Нет активных узлов для копирования",
+    "Please enter proxy URIs to convert": "Введите URI прокси для преобразования",
+    "Batch conversion complete": "Пакетное преобразование завершено",
+    "Cannot copy invalid JSON": "Нельзя скопировать некорректный JSON",
+    "Clean IPs exported as CSV": "Clean IP экспортированы в CSV",
+    "Clean IPs exported as JSON": "Clean IP экспортированы в JSON",
+    "All filters reset": "Все фильтры сброшены",
+    "Published Proxies": "Опубликованные прокси",
+    "Published Node Inventory": "Опубликованный список узлов",
+    "Artifact integrity verified": "Целостность опубликованного снимка подтверждена",
+    "SNAPSHOT VERIFIED": "СНИМОК ПРОВЕРЕН",
+    "VERIFIED": "ПРОВЕРЕНО",
+    "BUNDLED": "ВСТРОЕННЫЙ СНИМОК",
+    "Published snapshot updated": "Опубликованный снимок обновлён",
+    "Latency unmeasured": "Задержка не измерена",
+    "All Latency Grades": "Все классы задержки",
+    "Unknown": "Неизвестно",
+    "Unverified": "Не проверено",
+    "estimated": "оценка",
+    "verified": "проверено",
+    "unknown": "неизвестно",
     // Navigation & Primary Headers
     "GATHERX TELEMETRY": "ТЕЛЕМЕТРИЯ GATHERX",
     "NODE TELEMETRY": "ТЕЛЕМЕТРИЯ УЗЛОВ",
@@ -775,7 +850,7 @@ export class I18nRuntime {
   }
 
   translatePattern(source, locale) {
-    const regionMatch = source.match(/^(\d+)\s+Regions$/i);
+    const regionMatch = source.match(/^(\d+)\s+Regions$/);
     if (regionMatch) {
       if (locale === "fa") return `${regionMatch[1]} منطقه`;
       if (locale === "zh-CN") return `${regionMatch[1]} 个地区`;
@@ -853,6 +928,55 @@ export class I18nRuntime {
       const carrier = geoCarrierMatch[3];
       const translatedCountry = TRANSLATIONS[locale]?.[countryEn] || countryEn;
       return `${flag} ${translatedCountry} • ${carrier}`;
+    }
+
+    const filteredHubMatch = source.match(/^Filtered by (.+) \(([A-Z]{2})\)$/i);
+    if (filteredHubMatch) {
+      if (locale === "fa") return `فیلتر بر اساس ${filteredHubMatch[1]} (${filteredHubMatch[2]})`;
+      if (locale === "zh-CN") return `已按 ${filteredHubMatch[1]} (${filteredHubMatch[2]}) 筛选`;
+      if (locale === "ru") return `Фильтр: ${filteredHubMatch[1]} (${filteredHubMatch[2]})`;
+    }
+    const filteredOperatorMatch = source.match(/^Filtered proxies for operator:\s*(.+)$/i);
+    if (filteredOperatorMatch) {
+      if (locale === "fa") return `فیلتر پروکسی‌ها بر اساس اپراتور: ${filteredOperatorMatch[1]}`;
+      if (locale === "zh-CN") return `已按运营商筛选代理：${filteredOperatorMatch[1]}`;
+      if (locale === "ru") return `Прокси отфильтрованы по оператору: ${filteredOperatorMatch[1]}`;
+    }
+    const filteredCountryMatch = source.match(/^Filtered proxies for country:\s*(.+)$/i);
+    if (filteredCountryMatch) {
+      if (locale === "fa") return `فیلتر پروکسی‌ها بر اساس کشور: ${filteredCountryMatch[1]}`;
+      if (locale === "zh-CN") return `已按国家筛选代理：${filteredCountryMatch[1]}`;
+      if (locale === "ru") return `Прокси отфильтрованы по стране: ${filteredCountryMatch[1]}`;
+    }
+    const loadedConverterMatch = source.match(/^Loaded\s+(\d+)\s+active nodes into converter$/i);
+    if (loadedConverterMatch) {
+      if (locale === "fa") return `${loadedConverterMatch[1]} گره در مبدل بارگذاری شد`;
+      if (locale === "zh-CN") return `已将 ${loadedConverterMatch[1]} 个节点载入转换器`;
+      if (locale === "ru") return `В конвертер загружено узлов: ${loadedConverterMatch[1]}`;
+    }
+    const dedupMatch = source.match(/^Deduplication complete:\s*(\d+)\s+unique nodes\.$/i);
+    if (dedupMatch) {
+      if (locale === "fa") return `حذف تکراری‌ها کامل شد: ${dedupMatch[1]} گره یکتا.`;
+      if (locale === "zh-CN") return `去重完成：${dedupMatch[1]} 个唯一节点。`;
+      if (locale === "ru") return `Дедупликация завершена: ${dedupMatch[1]} уникальных узлов.`;
+    }
+    const switchedTabMatch = source.match(/^Switched to tab:\s*(.+)$/i);
+    if (switchedTabMatch) {
+      if (locale === "fa") return `زبانه فعال: ${switchedTabMatch[1]}`;
+      if (locale === "zh-CN") return `已切换到标签：${switchedTabMatch[1]}`;
+      if (locale === "ru") return `Открыта вкладка: ${switchedTabMatch[1]}`;
+    }
+    const viewModeMatch = source.match(/^View mode:\s*(.+)$/i);
+    if (viewModeMatch) {
+      if (locale === "fa") return `حالت نمایش: ${viewModeMatch[1]}`;
+      if (locale === "zh-CN") return `视图模式：${viewModeMatch[1]}`;
+      if (locale === "ru") return `Режим отображения: ${viewModeMatch[1]}`;
+    }
+    const failedMatch = source.match(/^(Export|Conversion) failed:\s*(.+)$/i);
+    if (failedMatch) {
+      if (locale === "fa") return `${failedMatch[1].toLowerCase() === "export" ? "صدور" : "تبدیل"} ناموفق بود: ${failedMatch[2]}`;
+      if (locale === "zh-CN") return `${failedMatch[1].toLowerCase() === "export" ? "导出" : "转换"}失败：${failedMatch[2]}`;
+      if (locale === "ru") return `${failedMatch[1].toLowerCase() === "export" ? "Экспорт" : "Преобразование"} не выполнено: ${failedMatch[2]}`;
     }
     return source;
   }
@@ -940,36 +1064,6 @@ export class I18nRuntime {
     this.observer = new MutationObserver((mutations) => {
       if (this.isTranslating) return;
       for (const mutation of mutations) {
-        if (mutation.type === "characterData") {
-          const currentValue = mutation.target.nodeValue || "";
-          const pending = this.lastWrittenText.get(mutation.target);
-          if (pending?.value === currentValue && pending.count > 0) {
-            if (pending.count === 1) this.lastWrittenText.delete(mutation.target);
-            else pending.count -= 1;
-            continue;
-          }
-          this.textSources.set(mutation.target, currentValue);
-          this.isTranslating = true;
-          try { this.translateTextNode(mutation.target); } finally { this.isTranslating = false; }
-          continue;
-        }
-        if (mutation.type === "attributes") {
-          const attributeName = mutation.attributeName;
-          const currentValue = mutation.target.getAttribute(attributeName);
-          const writes = this.lastWrittenAttributes.get(mutation.target);
-          const pending = writes?.get(attributeName);
-          if (pending?.value === currentValue && pending.count > 0) {
-            if (pending.count === 1) writes.delete(attributeName);
-            else pending.count -= 1;
-            if (writes.size === 0) this.lastWrittenAttributes.delete(mutation.target);
-            continue;
-          }
-          const sources = this.attributeSources.get(mutation.target);
-          if (sources) sources.delete(attributeName);
-          this.isTranslating = true;
-          try { this.translateAttributes(mutation.target); } finally { this.isTranslating = false; }
-          continue;
-        }
         for (const node of mutation.addedNodes) {
           this.isTranslating = true;
           try { this.translateTree(node); } finally { this.isTranslating = false; }
@@ -977,9 +1071,6 @@ export class I18nRuntime {
       }
     });
     this.observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["aria-label", "title", "placeholder"],
-      characterData: true,
       childList: true,
       subtree: true
     });

@@ -10,40 +10,8 @@
   <meta name="theme-color" content="#00d2ff">
 
   <!-- Typography & Preconnect -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <!-- Tailwind CSS 3.4 CDN with Dark Mode Class Support -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Plus Jakarta Sans', 'sans-serif'],
-            mono: ['JetBrains Mono', 'monospace'],
-          },
-          colors: {
-            brand: {
-              50: '#f0f9ff',
-              100: '#e0f2fe',
-              200: '#bae6fd',
-              300: '#7dd3fc',
-              400: '#38bdf8',
-              500: '#0ea5e9',
-              600: '#0284c7',
-              700: '#0369a1',
-              800: '#075985',
-              900: '#0c4a6e',
-              950: '#082f49',
-            }
-          }
-        }
-      }
-    };
-  </script>
+  <link rel="stylesheet" href="assets/css/tailwind.css">
 
   <!-- Production-Grade Standalone Design Tokens & Cyber Styling -->
   <style>
@@ -217,6 +185,42 @@
     /* Safe-area inset support for mobile screens */
     body {
       padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    #toast-container {
+      bottom: max(1.5rem, calc(0.75rem + env(safe-area-inset-bottom, 0px))) !important;
+      padding-left: env(safe-area-inset-left, 0px);
+      padding-right: env(safe-area-inset-right, 0px);
+    }
+
+    #data-status-pill {
+      bottom: max(12px, calc(8px + env(safe-area-inset-bottom, 0px))) !important;
+      left: max(12px, calc(8px + env(safe-area-inset-left, 0px))) !important;
+    }
+
+    .technical-ltr,
+    code,
+    pre,
+    textarea.font-mono {
+      direction: ltr;
+      unicode-bidi: plaintext;
+      text-align: left;
+    }
+
+    #page-tabs-nav .nav-tab-btn {
+      scroll-snap-align: start;
+    }
+    #page-tabs-nav > div {
+      scroll-snap-type: x proximity;
+    }
+    @media (max-width: 1023px) {
+      #page-tabs-nav .no-scrollbar {
+        scrollbar-width: thin;
+      }
+      #page-tabs-nav .no-scrollbar::-webkit-scrollbar {
+        display: block;
+        height: 3px;
+      }
     }
 
     /* Animations */
@@ -637,8 +641,6 @@
     }
   </style>
 
-  <!-- Progressive Tailwind CDN -->
-  <script src="https://cdn.tailwindcss.com/3.4.17" defer></script>
 </head>
 <body class="bg-cyber-mesh min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-black">
   <div id="data-status-pill" role="status" aria-live="polite" class="data-status data-status-loading">Bundled snapshot</div>
@@ -773,7 +775,7 @@
           <span id="radar-live-badge" class="px-1.5 py-0.5 text-[9px] font-bold rounded bg-slate-950/80 text-slate-300 border border-slate-800/60">SYNCING</span>
         </button>
 
-        <!-- Tab 2: Live Proxies -->
+        <!-- Tab 2: Published Proxies -->
         <button
           class="nav-tab-btn px-3.5 py-2 rounded-xl text-xs font-mono font-semibold flex items-center gap-2 border transition-all focus-ring cursor-pointer"
           data-tab-target="proxies"
@@ -785,7 +787,7 @@
           <svg class="w-4 h-4 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
           </svg>
-          <span>Live Proxies</span>
+          <span>Published Proxies</span>
           <span id="tab-proxies-count-badge" class="px-1.5 py-0.5 text-[9px] font-bold rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/60">1235</span>
         </button>
 
@@ -852,7 +854,7 @@
       <section id="radar-diagnostics" class="space-y-6"></section>
     </div>
 
-    <!-- TAB 2 PANEL: Live Proxies Stream Grid -->
+    <!-- TAB 2 PANEL: Published Proxies Stream Grid -->
     <div id="tab-panel-proxies" class="tab-panel hidden space-y-6" role="tabpanel" aria-labelledby="tab-btn-proxies" hidden style="display: none !important;">
       <section id="filter-bar" class="relative mb-6"></section>
       <section class="mt-4">
@@ -889,15 +891,8 @@
   <!-- Floating Toast Notification System -->
   <div id="toast-container" role="status" aria-live="polite" aria-atomic="true" class="fixed bottom-6 inset-x-4 sm:inset-x-auto sm:right-6 z-[9999] flex flex-col items-center sm:items-end gap-2 pointer-events-none max-w-md mx-auto sm:mx-0"></div>
 
-  <!-- Checked-in standalone bundle. Supported delivery mode is HTTP/HTTPS. -->
-  <script src="assets/js/bundle.js"></script>
-
-  <!-- Resilient Non-Module Fallback -->
-  <script>
-    if (typeof AppState === 'undefined') {
-      console.warn('[HUNTX] Bundle loading fallback...');
-    }
-  </script>
+  <!-- Native ES-module entrypoint; fallback data is lazy-loaded on demand. -->
+  <script type="module" src="assets/js/app.js"></script>
 
   <!-- Progressive Web App (PWA) Offline ServiceWorker Registration -->
   <script>

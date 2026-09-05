@@ -19,13 +19,16 @@ def _load_frontend_builder():
     return module
 
 
-def test_checked_in_bundle_matches_frontend_modules() -> None:
+def test_checked_in_index_matches_frontend_generator() -> None:
     builder = _load_frontend_builder()
-
-    expected = builder.build_bundle_code(ROOT)
-    published = (ROOT / "docs" / "assets" / "js" / "bundle.js").read_text(encoding="utf-8")
-
+    expected = builder.build_index_content(ROOT)
+    published = (ROOT / "docs" / "index.html").read_text(encoding="utf-8")
     assert published == expected
+    assert 'src="assets/js/bundle.js"' not in published
+    assert 'type="module" src="assets/js/app.js"' in published
+    assert 'cdn.tailwindcss.com' not in published
+    assert 'assets/css/tailwind.css' in published
+    assert not (ROOT / "docs" / "assets" / "js" / "bundle.js").exists()
 
 
 def test_service_worker_uses_network_first_for_deployment_shell() -> None:
@@ -33,6 +36,9 @@ def test_service_worker_uses_network_first_for_deployment_shell() -> None:
 
     assert "const deploymentShell" in worker
     assert "(freshReleaseData || deploymentShell) ? networkFirst(event.request)" in worker
+    assert "assets/js/app.js" in worker
+    assert "assets/css/tailwind.css" in worker
+    assert "assets/js/bundle.js" not in worker
     assert "Promise.allSettled" in worker
     assert "await caches.delete(CACHE_NAME)" in worker
     assert "throw new Error(`[HUNTX-SW] Cache prefetch failed" in worker
@@ -73,4 +79,6 @@ def test_frontend_i18n_supports_requested_locales_and_rtl() -> None:
 def test_i18n_module_is_included_before_application_module() -> None:
     builder = _load_frontend_builder()
 
-    assert builder.MODULE_ORDER.index("i18n.js") < builder.MODULE_ORDER.index("app.js")
+    html = builder.build_index_content(ROOT)
+    assert 'type="module" src="assets/js/app.js"' in html
+    assert 'import { i18n } from "./i18n.js";' in (ROOT / "docs" / "assets" / "js" / "app.js").read_text(encoding="utf-8")
