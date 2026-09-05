@@ -8,6 +8,10 @@ on:
       - scripts/pr88_remediation.py
       - .github/workflows/pr88-remediate.yml
 
+concurrency:
+  group: pr88-one-shot-remediation
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
@@ -22,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          fetch-depth: 0
+          fetch-depth: 1
           ref: fix/mobile-touch-target-hardening
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
