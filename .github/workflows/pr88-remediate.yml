@@ -1,0 +1,44 @@
+name: pr88-one-shot-remediation
+
+on:
+  push:
+    branches:
+      - fix/mobile-touch-target-hardening
+    paths:
+      - scripts/pr88_remediation.py
+      - .github/workflows/pr88-remediate.yml
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  remediate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          ref: fix/mobile-touch-target-hardening
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - name: Apply and validate remediation waves
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/pr88-remediate.yml
+          python scripts/pr88_remediation.py
+          git push origin HEAD:fix/mobile-touch-target-hardening
