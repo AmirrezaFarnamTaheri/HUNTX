@@ -17,7 +17,6 @@ docs/artifacts/release/all_sources.opaque_bundle
 docs/artifacts/release/all_sources.ovpn
 docs/artifacts/release/all_sources.sip
 docs/artifacts/release/manifest.json
-docs/assets/js/bundle.js
 docs/assets/js/data.js
 docs/catalog.json
 docs/index.html
