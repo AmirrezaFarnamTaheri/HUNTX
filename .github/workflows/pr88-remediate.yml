@@ -43,5 +43,14 @@ jobs:
         run: |
           set -euo pipefail
           rm .github/workflows/pr88-remediate.yml
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("scripts/pr88_remediation.py")
+          text = path.read_text(encoding="utf-8")
+          line = '''    app = replace_once(app, 'class="text-[10px] font-mono text-gray-500 truncate" title="${escapeHTML(link.display)}"', 'class="technical-ltr text-[10px] font-mono text-gray-500 truncate" title="${escapeHTML(link.display)}"', "artifact link bidi")\n'''
+          if line in text:
+              text = text.replace(line, '''    if 'class="text-[10px] font-mono text-gray-500 truncate" title="${escapeHTML(link.display)}"' in app:\n        app = replace_once(app, 'class="text-[10px] font-mono text-gray-500 truncate" title="${escapeHTML(link.display)}"', 'class="technical-ltr text-[10px] font-mono text-gray-500 truncate" title="${escapeHTML(link.display)}"', "artifact link bidi")\n''', 1)
+          path.write_text(text, encoding="utf-8")
+          PY
           python scripts/pr88_remediation.py
           git push origin HEAD:fix/mobile-touch-target-hardening
