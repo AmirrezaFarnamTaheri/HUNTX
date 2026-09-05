@@ -63,16 +63,20 @@ jobs:
           PY
 
           set +e
-          python scripts/pr88_remediation.py
-          remediation_status=$?
+          python scripts/pr88_remediation.py 2>&1 | tee /tmp/pr88-remediation.log
+          remediation_status=${PIPESTATUS[0]}
           set -e
 
           if git log --format=%s "${GITHUB_SHA}..HEAD" | grep -Fxq "ci: cover frontend runtime, nested Go module, and dependency security"; then
             echo "All four remediation commits exist; pushing them before reporting final validation status."
             git push origin HEAD:fix/mobile-touch-target-hardening
           else
-            echo "Refusing to push an incomplete remediation sequence."
-            exit "${remediation_status:-1}"
+            echo "Refusing to push an incomplete remediation sequence; publishing only the diagnostic log."
+            git reset --hard "$GITHUB_SHA"
+            cp /tmp/pr88-remediation.log .pr88-remediation.log
+            git add .pr88-remediation.log
+            git commit -m "chore: capture PR 88 remediation diagnostic"
+            git push origin HEAD:fix/mobile-touch-target-hardening
           fi
 
           exit "$remediation_status"
