@@ -1,0 +1,57 @@
+name: pr88-last-mile
+
+on:
+  push:
+    branches:
+      - fix/mobile-touch-target-hardening
+    paths:
+      - .github/workflows/pr88-last-mile.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: fix/mobile-touch-target-hardening
+          fetch-depth: 1
+      - name: Close final review-test gaps
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          globe = Path("docs/assets/js/globe.js")
+          text = globe.read_text(encoding="utf-8")
+          old = '''  function onPointerUp(e) {\n    if (isDragging) {'''
+          new = '''  function onPointerUp(e) {\n    if (e.pointerType === "touch") noteTouchActivity();\n    if (isDragging) {'''
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif new not in text:
+              raise SystemExit("unexpected onPointerUp shape")
+          globe.write_text(text, encoding="utf-8")
+
+          tests = Path("tests/frontend_runtime.test.mjs")
+          text = tests.read_text(encoding="utf-8")
+          assertion = '''  assert.match(source, /clearTimeout\\(touchInactivityTimer\\)/);\n'''
+          extra_assertion = '''  assert.match(source, /function onPointerUp\\(e\\) \\{\\n    if \\(e\\.pointerType === "touch"\\) noteTouchActivity\\(\\);/);\n'''
+          if extra_assertion not in text:
+              if assertion not in text:
+                  raise SystemExit("globe runtime assertion anchor not found")
+              text = text.replace(assertion, assertion + extra_assertion, 1)
+
+          region_test = '''\n\ntest("region localization distinguishes badge casing", async () => {\n  const { i18n } = await import("../docs/assets/js/i18n.js");\n  assert.equal(i18n.translate("5 Regions", "ru"), "5 регионов");\n  assert.equal(i18n.translate("5 REGIONS", "ru"), "5 РЕГИОНОВ");\n});\n'''
+          if 'test("region localization distinguishes badge casing"' not in text:
+              text += region_test
+          tests.write_text(text, encoding="utf-8")
+          PY
+          node --experimental-default-type=module --test tests/frontend_runtime.test.mjs
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/assets/js/globe.js tests/frontend_runtime.test.mjs
+          git commit -m "test(frontend): close pointer and region review gaps"
+          git push origin HEAD:fix/mobile-touch-target-hardening
