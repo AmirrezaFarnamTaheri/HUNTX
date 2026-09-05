@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 def _generated_at() -> str:
+    """Return the reproducible generation timestamp when configured, otherwise UTC now."""
     override = os.environ.get("HUNTX_GENERATED_AT", "").strip()
     if override:
         return override
@@ -57,6 +58,7 @@ CONFIG_PROD_FILE = REPO_ROOT / "configs" / "config.prod.yaml"
 
 
 def _format_size(size_bytes: int) -> str:
+    """Format a byte count for compact dashboard display."""
     if size_bytes < 1024:
         return f"{size_bytes} B"
     if size_bytes < 1024 * 1024:
@@ -65,6 +67,7 @@ def _format_size(size_bytes: int) -> str:
 
 
 def _sha256(path: Path) -> str:
+    """Compute the SHA-256 digest of a generated artifact."""
     digest = hashlib.sha256()
     with path.open("rb") as f:
         while chunk := f.read(1024 * 1024):
@@ -73,6 +76,7 @@ def _sha256(path: Path) -> str:
 
 
 def _infer_media_type(path: Path) -> str:
+    """Infer the published MIME type from HUNTX artifact naming conventions."""
     name = path.name.lower()
     if name.endswith(".json") or ".json" in name:
         return "application/json"
@@ -89,6 +93,7 @@ def _infer_media_type(path: Path) -> str:
 
 
 def _infer_tags_and_type(path: Path, section: str) -> tuple[str, list[str], str]:
+    """Derive dashboard type, tags, and description for a published artifact."""
     name = path.name.lower()
     tags = [section]
     ext = path.suffix.lstrip(".").upper() or "FILE"
@@ -169,6 +174,7 @@ COUNTRY_NAMES = {
 
 
 def _country_flag(code: str) -> str:
+    """Render a two-letter country code as an emoji flag when possible."""
     if not code or len(code) != 2:
         return "🌐"
     return "".join(chr(127397 + ord(c)) for c in code.upper())
@@ -202,13 +208,14 @@ GEO_COORDINATES = {
 
 
 def resolve_geo_and_carrier(address: str, sni: str = "", host: str = "") -> dict:
+    """Infer coarse metadata while keeping unknown and anycast geography explicitly unknown."""
     addr = (address or "").strip().lower()
     sni_lower = (sni or "").strip().lower()
     host_lower = (host or "").strip().lower()
     full = f"{addr} {sni_lower} {host_lower}"
 
-    country = "US"
-    carrier = "Direct Carrier"
+    country = None
+    carrier = None
 
     # 1. Explicit domain TLDs & contextual keywords
     if ".ir" in addr or "iran" in full or "tehran" in full or "soundfiy" in full or "zula.ir" in full:
@@ -251,20 +258,19 @@ def resolve_geo_and_carrier(address: str, sni: str = "", host: str = "") -> dict
     elif addr.startswith("188.114."):
         country, carrier = "NL", "Cloudflare Amsterdam Edge"
     elif addr.startswith(("162.159.", "172.67.", "104.18.", "104.19.", "104.21.", "104.16.", "172.64.")):
-        oct3 = int(addr.split(".")[2]) if len(addr.split(".")) >= 3 and addr.split(".")[2].isdigit() else 0
-        cf_routes = [
-            ("DE", "Cloudflare Frankfurt Edge"),
-            ("NL", "Cloudflare Amsterdam Edge"),
-            ("GB", "Cloudflare London Edge"),
-            ("FR", "Cloudflare Paris Edge"),
-            ("SG", "Cloudflare Singapore Edge"),
-            ("JP", "Cloudflare Tokyo Edge"),
-            ("US", "Cloudflare Ashburn Edge"),
-            ("SE", "Cloudflare Stockholm Edge"),
-            ("CH", "Cloudflare Zurich Edge"),
-            ("TR", "Cloudflare Istanbul Edge"),
-        ]
-        country, carrier = cf_routes[oct3 % len(cf_routes)]
+        # Cloudflare IPs are anycast; provider identity is evidence, location is not.
+        return {
+            "country": "ZZ",
+            "country_name": "Unknown",
+            "flag": "🌐",
+            "carrier": "Cloudflare Anycast",
+            "org": "Cloudflare",
+            "city": "Unknown",
+            "latitude": None,
+            "longitude": None,
+            "geo_source": "anycast-provider",
+            "geo_verified": False,
+        }
     elif addr.startswith(("47.243.", "8.210.", "8.217.")):
         country, carrier = "HK", "Alibaba Cloud HK"
     elif addr.startswith("51.79."):
@@ -328,6 +334,7 @@ def resolve_geo_and_carrier(address: str, sni: str = "", host: str = "") -> dict
 
 
 def _parse_proxy_uri(uri: str) -> dict | None:
+    """Parse one supported proxy URI into normalized connection metadata."""
     try:
         if not uri or "://" not in uri:
             return None
@@ -372,6 +379,7 @@ def _parse_proxy_uri(uri: str) -> dict | None:
 
 
 def parse_production_proxies() -> list[dict]:
+    """Load and normalize the production proxy snapshot for static publishing."""
     raw_nodes: list[dict] = []
 
     # 1. Curated production release dataset: all_sources.npvt.decoded.json
@@ -559,6 +567,7 @@ def cluster_globe_hubs(proxies: list[dict]) -> list[dict]:
 
 
 def compute_aggregate_stats(proxies: list[dict], catalog: dict) -> dict:
+    """Compute aggregate dashboard statistics without inventing unavailable measurements."""
     dev_proxies_file = OUTPUTS_DEV_DIR / "proxies.json"
     cum_count = 0
     if dev_proxies_file.exists():
@@ -620,6 +629,7 @@ def compute_aggregate_stats(proxies: list[dict], catalog: dict) -> dict:
 
 
 def generate_all() -> None:
+    """Generate the static artifact catalog and frontend data module."""
     DOCS_DIR.mkdir(parents=True, exist_ok=True)
     ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 

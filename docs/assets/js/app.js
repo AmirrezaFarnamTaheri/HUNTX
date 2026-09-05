@@ -125,6 +125,7 @@ export function getArtifactLinkModel(path, locationRef = typeof window === "unde
   };
 }
 
+/** Infer coarse provider/region metadata without fabricating unknown or anycast locations. */
 export function resolveGeoAndCarrier(address, sni = "", host = "") {
   const addr = (address || "").toLowerCase().trim();
   const sniLower = (sni || "").toLowerCase().trim();
@@ -195,23 +196,20 @@ export function resolveGeoAndCarrier(address, sni = "", host = "") {
     country = "NL";
     carrier = "Cloudflare Amsterdam Edge";
   } else if (addr.startsWith("162.159.") || addr.startsWith("172.67.") || addr.startsWith("104.18.") || addr.startsWith("104.19.") || addr.startsWith("104.21.") || addr.startsWith("104.16.") || addr.startsWith("172.64.")) {
-    const parts = addr.split(".");
-    const oct3 = parts.length >= 3 && !isNaN(Number(parts[2])) ? Number(parts[2]) : 0;
-    const cfRoutes = [
-      ["DE", "Cloudflare Frankfurt Edge"],
-      ["NL", "Cloudflare Amsterdam Edge"],
-      ["GB", "Cloudflare London Edge"],
-      ["FR", "Cloudflare Paris Edge"],
-      ["SG", "Cloudflare Singapore Edge"],
-      ["JP", "Cloudflare Tokyo Edge"],
-      ["US", "Cloudflare Ashburn Edge"],
-      ["SE", "Cloudflare Stockholm Edge"],
-      ["CH", "Cloudflare Zurich Edge"],
-      ["TR", "Cloudflare Istanbul Edge"],
-    ];
-    const [c, car] = cfRoutes[oct3 % cfRoutes.length];
-    country = c;
-    carrier = car;
+    // Cloudflare addresses are anycast. The address alone cannot truthfully
+    // identify a country or city, so retain provider evidence without inventing geography.
+    return {
+      country: "ZZ",
+      country_name: "Unknown",
+      flag: "🌐",
+      carrier: "Cloudflare Anycast",
+      org: "Cloudflare",
+      city: "Unknown",
+      latitude: null,
+      longitude: null,
+      geo_source: "anycast-provider",
+      geo_verified: false
+    };
   } else if (addr.startsWith("47.243.") || addr.startsWith("8.210.") || addr.startsWith("8.217.")) {
     country = "HK";
     carrier = "Alibaba Cloud HK";
@@ -290,6 +288,7 @@ export function resolveGeoAndCarrier(address, sni = "", host = "") {
   };
 }
 
+/** Cluster only evidence-backed proxy coordinates into globe hubs. */
 export function clusterGlobeHubs(proxies) {
   const hubMap = {};
   for (const p of proxies) {
@@ -360,6 +359,7 @@ export const HEALTH_GRADES = Object.freeze([
   Object.freeze({ id: "C", maxLatency: Number.POSITIVE_INFINITY, score: 68, label: "Moderate", color: "text-rose-400 border-rose-800/80 bg-rose-950/60" })
 ]);
 
+/** Map a measured latency value to the canonical dashboard health grade. */
 export function healthForLatency(ping) {
   if (ping === null || ping === undefined || ping === "") {
     return { score: null, grade: "—", label: "Unmeasured", color: "text-gray-400 border-gray-700 bg-gray-900" };
@@ -372,6 +372,7 @@ export function healthForLatency(ping) {
   return { score: grade.score, grade: grade.id, label: grade.label, color: grade.color };
 }
 
+/** Grade transport security independently from latency health. */
 export function securityGrade(security) {
   const value = String(security || "none").toLowerCase();
   if (value === "reality") return "A+";

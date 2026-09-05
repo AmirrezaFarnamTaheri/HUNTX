@@ -82,3 +82,20 @@ def test_i18n_module_is_included_before_application_module() -> None:
     html = builder.build_index_content(ROOT)
     assert 'type="module" src="assets/js/app.js"' in html
     assert 'import { i18n } from "./i18n.js";' in (ROOT / "docs" / "assets" / "js" / "app.js").read_text(encoding="utf-8")
+
+
+def test_cloudflare_anycast_geo_is_not_fabricated() -> None:
+    """The static producer must not turn an anycast prefix into a fictional city."""
+    import importlib.util
+
+    module_path = ROOT / "scripts" / "generate_site_data.py"
+    spec = importlib.util.spec_from_file_location("huntx_site_generator_test", module_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    geo = module.resolve_geo_and_carrier("104.21.12.34")
+    assert geo["country"] == "ZZ"
+    assert geo["carrier"] == "Cloudflare Anycast"
+    assert geo["latitude"] is None
+    assert geo["longitude"] is None
+    assert geo["geo_source"] == "anycast-provider"

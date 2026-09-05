@@ -886,7 +886,7 @@ export class I18nRuntime {
       if (locale === "zh-CN") return `${nodesCountMatch[1]} 个节点`;
       if (locale === "ru") return `${nodesCountMatch[1]} узлов`;
     }
-    const regionsBadgeMatch = source.match(/^(\d+)\s+REGIONS$/i);
+    const regionsBadgeMatch = source.match(/^(\d+)\s+REGIONS$/);
     if (regionsBadgeMatch) {
       if (locale === "fa") return `${regionsBadgeMatch[1]} منطقه`;
       if (locale === "zh-CN") return `${regionsBadgeMatch[1]} 个地区`;

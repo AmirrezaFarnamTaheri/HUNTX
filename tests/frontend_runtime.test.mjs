@@ -34,6 +34,16 @@ test("unknown endpoints do not receive fabricated geography", () => {
   assert.equal(geo.geo_verified, false);
 });
 
+test("Cloudflare anycast keeps provider evidence without invented geography", () => {
+  const geo = resolveGeoAndCarrier("104.21.12.34", "", "");
+  assert.equal(geo.country, "ZZ");
+  assert.equal(geo.carrier, "Cloudflare Anycast");
+  assert.equal(geo.org, "Cloudflare");
+  assert.equal(geo.latitude, null);
+  assert.equal(geo.longitude, null);
+  assert.equal(geo.geo_source, "anycast-provider");
+});
+
 
 test("globe module owns touch inactivity and does not treat cancellation as click", async () => {
   const source = await (await import("node:fs/promises")).readFile(new URL("../docs/assets/js/globe.js", import.meta.url), "utf8");
@@ -42,6 +52,8 @@ test("globe module owns touch inactivity and does not treat cancellation as clic
   assert.doesNotMatch(source, /pointercancel", onPointerUp/);
   assert.match(source, /scheduleTouchInactivityTimeout/);
   assert.match(source, /clearTimeout\(touchInactivityTimer\)/);
+  assert.match(source, /const sourceHubs = Array\.isArray\(customHubs\) \? customHubs : DEFAULT_HUBS/);
+  assert.doesNotMatch(source, /customHubs\.length > 0/);
   assert.match(source, /function onPointerUp\(e\) \{\n    if \(e\.pointerType === "touch"\) noteTouchActivity\(\);/);
 });
 

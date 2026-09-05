@@ -2,6 +2,7 @@
 // Cyber Neon Heatmap Edition: 1,500 Dense Fibonacci Points, 20 Global Geo-Clusters,
 // Multi-Hub Cyber Mesh Telemetry Arcs with Traveling Photons, and Zero-Allocation Mathematical Transforms.
 
+/** Mount the telemetry globe with explicit touch-gating and evidence-backed hubs. */
 export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null, options = {}) {
   const canvas = document.getElementById(canvasId);
   if (!canvas || typeof canvas.getContext !== "function") return { destroy: () => {} };
@@ -141,9 +142,9 @@ export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null, op
     { name: "Tehran Edge", lat: 35.69, lon: 51.39, count: 1, code: "IR", ping: 20 }
   ];
 
-  const sourceHubs = (customHubs && Array.isArray(customHubs) && customHubs.length > 0)
-    ? customHubs
-    : DEFAULT_HUBS;
+  // An explicit empty hub list is authoritative. Only null/omitted input opts
+  // into demo hubs; the dashboard passes [] when no evidence-backed hubs exist.
+  const sourceHubs = Array.isArray(customHubs) ? customHubs : DEFAULT_HUBS;
 
   // Pre-calculate Hub Coordinates
   const hubs = sourceHubs.map(hub => {

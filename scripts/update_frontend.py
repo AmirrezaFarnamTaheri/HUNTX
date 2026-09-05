@@ -915,6 +915,7 @@ INDEX_HTML = """<!DOCTYPE html>
 
 
 def build_index_content(root: Path | None = None) -> str:
+    """Render the dashboard index from the canonical template and current counts."""
     import json
     project_root = root or Path(__file__).resolve().parents[1]
     proxies_count = 0
@@ -938,6 +939,7 @@ def build_index_content(root: Path | None = None) -> str:
 
 
 def write_index(root: Path | None = None) -> None:
+    """Write the rendered dashboard index to docs/index.html."""
     project_root = root or Path(__file__).resolve().parents[1]
     content = build_index_content(project_root)
     output = project_root / "docs" / "index.html"
