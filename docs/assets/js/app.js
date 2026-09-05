@@ -438,6 +438,13 @@ export class AppState {
         btn.classList.toggle("active", isCurrent);
         btn.setAttribute("aria-selected", isCurrent ? "true" : "false");
         btn.tabIndex = isCurrent ? 0 : -1;
+        if (isCurrent && typeof btn.scrollIntoView === "function") {
+          try {
+            btn.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+          } catch (e) {
+            btn.scrollIntoView();
+          }
+        }
       });
 
       // Update tab panels visibility with bulletproof style and attribute enforcement
@@ -1071,7 +1078,7 @@ export class AppState {
               <span class="font-mono text-base font-bold tracking-tight text-white">HUNT<span class="text-cyan-400">X</span></span>
               <span class="px-1.5 py-0.5 text-[9px] font-mono font-bold bg-cyan-950/80 text-cyan-400 border border-cyan-800/60 rounded">v2.5</span>
             </div>
-            <span class="text-[10px] text-gray-400 font-mono tracking-wider">NODE TELEMETRY</span>
+            <span class="text-[10px] text-gray-400 font-mono tracking-wider hidden sm:block">NODE TELEMETRY</span>
           </div>
         </a>
 
@@ -1083,7 +1090,7 @@ export class AppState {
             <input
               id="global-search-input"
               type="text"
-              class="w-full pl-9 pr-12 py-2 bg-gray-900/80 border border-gray-800 focus:border-cyan-500/60 rounded-xl text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 transition-all focus-ring"
+              class="w-full pl-9 pr-12 py-2.5 min-h-[44px] bg-gray-900/80 border border-gray-800 focus:border-cyan-500/60 rounded-xl text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 transition-all focus-ring"
               placeholder="Search nodes, protocols, SNI, country..."
               value="${escapeHTML(this.searchQuery)}"
               aria-label="Global Search"
@@ -1094,7 +1101,7 @@ export class AppState {
           </div>
         </div>
 
-        <div class="flex items-center gap-2 sm:gap-3">
+        <div class="flex items-center gap-1.5 sm:gap-2.5">
           <div id="pipeline-state-badge" class="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-slate-900/60 border border-slate-700/50 rounded-full">
             <span class="relative flex h-2 w-2">
               <span class="relative inline-flex rounded-full h-2 w-2 bg-slate-400"></span>
@@ -1107,7 +1114,7 @@ export class AppState {
             id="language-selector"
             data-i18n-ignore
             dir="ltr"
-            class="min-h-[40px] w-[76px] sm:w-[92px] px-2 bg-gray-900 border border-gray-700 text-gray-200 text-xs font-mono rounded-xl focus-ring cursor-pointer"
+            class="min-h-[44px] w-[72px] sm:w-[92px] px-1.5 sm:px-2 bg-gray-900 border border-gray-700 text-gray-200 text-xs font-mono rounded-xl focus-ring cursor-pointer"
             aria-label="${i18n.translate("Language")}"
             title="${i18n.translate("Language")}"
           >
@@ -1119,27 +1126,27 @@ export class AppState {
 
           <button
             id="btn-open-scanner"
-            class="flex items-center gap-1.5 px-3.5 py-2 min-h-[40px] bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/30 hover:border-emerald-400 text-emerald-300 text-xs font-mono font-medium rounded-xl transition-all shadow-sm focus-ring cursor-pointer"
+            class="flex items-center justify-center gap-1.5 p-2 sm:px-3.5 sm:py-2 min-h-[44px] min-w-[44px] bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/30 hover:border-emerald-400 text-emerald-300 text-xs font-mono font-medium rounded-xl transition-all shadow-sm focus-ring cursor-pointer"
             title="Open Clean IP Scanner (Press S)"
             aria-label="Open Clean IP Scanner"
           >
-            <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
             <span class="hidden sm:inline">IP Scanner</span>
           </button>
 
           <button
             id="btn-open-builder"
-            class="flex items-center gap-1.5 px-3.5 py-2 min-h-[40px] bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 hover:border-cyan-400 text-cyan-300 text-xs font-mono font-medium rounded-xl transition-all shadow-sm focus-ring cursor-pointer"
+            class="flex items-center justify-center gap-1.5 p-2 sm:px-3.5 sm:py-2 min-h-[44px] min-w-[44px] bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 hover:border-cyan-400 text-cyan-300 text-xs font-mono font-medium rounded-xl transition-all shadow-sm focus-ring cursor-pointer"
             title="Open Subscription Builder"
             aria-label="Open Subscription Builder"
           >
-            <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+            <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
             <span class="hidden sm:inline">Sub Builder</span>
           </button>
 
           <button
             id="btn-open-decoder"
-            class="flex items-center gap-1.5 px-3.5 py-2 min-h-[40px] bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 text-gray-200 text-xs font-mono font-medium rounded-xl transition-all focus-ring cursor-pointer"
+            class="hidden sm:flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 text-gray-200 text-xs font-mono font-medium rounded-xl transition-all focus-ring cursor-pointer"
             title="Open Protocol Decoder (Press D)"
             aria-label="Open Protocol Decoder"
           >
@@ -1149,7 +1156,7 @@ export class AppState {
 
           <button
             id="btn-toggle-theme"
-            class="p-2 min-h-[40px] min-w-[40px] flex items-center justify-center bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-cyan-500/40 text-gray-400 hover:text-cyan-300 rounded-xl transition-all focus-ring cursor-pointer"
+            class="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-cyan-500/40 text-gray-400 hover:text-cyan-300 rounded-xl transition-all focus-ring cursor-pointer"
             title="Toggle Light / Dark Theme"
             aria-label="Toggle Theme"
           >
@@ -1163,7 +1170,7 @@ export class AppState {
           <a
             href="architecture.html"
             target="_blank"
-            class="hidden sm:flex items-center gap-1.5 px-3 py-2 min-h-[40px] bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 text-gray-300 hover:text-white text-xs font-mono rounded-xl transition-all focus-ring"
+            class="hidden sm:flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 text-gray-300 hover:text-white text-xs font-mono rounded-xl transition-all focus-ring"
             title="Open Interactive System Architecture"
             aria-label="Open Interactive System Architecture"
           >
@@ -1174,7 +1181,7 @@ export class AppState {
           <a
             href="https://github.com/AmirrezaFarnamTaheri/HUNTX"
             target="_blank"
-            class="p-2 min-h-[40px] min-w-[40px] flex items-center justify-center bg-gray-900 hover:bg-gray-800 border border-gray-800 text-gray-400 hover:text-white rounded-xl transition-all focus-ring"
+            class="hidden sm:flex p-2 min-h-[44px] min-w-[44px] items-center justify-center bg-gray-900 hover:bg-gray-800 border border-gray-800 text-gray-400 hover:text-white rounded-xl transition-all focus-ring"
             title="GitHub Repository"
             aria-label="GitHub Repository"
           >
@@ -1354,13 +1361,57 @@ export class AppState {
               </span>
             </div>
 
-            <div class="absolute bottom-3 right-4 pointer-events-none text-right">
+            <!-- Mobile Touch Interaction Gate Bar -->
+            <div id="globe-touch-gate" class="absolute bottom-3 left-3 right-3 z-10 flex items-center justify-between pointer-events-auto md:hidden">
+              <button
+                id="btn-globe-touch-toggle"
+                type="button"
+                class="min-h-[44px] px-3.5 py-2 bg-gray-950/90 hover:bg-cyan-950 border border-cyan-500/40 hover:border-cyan-400 text-cyan-300 font-mono text-xs font-semibold rounded-xl shadow-lg backdrop-blur-md flex items-center gap-2 transition-all active:scale-95 focus-ring cursor-pointer"
+                aria-label="Toggle Interactive 3D Mode"
+              >
+                <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                <span id="globe-touch-label">Explore 3D Globe</span>
+              </button>
+              <span class="text-[10px] font-mono text-gray-400 bg-gray-950/80 px-2.5 py-1.5 rounded-lg border border-gray-800 pointer-events-none">TAP HUB</span>
+            </div>
+
+            <div class="hidden md:block absolute bottom-3 right-4 pointer-events-none text-right">
               <span class="text-[9px] font-mono text-gray-500 block">CLICK HUB TO FILTER</span>
             </div>
           </div>
         </div>
       </div>
     `;
+
+    const touchBtn = document.getElementById("btn-globe-touch-toggle");
+    touchBtn?.addEventListener("click", () => {
+      if (!this.globeInstance) return;
+      const isCurrentlyActive = !!this.globeInstance.isTouchInteractive?.();
+      const nextState = !isCurrentlyActive;
+      this.globeInstance.setTouchInteractive?.(nextState);
+
+      const label = document.getElementById("globe-touch-label");
+      if (nextState) {
+        if (label) label.textContent = "Exit 3D Mode";
+        touchBtn.classList.add("bg-cyan-500", "text-gray-950", "border-cyan-400");
+        touchBtn.classList.remove("bg-gray-950/90", "text-cyan-300");
+
+        clearTimeout(this._globeInactivityTimer);
+        this._globeInactivityTimer = setTimeout(() => {
+          if (this.globeInstance?.isTouchInteractive?.()) {
+            this.globeInstance.setTouchInteractive(false);
+            if (label) label.textContent = "Explore 3D Globe";
+            touchBtn.classList.remove("bg-cyan-500", "text-gray-950", "border-cyan-400");
+            touchBtn.classList.add("bg-gray-950/90", "text-cyan-300");
+          }
+        }, 12000);
+      } else {
+        if (label) label.textContent = "Explore 3D Globe";
+        touchBtn.classList.remove("bg-cyan-500", "text-gray-950", "border-cyan-400");
+        touchBtn.classList.add("bg-gray-950/90", "text-cyan-300");
+        clearTimeout(this._globeInactivityTimer);
+      }
+    });
 
     document.getElementById("hero-copy-sub")?.addEventListener("click", (e) => {
       const subUrl = resolveArtifactUrl("artifacts/release/all_sources.npvt.b64sub");
@@ -1585,22 +1636,22 @@ export class AppState {
       { id: "ALL", label: "All Operators" },
       ...activeOperators.map(op => ({
         id: op,
-        label: `🏢 ${op}`
+        label: `Carrier: ${op}`
       }))
     ];
 
     const grades = [
       { id: "ALL", label: "All Health Grades" },
-      { id: "A+", label: "⭐ Grade A+ (<35ms)" },
-      { id: "A", label: "⭐ Grade A (<55ms)" },
-      { id: "B+", label: "⭐ Grade B+ (Stable)" }
+      { id: "A+", label: "Grade A+ (<35ms)" },
+      { id: "A", label: "Grade A (<55ms)" },
+      { id: "B+", label: "Grade B+ (Stable)" }
     ];
 
     const securities = [
       { id: "ALL", label: "All Security Types" },
-      { id: "Reality", label: "🔒 VLESS Reality (uTLS)" },
-      { id: "TLS", label: "🔐 Standard TLS / HTTPS" },
-      { id: "None", label: "🔓 Plain / Direct" }
+      { id: "Reality", label: "VLESS Reality (uTLS)" },
+      { id: "TLS", label: "Standard TLS / HTTPS" },
+      { id: "None", label: "Plain / Direct" }
     ];
 
     const filtered = this.getFilteredProxies();
@@ -1622,7 +1673,7 @@ export class AppState {
               if (count === 0 && proto !== "ALL") return "";
               return `
                 <button
-                  class="btn-proto-tab px-3 py-1.5 min-h-[36px] rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer flex items-center gap-1.5 ${
+                  class="btn-proto-tab px-3.5 py-2 min-h-[44px] rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer flex items-center gap-1.5 ${
                     this.selectedProtocol === proto
                       ? "bg-cyan-500 text-gray-950 shadow-md shadow-cyan-500/30 font-bold"
                       : "bg-gray-900 text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-gray-800"
@@ -1631,7 +1682,7 @@ export class AppState {
                   aria-pressed="${this.selectedProtocol === proto}"
                 >
                   <span>${escapeHTML(proto)}</span>
-                  <span class="px-1.5 py-0.2 text-[10px] rounded-md ${this.selectedProtocol === proto ? 'bg-gray-950 text-cyan-300' : 'bg-gray-950 text-gray-400'}">${count}</span>
+                  <span class="px-1.5 py-0.5 text-[10px] rounded-md ${this.selectedProtocol === proto ? 'bg-gray-950 text-cyan-300' : 'bg-gray-950 text-gray-400'}">${count}</span>
                 </button>
               `;
             }).join("")}
@@ -1643,29 +1694,29 @@ export class AppState {
             <div class="flex items-center bg-gray-900 border border-gray-800 p-0.5 rounded-xl">
               <button
                 id="btn-view-grid"
-                class="px-2.5 py-1.5 min-h-[34px] rounded-lg text-xs font-mono font-semibold transition-all flex items-center gap-1 cursor-pointer focus-ring ${this.viewMode === 'grid' ? 'bg-cyan-500 text-gray-950 font-bold' : 'text-gray-400 hover:text-gray-200'}"
+                class="px-3 py-2 min-h-[44px] rounded-lg text-xs font-mono font-semibold transition-all flex items-center gap-1 cursor-pointer focus-ring ${this.viewMode === 'grid' ? 'bg-cyan-500 text-gray-950 font-bold' : 'text-gray-400 hover:text-gray-200'}"
                 title="Grid Cards View (Press V)"
                 aria-label="Grid Cards View"
               >
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
                 <span class="hidden sm:inline">Cards</span>
               </button>
               <button
                 id="btn-view-table"
-                class="px-2.5 py-1.5 min-h-[34px] rounded-lg text-xs font-mono font-semibold transition-all flex items-center gap-1 cursor-pointer focus-ring ${this.viewMode === 'table' ? 'bg-cyan-500 text-gray-950 font-bold' : 'text-gray-400 hover:text-gray-200'}"
+                class="px-3 py-2 min-h-[44px] rounded-lg text-xs font-mono font-semibold transition-all flex items-center gap-1 cursor-pointer focus-ring ${this.viewMode === 'table' ? 'bg-cyan-500 text-gray-950 font-bold' : 'text-gray-400 hover:text-gray-200'}"
                 title="Dense Data Table View (Press V)"
                 aria-label="Dense Table View"
               >
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                 <span class="hidden sm:inline">Table</span>
               </button>
               <button
                 id="btn-view-feed"
-                class="px-2.5 py-1.5 min-h-[34px] rounded-lg text-xs font-mono font-semibold transition-all flex items-center gap-1 cursor-pointer focus-ring ${this.viewMode === 'feed' ? 'bg-cyan-500 text-gray-950 font-bold' : 'text-gray-400 hover:text-gray-200'}"
+                class="px-3 py-2 min-h-[44px] rounded-lg text-xs font-mono font-semibold transition-all flex items-center gap-1 cursor-pointer focus-ring ${this.viewMode === 'feed' ? 'bg-cyan-500 text-gray-950 font-bold' : 'text-gray-400 hover:text-gray-200'}"
                 title="Raw Text / Feed View"
                 aria-label="Raw Text Feed View"
               >
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                 <span class="hidden sm:inline">Raw Feed</span>
               </button>
             </div>
@@ -1675,7 +1726,7 @@ export class AppState {
               <input
                 id="node-quick-search"
                 type="text"
-                class="w-full px-3.5 py-2 min-h-[38px] bg-gray-900 border border-gray-800 focus:border-cyan-500 rounded-xl text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus-ring"
+                class="w-full px-3.5 py-2.5 min-h-[44px] bg-gray-900 border border-gray-800 focus:border-cyan-500 rounded-xl text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus-ring"
                 placeholder="Filter name, IP, SNI..."
                 value="${escapeHTML(this.searchQuery)}"
               />
@@ -1690,7 +1741,7 @@ export class AppState {
             <label class="block text-[10px] font-mono text-gray-400 mb-1">Operator / Carrier</label>
             <select
               id="select-operator"
-              class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[38px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
+              class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
               aria-label="Filter by Operator"
             >
               ${operators.map(op => `<option value="${escapeHTML(op.id)}" ${this.selectedOperator === op.id ? "selected" : ""}>${escapeHTML(op.label)}</option>`).join("")}
@@ -1702,7 +1753,7 @@ export class AppState {
             <label class="block text-[10px] font-mono text-gray-400 mb-1">Transport Layer</label>
             <select
               id="select-transport"
-              class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[38px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
+              class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
               aria-label="Filter by Transport"
             >
               ${transports.map(t => `<option value="${escapeHTML(t)}" ${this.selectedTransport === t ? "selected" : ""}>Transport: ${escapeHTML(t)}</option>`).join("")}
@@ -1714,7 +1765,7 @@ export class AppState {
             <label class="block text-[10px] font-mono text-gray-400 mb-1">Geo Location</label>
             <select
               id="select-country"
-              class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[38px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
+              class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
               aria-label="Filter by Region"
             >
               ${countries.map(c => `<option value="${escapeHTML(c.code)}" ${this.selectedCountry === c.code ? "selected" : ""}>${escapeHTML(c.label)}</option>`).join("")}
@@ -1726,7 +1777,7 @@ export class AppState {
             <label class="block text-[10px] font-mono text-gray-400 mb-1">Health Grade</label>
             <select
               id="select-grade"
-              class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[38px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
+              class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
               aria-label="Filter by Health Grade"
             >
               ${grades.map(g => `<option value="${escapeHTML(g.id)}" ${this.selectedGrade === g.id ? "selected" : ""}>${escapeHTML(g.label)}</option>`).join("")}
@@ -1738,7 +1789,7 @@ export class AppState {
             <label class="block text-[10px] font-mono text-gray-400 mb-1">Security / TLS</label>
             <select
               id="select-security"
-              class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[38px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
+              class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
               aria-label="Filter by Security"
             >
               ${securities.map(s => `<option value="${escapeHTML(s.id)}" ${this.selectedSecurity === s.id ? "selected" : ""}>${escapeHTML(s.label)}</option>`).join("")}
@@ -1750,14 +1801,14 @@ export class AppState {
             <label class="block text-[10px] font-mono text-gray-400 mb-1">Telemetry Sorting</label>
             <select
               id="select-sort"
-              class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[38px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
+              class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
               aria-label="Sort Order"
             >
-              <option value="latency_asc" ${this.sortBy === "latency_asc" ? "selected" : ""}>⚡ Fastest Latency</option>
-              <option value="score_desc" ${this.sortBy === "score_desc" ? "selected" : ""}>⭐ Top Health Score</option>
-              <option value="name_asc" ${this.sortBy === "name_asc" ? "selected" : ""}>🔤 Name (A-Z)</option>
-              <option value="country_asc" ${this.sortBy === "country_asc" ? "selected" : ""}>🌐 Country (A-Z)</option>
-              <option value="port_asc" ${this.sortBy === "port_asc" ? "selected" : ""}>🔢 Port (Low-High)</option>
+              <option value="latency_asc" ${this.sortBy === "latency_asc" ? "selected" : ""}>Fastest Latency</option>
+              <option value="score_desc" ${this.sortBy === "score_desc" ? "selected" : ""}>Top Health Score</option>
+              <option value="name_asc" ${this.sortBy === "name_asc" ? "selected" : ""}>Name (A-Z)</option>
+              <option value="country_asc" ${this.sortBy === "country_asc" ? "selected" : ""}>Country (A-Z)</option>
+              <option value="port_asc" ${this.sortBy === "port_asc" ? "selected" : ""}>Port (Low-High)</option>
             </select>
           </div>
         </div>
@@ -1772,17 +1823,17 @@ export class AppState {
           </div>
 
           <div class="flex items-center gap-2 flex-wrap">
-            <button id="btn-batch-copy-filtered" class="px-3 py-1.5 min-h-[32px] bg-cyan-950 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-300 rounded-lg text-[11px] font-semibold cursor-pointer focus-ring transition-all flex items-center gap-1">
+            <button id="btn-batch-copy-filtered" class="px-3.5 py-2 min-h-[44px] bg-cyan-950 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-300 rounded-xl text-[11px] font-semibold cursor-pointer focus-ring transition-all flex items-center gap-1.5">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
               Copy Filtered (${filtered.length})
             </button>
-            <button id="btn-batch-export-singbox" class="px-3 py-1.5 min-h-[32px] bg-gray-900 hover:bg-gray-800 border border-gray-700 text-emerald-300 rounded-lg text-[11px] font-semibold cursor-pointer focus-ring transition-all">
+            <button id="btn-batch-export-singbox" class="px-3.5 py-2 min-h-[44px] bg-gray-900 hover:bg-gray-800 border border-gray-700 text-emerald-300 rounded-xl text-[11px] font-semibold cursor-pointer focus-ring transition-all">
               Sing-box JSON
             </button>
-            <button id="btn-batch-export-clash" class="px-3 py-1.5 min-h-[32px] bg-gray-900 hover:bg-gray-800 border border-gray-700 text-amber-300 rounded-lg text-[11px] font-semibold cursor-pointer focus-ring transition-all">
+            <button id="btn-batch-export-clash" class="px-3.5 py-2 min-h-[44px] bg-gray-900 hover:bg-gray-800 border border-gray-700 text-amber-300 rounded-xl text-[11px] font-semibold cursor-pointer focus-ring transition-all">
               Clash YAML
             </button>
-            <button id="btn-reset-all-filters" class="px-3 py-1.5 min-h-[32px] bg-gray-900 hover:bg-rose-950 text-gray-400 hover:text-rose-300 border border-gray-800 rounded-lg text-[11px] cursor-pointer focus-ring transition-all">
+            <button id="btn-reset-all-filters" class="px-3.5 py-2 min-h-[44px] bg-gray-900 hover:bg-rose-950 text-gray-400 hover:text-rose-300 border border-gray-800 rounded-xl text-[11px] cursor-pointer focus-ring transition-all">
               Reset Filters
             </button>
           </div>
@@ -1968,8 +2019,8 @@ export class AppState {
                   </span>
                 </div>
                 <div class="flex items-center gap-1.5">
-                  <span class="px-1.5 py-0.5 text-[10px] font-mono font-bold rounded border ${gradeColor}" title="${score === null ? healthLabel : `Quality Score: ${score}/100 (${healthLabel})`}">
-                    ⭐ ${grade}
+                  <span class="px-2 py-0.5 text-[10px] font-mono font-bold rounded border ${gradeColor}" title="${score === null ? healthLabel : `Quality Score: ${score}/100 (${healthLabel})`}">
+                    <span class="text-cyan-400 font-bold mr-0.5">Grade</span> ${grade}
                   </span>
                   <div class="flex items-center gap-1 text-[11px] font-mono font-semibold ${latency === null ? 'text-gray-500' : latency < 60 ? 'text-emerald-400' : latency < 120 ? 'text-amber-400' : 'text-rose-400'}">
                     <span class="w-1.5 h-1.5 rounded-full ${latency === null ? 'bg-gray-600' : latency < 60 ? 'bg-emerald-400' : latency < 120 ? 'bg-amber-400' : 'bg-rose-400'}"></span>
@@ -2002,12 +2053,15 @@ export class AppState {
                   <div class="flex items-center gap-1">
                     <span class="text-gray-400 font-mono text-[10px]">${escapeHTML(displayUUID)}</span>
                     <button
-                      class="btn-toggle-mask text-gray-400 hover:text-cyan-400 cursor-pointer p-0.5 focus-ring rounded"
+                      class="btn-toggle-mask text-gray-400 hover:text-cyan-400 cursor-pointer p-2 min-h-[44px] min-w-[44px] flex items-center justify-center focus-ring rounded-lg transition-colors"
                       data-node-id="${node.id}"
                       title="${isUnmasked ? 'Mask Credential' : 'Reveal Credential'}"
                       aria-label="Toggle credential masking"
                     >
-                      ${isUnmasked ? '👁️' : '🔒'}
+                      ${isUnmasked
+                        ? `<svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>`
+                        : `<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>`
+                      }
                     </button>
                   </div>
                 </div>
@@ -2030,36 +2084,36 @@ export class AppState {
             <!-- Action Buttons -->
             <div class="mt-3 pt-2.5 border-t border-gray-800/80 flex items-center justify-between gap-1.5">
               <button
-                class="btn-copy-node flex-1 py-2 min-h-[38px] bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 text-cyan-300 text-xs font-mono font-medium rounded-xl transition-all focus-ring cursor-pointer flex items-center justify-center gap-1"
+                class="btn-copy-node flex-1 py-2.5 min-h-[44px] bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 text-cyan-300 text-xs font-mono font-medium rounded-xl transition-all focus-ring cursor-pointer flex items-center justify-center gap-1.5"
                 data-raw="${encodeURIComponent(node.raw)}"
                 aria-label="Copy ${escapeHTML(node.name)} URI"
               >
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                 Copy URI
               </button>
               <button
-                class="btn-toggle-inline-qr p-2 min-h-[38px] min-w-[38px] flex items-center justify-center ${isQRVisible ? 'bg-indigo-600 text-white' : 'bg-gray-800 hover:bg-gray-700 text-indigo-400'} rounded-xl transition-all focus-ring cursor-pointer"
+                class="btn-toggle-inline-qr p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center ${isQRVisible ? 'bg-indigo-600 text-white' : 'bg-gray-800 hover:bg-gray-700 text-indigo-400'} rounded-xl transition-all focus-ring cursor-pointer"
                 data-node-id="${node.id}"
                 title="Toggle Inline QR Code"
                 aria-label="Toggle QR for ${escapeHTML(node.name)}"
               >
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
               </button>
               <button
-                class="btn-inspect-node p-2 min-h-[38px] min-w-[38px] flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-cyan-400 rounded-xl transition-all focus-ring cursor-pointer"
+                class="btn-inspect-node p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-cyan-400 rounded-xl transition-all focus-ring cursor-pointer"
                 data-raw="${encodeURIComponent(node.raw)}"
                 title="Inspect Protocol Parameters"
                 aria-label="Inspect ${escapeHTML(node.name)}"
               >
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
               </button>
               <button
-                class="btn-export-snippet p-2 min-h-[38px] min-w-[38px] flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-amber-400 rounded-xl transition-all focus-ring cursor-pointer"
+                class="btn-export-snippet p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-amber-400 rounded-xl transition-all focus-ring cursor-pointer"
                 data-raw="${encodeURIComponent(node.raw)}"
                 title="Export Sing-box Outbound Snippet"
                 aria-label="Export Snippet for ${escapeHTML(node.name)}"
               >
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
               </button>
             </div>
           </div>
@@ -2072,7 +2126,7 @@ export class AppState {
       nodesContainer.className = "col-span-full";
       nodesContainer.innerHTML = `
         <div class="bg-gray-950 border border-gray-800 rounded-2xl overflow-hidden shadow-xl">
-          <div class="overflow-x-auto">
+          <div class="overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
             <table class="w-full text-left font-mono text-xs">
               <thead class="bg-gray-900/90 text-gray-400 border-b border-gray-800 text-[10px] uppercase tracking-wider">
                 <tr>
@@ -2101,12 +2155,12 @@ export class AppState {
                       <td class="p-3.5 text-gray-400">${escapeHTML(node.transport)} ${node.sni ? `(${escapeHTML(node.sni)})` : ''}</td>
                       <td class="p-3.5"><span class="px-2 py-0.5 bg-gray-900 rounded border border-gray-800 text-gray-300 text-[10px]">${escapeHTML(op)}</span></td>
                       <td class="p-3.5">
-                        <span class="font-bold ${latency === null ? 'text-gray-500' : latency < 60 ? 'text-emerald-400' : 'text-amber-400'}">⚡ ${latency === null ? 'Unmeasured' : `${Math.round(latency)}ms`}</span>
-                        <span class="text-[10px] text-gray-500 ml-1">⭐ ${grade}</span>
+                        <span class="font-bold ${latency === null ? 'text-gray-500' : latency < 60 ? 'text-emerald-400' : 'text-amber-400'}">${latency === null ? 'Unmeasured' : `${Math.round(latency)}ms`}</span>
+                        <span class="text-[10px] text-gray-500 ml-1">Grade ${grade}</span>
                       </td>
-                      <td class="p-3.5 text-right space-x-1">
-                        <button class="btn-copy-node px-2.5 py-1 bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 text-cyan-300 rounded text-[11px] focus-ring cursor-pointer" data-raw="${encodeURIComponent(node.raw)}">Copy</button>
-                        <button class="btn-open-qr-modal px-2.5 py-1 bg-gray-800 hover:bg-indigo-600 text-indigo-300 hover:text-white rounded text-[11px] focus-ring cursor-pointer" data-raw="${encodeURIComponent(node.raw)}" data-name="${escapeHTML(node.name)}">QR</button>
+                      <td class="p-3.5 text-right space-x-1 whitespace-nowrap">
+                        <button class="btn-copy-node px-3 py-2 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 text-cyan-300 rounded-xl text-xs font-mono font-medium focus-ring cursor-pointer transition-all" data-raw="${encodeURIComponent(node.raw)}">Copy</button>
+                        <button class="btn-open-qr-modal px-3 py-2 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-indigo-600 text-indigo-300 hover:text-white rounded-xl text-xs font-mono font-medium focus-ring cursor-pointer transition-all" data-raw="${encodeURIComponent(node.raw)}" data-name="${escapeHTML(node.name)}">QR</button>
                       </td>
                     </tr>
                   `;
@@ -2124,14 +2178,14 @@ export class AppState {
       nodesContainer.className = "col-span-full";
       nodesContainer.innerHTML = `
         <div class="p-5 bg-gray-950 border border-gray-800 rounded-2xl space-y-3 font-mono text-xs shadow-xl">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between flex-wrap gap-2">
             <span class="text-cyan-400 font-bold flex items-center gap-1.5">
               <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
               Raw URI Stream (${filtered.length} matching nodes)
             </span>
             <div class="flex gap-2">
-              <button id="btn-copy-feed-box" class="px-4 py-2 min-h-[38px] bg-cyan-500 text-gray-950 font-bold rounded-xl focus-ring cursor-pointer shadow-md shadow-cyan-500/20">Copy Plain URIs</button>
-              <button id="btn-copy-feed-b64" class="px-4 py-2 min-h-[38px] bg-gray-800 hover:bg-gray-700 text-cyan-300 rounded-xl focus-ring cursor-pointer">Copy Base64 Feed</button>
+              <button id="btn-copy-feed-box" class="px-4 py-2.5 min-h-[44px] bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold rounded-xl focus-ring cursor-pointer shadow-md shadow-cyan-500/20 transition-all">Copy Plain URIs</button>
+              <button id="btn-copy-feed-b64" class="px-4 py-2.5 min-h-[44px] bg-gray-800 hover:bg-gray-700 text-cyan-300 rounded-xl focus-ring cursor-pointer transition-all">Copy Base64 Feed</button>
             </div>
           </div>
           <textarea rows="14" readonly class="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-xl text-xs font-mono text-cyan-200 select-all focus:outline-none">${escapeHTML(feedURIs)}</textarea>
@@ -2262,7 +2316,7 @@ export class AppState {
             <div class="flex flex-wrap gap-1.5" role="tablist">
               ${categories.map(c => `
                 <button
-                  class="btn-artifact-tab px-3.5 py-2 min-h-[38px] rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${
+                  class="btn-artifact-tab px-3.5 py-2.5 min-h-[44px] rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${
                     this.artifactFilter === c.id
                       ? "bg-cyan-500 text-gray-950 shadow-md shadow-cyan-500/30"
                       : "bg-gray-900 text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-gray-800"
@@ -2280,7 +2334,7 @@ export class AppState {
               <input
                 id="artifact-search-input"
                 type="text"
-                class="w-full px-3.5 py-2 min-h-[38px] bg-gray-900 border border-gray-800 focus:border-cyan-500 rounded-xl text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus-ring"
+                class="w-full px-3.5 py-2.5 min-h-[44px] bg-gray-900 border border-gray-800 focus:border-cyan-500 rounded-xl text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus-ring"
                 placeholder="Search artifacts..."
                 value="${escapeHTML(this.artifactSearchQuery)}"
               />
@@ -2293,7 +2347,7 @@ export class AppState {
             <div class="sm:col-span-2 lg:col-span-3 p-8 bg-gray-900/60 border border-gray-800 rounded-3xl text-center space-y-2">
               <div class="text-sm font-mono font-bold text-gray-200">No artifacts match the current filter set</div>
               <p class="text-xs text-gray-400">Clear the artifact search or switch categories to inspect another release surface.</p>
-              <button id="btn-reset-artifact-filters" class="inline-flex items-center justify-center px-4 py-2 min-h-[40px] bg-cyan-500 text-gray-950 font-mono font-bold text-xs rounded-xl focus-ring cursor-pointer">Reset Artifact Filters</button>
+              <button id="btn-reset-artifact-filters" class="inline-flex items-center justify-center px-4 py-2.5 min-h-[44px] bg-cyan-500 text-gray-950 font-mono font-bold text-xs rounded-xl focus-ring cursor-pointer">Reset Artifact Filters</button>
             </div>
           ` : filtered.map(file => {
             const link = getArtifactLinkModel(file.path);
@@ -2341,14 +2395,14 @@ export class AppState {
                   <a
                     href="${escapeHTML(link.path)}"
                     download
-                    class="flex-1 py-2 min-h-[40px] bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 border border-gray-700 text-gray-200 text-xs font-mono font-semibold rounded-xl text-center transition-all focus-ring cursor-pointer flex items-center justify-center gap-1.5"
+                    class="flex-1 py-2.5 min-h-[44px] bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 border border-gray-700 text-gray-200 text-xs font-mono font-semibold rounded-xl text-center transition-all focus-ring cursor-pointer flex items-center justify-center gap-1.5"
                     aria-label="Download ${escapeHTML(file.filename)}"
                   >
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                     Download
                   </a>
                   <button
-                    class="btn-artifact-qr p-2 min-h-[40px] min-w-[40px] flex items-center justify-center bg-gray-800 hover:bg-cyan-950/60 border border-gray-700 hover:border-cyan-500/40 text-cyan-400 hover:text-cyan-300 rounded-xl transition-all focus-ring cursor-pointer"
+                    class="btn-artifact-qr p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-800 hover:bg-cyan-950/60 border border-gray-700 hover:border-cyan-500/40 text-cyan-400 hover:text-cyan-300 rounded-xl transition-all focus-ring cursor-pointer"
                     data-filename="${escapeHTML(file.filename)}"
                     data-path="${escapeHTML(file.path)}"
                     data-type="${escapeHTML(file.ext || file.type)}"
@@ -2370,7 +2424,7 @@ export class AppState {
                     </svg>
                   </button>
                   <button
-                    class="btn-copy-artifact-link p-2 min-h-[40px] min-w-[40px] flex items-center justify-center bg-gray-800 hover:bg-gray-700 border border-gray-700 text-cyan-400 rounded-xl transition-all focus-ring cursor-pointer"
+                    class="btn-copy-artifact-link p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-800 hover:bg-gray-700 border border-gray-700 text-cyan-400 rounded-xl transition-all focus-ring cursor-pointer"
                     data-path="${escapeHTML(file.path)}"
                     title="Copy Direct Link"
                     aria-label="Copy Direct Link to ${escapeHTML(file.filename)}"
@@ -2454,7 +2508,7 @@ export class AppState {
 
     const modalHTML = `
       <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" id="artifact-qr-modal-container">
-        <div class="relative w-full max-w-md bg-gray-900 border border-cyan-500/40 rounded-3xl p-6 shadow-2xl shadow-cyan-950/60 space-y-5" role="dialog" aria-modal="true" aria-labelledby="artifact-qr-title">
+        <div class="relative w-full max-w-md bg-gray-900 border border-cyan-500/40 rounded-3xl p-6 shadow-2xl shadow-cyan-950/60 space-y-5 max-h-[90vh] max-h-[90dvh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="artifact-qr-title">
           <div class="flex items-center justify-between pb-3 border-b border-gray-800">
             <div class="flex items-center gap-2">
               <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded border bg-cyan-950 text-cyan-300 border-cyan-700">
@@ -2652,38 +2706,42 @@ export class AppState {
           </div>
 
           <!-- Studio Tabs Header -->
-          <div class="flex flex-wrap gap-1.5" role="tablist">
+          <div class="flex flex-wrap gap-2" role="tablist">
             <button
-              class="btn-studio-tab px-3 py-2 min-h-[38px] rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${currentTab === 'inspector' ? 'bg-cyan-500 text-gray-950 font-bold shadow-md shadow-cyan-500/30' : 'bg-gray-950 text-gray-400 hover:text-gray-200 border border-gray-800'}"
+              class="btn-studio-tab px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${currentTab === 'inspector' ? 'bg-cyan-500 text-gray-950 font-bold shadow-md shadow-cyan-500/30' : 'bg-gray-950 text-gray-400 hover:text-gray-200 border border-gray-800'}"
               data-tab="inspector"
               role="tab"
               aria-selected="${currentTab === 'inspector'}"
             >
-              🔍 Protocol Inspector
+              <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+              <span>Protocol Inspector</span>
             </button>
             <button
-              class="btn-studio-tab px-3 py-2 min-h-[38px] rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${currentTab === 'converter' ? 'bg-cyan-500 text-gray-950 font-bold shadow-md shadow-cyan-500/30' : 'bg-gray-950 text-gray-400 hover:text-gray-200 border border-gray-800'}"
+              class="btn-studio-tab px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${currentTab === 'converter' ? 'bg-cyan-500 text-gray-950 font-bold shadow-md shadow-cyan-500/30' : 'bg-gray-950 text-gray-400 hover:text-gray-200 border border-gray-800'}"
               data-tab="converter"
               role="tab"
               aria-selected="${currentTab === 'converter'}"
             >
-              ⚡ Universal Converter
+              <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+              <span>Universal Converter</span>
             </button>
             <button
-              class="btn-studio-tab px-3 py-2 min-h-[38px] rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${currentTab === 'dedup' ? 'bg-cyan-500 text-gray-950 font-bold shadow-md shadow-cyan-500/30' : 'bg-gray-950 text-gray-400 hover:text-gray-200 border border-gray-800'}"
+              class="btn-studio-tab px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${currentTab === 'dedup' ? 'bg-cyan-500 text-gray-950 font-bold shadow-md shadow-cyan-500/30' : 'bg-gray-950 text-gray-400 hover:text-gray-200 border border-gray-800'}"
               data-tab="dedup"
               role="tab"
               aria-selected="${currentTab === 'dedup'}"
             >
-              🧹 Bulk Deduplicator
+              <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+              <span>Bulk Deduplicator</span>
             </button>
             <button
-              class="btn-studio-tab px-3 py-2 min-h-[38px] rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${currentTab === 'qr_studio' ? 'bg-cyan-500 text-gray-950 font-bold shadow-md shadow-cyan-500/30' : 'bg-gray-950 text-gray-400 hover:text-gray-200 border border-gray-800'}"
+              class="btn-studio-tab px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${currentTab === 'qr_studio' ? 'bg-cyan-500 text-gray-950 font-bold shadow-md shadow-cyan-500/30' : 'bg-gray-950 text-gray-400 hover:text-gray-200 border border-gray-800'}"
               data-tab="qr_studio"
               role="tab"
               aria-selected="${currentTab === 'qr_studio'}"
             >
-              📱 QR Code Studio
+              <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+              <span>QR Code Studio</span>
             </button>
           </div>
         </div>
@@ -2757,10 +2815,10 @@ export class AppState {
                   <span class="px-1.5 py-0.5 rounded text-[11px] bg-gray-900 text-gray-300 border border-gray-800">${escapeHTML(op)}</span>
                   <span class="font-bold text-gray-200 truncate max-w-xs">${escapeHTML(decoded.name || 'Node')}</span>
                 </div>
-                <div class="flex gap-2">
-                  <button id="btn-copy-node-json" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-cyan-300 rounded-lg text-xs cursor-pointer focus-ring">Copy JSON</button>
-                  <button id="btn-copy-node-singbox" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-emerald-300 rounded-lg text-xs cursor-pointer focus-ring">Copy Sing-box</button>
-                  <button id="btn-copy-node-clash" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-amber-300 rounded-lg text-xs cursor-pointer focus-ring">Copy Clash</button>
+                <div class="flex flex-wrap gap-2">
+                  <button id="btn-copy-node-json" class="px-3.5 py-2 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-cyan-300 rounded-xl text-xs font-mono font-medium cursor-pointer focus-ring">Copy JSON</button>
+                  <button id="btn-copy-node-singbox" class="px-3.5 py-2 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-emerald-300 rounded-xl text-xs font-mono font-medium cursor-pointer focus-ring">Copy Sing-box</button>
+                  <button id="btn-copy-node-clash" class="px-3.5 py-2 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-amber-300 rounded-xl text-xs font-mono font-medium cursor-pointer focus-ring">Copy Clash</button>
                 </div>
               </div>
 
@@ -2892,9 +2950,9 @@ export class AppState {
           <div id="converter-output-container" class="hidden mt-4 space-y-2">
             <div class="flex items-center justify-between">
               <span class="text-xs font-mono font-bold text-cyan-400">Converted Output Result:</span>
-              <div class="flex gap-2">
-                <button id="btn-copy-converted" class="px-4 py-2 min-h-[38px] bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 text-cyan-300 font-mono text-xs rounded-xl focus-ring cursor-pointer transition-all">Copy Output</button>
-                <button id="btn-download-converted" class="px-4 py-2 min-h-[38px] bg-gray-800 hover:bg-gray-700 text-gray-200 font-mono text-xs rounded-xl focus-ring cursor-pointer transition-all">Download File</button>
+              <div class="flex flex-wrap gap-2">
+                <button id="btn-copy-converted" class="px-4 py-2.5 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 text-cyan-300 font-mono text-xs rounded-xl focus-ring cursor-pointer transition-all">Copy Output</button>
+                <button id="btn-download-converted" class="px-4 py-2.5 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-gray-200 font-mono text-xs rounded-xl focus-ring cursor-pointer transition-all">Download File</button>
               </div>
             </div>
             <textarea
@@ -3013,7 +3071,7 @@ export class AppState {
             </div>
 
             <div class="flex justify-end gap-2">
-              <button id="btn-copy-dedup-result" class="px-4 py-2 min-h-[38px] bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 text-cyan-300 font-mono text-xs rounded-xl focus-ring cursor-pointer transition-all">Copy Unique URIs</button>
+              <button id="btn-copy-dedup-result" class="px-4 py-2.5 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 text-cyan-300 font-mono text-xs rounded-xl focus-ring cursor-pointer transition-all">Copy Unique URIs</button>
             </div>
 
             <textarea
@@ -3079,7 +3137,7 @@ export class AppState {
                   <label class="block text-[10px] font-mono text-gray-400 mb-1">Color Preset:</label>
                   <select
                     id="qr-studio-color-preset"
-                    class="w-full bg-gray-950 border border-gray-800 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[38px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
+                    class="w-full bg-gray-950 border border-gray-800 text-gray-300 text-xs font-mono rounded-xl px-3 py-2.5 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
                   >
                     <option value="cyber">Cyber Cyan &amp; Dark (#070a0f / #ffffff)</option>
                     <option value="mono_dark">High-Contrast Pure B&amp;W (#000000 / #ffffff)</option>
@@ -3090,7 +3148,7 @@ export class AppState {
                   <label class="block text-[10px] font-mono text-gray-400 mb-1">Error Correction (ECC):</label>
                   <select
                     id="qr-studio-ecc"
-                    class="w-full bg-gray-950 border border-gray-800 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[38px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
+                    class="w-full bg-gray-950 border border-gray-800 text-gray-300 text-xs font-mono rounded-xl px-3 py-2.5 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
                   >
                     <option value="M" selected>Level M (15% Recovery - Standard)</option>
                     <option value="L">Level L (7% Recovery - Dense)</option>
@@ -3105,9 +3163,9 @@ export class AppState {
               <div id="qr-studio-render-target" class="p-3 bg-white rounded-2xl shadow-lg flex items-center justify-center min-h-[220px] min-w-[220px]">
               </div>
 
-              <div class="flex gap-2 w-full">
-                <button id="btn-download-qr-svg" class="flex-1 py-2 min-h-[40px] bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-mono font-bold text-xs rounded-xl focus-ring cursor-pointer transition-all shadow-md shadow-cyan-500/20">Download SVG</button>
-                <button id="btn-copy-qr-svg" class="py-2 px-4 min-h-[40px] bg-gray-800 hover:bg-gray-700 text-cyan-300 font-mono text-xs rounded-xl focus-ring cursor-pointer transition-all">Copy SVG</button>
+              <div class="flex flex-wrap gap-2 w-full">
+                <button id="btn-download-qr-svg" class="flex-1 py-2.5 px-4 min-h-[44px] inline-flex items-center justify-center bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-mono font-bold text-xs rounded-xl focus-ring cursor-pointer transition-all shadow-md shadow-cyan-500/20">Download SVG</button>
+                <button id="btn-copy-qr-svg" class="py-2.5 px-4 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-cyan-300 font-mono text-xs rounded-xl focus-ring cursor-pointer transition-all">Copy SVG</button>
               </div>
             </div>
           </div>
@@ -3174,7 +3232,7 @@ export class AppState {
 
     modalContainer.innerHTML = `
       <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="modal-decoder-title">
-        <div id="modal-box" class="relative w-full max-w-2xl bg-gray-900 border border-cyan-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-cyan-950/50 space-y-6">
+        <div id="modal-box" class="relative w-full max-w-2xl bg-gray-900 border border-cyan-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-cyan-950/50 space-y-6 max-h-[90vh] max-h-[90dvh] overflow-y-auto">
           <div class="flex items-center justify-between border-b border-gray-800 pb-4">
             <div class="flex items-center gap-2">
               <span class="p-2 bg-cyan-950 text-cyan-400 rounded-xl">
@@ -3182,7 +3240,7 @@ export class AppState {
               </span>
               <h3 id="modal-decoder-title" class="text-lg font-mono font-bold text-white">Proxy Protocol Inspector</h3>
             </div>
-            <button id="btn-close-modal" class="p-2 min-h-[40px] min-w-[40px] flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-xl focus-ring cursor-pointer" aria-label="Close modal">
+            <button id="btn-close-modal" class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-xl focus-ring cursor-pointer" aria-label="Close modal">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
           </div>
@@ -3200,9 +3258,9 @@ export class AppState {
             ${decodedRes ? `<pre class="text-gray-300 text-[11px]">${escapeHTML(JSON.stringify(decodedRes, null, 2))}</pre>` : `<span class="text-gray-500">Click parse to inspect</span>`}
           </div>
 
-          <div class="flex justify-end gap-3 pt-2">
-            <button id="modal-btn-copy-raw" class="px-4 py-2 min-h-[40px] bg-gray-800 hover:bg-gray-700 text-gray-200 font-mono text-xs rounded-xl focus-ring cursor-pointer" aria-label="Copy raw proxy URI">Copy Raw</button>
-            <button id="modal-btn-copy-json" class="px-4 py-2 min-h-[40px] bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-mono font-bold text-xs rounded-xl focus-ring cursor-pointer" aria-label="Copy decoded parameters JSON">Copy Decoded JSON</button>
+          <div class="flex flex-wrap justify-end gap-3 pt-2">
+            <button id="modal-btn-copy-raw" class="px-4 py-2.5 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-gray-200 font-mono text-xs rounded-xl focus-ring cursor-pointer" aria-label="Copy raw proxy URI">Copy Raw</button>
+            <button id="modal-btn-copy-json" class="px-4 py-2.5 min-h-[44px] inline-flex items-center justify-center bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-mono font-bold text-xs rounded-xl focus-ring cursor-pointer" aria-label="Copy decoded parameters JSON">Copy Decoded JSON</button>
           </div>
         </div>
       </div>
@@ -3247,10 +3305,10 @@ export class AppState {
 
     modalContainer.innerHTML = `
       <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="modal-qr-title">
-        <div id="modal-box" class="relative w-full max-w-sm bg-gray-900 border border-cyan-500/30 rounded-3xl p-6 shadow-2xl shadow-cyan-950/50 text-center space-y-4">
+        <div id="modal-box" class="relative w-full max-w-sm bg-gray-900 border border-cyan-500/30 rounded-3xl p-6 shadow-2xl shadow-cyan-950/50 text-center space-y-4 max-h-[90vh] max-h-[90dvh] overflow-y-auto">
           <div class="flex items-center justify-between">
             <h3 id="modal-qr-title" class="text-sm font-mono font-bold text-white truncate max-w-[240px]">${escapeHTML(name)}</h3>
-            <button id="btn-close-qr" class="p-2 min-h-[38px] min-w-[38px] flex items-center justify-center bg-gray-800 text-gray-400 hover:text-white rounded-lg cursor-pointer focus-ring" aria-label="Close QR Modal">
+            <button id="btn-close-qr" class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-800 text-gray-400 hover:text-white rounded-xl cursor-pointer focus-ring" aria-label="Close QR Modal">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
           </div>
@@ -3319,7 +3377,7 @@ export class AppState {
 
     modalContainer.innerHTML = `
       <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="modal-sub-title">
-        <div id="modal-box" class="relative w-full max-w-2xl bg-gray-900 border border-cyan-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-cyan-950/50 space-y-5 max-h-[90vh] overflow-y-auto">
+        <div id="modal-box" class="relative w-full max-w-2xl bg-gray-900 border border-cyan-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-cyan-950/50 space-y-5 max-h-[90vh] max-h-[90dvh] overflow-y-auto">
           <div class="flex items-center justify-between border-b border-gray-800 pb-3">
             <h3 id="modal-sub-title" class="text-base font-mono font-bold text-white flex items-center gap-2">
               <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
@@ -3382,7 +3440,7 @@ export class AppState {
 
     modalContainer.innerHTML = `
       <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="modal-scanner-title">
-        <div id="modal-box" class="relative w-full max-w-3xl bg-gray-900 border border-emerald-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-emerald-950/50 space-y-5 max-h-[90vh] overflow-y-auto">
+        <div id="modal-box" class="relative w-full max-w-3xl bg-gray-900 border border-emerald-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-emerald-950/50 space-y-5 max-h-[90vh] max-h-[90dvh] overflow-y-auto">
           <div class="flex items-center justify-between border-b border-gray-800 pb-3">
             <div class="flex items-center gap-2">
               <span class="p-2 bg-emerald-950 text-emerald-400 rounded-xl">
@@ -3393,7 +3451,7 @@ export class AppState {
                 <span class="text-[10px] font-mono text-gray-400">In-Browser Bitshift CIDR Expansion &amp; Latency Speedtest</span>
               </div>
             </div>
-            <button id="btn-close-scanner" class="p-2 min-h-[38px] min-w-[38px] flex items-center justify-center bg-gray-800 text-gray-400 hover:text-white rounded-lg cursor-pointer focus-ring" aria-label="Close Clean IP Scanner Modal">
+            <button id="btn-close-scanner" class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-800 text-gray-400 hover:text-white rounded-xl cursor-pointer focus-ring" aria-label="Close Clean IP Scanner Modal">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
           </div>
@@ -3402,7 +3460,7 @@ export class AppState {
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-gray-950 border border-gray-800 rounded-2xl">
             <div>
               <label for="scanner-cidr-select" class="block text-[11px] font-mono text-gray-400 mb-1">Target CIDR Subnet:</label>
-              <select id="scanner-cidr-select" class="w-full px-3 py-2 bg-gray-900 border border-gray-800 focus:border-emerald-500 rounded-xl text-xs font-mono text-gray-200 focus-ring cursor-pointer">
+              <select id="scanner-cidr-select" class="w-full px-3 py-2.5 min-h-[44px] bg-gray-900 border border-gray-800 focus:border-emerald-500 rounded-xl text-xs font-mono text-gray-200 focus-ring cursor-pointer">
                 <option value="104.16.0.0/12">104.16.0.0/12 (CDN Core 1)</option>
                 <option value="172.64.0.0/13">172.64.0.0/13 (CDN Core 2)</option>
                 <option value="162.158.0.0/15">162.158.0.0/15 (CDN Core 3)</option>
@@ -3414,11 +3472,11 @@ export class AppState {
 
             <div>
               <label for="scanner-count-input" class="block text-[11px] font-mono text-gray-400 mb-1">Sample Count:</label>
-              <input type="number" id="scanner-count-input" value="12" min="3" max="50" class="w-full px-3 py-2 bg-gray-900 border border-gray-800 focus:border-emerald-500 rounded-xl text-xs font-mono text-gray-200 focus-ring" />
+              <input type="number" id="scanner-count-input" value="12" min="3" max="50" class="w-full px-3 py-2.5 min-h-[44px] bg-gray-900 border border-gray-800 focus:border-emerald-500 rounded-xl text-xs font-mono text-gray-200 focus-ring" />
             </div>
 
             <div class="flex items-end">
-              <button id="scanner-btn-start" class="w-full py-2 min-h-[40px] bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-mono font-bold text-xs rounded-xl transition-all shadow-md shadow-emerald-950/50 flex items-center justify-center gap-2 focus-ring cursor-pointer">
+              <button id="scanner-btn-start" class="w-full py-2.5 min-h-[44px] bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-mono font-bold text-xs rounded-xl transition-all shadow-md shadow-emerald-950/50 flex items-center justify-center gap-2 focus-ring cursor-pointer">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                 <span>Start Speedtest</span>
               </button>
@@ -3456,12 +3514,12 @@ export class AppState {
           <!-- Footer Actions -->
           <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
             <div class="flex items-center gap-2">
-              <button id="scanner-btn-copy-best" class="px-3.5 py-2 min-h-[38px] bg-gray-800 hover:bg-gray-700 text-emerald-300 font-mono text-xs rounded-xl focus-ring cursor-pointer disabled:opacity-40" disabled>Copy Best IP</button>
-              <button id="scanner-btn-copy-all" class="px-3.5 py-2 min-h-[38px] bg-gray-800 hover:bg-gray-700 text-gray-200 font-mono text-xs rounded-xl focus-ring cursor-pointer disabled:opacity-40" disabled>Copy All Clean</button>
+              <button id="scanner-btn-copy-best" class="px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-emerald-300 font-mono text-xs rounded-xl focus-ring cursor-pointer disabled:opacity-40" disabled>Copy Best IP</button>
+              <button id="scanner-btn-copy-all" class="px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-gray-200 font-mono text-xs rounded-xl focus-ring cursor-pointer disabled:opacity-40" disabled>Copy All Clean</button>
             </div>
             <div class="flex items-center gap-2">
-              <button id="scanner-btn-export-csv" class="px-3.5 py-2 min-h-[38px] bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-xs rounded-xl focus-ring cursor-pointer disabled:opacity-40" disabled>Export CSV</button>
-              <button id="scanner-btn-export-json" class="px-3.5 py-2 min-h-[38px] bg-emerald-950 text-emerald-300 border border-emerald-800/60 font-mono text-xs rounded-xl focus-ring cursor-pointer disabled:opacity-40" disabled>Export JSON</button>
+              <button id="scanner-btn-export-csv" class="px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-xs rounded-xl focus-ring cursor-pointer disabled:opacity-40" disabled>Export CSV</button>
+              <button id="scanner-btn-export-json" class="px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center bg-emerald-950 text-emerald-300 border border-emerald-800/60 font-mono text-xs rounded-xl focus-ring cursor-pointer disabled:opacity-40" disabled>Export JSON</button>
             </div>
           </div>
         </div>
@@ -3547,7 +3605,7 @@ export class AppState {
             </span>
           </td>
           <td class="p-3 text-right">
-            <button class="btn-copy-scanned-ip px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-cyan-300 rounded text-[10px] font-mono focus-ring cursor-pointer" data-ip="${escapeHTML(r.ip)}">Copy</button>
+            <button class="btn-copy-scanned-ip px-3 py-2 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-cyan-300 rounded-xl text-xs font-mono focus-ring cursor-pointer" data-ip="${escapeHTML(r.ip)}">Copy</button>
           </td>
         </tr>
       `).join("");
@@ -3669,10 +3727,10 @@ export class AppState {
 
     modalContainer.innerHTML = `
       <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="modal-qr-title">
-        <div id="modal-box" class="relative w-full max-w-md bg-gray-900 border border-cyan-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-cyan-950/50 space-y-5 text-center">
+        <div id="modal-box" class="relative w-full max-w-md bg-gray-900 border border-cyan-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-cyan-950/50 space-y-5 text-center max-h-[90vh] max-h-[90dvh] overflow-y-auto">
           <div class="flex items-center justify-between border-b border-gray-800 pb-3">
             <h3 id="modal-qr-title" class="text-sm font-mono font-bold text-gray-100 truncate">${escapeHTML(name)}</h3>
-            <button id="btn-close-qr-modal" class="p-2 min-h-[38px] min-w-[38px] flex items-center justify-center bg-gray-800 text-gray-400 hover:text-white rounded-lg cursor-pointer focus-ring" aria-label="Close QR Modal">
+            <button id="btn-close-qr-modal" class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-800 text-gray-400 hover:text-white rounded-xl cursor-pointer focus-ring" aria-label="Close QR Modal">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
           </div>
@@ -3683,11 +3741,11 @@ export class AppState {
 
           <p class="text-[11px] font-mono text-gray-400">Scan using v2rayNG, Sing-box, NekoBox, Hiddify, or Streisand</p>
 
-          <div class="flex gap-2">
-            <button id="btn-copy-qr-uri" class="flex-1 py-2 min-h-[40px] bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-mono font-bold text-xs rounded-xl focus-ring cursor-pointer transition-all shadow-md shadow-cyan-500/20">
+          <div class="flex flex-wrap gap-2">
+            <button id="btn-copy-qr-uri" class="flex-1 py-2.5 px-4 min-h-[44px] inline-flex items-center justify-center bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-mono font-bold text-xs rounded-xl focus-ring cursor-pointer transition-all shadow-md shadow-cyan-500/20">
               Copy Node URI
             </button>
-            <button id="btn-download-qr-modal-svg" class="py-2 px-4 min-h-[40px] bg-gray-800 hover:bg-gray-700 text-cyan-300 font-mono text-xs rounded-xl focus-ring cursor-pointer transition-all">
+            <button id="btn-download-qr-modal-svg" class="py-2.5 px-4 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-cyan-300 font-mono text-xs rounded-xl focus-ring cursor-pointer transition-all">
               Save SVG
             </button>
           </div>
@@ -3735,7 +3793,7 @@ export class AppState {
 
     modalContainer.innerHTML = `
       <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="modal-shortcuts-title">
-        <div id="modal-box" class="relative w-full max-w-md bg-gray-900 border border-cyan-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-cyan-950/50 space-y-5">
+        <div id="modal-box" class="relative w-full max-w-md bg-gray-900 border border-cyan-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-cyan-950/50 space-y-5 max-h-[90vh] max-h-[90dvh] overflow-y-auto">
           <div class="flex items-center justify-between border-b border-gray-800 pb-3">
             <div class="flex items-center gap-2">
               <span class="p-2 bg-cyan-950 text-cyan-400 rounded-xl">
@@ -3746,7 +3804,7 @@ export class AppState {
                 <span class="text-[10px] font-mono text-gray-400">Power-user keybindings for HUNTX</span>
               </div>
             </div>
-            <button id="btn-close-shortcuts" class="p-2 min-h-[38px] min-w-[38px] flex items-center justify-center bg-gray-800 text-gray-400 hover:text-white rounded-lg cursor-pointer focus-ring" aria-label="Close Shortcuts Modal">
+            <button id="btn-close-shortcuts" class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-800 text-gray-400 hover:text-white rounded-xl cursor-pointer focus-ring" aria-label="Close Shortcuts Modal">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
           </div>

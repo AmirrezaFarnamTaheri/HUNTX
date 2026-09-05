@@ -199,6 +199,32 @@ INDEX_HTML = """<!DOCTYPE html>
       min-height: 44px !important;
     }
 
+    /* Prevent iOS Safari auto-zoom on input focus while guaranteeing 44px touch targets */
+    @media screen and (max-width: 768px) {
+      input,
+      select,
+      textarea {
+        font-size: 16px !important;
+        min-height: 44px !important;
+      }
+    }
+
+    /* Touch-friendly horizontal scrolling for tabs and scroll containers */
+    #page-tabs-nav > div,
+    .horizontal-scroll-touch {
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    #page-tabs-nav > div::-webkit-scrollbar,
+    .horizontal-scroll-touch::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* Safe-area inset support for mobile screens */
+    body {
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
     /* Animations */
     @keyframes pulseGlow {
       0%, 100% { opacity: 0.8; transform: scale(1); }
@@ -647,7 +673,7 @@ INDEX_HTML = """<!DOCTYPE html>
             <span class="font-mono text-base font-bold tracking-tight text-white">HUNT<span class="text-cyan-400">X</span></span>
             <span class="px-1.5 py-0.5 text-[9px] font-mono font-bold bg-cyan-950/80 text-cyan-400 border border-cyan-800/60 rounded">v2.5</span>
           </div>
-          <span class="text-[10px] text-gray-400 font-mono tracking-wider">NODE TELEMETRY</span>
+          <span class="text-[10px] text-gray-400 font-mono tracking-wider hidden sm:block">NODE TELEMETRY</span>
         </div>
       </a>
 
@@ -659,7 +685,7 @@ INDEX_HTML = """<!DOCTYPE html>
           <input
             id="global-search-input"
             type="text"
-            class="w-full pl-9 pr-12 py-2 bg-gray-900/80 border border-gray-800 focus:border-cyan-500/60 rounded-xl text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus-ring"
+            class="w-full pl-9 pr-12 py-2.5 min-h-[44px] bg-gray-900/80 border border-gray-800 focus:border-cyan-500/60 rounded-xl text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus-ring"
             placeholder="Search nodes, protocols, SNI, country..."
             aria-label="Global Search"
           />
@@ -680,7 +706,7 @@ INDEX_HTML = """<!DOCTYPE html>
 
         <button
           id="btn-open-scanner"
-          class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/30 hover:border-emerald-400 text-emerald-300 text-xs font-mono font-medium rounded-xl transition-all shadow-sm focus-ring cursor-pointer"
+          class="flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/30 hover:border-emerald-400 text-emerald-300 text-xs font-mono font-medium rounded-xl transition-all shadow-sm focus-ring cursor-pointer"
           title="Open Clean IP Scanner (Press S)"
           aria-label="Open Clean IP Scanner"
         >
@@ -690,7 +716,7 @@ INDEX_HTML = """<!DOCTYPE html>
 
         <button
           id="btn-open-builder"
-          class="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 hover:border-cyan-400 text-cyan-300 text-xs font-mono font-medium rounded-xl transition-all shadow-sm focus-ring cursor-pointer"
+          class="flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 hover:border-cyan-400 text-cyan-300 text-xs font-mono font-medium rounded-xl transition-all shadow-sm focus-ring cursor-pointer"
           title="Open Subscription Builder"
           aria-label="Open Subscription Builder"
         >
@@ -700,7 +726,7 @@ INDEX_HTML = """<!DOCTYPE html>
 
         <button
           id="btn-toggle-theme"
-          class="p-2 min-h-[38px] min-w-[38px] flex items-center justify-center bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-cyan-500/40 text-gray-400 hover:text-cyan-300 rounded-xl transition-all focus-ring cursor-pointer"
+          class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-cyan-500/40 text-gray-400 hover:text-cyan-300 rounded-xl transition-all focus-ring cursor-pointer"
           title="Toggle Light / Dark Theme (Press T)"
           aria-label="Toggle Theme"
         >
@@ -710,7 +736,7 @@ INDEX_HTML = """<!DOCTYPE html>
         <a
           href="architecture.html"
           target="_blank"
-          class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 text-gray-300 hover:text-white text-xs font-mono rounded-xl transition-all focus-ring"
+          class="hidden md:flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 text-gray-300 hover:text-white text-xs font-mono rounded-xl transition-all focus-ring"
           title="Open Interactive System Architecture"
           aria-label="Open Interactive System Architecture"
         >
@@ -721,7 +747,7 @@ INDEX_HTML = """<!DOCTYPE html>
         <a
           href="https://github.com/AmirrezaFarnamTaheri/HUNTX"
           target="_blank"
-          class="p-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 text-gray-400 hover:text-white rounded-xl transition-all focus-ring"
+          class="hidden sm:flex p-2.5 min-h-[44px] min-w-[44px] items-center justify-center bg-gray-900 hover:bg-gray-800 border border-gray-800 text-gray-400 hover:text-white rounded-xl transition-all focus-ring"
           title="GitHub Repository"
           aria-label="GitHub Repository"
         >
@@ -867,7 +893,7 @@ INDEX_HTML = """<!DOCTYPE html>
   <div id="modal-overlay" class="hidden"></div>
 
   <!-- Floating Toast Notification System -->
-  <div id="toast-container" role="status" aria-live="polite" aria-atomic="true" class="fixed bottom-6 right-6 z-[9999] flex flex-col gap-2 pointer-events-none"></div>
+  <div id="toast-container" role="status" aria-live="polite" aria-atomic="true" class="fixed bottom-6 inset-x-4 sm:inset-x-auto sm:right-6 z-[9999] flex flex-col items-center sm:items-end gap-2 pointer-events-none max-w-md mx-auto sm:mx-0"></div>
 
   <!-- Checked-in standalone bundle. Supported delivery mode is HTTP/HTTPS. -->
   <script src="assets/js/bundle.js"></script>

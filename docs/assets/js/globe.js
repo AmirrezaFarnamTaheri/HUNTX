@@ -489,8 +489,44 @@ export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null) {
     rafId = requestAnimationFrame(render);
   }
 
+  // Touch interaction gating for mobile / pointer devices
+  let isTouchActive = false;
+  canvas.style.touchAction = "pan-y";
+
+  function setTouchInteractive(active) {
+    isTouchActive = !!active;
+    canvas.style.touchAction = isTouchActive ? "none" : "pan-y";
+  }
+
+  function checkHubClick(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = clientX - rect.left;
+    const my = clientY - rect.top;
+
+    for (let i = 0; i < hubs.length; i++) {
+      const h = hubs[i];
+      if (h.screenZ > 0) {
+        const dist = Math.hypot(mx - h.screenX, my - h.screenY);
+        if (dist < 24) {
+          if (typeof onNodeSelect === "function") {
+            onNodeSelect(h);
+          }
+          break;
+        }
+      }
+    }
+  }
+
   // Pointer Interaction Listeners with Inertia Physics
   function onPointerDown(e) {
+    if (e.pointerType === "touch" && !isTouchActive) {
+      // Allow native page vertical scrolling without touch capture
+      startX = e.clientX;
+      startY = e.clientY;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      return;
+    }
     isDragging = true;
     startX = e.clientX;
     startY = e.clientY;
@@ -499,7 +535,9 @@ export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null) {
     lastMoveTime = performance.now();
     velX = 0;
     velY = 0;
-    canvas.setPointerCapture(e.pointerId);
+    try {
+      canvas.setPointerCapture(e.pointerId);
+    } catch (err) {}
   }
 
   function onPointerMove(e) {
@@ -553,22 +591,13 @@ export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null) {
 
       // Click Hub Detection
       if (moveDist < 6) {
-        const rect = canvas.getBoundingClientRect();
-        const mx = e.clientX - rect.left;
-        const my = e.clientY - rect.top;
-
-        for (let i = 0; i < hubs.length; i++) {
-          const h = hubs[i];
-          if (h.screenZ > 0) {
-            const dist = Math.hypot(mx - h.screenX, my - h.screenY);
-            if (dist < 24) {
-              if (typeof onNodeSelect === "function") {
-                onNodeSelect(h);
-              }
-              break;
-            }
-          }
-        }
+        checkHubClick(e.clientX, e.clientY);
+      }
+    } else if (e.pointerType === "touch" && !isTouchActive) {
+      // Quick tap detection on mobile when gate is inactive
+      const tapDist = Math.hypot(e.clientX - startX, e.clientY - startY);
+      if (tapDist < 8) {
+        checkHubClick(e.clientX, e.clientY);
       }
     }
   }
@@ -613,6 +642,8 @@ export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null) {
       resize();
       rafId = requestAnimationFrame(render);
     },
+    setTouchInteractive,
+    isTouchInteractive: () => isTouchActive,
     destroy: () => {
       cancelAnimationFrame(rafId);
       resizeObserver.disconnect();
