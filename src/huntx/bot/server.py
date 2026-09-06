@@ -41,7 +41,5 @@ class TelemetryServer:
         for q in list(self.active_clients):
             try:
                 q.put_nowait(msg)
-            except asyncio.QueueFull:
-                self.unregister_client(q)
             except Exception:
                 self.unregister_client(q)

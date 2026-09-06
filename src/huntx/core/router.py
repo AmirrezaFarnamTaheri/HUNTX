@@ -8,36 +8,28 @@ _PROXY_URI_PREFIXES = _PROXY_SCHEMES
 _AUTH_HTTP_PROXY_RE = re.compile('https?://[^@\\s/:]+(?::[^@\\s]*)?@(?:\\[[^\\]]+\\]|[^/\\s:]+):\\d{1,5}(?:#[^\\s<>\\"\']*)?', re.IGNORECASE)
 
 
+_EXTENSION_FORMAT_MAP = {
+    ".ovpn": "ovpn",
+    ".npv4": "npv4",
+    ".conf": "conf_lines",
+    ".ehi": "ehi",
+    ".hc": "hc",
+    ".hat": "hat",
+    ".sip": "sip",
+    ".nm": "nm",
+    ".dark": "dark",
+    ".tut": "tut",
+    ".sks": "sks",
+    ".tmt": "tmt",
+    ".npvtsub": "npvtsub",
+}
+
+
 @lru_cache(maxsize=4096)
 def _format_by_extension(filename_lower: str) -> str | None:
     """Cache extension-based format lookups — filenames repeat heavily across runs."""
-    if filename_lower.endswith('.ovpn'):
-        return 'ovpn'
-    if filename_lower.endswith('.npv4'):
-        return 'npv4'
-    if filename_lower.endswith('.conf'):
-        return 'conf_lines'
-    if filename_lower.endswith('.ehi'):
-        return 'ehi'
-    if filename_lower.endswith('.hc'):
-        return 'hc'
-    if filename_lower.endswith('.hat'):
-        return 'hat'
-    if filename_lower.endswith('.sip'):
-        return 'sip'
-    if filename_lower.endswith('.nm'):
-        return 'nm'
-    if filename_lower.endswith('.dark'):
-        return 'dark'
-    if filename_lower.endswith('.tut'):
-        return 'tut'
-    if filename_lower.endswith('.sks'):
-        return 'sks'
-    if filename_lower.endswith('.tmt'):
-        return 'tmt'
-    if filename_lower.endswith('.npvtsub'):
-        return 'npvtsub'
-    return None
+    _, dot, ext = filename_lower.rpartition(".")
+    return _EXTENSION_FORMAT_MAP.get(f".{ext}") if dot else None
 
 
 def _contains_proxy_uri(text: str) -> bool:

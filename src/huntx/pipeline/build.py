@@ -44,7 +44,7 @@ class BuildPipeline:
     def _b64_decode(data: str) -> str:
         """Base64 decode with auto-padding, including URL-safe variants."""
         normalized = data.replace('-', '+').replace('_', '/')
-        normalized += '=' * ((4 - len(normalized) % 4) % 4)
+        normalized += '=' * (-len(normalized) % 4)
         return base64.b64decode(normalized).decode('utf-8', errors='ignore')
 
     @staticmethod
