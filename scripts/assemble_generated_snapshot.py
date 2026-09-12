@@ -8,6 +8,7 @@ import binascii
 import datetime as dt
 import hashlib
 import json
+import runpy
 import shutil
 from pathlib import Path
 from typing import Any
@@ -316,6 +317,16 @@ def _format_size(size_bytes: int) -> str:
         value /= 1024
 
 
+def _refresh_frontend_index(project_root: Path) -> None:
+    """Render the dashboard shell from the final staged catalog and data."""
+    script = Path(__file__).with_name("update_frontend.py")
+    namespace = runpy.run_path(str(script))
+    writer = namespace.get("write_index")
+    if not callable(writer):
+        raise RuntimeError(f"frontend generator does not expose write_index: {script}")
+    writer(project_root)
+
+
 def _catalog_dev_trio(docs_dir: Path, dev_dir: Path) -> None:
     """Append the cumulative dev datasets to the staged catalog.
 
@@ -453,6 +464,8 @@ def assemble_snapshot(
                     target_file.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(source_file, target_file)
         _catalog_dev_trio(destination / "docs", destination / "docs" / "artifacts" / "dev")
+        if shell_root is not None:
+            _refresh_frontend_index(destination)
         dashboard_file_count = sum(1 for p in (destination / "docs").rglob("*") if p.is_file())
 
     logs = first_dir(logs_root, "logs") or logs_root
