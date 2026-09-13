@@ -48,8 +48,34 @@ jobs:
         with:
           script: |
             const expectedPath = '.github/workflows/huntx.yml';
+
+            const requiredArtifactNames = run => [
+              `runtime-checkpoint-${run.id}-${run.run_attempt}`,
+              `huntx-output-${run.id}-${run.run_attempt}`,
+              `huntx-logs-${run.id}-${run.run_attempt}`,
+            ];
+
+            async function publicationArtifacts(run) {
+              const { data } = await github.rest.actions.listWorkflowRunArtifacts({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: Number(run.id),
+                per_page: 100,
+              });
+              const available = new Set(
+                data.artifacts
+                  .filter(artifact => !artifact.expired)
+                  .map(artifact => artifact.name),
+              );
+              const missing = requiredArtifactNames(run).filter(
+                name => !available.has(name),
+              );
+              return { ready: missing.length === 0, missing };
+            }
+
             let runId;
             let expectedAttempt;
+            let selectedRun = null;
 
             if (context.eventName === 'workflow_run') {
               runId = Number(context.payload.workflow_run.id);
@@ -66,19 +92,34 @@ jobs:
                 status: 'completed',
                 per_page: 50,
               });
-              const candidate = data.workflow_runs.find(
-                run => run.conclusion === 'success'
-                  && run.path === expectedPath
-                  && run.name === 'huntx-production',
-              );
-              if (!candidate) {
-                core.setFailed(
-                  'No completed successful huntx-production run is available for control-plane republish.',
+
+              for (const candidate of data.workflow_runs) {
+                if (
+                  candidate.conclusion !== 'success'
+                  || candidate.path !== expectedPath
+                  || candidate.name !== 'huntx-production'
+                ) {
+                  continue;
+                }
+                const artifacts = await publicationArtifacts(candidate);
+                if (artifacts.ready) {
+                  selectedRun = candidate;
+                  break;
+                }
+                core.info(
+                  `Skipping run ${candidate.id}: missing or expired publication artifacts: ${artifacts.missing.join(', ')}`,
+                );
+              }
+
+              if (!selectedRun) {
+                core.setOutput('ready', 'false');
+                core.notice(
+                  'No successful huntx-production run with unexpired publication artifacts is available; skipping push-triggered republish. The next successful production run will publish automatically.',
                 );
                 return;
               }
-              runId = Number(candidate.id);
-              expectedAttempt = Number(candidate.run_attempt);
+              runId = Number(selectedRun.id);
+              expectedAttempt = Number(selectedRun.run_attempt);
             } else {
               core.setFailed(`Unsupported publication event: ${context.eventName}`);
               return;
@@ -93,11 +134,15 @@ jobs:
               return;
             }
 
-            const { data: run } = await github.rest.actions.getWorkflowRun({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              run_id: runId,
-            });
+            let run = selectedRun;
+            if (!run) {
+              const response = await github.rest.actions.getWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: runId,
+              });
+              run = response.data;
+            }
 
             if (run.path !== expectedPath || run.name !== 'huntx-production') {
               core.setFailed(
@@ -122,6 +167,15 @@ jobs:
               return;
             }
 
+            const artifacts = await publicationArtifacts(run);
+            if (!artifacts.ready) {
+              core.setFailed(
+                `Run ${runId} is missing unexpired publication artifacts: ${artifacts.missing.join(', ')}`,
+              );
+              return;
+            }
+
+            core.setOutput('ready', 'true');
             core.setOutput('run_id', String(runId));
             core.setOutput('run_attempt', String(run.run_attempt));
             core.setOutput('head_sha', String(run.head_sha));
@@ -132,6 +186,7 @@ jobs:
             );
 
       - name: Checkout publisher control plane
+        if: steps.source.outputs.ready == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
@@ -139,6 +194,7 @@ jobs:
 
       - name: Restore previous generated snapshot
         id: previous
+        if: steps.source.outputs.ready == 'true'
         env:
           PREVIOUS_ROOT: ${{ runner.temp }}/huntx-previous-generated
         run: |
@@ -157,6 +213,7 @@ jobs:
           test -s "$PREVIOUS_ROOT/outputs_dev/_manifest.json"
 
       - name: Download verified checkpoint handoff
+        if: steps.source.outputs.ready == 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: runtime-checkpoint-${{ steps.source.outputs.run_id }}-${{ steps.source.outputs.run_attempt }}
@@ -165,6 +222,7 @@ jobs:
           run-id: ${{ steps.source.outputs.run_id }}
 
       - name: Download distributable output
+        if: steps.source.outputs.ready == 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: huntx-output-${{ steps.source.outputs.run_id }}-${{ steps.source.outputs.run_attempt }}
@@ -173,12 +231,14 @@ jobs:
           run-id: ${{ steps.source.outputs.run_id }}
 
       - name: Set up Go
+        if: steps.source.outputs.ready == 'true'
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
           cache: true
 
       - name: Build verified dashboard data from release dist
+        if: steps.source.outputs.ready == 'true'
         env:
           SOURCE_ROOT: ${{ runner.temp }}/huntx-publication
           SOURCE_DIST: ${{ runner.temp }}/huntx-publication/dist
@@ -211,6 +271,7 @@ jobs:
           find "$DASHBOARD_ROOT" -type f -printf '%s\t%p\n' | sort -nr | head -50
 
       - name: Download structured runtime diagnostics
+        if: steps.source.outputs.ready == 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: huntx-logs-${{ steps.source.outputs.run_id }}-${{ steps.source.outputs.run_attempt }}
@@ -219,6 +280,7 @@ jobs:
           run-id: ${{ steps.source.outputs.run_id }}
 
       - name: Assemble and verify publication snapshot
+        if: steps.source.outputs.ready == 'true'
         env:
           SOURCE_ROOT: ${{ runner.temp }}/huntx-publication
           PREVIOUS_ROOT: ${{ runner.temp }}/huntx-previous-generated
@@ -253,6 +315,7 @@ jobs:
           test -s "$SOURCE_ROOT/snapshot/manifests/main-sync-files.txt"
 
       - name: Commit atomic generated-only snapshot
+        if: steps.source.outputs.ready == 'true'
         env:
           SNAPSHOT_ROOT: ${{ runner.temp }}/huntx-publication/snapshot
           SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
@@ -300,6 +363,7 @@ jobs:
           fi
 
       - name: Mirror verified outputs to main
+        if: steps.source.outputs.ready == 'true'
         env:
           SNAPSHOT_ROOT: ${{ runner.temp }}/huntx-publication/snapshot
           SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
@@ -347,9 +411,10 @@ jobs:
             echo "## Generated output publication"
             echo
             echo "- Trigger: \`${{ github.event_name }}\`"
-            echo "- Source run: \`${{ steps.source.outputs.run_id || 'unresolved' }}\`"
-            echo "- Source attempt: \`${{ steps.source.outputs.run_attempt || 'unresolved' }}\`"
-            echo "- Source commit: \`${{ steps.source.outputs.head_sha || 'unresolved' }}\`"
+            echo "- Publication ready: \`${{ steps.source.outputs.ready || 'false' }}\`"
+            echo "- Source run: \`${{ steps.source.outputs.run_id || 'none' }}\`"
+            echo "- Source attempt: \`${{ steps.source.outputs.run_attempt || 'none' }}\`"
+            echo "- Source commit: \`${{ steps.source.outputs.head_sha || 'none' }}\`"
             echo "- Dashboard data: \`catalog.json + artifacts refreshed from run dist\`"
             echo "- Previous generated commit: \`${{ steps.previous.outputs.sha || 'none' }}\`"
             echo "- Generated data branch: \`generated-outputs\`"
