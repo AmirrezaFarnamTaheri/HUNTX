@@ -136,15 +136,6 @@ sources:
     api_hash: ${TELEGRAM_API_HASH}
     session: ${TELEGRAM_USER_SESSION}
     peer: '-1002258272508'
-- id: src_1002272946873
-  type: telegram_user
-  selector:
-    include_formats: *id001
-  telegram_user:
-    api_id: ${TELEGRAM_API_ID}
-    api_hash: ${TELEGRAM_API_HASH}
-    session: ${TELEGRAM_USER_SESSION}
-    peer: '-1002272946873'
 - id: src_1002493879683
   type: telegram_user
   selector:
@@ -461,15 +452,6 @@ sources:
     api_hash: ${TELEGRAM_API_HASH}
     session: ${TELEGRAM_USER_SESSION}
     peer: '@mypremium98'
-- id: src_sip_socksip
-  type: telegram_user
-  selector:
-    include_formats: *id001
-  telegram_user:
-    api_id: ${TELEGRAM_API_ID}
-    api_hash: ${TELEGRAM_API_HASH}
-    session: ${TELEGRAM_USER_SESSION}
-    peer: '@sip_socksip'
 - id: src_xsfilternet
   type: telegram_user
   selector:
@@ -506,15 +488,6 @@ sources:
     api_hash: ${TELEGRAM_API_HASH}
     session: ${TELEGRAM_USER_SESSION}
     peer: '@V2rayEnglish'
-- id: src_v2raba
-  type: telegram_user
-  selector:
-    include_formats: *id001
-  telegram_user:
-    api_id: ${TELEGRAM_API_ID}
-    api_hash: ${TELEGRAM_API_HASH}
-    session: ${TELEGRAM_USER_SESSION}
-    peer: '@v2raba'
 - id: src_DailyV2RY
   type: telegram_user
   selector:
@@ -713,15 +686,6 @@ sources:
     api_hash: ${TELEGRAM_API_HASH}
     session: ${TELEGRAM_USER_SESSION}
     peer: '@configV2rayForFree'
-- id: src_V2rayNg_madam
-  type: telegram_user
-  selector:
-    include_formats: *id001
-  telegram_user:
-    api_id: ${TELEGRAM_API_ID}
-    api_hash: ${TELEGRAM_API_HASH}
-    session: ${TELEGRAM_USER_SESSION}
-    peer: '@V2rayNg_madam'
 - id: src_configV2rayNG
   type: telegram_user
   selector:
@@ -786,7 +750,6 @@ publishing:
     - src_1002093246093
     - src_1002245231279
     - src_1002258272508
-    - src_1002272946873
     - src_1002493879683
     - src_1002743102065
     - src_1002806337642
@@ -822,12 +785,10 @@ publishing:
     - src_v2ray_Extractor
     - src_vpnowl
     - src_mypremium98
-    - src_sip_socksip
     - src_xsfilternet
     - src_mitivpn
     - src_daily_configs
     - src_V2rayEnglish
-    - src_v2raba
     - src_DailyV2RY
     - src_NETMelliAnti
     - src_Gp_config
@@ -850,7 +811,6 @@ publishing:
     - src_v2ray1_ng
     - src_v2rayNG_Matsuri
     - src_configV2rayForFree
-    - src_V2rayNg_madam
     - src_configV2rayNG
     - src_config_proxy
     - src_persianvpnhub
