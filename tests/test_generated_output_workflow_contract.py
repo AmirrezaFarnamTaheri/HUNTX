@@ -48,7 +48,20 @@ def test_control_plane_push_republishes_latest_trusted_producer_without_recursio
     assert "workflow_id: 'huntx.yml'" in workflow
     assert "branch: 'main'" in workflow
     assert "status: 'completed'" in workflow
-    assert "run.conclusion === 'success'" in workflow
-    assert "run.path === expectedPath" in workflow
-    assert "run.name === 'huntx-production'" in workflow
+    assert "candidate.conclusion !== 'success'" in workflow
+    assert "candidate.path !== expectedPath" in workflow
+    assert "candidate.name !== 'huntx-production'" in workflow
     assert "Unsupported publication event" in workflow
+
+
+def test_control_plane_push_requires_unexpired_publication_artifacts():
+    workflow = _workflow()
+
+    assert "github.rest.actions.listWorkflowRunArtifacts" in workflow
+    assert ".filter(artifact => !artifact.expired)" in workflow
+    assert "runtime-checkpoint-${run.id}-${run.run_attempt}" in workflow
+    assert "huntx-output-${run.id}-${run.run_attempt}" in workflow
+    assert "huntx-logs-${run.id}-${run.run_attempt}" in workflow
+    assert "missing or expired publication artifacts" in workflow
+    assert "core.setOutput('ready', 'false')" in workflow
+    assert "steps.source.outputs.ready == 'true'" in workflow
