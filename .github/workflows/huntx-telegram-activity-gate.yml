@@ -107,7 +107,9 @@ jobs:
           rm -rf telegram-diagnostics
           mkdir -p telegram-diagnostics
           unzip -q huntx-telegram-diagnostics.zip -d telegram-diagnostics
+
           runtime_log="$(find telegram-diagnostics -type f -name 'runtime.log' -print -quit)"
+          run_summary="$(find telegram-diagnostics -type f -name 'run-summary.json' -print -quit)"
           test -n "$runtime_log" || {
             echo "runtime.log is missing from the HUNTX diagnostics artifact" >&2
             exit 1
@@ -116,7 +118,16 @@ jobs:
             echo "runtime.log is empty in the HUNTX diagnostics artifact" >&2
             exit 1
           }
+          test -n "$run_summary" || {
+            echo "run-summary.json is missing from the HUNTX diagnostics artifact" >&2
+            exit 1
+          }
+          test -s "$run_summary" || {
+            echo "run-summary.json is empty in the HUNTX diagnostics artifact" >&2
+            exit 1
+          }
           printf 'RUNTIME_LOG=%s\n' "$runtime_log" >> "$GITHUB_ENV"
+          printf 'RUN_SUMMARY=%s\n' "$run_summary" >> "$GITHUB_ENV"
 
       - name: Verify real MTProto source activity
         shell: bash
@@ -128,40 +139,84 @@ jobs:
           import re
           from pathlib import Path
 
-          path = Path(os.environ["RUNTIME_LOG"])
-          text = path.read_text(encoding="utf-8", errors="replace")
+          runtime_path = Path(os.environ["RUNTIME_LOG"])
+          summary_path = Path(os.environ["RUN_SUMMARY"])
+          text = runtime_path.read_text(encoding="utf-8", errors="replace")
           lines = text.splitlines()
 
-          fetches = [line for line in lines if "[MTProto]" in line and " Fetching " in line]
-          completions = [
+          connections = [line for line in lines if "[MTProto] Connected." in line]
+          resolutions = [line for line in lines if "[MTProto] Resolved peer " in line]
+          unavailable = [
               line for line in lines
-              if "[MTProto]" in line and " Done " in line and "yielded=" in line
+              if "permanently unavailable Telegram source=" in line
           ]
-          scan_pattern = re.compile(r"\[MTProto\]\s+pass1_scanned=(\d+)\s+pass2_scanned=(\d+)")
-          scans = [
-              (int(match.group(1)), int(match.group(2)))
+          lifo_pattern = re.compile(
+              r"\[LIFO\]\s+source=(\S+).*?\bscanned=(\d+)\s+"
+              r"ingested=(\d+).*?\bcompleted=True"
+          )
+          completed_windows = [
+              (match.group(1), int(match.group(2)), int(match.group(3)))
               for line in lines
-              if (match := scan_pattern.search(line))
+              if (match := lifo_pattern.search(line))
           ]
-          errors = [line for line in lines if "[MTProto] Error listing messages for " in line]
 
-          if not fetches:
-              raise SystemExit("No MTProto Fetching evidence found; Telegram user sources did not start")
-          if not completions:
-              raise SystemExit("No MTProto Done evidence found; no Telegram user source completed")
-          if not scans:
-              raise SystemExit("No MTProto pass scan metrics found; Telegram activity evidence is incomplete")
-          if len(completions) > len(fetches):
-              raise SystemExit("Telegram diagnostics are inconsistent: more completions than fetch starts")
+          try:
+              run_payload = json.loads(summary_path.read_text(encoding="utf-8"))
+          except Exception as exc:
+              raise SystemExit(f"Invalid run-summary.json: {exc}") from exc
+          if not isinstance(run_payload, dict) or run_payload.get("schema_version") != 1:
+              raise SystemExit("run-summary.json does not use the expected schema_version=1 contract")
+          run_summary = run_payload.get("summary")
+          if not isinstance(run_summary, dict):
+              raise SystemExit("run-summary.json is missing the structured summary object")
+
+          sources_checked = run_summary.get("sources_checked")
+          messages_scanned = run_summary.get("messages_scanned")
+          if isinstance(sources_checked, bool) or not isinstance(sources_checked, int):
+              raise SystemExit(f"Invalid sources_checked metric: {sources_checked!r}")
+          if isinstance(messages_scanned, bool) or not isinstance(messages_scanned, int):
+              raise SystemExit(f"Invalid messages_scanned metric: {messages_scanned!r}")
+
+          if not connections:
+              raise SystemExit("No MTProto connection evidence found; Telegram did not connect")
+          if not resolutions:
+              raise SystemExit("No MTProto peer-resolution evidence found; Telegram sources were not resolved")
+          if not completed_windows:
+              raise SystemExit("No completed LIFO source windows found; Telegram sources did not complete ingestion")
+
+          log_messages_scanned = sum(item[1] for item in completed_windows)
+          log_messages_ingested = sum(item[2] for item in completed_windows)
+          observed_sources = {item[0] for item in completed_windows}
+          if log_messages_scanned <= 0:
+              raise SystemExit("No scanned Telegram messages found in completed source windows")
+          if sources_checked <= 0 or messages_scanned <= 0:
+              raise SystemExit(
+                  "Structured run summary reports no source/message investigation "
+                  f"(sources_checked={sources_checked}, messages_scanned={messages_scanned})"
+              )
+          if len(observed_sources) > sources_checked:
+              raise SystemExit(
+                  "Runtime evidence exceeds structured source count: "
+                  f"observed={len(observed_sources)} summary={sources_checked}"
+              )
+          if log_messages_scanned > messages_scanned:
+              raise SystemExit(
+                  "Completed-window scan evidence exceeds structured scan total: "
+                  f"runtime={log_messages_scanned} summary={messages_scanned}"
+              )
 
           evidence = {
               "schema_version": 1,
               "source_run_id": int(os.environ["TARGET_RUN_ID"]),
-              "telegram_fetches": len(fetches),
-              "telegram_completions": len(completions),
-              "telegram_scan_summaries": len(scans),
-              "telegram_messages_scanned": sum(a + b for a, b in scans),
-              "telegram_connector_errors": len(errors),
+              "mtproto_connections": len(connections),
+              "mtproto_peers_resolved": len(resolutions),
+              "telegram_sources_observed": len(observed_sources),
+              "completed_source_windows": len(completed_windows),
+              "completed_window_messages_scanned": log_messages_scanned,
+              "completed_window_messages_ingested": log_messages_ingested,
+              "run_summary_sources_checked": sources_checked,
+              "run_summary_messages_scanned": messages_scanned,
+              "permanently_unavailable_source_events": len(unavailable),
           }
           Path("telegram-activity-evidence.json").write_text(
               json.dumps(evidence, indent=2, sort_keys=True) + "\n",
@@ -171,18 +226,18 @@ jobs:
           print("Validated real Telegram MTProto activity:")
           for key, value in evidence.items():
               print(f"  {key}={value}")
-          if errors:
+          if unavailable:
               print(
                   f"::warning title=Telegram source degradation::"
-                  f"{len(errors)} source-level MTProto errors were recorded; "
-                  "production may still be healthy when a minority of sources degrade."
+                  f"{len(unavailable)} permanently unavailable source events were recorded; "
+                  "the activity gate remains healthy because other real sources completed."
               )
           PY
 
           {
             echo "## Telegram activity gate"
             echo
-            echo "Validated actual MTProto fetch, completion, and scan evidence from production run \`$TARGET_RUN_ID\`."
+            echo "Validated MTProto connection/resolution and completed source-window scan evidence from production run \`$TARGET_RUN_ID\`."
             echo
             echo '```json'
             cat telegram-activity-evidence.json

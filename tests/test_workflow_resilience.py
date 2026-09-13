@@ -104,11 +104,20 @@ def test_telegram_activity_gate_validates_real_runtime_evidence():
     assert "github.rest.actions.downloadArtifact" in workflow
     assert "expectedName = `huntx-logs-${runId}-${run.data.run_attempt}`" in workflow
     assert "runtime.log" in workflow
-    assert "No MTProto Fetching evidence found" in workflow
-    assert "No MTProto Done evidence found" in workflow
-    assert "pass1_scanned" in workflow
+    assert "run-summary.json" in workflow
+    assert "[MTProto] Connected." in workflow
+    assert "[MTProto] Resolved peer " in workflow
+    assert "completed=True" in workflow
+    assert "No MTProto connection evidence found" in workflow
+    assert "No MTProto peer-resolution evidence found" in workflow
+    assert "No completed LIFO source windows found" in workflow
+    assert "No scanned Telegram messages found" in workflow
+    assert "run_summary_messages_scanned" in workflow
     assert "telegram-activity-evidence.json" in workflow
     assert "workflow_dispatch:" in workflow
+    assert "pass1_scanned" not in workflow
+    assert "No MTProto Fetching evidence found" not in workflow
+    assert "No MTProto Done evidence found" not in workflow
 
 
 def test_downstream_evidence_gates_are_attempt_specific():
