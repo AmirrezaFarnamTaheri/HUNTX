@@ -76,6 +76,18 @@ def test_pull_request_workflow_has_no_oidc_permission():
     assert f"actions/setup-go@{SETUP_GO_V7_SHA}" in workflow
 
 
+def test_quality_gate_runs_for_direct_main_changes():
+    workflow = Path(".github/workflows/pr-validation.yml").read_text()
+    trigger = workflow[: workflow.index("concurrency:")]
+
+    assert "  push:" in trigger
+    assert "      - main" in trigger
+    assert '      - "fix/**"' in trigger
+    assert '      - ".github/workflows/**"' in trigger
+    assert '      - "src/**"' in trigger
+    assert '      - "tests/**"' in trigger
+
+
 def test_go_release_plane_is_present():
     assert Path("cmd/huntx-tools/main.go").exists()
     assert Path("internal/runtimegen/runtimegen.go").exists()
