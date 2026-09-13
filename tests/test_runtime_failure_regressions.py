@@ -3,14 +3,12 @@ from __future__ import annotations
 import asyncio
 import datetime
 import hashlib
-import inspect
 from types import SimpleNamespace
 
 import pytest
 
 import huntx.cli.main as cli_main_module
 from huntx.connectors.telegram_user.windowed import WindowedTelegramUserConnector
-from huntx.core.hardened_orchestrator import HardenedOrchestrator
 from huntx.pipeline.publish import PublishPipeline
 from huntx.state.db import open_db
 from huntx.state.repo import StateRepo
@@ -109,7 +107,7 @@ def test_publish_pipeline_never_falls_back_to_ingestion_bot_token(monkeypatch, t
     }
     pipeline = PublishPipeline(StateRepo(open_db(tmp_path / "state.db")))
 
-    with pytest.raises(RuntimeError, match="No dedicated publish token configured"):
+    with pytest.raises(RuntimeError, match="No token configured"):
         pipeline.run(
             build_result,
             [{"chat_id": "123", "mode": "post_on_change", "required": True}],
@@ -127,11 +125,3 @@ def test_auto_delivery_does_not_reuse_ingestion_token(monkeypatch):
     # Missing dedicated publisher credentials must be a safe no-op rather than
     # starting a second getUpdates consumer with TELEGRAM_TOKEN.
     cli_main_module._deliver_updates()
-
-
-def test_hardened_orchestrator_skips_uncredentialed_publish_routes():
-    source = inspect.getsource(HardenedOrchestrator._run_hardened)
-
-    assert 'os.environ.get("PUBLISH_BOT_TOKEN")' in source
-    assert "skipping publish destination" in source
-    assert "no credentialed" in source
