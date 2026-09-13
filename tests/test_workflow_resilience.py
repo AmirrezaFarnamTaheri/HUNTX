@@ -2,6 +2,7 @@ from pathlib import Path
 
 
 SETUP_GO_V7_SHA = "b7ad1dad31e06c5925ef5d2fc7ad053ef454303e"
+GITHUB_SCRIPT_V9_SHA = "3a2844b7e9c422d3c10d287c895573f7108da1b3"
 
 
 def test_production_workflow_uses_verified_atomic_generations():
@@ -81,3 +82,29 @@ def test_go_release_plane_is_present():
     assert Path("internal/releasemanifest/releasemanifest.go").exists()
     assert Path("internal/outputverify/outputverify.go").exists()
     assert Path("internal/sitegen/sitegen.go").exists()
+
+
+def test_telegram_activity_gate_validates_real_runtime_evidence():
+    workflow = Path(".github/workflows/huntx-telegram-activity-gate.yml").read_text()
+
+    assert f"actions/github-script@{GITHUB_SCRIPT_V9_SHA}" in workflow
+    assert "actions/github-script@v9" not in workflow
+    assert "github.rest.actions.downloadArtifact" in workflow
+    assert "expectedName = `huntx-logs-${runId}-${run.data.run_attempt}`" in workflow
+    assert "runtime.log" in workflow
+    assert "No MTProto Fetching evidence found" in workflow
+    assert "No MTProto Done evidence found" in workflow
+    assert "pass1_scanned" in workflow
+    assert "telegram-activity-evidence.json" in workflow
+    assert "workflow_dispatch:" in workflow
+
+
+def test_downstream_evidence_gates_are_attempt_specific():
+    telegram = Path(".github/workflows/huntx-telegram-activity-gate.yml").read_text()
+    investigation = Path(".github/workflows/huntx-real-investigation-gate.yml").read_text()
+
+    for workflow in (telegram, investigation):
+        assert "run.data.run_attempt" in workflow
+        assert "expectedName = `huntx-logs-${runId}-${run.data.run_attempt}`" in workflow
+        assert "a.name === expectedName" in workflow
+        assert "a.name.startsWith('huntx-logs-')" not in workflow

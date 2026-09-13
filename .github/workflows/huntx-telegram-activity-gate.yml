@@ -6,6 +6,12 @@ on:
       - huntx-production
     types:
       - completed
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Completed successful huntx-production workflow run ID to validate"
+        required: true
+        type: string
 
 permissions:
   actions: read
@@ -13,25 +19,182 @@ permissions:
 
 jobs:
   telegram-activity-check:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    name: Verify Telegram runtime activity
     runs-on: ubuntu-latest
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        github.event.workflow_run.conclusion == 'success'
+      }}
+    env:
+      TARGET_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.run_id }}
+
     steps:
-      - name: Inspect HUNTX runtime diagnostics
-        uses: actions/github-script@v9
+      - name: Resolve and download runtime diagnostics artifact
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
-            const runId = context.payload.workflow_run.id;
-            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              run_id: runId
-            });
-
-            const logs = artifacts.data.artifacts.find(a => a.name.startsWith('huntx-logs-') && !a.expired);
-            if (!logs) {
-              core.setFailed('No HUNTX runtime logs artifact found. Investigation evidence is missing.');
+            const fs = require('fs');
+            const runId = Number(process.env.TARGET_RUN_ID || 0);
+            if (!Number.isSafeInteger(runId) || runId <= 0) {
+              core.setFailed(`Invalid target workflow run id: ${process.env.TARGET_RUN_ID}`);
               return;
             }
 
-            core.info(`Found runtime diagnostics artifact: ${logs.name}`);
-            core.info('Telegram activity validation is now enforced through runtime diagnostics.');
+            const run = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: runId,
+            });
+            if (run.data.name !== 'huntx-production' || run.data.path !== '.github/workflows/huntx.yml') {
+              core.setFailed(
+                `Run ${runId} is not the canonical huntx-production workflow ` +
+                `(name=${run.data.name}, path=${run.data.path})`
+              );
+              return;
+            }
+            if (run.data.status !== 'completed' || run.data.conclusion !== 'success') {
+              core.setFailed(
+                `Target run ${runId} must be completed successfully ` +
+                `(status=${run.data.status}, conclusion=${run.data.conclusion})`
+              );
+              return;
+            }
+
+            const artifacts = await github.paginate(
+              github.rest.actions.listWorkflowRunArtifacts,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: runId,
+                per_page: 100,
+              }
+            );
+            const expectedName = `huntx-logs-${runId}-${run.data.run_attempt}`;
+            const artifact = artifacts.find(a => !a.expired && a.name === expectedName);
+            if (!artifact) {
+              core.setFailed(
+                `Expected non-expired runtime diagnostics artifact ${expectedName} ` +
+                `for run ${runId} attempt ${run.data.run_attempt}`
+              );
+              return;
+            }
+
+            const archive = await github.rest.actions.downloadArtifact({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              artifact_id: artifact.id,
+              archive_format: 'zip',
+            });
+            fs.writeFileSync('huntx-telegram-diagnostics.zip', Buffer.from(archive.data));
+            fs.writeFileSync(
+              'huntx-telegram-source.json',
+              JSON.stringify({
+                run_id: runId,
+                run_attempt: run.data.run_attempt,
+                head_sha: run.data.head_sha,
+                artifact_id: artifact.id,
+                artifact_name: artifact.name,
+              }, null, 2) + '\n'
+            );
+            core.info(`Downloaded ${artifact.name} (${artifact.id}) from run ${runId}`);
+
+      - name: Extract Telegram runtime evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s huntx-telegram-diagnostics.zip
+          rm -rf telegram-diagnostics
+          mkdir -p telegram-diagnostics
+          unzip -q huntx-telegram-diagnostics.zip -d telegram-diagnostics
+          runtime_log="$(find telegram-diagnostics -type f -name 'runtime.log' -print -quit)"
+          test -n "$runtime_log" || {
+            echo "runtime.log is missing from the HUNTX diagnostics artifact" >&2
+            exit 1
+          }
+          test -s "$runtime_log" || {
+            echo "runtime.log is empty in the HUNTX diagnostics artifact" >&2
+            exit 1
+          }
+          printf 'RUNTIME_LOG=%s\n' "$runtime_log" >> "$GITHUB_ENV"
+
+      - name: Verify real MTProto source activity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          path = Path(os.environ["RUNTIME_LOG"])
+          text = path.read_text(encoding="utf-8", errors="replace")
+          lines = text.splitlines()
+
+          fetches = [line for line in lines if "[MTProto]" in line and " Fetching " in line]
+          completions = [
+              line for line in lines
+              if "[MTProto]" in line and " Done " in line and "yielded=" in line
+          ]
+          scan_pattern = re.compile(r"\[MTProto\]\s+pass1_scanned=(\d+)\s+pass2_scanned=(\d+)")
+          scans = [
+              (int(match.group(1)), int(match.group(2)))
+              for line in lines
+              if (match := scan_pattern.search(line))
+          ]
+          errors = [line for line in lines if "[MTProto] Error listing messages for " in line]
+
+          if not fetches:
+              raise SystemExit("No MTProto Fetching evidence found; Telegram user sources did not start")
+          if not completions:
+              raise SystemExit("No MTProto Done evidence found; no Telegram user source completed")
+          if not scans:
+              raise SystemExit("No MTProto pass scan metrics found; Telegram activity evidence is incomplete")
+          if len(completions) > len(fetches):
+              raise SystemExit("Telegram diagnostics are inconsistent: more completions than fetch starts")
+
+          evidence = {
+              "schema_version": 1,
+              "source_run_id": int(os.environ["TARGET_RUN_ID"]),
+              "telegram_fetches": len(fetches),
+              "telegram_completions": len(completions),
+              "telegram_scan_summaries": len(scans),
+              "telegram_messages_scanned": sum(a + b for a, b in scans),
+              "telegram_connector_errors": len(errors),
+          }
+          Path("telegram-activity-evidence.json").write_text(
+              json.dumps(evidence, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+
+          print("Validated real Telegram MTProto activity:")
+          for key, value in evidence.items():
+              print(f"  {key}={value}")
+          if errors:
+              print(
+                  f"::warning title=Telegram source degradation::"
+                  f"{len(errors)} source-level MTProto errors were recorded; "
+                  "production may still be healthy when a minority of sources degrade."
+              )
+          PY
+
+          {
+            echo "## Telegram activity gate"
+            echo
+            echo "Validated actual MTProto fetch, completion, and scan evidence from production run \`$TARGET_RUN_ID\`."
+            echo
+            echo '```json'
+            cat telegram-activity-evidence.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Preserve validated Telegram evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: huntx-telegram-activity-${{ env.TARGET_RUN_ID }}
+          path: |
+            huntx-telegram-source.json
+            telegram-activity-evidence.json
+          if-no-files-found: error
+          retention-days: 14
