@@ -1,6 +1,7 @@
 import asyncio
 import concurrent.futures
 import logging
+import os
 import time
 from typing import Any, Optional
 
@@ -70,6 +71,7 @@ class HardenedOrchestrator(Orchestrator):
         build_workers = min(self.max_workers, total_routes) if total_routes else 0
         publish_workers = max(1, self.max_workers)
         seen_file_cutoff_id = self._get_seen_file_max_id()
+        default_publish_token = os.environ.get("PUBLISH_BOT_TOKEN")
 
         status = "completed"
         timed_out_stage: Optional[str] = None
@@ -116,16 +118,25 @@ class HardenedOrchestrator(Orchestrator):
                 "from_sources": approved_route_sources,
                 "min_seen_file_id": seen_file_cutoff_id,
             }
-            destinations = [
-                {
-                    "chat_id": destination.chat_id,
-                    "mode": destination.mode,
-                    "caption_template": destination.caption_template,
-                    "token": destination.token,
-                    "required": getattr(destination, "required", True),
-                }
-                for destination in route.destinations
-            ]
+            destinations: list[dict[str, Any]] = []
+            for destination in route.destinations:
+                if not destination.token and not default_publish_token:
+                    logger.info(
+                        "[Orchestrator] route=%s skipping publish destination %s because no "
+                        "dedicated publish token is configured",
+                        route.name,
+                        destination.chat_id,
+                    )
+                    continue
+                destinations.append(
+                    {
+                        "chat_id": destination.chat_id,
+                        "mode": destination.mode,
+                        "caption_template": destination.caption_template,
+                        "token": destination.token,
+                        "required": getattr(destination, "required", True),
+                    }
+                )
             return route_dict, destinations
 
         logger.info(
@@ -302,10 +313,18 @@ class HardenedOrchestrator(Orchestrator):
                         )
                         continue
                     route_name = route_name_val
+                    destinations = route_destinations.get(route_name, [])
+                    if not destinations:
+                        logger.info(
+                            "[Orchestrator] Publishing disabled for route %s: no credentialed "
+                            "destinations",
+                            route_name,
+                        )
+                        continue
                     publish_future = publisher.submit(
                         self.publish_pipeline.run,
                         build_result,
-                        route_destinations.get(route_name, []),
+                        destinations,
                         deadline=deadline,
                     )
                     pending_publish[publish_future] = route_name

@@ -69,7 +69,7 @@ def main():
     bot_parser.add_argument(
         "--token",
         default=None,
-        help="Bot token (default: PUBLISH_BOT_TOKEN or TELEGRAM_TOKEN)",
+        help="Bot token (default: PUBLISH_BOT_TOKEN)",
     )
     bot_parser.add_argument("--api-id", type=int, default=None, help="Telegram API ID")
     bot_parser.add_argument("--api-hash", default=None, help="Telegram API hash")
@@ -179,20 +179,21 @@ def _cmd_bot(args):
 
     from ..bot.interactive import InteractiveBot
 
-    token = args.token or os.environ.get("PUBLISH_BOT_TOKEN") or os.environ.get("TELEGRAM_TOKEN")
+    token = args.token or os.environ.get("PUBLISH_BOT_TOKEN")
     api_id = args.api_id if args.api_id is not None else env_int("TELEGRAM_API_ID", 0, min_value=1)
     api_hash = args.api_hash or os.environ.get("TELEGRAM_API_HASH", "")
 
     if not token:
-        logger.error("No bot token. Set PUBLISH_BOT_TOKEN or TELEGRAM_TOKEN or use --token.")
+        logger.error("No bot token. Set PUBLISH_BOT_TOKEN or use --token.")
         raise SystemExit(1)
 
     ingest_token = os.environ.get("TELEGRAM_TOKEN")
     if ingest_token and token == ingest_token:
-        logger.warning(
-            "The persistent bot and ingest pipeline share TELEGRAM_TOKEN; use a distinct "
-            "PUBLISH_BOT_TOKEN to avoid Telegram getUpdates conflicts."
+        logger.error(
+            "The persistent bot token must be distinct from TELEGRAM_TOKEN to avoid "
+            "Telegram getUpdates conflicts."
         )
+        raise SystemExit(1)
 
     if not api_id or api_id < 1 or not api_hash:
         logger.error(
@@ -211,12 +212,21 @@ def _deliver_updates():
 
     from ..bot.interactive import InteractiveBot
 
-    token = os.environ.get("PUBLISH_BOT_TOKEN") or os.environ.get("TELEGRAM_TOKEN")
+    token = os.environ.get("PUBLISH_BOT_TOKEN")
+    ingest_token = os.environ.get("TELEGRAM_TOKEN")
     api_id = env_int("TELEGRAM_API_ID", 0, min_value=1)
     api_hash = os.environ.get("TELEGRAM_API_HASH", "")
 
     if not token or not api_id or not api_hash:
-        logger.warning("Bot credentials not configured — skipping subscription delivery.")
+        logger.warning(
+            "Dedicated publisher bot credentials not configured — skipping subscription delivery."
+        )
+        return
+    if ingest_token and token == ingest_token:
+        logger.error(
+            "PUBLISH_BOT_TOKEN matches TELEGRAM_TOKEN — skipping subscription delivery to "
+            "avoid competing getUpdates consumers."
+        )
         return
 
     bot = InteractiveBot(token, api_id, api_hash)

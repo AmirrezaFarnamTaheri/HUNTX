@@ -23,6 +23,20 @@ class WindowPage:
     scanned_messages: int
 
 
+def _is_webpage_preview(message: object) -> bool:
+    """Return whether Telethon exposed a webpage preview as message media.
+
+    ``Message.document`` may proxy an embedded webpage document even when the
+    underlying media is ``MessageMediaWebPage``. Passing that message to
+    ``iter_download`` raises because a webpage preview is not an input file
+    location. Keep the text/link, but never treat its preview as an attached
+    document.
+    """
+
+    media = getattr(message, "media", None)
+    return media is not None and type(media).__name__ == "MessageMediaWebPage"
+
+
 class WindowedTelegramUserConnector(TelegramUserConnector):
     """Read one bounded newest-to-oldest page from a UTC time window."""
 
@@ -93,7 +107,7 @@ class WindowedTelegramUserConnector(TelegramUserConnector):
                 )
 
             document = getattr(msg, "document", None)
-            if not document:
+            if not document or _is_webpage_preview(msg):
                 continue
 
             file_info = getattr(msg, "file", None)
