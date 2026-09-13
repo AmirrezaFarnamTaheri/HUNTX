@@ -869,7 +869,4 @@ publishing:
     - nm
     - dark
     - opaque_bundle
-    destinations:
-    - chat_id: "8526064109"
-      mode: post_on_change
-      caption_template: "Merged configs – updated {timestamp}"
+    destinations: []
