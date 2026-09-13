@@ -132,7 +132,10 @@ class PublishPipeline:
             token = dest.get("token") or default_token
             required = dest.get("required", True)
             if not token:
-                msg = f"No dedicated publish token configured for destination {stable_id}"
+                msg = (
+                    f"No token configured for destination {stable_id}; "
+                    "a dedicated PUBLISH_BOT_TOKEN or destination token is required"
+                )
                 if required:
                     if os.getenv("HUNTX_STRICT", "0").strip().lower() in {
                         "1",
