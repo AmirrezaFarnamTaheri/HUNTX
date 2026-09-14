@@ -2,7 +2,7 @@ name: huntx-production
 
 on:
   schedule:
-    - cron: "0 */2 * * *"
+    - cron: "17 */2 * * *"
   workflow_dispatch:
     inputs:
       max_workers:
@@ -575,6 +575,7 @@ jobs:
         with:
           name: runtime-checkpoint-${{ github.run_id }}-${{ github.run_attempt }}
           path: checkpoint-package/
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 1
           compression-level: 0
