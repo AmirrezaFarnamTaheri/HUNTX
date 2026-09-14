@@ -30,24 +30,31 @@ jobs:
         run: |
           set -euo pipefail
 
-          runs="$(gh api "repos/${GH_REPO}/actions/workflows/huntx.yml/runs?per_page=20")"
-          active="$(jq '[.workflow_runs[] | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "requested" or .status == "pending")] | length' <<<"$runs")"
-          if (( active > 0 )); then
+          production_runs="$(gh api "repos/${GH_REPO}/actions/workflows/huntx.yml/runs?per_page=20")"
+          production_active="$(jq '[.workflow_runs[] | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "requested" or .status == "pending")] | length' <<<"$production_runs")"
+          if (( production_active > 0 )); then
             echo "huntx-production already has an active run; recovery is unnecessary."
             exit 0
           fi
 
-          latest="$(jq -c '[.workflow_runs[] | select(.event == "schedule" or .event == "workflow_dispatch")] | sort_by(.created_at) | last // empty' <<<"$runs")"
-          dispatch() {
-            echo "Dispatching huntx-production recovery run."
+          recovery_runs="$(gh api "repos/${GH_REPO}/actions/workflows/huntx-recovery-orchestrator.yml/runs?per_page=20")"
+          recovery_active="$(jq '[.workflow_runs[] | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "requested" or .status == "pending")] | length' <<<"$recovery_runs")"
+          if (( recovery_active > 0 )); then
+            echo "HUNTX Recovery Orchestrator is already active; duplicate recovery is unnecessary."
+            exit 0
+          fi
+
+          latest="$(jq -c '[.workflow_runs[] | select(.event == "schedule" or .event == "workflow_dispatch")] | sort_by(.created_at) | last // empty' <<<"$production_runs")"
+          dispatch_recovery() {
+            echo "Dispatching verified HUNTX recovery orchestrator."
             gh api --method POST \
-              "repos/${GH_REPO}/actions/workflows/huntx.yml/dispatches" \
+              "repos/${GH_REPO}/actions/workflows/huntx-recovery-orchestrator.yml/dispatches" \
               -f ref=main
           }
 
           if [[ -z "$latest" ]]; then
-            echo "::warning title=Production history missing::No production schedule/dispatch run was found; starting recovery."
-            dispatch
+            echo "::warning title=Production history missing::No production schedule/dispatch run was found; starting verified recovery."
+            dispatch_recovery
             exit 0
           fi
 
@@ -67,16 +74,16 @@ jobs:
           echo "latest_age_seconds=$age_seconds"
 
           if [[ "$event" == "schedule" && "$status" == "completed" && "$conclusion" != "success" && "$age_seconds" -ge 900 ]]; then
-            echo "::warning title=Scheduled production failed::Run $latest_id concluded $conclusion; starting one recovery dispatch."
-            dispatch
+            echo "::warning title=Scheduled production failed::Run $latest_id concluded $conclusion; starting one verified recovery."
+            dispatch_recovery
             exit 0
           fi
 
           # Production is expected every two hours. Allow scheduler jitter but
           # recover once the latest production run is more than 2h20m old.
           if (( age_seconds >= 8400 )); then
-            echo "::warning title=Production schedule stale::Latest production run $latest_id is ${age_seconds}s old; starting recovery."
-            dispatch
+            echo "::warning title=Production schedule stale::Latest production run $latest_id is ${age_seconds}s old; starting verified recovery."
+            dispatch_recovery
             exit 0
           fi
 
