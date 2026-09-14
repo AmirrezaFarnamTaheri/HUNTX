@@ -1,0 +1,65 @@
+{
+  "files": {
+    "all_sources.conf_lines": {
+      "format": "conf_lines",
+      "route": "all_sources"
+    },
+    "all_sources.dark": {
+      "format": "dark",
+      "route": "all_sources"
+    },
+    "all_sources.ehi": {
+      "format": "ehi",
+      "route": "all_sources"
+    },
+    "all_sources.hc": {
+      "format": "hc",
+      "route": "all_sources"
+    },
+    "all_sources.nm": {
+      "format": "nm",
+      "route": "all_sources"
+    },
+    "all_sources.npvt": {
+      "format": "npvt",
+      "route": "all_sources"
+    },
+    "all_sources.opaque_bundle": {
+      "format": "opaque_bundle",
+      "route": "all_sources"
+    },
+    "all_sources.ovpn": {
+      "format": "ovpn",
+      "route": "all_sources"
+    },
+    "all_sources.sip": {
+      "format": "sip",
+      "route": "all_sources"
+    },
+    "all_sources_npvt_b64sub.txt": {
+      "format": "npvt.b64sub",
+      "route": "all_sources"
+    },
+    "all_sources_npvt_decoded.json": {
+      "format": "npvt.decoded.json",
+      "route": "all_sources"
+    },
+    "all_sources_npvt_nekobox.json": {
+      "format": "npvt.nekobox.json",
+      "route": "all_sources"
+    },
+    "all_sources_npvt_raw.txt": {
+      "format": "npvt.raw.txt",
+      "route": "all_sources"
+    },
+    "all_sources_npvt_singbox.json": {
+      "format": "npvt.singbox.json",
+      "route": "all_sources"
+    },
+    "all_sources_npvt_xray.json": {
+      "format": "npvt.xray.json",
+      "route": "all_sources"
+    }
+  },
+  "schema_version": 1
+}
