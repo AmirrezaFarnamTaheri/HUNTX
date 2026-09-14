@@ -8,8 +8,8 @@ export const FALLBACK_CATALOG = {
   "schema_version": 1,
   "generated_at": "2026-09-14T10:28:17Z",
   "total_files": 33,
-  "total_size": 137959747,
-  "total_size_str": "131.6 MB",
+  "total_size": 137841026,
+  "total_size_str": "131.5 MB",
   "files": [
     {
       "filename": "README.md",
@@ -28,7 +28,7 @@ export const FALLBACK_CATALOG = {
       "sha256": "78a4d30548291bc65e00b75e34cc590902d3d0a7414cfa759126125b0e145d46",
       "hash": "78a4d305",
       "media_type": "text/plain",
-      "last_modified": "2026-09-14T10:39:36.462505+00:00"
+      "last_modified": "2026-09-14T10:46:54.933495+00:00"
     },
     {
       "filename": "all_sources.conf_lines",
@@ -46,7 +46,7 @@ export const FALLBACK_CATALOG = {
       "sha256": "6201e601f9358526dd4f84ad254803996a20ded8bb9aa83f698df04be90c73bd",
       "hash": "6201e601",
       "media_type": "application/octet-stream",
-      "last_modified": "2026-09-14T10:39:36.462543+00:00"
+      "last_modified": "2026-09-14T10:46:54.933578+00:00"
     },
     {
       "filename": "all_sources.dark",
@@ -64,7 +64,7 @@ export const FALLBACK_CATALOG = {
       "sha256": "9e6ce4a6f9ffbab336676172690ad05189c4fb2b3cc0d476756e6075c657aee5",
       "hash": "9e6ce4a6",
       "media_type": "application/octet-stream",
-      "last_modified": "2026-09-14T10:39:36.462543+00:00"
+      "last_modified": "2026-09-14T10:46:54.933578+00:00"
     },
     {
       "filename": "all_sources.ehi",
@@ -82,7 +82,7 @@ export const FALLBACK_CATALOG = {
       "sha256": "ccbdbd81492fb03786894384cdbcf2bab4dbcd488dd28deb50f20c64d0b32e4b",
       "hash": "ccbdbd81",
       "media_type": "application/octet-stream",
-      "last_modified": "2026-09-14T10:39:36.462543+00:00"
+      "last_modified": "2026-09-14T10:46:54.933578+00:00"
     },
     {
       "filename": "all_sources.hc",
@@ -100,7 +100,7 @@ export const FALLBACK_CATALOG = {
       "sha256": "76abc4064cbf51c640981abf26898989d81477dd8d145fed513a50f0c2d78639",
       "hash": "76abc406",
       "media_type": "application/octet-stream",
-      "last_modified": "2026-09-14T10:39:36.463210+00:00"
+      "last_modified": "2026-09-14T10:46:54.933770+00:00"
     },
     {
       "filename": "all_sources.nm",
@@ -118,14 +118,14 @@ export const FALLBACK_CATALOG = {
       "sha256": "9ac5c5c28789e153218d2efd0f216aea7f03a886075e7b529797a2b3bd066613",
       "hash": "9ac5c5c2",
       "media_type": "application/octet-stream",
-      "last_modified": "2026-09-14T10:39:36.463210+00:00"
+      "last_modified": "2026-09-14T10:46:54.933770+00:00"
     },
     {
       "filename": "all_sources.npvt",
       "path": "artifacts/release/all_sources.npvt",
       "section": "release",
-      "size": 7965,
-      "size_str": "7.8 KB",
+      "size": 602,
+      "size_str": "602 B",
       "type": "NPVT",
       "ext": "NPVT",
       "tags": [
@@ -135,17 +135,17 @@ export const FALLBACK_CATALOG = {
         "binary-feed"
       ],
       "description": "Compact binary subscription feed for high-speed clients",
-      "sha256": "047cce3a68ff6501799433a4c4a0097cef1412b882f09fc7a1426a9999723e65",
-      "hash": "047cce3a",
+      "sha256": "f7f6b17c7956f55ca22d4d3b06243676a43cdffdfd8dd8cb092ba791b763326a",
+      "hash": "f7f6b17c",
       "media_type": "application/x-npvt-subscription",
-      "last_modified": "2026-09-14T10:39:36.463210+00:00"
+      "last_modified": "2026-09-14T10:46:54.933770+00:00"
     },
     {
       "filename": "all_sources.npvt.b64sub",
       "path": "artifacts/release/all_sources.npvt.b64sub",
       "section": "release",
-      "size": 10620,
-      "size_str": "10.4 KB",
+      "size": 804,
+      "size_str": "804 B",
       "type": "B64SUB",
       "ext": "B64SUB",
       "tags": [
@@ -156,10 +156,10 @@ export const FALLBACK_CATALOG = {
         "unified-feed"
       ],
       "description": "Base64-encoded subscription feed for Shadowrocket, v2rayNG, and Streisand",
-      "sha256": "8e3b4e79075151782fd133f6bd2874304640dd6ab2420a2f176acb3afd96d95e",
-      "hash": "8e3b4e79",
+      "sha256": "18ed347297b88f02cb953d950030b326eecc4e8c13aefb2214d30fb3d0e414bc",
+      "hash": "18ed3472",
       "media_type": "text/plain",
-      "last_modified": "2026-09-14T10:39:36.463210+00:00"
+      "last_modified": "2026-09-14T10:46:54.933770+00:00"
     },
     {
       "filename": "all_sources.npvt.decoded.json",
@@ -180,14 +180,14 @@ export const FALLBACK_CATALOG = {
       "sha256": "44ba95c70627db7d8876dbcadcd86db359ef9f213b05aa4b526dec41c06a2229",
       "hash": "44ba95c7",
       "media_type": "application/json",
-      "last_modified": "2026-09-14T10:40:03.555726+00:00"
+      "last_modified": "2026-09-14T10:47:12.969492+00:00"
     },
     {
       "filename": "all_sources.npvt.nekobox.json",
       "path": "artifacts/release/all_sources.npvt.nekobox.json",
       "section": "release",
-      "size": 18719,
-      "size_str": "18.3 KB",
+      "size": 1613,
+      "size_str": "1.6 KB",
       "type": "NPVT",
       "ext": "NPVT",
       "tags": [
@@ -197,17 +197,17 @@ export const FALLBACK_CATALOG = {
         "binary-feed"
       ],
       "description": "Compact binary subscription feed for high-speed clients",
-      "sha256": "c5b7f652542465c7ac3f6d12af38a28eca92ba5ddefb68c02673e67b721df058",
-      "hash": "c5b7f652",
+      "sha256": "c6e89500770ca15b36cd6edb8a234f0dc37d09ab5ddae170c122f5cc7d1cde9b",
+      "hash": "c6e89500",
       "media_type": "application/json",
-      "last_modified": "2026-09-14T10:39:36.463210+00:00"
+      "last_modified": "2026-09-14T10:46:54.933770+00:00"
     },
     {
       "filename": "all_sources.npvt.raw.txt",
       "path": "artifacts/release/all_sources.npvt.raw.txt",
       "section": "release",
-      "size": 7965,
-      "size_str": "7.8 KB",
+      "size": 602,
+      "size_str": "602 B",
       "type": "NPVT",
       "ext": "NPVT",
       "tags": [
@@ -217,17 +217,17 @@ export const FALLBACK_CATALOG = {
         "binary-feed"
       ],
       "description": "Compact binary subscription feed for high-speed clients",
-      "sha256": "047cce3a68ff6501799433a4c4a0097cef1412b882f09fc7a1426a9999723e65",
-      "hash": "047cce3a",
+      "sha256": "f7f6b17c7956f55ca22d4d3b06243676a43cdffdfd8dd8cb092ba791b763326a",
+      "hash": "f7f6b17c",
       "media_type": "text/plain",
-      "last_modified": "2026-09-14T10:39:36.463210+00:00"
+      "last_modified": "2026-09-14T10:46:54.933770+00:00"
     },
     {
       "filename": "all_sources.npvt.singbox.json",
       "path": "artifacts/release/all_sources.npvt.singbox.json",
       "section": "release",
-      "size": 21894,
-      "size_str": "21.4 KB",
+      "size": 2992,
+      "size_str": "2.9 KB",
       "type": "SINGBOX",
       "ext": "SINGBOX",
       "tags": [
@@ -238,17 +238,17 @@ export const FALLBACK_CATALOG = {
         "outbounds"
       ],
       "description": "Compiled Sing-box 1.10+ outbound routing profile with TLS/Reality rules",
-      "sha256": "1adad7131293aff22aab502452202a5536cbd175e6bbc92b17422c0434310cc1",
-      "hash": "1adad713",
+      "sha256": "3f1c1f2aae432bcd7d451762514953233d16b320305721c1711bf630ec5708fe",
+      "hash": "3f1c1f2a",
       "media_type": "application/json",
-      "last_modified": "2026-09-14T10:39:36.463210+00:00"
+      "last_modified": "2026-09-14T10:46:54.933770+00:00"
     },
     {
       "filename": "all_sources.npvt.xray.json",
       "path": "artifacts/release/all_sources.npvt.xray.json",
       "section": "release",
-      "size": 9885,
-      "size_str": "9.7 KB",
+      "size": 1475,
+      "size_str": "1.4 KB",
       "type": "XRAY",
       "ext": "XRAY",
       "tags": [
@@ -259,17 +259,17 @@ export const FALLBACK_CATALOG = {
         "core-config"
       ],
       "description": "Full Xray-core 1.8+ / V2Ray multi-protocol client configuration",
-      "sha256": "b46df4b30e2b485250428d3bac77c48435bc310551e43589489bad2a57a18ec4",
-      "hash": "b46df4b3",
+      "sha256": "a9233a000a99fb0d5246374c0aa32dd52bbc3a8c404b573c77b54bb2d3609d7f",
+      "hash": "a9233a00",
       "media_type": "application/json",
-      "last_modified": "2026-09-14T10:39:36.463210+00:00"
+      "last_modified": "2026-09-14T10:46:54.933770+00:00"
     },
     {
       "filename": "all_sources.opaque_bundle",
       "path": "artifacts/release/all_sources.opaque_bundle",
       "section": "release",
-      "size": 250319,
-      "size_str": "244.5 KB",
+      "size": 200558,
+      "size_str": "195.9 KB",
       "type": "BUNDLE",
       "ext": "BUNDLE",
       "tags": [
@@ -279,10 +279,10 @@ export const FALLBACK_CATALOG = {
         "binary"
       ],
       "description": "Cryptographically signed opaque proxy bundle",
-      "sha256": "fa8501592a77f9311ac06a55abcc244151fe3d51eeebbd8e3f351305b89720ab",
-      "hash": "fa850159",
+      "sha256": "29008ba193bc8131befdc147d9dcbf4ad1a882ee811eb2e415f02aa54e8e98fc",
+      "hash": "29008ba1",
       "media_type": "application/octet-stream",
-      "last_modified": "2026-09-14T10:39:36.464210+00:00"
+      "last_modified": "2026-09-14T10:46:54.934770+00:00"
     },
     {
       "filename": "all_sources.ovpn",
@@ -303,7 +303,7 @@ export const FALLBACK_CATALOG = {
       "sha256": "307fc563e806c3b6a24c4ef07262f459fa908a945d29c58e7ccd1b93db32fe6d",
       "hash": "307fc563",
       "media_type": "application/x-openvpn-profile",
-      "last_modified": "2026-09-14T10:39:36.464210+00:00"
+      "last_modified": "2026-09-14T10:46:54.934770+00:00"
     },
     {
       "filename": "all_sources.sip",
@@ -321,7 +321,7 @@ export const FALLBACK_CATALOG = {
       "sha256": "8c3ef07ee47279075551218d6d293fedf8bc68b2547f48353e4e9dd133a50334",
       "hash": "8c3ef07e",
       "media_type": "application/octet-stream",
-      "last_modified": "2026-09-14T10:39:36.465210+00:00"
+      "last_modified": "2026-09-14T10:46:54.934770+00:00"
     },
     {
       "filename": "v2ray_test_config.json",
@@ -342,7 +342,7 @@ export const FALLBACK_CATALOG = {
       "sha256": "5f4a1cfc7f3120101204478cad19b8713700f824408131865f633e292b43ab41",
       "hash": "5f4a1cfc",
       "media_type": "application/json",
-      "last_modified": "2026-09-14T10:39:36.465210+00:00"
+      "last_modified": "2026-09-14T10:46:54.934770+00:00"
     },
     {
       "filename": "README.md",
@@ -361,7 +361,7 @@ export const FALLBACK_CATALOG = {
       "sha256": "6f520cc0d6a0ae41bb82a85275cae980009de77cc95b5f61e60e46a90d4c2ee6",
       "hash": "6f520cc0",
       "media_type": "text/plain",
-      "last_modified": "2026-09-14T10:39:36.465210+00:00"
+      "last_modified": "2026-09-14T10:46:54.935770+00:00"
     },
     {
       "filename": "_manifest.json",
@@ -382,7 +382,7 @@ export const FALLBACK_CATALOG = {
       "sha256": "13c053f5d7f2f8b06c5bbc7762b0ec15a5879c7c91f7e15a0a339990b182e1cd",
       "hash": "13c053f5",
       "media_type": "application/json",
-      "last_modified": "2026-09-14T10:39:36.514210+00:00"
+      "last_modified": "2026-09-14T10:46:54.979770+00:00"
     },
     {
       "filename": "proxies.json",
@@ -400,10 +400,10 @@ export const FALLBACK_CATALOG = {
         "full-json"
       ],
       "description": "Complete all-time cumulative proxy dataset with first-seen timestamps",
-      "sha256": "a0a414b29b71e6974042fcffacd6b7d5c15741578adec1b1171a007be03f3c8a",
-      "hash": "a0a414b2",
+      "sha256": "ef5fb75dee703d86f36c6e0d339bfa9d119adaffba0ee206f2eb966577e8117e",
+      "hash": "ef5fb75d",
       "media_type": "application/json",
-      "last_modified": "2026-09-14T10:39:36.617209+00:00"
+      "last_modified": "2026-09-14T10:46:55.008770+00:00"
     },
     {
       "filename": "proxies.txt",
@@ -421,10 +421,10 @@ export const FALLBACK_CATALOG = {
         "all-time"
       ],
       "description": "All-time cumulative raw proxy URI list (SHA-256 deduplicated)",
-      "sha256": "91b83921d0758cd9a0f9e594f1818cd895f59af59f567bf875e6b84444bf243a",
-      "hash": "91b83921",
+      "sha256": "2ed5b50df13af815d5256ca814873b3fe51ca6393ac6052c783db67d51bd4053",
+      "hash": "2ed5b50d",
       "media_type": "text/plain",
-      "last_modified": "2026-09-14T10:39:36.703208+00:00"
+      "last_modified": "2026-09-14T10:46:55.015769+00:00"
     },
     {
       "filename": "proxies_b64sub.txt",
@@ -445,7 +445,7 @@ export const FALLBACK_CATALOG = {
       "sha256": "dab2328dcd726ae0a6f4d93d7decf74b46f36c7a56267517d9a32c5b9cf4c06e",
       "hash": "dab2328d",
       "media_type": "text/plain",
-      "last_modified": "2026-09-14T10:39:36.796208+00:00"
+      "last_modified": "2026-09-14T10:46:55.092769+00:00"
     },
     {
       "filename": "proxies_chunk_0001.txt",
@@ -466,7 +466,7 @@ export const FALLBACK_CATALOG = {
       "sha256": "e7a2fd087496d782031247c9af66100a32715b62e1f1e2c8beb67870c73ce07b",
       "hash": "e7a2fd08",
       "media_type": "text/plain",
-      "last_modified": "2026-09-14T10:39:36.802208+00:00"
+      "last_modified": "2026-09-14T10:46:55.097769+00:00"
     },
     {
       "filename": "proxies_chunk_0002.txt",
@@ -487,7 +487,7 @@ export const FALLBACK_CATALOG = {
       "sha256": "d014171ac014fd2fdc7de07344eb33ef1da7c6128112bf05d59c5b33682d24d9",
       "hash": "d014171a",
       "media_type": "text/plain",
-      "last_modified": "2026-09-14T10:39:36.805208+00:00"
+      "last_modified": "2026-09-14T10:46:55.100769+00:00"
     },
     {
       "filename": "proxies_chunk_0003.txt",
@@ -508,7 +508,7 @@ export const FALLBACK_CATALOG = {
       "sha256": "90e29c44a149e4e0bf167e85277927fe6fb775c0131c662cf145932aaab7c3a2",
       "hash": "90e29c44",
       "media_type": "text/plain",
-      "last_modified": "2026-09-14T10:39:36.816208+00:00"
+      "last_modified": "2026-09-14T10:46:55.104769+00:00"
     },
     {
       "filename": "proxies_chunk_0004.txt",
@@ -529,7 +529,7 @@ export const FALLBACK_CATALOG = {
       "sha256": "ee8a2c79f52d6821f4cdf7edf3a029f2e70df5dddf3df53a9bf136899c15c314",
       "hash": "ee8a2c79",
       "media_type": "text/plain",
-      "last_modified": "2026-09-14T10:39:36.816208+00:00"
+      "last_modified": "2026-09-14T10:46:55.104769+00:00"
     },
     {
       "filename": "proxies_chunk_0005.txt",
@@ -550,7 +550,7 @@ export const FALLBACK_CATALOG = {
       "sha256": "24b881051bf79bfe0ef2ff546207c0253adb885dacd2833b9771e3db31e2f4c4",
       "hash": "24b88105",
       "media_type": "text/plain",
-      "last_modified": "2026-09-14T10:39:36.832207+00:00"
+      "last_modified": "2026-09-14T10:46:55.109769+00:00"
     },
     {
       "filename": "proxies_chunk_0006.txt",
@@ -571,7 +571,7 @@ export const FALLBACK_CATALOG = {
       "sha256": "8432fcac2085f163ef92c3597897d6c75933b030c9c9034ae18b5d09d6e387b0",
       "hash": "8432fcac",
       "media_type": "text/plain",
-      "last_modified": "2026-09-14T10:39:36.836208+00:00"
+      "last_modified": "2026-09-14T10:46:55.110769+00:00"
     },
     {
       "filename": "proxies_chunk_0007.txt",
@@ -592,7 +592,7 @@ export const FALLBACK_CATALOG = {
       "sha256": "4c2bebbb7f1b44560031b9ae2a030007a192e5ebdaf0467cfae468d4396fe4a2",
       "hash": "4c2bebbb",
       "media_type": "text/plain",
-      "last_modified": "2026-09-14T10:39:36.841208+00:00"
+      "last_modified": "2026-09-14T10:46:55.114769+00:00"
     },
     {
       "filename": "proxies_chunk_0008.txt",
@@ -613,7 +613,7 @@ export const FALLBACK_CATALOG = {
       "sha256": "90fa243633c42dec59107b04a73ecb0b989f4963c2afb73c3c98cbfdee40d727",
       "hash": "90fa2436",
       "media_type": "text/plain",
-      "last_modified": "2026-09-14T10:39:36.842207+00:00"
+      "last_modified": "2026-09-14T10:46:55.114769+00:00"
     },
     {
       "filename": "proxies_chunk_0009.txt",
@@ -634,7 +634,7 @@ export const FALLBACK_CATALOG = {
       "sha256": "5e92e0d7edfc57c29d4312158c06f314bb7ce0bccf36b1d1c5b206425c512980",
       "hash": "5e92e0d7",
       "media_type": "text/plain",
-      "last_modified": "2026-09-14T10:39:36.843207+00:00"
+      "last_modified": "2026-09-14T10:46:55.115769+00:00"
     },
     {
       "filename": "proxies_chunk_0010.txt",
@@ -655,7 +655,7 @@ export const FALLBACK_CATALOG = {
       "sha256": "5cae79703ac6aaad784f37e01a50104f1fb1c1dd85548673e370218601766ada",
       "hash": "5cae7970",
       "media_type": "text/plain",
-      "last_modified": "2026-09-14T10:39:36.851207+00:00"
+      "last_modified": "2026-09-14T10:46:55.119769+00:00"
     },
     {
       "filename": "proxies_chunk_0011.txt",
@@ -676,7 +676,7 @@ export const FALLBACK_CATALOG = {
       "sha256": "d482b6467b073e518851ad6960b65429c246c1c8496ee70841c3ff5006e0b579",
       "hash": "d482b646",
       "media_type": "text/plain",
-      "last_modified": "2026-09-14T10:39:36.856207+00:00"
+      "last_modified": "2026-09-14T10:46:55.123769+00:00"
     }
   ]
 };
@@ -32968,8 +32968,8 @@ export const INGEST_STATS = {
   "total_production_nodes": 1036,
   "total_cumulative_nodes": 116830,
   "total_published_files": 33,
-  "total_storage_bytes": 137959747,
-  "total_storage_str": "131.6 MB",
+  "total_storage_bytes": 137841026,
+  "total_storage_str": "131.5 MB",
   "active_sources_count": 81,
   "protocols": {
     "vless": 2,
