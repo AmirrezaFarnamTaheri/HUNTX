@@ -1,0 +1,83 @@
+name: HUNTX Schedule Watchdog
+
+on:
+  schedule:
+    - cron: "47 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: huntx-schedule-watchdog
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  recover-stale-production:
+    name: recover-stale-production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Recover missing production schedule
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          runs="$(gh api "repos/${GH_REPO}/actions/workflows/huntx.yml/runs?per_page=20")"
+          active="$(jq '[.workflow_runs[] | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "requested" or .status == "pending")] | length' <<<"$runs")"
+          if (( active > 0 )); then
+            echo "huntx-production already has an active run; recovery is unnecessary."
+            exit 0
+          fi
+
+          latest="$(jq -c '[.workflow_runs[] | select(.event == "schedule" or .event == "workflow_dispatch")] | sort_by(.created_at) | last // empty' <<<"$runs")"
+          dispatch() {
+            echo "Dispatching huntx-production recovery run."
+            gh api --method POST \
+              "repos/${GH_REPO}/actions/workflows/huntx.yml/dispatches" \
+              -f ref=main
+          }
+
+          if [[ -z "$latest" ]]; then
+            echo "::warning title=Production history missing::No production schedule/dispatch run was found; starting recovery."
+            dispatch
+            exit 0
+          fi
+
+          created_at="$(jq -r '.created_at' <<<"$latest")"
+          event="$(jq -r '.event' <<<"$latest")"
+          status="$(jq -r '.status' <<<"$latest")"
+          conclusion="$(jq -r '.conclusion // ""' <<<"$latest")"
+          latest_id="$(jq -r '.id' <<<"$latest")"
+          latest_epoch="$(date -u -d "$created_at" +%s)"
+          now_epoch="$(date -u +%s)"
+          age_seconds="$(( now_epoch - latest_epoch ))"
+
+          echo "latest_run_id=$latest_id"
+          echo "latest_event=$event"
+          echo "latest_status=$status"
+          echo "latest_conclusion=$conclusion"
+          echo "latest_age_seconds=$age_seconds"
+
+          if [[ "$event" == "schedule" && "$status" == "completed" && "$conclusion" != "success" && "$age_seconds" -ge 900 ]]; then
+            echo "::warning title=Scheduled production failed::Run $latest_id concluded $conclusion; starting one recovery dispatch."
+            dispatch
+            exit 0
+          fi
+
+          # Production is expected every two hours. Allow scheduler jitter but
+          # recover once the latest production run is more than 2h20m old.
+          if (( age_seconds >= 8400 )); then
+            echo "::warning title=Production schedule stale::Latest production run $latest_id is ${age_seconds}s old; starting recovery."
+            dispatch
+            exit 0
+          fi
+
+          echo "Production cadence is healthy; no recovery dispatch needed."
