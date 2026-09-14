@@ -1,0 +1,188 @@
+name: HUNTX Reliability Repair
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/huntx-reliability-repair.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  repair:
+    name: repair-production-reliability
+    if: github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Bootstrap HUNTX reliability repair'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Apply permanent reliability fixes
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin main
+
+          python - <<'PY'
+          from pathlib import Path
+
+          workflow_path = Path('.github/workflows/huntx.yml')
+          text = workflow_path.read_text(encoding='utf-8')
+
+          old_cron = '    - cron: "0 */2 * * *"'
+          new_cron = '    - cron: "17 */2 * * *"'
+          if old_cron in text:
+              text = text.replace(old_cron, new_cron, 1)
+          elif new_cron not in text:
+              raise SystemExit('huntx.yml: expected production cron was not found')
+
+          marker = '      - name: Upload checkpoint handoff\n'
+          start = text.find(marker)
+          if start < 0:
+              raise SystemExit('huntx.yml: Upload checkpoint handoff step was not found')
+          next_step = text.find('\n      - name:', start + len(marker))
+          if next_step < 0:
+              next_step = len(text)
+          segment = text[start:next_step]
+          if '          include-hidden-files: true\n' not in segment:
+              path_line = '          path: checkpoint-package/\n'
+              if path_line not in segment:
+                  raise SystemExit('huntx.yml: checkpoint-package upload path was not found in checkpoint handoff step')
+              segment = segment.replace(
+                  path_line,
+                  path_line + '          include-hidden-files: true\n',
+                  1,
+              )
+              text = text[:start] + segment + text[next_step:]
+
+          workflow_path.write_text(text, encoding='utf-8')
+
+          watchdog = r'''name: HUNTX Schedule Watchdog
+
+          on:
+            schedule:
+              - cron: "47 * * * *"
+            workflow_dispatch:
+
+          permissions:
+            actions: write
+            contents: read
+
+          concurrency:
+            group: huntx-schedule-watchdog
+            cancel-in-progress: false
+
+          defaults:
+            run:
+              shell: bash
+
+          jobs:
+            recover-stale-production:
+              name: recover-stale-production
+              runs-on: ubuntu-24.04
+              timeout-minutes: 10
+              steps:
+                - name: Recover missing production schedule
+                  env:
+                    GH_TOKEN: ${{ github.token }}
+                    GH_REPO: ${{ github.repository }}
+                  run: |
+                    set -euo pipefail
+
+                    runs="$(gh api "repos/${GH_REPO}/actions/workflows/huntx.yml/runs?per_page=20")"
+                    active="$(jq '[.workflow_runs[] | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "requested" or .status == "pending")] | length' <<<"$runs")"
+                    if (( active > 0 )); then
+                      echo "huntx-production already has an active run; recovery is unnecessary."
+                      exit 0
+                    fi
+
+                    latest="$(jq -c '[.workflow_runs[] | select(.event == "schedule" or .event == "workflow_dispatch")] | sort_by(.created_at) | last // empty' <<<"$runs")"
+                    dispatch() {
+                      echo "Dispatching huntx-production recovery run."
+                      gh api --method POST \
+                        "repos/${GH_REPO}/actions/workflows/huntx.yml/dispatches" \
+                        -f ref=main
+                    }
+
+                    if [[ -z "$latest" ]]; then
+                      echo "::warning title=Production history missing::No production schedule/dispatch run was found; starting recovery."
+                      dispatch
+                      exit 0
+                    fi
+
+                    created_at="$(jq -r '.created_at' <<<"$latest")"
+                    event="$(jq -r '.event' <<<"$latest")"
+                    status="$(jq -r '.status' <<<"$latest")"
+                    conclusion="$(jq -r '.conclusion // ""' <<<"$latest")"
+                    latest_id="$(jq -r '.id' <<<"$latest")"
+                    latest_epoch="$(date -u -d "$created_at" +%s)"
+                    now_epoch="$(date -u +%s)"
+                    age_seconds="$(( now_epoch - latest_epoch ))"
+
+                    echo "latest_run_id=$latest_id"
+                    echo "latest_event=$event"
+                    echo "latest_status=$status"
+                    echo "latest_conclusion=$conclusion"
+                    echo "latest_age_seconds=$age_seconds"
+
+                    if [[ "$event" == "schedule" && "$status" == "completed" && "$conclusion" != "success" && "$age_seconds" -ge 900 ]]; then
+                      echo "::warning title=Scheduled production failed::Run $latest_id concluded $conclusion; starting one recovery dispatch."
+                      dispatch
+                      exit 0
+                    fi
+
+                    # Production is expected every two hours. Allow normal scheduler jitter,
+                    # but recover once the latest run is more than 2h20m old.
+                    if (( age_seconds >= 8400 )); then
+                      echo "::warning title=Production schedule stale::Latest production run $latest_id is ${age_seconds}s old; starting recovery."
+                      dispatch
+                      exit 0
+                    fi
+
+                    echo "Production cadence is healthy; no recovery dispatch needed."
+          '''
+
+          # Strip the indentation inherited from this Python source so the generated
+          # workflow is valid top-level YAML.
+          import textwrap
+          Path('.github/workflows/huntx-schedule-watchdog.yml').write_text(
+              textwrap.dedent(watchdog).lstrip(),
+              encoding='utf-8',
+          )
+          PY
+
+          rm -f .github/workflows/huntx-reliability-repair.yml
+          git add .github/workflows/huntx.yml .github/workflows/huntx-schedule-watchdog.yml .github/workflows/huntx-reliability-repair.yml
+
+          if git diff --cached --quiet; then
+            echo "No permanent changes were required."
+            exit 0
+          fi
+
+          git diff --cached --check
+          git diff --cached -- .github/workflows/huntx.yml .github/workflows/huntx-schedule-watchdog.yml
+          git commit -m "Harden HUNTX production reliability"
+
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Push attempt $attempt failed; rebasing onto latest main and retrying."
+            git pull --rebase origin main
+          done
+
+          echo "Unable to push reliability repair after retries." >&2
+          exit 1
