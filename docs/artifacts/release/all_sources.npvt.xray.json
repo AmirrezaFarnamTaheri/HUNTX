@@ -19,462 +19,25 @@
       "tag": "vless-1",
       "protocol": "vless",
       "settings": {
-        "address": "144.31.7.182",
+        "address": "195.133.73.65",
         "port": 443,
-        "id": "becd3b04-62a8-4b74-be67-be746008b4c2",
-        "encryption": "none"
+        "id": "ebd1c0d6-7ff4-4b9f-8692-237517a27a64",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
       },
       "streamSettings": {
-        "method": "grpc",
-        "security": "tls",
-        "grpcSettings": {
-          "serviceName": "grpc"
-        },
-        "tlsSettings": {
-          "serverName": "cdn-582.spliceflowtech.com",
-          "alpn": [
-            "h2"
-          ],
-          "fingerprint": "firefox"
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "anyfile2file.com",
+          "fingerprint": "chrome",
+          "password": "mza5Hn1aolSz65qu-UwvBP3oesxMe25r11o4nxvikF0",
+          "shortId": "64c1fe36c7846400"
         }
       }
     },
     {
       "tag": "vless-2",
-      "protocol": "vless",
-      "settings": {
-        "address": "www.web.far30bazi.ir",
-        "port": 443,
-        "id": "bb681249-1823-4bc0-9778-883bf5bd0b1f",
-        "encryption": "none",
-        "flow": "xtls-rprx-vision"
-      },
-      "streamSettings": {
-        "method": "raw",
-        "security": "reality",
-        "realitySettings": {
-          "serverName": "sheets.google.com",
-          "fingerprint": "firefox",
-          "password": "6yOrgIsMRfTe-Gr9TYgyan-0mnKTNfk6fDBxVOiT4HM",
-          "shortId": "5002b5329814b487"
-        }
-      }
-    },
-    {
-      "tag": "vless-3",
-      "protocol": "vless",
-      "settings": {
-        "address": "89.35.14.30",
-        "port": 443,
-        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
-        "encryption": "none"
-      },
-      "streamSettings": {
-        "method": "grpc",
-        "security": "reality",
-        "grpcSettings": {
-          "serviceName": "hub.v1.RelayService"
-        },
-        "realitySettings": {
-          "serverName": "md1.univesalsrv.com",
-          "fingerprint": "firefox",
-          "password": "xWejOQUn2koOUorUPSrHMLM-lyHlZ441KzxKc9bLmkY",
-          "shortId": "221ba6174224ca5b"
-        }
-      }
-    },
-    {
-      "tag": "vless-4",
-      "protocol": "vless",
-      "settings": {
-        "address": "50.7.87.122",
-        "port": 443,
-        "id": "42d932cb-8768-41de-b57b-299252a493d2",
-        "encryption": "none",
-        "flow": "xtls-rprx-vision"
-      },
-      "streamSettings": {
-        "method": "raw",
-        "security": "reality",
-        "realitySettings": {
-          "serverName": "edge-fr.extazy.money",
-          "fingerprint": "chrome",
-          "password": "ygxQyBcJzlLgpSl3MCRDDiFET4TT-3wxa4GdG1obkCY",
-          "shortId": "ba4b2afa9e7193ea"
-        }
-      }
-    },
-    {
-      "tag": "vless-5",
-      "protocol": "vless",
-      "settings": {
-        "address": "83.168.71.216",
-        "port": 443,
-        "id": "a18f7c2d-9e45-4b8a-af3c-1d5e7f9c8b2a",
-        "encryption": "none"
-      },
-      "streamSettings": {
-        "method": "raw",
-        "security": "reality",
-        "realitySettings": {
-          "serverName": "ads.x5.ru",
-          "fingerprint": "chrome",
-          "password": "8h8t5eBWL9oERK7xWHQLFJE5j6sZdgNDQAs3EGnNbho",
-          "shortId": "2f49bccf11150ef2"
-        }
-      }
-    },
-    {
-      "tag": "vless-6",
-      "protocol": "vless",
-      "settings": {
-        "address": "190.93.245.176",
-        "port": 443,
-        "id": "7493883f-6047-46a7-8d95-f59e137ffaec",
-        "encryption": "none"
-      },
-      "streamSettings": {
-        "method": "websocket",
-        "security": "tls",
-        "wsSettings": {
-          "path": "/?TELEGRAM--MARAMBASHI--MARAMBASHI?ed=512",
-          "host": "auto-749388.rohawmk.workers.dev"
-        },
-        "tlsSettings": {
-          "serverName": "auto-749388.rohawmk.workers.dev",
-          "alpn": [
-            "http/1.1"
-          ],
-          "fingerprint": "chrome"
-        }
-      }
-    },
-    {
-      "tag": "vless-7",
-      "protocol": "vless",
-      "settings": {
-        "address": "150.40.126.24",
-        "port": 443,
-        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
-        "encryption": "none"
-      },
-      "streamSettings": {
-        "method": "grpc",
-        "security": "reality",
-        "grpcSettings": {
-          "serviceName": "gw.v1.ObjectService"
-        },
-        "realitySettings": {
-          "serverName": "rs5.univesalsrv.com",
-          "fingerprint": "firefox",
-          "password": "X8mPYnsoTd8QCnvFZKSy7VvpSn_nrt_NWJkCUJhFCyE",
-          "shortId": "4872856d5489c37d"
-        }
-      }
-    },
-    {
-      "tag": "vless-8",
-      "protocol": "vless",
-      "settings": {
-        "address": "195.133.73.65",
-        "port": 443,
-        "id": "ebd1c0d6-7ff4-4b9f-8692-237517a27a64",
-        "encryption": "none",
-        "flow": "xtls-rprx-vision"
-      },
-      "streamSettings": {
-        "method": "raw",
-        "security": "reality",
-        "realitySettings": {
-          "serverName": "anyfile2file.com",
-          "fingerprint": "chrome",
-          "password": "mza5Hn1aolSz65qu-UwvBP3oesxMe25r11o4nxvikF0",
-          "shortId": "64c1fe36c7846400"
-        }
-      }
-    },
-    {
-      "tag": "vless-9",
-      "protocol": "vless",
-      "settings": {
-        "address": "144.31.5.64",
-        "port": 443,
-        "id": "cd3bb7d9-7df3-4644-ac05-c260990ac277",
-        "encryption": "none",
-        "flow": "xtls-rprx-vision"
-      },
-      "streamSettings": {
-        "method": "raw",
-        "security": "tls",
-        "tlsSettings": {
-          "serverName": "pl6.moritech.net",
-          "alpn": [
-            "h2"
-          ]
-        }
-      }
-    },
-    {
-      "tag": "vless-10",
-      "protocol": "vless",
-      "settings": {
-        "address": "169.40.42.223",
-        "port": 443,
-        "id": "d65cc14c-f53f-4fe2-b262-97856601319c",
-        "encryption": "none",
-        "flow": "xtls-rprx-vision"
-      },
-      "streamSettings": {
-        "method": "raw",
-        "security": "reality",
-        "realitySettings": {
-          "serverName": "yahoo.com",
-          "fingerprint": "chrome",
-          "password": "e2RLf57Li_-MDZGE9ss1BWPgP54mqRb5PfXhW2jcVVg",
-          "shortId": "c39cc7310a"
-        }
-      }
-    },
-    {
-      "tag": "vless-11",
-      "protocol": "vless",
-      "settings": {
-        "address": "195.133.73.65",
-        "port": 443,
-        "id": "ebd1c0d6-7ff4-4b9f-8692-237517a27a64",
-        "encryption": "none",
-        "flow": "xtls-rprx-vision"
-      },
-      "streamSettings": {
-        "method": "raw",
-        "security": "reality",
-        "realitySettings": {
-          "serverName": "anyfile2file.com",
-          "fingerprint": "chrome",
-          "password": "mza5Hn1aolSz65qu-UwvBP3oesxMe25r11o4nxvikF0",
-          "shortId": "64c1fe36c7846400"
-        }
-      }
-    },
-    {
-      "tag": "vless-12",
-      "protocol": "vless",
-      "settings": {
-        "address": "tgfree.rush-server.com",
-        "port": 443,
-        "id": "ebd1c0d6-7ff4-4b9f-8692-237517a27a64",
-        "encryption": "none",
-        "flow": "xtls-rprx-vision"
-      },
-      "streamSettings": {
-        "method": "raw",
-        "security": "reality",
-        "realitySettings": {
-          "serverName": "anyfile2file.com",
-          "fingerprint": "chrome",
-          "password": "mza5Hn1aolSz65qu-UwvBP3oesxMe25r11o4nxvikF0",
-          "shortId": "64c1fe36c7846400"
-        }
-      }
-    },
-    {
-      "tag": "vless-20",
-      "protocol": "vless",
-      "settings": {
-        "address": "154.219.5.103",
-        "port": 2053,
-        "id": "dcca1cd9-08da-4756-9e47-ba6c47705fa1",
-        "encryption": "none"
-      },
-      "streamSettings": {
-        "method": "grpc",
-        "security": "tls",
-        "grpcSettings": {
-          "serviceName": "@V2RIRAN-TEL--@V2RIRAN-TEL--@V2RIRAN-TEL--@V2RIRAN-JOIN-@V2RIRAN-TEL--@V2RIRAN-JOIN-@V2RIRAN-TEL-@V2RIRAN-TEL--@V2RIRAN-JOIN-@V2RIRAN-TEL--@V2RIRAN-@ViV2ray/2053"
-        },
-        "tlsSettings": {
-          "serverName": "v2rayb.peymod.com",
-          "alpn": [
-            "http/1.1",
-            "h2"
-          ],
-          "fingerprint": "chrome"
-        }
-      }
-    },
-    {
-      "tag": "vless-24",
-      "protocol": "vless",
-      "settings": {
-        "address": "154.219.5.32",
-        "port": 443,
-        "id": "eae02a50-e329-4647-926e-8439e685f317",
-        "encryption": "none"
-      },
-      "streamSettings": {
-        "method": "grpc",
-        "security": "tls",
-        "grpcSettings": {
-          "serviceName": "/custom_config?ed=2048"
-        },
-        "tlsSettings": {
-          "serverName": "first.pinocchio1.ir.",
-          "alpn": [
-            "http/1.1"
-          ],
-          "fingerprint": "firefox"
-        }
-      }
-    },
-    {
-      "tag": "vless-25",
-      "protocol": "vless",
-      "settings": {
-        "address": "40.69.106.103",
-        "port": 443,
-        "id": "6f995056-7802-4a1d-bff7-61678e626c3f",
-        "encryption": "none"
-      },
-      "streamSettings": {
-        "method": "websocket",
-        "security": "tls",
-        "wsSettings": {
-          "path": "/",
-          "host": "mmghgy5.azurewebsites.net"
-        },
-        "tlsSettings": {
-          "serverName": "mmghgy5.azurewebsites.net"
-        }
-      }
-    },
-    {
-      "tag": "vless-26",
-      "protocol": "vless",
-      "settings": {
-        "address": "212.43.150.30",
-        "port": 37684,
-        "id": "00726276-f581-4815-8610-ba373a65f00d",
-        "encryption": "none"
-      },
-      "streamSettings": {
-        "method": "raw",
-        "security": "reality",
-        "realitySettings": {
-          "serverName": "play-apps-features.googleusercontent.com",
-          "fingerprint": "firefox",
-          "password": "UJXmL43l_agBd7hYNJCKVlvCtkT-oDBMQ0sjlOOxg1Y",
-          "shortId": "f9"
-        }
-      }
-    },
-    {
-      "tag": "vless-27",
-      "protocol": "vless",
-      "settings": {
-        "address": "185.32.6.61",
-        "port": 443,
-        "id": "0ce122a3-1c91-4cf5-a2cc-67f25e8cb56f",
-        "encryption": "none",
-        "flow": "xtls-rprx-vision"
-      },
-      "streamSettings": {
-        "method": "raw",
-        "security": "reality",
-        "realitySettings": {
-          "serverName": "dropbox.com",
-          "fingerprint": "firefox",
-          "password": "xy8AHr_xZCNqFOuLq_t2fe4oLlrv5iu38uCQ1hUJ40w",
-          "shortId": "954c99065465428d"
-        }
-      }
-    },
-    {
-      "tag": "vless-28",
-      "protocol": "vless",
-      "settings": {
-        "address": "31.76.101.16",
-        "port": 443,
-        "id": "d6b59299-2f48-4e9b-9130-b9e9cb5d0a51",
-        "encryption": "none",
-        "flow": "xtls-rprx-vision"
-      },
-      "streamSettings": {
-        "method": "raw",
-        "security": "reality",
-        "realitySettings": {
-          "serverName": "mx42.hat.onl",
-          "fingerprint": "chrome",
-          "password": "nuqkgfdRafYszLg1SzFgXlQkTu0OdV4tes4WTjjcpkI",
-          "shortId": "414f66403b9f0673"
-        }
-      }
-    },
-    {
-      "tag": "vless-29",
-      "protocol": "vless",
-      "settings": {
-        "address": "144.31.242.69",
-        "port": 443,
-        "id": "d6b59299-2f48-4e9b-9130-b9e9cb5d0a51",
-        "encryption": "none",
-        "flow": "xtls-rprx-vision"
-      },
-      "streamSettings": {
-        "method": "raw",
-        "security": "reality",
-        "realitySettings": {
-          "serverName": "dk1.hat.onl",
-          "fingerprint": "firefox",
-          "password": "V3uMWEfDQAPFP6o5ED8Jtk0rJBPs7IlOLf_Wh8w_jXc",
-          "shortId": "76132b3b39704c44"
-        }
-      }
-    },
-    {
-      "tag": "vless-30",
-      "protocol": "vless",
-      "settings": {
-        "address": "145.63.139.40",
-        "port": 23353,
-        "id": "0435b4d2-5ab7-4873-81b9-ff7ad9d7a67c",
-        "encryption": "none"
-      },
-      "streamSettings": {
-        "method": "raw",
-        "security": "reality",
-        "realitySettings": {
-          "serverName": "play-apps-features.googleusercontent.com",
-          "fingerprint": "firefox",
-          "password": "GkVcEhd2eA7gqxBGKHqnkje6albyNVcuG01RIfZ5GS8",
-          "shortId": "55e574bbea1a651a"
-        }
-      }
-    },
-    {
-      "tag": "vless-31",
-      "protocol": "vless",
-      "settings": {
-        "address": "31.56.184.132",
-        "port": 8443,
-        "id": "11f21602-47aa-42e2-9149-69120f2e6df6",
-        "encryption": "none"
-      },
-      "streamSettings": {
-        "method": "grpc",
-        "security": "reality",
-        "grpcSettings": {
-          "serviceName": "shiforgrpc"
-        },
-        "realitySettings": {
-          "serverName": "cloudflare.com",
-          "fingerprint": "firefox",
-          "password": "bzbe7QdD633ew_Er1_YWEhuCEHWurmDpxpz3fRzXr0A",
-          "shortId": "b4e3b0b55b8dc75b"
-        }
-      }
-    },
-    {
-      "tag": "vless-32",
       "protocol": "vless",
       "settings": {
         "address": "45.9.156.24",
@@ -497,12 +60,37 @@
       }
     },
     {
-      "tag": "vless-33",
+      "tag": "vless-3",
       "protocol": "vless",
       "settings": {
-        "address": "103.227.84.162",
+        "address": "k2.cloud--vpn.site",
         "port": 443,
-        "id": "d6b59299-2f48-4e9b-9130-b9e9cb5d0a51",
+        "id": "bdaf42dd-f75b-4594-d5f8-51c0feeb8406",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/",
+          "host": "c12.com"
+        },
+        "tlsSettings": {
+          "serverName": "ssl.fastly.com",
+          "alpn": [
+            "h2"
+          ],
+          "fingerprint": "firefox"
+        }
+      }
+    },
+    {
+      "tag": "vless-6",
+      "protocol": "vless",
+      "settings": {
+        "address": "195.133.73.65",
+        "port": 443,
+        "id": "ebd1c0d6-7ff4-4b9f-8692-237517a27a64",
         "encryption": "none",
         "flow": "xtls-rprx-vision"
       },
@@ -510,18 +98,18 @@
         "method": "raw",
         "security": "reality",
         "realitySettings": {
-          "serverName": "de3.hat.onl",
+          "serverName": "anyfile2file.com",
           "fingerprint": "chrome",
-          "password": "OEp5OMlE08EaAunays3K7Lbd0JWKOQKZ8HXiytog4EQ",
-          "shortId": "e8d6c07aa30b81fa"
+          "password": "mza5Hn1aolSz65qu-UwvBP3oesxMe25r11o4nxvikF0",
+          "shortId": "64c1fe36c7846400"
         }
       }
     },
     {
-      "tag": "vless-34",
+      "tag": "vless-7",
       "protocol": "vless",
       "settings": {
-        "address": "89.35.14.32",
+        "address": "md4.univesalsrv.com",
         "port": 443,
         "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
         "encryption": "none"
@@ -530,18 +118,87 @@
         "method": "grpc",
         "security": "reality",
         "grpcSettings": {
-          "serviceName": "stats.v2.PushService"
+          "serviceName": "hub.v1.ApiService"
         },
         "realitySettings": {
-          "serverName": "md3.univesalsrv.com",
+          "serverName": "md4.univesalsrv.com",
           "fingerprint": "firefox",
-          "password": "q38CddDj2g-XNDc0uW1m6S6b8iGY_Bne2RwX7C_FYCQ",
-          "shortId": "9a72d40f1ff882b3"
+          "password": "TZVMqglhHzteJ6t34mtku75LKzXNq0CB6glKYMAH6zg",
+          "shortId": "8e07337954f9823f"
         }
       }
     },
     {
-      "tag": "vless-35",
+      "tag": "vless-8",
+      "protocol": "vless",
+      "settings": {
+        "address": "150.40.126.24",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "gw.v1.ObjectService"
+        },
+        "realitySettings": {
+          "serverName": "rs5.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "X8mPYnsoTd8QCnvFZKSy7VvpSn_nrt_NWJkCUJhFCyE",
+          "shortId": "4872856d5489c37d"
+        }
+      }
+    },
+    {
+      "tag": "vless-9",
+      "protocol": "vless",
+      "settings": {
+        "address": "89.35.14.33",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "hub.v1.ApiService"
+        },
+        "realitySettings": {
+          "serverName": "md4.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "TZVMqglhHzteJ6t34mtku75LKzXNq0CB6glKYMAH6zg",
+          "shortId": "8e07337954f9823f"
+        }
+      }
+    },
+    {
+      "tag": "vless-13",
+      "protocol": "vless",
+      "settings": {
+        "address": "150.40.126.22",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "media.v1.StreamService"
+        },
+        "realitySettings": {
+          "serverName": "rs4.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "sXsJ4ET-50TYqlhKZf03nPQr2JIy1F0D4m6lOsI0cAs",
+          "shortId": "861ac7d66953e55f"
+        }
+      }
+    },
+    {
+      "tag": "vless-14",
       "protocol": "vless",
       "settings": {
         "address": "150.40.126.21",
@@ -564,7 +221,1079 @@
       }
     },
     {
+      "tag": "vless-15",
+      "protocol": "vless",
+      "settings": {
+        "address": "45.9.156.28",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "cloud.v1.RelayService"
+        },
+        "realitySettings": {
+          "serverName": "bg4.univesalsrv.com",
+          "fingerprint": "chrome",
+          "password": "k-vH6pkyAv26L1_dXKOFhp0Kesur9-FCUDoj-IIpVhc",
+          "shortId": "51f45d4fd58cc319"
+        }
+      }
+    },
+    {
+      "tag": "vless-17",
+      "protocol": "vless",
+      "settings": {
+        "address": "150.40.126.24",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "gw.v1.ObjectService"
+        },
+        "realitySettings": {
+          "serverName": "rs5.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "X8mPYnsoTd8QCnvFZKSy7VvpSn_nrt_NWJkCUJhFCyE",
+          "shortId": "4872856d5489c37d"
+        }
+      }
+    },
+    {
+      "tag": "vless-18",
+      "protocol": "vless",
+      "settings": {
+        "address": "tgfree.rush-server.com",
+        "port": 443,
+        "id": "ebd1c0d6-7ff4-4b9f-8692-237517a27a64",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "anyfile2file.com",
+          "fingerprint": "chrome",
+          "password": "mza5Hn1aolSz65qu-UwvBP3oesxMe25r11o4nxvikF0",
+          "shortId": "64c1fe36c7846400"
+        }
+      }
+    },
+    {
+      "tag": "vless-19",
+      "protocol": "vless",
+      "settings": {
+        "address": "150.40.126.24",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "gw.v1.ObjectService"
+        },
+        "realitySettings": {
+          "serverName": "rs5.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "X8mPYnsoTd8QCnvFZKSy7VvpSn_nrt_NWJkCUJhFCyE",
+          "shortId": "4872856d5489c37d"
+        }
+      }
+    },
+    {
+      "tag": "vless-21",
+      "protocol": "vless",
+      "settings": {
+        "address": "40.69.106.103",
+        "port": 443,
+        "id": "6f995056-7802-4a1d-bff7-61678e626c3f",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/",
+          "host": "mmghgy5.azurewebsites.net"
+        },
+        "tlsSettings": {
+          "serverName": "mmghgy5.azurewebsites.net"
+        }
+      }
+    },
+    {
+      "tag": "vless-24",
+      "protocol": "vless",
+      "settings": {
+        "address": "46.28.69.53",
+        "port": 443,
+        "id": "f2381f29-c724-4491-95a3-a17bd6eea47f",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "de2.willo.help",
+          "fingerprint": "firefox",
+          "password": "MldGYzZegwydL76HI_beMlXgD-4ZyCZjIX0sBVPjphY",
+          "shortId": "abcd1234"
+        }
+      }
+    },
+    {
+      "tag": "vless-25",
+      "protocol": "vless",
+      "settings": {
+        "address": "qq.utiltools.site",
+        "port": 443,
+        "id": "4054fdc2-ee80-4419-8a8e-d937df4719e2",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "qq.utiltools.site",
+          "fingerprint": "qq",
+          "password": "drY21DHNOr6ezJLA2B10mzTExeJ9-gVBfTBNLwVBtWI",
+          "shortId": ""
+        }
+      }
+    },
+    {
+      "tag": "vless-26",
+      "protocol": "vless",
+      "settings": {
+        "address": "45.91.138.179",
+        "port": 443,
+        "id": "11f21602-47aa-42e2-9149-69120f2e6df6",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "us05.shifor01.life",
+          "fingerprint": "firefox",
+          "password": "36sTeaLdaAjQQxxzh492XihoPi2YxmttQyncmLuxYHE",
+          "shortId": "169fc2df88419465"
+        }
+      }
+    },
+    {
+      "tag": "vless-27",
+      "protocol": "vless",
+      "settings": {
+        "address": "game.betust.net",
+        "port": 443,
+        "id": "01a21e01-6098-4c3b-a6fd-1a04d64d0c7f",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "api14.betust.net",
+          "fingerprint": "firefox",
+          "password": "7dxSNJKvSZNySuiKjuv6wwddd3hYJeJy6X55OcwOPDk",
+          "shortId": "16fbc56c"
+        }
+      }
+    },
+    {
+      "tag": "vless-28",
+      "protocol": "vless",
+      "settings": {
+        "address": "api.betust.net",
+        "port": 443,
+        "id": "01a21e01-6098-4c3b-a6fd-1a04d64d0c7f",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "api.betust.net",
+          "fingerprint": "firefox",
+          "password": "YczbievYAOeZIypa58aRpil6XbfdyifK_0cFJWn8-yg",
+          "shortId": "d6c172d3"
+        }
+      }
+    },
+    {
+      "tag": "vless-29",
+      "protocol": "vless",
+      "settings": {
+        "address": "calmclobbercrucial.mortaranvil.dev",
+        "port": 443,
+        "id": "fbbd97ff-f682-4937-b103-9285b6746d4b",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "calmclobbercrucial.mortaranvil.dev",
+          "fingerprint": "firefox",
+          "password": "_mYbaT3EkMDFT1uiIAADcdkMU3pMmuakyk5pVN3tslY",
+          "shortId": "1776046104c6d212"
+        }
+      }
+    },
+    {
+      "tag": "vless-30",
+      "protocol": "vless",
+      "settings": {
+        "address": "prime.betust.net",
+        "port": 443,
+        "id": "01a21e01-6098-4c3b-a6fd-1a04d64d0c7f",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "prime.betust.net",
+          "fingerprint": "firefox",
+          "password": "SxbaWzlvE_HQqqsA4PNX2PFcSYXTVE2nZlgLc7cPOgk",
+          "shortId": "8681edc9"
+        }
+      }
+    },
+    {
+      "tag": "vless-31",
+      "protocol": "vless",
+      "settings": {
+        "address": "app.betust.net",
+        "port": 443,
+        "id": "01a21e01-6098-4c3b-a6fd-1a04d64d0c7f",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "app.betust.net",
+          "fingerprint": "firefox",
+          "password": "xNzdfy4hPv-IgM_MSn64FNQdb-UPu78pmM-GBE1HhSo",
+          "shortId": "ef5d4ad5"
+        }
+      }
+    },
+    {
+      "tag": "vless-32",
+      "protocol": "vless",
+      "settings": {
+        "address": "snow.betust.net",
+        "port": 443,
+        "id": "01a21e01-6098-4c3b-a6fd-1a04d64d0c7f",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "api37.betust.net",
+          "fingerprint": "firefox",
+          "password": "naFxXMoZGp3dHSEMiupvt7FsYtnxONkSN90c2JLWl38",
+          "shortId": "974acf45"
+        }
+      }
+    },
+    {
+      "tag": "trojan-1",
+      "protocol": "trojan",
+      "settings": {
+        "address": "130.250.137.171",
+        "port": 443,
+        "password": "humanity"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/assignment",
+          "host": "www.ignitelimit.com"
+        },
+        "tlsSettings": {
+          "serverName": "www.ignitelimit.com"
+        }
+      }
+    },
+    {
+      "tag": "vless-33",
+      "protocol": "vless",
+      "settings": {
+        "address": "88.216.92.78",
+        "port": 443,
+        "id": "5934cc4f-c17b-41c0-9280-c75eb222f4b7",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "vu.nl",
+          "fingerprint": "firefox",
+          "password": "BTCZ0hMhV10H818mbm54EQdU0s3qQXMtY4Hl67dFA18",
+          "shortId": ""
+        }
+      }
+    },
+    {
+      "tag": "trojan-2",
+      "protocol": "trojan",
+      "settings": {
+        "address": "188.42.145.180",
+        "port": 443,
+        "password": "humanity"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/assignment",
+          "host": "www.volumeroot.com"
+        },
+        "tlsSettings": {
+          "serverName": "www.volumeroot.com",
+          "alpn": [
+            "http/1.1"
+          ],
+          "fingerprint": "chrome"
+        }
+      }
+    },
+    {
+      "tag": "trojan-3",
+      "protocol": "trojan",
+      "settings": {
+        "address": "199.232.78.101",
+        "port": 443,
+        "password": "MITIVPN"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "@mehrosaboran",
+          "host": "mitivpn---ss--s---mitivpn-11s.global.ssl.fastly.net"
+        },
+        "tlsSettings": {
+          "serverName": "ssl.fastly.com",
+          "alpn": [
+            "http/1.1"
+          ],
+          "fingerprint": "chrome"
+        }
+      }
+    },
+    {
+      "tag": "trojan-4",
+      "protocol": "trojan",
+      "settings": {
+        "address": "151.101.56.7",
+        "port": 443,
+        "password": "MITIVPN"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "@mehrosaboran",
+          "host": "mitivpn---ss--s---mitivpn-22s.global.ssl.fastly.net"
+        },
+        "tlsSettings": {
+          "serverName": "ssl.fastly.com",
+          "alpn": [
+            "http/1.1"
+          ],
+          "fingerprint": "chrome"
+        }
+      }
+    },
+    {
+      "tag": "vless-38",
+      "protocol": "vless",
+      "settings": {
+        "address": "104.16.219.230",
+        "port": 2087,
+        "id": "24e3764c-c43b-4425-bdc4-41407317febd",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/@falconpolv2rayng@falconpolv2rayng@falconpolv2rayng@falconpolv2rayng@falconpolv2rayng@falconpolv2rayng",
+          "host": "vi6.tavalede.co"
+        },
+        "tlsSettings": {
+          "serverName": "vi6.tavalede.co",
+          "fingerprint": "firefox"
+        }
+      }
+    },
+    {
+      "tag": "trojan-5",
+      "protocol": "trojan",
+      "settings": {
+        "address": "167.82.76.7",
+        "port": 443,
+        "password": "MITIVPN"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "@mehrosaboran",
+          "host": "mitivpn---ss--s---mitivpn-33s.global.ssl.fastly.net"
+        },
+        "tlsSettings": {
+          "serverName": "ssl.fastly.com",
+          "alpn": [
+            "http/1.1"
+          ],
+          "fingerprint": "chrome"
+        }
+      }
+    },
+    {
+      "tag": "vless-39",
+      "protocol": "vless",
+      "settings": {
+        "address": "188.114.97.6",
+        "port": 443,
+        "id": "c4edb87e-8544-4fa4-bd1c-b0cda9a34b46",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/ws",
+          "host": "a.cwvps.eu.org"
+        },
+        "tlsSettings": {
+          "serverName": "a.cwvps.eu.org"
+        }
+      }
+    },
+    {
+      "tag": "vless-40",
+      "protocol": "vless",
+      "settings": {
+        "address": "89.35.14.33",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "hub.v1.ApiService"
+        },
+        "realitySettings": {
+          "serverName": "md4.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "TZVMqglhHzteJ6t34mtku75LKzXNq0CB6glKYMAH6zg",
+          "shortId": "8e07337954f9823f"
+        }
+      }
+    },
+    {
+      "tag": "vless-42",
+      "protocol": "vless",
+      "settings": {
+        "address": "rs4.univesalsrv.com",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "media.v1.StreamService"
+        },
+        "realitySettings": {
+          "serverName": "rs4.univesalsrv.com",
+          "fingerprint": "chrome",
+          "password": "sXsJ4ET-50TYqlhKZf03nPQr2JIy1F0D4m6lOsI0cAs",
+          "shortId": "861ac7d66953e55f"
+        }
+      }
+    },
+    {
+      "tag": "vless-44",
+      "protocol": "vless",
+      "settings": {
+        "address": "rs3.univesalsrv.com",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "edge.v2.FeedService"
+        },
+        "realitySettings": {
+          "serverName": "rs3.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "gHDoSWGWMVZKWNKONWHw-Cpl0-bdI6GaKusgJIQ-vWQ",
+          "shortId": "35d05b666e2c6cdf"
+        }
+      }
+    },
+    {
+      "tag": "vless-46",
+      "protocol": "vless",
+      "settings": {
+        "address": "tgfree.rush-server.com",
+        "port": 443,
+        "id": "ebd1c0d6-7ff4-4b9f-8692-237517a27a64",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "anyfile2file.com",
+          "fingerprint": "ios",
+          "password": "mza5Hn1aolSz65qu-UwvBP3oesxMe25r11o4nxvikF0",
+          "shortId": "64c1fe36c7846400"
+        }
+      }
+    },
+    {
+      "tag": "vless-47",
+      "protocol": "vless",
+      "settings": {
+        "address": "89.35.14.30",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "hub.v1.RelayService"
+        },
+        "realitySettings": {
+          "serverName": "md1.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "xWejOQUn2koOUorUPSrHMLM-lyHlZ441KzxKc9bLmkY",
+          "shortId": "221ba6174224ca5b"
+        }
+      }
+    },
+    {
+      "tag": "vless-48",
+      "protocol": "vless",
+      "settings": {
+        "address": "tgfree.rush-server.com",
+        "port": 443,
+        "id": "ebd1c0d6-7ff4-4b9f-8692-237517a27a64",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "anyfile2file.com",
+          "fingerprint": "chrome",
+          "password": "mza5Hn1aolSz65qu-UwvBP3oesxMe25r11o4nxvikF0",
+          "shortId": "64c1fe36c7846400"
+        }
+      }
+    },
+    {
+      "tag": "vless-49",
+      "protocol": "vless",
+      "settings": {
+        "address": "89.35.14.33",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "hub.v1.ApiService"
+        },
+        "realitySettings": {
+          "serverName": "md4.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "TZVMqglhHzteJ6t34mtku75LKzXNq0CB6glKYMAH6zg",
+          "shortId": "8e07337954f9823f"
+        }
+      }
+    },
+    {
+      "tag": "vless-50",
+      "protocol": "vless",
+      "settings": {
+        "address": "150.40.126.22",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "media.v1.StreamService"
+        },
+        "realitySettings": {
+          "serverName": "rs4.univesalsrv.com",
+          "fingerprint": "chrome",
+          "password": "sXsJ4ET-50TYqlhKZf03nPQr2JIy1F0D4m6lOsI0cAs",
+          "shortId": "861ac7d66953e55f"
+        }
+      }
+    },
+    {
+      "tag": "vless-51",
+      "protocol": "vless",
+      "settings": {
+        "address": "205.233.181.144",
+        "port": 443,
+        "id": "48198295-b7ba-4b5c-8d85-085d55a6c869",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/blue"
+        },
+        "tlsSettings": {
+          "serverName": "xind.ylks.link"
+        }
+      }
+    },
+    {
       "tag": "ss-1",
+      "protocol": "shadowsocks",
+      "settings": {
+        "address": "20.107.184.151",
+        "port": 443,
+        "method": "chacha20-ietf-poly1305",
+        "password": "zziXHDOFXc4qRjoj"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "none"
+      }
+    },
+    {
+      "tag": "vless-53",
+      "protocol": "vless",
+      "settings": {
+        "address": "89.35.14.34",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "app.v1.PushService"
+        },
+        "realitySettings": {
+          "serverName": "md5.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "99MRki6b93wC-hhDHe9yq3IXE3KtPGw4RkFAnpI-8gg",
+          "shortId": "aa9884f2982b7d3c"
+        }
+      }
+    },
+    {
+      "tag": "vless-54",
+      "protocol": "vless",
+      "settings": {
+        "address": "89.35.14.33",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "hub.v1.ApiService"
+        },
+        "realitySettings": {
+          "serverName": "md4.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "TZVMqglhHzteJ6t34mtku75LKzXNq0CB6glKYMAH6zg",
+          "shortId": "8e07337954f9823f"
+        }
+      }
+    },
+    {
+      "tag": "vless-55",
+      "protocol": "vless",
+      "settings": {
+        "address": "89.35.14.33",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "hub.v1.ApiService"
+        },
+        "realitySettings": {
+          "serverName": "md4.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "TZVMqglhHzteJ6t34mtku75LKzXNq0CB6glKYMAH6zg",
+          "shortId": "8e07337954f9823f"
+        }
+      }
+    },
+    {
+      "tag": "vless-56",
+      "protocol": "vless",
+      "settings": {
+        "address": "md5.univesalsrv.com",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "app.v1.PushService"
+        },
+        "realitySettings": {
+          "serverName": "md5.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "99MRki6b93wC-hhDHe9yq3IXE3KtPGw4RkFAnpI-8gg",
+          "shortId": "aa9884f2982b7d3c"
+        }
+      }
+    },
+    {
+      "tag": "trojan-6",
+      "protocol": "trojan",
+      "settings": {
+        "address": "199.232.78.101",
+        "port": 443,
+        "password": "MITIVPN"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/---@MiTiVPN---@MiTiVPN/---@MiTiVPN---@MiTiVPN/---@MiTiVPN---@MiTiVPN/NLSus---@MiTiVPN---@MiTiVPN/---@MiTiVPN---@MiTiVPN/---@MiTiVPN---@MiTiVPN",
+          "host": "mitivpn---ss--s---mitivpn-11s.global.ssl.fastly.net"
+        },
+        "tlsSettings": {
+          "serverName": "ssl.fastly.com",
+          "alpn": [
+            "http/1.1"
+          ],
+          "fingerprint": "chrome"
+        }
+      }
+    },
+    {
+      "tag": "vless-57",
+      "protocol": "vless",
+      "settings": {
+        "address": "89.35.14.32",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "stats.v2.PushService"
+        },
+        "realitySettings": {
+          "serverName": "md3.univesalsrv.com",
+          "fingerprint": "chrome",
+          "password": "q38CddDj2g-XNDc0uW1m6S6b8iGY_Bne2RwX7C_FYCQ",
+          "shortId": "9a72d40f1ff882b3"
+        }
+      }
+    },
+    {
+      "tag": "vless-59",
+      "protocol": "vless",
+      "settings": {
+        "address": "89.35.14.34",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "app.v1.PushService"
+        },
+        "realitySettings": {
+          "serverName": "md5.univesalsrv.com",
+          "fingerprint": "chrome",
+          "password": "99MRki6b93wC-hhDHe9yq3IXE3KtPGw4RkFAnpI-8gg",
+          "shortId": "aa9884f2982b7d3c"
+        }
+      }
+    },
+    {
+      "tag": "trojan-7",
+      "protocol": "trojan",
+      "settings": {
+        "address": "199.232.78.160",
+        "port": 443,
+        "password": "MITIVPN"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "mehrosaboram",
+          "host": "mitivpn---ss--s---mitivpn-44s.global.ssl.fastly.net"
+        },
+        "tlsSettings": {
+          "serverName": "ssl.fastly.com",
+          "alpn": [
+            "http/1.1"
+          ],
+          "fingerprint": "firefox"
+        }
+      }
+    },
+    {
+      "tag": "trojan-8",
+      "protocol": "trojan",
+      "settings": {
+        "address": "199.232.78.160",
+        "port": 443,
+        "password": "MITIVPN"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/---@MiTiVPN---@MiTiVPN/---@MiTiVPN---@MiTiVPN/---@MiTiVPN---@MiTiVPN/D-e1i@MiTiVPN---@MiTiVPN/---@MiTiVPN---@MiTiVPN/---@MiTiVPN---@MiTiVPN",
+          "host": "mitivpn---ss--s---mitivpn-44s.global.ssl.fastly.net"
+        },
+        "tlsSettings": {
+          "serverName": "ssl.fastly.com",
+          "alpn": [
+            "http/1.1"
+          ],
+          "fingerprint": "firefox"
+        }
+      }
+    },
+    {
+      "tag": "vless-65",
+      "protocol": "vless",
+      "settings": {
+        "address": "45.9.156.28",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "cloud.v1.RelayService"
+        },
+        "realitySettings": {
+          "serverName": "bg4.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "k-vH6pkyAv26L1_dXKOFhp0Kesur9-FCUDoj-IIpVhc",
+          "shortId": "51f45d4fd58cc319"
+        }
+      }
+    },
+    {
+      "tag": "vless-66",
+      "protocol": "vless",
+      "settings": {
+        "address": "150.40.126.21",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "edge.v2.FeedService"
+        },
+        "realitySettings": {
+          "serverName": "rs3.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "gHDoSWGWMVZKWNKONWHw-Cpl0-bdI6GaKusgJIQ-vWQ",
+          "shortId": "35d05b666e2c6cdf"
+        }
+      }
+    },
+    {
+      "tag": "vless-67",
+      "protocol": "vless",
+      "settings": {
+        "address": "rs2.univesalsrv.com",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "media.v1.ObjectService"
+        },
+        "realitySettings": {
+          "serverName": "rs2.univesalsrv.com",
+          "fingerprint": "chrome",
+          "password": "tL16MVY08r-7YDXb1_gxuBBWInpSFp97ZLJ_ax3R2iE",
+          "shortId": "1469af2040b7c323"
+        }
+      }
+    },
+    {
+      "tag": "trojan-9",
+      "protocol": "trojan",
+      "settings": {
+        "address": "render.com",
+        "port": 443,
+        "password": "humanity"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/assignment",
+          "host": "www.ignitelimit.com"
+        },
+        "tlsSettings": {
+          "serverName": "www.ignitelimit.com"
+        }
+      }
+    },
+    {
+      "tag": "vless-69",
+      "protocol": "vless",
+      "settings": {
+        "address": "sof.edgeptr.org",
+        "port": 443,
+        "id": "52984d2b-dd82-4f06-9cab-4c5e1a09cb87",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "www.lovelive-anime.jp",
+          "fingerprint": "chrome",
+          "password": "EtKRG8sxUJsdy-KwUOtYUNJnSn5VMx2sfKvvdpzg2X0",
+          "shortId": "f0eb800bd980b00b"
+        }
+      }
+    },
+    {
+      "tag": "ss-2",
+      "protocol": "shadowsocks",
+      "settings": {
+        "address": "82.38.31.189",
+        "port": 8080,
+        "method": "chacha20-ietf-poly1305",
+        "password": "k1dBOmOB4oqi7Ump37a1bQ"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "none"
+      }
+    },
+    {
+      "tag": "vless-70",
+      "protocol": "vless",
+      "settings": {
+        "address": "vf670.cc.cd",
+        "port": 443,
+        "id": "c71d6d78-76f9-4e8f-ab88-45f4305cf21e",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/sg-akl",
+          "host": "somersby.pt.vf670.cc.cd"
+        },
+        "tlsSettings": {
+          "serverName": "somersby.pt.vf670.cc.cd"
+        }
+      }
+    },
+    {
+      "tag": "vless-71",
+      "protocol": "vless",
+      "settings": {
+        "address": "31.76.91.72",
+        "port": 2087,
+        "id": "524e00ce-ed89-481d-b4a4-6d7017f884e3",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "grpc"
+        },
+        "realitySettings": {
+          "serverName": "ads.x5.ru",
+          "fingerprint": "chrome",
+          "password": "-ZTJcZ_UcqAB7LHgkUqhnlJsQs_oBafRgjsFtWZElmM",
+          "shortId": "c226283c4de5b1ad"
+        }
+      }
+    },
+    {
+      "tag": "ss-3",
       "protocol": "shadowsocks",
       "settings": {
         "address": "4.168.198.18",
@@ -575,6 +1304,1988 @@
       "streamSettings": {
         "method": "raw",
         "security": "none"
+      }
+    },
+    {
+      "tag": "vless-73",
+      "protocol": "vless",
+      "settings": {
+        "address": "150.241.72.76",
+        "port": 443,
+        "id": "cd3bb7d9-7df3-4644-ac05-c260990ac277",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "austria-2.moritech.net",
+          "fingerprint": "firefox"
+        }
+      }
+    },
+    {
+      "tag": "ss-4",
+      "protocol": "shadowsocks",
+      "settings": {
+        "address": "switcher-nick-croquet.freesocks.work",
+        "port": 443,
+        "method": "chacha20-ietf-poly1305",
+        "password": "9tqhMdIrTkgQ46PvhyAtMH"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "none"
+      }
+    },
+    {
+      "tag": "ss-5",
+      "protocol": "shadowsocks",
+      "settings": {
+        "address": "108.181.0.177",
+        "port": 8388,
+        "method": "chacha20-ietf-poly1305",
+        "password": "G5p6ww4o67HB"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "none"
+      }
+    },
+    {
+      "tag": "vless-75",
+      "protocol": "vless",
+      "settings": {
+        "address": "45.9.156.24",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "api.v2.PushService"
+        },
+        "realitySettings": {
+          "serverName": "bg2.univesalsrv.com",
+          "fingerprint": "chrome",
+          "password": "0f0dh_FUju5cHgQcIwUjHvxQb9aIZ00p0kZRHeE7Ey4",
+          "shortId": "501ab3325b77e1ca"
+        }
+      }
+    },
+    {
+      "tag": "vless-77",
+      "protocol": "vless",
+      "settings": {
+        "address": "rs1.univesalsrv.com",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "node.v2.ObjectService"
+        },
+        "realitySettings": {
+          "serverName": "rs1.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "upIzyaSbVz2ZK6KfGtXmPl_-sCwn8XLDyFDH5CsL9iY",
+          "shortId": "ed0cd5cc2e26e6e7"
+        }
+      }
+    },
+    {
+      "tag": "vless-78",
+      "protocol": "vless",
+      "settings": {
+        "address": "45.9.156.24",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "api.v2.PushService"
+        },
+        "realitySettings": {
+          "serverName": "bg2.univesalsrv.com",
+          "fingerprint": "chrome",
+          "password": "0f0dh_FUju5cHgQcIwUjHvxQb9aIZ00p0kZRHeE7Ey4",
+          "shortId": "501ab3325b77e1ca"
+        }
+      }
+    },
+    {
+      "tag": "vless-79",
+      "protocol": "vless",
+      "settings": {
+        "address": "150.40.126.18",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "node.v2.ObjectService"
+        },
+        "realitySettings": {
+          "serverName": "rs1.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "upIzyaSbVz2ZK6KfGtXmPl_-sCwn8XLDyFDH5CsL9iY",
+          "shortId": "ed0cd5cc2e26e6e7"
+        }
+      }
+    },
+    {
+      "tag": "trojan-10",
+      "protocol": "trojan",
+      "settings": {
+        "address": "167.82.76.7",
+        "port": 443,
+        "password": "MITIVPN"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/---@MiTiVPN---@MiTiVPN/---@MiTiVPN---@MiTiVPN/---@MiTiVPN---@MiTiVPN/NLSs---@MiTiVPN---@MiTiVPN/---@MiTiVPN---@MiTiVPN/---@MiTiVPN---@MiTiVPN",
+          "host": "mitivpn---ss--s---mitivpn-33s.global.ssl.fastly.net"
+        },
+        "tlsSettings": {
+          "serverName": "ssl.fastly.com",
+          "alpn": [
+            "http/1.1"
+          ],
+          "fingerprint": "chrome"
+        }
+      }
+    },
+    {
+      "tag": "vless-85",
+      "protocol": "vless",
+      "settings": {
+        "address": "199.232.78.159",
+        "port": 443,
+        "id": "404aa1e8-4935-4919-8b74-60e88b065cf4",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER?ed=2053",
+          "host": "pane2.global.ssl.fastly.net"
+        },
+        "tlsSettings": {
+          "serverName": "ssl.fastly.com"
+        }
+      }
+    },
+    {
+      "tag": "vless-88",
+      "protocol": "vless",
+      "settings": {
+        "address": "31.56.184.132",
+        "port": 8443,
+        "id": "11f21602-47aa-42e2-9149-69120f2e6df6",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "shiforgrpc"
+        },
+        "realitySettings": {
+          "serverName": "cloudflare.com",
+          "fingerprint": "firefox",
+          "password": "bzbe7QdD633ew_Er1_YWEhuCEHWurmDpxpz3fRzXr0A",
+          "shortId": "b4e3b0b55b8dc75b"
+        }
+      }
+    },
+    {
+      "tag": "trojan-11",
+      "protocol": "trojan",
+      "settings": {
+        "address": "199.232.78.160",
+        "port": 443,
+        "password": "MITIVPN"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/---@MiTiVPN---@MiTiVPN/---@MiTiVPN---@MiTiVPN/---@MiTiVPN---@MiTiVPN/des---@MiTiVPN---@MiTiVPN/---@MiTiVPN---@MiTiVPN/---@MiTiVPN---@MiTiVPN",
+          "host": "mitivpn---ss--s---mitivpn-55s.global.ssl.fastly.net"
+        },
+        "tlsSettings": {
+          "serverName": "ssl.fastly.com",
+          "alpn": [
+            "http/1.1"
+          ],
+          "fingerprint": "chrome"
+        }
+      }
+    },
+    {
+      "tag": "vless-89",
+      "protocol": "vless",
+      "settings": {
+        "address": "150.40.126.24",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "gw.v1.ObjectService"
+        },
+        "realitySettings": {
+          "serverName": "rs5.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "X8mPYnsoTd8QCnvFZKSy7VvpSn_nrt_NWJkCUJhFCyE",
+          "shortId": "4872856d5489c37d"
+        }
+      }
+    },
+    {
+      "tag": "vless-92",
+      "protocol": "vless",
+      "settings": {
+        "address": "151.101.56.6",
+        "port": 443,
+        "id": "bdaf42dd-f75b-4594-d5f8-51c0feeb8406",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/?@maramvpn1---@maramvpn1---@maramvpn1---@maramvpn1---@maramvpn1---@maramvpn1---@maramvpn1---@maramvpn1---@maramvpn1---@maramvpn1---@maramvpn1---@maramvpn1---@maramvpn1---@maramvpn1---@maramvpn1",
+          "host": "c12.com"
+        },
+        "tlsSettings": {
+          "serverName": "ssl.fastly.com",
+          "alpn": [
+            "h2"
+          ],
+          "fingerprint": "firefox"
+        }
+      }
+    },
+    {
+      "tag": "vless-93",
+      "protocol": "vless",
+      "settings": {
+        "address": "45.9.156.24",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "api.v2.PushService"
+        },
+        "realitySettings": {
+          "serverName": "bg2.univesalsrv.com",
+          "fingerprint": "chrome",
+          "password": "0f0dh_FUju5cHgQcIwUjHvxQb9aIZ00p0kZRHeE7Ey4",
+          "shortId": "501ab3325b77e1ca"
+        }
+      }
+    },
+    {
+      "tag": "vless-94",
+      "protocol": "vless",
+      "settings": {
+        "address": "rs1.univesalsrv.com",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "node.v2.ObjectService"
+        },
+        "realitySettings": {
+          "serverName": "rs1.univesalsrv.com",
+          "fingerprint": "chrome",
+          "password": "upIzyaSbVz2ZK6KfGtXmPl_-sCwn8XLDyFDH5CsL9iY",
+          "shortId": "ed0cd5cc2e26e6e7"
+        }
+      }
+    },
+    {
+      "tag": "trojan-12",
+      "protocol": "trojan",
+      "settings": {
+        "address": "151.101.56.7",
+        "port": 443,
+        "password": "MITIVPN"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "mitivpn---ss--s---mitivpn-22s.global.ssl.fast",
+          "alpn": [
+            "http/1.1"
+          ]
+        }
+      }
+    },
+    {
+      "tag": "vless-95",
+      "protocol": "vless",
+      "settings": {
+        "address": "150.40.126.24",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "gw.v1.ObjectService"
+        },
+        "realitySettings": {
+          "serverName": "rs5.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "X8mPYnsoTd8QCnvFZKSy7VvpSn_nrt_NWJkCUJhFCyE",
+          "shortId": "4872856d5489c37d"
+        }
+      }
+    },
+    {
+      "tag": "vless-96",
+      "protocol": "vless",
+      "settings": {
+        "address": "89.35.14.33",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "hub.v1.ApiService"
+        },
+        "realitySettings": {
+          "serverName": "md4.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "TZVMqglhHzteJ6t34mtku75LKzXNq0CB6glKYMAH6zg",
+          "shortId": "8e07337954f9823f"
+        }
+      }
+    },
+    {
+      "tag": "vless-97",
+      "protocol": "vless",
+      "settings": {
+        "address": "md3.univesalsrv.com",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "stats.v2.PushService"
+        },
+        "realitySettings": {
+          "serverName": "md3.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "q38CddDj2g-XNDc0uW1m6S6b8iGY_Bne2RwX7C_FYCQ",
+          "shortId": "9a72d40f1ff882b3"
+        }
+      }
+    },
+    {
+      "tag": "trojan-13",
+      "protocol": "trojan",
+      "settings": {
+        "address": "jgzt1997.qivfelo.ir",
+        "port": 1080,
+        "password": "BbNnpOgc1j9WOaWoslbSyeob1r47IRHV"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "maps.google.com",
+          "fingerprint": "chrome",
+          "password": "1ZO9Cjhs1IFAU6nZATRhOuD3kq6J-1dZadfEfX734zc",
+          "shortId": "0d12eb289946de9b"
+        }
+      }
+    },
+    {
+      "tag": "trojan-14",
+      "protocol": "trojan",
+      "settings": {
+        "address": "5.75.171.12",
+        "port": 1080,
+        "password": "BbNnpOgc1j9WOaWoslbSyeob1r47IRHV"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "maps.google.com",
+          "fingerprint": "chrome",
+          "password": "1ZO9Cjhs1IFAU6nZATRhOuD3kq6J-1dZadfEfX734zc",
+          "shortId": "0d12eb289946de9b"
+        }
+      }
+    },
+    {
+      "tag": "vless-100",
+      "protocol": "vless",
+      "settings": {
+        "address": "45.9.156.24",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "api.v2.PushService"
+        },
+        "realitySettings": {
+          "serverName": "bg2.univesalsrv.com",
+          "fingerprint": "chrome",
+          "password": "0f0dh_FUju5cHgQcIwUjHvxQb9aIZ00p0kZRHeE7Ey4",
+          "shortId": "501ab3325b77e1ca"
+        }
+      }
+    },
+    {
+      "tag": "vless-102",
+      "protocol": "vless",
+      "settings": {
+        "address": "199.232.78.159",
+        "port": 443,
+        "id": "404aa1e8-4935-4919-8b74-60e88b065cf4",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER?ed",
+          "host": "pane2.global.ssl.fastly.net"
+        },
+        "tlsSettings": {
+          "serverName": "ssl.fastly.com"
+        }
+      }
+    },
+    {
+      "tag": "vless-103",
+      "protocol": "vless",
+      "settings": {
+        "address": "rs3.univesalsrv.com",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "edge.v2.FeedService"
+        },
+        "realitySettings": {
+          "serverName": "rs3.univesalsrv.com",
+          "fingerprint": "chrome",
+          "password": "gHDoSWGWMVZKWNKONWHw-Cpl0-bdI6GaKusgJIQ-vWQ",
+          "shortId": "35d05b666e2c6cdf"
+        }
+      }
+    },
+    {
+      "tag": "vless-104",
+      "protocol": "vless",
+      "settings": {
+        "address": "188.114.97.6",
+        "port": 443,
+        "id": "44eae030-290b-4083-8102-6f8bab05701b",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/",
+          "host": "cfvvv-ev1.pages.dev"
+        },
+        "tlsSettings": {
+          "serverName": "cfvvv-ev1.pages.dev"
+        }
+      }
+    },
+    {
+      "tag": "vless-105",
+      "protocol": "vless",
+      "settings": {
+        "address": "150.40.126.28",
+        "port": 443,
+        "id": "4360f941-b541-43d4-8507-2de3763e0cfd",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "rs.convert-flow.net",
+          "fingerprint": "qq",
+          "password": "8ZYjmjb0b2QJKCGMrcdhQNV28jZZPCKgIQbIdqChQ0w",
+          "shortId": "00a61d55a07de885"
+        }
+      }
+    },
+    {
+      "tag": "vless-107",
+      "protocol": "vless",
+      "settings": {
+        "address": "150.40.126.22",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "media.v1.StreamService"
+        },
+        "realitySettings": {
+          "serverName": "rs4.univesalsrv.com",
+          "fingerprint": "chrome",
+          "password": "sXsJ4ET-50TYqlhKZf03nPQr2JIy1F0D4m6lOsI0cAs",
+          "shortId": "861ac7d66953e55f"
+        }
+      }
+    },
+    {
+      "tag": "vless-108",
+      "protocol": "vless",
+      "settings": {
+        "address": "45.9.156.27",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "home.v1.ApiService"
+        },
+        "realitySettings": {
+          "serverName": "bg3.univesalsrv.com",
+          "fingerprint": "chrome",
+          "password": "XBfCioniAKXgKYBUVnvBXu80AIaIa4SpAB3w8qeF7Gk",
+          "shortId": "1be1bd931c98c84a"
+        }
+      }
+    },
+    {
+      "tag": "vless-109",
+      "protocol": "vless",
+      "settings": {
+        "address": "172.66.44.244",
+        "port": 443,
+        "id": "08a07fca-27c1-46f5-85dc-6c9043588836",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/Telegram:@PARDAZESHVPN-Telegram:@PARDAZESHVPN-Telegram:@PARDAZESHVPN-Telegram:@PARDAZESHVPN-Telegram:@PARDAZESHVPN-Telegram:@PARDAZESHVPN-Telegram:@PARDAZESHVPN-Telegram:@PARDAZESHVPN-Telegram:@PARDAZESHVPN-Telegram:@PARDAZESHVPN-Telegram:@PARDAZESHVPN?ed=2048",
+          "host": "pardazeshvpn-tg110.pages.dev"
+        },
+        "tlsSettings": {
+          "serverName": "pardazeshvpn-tg110.pages.dev",
+          "fingerprint": "randomized"
+        }
+      }
+    },
+    {
+      "tag": "vless-114",
+      "protocol": "vless",
+      "settings": {
+        "address": "103.169.142.145",
+        "port": 443,
+        "id": "48198295-b7ba-4b5c-8d85-085d55a6c869",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/blue"
+        },
+        "tlsSettings": {
+          "serverName": "xind.ylks.link"
+        }
+      }
+    },
+    {
+      "tag": "vless-115",
+      "protocol": "vless",
+      "settings": {
+        "address": "app4.betust.net",
+        "port": 443,
+        "id": "01a21e01-6098-4c3b-a6fd-1a04d64d0c7f",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "app4.betust.net",
+          "fingerprint": "firefox",
+          "password": "NCW-zK60GXsiDdlbxww18Pqp4kz3zTG1URHWS_bnfDk",
+          "shortId": "3f7e0363"
+        }
+      }
+    },
+    {
+      "tag": "vless-116",
+      "protocol": "vless",
+      "settings": {
+        "address": "stream.betust.net",
+        "port": 443,
+        "id": "01a21e01-6098-4c3b-a6fd-1a04d64d0c7f",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "stream.betust.net",
+          "fingerprint": "firefox",
+          "password": "2zLFL9xRZ_hAqBHIUpZrj3z5o5Bvt3OAFy5yDat7h0U",
+          "shortId": "2aef5875"
+        }
+      }
+    },
+    {
+      "tag": "vless-117",
+      "protocol": "vless",
+      "settings": {
+        "address": "cdn6.goonars.com",
+        "port": 443,
+        "id": "01a21e01-6098-4c3b-a6fd-1a04d64d0c7f",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "cdn6.goonars.com",
+          "fingerprint": "firefox",
+          "password": "VWDBW2RS3o-oFBrSNdpncoaVVU8KixbPNHoj4-Wy7lM",
+          "shortId": "04a69fc6"
+        }
+      }
+    },
+    {
+      "tag": "ss-6",
+      "protocol": "shadowsocks",
+      "settings": {
+        "address": "dopr.rehan-iogsar.ir",
+        "port": 4680,
+        "method": "2022-blake3-aes-128-gcm",
+        "password": "1JvlmtT4v8y1yGczDtT6Ww==:aCtpeMietGsJY50h6jDW6w=="
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "none"
+      }
+    },
+    {
+      "tag": "vless-118",
+      "protocol": "vless",
+      "settings": {
+        "address": "carina.yokkastars.com",
+        "port": 40443,
+        "id": "588456a5-f724-46a7-a08b-5d336d9f8f56",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "deepl.com",
+          "fingerprint": "qq",
+          "password": "3cW_F0us0je_lhnl5xpwSxHyRfTQaKFELxWLr8jRzic",
+          "shortId": "e496c7fe1cefc9ff"
+        }
+      }
+    },
+    {
+      "tag": "vless-120",
+      "protocol": "vless",
+      "settings": {
+        "address": "84.32.186.112",
+        "port": 443,
+        "id": "01a21e01-6098-4c3b-a6fd-1a04d64d0c7f",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "api37.betust.net",
+          "fingerprint": "firefox",
+          "password": "naFxXMoZGp3dHSEMiupvt7FsYtnxONkSN90c2JLWl38",
+          "shortId": "974acf45"
+        }
+      }
+    },
+    {
+      "tag": "vless-122",
+      "protocol": "vless",
+      "settings": {
+        "address": "bg2.univesalsrv.com",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "api.v2.PushService"
+        },
+        "realitySettings": {
+          "serverName": "bg2.univesalsrv.com",
+          "fingerprint": "chrome",
+          "password": "0f0dh_FUju5cHgQcIwUjHvxQb9aIZ00p0kZRHeE7Ey4",
+          "shortId": "501ab3325b77e1ca"
+        }
+      }
+    },
+    {
+      "tag": "vless-123",
+      "protocol": "vless",
+      "settings": {
+        "address": "md4.univesalsrv.com",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "hub.v1.ApiService"
+        },
+        "realitySettings": {
+          "serverName": "md4.univesalsrv.com",
+          "fingerprint": "chrome",
+          "password": "TZVMqglhHzteJ6t34mtku75LKzXNq0CB6glKYMAH6zg",
+          "shortId": "8e07337954f9823f"
+        }
+      }
+    },
+    {
+      "tag": "vless-124",
+      "protocol": "vless",
+      "settings": {
+        "address": "md5.univesalsrv.com",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "app.v1.PushService"
+        },
+        "realitySettings": {
+          "serverName": "md5.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "99MRki6b93wC-hhDHe9yq3IXE3KtPGw4RkFAnpI-8gg",
+          "shortId": "aa9884f2982b7d3c"
+        }
+      }
+    },
+    {
+      "tag": "vless-126",
+      "protocol": "vless",
+      "settings": {
+        "address": "89.35.14.33",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "hub.v1.ApiService"
+        },
+        "realitySettings": {
+          "serverName": "md4.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "TZVMqglhHzteJ6t34mtku75LKzXNq0CB6glKYMAH6zg",
+          "shortId": "8e07337954f9823f"
+        }
+      }
+    },
+    {
+      "tag": "vless-127",
+      "protocol": "vless",
+      "settings": {
+        "address": "89.35.14.32",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "stats.v2.PushService"
+        },
+        "realitySettings": {
+          "serverName": "md3.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "q38CddDj2g-XNDc0uW1m6S6b8iGY_Bne2RwX7C_FYCQ",
+          "shortId": "9a72d40f1ff882b3"
+        }
+      }
+    },
+    {
+      "tag": "vless-128",
+      "protocol": "vless",
+      "settings": {
+        "address": "89.35.14.33",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "hub.v1.ApiService"
+        },
+        "realitySettings": {
+          "serverName": "md4.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "TZVMqglhHzteJ6t34mtku75LKzXNq0CB6glKYMAH6zg",
+          "shortId": "8e07337954f9823f"
+        }
+      }
+    },
+    {
+      "tag": "vless-129",
+      "protocol": "vless",
+      "settings": {
+        "address": "md3.univesalsrv.com",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "stats.v2.PushService"
+        },
+        "realitySettings": {
+          "serverName": "md3.univesalsrv.com",
+          "fingerprint": "chrome",
+          "password": "q38CddDj2g-XNDc0uW1m6S6b8iGY_Bne2RwX7C_FYCQ",
+          "shortId": "9a72d40f1ff882b3"
+        }
+      }
+    },
+    {
+      "tag": "vless-130",
+      "protocol": "vless",
+      "settings": {
+        "address": "89.35.14.32",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "stats.v2.PushService"
+        },
+        "realitySettings": {
+          "serverName": "md3.univesalsrv.com",
+          "fingerprint": "chrome",
+          "password": "q38CddDj2g-XNDc0uW1m6S6b8iGY_Bne2RwX7C_FYCQ",
+          "shortId": "9a72d40f1ff882b3"
+        }
+      }
+    },
+    {
+      "tag": "vless-131",
+      "protocol": "vless",
+      "settings": {
+        "address": "89.35.14.33",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "hub.v1.ApiService"
+        },
+        "realitySettings": {
+          "serverName": "md4.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "TZVMqglhHzteJ6t34mtku75LKzXNq0CB6glKYMAH6zg",
+          "shortId": "8e07337954f9823f"
+        }
+      }
+    },
+    {
+      "tag": "vless-132",
+      "protocol": "vless",
+      "settings": {
+        "address": "45.9.156.42",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "gw.v2.RelayService"
+        },
+        "realitySettings": {
+          "serverName": "bg5.univesalsrv.com",
+          "fingerprint": "chrome",
+          "password": "RDWvDEygSk1eyAQhIK95H9EteFbrS2d9JEjBrco54Bw",
+          "shortId": "1a3102bb8e51399e"
+        }
+      }
+    },
+    {
+      "tag": "vless-133",
+      "protocol": "vless",
+      "settings": {
+        "address": "45.9.156.42",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "gw.v2.RelayService"
+        },
+        "realitySettings": {
+          "serverName": "bg5.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "RDWvDEygSk1eyAQhIK95H9EteFbrS2d9JEjBrco54Bw",
+          "shortId": "1a3102bb8e51399e"
+        }
+      }
+    },
+    {
+      "tag": "trojan-15",
+      "protocol": "trojan",
+      "settings": {
+        "address": "www.speedtest.net",
+        "port": 443,
+        "password": "humanity"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/assignment",
+          "host": "www.ignitelimit.com"
+        },
+        "tlsSettings": {
+          "serverName": "www.ignitelimit.com"
+        }
+      }
+    },
+    {
+      "tag": "vless-135",
+      "protocol": "vless",
+      "settings": {
+        "address": "89.35.14.33",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "hub.v1.ApiService"
+        },
+        "realitySettings": {
+          "serverName": "md4.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "TZVMqglhHzteJ6t34mtku75LKzXNq0CB6glKYMAH6zg",
+          "shortId": "8e07337954f9823f"
+        }
+      }
+    },
+    {
+      "tag": "vless-136",
+      "protocol": "vless",
+      "settings": {
+        "address": "bg2.univesalsrv.com",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "api.v2.PushService"
+        },
+        "realitySettings": {
+          "serverName": "bg2.univesalsrv.com",
+          "fingerprint": "chrome",
+          "password": "0f0dh_FUju5cHgQcIwUjHvxQb9aIZ00p0kZRHeE7Ey4",
+          "shortId": "501ab3325b77e1ca"
+        }
+      }
+    },
+    {
+      "tag": "vless-137",
+      "protocol": "vless",
+      "settings": {
+        "address": "31.56.184.132",
+        "port": 8443,
+        "id": "11f21602-47aa-42e2-9149-69120f2e6df6",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "shiforgrpc"
+        },
+        "realitySettings": {
+          "serverName": "cloudflare.com",
+          "fingerprint": "firefox",
+          "password": "bzbe7QdD633ew_Er1_YWEhuCEHWurmDpxpz3fRzXr0A",
+          "shortId": "b4e3b0b55b8dc75b"
+        }
+      }
+    },
+    {
+      "tag": "vless-138",
+      "protocol": "vless",
+      "settings": {
+        "address": "89.35.14.33",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "hub.v1.ApiService"
+        },
+        "realitySettings": {
+          "serverName": "md4.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "TZVMqglhHzteJ6t34mtku75LKzXNq0CB6glKYMAH6zg",
+          "shortId": "8e07337954f9823f"
+        }
+      }
+    },
+    {
+      "tag": "vless-139",
+      "protocol": "vless",
+      "settings": {
+        "address": "89.35.14.33",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "hub.v1.ApiService"
+        },
+        "realitySettings": {
+          "serverName": "md4.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "TZVMqglhHzteJ6t34mtku75LKzXNq0CB6glKYMAH6zg",
+          "shortId": "8e07337954f9823f"
+        }
+      }
+    },
+    {
+      "tag": "vless-140",
+      "protocol": "vless",
+      "settings": {
+        "address": "188.42.145.142",
+        "port": 443,
+        "id": "a13df940-020c-465f-bc89-ee5279b5cd6a",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/proxyip"
+        },
+        "tlsSettings": {
+          "serverName": "kk626.ylks.link"
+        }
+      }
+    },
+    {
+      "tag": "trojan-16",
+      "protocol": "trojan",
+      "settings": {
+        "address": "151.101.56.7",
+        "port": 443,
+        "password": "MITIVPN"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "@bored_vpn",
+          "host": "mitivpn---ss--s---mitivpn-22s.global.ssl.fastly.net"
+        },
+        "tlsSettings": {
+          "serverName": "ssl.fastly.com",
+          "alpn": [
+            "http/1.1"
+          ],
+          "fingerprint": "chrome"
+        }
+      }
+    },
+    {
+      "tag": "vless-142",
+      "protocol": "vless",
+      "settings": {
+        "address": "199.232.78.159",
+        "port": 443,
+        "id": "38393c07-aef2-4dd6-bdec-3614bddd8576",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER?ed=2053",
+          "host": "pan1.global.ssl.fastly.net"
+        },
+        "tlsSettings": {
+          "serverName": "ssl.fastly.com"
+        }
+      }
+    },
+    {
+      "tag": "vless-147",
+      "protocol": "vless",
+      "settings": {
+        "address": "195.133.73.65",
+        "port": 443,
+        "id": "ebd1c0d6-7ff4-4b9f-8692-237517a27a64",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "anyfile2file.com",
+          "fingerprint": "chrome",
+          "password": "mza5Hn1aolSz65qu-UwvBP3oesxMe25r11o4nxvikF0",
+          "shortId": "64c1fe36c7846400"
+        }
+      }
+    },
+    {
+      "tag": "vless-148",
+      "protocol": "vless",
+      "settings": {
+        "address": "bg3.univesalsrv.com",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "home.v1.ApiService"
+        },
+        "realitySettings": {
+          "serverName": "bg3.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "XBfCioniAKXgKYBUVnvBXu80AIaIa4SpAB3w8qeF7Gk",
+          "shortId": "1be1bd931c98c84a"
+        }
+      }
+    },
+    {
+      "tag": "vless-149",
+      "protocol": "vless",
+      "settings": {
+        "address": "45.9.156.42",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "gw.v2.RelayService"
+        },
+        "realitySettings": {
+          "serverName": "bg5.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "RDWvDEygSk1eyAQhIK95H9EteFbrS2d9JEjBrco54Bw",
+          "shortId": "1a3102bb8e51399e"
+        }
+      }
+    },
+    {
+      "tag": "vless-151",
+      "protocol": "vless",
+      "settings": {
+        "address": "md3.univesalsrv.com",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "stats.v2.PushService"
+        },
+        "realitySettings": {
+          "serverName": "md3.univesalsrv.com",
+          "fingerprint": "chrome",
+          "password": "q38CddDj2g-XNDc0uW1m6S6b8iGY_Bne2RwX7C_FYCQ",
+          "shortId": "9a72d40f1ff882b3"
+        }
+      }
+    },
+    {
+      "tag": "vless-152",
+      "protocol": "vless",
+      "settings": {
+        "address": "89.35.14.32",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "stats.v2.PushService"
+        },
+        "realitySettings": {
+          "serverName": "md3.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "q38CddDj2g-XNDc0uW1m6S6b8iGY_Bne2RwX7C_FYCQ",
+          "shortId": "9a72d40f1ff882b3"
+        }
+      }
+    },
+    {
+      "tag": "vless-153",
+      "protocol": "vless",
+      "settings": {
+        "address": "89.35.14.33",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "hub.v1.ApiService"
+        },
+        "realitySettings": {
+          "serverName": "md4.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "TZVMqglhHzteJ6t34mtku75LKzXNq0CB6glKYMAH6zg",
+          "shortId": "8e07337954f9823f"
+        }
+      }
+    },
+    {
+      "tag": "vless-154",
+      "protocol": "vless",
+      "settings": {
+        "address": "89.35.14.33",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "hub.v1.ApiService"
+        },
+        "realitySettings": {
+          "serverName": "md4.univesalsrv.com",
+          "fingerprint": "chrome",
+          "password": "TZVMqglhHzteJ6t34mtku75LKzXNq0CB6glKYMAH6zg",
+          "shortId": "8e07337954f9823f"
+        }
+      }
+    },
+    {
+      "tag": "vless-155",
+      "protocol": "vless",
+      "settings": {
+        "address": "89.35.14.33",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "hub.v1.ApiService"
+        },
+        "realitySettings": {
+          "serverName": "md4.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "TZVMqglhHzteJ6t34mtku75LKzXNq0CB6glKYMAH6zg",
+          "shortId": "8e07337954f9823f"
+        }
+      }
+    },
+    {
+      "tag": "vless-156",
+      "protocol": "vless",
+      "settings": {
+        "address": "md5.univesalsrv.com",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "app.v1.PushService"
+        },
+        "realitySettings": {
+          "serverName": "md5.univesalsrv.com",
+          "fingerprint": "chrome",
+          "password": "99MRki6b93wC-hhDHe9yq3IXE3KtPGw4RkFAnpI-8gg",
+          "shortId": "aa9884f2982b7d3c"
+        }
+      }
+    },
+    {
+      "tag": "vless-157",
+      "protocol": "vless",
+      "settings": {
+        "address": "45.9.156.24",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "api.v2.PushService"
+        },
+        "realitySettings": {
+          "serverName": "bg2.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "0f0dh_FUju5cHgQcIwUjHvxQb9aIZ00p0kZRHeE7Ey4",
+          "shortId": "501ab3325b77e1ca"
+        }
+      }
+    },
+    {
+      "tag": "vless-158",
+      "protocol": "vless",
+      "settings": {
+        "address": "node-nl.usel.pro",
+        "port": 443,
+        "id": "5934cc4f-c17b-41c0-9280-c75eb222f4b7",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "vu.nl",
+          "fingerprint": "firefox",
+          "password": "BTCZ0hMhV10H818mbm54EQdU0s3qQXMtY4Hl67dFA18",
+          "shortId": ""
+        }
+      }
+    },
+    {
+      "tag": "vless-159",
+      "protocol": "vless",
+      "settings": {
+        "address": "89.35.14.31",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "hub.v1.SyncService"
+        },
+        "realitySettings": {
+          "serverName": "md2.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "JXFsWHYjhAcR-7yz9tuCTMdcfuiyC9a-C9ewA55Z63o",
+          "shortId": "d36a38659ce106cb"
+        }
+      }
+    },
+    {
+      "tag": "vless-160",
+      "protocol": "vless",
+      "settings": {
+        "address": "md4.univesalsrv.com",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "hub.v1.ApiService"
+        },
+        "realitySettings": {
+          "serverName": "md4.univesalsrv.com",
+          "fingerprint": "chrome",
+          "password": "TZVMqglhHzteJ6t34mtku75LKzXNq0CB6glKYMAH6zg",
+          "shortId": "8e07337954f9823f"
+        }
+      }
+    },
+    {
+      "tag": "vless-161",
+      "protocol": "vless",
+      "settings": {
+        "address": "89.35.14.33",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "hub.v1.ApiService"
+        },
+        "realitySettings": {
+          "serverName": "md4.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "TZVMqglhHzteJ6t34mtku75LKzXNq0CB6glKYMAH6zg",
+          "shortId": "8e07337954f9823f"
+        }
+      }
+    },
+    {
+      "tag": "vless-162",
+      "protocol": "vless",
+      "settings": {
+        "address": "104.21.70.21",
+        "port": 443,
+        "id": "efe19c5a-0ea1-4666-8a4c-4a33f4670775",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "tls",
+        "tlsSettings": {
+          "alpn": [
+            "http/1.1"
+          ]
+        }
+      }
+    },
+    {
+      "tag": "trojan-17",
+      "protocol": "trojan",
+      "settings": {
+        "address": "199.232.78.160",
+        "port": 443,
+        "password": "MITIVPN"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "@mehrosabora ",
+          "host": "mitivpn---ss--s---mitivpn-55s.global.ssl.fastly.net"
+        },
+        "tlsSettings": {
+          "serverName": "ssl.fastly.com",
+          "alpn": [
+            "http/1.1"
+          ],
+          "fingerprint": "chrome"
+        }
+      }
+    },
+    {
+      "tag": "vless-163",
+      "protocol": "vless",
+      "settings": {
+        "address": "199.232.78.159",
+        "port": 443,
+        "id": "5499774c-8b93-4f10-af7e-2a5fe19d22b0",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER?ed=2053",
+          "host": "Fijji.global.ssl.fastly.neT."
+        },
+        "tlsSettings": {
+          "serverName": "ssl.fastly.com"
+        }
+      }
+    },
+    {
+      "tag": "vless-165",
+      "protocol": "vless",
+      "settings": {
+        "address": "150.40.126.24",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "gw.v1.ObjectService"
+        },
+        "realitySettings": {
+          "serverName": "rs5.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "X8mPYnsoTd8QCnvFZKSy7VvpSn_nrt_NWJkCUJhFCyE",
+          "shortId": "4872856d5489c37d"
+        }
+      }
+    },
+    {
+      "tag": "vless-166",
+      "protocol": "vless",
+      "settings": {
+        "address": "rs4.univesalsrv.com",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "media.v1.StreamService"
+        },
+        "realitySettings": {
+          "serverName": "rs4.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "sXsJ4ET-50TYqlhKZf03nPQr2JIy1F0D4m6lOsI0cAs",
+          "shortId": "861ac7d66953e55f"
+        }
+      }
+    },
+    {
+      "tag": "trojan-18",
+      "protocol": "trojan",
+      "settings": {
+        "address": "render.com",
+        "port": 443,
+        "password": "humanity"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/assignment",
+          "host": "www.ignitelimit.com"
+        },
+        "tlsSettings": {
+          "serverName": "www.ignitelimit.com"
+        }
+      }
+    },
+    {
+      "tag": "vless-169",
+      "protocol": "vless",
+      "settings": {
+        "address": "104.16.10.185",
+        "port": 443,
+        "id": "44eae030-290b-4083-8102-6f8bab05701b",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/",
+          "host": "cfvvv-ev1.pages.dev"
+        },
+        "tlsSettings": {
+          "serverName": "cfvvv-ev1.pages.dev"
+        }
+      }
+    },
+    {
+      "tag": "trojan-19",
+      "protocol": "trojan",
+      "settings": {
+        "address": "199.232.78.101",
+        "port": 443,
+        "password": "MITIVPN"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "@bored_vpn",
+          "host": "mitivpn---ss--s---mitivpn-11s.global.ssl.fastly.net"
+        },
+        "tlsSettings": {
+          "serverName": "ssl.fastly.com",
+          "alpn": [
+            "http/1.1"
+          ],
+          "fingerprint": "chrome"
+        }
+      }
+    },
+    {
+      "tag": "vless-170",
+      "protocol": "vless",
+      "settings": {
+        "address": "vf670.cc.cd",
+        "port": 443,
+        "id": "14b9ccc8-9a79-4c54-90a6-6b3c85a6f9ae",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/sg-cntb",
+          "host": "somersby.pt.vf670.cc.cd"
+        },
+        "tlsSettings": {
+          "serverName": "somersby.pt.vf670.cc.cd"
+        }
+      }
+    },
+    {
+      "tag": "trojan-20",
+      "protocol": "trojan",
+      "settings": {
+        "address": "167.82.76.7",
+        "port": 443,
+        "password": "MITIVPN"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "@bored_vpn",
+          "host": "mitivpn---ss--s---mitivpn-33s.global.ssl.fastly.net"
+        },
+        "tlsSettings": {
+          "serverName": "ssl.fastly.com",
+          "alpn": [
+            "http/1.1"
+          ],
+          "fingerprint": "chrome"
+        }
+      }
+    },
+    {
+      "tag": "vless-172",
+      "protocol": "vless",
+      "settings": {
+        "address": "47.242.202.230",
+        "port": 443,
+        "id": "58877aea-dfdc-44b3-818e-231dbc1e47dc",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/aa",
+          "host": "hk.xujiang.link"
+        },
+        "tlsSettings": {
+          "serverName": "hk.xujiang.link"
+        }
+      }
+    },
+    {
+      "tag": "vless-173",
+      "protocol": "vless",
+      "settings": {
+        "address": "45.67.215.39",
+        "port": 443,
+        "id": "48198295-b7ba-4b5c-8d85-085d55a6c869",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/"
+        },
+        "tlsSettings": {
+          "serverName": "xinb.ylks.link"
+        }
+      }
+    },
+    {
+      "tag": "vless-176",
+      "protocol": "vless",
+      "settings": {
+        "address": "46.8.208.17",
+        "port": 8443,
+        "id": "1157d32c-a56f-4070-a1a8-74c63b875d98",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "max.ru",
+          "fingerprint": "qq",
+          "password": "xEprpxcbj30lJZMfNWftPtiAmgrXTzRnnN3HFRtFfB4",
+          "shortId": "f3c0f343a191"
+        }
+      }
+    },
+    {
+      "tag": "vless-178",
+      "protocol": "vless",
+      "settings": {
+        "address": "94.103.2.251",
+        "port": 443,
+        "id": "cd3bb7d9-7df3-4644-ac05-c260990ac277",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "io.ozone.ru",
+          "fingerprint": "firefox",
+          "password": "a8huhMB5qb3Q0zYwG1QzPjSDTrXufkZMlADT-_EMPhc",
+          "shortId": "00000000"
+        }
+      }
+    },
+    {
+      "tag": "trojan-21",
+      "protocol": "trojan",
+      "settings": {
+        "address": "188.114.97.7",
+        "port": 443,
+        "password": "humanity"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/assignment"
+        },
+        "tlsSettings": {
+          "serverName": "www.ignitelimit.com"
+        }
+      }
+    },
+    {
+      "tag": "vless-179",
+      "protocol": "vless",
+      "settings": {
+        "address": "book.jarbook.net",
+        "port": 443,
+        "id": "01a21e01-6098-4c3b-a6fd-1a04d64d0c7f",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "BookCatalog"
+        },
+        "realitySettings": {
+          "serverName": "reg.jarbook.net",
+          "fingerprint": "firefox",
+          "password": "SiyX5MHMfE_232cYFpidAhU4eBxaoNphSSnNbVc1xnc",
+          "shortId": "085f6d90"
+        }
+      }
+    },
+    {
+      "tag": "trojan-22",
+      "protocol": "trojan",
+      "settings": {
+        "address": "172.67.149.60",
+        "port": 443,
+        "password": "humanity"
+      },
+      "streamSettings": {
+        "method": "websocket",
+        "security": "tls",
+        "wsSettings": {
+          "path": "/assignment",
+          "host": "www.ignitelimit.com"
+        },
+        "tlsSettings": {
+          "serverName": "www.ignitelimit.com"
+        }
+      }
+    },
+    {
+      "tag": "vless-181",
+      "protocol": "vless",
+      "settings": {
+        "address": "150.40.126.24",
+        "port": 443,
+        "id": "2f35965a-9a9b-45fd-ba32-987296dfb6be",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "method": "grpc",
+        "security": "reality",
+        "grpcSettings": {
+          "serviceName": "gw.v1.ObjectService"
+        },
+        "realitySettings": {
+          "serverName": "rs5.univesalsrv.com",
+          "fingerprint": "firefox",
+          "password": "X8mPYnsoTd8QCnvFZKSy7VvpSn_nrt_NWJkCUJhFCyE",
+          "shortId": "4872856d5489c37d"
+        }
+      }
+    },
+    {
+      "tag": "vless-182",
+      "protocol": "vless",
+      "settings": {
+        "address": "2.26.89.16",
+        "port": 443,
+        "id": "a71ad164-3b29-4dbe-aa66-24d095ca7b6d",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "assets-ms-35.ecom-ai-solutions.com",
+          "fingerprint": "firefox",
+          "password": "NA5eMfdHkl_L80S75uxQwUirS9nvZ80V2u1s71KeXkc",
+          "shortId": "2de63d3fd7261b7e"
+        }
+      }
+    },
+    {
+      "tag": "ss-7",
+      "protocol": "shadowsocks",
+      "settings": {
+        "address": "85.239.232.127",
+        "port": 46483,
+        "method": "chacha20-ietf-poly1305",
+        "password": "64f9fbcfa34ea2d4"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "none"
+      }
+    },
+    {
+      "tag": "vless-189",
+      "protocol": "vless",
+      "settings": {
+        "address": "152.53.1.40",
+        "port": 443,
+        "id": "edde565e-41f5-400e-84ea-7b87a3e84488",
+        "encryption": "none",
+        "flow": "xtls-rprx-vision"
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "at.quattro-tech.ru",
+          "fingerprint": "qq",
+          "password": "10rVZPoOUP1TlQviIAsQ_jAROX0fRQxH0C92nq_zGQc",
+          "shortId": "43dcff53849b81e6"
+        }
       }
     },
     {
