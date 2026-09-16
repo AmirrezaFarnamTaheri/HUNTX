@@ -199,9 +199,9 @@
       "media_type": "application/octet-stream",
       "path": "artifacts/release/all_sources.opaque_bundle",
       "section": "release",
-      "sha256": "15fcbb600f5ddacd9f4632fc7e42cb2d8eec8478a3305325840b98b87b3f020e",
-      "size": 406334,
-      "size_str": "396.8 KB",
+      "sha256": "b2c6dbe779464d956bc6e8e3177725e9b8afc67e8bb17b50dc0a8d629e1b3598",
+      "size": 171020,
+      "size_str": "167.0 KB",
       "tags": [
         "release",
         "verified"
@@ -343,7 +343,7 @@
       "media_type": "application/json",
       "path": "artifacts/dev/proxies.json",
       "section": "dev",
-      "sha256": "dff2b181466b5499bb102430b72dba7e0e290abcf9a210286b7ff3f8e22684e0",
+      "sha256": "3ee92f59f6a7be1a4b7260290d35dd543d256bedb4ac819c156a4ac87b559e11",
       "size": 36701514,
       "size_str": "35.0 MB",
       "tags": [
@@ -358,7 +358,7 @@
       "media_type": "text/plain",
       "path": "artifacts/dev/proxies.txt",
       "section": "dev",
-      "sha256": "cb10698d57ef9cf506ba6b0137ca7849fb6cb216539da881402713334735514b",
+      "sha256": "7a65373082653c58e804865f8eed921dca37d470fab9272e45b77908b29f5ea4",
       "size": 27729821,
       "size_str": "26.4 MB",
       "tags": [
@@ -383,10 +383,10 @@
       "type": "DEV"
     }
   ],
-  "generated_at": "2026-09-16T12:06:55Z",
+  "generated_at": "2026-09-16T13:30:26Z",
   "release_manifest": "artifacts/release/manifest.json",
   "schema_version": 1,
   "total_files": 24,
-  "total_size": 103933329,
-  "total_size_str": "99.1 MB"
+  "total_size": 103698015,
+  "total_size_str": "98.9 MB"
 }
