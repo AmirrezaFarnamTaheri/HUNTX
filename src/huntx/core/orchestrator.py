@@ -320,16 +320,29 @@ class Orchestrator:
     # Worker helpers
     # ------------------------------------------------------------------
 
-    def _get_seen_file_max_id(self) -> int:
-        """Return the highest seen_files.id currently stored."""
+    def _get_build_window_min_seen_id(self) -> int:
+        """Lowest seen_files.id observed inside the build retention window.
+
+        seen_files.id is monotonic, so filtering records to ``s.id > min_id``
+        keeps every observation ingested within the last OUTPUT_RETENTION_DAYS
+        days (default 3 days = 36 two-hour runs). 0 means "include everything"
+        and is the safe fallback on read failure or an empty window.
+        """
         try:
+            cutoff = f"-{self._output_retention_days()} days"
             with self.db.connect() as conn:
-                row = conn.execute("SELECT COALESCE(MAX(id), 0) AS max_id FROM seen_files").fetchone()
+                row = conn.execute(
+                    "SELECT COALESCE(MIN(id), 0) AS min_id FROM seen_files "
+                    "WHERE ingested_at >= datetime('now', ?)",
+                    (cutoff,),
+                ).fetchone()
                 if not row:
                     return 0
-                return int(row["max_id"] or 0)
+                # The build query filters s.id > cutoff, so step one id below
+                # the window minimum to keep that observation itself.
+                return max(0, int(row["min_id"] or 0) - 1)
         except Exception as e:
-            logger.warning(f"[Orchestrator] Could not read seen_files max id: {e}")
+            logger.warning(f"[Orchestrator] Could not read build window cutoff: {e}")
             return 0
 
     async def _ingest_one_source_async(self, src_conf) -> bool:
@@ -474,7 +487,7 @@ class Orchestrator:
         total_sources = len(self.config.sources)
         total_routes = len(self.config.routes)
         effective_workers = min(self.max_workers, total_sources)
-        seen_file_cutoff_id = self._get_seen_file_max_id()
+        seen_file_cutoff_id = self._get_build_window_min_seen_id()
 
         # Initialize results early so they exist even if we timeout early
         results = {"ok": 0, "err": 0}

@@ -54,7 +54,7 @@ test("globe module owns touch inactivity and does not treat cancellation as clic
   assert.match(source, /clearTimeout\(touchInactivityTimer\)/);
   assert.match(source, /const sourceHubs = Array\.isArray\(customHubs\) \? customHubs : DEFAULT_HUBS/);
   assert.doesNotMatch(source, /customHubs\.length > 0/);
-  assert.match(source, /function onPointerUp\(e\) \{\n    if \(e\.pointerType === "touch"\) noteTouchActivity\(\);/);
+  assert.match(source, /function onPointerUp\(e\) \{\r?\n    if \(e\.pointerType === "touch"\) noteTouchActivity\(\);/);
 });
 
 
@@ -91,4 +91,83 @@ test("region localization distinguishes badge casing", async () => {
   const { i18n } = await import("../docs/assets/js/i18n.js");
   assert.equal(i18n.translate("5 Regions", "ru"), "5 регионов");
   assert.equal(i18n.translate("5 REGIONS", "ru"), "5 РЕГИОНОВ");
+});
+
+
+// Converter input must survive decoding before client-specific serialization.
+test("decoder preserves UTF-8 names and subscription payloads", async () => {
+  const { decodeProxyURI, extractAllURIs } = await import("../docs/assets/js/decoder.js");
+  const name = "Тегеран σταν 東京";
+  const uri = "vmess://" + Buffer.from(JSON.stringify({ ps: name, add: "example.com", port: 443, id: "test-id" })).toString("base64");
+  assert.equal(decodeProxyURI(uri).name, name);
+  const line = "trojan://password@example.com:443#" + name;
+  assert.deepEqual(extractAllURIs(Buffer.from(line.replaceAll(" ", "%20")).toString("base64")), [line.replaceAll(" ", "%20")]);
+});
+
+test("Shadowsocks preserves colon-containing and empty passwords", async () => {
+  const { decodeProxyURI } = await import("../docs/assets/js/decoder.js");
+  for (const password of ["pass:word:123", ""]) {
+    const auth = "aes-256-gcm:" + password;
+    for (const uri of [
+      "ss://" + Buffer.from(auth).toString("base64") + "@example.com:8388",
+      "ss://" + Buffer.from(auth + "@example.com:8388").toString("base64")
+    ]) {
+      const node = decodeProxyURI(uri);
+      assert.equal(node.password, password);
+      assert.equal(node.cipher, "aes-256-gcm");
+      assert.equal(node.server, "example.com");
+    }
+  }
+});
+
+test("VLESS flow reaches the Sing-box outbound", async () => {
+  const { decodeProxyURI, nodeToSingboxOutbound } = await import("../docs/assets/js/decoder.js");
+  const uri = "vless://test-id@example.com:443?security=tls&flow=xtls-rprx-vision";
+  assert.equal(nodeToSingboxOutbound(decodeProxyURI(uri)).flow, "xtls-rprx-vision");
+  assert.equal(decodeProxyURI("vless://test-id@example.com:443").flow, "");
+});
+
+test("VLESS and Trojan query paths are decoded exactly once", async () => {
+  const { decodeProxyURI } = await import("../docs/assets/js/decoder.js");
+  for (const scheme of ["vless", "trojan"]) {
+    const base = scheme + "://credential@example.com:443";
+    assert.equal(decodeProxyURI(base + "?type=ws&path=%2Fapi%252Fws%3Fmode%3Dreal").path, "/api%2Fws?mode=real");
+    assert.equal(decodeProxyURI(base).path, "");
+  }
+});
+
+test("an integrity-verified empty release is authoritative", async (t) => {
+  const app = Object.create(AppState.prototype);
+  const catalog = { files: [{ filename: "all_sources.npvt.decoded.json", path: "artifacts/release/empty.json", sha256: "a".repeat(64) }] };
+  t.mock.method(globalThis, "fetch", async () => ({ ok: true, json: async () => catalog }));
+  app.renderDataStatus = () => {};
+  app.loadVerifiedJsonArtifact = async () => ({ entries: [] });
+  let usedFallback = false;
+  app.loadBundledFallback = async () => { usedFallback = true; };
+  await app.loadLiveData();
+  assert.equal(usedFallback, false);
+  assert.equal(app.liveDataState, "ready");
+  assert.equal(app.catalog, catalog);
+  assert.deepEqual(app.proxies, []);
+  assert.deepEqual(app.globeHubs, []);
+});
+
+test("fallback is restored after bundled to live to unavailable transition", async (t) => {
+  const app = Object.create(AppState.prototype);
+  app.renderDataStatus = () => {};
+  await app.loadBundledFallback();
+  const bundledCatalog = app.catalog;
+  const bundledProxies = structuredClone(app.proxies);
+  const catalog = { files: [{ filename: "all_sources.npvt.decoded.json", path: "artifacts/release/live.json", sha256: "b".repeat(64) }] };
+  let available = true;
+  t.mock.method(globalThis, "fetch", async () => ({ ok: available, json: async () => catalog }));
+  app.loadVerifiedJsonArtifact = async () => ({ entries: [{ protocol: "vless", address: "example.com", tag: "live" }] });
+  await app.loadLiveData();
+  assert.equal(app.liveDataState, "ready");
+  assert.equal(app.catalog, catalog);
+  available = false;
+  await app.loadLiveData();
+  assert.equal(app.liveDataState, "stale");
+  assert.equal(app.catalog, bundledCatalog);
+  assert.deepEqual(app.proxies, bundledProxies);
 });

@@ -271,7 +271,7 @@ def test_full_release_completes_with_minority_degraded_sources():
     orchestrator.config = config
     orchestrator.max_workers = 3
     orchestrator.repo = object()
-    orchestrator._get_seen_file_max_id = lambda: 0
+    orchestrator._get_build_window_min_seen_id = lambda: 0
 
     async def ingest_worker(queue, results, result_lock):
         while not queue.empty():

@@ -410,34 +410,35 @@ class InteractiveBot(HandlersMixin, DeliveryMixin, AdminMixin):
 
     async def start(self):
         """Start the Telegram bot, register commands/handlers, and poll until stopped."""
-        await self.client.start(bot_token=self.token)
-
         try:
-            if SetBotCommandsRequest is not None and BotCommandScopeDefault is not None:
-                await self.client(
-                    SetBotCommandsRequest(
-                        scope=BotCommandScopeDefault(),
-                        lang_code="",
-                        commands=_BOT_COMMANDS,
+            await self.client.start(bot_token=self.token)
+
+            try:
+                if SetBotCommandsRequest is not None and BotCommandScopeDefault is not None:
+                    await self.client(
+                        SetBotCommandsRequest(
+                            scope=BotCommandScopeDefault(),
+                            lang_code="",
+                            commands=_BOT_COMMANDS,
+                        )
                     )
-                )
-            logger.info("[GatherX] Bot commands menu registered.")
-        except Exception as exc:
-            logger.warning("[GatherX] Failed to register commands: %s", exc)
+                logger.info("[GatherX] Bot commands menu registered.")
+            except Exception as exc:
+                logger.warning("[GatherX] Failed to register commands: %s", exc)
 
-        self._register_handlers()
-        stats = self._get_user_count()
-        logger.info(
-            "[GatherX] Bot started (long-polling) — %s users (%s active, %s muted)",
-            stats["total"],
-            stats["active"],
-            stats["muted"],
-        )
+            self._register_handlers()
+            stats = self._get_user_count()
+            logger.info(
+                "[GatherX] Bot started (long-polling) — %s users (%s active, %s muted)",
+                stats["total"],
+                stats["active"],
+                stats["muted"],
+            )
 
-        try:
-            await self.client.run_until_disconnected()
-        except Exception as exc:
-            logger.error("[GatherX] Bot error: %s", exc)
+            try:
+                await self.client.run_until_disconnected()
+            except Exception as exc:
+                logger.error("[GatherX] Bot error: %s", exc)
         finally:
             await self.client.disconnect()
 

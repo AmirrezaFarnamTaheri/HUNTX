@@ -402,7 +402,6 @@ export class AppState {
     this.proxies = [];
     this.globeHubs = [];
     this.stats = {};
-    this.fallbackLoaded = false;
     this.searchQuery = "";
     this.artifactFilter = "ALL";
     this.artifactSearchQuery = "";
@@ -539,7 +538,6 @@ export class AppState {
   }
 
   async loadBundledFallback() {
-    if (this.fallbackLoaded) return;
     const data = await import("./data.js");
     this.catalog = data.FALLBACK_CATALOG || this.catalog;
     this.proxies = (data.SAMPLE_PROXIES || []).map((proxy) => {
@@ -558,7 +556,6 @@ export class AppState {
     });
     this.globeHubs = clusterGlobeHubs(this.proxies);
     this.stats = data.INGEST_STATS || {};
-    this.fallbackLoaded = true;
   }
 
   async loadLiveData() {
@@ -585,7 +582,7 @@ export class AppState {
       const decodedArtifact = this.getDecodedArtifactRecord(catalogCandidate);
       if (decodedArtifact) {
         const decodedData = await this.loadVerifiedJsonArtifact(decodedArtifact);
-        if (decodedData && Array.isArray(decodedData.entries) && decodedData.entries.length > 0) {
+        if (decodedData && Array.isArray(decodedData.entries)) {
           proxyCandidate = decodedData.entries.map((entry, idx) => {
             const proto = (entry.protocol || "vless").toLowerCase();
             const tag = entry.tag || `${proto}-${idx + 1}`;

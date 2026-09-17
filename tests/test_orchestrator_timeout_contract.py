@@ -30,7 +30,7 @@ class TestOrchestratorTimeoutContract(unittest.TestCase):
         )
         orchestrator.config = SimpleNamespace(sources=[source], routes=[route])
         orchestrator.max_workers = 1
-        orchestrator._get_seen_file_max_id = MagicMock(return_value=0)
+        orchestrator._get_build_window_min_seen_id = MagicMock(return_value=0)
 
         async def worker(_queue, results, _lock) -> None:
             results["ok"] += 1

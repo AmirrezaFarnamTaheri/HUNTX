@@ -108,3 +108,43 @@ test("mobile tabs expose horizontal scrolling rather than hiding overflow afford
   });
   expect(Math.abs(moved)).toBeGreaterThan(0);
 });
+
+
+test("checksum-valid empty release renders no bundled endpoints", async ({ page }) => {
+  const { createHash } = await import("node:crypto");
+  const artifact = JSON.stringify({ total: 0, protocols: {}, entries: [] });
+  const sha256 = createHash("sha256").update(artifact).digest("hex");
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await isolateLocalPage(page);
+  await page.route("**/catalog.json", (route) => route.fulfill({
+    json: { files: [{ filename: "all_sources.npvt.decoded.json", path: "artifacts/release/empty-test.json", sha256 }] }
+  }));
+  await page.route("**/artifacts/release/empty-test.json", (route) => route.fulfill({
+    contentType: "application/json", body: artifact
+  }));
+  await page.goto("/#proxies");
+  await expect(page.locator("#data-status-pill")).toContainText("Artifact integrity verified");
+  await expect(page.locator("#tab-count-proxies, #tab-proxies-count-badge")).toHaveText("0");
+  await expect(page.locator("#nodes-grid")).toContainText("No proxy endpoints match");
+  expect(errors).toEqual([]);
+});
+
+
+test("protocol inspector preserves names, credentials, flow and encoded paths", async ({ page }) => {
+  await isolateLocalPage(page);
+  await page.goto("/#decoder");
+  const input = page.locator("#decoder-single-input");
+  const output = page.locator("#inspector-output");
+  const vmess = "vmess://" + Buffer.from(JSON.stringify({ ps: "Тегеран 東京", add: "example.com", port: 443, id: "test-id" })).toString("base64");
+  await input.fill(vmess);
+  await page.locator("#btn-run-inspect").click();
+  await expect(output).toContainText("Тегеран 東京");
+  await input.fill("ss://" + Buffer.from("aes-256-gcm:pass:word:123").toString("base64") + "@example.com:8388");
+  await page.locator("#btn-run-inspect").click();
+  await expect(output).toContainText("pass:word:123");
+  await input.fill("vless://test-id@example.com:443?flow=xtls-rprx-vision&type=ws&path=%2Fapi%252Fws");
+  await page.locator("#btn-run-inspect").click();
+  await expect(output).toContainText("xtls-rprx-vision");
+  await expect(output).toContainText("/api%2Fws");
+});

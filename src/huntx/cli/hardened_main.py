@@ -7,15 +7,14 @@ from . import main as cli
 
 
 def _option_value(argv: Sequence[str], option: str) -> str | None:
+    result = None
     for index, value in enumerate(argv[1:], start=1):
         if value == option:
-            if index + 1 < len(argv):
-                return argv[index + 1]
-            return None
+            result = argv[index + 1] if index + 1 < len(argv) else None
         prefix = option + "="
         if value.startswith(prefix):
-            return value[len(prefix) :]
-    return None
+            result = value[len(prefix) :]
+    return result
 
 
 def _has_option(argv: Sequence[str], option: str) -> bool:

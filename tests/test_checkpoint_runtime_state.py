@@ -3,6 +3,8 @@ import sqlite3
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from scripts.checkpoint_runtime_state import checkpoint_state  # noqa: E402
@@ -107,3 +109,32 @@ def test_checkpoint_releases_leases_and_accepts_present_blob(tmp_path):
     assert work == ("partial", None)
     assert result["released_leases"] == 1
     assert result["quick_check"] == "ok"
+
+
+def test_checkpoint_rejects_busy_wal_before_handoff(tmp_path, monkeypatch):
+    db = tmp_path / "state.db"
+    raw = tmp_path / "raw"
+    _create_db(db)
+    original_connect = sqlite3.connect
+
+    def connect_with_short_timeout(*args, **kwargs):
+        kwargs["timeout"] = 0.05
+        return original_connect(*args, **kwargs)
+
+    monkeypatch.setattr(sqlite3, "connect", connect_with_short_timeout)
+    with original_connect(db) as writer:
+        writer.execute("PRAGMA journal_mode=WAL")
+        writer.execute("INSERT INTO source_state VALUES ('source', 'test', '{}', 1)")
+        writer.commit()
+        reader = original_connect(db)
+        try:
+            reader.execute("BEGIN")
+            reader.execute("SELECT * FROM source_state").fetchall()
+            writer.execute("UPDATE source_state SET updated_at=2")
+            writer.commit()
+            with pytest.raises(RuntimeError, match="checkpoint.*busy"):
+                checkpoint_state(db, raw)
+        finally:
+            reader.close()
+
+    assert checkpoint_state(db, raw)["checkpoint"] == [0, 0, 0]

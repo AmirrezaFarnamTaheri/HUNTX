@@ -145,7 +145,7 @@ def _bare_hardened(config: AppConfig):
     orchestrator.config = config
     orchestrator.max_workers = 2
     orchestrator.repo = object()
-    orchestrator._get_seen_file_max_id = lambda: 0
+    orchestrator._get_build_window_min_seen_id = lambda: 0
 
     async def ingest_worker(queue, results, lock):
         while not queue.empty():

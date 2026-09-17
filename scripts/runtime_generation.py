@@ -85,6 +85,8 @@ def verify_manifest(root: Path, manifest: dict[str, Any]) -> None:
     declared = manifest.get("files")
     if not isinstance(declared, dict):
         raise RuntimeError("runtime manifest files must be an object")
+    if "state.db" not in declared:
+        raise RuntimeError("generation is missing state.db")
 
     expected: set[str] = set()
     for raw_relative, metadata in declared.items():

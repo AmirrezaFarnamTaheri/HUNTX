@@ -69,7 +69,7 @@ class HardenedOrchestrator(Orchestrator):
         ingestion_workers = min(self.max_workers, total_sources) if total_sources else 0
         build_workers = min(self.max_workers, total_routes) if total_routes else 0
         publish_workers = max(1, self.max_workers)
-        seen_file_cutoff_id = self._get_seen_file_max_id()
+        seen_file_cutoff_id = self._get_build_window_min_seen_id()
 
         status = "completed"
         timed_out_stage: Optional[str] = None
