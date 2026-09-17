@@ -135,6 +135,49 @@ def test_preflight_time_is_removed_from_base_timeout(monkeypatch):
     assert 0.0 < remaining < 0.98
 
 
+def test_wrapper_demotion_revokes_release_eligibility(monkeypatch):
+    """Post-base wrapper demotion must revoke release_eligible, not just status."""
+    async def exercise() -> dict:
+        orchestrator = object.__new__(OptimizedHardenedOrchestrator)
+        orchestrator.config = SimpleNamespace(sources=[])
+        orchestrator._work_queue = MagicMock()
+        orchestrator._work_queue.recover_expired_leases.return_value = 0
+        orchestrator._work_queue.seed_rolling_horizon.return_value = {
+            "campaign_id": 1,
+            "anchor_ts": 7200,
+            "target_start_ts": 3600,
+            "inserted": 0,
+        }
+        orchestrator._work_queue.release_owner.return_value = 0
+        orchestrator._work_queue.summary.return_value = {"remaining": 3}
+        orchestrator._windowed_ingestion = SimpleNamespace(close=AsyncMock())
+        orchestrator._completion_buffer = lambda timeout: 0.0
+        orchestrator._lookback_seconds = lambda: 3600
+        orchestrator._window_seconds = lambda: 3600
+
+        async def canonical(sources):
+            return sources
+
+        orchestrator._canonical_ingestion_sources = canonical
+
+        async def base_run(self, timeout, *args, **kwargs):
+            return {
+                "status": "completed",
+                "duration_seconds": 0.0,
+                "release_eligible": True,
+                "min_ingested_at": "2026-09-14 12:00:00",
+            }
+
+        parent = OptimizedHardenedOrchestrator.__mro__[1]
+        monkeypatch.setattr(parent, "_run_hardened", base_run)
+        return await orchestrator._run_hardened(1.0, True, False)
+
+    summary = asyncio.run(exercise())
+    assert summary["status"] == "partial"
+    assert summary["partial_reason"] == "ingestion_residue_remaining"
+    assert summary["release_eligible"] is False
+
+
 def test_window_pipeline_reuses_connector(monkeypatch):
     instances = []
 

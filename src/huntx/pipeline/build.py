@@ -246,15 +246,20 @@ class BuildPipeline:
         """Build one route with a single record grouping pass."""
         route_start = time.monotonic()
         route_name = str(route_config['name'])
+        defer_output = bool(route_config.get('defer_output', False))
         formats = list(dict.fromkeys(str(fmt) for fmt in route_config['formats']))
         allowed_source_ids = list(dict.fromkeys(route_config.get('from_sources', [])))
         min_seen_file_id = route_config.get('min_seen_file_id')
+        min_ingested_at = route_config.get('min_ingested_at')
         logger.info('[Build] route=%s formats=%s sources=%s delta_seen_files_id>%s', route_name, formats, len(allowed_source_ids), min_seen_file_id if min_seen_file_id is not None else 'all')
         if deadline is not None:
             deadline.raise_if_expired("build")
         fetch_start = time.monotonic()
         if records is None:
-            records = self.state_repo.get_records_for_build(formats, allowed_source_ids, min_seen_file_id=min_seen_file_id)
+            records = self.state_repo.get_records_for_build(
+                formats, allowed_source_ids, min_seen_file_id=min_seen_file_id,
+                **({"min_ingested_at": min_ingested_at} if min_ingested_at is not None else {}),
+            )
         if deadline is not None:
             deadline.raise_if_expired("build")
         fetch_duration = time.monotonic() - fetch_start
@@ -304,10 +309,12 @@ class BuildPipeline:
                 build_duration = time.monotonic() - build_start
                 total_build_seconds += build_duration
                 if not artifact_bytes:
-                    empty_formats.append(format_id)
-                    continue
+                    raise ValueError(
+                        f'Nonempty record set produced an empty artifact for {format_id}'
+                    )
                 artifact_hash = self.artifact_store.save_artifact(route_name, format_id, artifact_bytes)
-                self.artifact_store.save_output(route_name, format_id, artifact_bytes)
+                if not defer_output:
+                    self.artifact_store.save_output(route_name, format_id, artifact_bytes)
                 built_formats.append(format_id)
                 format_count = len(format_records)
                 if format_id in _DERIVED_PROXY_FORMATS:
@@ -316,27 +323,33 @@ class BuildPipeline:
                     )
                     if decoded:
                         derived_format = f'{format_id}.decoded.json'
-                        self.artifact_store.save_output(route_name, derived_format, decoded)
+                        if not defer_output:
+                            self.artifact_store.save_output(route_name, derived_format, decoded)
                         results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(decoded).hexdigest(), 'data': decoded, 'count': format_count})
                     if reencoded:
                         derived_format = f'{format_id}.b64sub'
-                        self.artifact_store.save_output(route_name, derived_format, reencoded)
+                        if not defer_output:
+                            self.artifact_store.save_output(route_name, derived_format, reencoded)
                         results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(reencoded).hexdigest(), 'data': reencoded, 'count': format_count})
                     if raw:
                         derived_format = f'{format_id}.raw.txt'
-                        self.artifact_store.save_output(route_name, derived_format, raw)
+                        if not defer_output:
+                            self.artifact_store.save_output(route_name, derived_format, raw)
                         results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(raw).hexdigest(), 'data': raw, 'count': format_count})
                     if singbox:
                         derived_format = f'{format_id}.singbox.json'
-                        self.artifact_store.save_output(route_name, derived_format, singbox)
+                        if not defer_output:
+                            self.artifact_store.save_output(route_name, derived_format, singbox)
                         results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(singbox).hexdigest(), 'data': singbox, 'count': format_count})
                     if xray:
                         derived_format = f'{format_id}.xray.json'
-                        self.artifact_store.save_output(route_name, derived_format, xray)
+                        if not defer_output:
+                            self.artifact_store.save_output(route_name, derived_format, xray)
                         results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(xray).hexdigest(), 'data': xray, 'count': format_count})
                     if nekobox:
                         derived_format = f'{format_id}.nekobox.json'
-                        self.artifact_store.save_output(route_name, derived_format, nekobox)
+                        if not defer_output:
+                            self.artifact_store.save_output(route_name, derived_format, nekobox)
                         results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(nekobox).hexdigest(), 'data': nekobox, 'count': format_count})
                 results.append({'route_name': route_name, 'format': format_id, 'unique_id': f'{route_name}:{format_id}', 'artifact_hash': artifact_hash, 'data': artifact_bytes, 'count': format_count})
                 logger.info('[Build] route=%s format=%s records=%s bytes=%s build_seconds=%.3f hash=%s', route_name, format_id, format_count, len(artifact_bytes), build_duration, artifact_hash[:12] if artifact_hash else 'N/A')

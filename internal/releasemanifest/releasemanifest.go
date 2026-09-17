@@ -135,6 +135,9 @@ func Build(root string, files []string) (Manifest, error) {
 	if len(records) == 0 {
 		return Manifest{}, errors.New("a release must contain at least one validated artifact")
 	}
+	if err := validateEmptyRelease(rootAbs, records); err != nil {
+		return Manifest{}, err
+	}
 	return Manifest{SchemaVersion: 1, ArtifactCount: len(records), Artifacts: records}, nil
 }
 
@@ -193,7 +196,7 @@ func Verify(root string, manifest Manifest) error {
 			}
 		}
 	}
-	return nil
+	return validateEmptyRelease(rootAbs, manifest.Artifacts)
 }
 
 func WriteAtomic(filePath string, manifest Manifest) error {

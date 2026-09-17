@@ -487,6 +487,9 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
         elif remaining_residue > 0 and summary.get("status") == "completed":
             summary["status"] = "partial"
             summary["partial_reason"] = "ingestion_residue_remaining"
+        if summary.get("status") != "completed":
+            # A demoted status can no longer authorize replacing the release.
+            summary["release_eligible"] = False
 
         logger.info("[Orchestrator] optimized final summary=%s", summary)
         return summary

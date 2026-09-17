@@ -1,115 +1,97 @@
-"""Build window: user-facing artifacts accumulate the retention window, not one run.
+"""Release membership is based on ingestion timestamps, never observation IDs."""
 
-The workflow publishes every two hours. A cutoff of "only this run's new
-observations" made each release hold roughly one run of content. The requested
-contract is a rolling cumulative window: keep every record whose observation was
-ingested within OUTPUT_RETENTION_DAYS (default 3 days = 36 two-hour runs), so
-stale entries age out on schedule while failed runs never shrink the release.
-"""
+import datetime
+from unittest.mock import patch
 
-import shutil
-import tempfile
-import unittest
-from pathlib import Path
-from unittest.mock import MagicMock
+import pytest
 
-from huntx.config.schema import AppConfig
 from huntx.core.orchestrator import Orchestrator
+from huntx.state import StateRepo
 from huntx.state.db import open_db
+from huntx.state.verdict_store import get_records_for_governed_build
+
+CUTOFF = "2026-09-14 12:00:00"
 
 
-def _empty_config() -> AppConfig:
-    return AppConfig.model_validate(
-        {
-            "sources": [],
-            "publishing": {"routes": []},
-        }
-    )
+@pytest.fixture
+def repo(tmp_path):
+    return StateRepo(open_db(tmp_path / "state.db"))
 
 
-def _window_orchestrator(db_path: Path, retention_days: int = 3) -> Orchestrator:
-    orchestrator = object.__new__(Orchestrator)
-    orchestrator.db = open_db(db_path)
-    orchestrator.OUTPUT_RETENTION_DAYS = retention_days
-    return orchestrator
+def observe(repo, name, timestamp, *, unique_hash=None):
+    oid = repo.record_file("local", name, name + "-hash", 1, "fixture.txt", status="processed")
+    repo.add_record(name + "-hash", "npvt", unique_hash or name, {"line": name}, source_observation_id=oid)
+    with repo.db.connect() as conn:
+        conn.execute("UPDATE seen_files SET ingested_at = ? WHERE id = ?", (timestamp, oid))
+    return oid
 
 
-class TestBuildWindowMinSeenId(unittest.TestCase):
-    def setUp(self):
-        self.tmp = Path(tempfile.mkdtemp())
-        self.db_path = self.tmp / "state.db"
-
-    def tearDown(self):
-        shutil.rmtree(self.tmp, ignore_errors=True)
-
-    def _observe(self, source_id: str, external_id: str, *, age_days: float | None = None) -> int:
-        with self.orchestrator.db.connect() as conn:
-            cursor = conn.execute(
-                "INSERT INTO seen_files (source_id, external_id, raw_hash, ingested_at) "
-                "VALUES (?, ?, ?, COALESCE(?, datetime('now')))",
-                (source_id, external_id, f"{external_id}-hash", age_days),
-            )
-            if age_days is not None:
-                conn.execute(
-                    "UPDATE seen_files SET ingested_at = datetime('now', ?) WHERE id = ?",
-                    (f"-{age_days} days", int(cursor.lastrowid)),
-                )
-            return int(cursor.lastrowid)
-
-    def test_cutoff_keeps_entire_window_not_just_latest_run(self):
-        # Two full runs' worth of observations inside three days, plus one older.
-        self.orchestrator = _window_orchestrator(self.db_path)
-        self._observe("src", "old", age_days=4.0)
-        self._observe("src", "fresh-old", age_days=2.5)
-        self._observe("src", "fresh-new")
-
-        cutoff = self.orchestrator._get_build_window_min_seen_id()
-
-        self.assertEqual(cutoff, 1, "cutoff sits one below the window minimum so that row is kept")
-        with self.orchestrator.db.connect() as conn:
-            rows = conn.execute(
-                "SELECT external_id FROM seen_files WHERE id > ? ORDER BY id",
-                (cutoff,),
-            ).fetchall()
-        self.assertEqual([row["external_id"] for row in rows], ["fresh-old", "fresh-new"])
-
-    def test_env_override_shrinks_or_grows_the_window(self):
-        self.orchestrator = _window_orchestrator(self.db_path)
-        self._observe("src", "two-days-old", age_days=2.0)
-        self._observe("src", "five-days-old", age_days=5.0)
-
-        with unittest.mock.patch.dict("os.environ", {"HUNTX_OUTPUT_RETENTION_DAYS": "7"}):
-            wide = self.orchestrator._get_build_window_min_seen_id()
-        with unittest.mock.patch.dict("os.environ", {"HUNTX_OUTPUT_RETENTION_DAYS": "1"}):
-            narrow = self.orchestrator._get_build_window_min_seen_id()
-
-        self.assertEqual(wide, 0, "a 7-day window keeps both observations")
-        self.assertEqual(narrow, 0, "a 1-day window keeps only the recent observation")
-
-    def test_empty_window_and_read_failure_fall_back_to_include_all(self):
-        self.orchestrator = _window_orchestrator(self.db_path)
-        self.assertEqual(self.orchestrator._get_build_window_min_seen_id(), 0)
-
-        self.orchestrator.db = MagicMock()
-        self.orchestrator.db.connect.side_effect = RuntimeError("database unavailable")
-        self.assertEqual(self.orchestrator._get_build_window_min_seen_id(), 0)
-
-    def test_zero_retention_keeps_only_current_run_behavior(self):
-        self.orchestrator = _window_orchestrator(self.db_path)
-        self._observe("src", "old", age_days=10.0)
-        self._observe("src", "new")
-
-        with unittest.mock.patch.dict("os.environ", {"HUNTX_OUTPUT_RETENTION_DAYS": "0"}):
-            cutoff = self.orchestrator._get_build_window_min_seen_id()
-
-        self.assertEqual(cutoff, 1)
-        with self.orchestrator.db.connect() as conn:
-            rows = conn.execute(
-                "SELECT COUNT(*) AS n FROM seen_files WHERE id > ?",
-                (cutoff,),
-            ).fetchone()
-        self.assertEqual(rows["n"], 1, "a 0-day window keeps only the newest observation")
+def records(repo, governed):
+    if governed:
+        return get_records_for_governed_build(
+            repo.db, ["npvt"], ["local"], min_ingested_at=CUTOFF,
+        )
+    return repo.get_records_for_build(["npvt"], ["local"], min_ingested_at=CUTOFF)
 
 
-if __name__ == "__main__":
-    unittest.main()
+@pytest.mark.parametrize("governed", [False, True])
+def test_exact_boundary_and_nonmonotonic_ids(repo, governed):
+    observe(repo, "boundary", CUTOFF)
+    observe(repo, "expired", "2026-09-14 11:59:59")
+    observe(repo, "recent", "2026-09-16 00:00:00")
+    assert [r["data"]["line"] for r in records(repo, governed)] == ["boundary", "recent"]
+
+
+@pytest.mark.parametrize("governed", [False, True])
+def test_refreshed_old_id_does_not_admit_unrelated_stale_rows(repo, governed):
+    oid = observe(repo, "first", "2000-01-01 00:00:00")
+    observe(repo, "stale", "2000-01-01 00:00:00")
+    assert repo.record_file("local", "first", "changed", 1, "fixture.txt") == oid
+    repo.add_record("changed", "npvt", "changed", {"line": "refreshed"}, source_observation_id=oid)
+    with repo.db.connect() as conn:
+        conn.execute("UPDATE seen_files SET ingested_at = ? WHERE id = ?", (CUTOFF, oid))
+    assert [r["data"]["line"] for r in records(repo, governed)] == ["refreshed"]
+
+
+@pytest.mark.parametrize("governed", [False, True])
+def test_empty_window_does_not_resurrect_history(repo, governed):
+    observe(repo, "expired", "2000-01-01 00:00:00")
+    assert records(repo, governed) == []
+
+
+@pytest.mark.parametrize("governed", [False, True])
+def test_fresh_transformation_does_not_refresh_ingestion(repo, governed):
+    observe(repo, "delayed", "2000-01-01 00:00:00")
+    repo.prune_old_data(3)
+    assert len(repo.get_records_for_build(["npvt"], ["local"])) == 1
+    assert records(repo, governed) == []
+
+
+@pytest.mark.parametrize("governed", [False, True])
+def test_time_filter_applies_before_deduplication(repo, governed):
+    observe(repo, "recent", CUTOFF, unique_hash="shared")
+    observe(repo, "expired", "2000-01-01 00:00:00", unique_hash="shared")
+    assert [r["data"]["line"] for r in records(repo, governed)] == ["recent"]
+
+
+@pytest.mark.parametrize("governed", [False, True])
+def test_database_failure_is_not_empty_success(repo, governed):
+    with patch.object(repo.db, "connect", side_effect=RuntimeError("database unavailable")):
+        with pytest.raises(RuntimeError, match="database unavailable"):
+            records(repo, governed)
+
+
+def test_cutoff_is_72_hours_before_fixed_utc_run_start(monkeypatch):
+    monkeypatch.delenv("HUNTX_OUTPUT_RETENTION_DAYS", raising=False)
+    orch = object.__new__(Orchestrator)
+    start = datetime.datetime(2026, 9, 17, 12, tzinfo=datetime.timezone.utc)
+    assert orch._get_build_window_start(start) == CUTOFF
+    monkeypatch.setenv("HUNTX_OUTPUT_RETENTION_DAYS", "7")
+    assert orch._get_build_window_start(start) == "2026-09-10 12:00:00"
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "bad", ""])
+def test_invalid_retention_is_rejected_before_build(monkeypatch, value):
+    monkeypatch.setenv("HUNTX_OUTPUT_RETENTION_DAYS", value)
+    with pytest.raises(ValueError, match="positive integer"):
+        object.__new__(Orchestrator)._get_build_window_start()

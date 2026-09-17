@@ -17,11 +17,12 @@ import (
 const outputOwnershipManifest = ".huntx-output-ownership.json"
 
 type Summary struct {
-	Files      int            `json:"files"`
-	TotalSize  int64          `json:"total_size"`
-	Protocols  map[string]int `json:"protocols"`
-	Formats    map[string]int `json:"formats"`
-	VmessCount int            `json:"vmess_count"`
+	IntentionalEmpty bool           `json:"intentional_empty,omitempty"`
+	Files            int            `json:"files"`
+	TotalSize        int64          `json:"total_size"`
+	Protocols        map[string]int `json:"protocols"`
+	Formats          map[string]int `json:"formats"`
+	VmessCount       int            `json:"vmess_count"`
 }
 
 var proxySchemes = []string{"vmess://", "vless://", "trojan://", "ss://", "ssr://", "hysteria2://", "hy2://", "tuic://", "wireguard://", "socks://", "socks5://", "juicity://", "anytls://"}
@@ -86,8 +87,12 @@ func Verify(dataDir string) (Summary, error) {
 		if err := os.WriteFile(dest, payload, 0o600); err != nil {
 			return Summary{}, err
 		}
-		summary.Files++
-		summary.TotalSize += int64(len(payload))
+		if rel == releasemanifest.EmptyReleaseArtifact {
+			summary.IntentionalEmpty = true
+		} else {
+			summary.Files++
+			summary.TotalSize += int64(len(payload))
+		}
 	}
 	manifestPath := filepath.Join(stage, "manifest.json")
 	candidates, err := releasemanifest.Discover(stage, manifestPath)

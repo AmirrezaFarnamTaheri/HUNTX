@@ -1838,6 +1838,7 @@ export class AppState {
               <input
                 id="node-quick-search"
                 type="text"
+                aria-label="Filter proxies by name, IP, or SNI"
                 class="w-full px-3.5 py-2.5 min-h-[44px] bg-gray-900 border border-gray-800 focus:border-cyan-500 rounded-xl text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus-ring"
                 placeholder="Filter name, IP, SNI..."
                 value="${escapeHTML(this.searchQuery)}"
@@ -2300,7 +2301,7 @@ export class AppState {
               <button id="btn-copy-feed-b64" class="px-4 py-2.5 min-h-[44px] bg-gray-800 hover:bg-gray-700 text-cyan-300 rounded-xl focus-ring cursor-pointer transition-all">Copy Base64 Feed</button>
             </div>
           </div>
-          <textarea rows="14" readonly class="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-xl text-xs font-mono text-cyan-200 select-all focus:outline-none">${escapeHTML(feedURIs)}</textarea>
+          <textarea rows="14" readonly aria-label="Raw URI stream" class="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-xl text-xs font-mono text-cyan-200 select-all focus:outline-none">${escapeHTML(feedURIs)}</textarea>
         </div>
       `;
 
@@ -2446,6 +2447,7 @@ export class AppState {
               <input
                 id="artifact-search-input"
                 type="text"
+                aria-label="Search artifacts"
                 class="w-full px-3.5 py-2.5 min-h-[44px] bg-gray-900 border border-gray-800 focus:border-cyan-500 rounded-xl text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus-ring"
                 placeholder="Search artifacts..."
                 value="${escapeHTML(this.artifactSearchQuery)}"
@@ -2887,6 +2889,7 @@ export class AppState {
             <input
               id="decoder-single-input"
               type="text"
+              aria-label="Proxy URI to inspect"
               class="flex-1 px-4 py-2.5 min-h-[44px] bg-gray-950 border border-gray-800 focus:border-cyan-500 rounded-xl text-xs font-mono text-cyan-300 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus-ring"
               placeholder="Paste raw vless://, vmess://, trojan://, ss://, hysteria2://..."
               value="${escapeHTML(defaultUri)}"
@@ -3014,7 +3017,7 @@ export class AppState {
         <div class="space-y-4">
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div class="sm:col-span-2">
-              <label class="block text-xs font-mono text-gray-400 mb-1">Target Client / Engine Format</label>
+              <label for="converter-format-select" class="block text-xs font-mono text-gray-400 mb-1">Target Client / Engine Format</label>
               <select
                 id="converter-format-select"
                 class="w-full bg-gray-950 border border-gray-800 text-cyan-300 text-xs font-mono rounded-xl px-4 py-2.5 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
@@ -3040,7 +3043,7 @@ export class AppState {
           </div>
 
           <div>
-            <label class="block text-xs font-mono text-gray-400 mb-1">Source Proxy URIs / Base64 Subscription:</label>
+            <label for="converter-input-text" class="block text-xs font-mono text-gray-400 mb-1">Source Proxy URIs / Base64 Subscription:</label>
             <textarea
               id="converter-input-text"
               rows="4"
@@ -3070,6 +3073,7 @@ export class AppState {
             <textarea
               id="converter-output-text"
               rows="8"
+              aria-label="Converted client configuration output"
               readonly
               class="w-full px-4 py-3 bg-gray-950 border border-gray-800 rounded-xl text-xs font-mono text-gray-300 focus:outline-none select-all"
             ></textarea>
@@ -3142,6 +3146,7 @@ export class AppState {
           <textarea
             id="dedup-input-text"
             rows="4"
+            aria-label="Bulk proxy input for deduplication"
             class="w-full px-4 py-3 bg-gray-950 border border-gray-800 focus:border-cyan-500 rounded-xl text-xs font-mono text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus-ring"
             placeholder="Paste raw proxy URIs..."
           >${escapeHTML(this.proxies.map(p => p.raw).join("\n"))}</textarea>
@@ -3189,6 +3194,7 @@ export class AppState {
             <textarea
               id="dedup-output-text"
               rows="6"
+              aria-label="Deduplicated output"
               readonly
               class="w-full px-4 py-3 bg-gray-950 border border-gray-800 rounded-xl text-xs font-mono text-gray-300 focus:outline-none select-all"
             ></textarea>
@@ -3236,7 +3242,7 @@ export class AppState {
         <div class="space-y-4">
           <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             <div class="lg:col-span-7 space-y-3">
-              <label class="block text-xs font-mono text-gray-400">Content / Proxy URI to Encode:</label>
+              <label for="qr-studio-input" class="block text-xs font-mono text-gray-400">Content / Proxy URI to Encode:</label>
               <textarea
                 id="qr-studio-input"
                 rows="4"
@@ -3246,7 +3252,7 @@ export class AppState {
 
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label class="block text-[10px] font-mono text-gray-400 mb-1">Color Preset:</label>
+                  <label for="qr-studio-color-preset" class="block text-[10px] font-mono text-gray-400 mb-1">Color Preset:</label>
                   <select
                     id="qr-studio-color-preset"
                     class="w-full bg-gray-950 border border-gray-800 text-gray-300 text-xs font-mono rounded-xl px-3 py-2.5 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
@@ -3257,7 +3263,7 @@ export class AppState {
                   </select>
                 </div>
                 <div>
-                  <label class="block text-[10px] font-mono text-gray-400 mb-1">Error Correction (ECC):</label>
+                  <label for="qr-studio-ecc" class="block text-[10px] font-mono text-gray-400 mb-1">Error Correction (ECC):</label>
                   <select
                     id="qr-studio-ecc"
                     class="w-full bg-gray-950 border border-gray-800 text-gray-300 text-xs font-mono rounded-xl px-3 py-2.5 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"

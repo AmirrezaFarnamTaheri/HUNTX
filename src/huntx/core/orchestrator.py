@@ -320,30 +320,20 @@ class Orchestrator:
     # Worker helpers
     # ------------------------------------------------------------------
 
-    def _get_build_window_min_seen_id(self) -> int:
-        """Lowest seen_files.id observed inside the build retention window.
-
-        seen_files.id is monotonic, so filtering records to ``s.id > min_id``
-        keeps every observation ingested within the last OUTPUT_RETENTION_DAYS
-        days (default 3 days = 36 two-hour runs). 0 means "include everything"
-        and is the safe fallback on read failure or an empty window.
-        """
+    def _get_build_window_start(self, run_started_at: datetime.datetime | None = None) -> str:
+        """Resolve one UTC ingestion cutoff per run; never infer time from IDs."""
+        raw = os.environ.get("HUNTX_OUTPUT_RETENTION_DAYS", str(self.OUTPUT_RETENTION_DAYS))
         try:
-            cutoff = f"-{self._output_retention_days()} days"
-            with self.db.connect() as conn:
-                row = conn.execute(
-                    "SELECT COALESCE(MIN(id), 0) AS min_id FROM seen_files "
-                    "WHERE ingested_at >= datetime('now', ?)",
-                    (cutoff,),
-                ).fetchone()
-                if not row:
-                    return 0
-                # The build query filters s.id > cutoff, so step one id below
-                # the window minimum to keep that observation itself.
-                return max(0, int(row["min_id"] or 0) - 1)
-        except Exception as e:
-            logger.warning(f"[Orchestrator] Could not read build window cutoff: {e}")
-            return 0
+            days = int(raw)
+            if days <= 0:
+                raise ValueError
+        except ValueError as exc:
+            raise ValueError("HUNTX_OUTPUT_RETENTION_DAYS must be a positive integer") from exc
+        start = run_started_at or datetime.datetime.now(datetime.timezone.utc)
+        if start.tzinfo is None:
+            raise ValueError("Run start must be timezone-aware")
+        cutoff = start.astimezone(datetime.timezone.utc) - datetime.timedelta(days=days)
+        return cutoff.strftime("%Y-%m-%d %H:%M:%S")
 
     async def _ingest_one_source_async(self, src_conf) -> bool:
         """Ingest a single source asynchronously."""
@@ -487,7 +477,7 @@ class Orchestrator:
         total_sources = len(self.config.sources)
         total_routes = len(self.config.routes)
         effective_workers = min(self.max_workers, total_sources)
-        seen_file_cutoff_id = self._get_build_window_min_seen_id()
+        min_ingested_at = self._get_build_window_start()
 
         # Initialize results early so they exist even if we timeout early
         results = {"ok": 0, "err": 0}
@@ -516,7 +506,7 @@ class Orchestrator:
             f"[Orchestrator] ╚══════════════════════════════════════════╝\n"
             f"[Orchestrator] sources={total_sources}  routes={total_routes}  "
             f"workers={effective_workers}  fetch_windows={self.fetch_windows}  "
-            f"delta_seen_files_id>{seen_file_cutoff_id}  timeout={timeout}"
+            f"ingested_at>={min_ingested_at}  timeout={timeout}"
         )
 
         # ── Phase 1: Ingestion (async queue-based) ───────────────────
@@ -593,7 +583,7 @@ class Orchestrator:
                             "name": route.name,
                             "formats": route.formats,
                             "from_sources": route.from_sources,
-                            "min_seen_file_id": seen_file_cutoff_id,
+                            "min_ingested_at": min_ingested_at,
                         }
                         build_results = self.build_pipeline.run(route_dict)
                         if not build_results:

@@ -69,7 +69,7 @@ class HardenedOrchestrator(Orchestrator):
         ingestion_workers = min(self.max_workers, total_sources) if total_sources else 0
         build_workers = min(self.max_workers, total_routes) if total_routes else 0
         publish_workers = max(1, self.max_workers)
-        seen_file_cutoff_id = self._get_build_window_min_seen_id()
+        min_ingested_at = self._get_build_window_start()
 
         status = "completed"
         timed_out_stage: Optional[str] = None
@@ -114,7 +114,7 @@ class HardenedOrchestrator(Orchestrator):
                 "name": route.name,
                 "formats": route.formats,
                 "from_sources": approved_route_sources,
-                "min_seen_file_id": seen_file_cutoff_id,
+                "min_ingested_at": min_ingested_at,
             }
             destinations = [
                 {
@@ -276,8 +276,10 @@ class HardenedOrchestrator(Orchestrator):
                 build_executor.shutdown(wait=True, cancel_futures=True)
                 stage_seconds["build"] = time.monotonic() - build_start
 
+        # Recoverable progress is not permission to replace the last release.
+        release_eligible = status == "completed" and results["ok"] > 0 and results["err"] == 0
         pending_publish: dict[concurrent.futures.Future[Any], str] = {}
-        if status == "completed" and not no_publish and all_build_results:
+        if release_eligible and not no_publish and all_build_results:
             publish_start = time.monotonic()
             publisher = concurrent.futures.ThreadPoolExecutor(max_workers=publish_workers)
             try:
@@ -362,17 +364,19 @@ class HardenedOrchestrator(Orchestrator):
                     results["ok"],
                 )
 
-        should_export = status == "completed" or (
-            status == "timed_out" and allow_partial_export
-        )
+        release_eligible = release_eligible and status == "completed"
         export_start = time.monotonic()
-        if should_export:
+        if release_eligible:
             try:
                 self._export_outputs(all_build_results)
                 self._export_dev_outputs(all_build_results)
             except Exception:
+                release_eligible = False
                 status = "failed"
                 logger.exception("[Orchestrator] Output export failed")
+        elif allow_partial_export and all_build_results:
+            # Partial artifacts are diagnostic only, never the production snapshot.
+            self._export_dev_outputs(all_build_results)
         elif all_build_results:
             logger.warning(
                 "[Orchestrator] Partial artifacts were not exported because "
@@ -400,6 +404,8 @@ class HardenedOrchestrator(Orchestrator):
         duration = time.monotonic() - start_time
         summary = {
             "status": status,
+            "release_eligible": release_eligible and status == "completed",
+            "min_ingested_at": min_ingested_at,
             "timed_out": status == "timed_out",
             "timed_out_stage": timed_out_stage,
             "duration_seconds": duration,

@@ -454,6 +454,7 @@ class StateRepo:
         record_types: List[str],
         allowed_source_ids: List[str],
         min_seen_file_id: Optional[int] = None,
+        min_ingested_at: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         if not record_types or not allowed_source_ids:
             return []
@@ -466,6 +467,9 @@ class StateRepo:
             if min_seen_file_id is not None:
                 where_extra = " AND s.id > ?"
                 args.append(int(min_seen_file_id))
+            if min_ingested_at is not None:
+                where_extra += " AND s.ingested_at >= ?"
+                args.append(min_ingested_at)
 
             # source_observation_id binds each normalized record to the exact
             # seen_files observation whose source identity authorized it.
