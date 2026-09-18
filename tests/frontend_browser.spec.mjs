@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { wcagAuditInPage } from "./lib/wcag_audit.mjs";
 
 async function isolateLocalPage(page) {
   await page.route("**/*", async (route) => {
@@ -224,4 +225,77 @@ test("artifact QR closure does not hide subsequent dialogs", async ({ page }) =>
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.locator("#tab-btn-radar")).toBeFocused();
+});
+
+test("globe hub labels never overlap across rotation", async ({ page }) => {
+  // Seven of the eleven built-in demo hubs sit within a few degrees of each
+  // other in Europe; without collision rejection their two-line tags stack
+  // into one unreadable blob.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await isolateLocalPage(page);
+  await page.route("**/catalog.json", (route) => route.fulfill({ json: { files: [] } }));
+  await page.goto("/");
+  const globe = await page.evaluateHandle(async () => {
+    const { initTelemetryGlobe } = await import("./assets/js/globe.js");
+    const host = document.createElement("div");
+    host.style.cssText = "position:fixed;left:0;top:0;width:640px;height:640px;z-index:99999;";
+    const canvas = document.createElement("canvas");
+    canvas.id = "audit-globe-canvas";
+    canvas.style.cssText = "width:640px;height:640px;display:block;";
+    host.appendChild(canvas);
+    document.body.appendChild(host);
+    return initTelemetryGlobe("audit-globe-canvas", null, null, {});
+  });
+  // Sample the placed label boxes while the globe auto-rotates and verify no
+  // two boxes in a single frame ever intersect.
+  let overlaps = 0;
+  let maxVisible = 0;
+  for (let i = 0; i < 8; i++) {
+    await page.waitForTimeout(150);
+    const rects = await page.evaluate((g) => g.getLabelRects(), globe);
+    maxVisible = Math.max(maxVisible, rects.length);
+    for (let a = 0; a < rects.length; a++) {
+      for (let b = a + 1; b < rects.length; b++) {
+        const p = rects[a], q = rects[b];
+        if (p.x < q.x + q.w && p.x + p.w > q.x && p.y < q.y + q.h && p.y + p.h > q.y) overlaps += 1;
+      }
+    }
+  }
+  expect(overlaps).toBe(0);
+  // The crowded cluster still renders: crowding is resolved by layout, not
+  // by hiding every tag.
+  expect(maxVisible).toBeGreaterThan(1);
+  await page.evaluate((g) => g.destroy(), globe);
+});
+
+test("dashboard keeps WCAG 2.2 AA contrast and control semantics on every tab", async ({ page }) => {
+  // Locks the floor fixed by the 2026-09-18 audit: text clears 4.5:1 (3:1 when
+  // large), every interactive element has an accessible name and a visible
+  // focus indicator, and a control with no text label carries a 3:1 indicator.
+  // Criteria live in tests/lib/wcag_audit.mjs so the harness and this test
+  // share one definition.
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await isolateLocalPage(page);
+  await page.route("**/catalog.json", (route) => route.fulfill({ json: { files: [] } }));
+  await page.goto("/");
+  await expect(page.locator(".radar-summary h1")).toBeVisible();
+  const findings = [];
+  let checked = 0;
+  for (const pass of [{ theme: "dark", width: 1280 }, { theme: "light", width: 1280 }, { theme: "dark", width: 320 }]) {
+    await page.setViewportSize({ width: pass.width, height: 900 });
+    await page.evaluate((t) => { document.documentElement.className = t; }, pass.theme);
+    for (const tab of ["#radar", "#proxies", "#studio", "#decoder", "#artifacts"]) {
+      await page.evaluate((t) => { location.hash = t; }, tab);
+      await page.waitForTimeout(350);
+      const res = await page.evaluate(wcagAuditInPage);
+      findings.push(...res.findings);
+      checked += res.checked.text + res.checked.controls;
+    }
+  }
+  // Coverage guard: the audit must have measured real rendered content rather
+  // than silently no-op'ing on a page that failed to render.
+  expect(checked).toBeGreaterThan(1000);
+  const serious = findings.filter((f) => f.level === "serious");
+  expect(serious).toEqual([]);
 });

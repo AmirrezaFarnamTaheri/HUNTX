@@ -1583,7 +1583,7 @@ export class AppState {
         <div class="lg:col-span-7 cyber-card p-6 bg-gray-900/60 border border-gray-800/80 hover:border-cyan-500/40 rounded-3xl backdrop-blur-md">
           <div class="flex items-center justify-between pb-4 border-b border-gray-800 mb-4">
             <div>
-              <h3 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
+              <h2 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
                 Carrier measurements
                 <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">NO LIVE PROBES</span>
               </h3>
@@ -1615,7 +1615,7 @@ export class AppState {
         <div class="lg:col-span-5 cyber-card p-6 bg-gray-900/60 border border-gray-800/80 hover:border-cyan-500/40 rounded-3xl backdrop-blur-md">
           <div class="flex items-center justify-between pb-4 border-b border-gray-800 mb-4">
             <div>
-              <h3 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
+              <h2 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
                 Node distribution
                 <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">${sortedCountries.length} REGIONS</span>
               </h3>
@@ -1648,7 +1648,7 @@ export class AppState {
       <!-- Quick Action Callout Banner -->
       <div class="cyber-card p-6 bg-gradient-to-r from-cyan-950/40 via-gray-900/60 to-indigo-950/40 border border-cyan-500/30 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
         <div class="space-y-1">
-          <h4 class="text-base font-mono font-bold text-white flex items-center gap-2">
+          <h2 class="text-base font-mono font-bold text-white flex items-center gap-2">
             Loaded snapshot
           </h4>
           <p class="text-xs font-sans text-gray-300">
@@ -2466,7 +2466,7 @@ export class AppState {
                     <span class="text-xs font-mono text-cyan-400 font-semibold">${escapeHTML(file.size_str)}</span>
                   </div>
 
-                  <h4 class="text-sm font-mono font-bold text-gray-100 truncate group-hover:text-cyan-300 transition-colors" title="${escapeHTML(file.filename)}">
+                  <h3 class="text-sm font-mono font-bold text-gray-100 truncate group-hover:text-cyan-300 transition-colors" title="${escapeHTML(file.filename)}">
                     ${escapeHTML(file.filename)}
                   </h4>
 

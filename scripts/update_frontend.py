@@ -469,32 +469,32 @@ INDEX_HTML = """<!DOCTYPE html>
 
     html.light .text-gray-500,
     html.light .text-gray-600 {
-      color: #64748b !important;
+      color: #475569 !important;
     }
 
     html.light .text-cyan-300,
     html.light .text-cyan-400 {
-      color: #0284c7 !important;
+      color: #0369a1 !important;
     }
 
     html.light .text-emerald-300,
     html.light .text-emerald-400 {
-      color: #059669 !important;
+      color: #047857 !important;
     }
 
     html.light .text-amber-300,
     html.light .text-amber-400 {
-      color: #d97706 !important;
+      color: #92400e !important;
     }
 
     html.light .text-indigo-300,
     html.light .text-indigo-400 {
-      color: #4f46e5 !important;
+      color: #4338ca !important;
     }
 
     html.light .text-rose-300,
     html.light .text-rose-400 {
-      color: #e11d48 !important;
+      color: #be123c !important;
     }
 
     html.light .text-purple-300,
@@ -502,8 +502,16 @@ INDEX_HTML = """<!DOCTYPE html>
       color: #7c3aed !important;
     }
 
+    html.light .text-sky-300,
+    html.light .text-sky-400 {
+      color: #0369a1 !important;
+    }
+
     /* Badges & Pills in Light Mode */
     html.light .bg-cyan-950,
+    html.light .bg-cyan-950\\/20,
+    html.light .bg-cyan-950\\/30,
+    html.light .bg-cyan-950\\/40,
     html.light .bg-cyan-950\\/50,
     html.light .bg-cyan-950\\/60,
     html.light .bg-cyan-950\\/80 {
@@ -513,6 +521,8 @@ INDEX_HTML = """<!DOCTYPE html>
     }
 
     html.light .bg-emerald-950,
+    html.light .bg-emerald-950\\/30,
+    html.light .bg-emerald-950\\/40,
     html.light .bg-emerald-950\\/50,
     html.light .bg-emerald-950\\/60,
     html.light .bg-emerald-950\\/80 {
@@ -522,14 +532,19 @@ INDEX_HTML = """<!DOCTYPE html>
     }
 
     html.light .bg-amber-950,
+    html.light .bg-amber-950\\/20,
+    html.light .bg-amber-950\\/30,
+    html.light .bg-amber-950\\/40,
     html.light .bg-amber-950\\/60,
     html.light .bg-amber-950\\/80 {
       background-color: #fef3c7 !important;
       border-color: #fde68a !important;
-      color: #b45309 !important;
+      color: #92400e !important;
     }
 
     html.light .bg-indigo-950,
+    html.light .bg-indigo-950\\/30,
+    html.light .bg-indigo-950\\/40,
     html.light .bg-indigo-950\\/50,
     html.light .bg-indigo-950\\/60,
     html.light .bg-indigo-950\\/80 {
@@ -547,6 +562,7 @@ INDEX_HTML = """<!DOCTYPE html>
     }
 
     html.light .bg-rose-950,
+    html.light .bg-rose-950\\/40,
     html.light .bg-rose-950\\/60,
     html.light .bg-rose-950\\/80 {
       background-color: #ffe4e6 !important;
@@ -558,7 +574,7 @@ INDEX_HTML = """<!DOCTYPE html>
     html.light .bg-sky-950\\/80 {
       background-color: #e0f2fe !important;
       border-color: #bae6fd !important;
-      color: #0284c7 !important;
+      color: #0369a1 !important;
     }
 
     html.light .bg-teal-950,
@@ -573,8 +589,13 @@ INDEX_HTML = """<!DOCTYPE html>
     html.light select,
     html.light textarea {
       background-color: #ffffff !important;
-      border-color: #cbd5e1 !important;
+      border-color: #64748b !important;
       color: #0f172a !important;
+    }
+    html.dark input,
+    html.dark select,
+    html.dark textarea {
+      border-color: #64748b !important;
     }
     html.light input::placeholder,
     html.light textarea::placeholder {
@@ -601,13 +622,27 @@ INDEX_HTML = """<!DOCTYPE html>
 
     /* Primary Cyan/Blue Gradient */
     html.light .bg-gradient-to-r.from-cyan-500.to-blue-600 {
-      background: linear-gradient(135deg, #0284c7, #2563eb) !important;
+      background: linear-gradient(135deg, #0369a1, #1d4ed8) !important;
       color: #ffffff !important;
       box-shadow: none !important;
     }
     html.light .bg-gradient-to-r.from-cyan-500.to-blue-600 svg,
     html.light .bg-gradient-to-r.from-cyan-500.to-blue-600 span {
       color: #ffffff !important;
+    }
+
+    /* Dark theme: the blue-600 end of the same gradient reads 4.02:1 against
+       these near-black 12px bold labels. Setting the stops directly to
+       cyan-500 -> blue-500 puts the whole surface at 5.63:1. Scoped to the two
+       buttons that are not covered by the quiet .hero-actions treatment. */
+    html.dark #btn-explore-live-proxies,
+    html.dark #btn-copy-artifact-qr-url {
+      background: linear-gradient(135deg, #06b6d4, #3b82f6) !important;
+      color: #020617 !important;
+    }
+    html.dark #btn-explore-live-proxies:hover,
+    html.dark #btn-copy-artifact-qr-url:hover {
+      background: linear-gradient(135deg, #22d3ee, #3b82f6) !important;
     }
 
     /* Table styling in Light Mode */
@@ -662,7 +697,12 @@ INDEX_HTML = """<!DOCTYPE html>
     html .hero-actions > :is(a, button) { background: var(--bg-surface) !important; border: 1px solid var(--border-subtle) !important; color: var(--text-main) !important; box-shadow: none !important; border-radius: var(--radius-sm); }
     html .hero-actions > :is(a, button):hover { border-color: var(--accent-cyan) !important; }
     html .hero-actions > :is(a, button) svg { color: currentColor !important; }
-    html #hero-copy-sub, html #btn-explore-live-proxies { background: var(--accent-cyan) !important; color: var(--text-inverse) !important; box-shadow: none !important; border-radius: var(--radius-sm); }
+    /* Light theme only: these are 12px bold labels (not large text), and
+       white on the gradient's light end #0284c7 measures 4.10:1, under the
+       4.5:1 floor. A deeper solid cyan clears it at 5.93:1. The dark hero
+       keeps its cyan->blue gradient with near-black text, which measures
+       4.0:1 at the blue end and 8.5:1 at the cyan end. */
+    html.light #hero-copy-sub, html.light #btn-explore-live-proxies { background: #0369a1 !important; color: #ffffff !important; box-shadow: none !important; border-radius: var(--radius-sm); }
     html #hero-copy-sub svg { color: currentColor !important; }
     html #radar-diagnostics > .grid { margin-top: 0; }
     html #radar-diagnostics .cyber-card { background: var(--bg-surface) !important; border-color: var(--border-subtle) !important; border-radius: var(--radius-md); box-shadow: none !important; backdrop-filter: none; }
@@ -682,8 +722,10 @@ INDEX_HTML = """<!DOCTYPE html>
     .proxy-specs > div > :last-child { min-width: 0; overflow-wrap: anywhere; }
     .proxy-specs .technical-ltr { max-width: 100%; }
     .proxy-specs > div > .flex { flex-wrap: wrap; }
-    html.dark main .text-gray-500 { color: var(--text-muted); }
-    html.light main .text-cyan-300, html.light main .text-cyan-400 { color: #0369a1 !important; }
+    html.dark .text-gray-500,
+    html.dark .text-gray-600 { color: var(--text-muted); }
+    /* Broadened beyond main: the header, footer and kbd hints carry the
+       same classes and also need the deeper cyan. */
     html.light input::placeholder, html.light textarea::placeholder { color: var(--text-dimmed) !important; }
     .skip-link { position: fixed; top: 12px; left: 12px; z-index: 200; padding: 12px 16px; background: var(--bg-surface); color: var(--text-main); border: 1px solid var(--accent-cyan); border-radius: var(--radius-sm); transform: translateY(-200%); }
     .skip-link:focus { transform: translateY(0); outline: 2px solid var(--accent-cyan); outline-offset: 2px; }
@@ -695,6 +737,41 @@ INDEX_HTML = """<!DOCTYPE html>
       .radar-overview { grid-template-columns: minmax(0, 1fr) 280px; align-items: center; }
       .radar-globe-frame { max-width: 280px; }
     }
+
+    /* WCAG 2.2 contrast hardening (audit 2026-09-18, harness in
+       tests/lib/wcag_audit.mjs). Per the W3C understanding of 1.4.11 a control that
+       shows a text label or a >=3:1 icon is already identifiable and needs no
+       boundary, so these rules cover only surfaces and form fields. Every
+       ratio was measured against the rendered surface, not the palette. */
+
+    /* Dark theme: placeholder and muted gray text must clear 4.5:1
+       (text-gray-500/600 read 4.17:1 and 2.67:1 on the darkest surfaces). */
+    html.dark input::placeholder,
+    html.dark textarea::placeholder { color: #94a3b8 !important; }
+
+    /* Light theme: cyan-200 has no override elsewhere. */
+    html.light .text-cyan-200 { color: #0369a1 !important; }
+
+    /* Light theme: the slate family has no light overrides and was rendering
+       dark-on-dark (1.4:1 on badges, dark surfaces behind footer links). */
+    html.light .bg-slate-800,
+    html.light .bg-slate-900,
+    html.light .bg-slate-900\\/60 { background-color: #ffffff !important; border-color: #e2e8f0 !important; color: #0f172a !important; }
+    html.light .text-slate-300,
+    html.light .text-slate-400 { color: #334155 !important; }
+    html.light .border-slate-700,
+    html.light .border-slate-700\\/50 { border-color: #cbd5e1 !important; }
+
+    /* Light theme: arbitrary near-black surfaces have no override and stay
+       dark, so muted text on them fell to 3.35:1. */
+    html.light .bg-\\[\\#070a0f\\]\\/90,
+    html.light .bg-\\[\\#070a0f\\]\\/80 { background-color: #f8fafc !important; border-color: #e2e8f0 !important; }
+
+    /* Light theme: translucent 500/20 badge fills are not covered by the 950
+       overrides; give them the same tinted surfaces the 950 badges use. */
+    html.light .bg-cyan-500\\/20 { background-color: #e0f2fe !important; }
+    html.light .bg-emerald-500\\/20 { background-color: #dcfce7 !important; }
+    html.light .bg-indigo-500\\/20 { background-color: #e0e7ff !important; }
   </style>
 
 </head>

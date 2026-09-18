@@ -30,6 +30,23 @@ export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null, op
   let cachedGrad = null;
   let hoveredHub = null;
 
+  // Hub text-tag geometry (see the label pass in render()). Seven of the
+  // default hubs sit within a few degrees of each other in Europe, so the
+  // two-line tag needs an explicit collision box.
+  const LABEL_FONT_BOLD = "bold 10px JetBrains Mono, monospace";
+  const LABEL_FONT_SMALL = "9px JetBrains Mono, monospace";
+  const LABEL_OFFSET_X = 8;   // distance from the marker to the text start
+  const LABEL_BOX_PAD_X = 4;  // horizontal padding around measured text
+  const LABEL_BOX_TOP = 16;   // box top offset above the marker center
+  const LABEL_BOX_H = 26;     // two text lines plus padding
+  const LABEL_SLOT = LABEL_BOX_H + 4;
+  const LABEL_MAX_SLOTS = 3;  // center, then +/-1, +/-2, +/-3
+
+  // Reused per-frame scratch arrays for the label collision pass, hoisted
+  // out of the hot loop to keep the frame allocation-free.
+  const placedRects = [];
+  const labelCandidates = [];
+
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   // High-Density Fibonacci Sphere (1,500 points for dense neon cluster representation)
@@ -402,6 +419,8 @@ export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null, op
     // 6. Draw Hub Markers, Pulsing Neon Halos & Labels
     const isLight = typeof document !== "undefined" && document.documentElement && document.documentElement.classList.contains("light");
 
+    // 6a. Markers, pulsing halos and luminous cores. Every front-facing hub
+    // stays visible even when its text tag is crowded out in pass 6b.
     for (let i = 0; i < hubs.length; i++) {
       const h = hubs[i];
       if (h.screenZ > -0.1) {
@@ -430,16 +449,80 @@ export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null, op
         ctx.beginPath();
         ctx.arc(h.screenX, h.screenY, 3.5, 0, Math.PI * 2);
         ctx.fill();
+      }
+    }
 
-        // Hub Text Tag (Render label if front-facing or hovered)
-        if (h.screenZ > 0.2 || h === hoveredHub) {
-          ctx.font = "bold 10px JetBrains Mono, monospace";
+    // 6b. Hub text tags with greedy collision rejection. Without this pass
+    // the close European hubs stack their two-line tags into one unreadable
+    // blob. Tags are placed in priority order (hovered hub, then larger
+    // clusters, then hubs nearest the viewer); each tag may shift vertically
+    // by whole slots to dodge a neighbour, and is dropped rather than
+    // overlapped, so the visible set changes as the globe rotates.
+    placedRects.length = 0;
+    labelCandidates.length = 0;
+    for (let i = 0; i < hubs.length; i++) {
+      const h = hubs[i];
+      if (h.screenZ > 0.2 || h === hoveredHub) labelCandidates.push(h);
+    }
+    labelCandidates.sort((a, b) => {
+      if (a === hoveredHub) return -1;
+      if (b === hoveredHub) return 1;
+      return (b.count - a.count) || (b.screenZ - a.screenZ);
+    });
+
+    for (let i = 0; i < labelCandidates.length; i++) {
+      const h = labelCandidates[i];
+
+      ctx.font = LABEL_FONT_SMALL;
+      const subW = ctx.measureText(`${h.count} nodes`).width;
+      ctx.font = LABEL_FONT_BOLD;
+      const codeW = ctx.measureText(h.code).width;
+      const boxW = Math.max(subW, codeW) + LABEL_BOX_PAD_X * 2;
+
+      // Flip the tag to the left of the marker when it would run off the
+      // right edge of the canvas.
+      const facesRight = h.screenX + LABEL_OFFSET_X + boxW - LABEL_BOX_PAD_X * 2 <= width - 4;
+      const boxX = facesRight
+        ? h.screenX + LABEL_OFFSET_X - LABEL_BOX_PAD_X
+        : h.screenX - LABEL_OFFSET_X + LABEL_BOX_PAD_X - boxW;
+      const textX = boxX + LABEL_BOX_PAD_X;
+
+      for (let slot = 0; slot <= LABEL_MAX_SLOTS; slot++) {
+        // Slot order around the marker: 0, -1, +1, -2, +2, -3.
+        const slotDelta = slot === 0 ? 0 : (slot % 2 === 1 ? -1 : 1) * Math.ceil(slot / 2);
+        const dy = slotDelta * LABEL_SLOT;
+        const boxY = h.screenY - LABEL_BOX_TOP + dy;
+
+        let collides = false;
+        for (let r = 0; r < placedRects.length; r++) {
+          const p = placedRects[r];
+          if (boxX < p.x + p.w && boxX + boxW > p.x && boxY < p.y + p.h && boxY + LABEL_BOX_H > p.y) {
+            collides = true;
+            break;
+          }
+        }
+        if (!collides) {
+          placedRects.push({ x: boxX, y: boxY, w: boxW, h: LABEL_BOX_H });
+
+          // Leader line from the marker to a shifted tag, so a stacked tag
+          // still reads as belonging to its hub.
+          if (slotDelta !== 0) {
+            ctx.strokeStyle = isLight ? "rgba(2, 132, 199, 0.55)" : "rgba(34, 211, 238, 0.5)";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(h.screenX + (facesRight ? 4 : -4), h.screenY);
+            ctx.lineTo(textX, boxY + LABEL_BOX_H / 2);
+            ctx.stroke();
+          }
+
+          ctx.font = LABEL_FONT_BOLD;
           ctx.fillStyle = isLight ? "#0f172a" : "#ffffff";
-          ctx.fillText(h.code, h.screenX + 8, h.screenY - 4);
+          ctx.fillText(h.code, textX, h.screenY - 4 + dy);
 
-          ctx.font = "9px JetBrains Mono, monospace";
+          ctx.font = LABEL_FONT_SMALL;
           ctx.fillStyle = isLight ? "#0284c7" : "#22d3ee";
-          ctx.fillText(`${h.count} nodes`, h.screenX + 8, h.screenY + 7);
+          ctx.fillText(`${h.count} nodes`, textX, h.screenY + 7 + dy);
+          break;
         }
       }
     }
@@ -675,6 +758,9 @@ export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null, op
     },
     setTouchInteractive,
     isTouchInteractive: () => isTouchActive,
+    // Snapshot of the label boxes placed on the last rendered frame; empty
+    // until the first frame and useful for overlap checks in tests.
+    getLabelRects: () => placedRects.map((r) => ({ ...r })),
     destroy: () => {
       cancelAnimationFrame(rafId);
       if (touchInactivityTimer) clearTimeout(touchInactivityTimer);
