@@ -19,6 +19,36 @@ def _owned_export(self: Any, all_build_results: list[Any]) -> None:
     export_owned_outputs(self, all_build_results)
 
 
+def wire_production_governance(orchestrator: Any, config: AppConfig) -> None:
+    """Attach the governed production stack to an already-constructed orchestrator.
+
+    This is the single definition of what "production" means beyond the class:
+    exact-manifest output ownership, Telegram consumer reconciliation, and the
+    governed build pipeline carrying each route's publication tier and
+    fresh-probe requirement. It exists as its own function so every public way
+    of obtaining an orchestrator -- the factory below and the ``UnifiedOrchestrator``
+    facade -- runs the same wiring instead of one of them silently skipping it.
+    """
+    setattr(orchestrator, "_export_outputs", MethodType(_owned_export, orchestrator))
+
+    reconciliation = reconcile_configured_bot_consumers(orchestrator.repo, config)
+    logger.info("Telegram consumer reconciliation: %s", reconciliation)
+
+    route_policies = {
+        route.name: (
+            route.publication_tier.value,
+            route.effective_require_fresh_probe,
+        )
+        for route in config.routes
+    }
+    orchestrator.build_pipeline = GovernedBuildPipeline(
+        orchestrator.repo,
+        orchestrator.artifact_store,
+        orchestrator.registry,
+        route_policies,
+    )
+
+
 def create_production_orchestrator(
     config: AppConfig,
     *,
@@ -39,22 +69,5 @@ def create_production_orchestrator(
         max_workers=max(1, int(max_workers)),
         fetch_windows=fetch_windows,
     )
-    setattr(orchestrator, "_export_outputs", MethodType(_owned_export, orchestrator))
-
-    reconciliation = reconcile_configured_bot_consumers(orchestrator.repo, config)
-    logger.info("Telegram consumer reconciliation: %s", reconciliation)
-
-    route_policies = {
-        route.name: (
-            route.publication_tier.value,
-            route.effective_require_fresh_probe,
-        )
-        for route in config.routes
-    }
-    orchestrator.build_pipeline = GovernedBuildPipeline(
-        orchestrator.repo,
-        orchestrator.artifact_store,
-        orchestrator.registry,
-        route_policies,
-    )
+    wire_production_governance(orchestrator, config)
     return orchestrator
