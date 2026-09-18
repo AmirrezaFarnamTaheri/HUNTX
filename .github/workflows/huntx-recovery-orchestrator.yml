@@ -1,0 +1,228 @@
+name: HUNTX Recovery Orchestrator
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: huntx-recovery-orchestrator
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  recover:
+    name: recover-production-and-downstream
+    runs-on: ubuntu-24.04
+    timeout-minutes: 210
+    steps:
+      - name: Dispatch recovery production run
+        id: production
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          runs_url="repos/${GH_REPO}/actions/workflows/huntx.yml/runs?branch=main&per_page=30"
+          active="$(gh api "$runs_url" | jq '[.workflow_runs[] | select(.status != "completed")] | length')"
+          if (( active > 0 )); then
+            echo "A huntx-production run is already active; recovery dispatch is unnecessary."
+            echo "run_id=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          before_id="$(gh api "$runs_url" | jq -r '[.workflow_runs[] | select(.event == "workflow_dispatch") | .id] | max // 0')"
+          started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          echo "Dispatching huntx-production recovery run."
+          gh api --method POST \
+            "repos/${GH_REPO}/actions/workflows/huntx.yml/dispatches" \
+            -f ref=main
+
+          run_id=""
+          for _ in $(seq 1 30); do
+            runs="$(gh api "$runs_url")"
+            run_id="$(jq -r \
+              --argjson before "$before_id" \
+              --arg started "$started_at" \
+              '[.workflow_runs[]
+                | select(.event == "workflow_dispatch")
+                | select(.id > $before)
+                | select(.created_at >= $started)]
+               | sort_by(.created_at)
+               | .[0].id // empty' <<<"$runs")"
+            if [[ -n "$run_id" ]]; then
+              break
+            fi
+            sleep 2
+          done
+
+          if [[ -z "$run_id" ]]; then
+            echo "::error title=Recovery dispatch not observable::huntx-production was dispatched but no matching workflow run appeared."
+            exit 1
+          fi
+
+          echo "Captured recovery production run $run_id."
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for recovery production success
+        id: production_result
+        if: ${{ steps.production.outputs.run_id != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ steps.production.outputs.run_id }}
+        run: |
+          set -euo pipefail
+
+          for _ in $(seq 1 320); do
+            run="$(gh api "repos/${GH_REPO}/actions/runs/${RUN_ID}")"
+            status="$(jq -r '.status' <<<"$run")"
+            conclusion="$(jq -r '.conclusion // ""' <<<"$run")"
+            attempt="$(jq -r '.run_attempt // 1' <<<"$run")"
+            echo "production run $RUN_ID: status=$status conclusion=${conclusion:-pending} attempt=$attempt"
+
+            if [[ "$status" == "completed" ]]; then
+              if [[ "$conclusion" != "success" ]]; then
+                echo "::error title=Recovery production failed::huntx-production run $RUN_ID concluded $conclusion."
+                exit 1
+              fi
+              echo "run_attempt=$attempt" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 30
+          done
+
+          echo "::error title=Recovery production timed out::huntx-production run $RUN_ID did not complete within the recovery wait window."
+          exit 1
+
+      - name: Dispatch downstream recovery consumers
+        id: downstream
+        if: ${{ steps.production.outputs.run_id != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE_RUN_ID: ${{ steps.production.outputs.run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ steps.production_result.outputs.run_attempt }}
+        run: |
+          set -euo pipefail
+
+          dispatch_and_capture() {
+            local workflow="$1"
+            shift
+            local runs_url="repos/${GH_REPO}/actions/workflows/${workflow}/runs?branch=main&per_page=30"
+            local before_id started_at run_id runs
+
+            before_id="$(gh api "$runs_url" | jq -r '[.workflow_runs[] | select(.event == "workflow_dispatch") | .id] | max // 0')"
+            started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            gh api --method POST \
+              "repos/${GH_REPO}/actions/workflows/${workflow}/dispatches" \
+              -f ref=main \
+              "$@"
+
+            run_id=""
+            for _ in $(seq 1 30); do
+              runs="$(gh api "$runs_url")"
+              run_id="$(jq -r \
+                --argjson before "$before_id" \
+                --arg started "$started_at" \
+                '[.workflow_runs[]
+                  | select(.event == "workflow_dispatch")
+                  | select(.id > $before)
+                  | select(.created_at >= $started)]
+                 | sort_by(.created_at)
+                 | .[0].id // empty' <<<"$runs")"
+              if [[ -n "$run_id" ]]; then
+                printf '%s\n' "$run_id"
+                return 0
+              fi
+              sleep 2
+            done
+
+            echo "::error title=Downstream dispatch not observable::No workflow_dispatch run appeared for ${workflow}." >&2
+            return 1
+          }
+
+          publish_id="$(dispatch_and_capture publish-generated-outputs.yml \
+            -f "inputs[source_run_id]=${SOURCE_RUN_ID}" \
+            -f "inputs[source_run_attempt]=${SOURCE_RUN_ATTEMPT}")"
+          investigation_id="$(dispatch_and_capture huntx-real-investigation-gate.yml \
+            -f "inputs[run_id]=${SOURCE_RUN_ID}")"
+          telegram_id="$(dispatch_and_capture huntx-telegram-activity-gate.yml \
+            -f "inputs[run_id]=${SOURCE_RUN_ID}")"
+
+          echo "publish_id=$publish_id" >> "$GITHUB_OUTPUT"
+          echo "investigation_id=$investigation_id" >> "$GITHUB_OUTPUT"
+          echo "telegram_id=$telegram_id" >> "$GITHUB_OUTPUT"
+
+          echo "Published downstream recovery run IDs: publish=$publish_id investigation=$investigation_id telegram=$telegram_id"
+
+      - name: Verify all downstream recovery consumers
+        if: ${{ steps.production.outputs.run_id != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PUBLISH_ID: ${{ steps.downstream.outputs.publish_id }}
+          INVESTIGATION_ID: ${{ steps.downstream.outputs.investigation_id }}
+          TELEGRAM_ID: ${{ steps.downstream.outputs.telegram_id }}
+        run: |
+          set -euo pipefail
+
+          for _ in $(seq 1 150); do
+            complete=0
+            for entry in \
+              "publish:${PUBLISH_ID}" \
+              "investigation:${INVESTIGATION_ID}" \
+              "telegram:${TELEGRAM_ID}"; do
+              label="${entry%%:*}"
+              run_id="${entry#*:}"
+              run="$(gh api "repos/${GH_REPO}/actions/runs/${run_id}")"
+              status="$(jq -r '.status' <<<"$run")"
+              conclusion="$(jq -r '.conclusion // ""' <<<"$run")"
+              echo "$label run $run_id: status=$status conclusion=${conclusion:-pending}"
+
+              if [[ "$status" == "completed" ]]; then
+                if [[ "$conclusion" != "success" ]]; then
+                  echo "::error title=Recovery downstream failed::$label workflow run $run_id concluded $conclusion."
+                  exit 1
+                fi
+                complete=$(( complete + 1 ))
+              fi
+            done
+
+            if (( complete == 3 )); then
+              echo "All explicit recovery downstream consumers completed successfully."
+              exit 0
+            fi
+            sleep 20
+          done
+
+          echo "::error title=Recovery downstream timed out::Not all downstream workflows completed within the verification window."
+          exit 1
+
+      - name: Record recovery result
+        if: ${{ always() }}
+        env:
+          GH_REPO: ${{ github.repository }}
+          SOURCE_RUN_ID: ${{ steps.production.outputs.run_id }}
+          PUBLISH_ID: ${{ steps.downstream.outputs.publish_id }}
+          INVESTIGATION_ID: ${{ steps.downstream.outputs.investigation_id }}
+          TELEGRAM_ID: ${{ steps.downstream.outputs.telegram_id }}
+        run: |
+          {
+            echo "## HUNTX recovery orchestration"
+            if [[ -z "${SOURCE_RUN_ID}" ]]; then
+              echo "A production run was already active, so no duplicate recovery was started."
+            else
+              echo "- Production: https://github.com/${GH_REPO}/actions/runs/${SOURCE_RUN_ID}"
+              echo "- Publish: https://github.com/${GH_REPO}/actions/runs/${PUBLISH_ID}"
+              echo "- Investigation gate: https://github.com/${GH_REPO}/actions/runs/${INVESTIGATION_ID}"
+              echo "- Telegram gate: https://github.com/${GH_REPO}/actions/runs/${TELEGRAM_ID}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

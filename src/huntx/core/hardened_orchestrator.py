@@ -304,10 +304,17 @@ class HardenedOrchestrator(Orchestrator):
                         )
                         continue
                     route_name = route_name_val
+                    destinations = route_destinations.get(route_name, [])
+                    if not destinations:
+                        logger.info(
+                            "[Orchestrator] Publishing disabled for route %s: no configured destinations",
+                            route_name,
+                        )
+                        continue
                     publish_future = publisher.submit(
                         self.publish_pipeline.run,
                         build_result,
-                        route_destinations.get(route_name, []),
+                        destinations,
                         deadline=deadline,
                     )
                     pending_publish[publish_future] = route_name

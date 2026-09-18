@@ -6,6 +6,12 @@ on:
       - huntx-production
     types:
       - completed
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Completed successful huntx-production workflow run ID to validate"
+        required: true
+        type: string
 
 permissions:
   actions: read
@@ -13,25 +19,237 @@ permissions:
 
 jobs:
   telegram-activity-check:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    name: Verify Telegram runtime activity
     runs-on: ubuntu-latest
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        github.event.workflow_run.conclusion == 'success'
+      }}
+    env:
+      TARGET_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.run_id }}
+
     steps:
-      - name: Inspect HUNTX runtime diagnostics
-        uses: actions/github-script@v9
+      - name: Resolve and download runtime diagnostics artifact
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
-            const runId = context.payload.workflow_run.id;
-            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              run_id: runId
-            });
-
-            const logs = artifacts.data.artifacts.find(a => a.name.startsWith('huntx-logs-') && !a.expired);
-            if (!logs) {
-              core.setFailed('No HUNTX runtime logs artifact found. Investigation evidence is missing.');
+            const fs = require('fs');
+            const runId = Number(process.env.TARGET_RUN_ID || 0);
+            if (!Number.isSafeInteger(runId) || runId <= 0) {
+              core.setFailed(`Invalid target workflow run id: ${process.env.TARGET_RUN_ID}`);
               return;
             }
 
-            core.info(`Found runtime diagnostics artifact: ${logs.name}`);
-            core.info('Telegram activity validation is now enforced through runtime diagnostics.');
+            const run = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: runId,
+            });
+            if (run.data.name !== 'huntx-production' || run.data.path !== '.github/workflows/huntx.yml') {
+              core.setFailed(
+                `Run ${runId} is not the canonical huntx-production workflow ` +
+                `(name=${run.data.name}, path=${run.data.path})`
+              );
+              return;
+            }
+            if (run.data.status !== 'completed' || run.data.conclusion !== 'success') {
+              core.setFailed(
+                `Target run ${runId} must be completed successfully ` +
+                `(status=${run.data.status}, conclusion=${run.data.conclusion})`
+              );
+              return;
+            }
+
+            const artifacts = await github.paginate(
+              github.rest.actions.listWorkflowRunArtifacts,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: runId,
+                per_page: 100,
+              }
+            );
+            const expectedName = `huntx-logs-${runId}-${run.data.run_attempt}`;
+            const artifact = artifacts.find(a => !a.expired && a.name === expectedName);
+            if (!artifact) {
+              core.setFailed(
+                `Expected non-expired runtime diagnostics artifact ${expectedName} ` +
+                `for run ${runId} attempt ${run.data.run_attempt}`
+              );
+              return;
+            }
+
+            const archive = await github.rest.actions.downloadArtifact({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              artifact_id: artifact.id,
+              archive_format: 'zip',
+            });
+            fs.writeFileSync('huntx-telegram-diagnostics.zip', Buffer.from(archive.data));
+            fs.writeFileSync(
+              'huntx-telegram-source.json',
+              JSON.stringify({
+                run_id: runId,
+                run_attempt: run.data.run_attempt,
+                head_sha: run.data.head_sha,
+                artifact_id: artifact.id,
+                artifact_name: artifact.name,
+              }, null, 2) + '\n'
+            );
+            core.info(`Downloaded ${artifact.name} (${artifact.id}) from run ${runId}`);
+
+      - name: Extract Telegram runtime evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s huntx-telegram-diagnostics.zip
+          rm -rf telegram-diagnostics
+          mkdir -p telegram-diagnostics
+          unzip -q huntx-telegram-diagnostics.zip -d telegram-diagnostics
+
+          runtime_log="$(find telegram-diagnostics -type f -name 'runtime.log' -print -quit)"
+          run_summary="$(find telegram-diagnostics -type f -name 'run-summary.json' -print -quit)"
+          test -n "$runtime_log" || {
+            echo "runtime.log is missing from the HUNTX diagnostics artifact" >&2
+            exit 1
+          }
+          test -s "$runtime_log" || {
+            echo "runtime.log is empty in the HUNTX diagnostics artifact" >&2
+            exit 1
+          }
+          test -n "$run_summary" || {
+            echo "run-summary.json is missing from the HUNTX diagnostics artifact" >&2
+            exit 1
+          }
+          test -s "$run_summary" || {
+            echo "run-summary.json is empty in the HUNTX diagnostics artifact" >&2
+            exit 1
+          }
+          printf 'RUNTIME_LOG=%s\n' "$runtime_log" >> "$GITHUB_ENV"
+          printf 'RUN_SUMMARY=%s\n' "$run_summary" >> "$GITHUB_ENV"
+
+      - name: Verify real MTProto source activity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          runtime_path = Path(os.environ["RUNTIME_LOG"])
+          summary_path = Path(os.environ["RUN_SUMMARY"])
+          text = runtime_path.read_text(encoding="utf-8", errors="replace")
+          lines = text.splitlines()
+
+          connections = [line for line in lines if "[MTProto] Connected." in line]
+          resolutions = [line for line in lines if "[MTProto] Resolved peer " in line]
+          unavailable = [
+              line for line in lines
+              if "permanently unavailable Telegram source=" in line
+          ]
+          lifo_pattern = re.compile(
+              r"\[LIFO\]\s+source=(\S+).*?\bscanned=(\d+)\s+"
+              r"ingested=(\d+).*?\bcompleted=True"
+          )
+          completed_windows = [
+              (match.group(1), int(match.group(2)), int(match.group(3)))
+              for line in lines
+              if (match := lifo_pattern.search(line))
+          ]
+
+          try:
+              run_payload = json.loads(summary_path.read_text(encoding="utf-8"))
+          except Exception as exc:
+              raise SystemExit(f"Invalid run-summary.json: {exc}") from exc
+          if not isinstance(run_payload, dict) or run_payload.get("schema_version") != 1:
+              raise SystemExit("run-summary.json does not use the expected schema_version=1 contract")
+          run_summary = run_payload.get("summary")
+          if not isinstance(run_summary, dict):
+              raise SystemExit("run-summary.json is missing the structured summary object")
+
+          sources_checked = run_summary.get("sources_checked")
+          messages_scanned = run_summary.get("messages_scanned")
+          if isinstance(sources_checked, bool) or not isinstance(sources_checked, int):
+              raise SystemExit(f"Invalid sources_checked metric: {sources_checked!r}")
+          if isinstance(messages_scanned, bool) or not isinstance(messages_scanned, int):
+              raise SystemExit(f"Invalid messages_scanned metric: {messages_scanned!r}")
+
+          if not connections:
+              raise SystemExit("No MTProto connection evidence found; Telegram did not connect")
+          if not resolutions:
+              raise SystemExit("No MTProto peer-resolution evidence found; Telegram sources were not resolved")
+          if not completed_windows:
+              raise SystemExit("No completed LIFO source windows found; Telegram sources did not complete ingestion")
+
+          log_messages_scanned = sum(item[1] for item in completed_windows)
+          log_messages_ingested = sum(item[2] for item in completed_windows)
+          observed_sources = {item[0] for item in completed_windows}
+          if log_messages_scanned <= 0:
+              raise SystemExit("No scanned Telegram messages found in completed source windows")
+          if sources_checked <= 0 or messages_scanned <= 0:
+              raise SystemExit(
+                  "Structured run summary reports no source/message investigation "
+                  f"(sources_checked={sources_checked}, messages_scanned={messages_scanned})"
+              )
+          if len(observed_sources) > sources_checked:
+              raise SystemExit(
+                  "Runtime evidence exceeds structured source count: "
+                  f"observed={len(observed_sources)} summary={sources_checked}"
+              )
+          if log_messages_scanned > messages_scanned:
+              raise SystemExit(
+                  "Completed-window scan evidence exceeds structured scan total: "
+                  f"runtime={log_messages_scanned} summary={messages_scanned}"
+              )
+
+          evidence = {
+              "schema_version": 1,
+              "source_run_id": int(os.environ["TARGET_RUN_ID"]),
+              "mtproto_connections": len(connections),
+              "mtproto_peers_resolved": len(resolutions),
+              "telegram_sources_observed": len(observed_sources),
+              "completed_source_windows": len(completed_windows),
+              "completed_window_messages_scanned": log_messages_scanned,
+              "completed_window_messages_ingested": log_messages_ingested,
+              "run_summary_sources_checked": sources_checked,
+              "run_summary_messages_scanned": messages_scanned,
+              "permanently_unavailable_source_events": len(unavailable),
+          }
+          Path("telegram-activity-evidence.json").write_text(
+              json.dumps(evidence, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+
+          print("Validated real Telegram MTProto activity:")
+          for key, value in evidence.items():
+              print(f"  {key}={value}")
+          if unavailable:
+              print(
+                  f"::warning title=Telegram source degradation::"
+                  f"{len(unavailable)} permanently unavailable source events were recorded; "
+                  "the activity gate remains healthy because other real sources completed."
+              )
+          PY
+
+          {
+            echo "## Telegram activity gate"
+            echo
+            echo "Validated MTProto connection/resolution and completed source-window scan evidence from production run \`$TARGET_RUN_ID\`."
+            echo
+            echo '```json'
+            cat telegram-activity-evidence.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Preserve validated Telegram evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: huntx-telegram-activity-${{ env.TARGET_RUN_ID }}
+          path: |
+            huntx-telegram-source.json
+            telegram-activity-evidence.json
+          if-no-files-found: error
+          retention-days: 14

@@ -25,8 +25,13 @@ _DERIVED_SUFFIXES = (
 
 
 def _configured_publish_token(destination_token: str | None) -> str | None:
-    """Resolve destination-specific credentials using runtime precedence."""
-    return destination_token or os.getenv("PUBLISH_BOT_TOKEN") or os.getenv("TELEGRAM_TOKEN")
+    """Resolve only dedicated publication credentials.
+
+    ``TELEGRAM_TOKEN`` belongs to ingestion and interactive polling. Treating it
+    as a publisher credential can start competing bot consumers and also masks
+    a missing production publisher configuration.
+    """
+    return destination_token or os.getenv("PUBLISH_BOT_TOKEN")
 
 
 def _is_derived_output_format(fmt: str) -> bool:
@@ -223,8 +228,7 @@ def validate_config(config: AppConfig):
                 if not resolved_token or resolved_token.startswith("${"):
                     raise ValueError(
                         f"Route {route.name} destination missing/unexpanded token in "
-                        "strict mode; configure destination.token, PUBLISH_BOT_TOKEN, "
-                        "or TELEGRAM_TOKEN"
+                        "strict mode; configure destination.token or PUBLISH_BOT_TOKEN"
                     )
             elif destination.token and destination.token.startswith("${"):
                 raise ValueError(

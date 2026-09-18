@@ -80,14 +80,8 @@ class PublishPipeline:
         if not destinations:
             raise RuntimeError(f"No publish destinations configured for {unique_id}")
 
-        publish_bot_token = os.getenv("PUBLISH_BOT_TOKEN")
+        default_token = os.getenv("PUBLISH_BOT_TOKEN")
         ingest_token = os.getenv("TELEGRAM_TOKEN")
-        default_token = publish_bot_token or ingest_token
-        if not publish_bot_token and default_token and ingest_token and default_token == ingest_token:
-            logger.warning(
-                "WARNING (F-09): publish is using TELEGRAM_TOKEN because "
-                "PUBLISH_BOT_TOKEN is unset; configure a distinct token to avoid conflicts."
-            )
 
         generation = str(build_result.get("generation") or new_hash)
         intent_id = self.state_repo.ensure_publication_intent(
@@ -138,7 +132,10 @@ class PublishPipeline:
             token = dest.get("token") or default_token
             required = dest.get("required", True)
             if not token:
-                msg = f"No token configured for destination {stable_id}"
+                msg = (
+                    f"No token configured for destination {stable_id}; "
+                    "a dedicated PUBLISH_BOT_TOKEN or destination token is required"
+                )
                 if required:
                     if os.getenv("HUNTX_STRICT", "0").strip().lower() in {
                         "1",
@@ -146,6 +143,15 @@ class PublishPipeline:
                         "yes",
                     }:
                         raise RuntimeError(f"Strict Mode Active: {msg}")
+                    raise RuntimeError(msg)
+                logger.warning("[Publish] %s", msg)
+                continue
+            if ingest_token and token == ingest_token:
+                msg = (
+                    f"Destination {stable_id} reuses TELEGRAM_TOKEN; publishing requires a "
+                    "distinct PUBLISH_BOT_TOKEN or destination token"
+                )
+                if required:
                     raise RuntimeError(msg)
                 logger.warning("[Publish] %s", msg)
                 continue

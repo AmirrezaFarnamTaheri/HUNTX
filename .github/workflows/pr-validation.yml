@@ -23,6 +23,7 @@ on:
       - "tests/**"
   push:
     branches:
+      - main
       - "fix/**"
       - "agent/**"
       - "codex/**"

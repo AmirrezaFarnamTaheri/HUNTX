@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       run_id:
-        description: "Completed huntx-production workflow run ID to investigate"
+        description: "Completed successful huntx-production workflow run ID to investigate"
         required: true
         type: string
 
@@ -31,7 +31,7 @@ jobs:
 
     steps:
       - name: Resolve and download runtime diagnostics artifact
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const fs = require('fs');
@@ -46,8 +46,18 @@ jobs:
               repo: context.repo.repo,
               run_id: runId,
             });
-            if (run.data.status !== 'completed') {
-              core.setFailed(`Target run ${runId} is not completed (status=${run.data.status})`);
+            if (run.data.name !== 'huntx-production' || run.data.path !== '.github/workflows/huntx.yml') {
+              core.setFailed(
+                `Run ${runId} is not the canonical huntx-production workflow ` +
+                `(name=${run.data.name}, path=${run.data.path})`
+              );
+              return;
+            }
+            if (run.data.status !== 'completed' || run.data.conclusion !== 'success') {
+              core.setFailed(
+                `Target run ${runId} must be completed successfully ` +
+                `(status=${run.data.status}, conclusion=${run.data.conclusion})`
+              );
               return;
             }
 
@@ -60,15 +70,16 @@ jobs:
                 per_page: 100,
               }
             );
-            const candidates = artifacts
-              .filter(a => !a.expired && a.name.startsWith('huntx-logs-'))
-              .sort((a, b) => b.id - a.id);
-            if (candidates.length === 0) {
-              core.setFailed(`No non-expired huntx-logs-* artifact found for run ${runId}`);
+            const expectedName = `huntx-logs-${runId}-${run.data.run_attempt}`;
+            const artifact = artifacts.find(a => !a.expired && a.name === expectedName);
+            if (!artifact) {
+              core.setFailed(
+                `Expected non-expired runtime diagnostics artifact ${expectedName} ` +
+                `for run ${runId} attempt ${run.data.run_attempt}`
+              );
               return;
             }
 
-            const artifact = candidates[0];
             const archive = await github.rest.actions.downloadArtifact({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -80,7 +91,9 @@ jobs:
               'huntx-investigation-metadata.json',
               JSON.stringify({
                 run_id: runId,
+                run_attempt: run.data.run_attempt,
                 run_conclusion: run.data.conclusion,
+                head_sha: run.data.head_sha,
                 artifact_id: artifact.id,
                 artifact_name: artifact.name,
               }, null, 2) + '\n'
@@ -168,7 +181,7 @@ jobs:
           PY
 
       - name: Preserve validated investigation evidence
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: huntx-investigation-${{ env.TARGET_RUN_ID }}
           path: |

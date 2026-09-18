@@ -27,7 +27,7 @@ on:
         type: string
 
 permissions:
-  actions: read
+  actions: write
   contents: write
 
 concurrency:
@@ -39,7 +39,7 @@ jobs:
     name: Publish verified generated snapshot
     if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 45
 
     steps:
       - name: Resolve and validate source run
@@ -48,8 +48,34 @@ jobs:
         with:
           script: |
             const expectedPath = '.github/workflows/huntx.yml';
+
+            const requiredArtifactNames = run => [
+              `runtime-checkpoint-${run.id}-${run.run_attempt}`,
+              `huntx-output-${run.id}-${run.run_attempt}`,
+              `huntx-logs-${run.id}-${run.run_attempt}`,
+            ];
+
+            async function publicationArtifacts(run) {
+              const { data } = await github.rest.actions.listWorkflowRunArtifacts({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: Number(run.id),
+                per_page: 100,
+              });
+              const available = new Set(
+                data.artifacts
+                  .filter(artifact => !artifact.expired)
+                  .map(artifact => artifact.name),
+              );
+              const missing = requiredArtifactNames(run).filter(
+                name => !available.has(name),
+              );
+              return { ready: missing.length === 0, missing };
+            }
+
             let runId;
             let expectedAttempt;
+            let selectedRun = null;
 
             if (context.eventName === 'workflow_run') {
               runId = Number(context.payload.workflow_run.id);
@@ -66,19 +92,34 @@ jobs:
                 status: 'completed',
                 per_page: 50,
               });
-              const candidate = data.workflow_runs.find(
-                run => run.conclusion === 'success'
-                  && run.path === expectedPath
-                  && run.name === 'huntx-production',
-              );
-              if (!candidate) {
-                core.setFailed(
-                  'No completed successful huntx-production run is available for control-plane republish.',
+
+              for (const candidate of data.workflow_runs) {
+                if (
+                  candidate.conclusion !== 'success'
+                  || candidate.path !== expectedPath
+                  || candidate.name !== 'huntx-production'
+                ) {
+                  continue;
+                }
+                const artifacts = await publicationArtifacts(candidate);
+                if (artifacts.ready) {
+                  selectedRun = candidate;
+                  break;
+                }
+                core.info(
+                  `Skipping run ${candidate.id}: missing or expired publication artifacts: ${artifacts.missing.join(', ')}`,
+                );
+              }
+
+              if (!selectedRun) {
+                core.setOutput('ready', 'false');
+                core.notice(
+                  'No successful huntx-production run with unexpired publication artifacts is available; skipping push-triggered republish. The next successful production run will publish automatically.',
                 );
                 return;
               }
-              runId = Number(candidate.id);
-              expectedAttempt = Number(candidate.run_attempt);
+              runId = Number(selectedRun.id);
+              expectedAttempt = Number(selectedRun.run_attempt);
             } else {
               core.setFailed(`Unsupported publication event: ${context.eventName}`);
               return;
@@ -93,11 +134,15 @@ jobs:
               return;
             }
 
-            const { data: run } = await github.rest.actions.getWorkflowRun({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              run_id: runId,
-            });
+            let run = selectedRun;
+            if (!run) {
+              const response = await github.rest.actions.getWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: runId,
+              });
+              run = response.data;
+            }
 
             if (run.path !== expectedPath || run.name !== 'huntx-production') {
               core.setFailed(
@@ -122,6 +167,15 @@ jobs:
               return;
             }
 
+            const artifacts = await publicationArtifacts(run);
+            if (!artifacts.ready) {
+              core.setFailed(
+                `Run ${runId} is missing unexpired publication artifacts: ${artifacts.missing.join(', ')}`,
+              );
+              return;
+            }
+
+            core.setOutput('ready', 'true');
             core.setOutput('run_id', String(runId));
             core.setOutput('run_attempt', String(run.run_attempt));
             core.setOutput('head_sha', String(run.head_sha));
@@ -132,6 +186,7 @@ jobs:
             );
 
       - name: Checkout publisher control plane
+        if: steps.source.outputs.ready == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
@@ -139,6 +194,7 @@ jobs:
 
       - name: Restore previous generated snapshot
         id: previous
+        if: steps.source.outputs.ready == 'true'
         env:
           PREVIOUS_ROOT: ${{ runner.temp }}/huntx-previous-generated
         run: |
@@ -157,6 +213,7 @@ jobs:
           test -s "$PREVIOUS_ROOT/outputs_dev/_manifest.json"
 
       - name: Download verified checkpoint handoff
+        if: steps.source.outputs.ready == 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: runtime-checkpoint-${{ steps.source.outputs.run_id }}-${{ steps.source.outputs.run_attempt }}
@@ -165,6 +222,7 @@ jobs:
           run-id: ${{ steps.source.outputs.run_id }}
 
       - name: Download distributable output
+        if: steps.source.outputs.ready == 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: huntx-output-${{ steps.source.outputs.run_id }}-${{ steps.source.outputs.run_attempt }}
@@ -173,6 +231,7 @@ jobs:
           run-id: ${{ steps.source.outputs.run_id }}
 
       - name: Set up Go
+        if: steps.source.outputs.ready == 'true'
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
@@ -198,6 +257,7 @@ jobs:
           python scripts/check_release_eligibility.py             --verify-receipt "$SOURCE_ROOT/logs/release-receipt.json"             --dist "$SOURCE_ROOT/dist"             --run-id "$SOURCE_RUN_ID" --run-attempt "$SOURCE_RUN_ATTEMPT"
 
       - name: Build verified dashboard data from release dist
+        if: steps.source.outputs.ready == 'true'
         env:
           SOURCE_ROOT: ${{ runner.temp }}/huntx-publication
           SOURCE_DIST: ${{ runner.temp }}/huntx-publication/dist
@@ -238,7 +298,17 @@ jobs:
           test -s docs/assets/js/data.js
           find "$DASHBOARD_ROOT" -type f -printf '%s\t%p\n' | sort -nr | head -50
 
+      - name: Download structured runtime diagnostics
+        if: steps.source.outputs.ready == 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: huntx-logs-${{ steps.source.outputs.run_id }}-${{ steps.source.outputs.run_attempt }}
+          path: ${{ runner.temp }}/huntx-publication/logs
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.source.outputs.run_id }}
+
       - name: Assemble and verify publication snapshot
+        if: steps.source.outputs.ready == 'true'
         env:
           SOURCE_ROOT: ${{ runner.temp }}/huntx-publication
           PREVIOUS_ROOT: ${{ runner.temp }}/huntx-previous-generated
@@ -273,6 +343,7 @@ jobs:
           test -s "$SOURCE_ROOT/snapshot/manifests/main-sync-files.txt"
 
       - name: Commit atomic generated-only snapshot
+        if: steps.source.outputs.ready == 'true'
         env:
           SNAPSHOT_ROOT: ${{ runner.temp }}/huntx-publication/snapshot
           SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
@@ -320,6 +391,7 @@ jobs:
           fi
 
       - name: Mirror verified outputs to main
+        if: steps.source.outputs.ready == 'true'
         env:
           SNAPSHOT_ROOT: ${{ runner.temp }}/huntx-publication/snapshot
           SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
@@ -360,6 +432,75 @@ jobs:
             sleep $((attempt * 2))
           done
 
+      - name: Validate resulting main head
+        if: steps.source.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          expected_sha="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          test -n "$expected_sha" || {
+            echo "::error title=Main validation unavailable::Could not resolve refs/heads/main after publication."
+            exit 1
+          }
+
+          runs_url="repos/${GH_REPO}/actions/workflows/pr-validation.yml/runs?branch=main&per_page=30"
+          before_id="$(gh api "$runs_url" | jq -r '[.workflow_runs[] | select(.event == "workflow_dispatch") | .id] | max // 0')"
+          started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          echo "Dispatching pull-request-validation for published main head $expected_sha."
+          gh api --method POST \
+            "repos/${GH_REPO}/actions/workflows/pr-validation.yml/dispatches" \
+            -f ref=main
+
+          validation_id=""
+          for _ in $(seq 1 30); do
+            runs="$(gh api "$runs_url")"
+            validation_id="$(jq -r \
+              --argjson before "$before_id" \
+              --arg started "$started_at" \
+              --arg expected "$expected_sha" \
+              '[.workflow_runs[]
+                | select(.event == "workflow_dispatch")
+                | select(.id > $before)
+                | select(.created_at >= $started)
+                | select(.head_sha == $expected)]
+               | sort_by(.created_at)
+               | .[0].id // empty' <<<"$runs")"
+            if [[ -n "$validation_id" ]]; then
+              break
+            fi
+            sleep 2
+          done
+
+          if [[ -z "$validation_id" ]]; then
+            echo "::error title=Main validation not observable::pr-validation was dispatched for $expected_sha but no matching run appeared."
+            exit 1
+          fi
+
+          echo "Captured pull-request-validation run $validation_id for $expected_sha."
+          for _ in $(seq 1 180); do
+            run="$(gh api "repos/${GH_REPO}/actions/runs/${validation_id}")"
+            status="$(jq -r '.status' <<<"$run")"
+            conclusion="$(jq -r '.conclusion // ""' <<<"$run")"
+            echo "validation run $validation_id: status=$status conclusion=${conclusion:-pending}"
+
+            if [[ "$status" == "completed" ]]; then
+              if [[ "$conclusion" != "success" ]]; then
+                echo "::error title=Published main validation failed::pull-request-validation run $validation_id concluded $conclusion."
+                exit 1
+              fi
+              echo "Published main head $expected_sha passed pull-request-validation."
+              exit 0
+            fi
+            sleep 10
+          done
+
+          echo "::error title=Published main validation timed out::pull-request-validation run $validation_id did not complete within the validation window."
+          exit 1
+
       - name: Summarize publication
         if: always()
         run: |
@@ -367,14 +508,16 @@ jobs:
             echo "## Generated output publication"
             echo
             echo "- Trigger: \`${{ github.event_name }}\`"
-            echo "- Source run: \`${{ steps.source.outputs.run_id || 'unresolved' }}\`"
-            echo "- Source attempt: \`${{ steps.source.outputs.run_attempt || 'unresolved' }}\`"
-            echo "- Source commit: \`${{ steps.source.outputs.head_sha || 'unresolved' }}\`"
+            echo "- Publication ready: \`${{ steps.source.outputs.ready || 'false' }}\`"
+            echo "- Source run: \`${{ steps.source.outputs.run_id || 'none' }}\`"
+            echo "- Source attempt: \`${{ steps.source.outputs.run_attempt || 'none' }}\`"
+            echo "- Source commit: \`${{ steps.source.outputs.head_sha || 'none' }}\`"
             echo "- Dashboard data: \`catalog.json + artifacts refreshed from run dist\`"
             echo "- Previous generated commit: \`${{ steps.previous.outputs.sha || 'none' }}\`"
             echo "- Generated data branch: \`generated-outputs\`"
             echo "- Source-branch mirrors: \`main/outputs\`, \`main/outputs_dev\`"
             echo "- \`outputs/\` scope: source run"
             echo "- \`outputs_dev/\` scope: cumulative across publications and legacy history"
+            echo "- Post-publication main validation: \`pull-request-validation\`"
             echo "- Job status: **${{ job.status }}**"
           } >> "$GITHUB_STEP_SUMMARY"
