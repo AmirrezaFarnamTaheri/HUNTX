@@ -158,19 +158,26 @@ def _cmd_run(args):
         raise SystemExit(1) from exc
 
     if not args.no_auto_deliver:
-        try:
-            _deliver_updates()
-        except (Exception, SystemExit):
-            logger.exception("Post-run auto-delivery failed; durable run output is preserved")
-            if execution is not None:
-                execution.summary["post_run_delivery_failures"] = int(
-                    execution.summary.get("post_run_delivery_failures", 0)
-                ) + 1
-                delivery_health = evaluate_run_health(
-                    execution.summary,
-                    no_publish=args.no_publish,
-                )
-                emit_run_health(execution.summary, delivery_health, logger=logger)
+        if execution is not None and not execution.summary.get("release_eligible"):
+            logger.warning(
+                "Post-run auto-delivery skipped: the run is not release "
+                "eligible, so its built artifacts must not reach subscribers; "
+                "the last verified release remains in service."
+            )
+        else:
+            try:
+                _deliver_updates()
+            except (Exception, SystemExit):
+                logger.exception("Post-run auto-delivery failed; durable run output is preserved")
+                if execution is not None:
+                    execution.summary["post_run_delivery_failures"] = int(
+                        execution.summary.get("post_run_delivery_failures", 0)
+                    ) + 1
+                    delivery_health = evaluate_run_health(
+                        execution.summary,
+                        no_publish=args.no_publish,
+                    )
+                    emit_run_health(execution.summary, delivery_health, logger=logger)
 
 
 def _cmd_bot(args):

@@ -1,6 +1,7 @@
 import base64
 import binascii
 import json
+import math
 import re
 from typing import Any, Dict, List
 
@@ -53,7 +54,7 @@ def strip_proxy_remark(uri: str) -> str:
 def _country_to_flag(code: str) -> str:
     """Convert ISO 2-letter country code to emoji flag."""
     code = code.upper().strip()
-    if len(code) != 2 or not code.isalpha():
+    if len(code) != 2 or not code.isascii() or not code.isalpha() or code == "ZZ":
         return "🌐"
     return chr(ord(code[0]) + 127397) + chr(ord(code[1]) + 127397)
 
@@ -96,7 +97,10 @@ def format_enriched_remark(uri: str, counter: dict, metadata: dict | None = None
     if not metadata:
         tag = f'{scheme}-{idx}'
     else:
-        country = metadata.get('country', 'DE').upper()
+        raw_country = metadata.get('country')
+        country = raw_country.strip().upper() if isinstance(raw_country, str) else 'ZZ'
+        if len(country) != 2 or not country.isascii() or not country.isalpha():
+            country = 'ZZ'
         flag = _country_to_flag(country)
         op = metadata.get('operator') or _detect_operator(uri)
         op_tag = f"-{op}" if op else ""
@@ -104,10 +108,17 @@ def format_enriched_remark(uri: str, counter: dict, metadata: dict | None = None
 
         parts = [f"{flag} {country}{op_tag}", proto_tag]
 
-        if 'latency_ms' in metadata:
-            parts.append(f"⚡{metadata['latency_ms']}ms")
-        if 'health_grade' in metadata:
-            parts.append(f"⭐{metadata['health_grade']}")
+        latency = metadata.get('latency_ms')
+        if (
+            isinstance(latency, (int, float))
+            and not isinstance(latency, bool)
+            and latency >= 0
+            and math.isfinite(latency)
+        ):
+            parts.append(f"⚡{latency}ms")
+        grade = metadata.get('health_grade')
+        if isinstance(grade, str) and grade.strip() not in ('', '-'):
+            parts.append(f"⭐{grade.strip()}")
         parts.append(f"#{idx:03d}")
         tag = " | ".join(parts)
 
@@ -125,12 +136,13 @@ def add_clean_remark(uri: str, counter: dict, metadata: dict | None = None) -> s
 
     if uri.startswith('vmess://'):
         try:
-            b64 = uri[8:]
+            body, marker, fragment = uri.partition("#")
+            b64 = body[8:]
             raw = _b64_decode_safe(b64)
             obj = json.loads(raw)
             obj['ps'] = tag
             encoded = json.dumps(obj, separators=(',', ':')).encode()
-            return 'vmess://' + base64.b64encode(encoded).decode()
+            return 'vmess://' + base64.b64encode(encoded).decode() + marker + fragment
         except (binascii.Error, UnicodeDecodeError, ValueError, json.JSONDecodeError):
             return uri
     idx = uri.rfind('#')

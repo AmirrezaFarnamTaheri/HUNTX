@@ -160,6 +160,9 @@ func Verify(root string, manifest Manifest) error {
 	if manifest.Files == nil {
 		return errors.New("runtime manifest files must be an object")
 	}
+	if _, ok := manifest.Files["state.db"]; !ok {
+		return errors.New("generation is missing state.db")
+	}
 	resolvedRoot, err := filepath.EvalSymlinks(root)
 	if err != nil {
 		return err

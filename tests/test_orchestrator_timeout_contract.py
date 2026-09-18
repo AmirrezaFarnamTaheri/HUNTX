@@ -30,7 +30,7 @@ class TestOrchestratorTimeoutContract(unittest.TestCase):
         )
         orchestrator.config = SimpleNamespace(sources=[source], routes=[route])
         orchestrator.max_workers = 1
-        orchestrator._get_seen_file_max_id = MagicMock(return_value=0)
+        orchestrator._get_build_window_start = MagicMock(return_value="2000-01-01 00:00:00")
 
         async def worker(_queue, results, _lock) -> None:
             results["ok"] += 1
@@ -105,5 +105,7 @@ class TestOrchestratorTimeoutContract(unittest.TestCase):
 
         self.assertEqual(summary["status"], "timed_out")
         self.assertTrue(summary["partial_export_enabled"])
-        orchestrator._export_outputs.assert_called_once()
+        # Partial artifacts are diagnostic only: the last release survives.
+        orchestrator._export_outputs.assert_not_called()
         orchestrator._export_dev_outputs.assert_called_once()
+        self.assertFalse(summary["release_eligible"])

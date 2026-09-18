@@ -454,6 +454,7 @@ class StateRepo:
         record_types: List[str],
         allowed_source_ids: List[str],
         min_seen_file_id: Optional[int] = None,
+        min_ingested_at: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         if not record_types or not allowed_source_ids:
             return []
@@ -466,6 +467,9 @@ class StateRepo:
             if min_seen_file_id is not None:
                 where_extra = " AND s.id > ?"
                 args.append(int(min_seen_file_id))
+            if min_ingested_at is not None:
+                where_extra += " AND s.ingested_at >= ?"
+                args.append(min_ingested_at)
 
             # source_observation_id binds each normalized record to the exact
             # seen_files observation whose source identity authorized it.
@@ -684,6 +688,11 @@ class StateRepo:
                         SELECT DISTINCT sf.raw_hash
                         FROM seen_files sf
                         WHERE sf.status != 'pending'
+                          AND NOT EXISTS (
+                              SELECT 1 FROM seen_files pending
+                              WHERE pending.raw_hash = sf.raw_hash
+                                AND pending.status = 'pending'
+                          )
                           AND sf.raw_hash NOT IN (
                               SELECT DISTINCT r.source_file_hash
                               FROM records r
@@ -694,7 +703,15 @@ class StateRepo:
                         list(self._BLOB_DEPENDENT_FORMATS),
                     )
                 else:
-                    cursor = conn.execute("SELECT DISTINCT raw_hash FROM seen_files WHERE status != 'pending'")
+                    cursor = conn.execute("""
+                        SELECT DISTINCT sf.raw_hash FROM seen_files sf
+                        WHERE sf.status != 'pending'
+                          AND NOT EXISTS (
+                              SELECT 1 FROM seen_files pending
+                              WHERE pending.raw_hash = sf.raw_hash
+                                AND pending.status = 'pending'
+                          )
+                        """)
                 return [row["raw_hash"] for row in cursor.fetchall()]
         except Exception as e:
             logger.error(f"Failed to get processed hashes: {e}")
@@ -755,7 +772,18 @@ class StateRepo:
                     still_referenced = "1=1"
                     ref_params = []
 
-                age_clause = "ingested_at < datetime('now', ?) AND status != 'pending'"
+                # Remove expired children before their observations: the exact
+                # provenance foreign key deliberately uses ON DELETE RESTRICT.
+                c = conn.execute("DELETE FROM records WHERE created_at < datetime('now', ?)", (f"-{days} days",))
+                res["records"] = c.rowcount
+
+                # A fresh record still needs its observation, even when its raw
+                # bytes are not required by the format at build time.
+                age_clause = (
+                    "ingested_at < datetime('now', ?) AND status != 'pending' "
+                    "AND NOT EXISTS (SELECT 1 FROM records r "
+                    "WHERE r.source_observation_id = seen_files.id)"
+                )
 
                 # 1. Raw hashes eligible for blob deletion: old, non-pending,
                 #    and not still referenced by an active blob-dependent record.
@@ -775,11 +803,7 @@ class StateRepo:
                 )
                 res["seen_files"] = c.rowcount
 
-                # 3. Delete records
-                c = conn.execute("DELETE FROM records WHERE created_at < datetime('now', ?)", (f"-{days} days",))
-                res["records"] = c.rowcount
-
-                # 4. Delete published_artifacts
+                # 3. Delete published_artifacts
                 c = conn.execute(
                     "DELETE FROM published_artifacts WHERE published_at < datetime('now', ?)", (f"-{days} days",)
                 )

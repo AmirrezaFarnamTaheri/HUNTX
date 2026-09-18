@@ -65,6 +65,7 @@ def get_records_for_governed_build(
     allowed_source_ids: list[str],
     *,
     min_seen_file_id: Optional[int] = None,
+    min_ingested_at: Optional[str] = None,
     publication_tier: str = "compatible",
     require_fresh_probe: bool = False,
     now_epoch: Optional[float] = None,
@@ -78,6 +79,9 @@ def get_records_for_governed_build(
     if min_seen_file_id is not None:
         extra += " AND s.id > ?"
         args.append(int(min_seen_file_id))
+    if min_ingested_at is not None:
+        extra += " AND s.ingested_at >= ?"
+        args.append(min_ingested_at)
     verdict_join = ""
     verdict_where = ""
     if publication_tier == "secure":

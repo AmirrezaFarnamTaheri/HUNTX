@@ -118,8 +118,10 @@ def checkpoint_state(db_path: Path, raw_dir: Path) -> dict[str, Any]:
 
     with sqlite3.connect(db_path, timeout=30, isolation_level=None) as conn:
         conn.row_factory = sqlite3.Row
-        checkpoint = conn.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
         conn.execute("PRAGMA optimize")
+        checkpoint = conn.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
+        if checkpoint is None or checkpoint[0] != 0 or checkpoint[1] != checkpoint[2]:
+            raise RuntimeError("state.db checkpoint is busy or incomplete; refusing database-only handoff")
         quick_check = conn.execute("PRAGMA quick_check").fetchone()
         if not quick_check or quick_check[0] != "ok":
             raise RuntimeError(f"state.db failed quick_check: {quick_check}")

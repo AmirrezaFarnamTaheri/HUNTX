@@ -10,7 +10,7 @@ from ..state.repo import StateRepo
 from ..state.verdict_store import get_records_for_governed_build
 
 _RecordList = list[dict[str, Any]]
-_QueryKey = tuple[str, bool, tuple[str, ...], tuple[str, ...], int | None]
+_QueryKey = tuple[str, bool, tuple[str, ...], tuple[str, ...], int | None, str | None]
 
 
 class _GovernedRepoProxy(StateRepo):
@@ -32,12 +32,14 @@ class _GovernedRepoProxy(StateRepo):
         record_types: list[str],
         allowed_source_ids: list[str],
         min_seen_file_id: Optional[int] = None,
+        min_ingested_at: Optional[str] = None,
     ) -> list[dict[str, Any]]:
         return get_records_for_governed_build(
             self.db,
             record_types,
             allowed_source_ids,
             min_seen_file_id=min_seen_file_id,
+            min_ingested_at=min_ingested_at,
             publication_tier=self._publication_tier,
             require_fresh_probe=self._require_fresh_probe,
         )
@@ -72,7 +74,7 @@ class GovernedBuildPipeline(BuildPipeline):
         formats = tuple(sorted({str(value) for value in route_config["formats"]}))
         sources = tuple(sorted({str(value) for value in route_config.get("from_sources", [])}))
         min_seen_file_id = route_config.get("min_seen_file_id")
-        return tier, require_fresh_probe, formats, sources, min_seen_file_id
+        return tier, require_fresh_probe, formats, sources, min_seen_file_id, route_config.get("min_ingested_at")
 
     def _records_for_route(
         self,
@@ -101,6 +103,7 @@ class GovernedBuildPipeline(BuildPipeline):
                     list(key[2]),
                     list(key[3]),
                     min_seen_file_id=key[4],
+                    **({"min_ingested_at": key[5]} if key[5] is not None else {}),
                 )
                 future.set_result(records)
             except Exception as exc:

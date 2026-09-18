@@ -22,9 +22,9 @@ from ..pipeline.build import BuildPipeline
 from ..pipeline.publish import PublishPipeline
 from ..formats.npvt import strip_proxy_remark, add_clean_remark
 from ..config.schema import AppConfig
-from ..utils.safe_names import safe_component
 from ..utils.atomic import atomic_write
 from ..connectors.base import maybe_await
+from .output_ownership import output_filename
 
 logger = logging.getLogger(__name__)
 
@@ -200,20 +200,8 @@ class Orchestrator:
 
     @staticmethod
     def _output_filename(route: str, fmt: str) -> str:
-        """Determine the output filename for a route+format pair."""
-        safe_route = safe_component(route, default="route")
-        if fmt.endswith(".decoded.json"):
-            base = safe_component(fmt.replace(".decoded.json", ""), default="decoded")
-            return f"{safe_route}_{base}_decoded.json"
-        elif fmt.endswith(".singbox.json"):
-            base = safe_component(fmt.replace(".singbox.json", ""), default="singbox")
-            return f"{safe_route}_{base}_singbox.json"
-        elif fmt.endswith(".b64sub"):
-            base = safe_component(fmt.replace(".b64sub", ""), default="b64sub")
-            return f"{safe_route}_{base}_b64sub.txt"
-        else:
-            safe_fmt = safe_component(fmt, default="fmt")
-            return f"{safe_route}.{safe_fmt}"
+        """Use the shared route/format naming contract."""
+        return output_filename(route, fmt)
 
     # ------------------------------------------------------------------
     # Dev output export
@@ -238,9 +226,19 @@ class Orchestrator:
         manifest: dict = {}  # {uri_string: first_seen_epoch}
         if manifest_path.exists():
             try:
-                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                loaded = json.loads(manifest_path.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, OSError) as e:
                 logger.warning(f"[DevExport] Could not read manifest, starting fresh: {e}")
+            else:
+                # Only numeric first_seen timestamps participate in dedup/sort;
+                # anything else would crash the deterministic sort below.
+                manifest = {
+                    uri: seen
+                    for uri, seen in loaded.items()
+                    if isinstance(seen, (int, float)) and not isinstance(seen, bool)
+                }
+                if len(manifest) != len(loaded):
+                    logger.warning("[DevExport] Dropped %s manifest entr(y/ies) with non-numeric first_seen", len(loaded) - len(manifest))
 
         # ── Add all known npvt/npvtsub records from state DB ────────
         source_ids = [s.id for s in self.config.sources]
@@ -320,17 +318,20 @@ class Orchestrator:
     # Worker helpers
     # ------------------------------------------------------------------
 
-    def _get_seen_file_max_id(self) -> int:
-        """Return the highest seen_files.id currently stored."""
+    def _get_build_window_start(self, run_started_at: datetime.datetime | None = None) -> str:
+        """Resolve one UTC ingestion cutoff per run; never infer time from IDs."""
+        raw = os.environ.get("HUNTX_OUTPUT_RETENTION_DAYS", str(self.OUTPUT_RETENTION_DAYS))
         try:
-            with self.db.connect() as conn:
-                row = conn.execute("SELECT COALESCE(MAX(id), 0) AS max_id FROM seen_files").fetchone()
-                if not row:
-                    return 0
-                return int(row["max_id"] or 0)
-        except Exception as e:
-            logger.warning(f"[Orchestrator] Could not read seen_files max id: {e}")
-            return 0
+            days = int(raw)
+            if days <= 0:
+                raise ValueError
+        except ValueError as exc:
+            raise ValueError("HUNTX_OUTPUT_RETENTION_DAYS must be a positive integer") from exc
+        start = run_started_at or datetime.datetime.now(datetime.timezone.utc)
+        if start.tzinfo is None:
+            raise ValueError("Run start must be timezone-aware")
+        cutoff = start.astimezone(datetime.timezone.utc) - datetime.timedelta(days=days)
+        return cutoff.strftime("%Y-%m-%d %H:%M:%S")
 
     async def _ingest_one_source_async(self, src_conf) -> bool:
         """Ingest a single source asynchronously."""
@@ -474,7 +475,7 @@ class Orchestrator:
         total_sources = len(self.config.sources)
         total_routes = len(self.config.routes)
         effective_workers = min(self.max_workers, total_sources)
-        seen_file_cutoff_id = self._get_seen_file_max_id()
+        min_ingested_at = self._get_build_window_start()
 
         # Initialize results early so they exist even if we timeout early
         results = {"ok": 0, "err": 0}
@@ -503,7 +504,7 @@ class Orchestrator:
             f"[Orchestrator] ╚══════════════════════════════════════════╝\n"
             f"[Orchestrator] sources={total_sources}  routes={total_routes}  "
             f"workers={effective_workers}  fetch_windows={self.fetch_windows}  "
-            f"delta_seen_files_id>{seen_file_cutoff_id}  timeout={timeout}"
+            f"ingested_at>={min_ingested_at}  timeout={timeout}"
         )
 
         # ── Phase 1: Ingestion (async queue-based) ───────────────────
@@ -580,7 +581,7 @@ class Orchestrator:
                             "name": route.name,
                             "formats": route.formats,
                             "from_sources": route.from_sources,
-                            "min_seen_file_id": seen_file_cutoff_id,
+                            "min_ingested_at": min_ingested_at,
                         }
                         build_results = self.build_pipeline.run(route_dict)
                         if not build_results:

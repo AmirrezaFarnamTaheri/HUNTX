@@ -51,6 +51,12 @@ class RuntimeGenerationTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "invalid generation"):
             validate_pointer(pointer)
 
+    def test_verifier_rejects_generation_without_database(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manifest = {"schema_version": 1, "generation": "run-1", "files": {}}
+            with self.assertRaisesRegex(RuntimeError, "generation is missing state.db"):
+                verify_manifest(Path(temp_dir), manifest)
+
     def test_manifest_json_is_deterministic(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

@@ -363,3 +363,59 @@ class TestGeneratedMainSync(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_publisher_rejects_degraded_producer_before_downloads():
+    """A successful huntx-production run without its release artifacts must fail
+    the publisher's source resolution, not surface as a missing-artifact error."""
+    workflow = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "publish-generated-outputs.yml").read_text(encoding="utf-8")
+    resolution = workflow.split("Resolve and validate source run", 1)[1].split("- name: Checkout publisher control plane", 1)[0]
+    assert "listWorkflowRunArtifacts" in resolution
+    assert "huntx-output-" in resolution
+    fail_index = resolution.index("core.setFailed")
+    assert fail_index < resolution.index("core.setOutput('run_id'")
+
+
+def _resolution_script() -> str:
+    workflow = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "publish-generated-outputs.yml").read_text(encoding="utf-8")
+    return workflow.split("Resolve and validate source run", 1)[1].split("- name: Checkout publisher control plane", 1)[0]
+
+
+def test_publisher_treats_an_intentional_no_release_as_a_clean_no_op():
+    """A producer that deliberately withholds a release must keep the current
+    deployment green instead of failing the downstream publisher."""
+    resolution = _resolution_script()
+    assert "noReleaseVerdictName" in resolution
+    assert "huntx-no-release-" in resolution
+    workflow_run_branch = resolution.split("if (context.eventName === 'workflow_run')", 1)[1]
+    assert "intentional" in workflow_run_branch
+    notice = workflow_run_branch.index("core.notice(")
+    failed = workflow_run_branch.index("core.setFailed(")
+    # The intentional path skips with a notice before the anomalous path fails.
+    assert notice < failed
+
+
+def test_publisher_only_downloads_after_the_readiness_gate():
+    workflow = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "publish-generated-outputs.yml").read_text(encoding="utf-8")
+    body = workflow.split("- name: Checkout publisher control plane", 1)[1]
+    # A clean skip must not reach the receipt verifier or diagnostics download.
+    assert "if: steps.source.outputs.ready == 'true'" in body
+    verify = workflow.split("- name: Verify current release eligibility", 1)[1]
+    verify = verify.split("- name: Build verified dashboard data", 1)[0]
+    assert "if: steps.source.outputs.ready == 'true'" in verify
+
+
+def test_publisher_skips_legacy_runs_without_a_receipt_instead_of_failing():
+    workflow = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "publish-generated-outputs.yml").read_text(encoding="utf-8")
+    verify = workflow.split("- name: Verify current release eligibility", 1)[1]
+    verify = verify.split("- name: Build verified dashboard data", 1)[0]
+    assert "release-receipt.json" in verify
+    assert "predates the release-receipt protocol" in verify
+
+
+def test_producer_publishes_a_no_release_verdict_when_packaging_is_withheld():
+    workflow = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "huntx.yml").read_text(encoding="utf-8")
+    step = workflow.split("- name: Record explicit no-release verdict", 1)[1]
+    step = step.split("- name: Upload checkpoint handoff", 1)[0]
+    assert "steps.package.outputs.ready != 'true'" in step
+    assert "huntx-no-release-${{ github.run_id }}-${{ github.run_attempt }}" in step

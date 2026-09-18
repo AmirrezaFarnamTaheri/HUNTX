@@ -44,8 +44,8 @@ def test_build_handler_failure_escapes_route_worker() -> None:
 def test_release_status_is_decided_before_export() -> None:
     orch = source("src/huntx/core/hardened_orchestrator.py")
     assert 'status = "partial"' in orch[orch.index("for completed_build in done:"):orch.index("pending_publish:")]
-    assert 'status = "partial"' in orch[orch.index("for completed_publish in done:"):orch.index("should_export =")]
-    assert orch.index("_classify_completed_status(", orch.index("route_destinations")) < orch.index("should_export =")
+    assert 'status = "partial"' in orch[orch.index("for completed_publish in done:"):orch.index("release_eligible = release_eligible and status")]
+    assert orch.index("_classify_completed_status(", orch.index("route_destinations")) < orch.index("release_eligible = release_eligible and status")
 
 
 def test_global_deadline_is_wired_through_mutation_workers() -> None:

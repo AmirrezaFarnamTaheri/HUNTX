@@ -28,13 +28,15 @@ type Entry struct {
 }
 
 type Catalog struct {
-	SchemaVersion   int     `json:"schema_version"`
-	GeneratedAt     string  `json:"generated_at"`
-	ReleaseManifest string  `json:"release_manifest"`
-	TotalFiles      int     `json:"total_files"`
-	TotalSize       int64   `json:"total_size"`
-	TotalSizeString string  `json:"total_size_str"`
-	Files           []Entry `json:"files"`
+	IntentionalEmpty bool    `json:"intentional_empty,omitempty"`
+	MinIngestedAt    string  `json:"min_ingested_at,omitempty"`
+	SchemaVersion    int     `json:"schema_version"`
+	GeneratedAt      string  `json:"generated_at"`
+	ReleaseManifest  string  `json:"release_manifest"`
+	TotalFiles       int     `json:"total_files"`
+	TotalSize        int64   `json:"total_size"`
+	TotalSizeString  string  `json:"total_size_str"`
+	Files            []Entry `json:"files"`
 }
 
 func Generate(dataDir, docsDir string, generatedAt time.Time) (Catalog, error) {
@@ -46,6 +48,18 @@ func Generate(dataDir, docsDir string, generatedAt time.Time) (Catalog, error) {
 	}
 	if err := releasemanifest.Verify(dist, manifest); err != nil {
 		return Catalog{}, err
+	}
+	intentionalEmpty := releasemanifest.IsEmptyRelease(manifest)
+	var emptyMarker releasemanifest.EmptyRelease
+	if intentionalEmpty {
+		emptyMarker, err = releasemanifest.ReadEmptyRelease(filepath.Join(dist, releasemanifest.EmptyReleaseArtifact))
+		if err != nil {
+			return Catalog{}, err
+		}
+		generatedAt, err = time.Parse(time.RFC3339Nano, emptyMarker.GeneratedAt)
+		if err != nil {
+			return Catalog{}, err
+		}
 	}
 	if err := os.MkdirAll(docsDir, 0o755); err != nil {
 		return Catalog{}, err
@@ -70,6 +84,9 @@ func Generate(dataDir, docsDir string, generatedAt time.Time) (Catalog, error) {
 		}
 		if err := runtimegen.WriteBytesAtomic(destination, payload, 0o600); err != nil {
 			return Catalog{}, err
+		}
+		if intentionalEmpty {
+			continue
 		}
 		entries = append(entries, Entry{
 			Filename:    filepath.Base(record.Path),
@@ -96,13 +113,15 @@ func Generate(dataDir, docsDir string, generatedAt time.Time) (Catalog, error) {
 	}
 
 	catalog := Catalog{
-		SchemaVersion:   1,
-		GeneratedAt:     generatedAt.UTC().Format(time.RFC3339Nano),
-		ReleaseManifest: "artifacts/release/manifest.json",
-		TotalFiles:      len(entries),
-		TotalSize:       total,
-		TotalSizeString: formatSize(total),
-		Files:           entries,
+		IntentionalEmpty: intentionalEmpty,
+		MinIngestedAt:    emptyMarker.MinIngestedAt,
+		SchemaVersion:    1,
+		GeneratedAt:      generatedAt.UTC().Format(time.RFC3339Nano),
+		ReleaseManifest:  "artifacts/release/manifest.json",
+		TotalFiles:       len(entries),
+		TotalSize:        total,
+		TotalSizeString:  formatSize(total),
+		Files:            entries,
 	}
 	if err := ValidateCatalog(catalog); err != nil {
 		return Catalog{}, err
@@ -178,7 +197,14 @@ func ValidateCatalog(catalog Catalog) error {
 	if catalog.SchemaVersion != 1 {
 		return errors.New("unsupported catalog schema")
 	}
-	if catalog.TotalFiles <= 0 || catalog.TotalFiles != len(catalog.Files) {
+	if catalog.IntentionalEmpty {
+		if catalog.TotalFiles != 0 || len(catalog.Files) != 0 || catalog.Files == nil || catalog.TotalSize != 0 {
+			return errors.New("intentional empty catalog contains artifacts")
+		}
+		if _, err := time.Parse(time.RFC3339Nano, catalog.GeneratedAt); err != nil || catalog.ReleaseManifest == "" {
+			return errors.New("intentional empty catalog requires release metadata")
+		}
+	} else if catalog.TotalFiles <= 0 || catalog.TotalFiles != len(catalog.Files) {
 		return errors.New("catalog file count mismatch")
 	}
 	var total int64

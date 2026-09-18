@@ -99,3 +99,18 @@ def test_cloudflare_anycast_geo_is_not_fabricated() -> None:
     assert geo["latitude"] is None
     assert geo["longitude"] is None
     assert geo["geo_source"] == "anycast-provider"
+
+
+def test_production_packaging_requires_current_frontend_assets() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "huntx.yml").read_text(encoding="utf-8")
+    package = workflow.split("          try_package() {", 1)[1].split("          restore_previous_outputs()", 1)[0]
+    required = []
+    for line in package.splitlines():
+        stripped = line.strip()
+        for prefix in ('test -f "$candidate_dir/', 'test -s "$candidate_dir/'):
+            if stripped.startswith(prefix):
+                required.append(stripped[len(prefix):].split('"', 1)[0])
+    assert {"index.html", "assets/js/app.js", "assets/css/tailwind.css", "sw.js"} <= set(required)
+    assert "assets/js/bundle.js" not in required
+    for relative in required:
+        assert (ROOT / "docs" / relative).is_file(), relative

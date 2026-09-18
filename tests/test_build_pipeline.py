@@ -180,6 +180,7 @@ class TestGovernedBuildPipeline(unittest.TestCase):
             ["fmt1"],
             ["src1"],
             min_seen_file_id=7,
+            min_ingested_at=None,
             publication_tier="compatible",
             require_fresh_probe=False,
         )

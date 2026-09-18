@@ -271,7 +271,7 @@ def test_full_release_completes_with_minority_degraded_sources():
     orchestrator.config = config
     orchestrator.max_workers = 3
     orchestrator.repo = object()
-    orchestrator._get_seen_file_max_id = lambda: 0
+    orchestrator._get_build_window_start = lambda: "2000-01-01 00:00:00"
 
     async def ingest_worker(queue, results, result_lock):
         while not queue.empty():
@@ -304,5 +304,7 @@ def test_full_release_completes_with_minority_degraded_sources():
     assert summary["ingest_err"] == 1
     assert summary["degraded_source_failures"] == 1
     assert summary["total_artifacts"] == 1
-    assert summary["publish_attempts"] == 1
+    # Any source failure blocks replacing the last release.
+    assert summary["publish_attempts"] == 0
     assert summary["publish_failures"] == 0
+    assert summary["release_eligible"] is False

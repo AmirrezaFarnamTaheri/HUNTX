@@ -55,6 +55,14 @@ jobs:
               `huntx-logs-${run.id}-${run.run_attempt}`,
             ];
 
+            function noReleaseVerdictName(run) {
+              return `huntx-no-release-${run.id}-${run.run_attempt}`;
+            }
+
+            // A run that deliberately withheld a release uploads an explicit
+            // no-release verdict. That lets the publisher tell an intentional
+            // "nothing to publish" (safety net or degraded producer) from a
+            // genuinely anomalous missing artifact.
             async function publicationArtifacts(run) {
               const { data } = await github.rest.actions.listWorkflowRunArtifacts({
                 owner: context.repo.owner,
@@ -70,7 +78,9 @@ jobs:
               const missing = requiredArtifactNames(run).filter(
                 name => !available.has(name),
               );
-              return { ready: missing.length === 0, missing };
+              const intentional = !available.has(`huntx-output-${run.id}-${run.run_attempt}`)
+                && available.has(noReleaseVerdictName(run));
+              return { ready: missing.length === 0, missing, intentional };
             }
 
             let runId;
@@ -80,6 +90,20 @@ jobs:
             if (context.eventName === 'workflow_run') {
               runId = Number(context.payload.workflow_run.id);
               expectedAttempt = Number(context.payload.workflow_run.run_attempt);
+              const trigger = await publicationArtifacts({ id: runId, run_attempt: expectedAttempt });
+              if (!trigger.ready) {
+                if (trigger.intentional) {
+                  core.setOutput('ready', 'false');
+                  core.notice(
+                    `Producer run ${runId} intentionally published no release; the current deployment is preserved.`,
+                  );
+                  return;
+                }
+                core.setFailed(
+                  `Run ${runId} is missing required publication artifacts: ${trigger.missing.join(', ')}`,
+                );
+                return;
+              }
             } else if (context.eventName === 'workflow_dispatch') {
               runId = Number('${{ inputs.source_run_id }}');
               expectedAttempt = Number('${{ inputs.source_run_attempt }}');
@@ -106,9 +130,10 @@ jobs:
                   selectedRun = candidate;
                   break;
                 }
-                core.info(
-                  `Skipping run ${candidate.id}: missing or expired publication artifacts: ${artifacts.missing.join(', ')}`,
-                );
+                const skipReason = artifacts.intentional
+                  ? 'intentionally published no release'
+                  : `missing or expired publication artifacts: ${artifacts.missing.join(', ')}`;
+                core.info(`Skipping run ${candidate.id}: ${skipReason}.`);
               }
 
               if (!selectedRun) {
@@ -237,12 +262,41 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Download structured runtime diagnostics
+        if: steps.source.outputs.ready == 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: huntx-logs-${{ steps.source.outputs.run_id }}-${{ steps.source.outputs.run_attempt }}
+          path: ${{ runner.temp }}/huntx-publication/logs
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.source.outputs.run_id }}
+
+      - name: Verify current release eligibility and immutable timestamp
+        id: release
+        if: steps.source.outputs.ready == 'true'
+        env:
+          PYTHONPATH: src
+          SOURCE_ROOT: ${{ runner.temp }}/huntx-publication
+          SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ steps.source.outputs.run_attempt }}
+        run: |
+          set -euo pipefail
+          # A source run predating the release-receipt protocol has no
+          # receipt; skip it cleanly so the receipt requirement can never
+          # turn a preserved deployment red during rollout.
+          if [[ ! -s "$SOURCE_ROOT/logs/release-receipt.json" ]]; then
+            echo "::notice title=Legacy source run::Run $SOURCE_RUN_ID predates the release-receipt protocol; the current deployment is preserved."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python scripts/check_release_eligibility.py             --verify-receipt "$SOURCE_ROOT/logs/release-receipt.json"             --dist "$SOURCE_ROOT/dist"             --run-id "$SOURCE_RUN_ID" --run-attempt "$SOURCE_RUN_ATTEMPT"
+
       - name: Build verified dashboard data from release dist
         if: steps.source.outputs.ready == 'true'
         env:
           SOURCE_ROOT: ${{ runner.temp }}/huntx-publication
           SOURCE_DIST: ${{ runner.temp }}/huntx-publication/dist
-          SOURCE_CREATED_AT: ${{ steps.source.outputs.created_at }}
+          SOURCE_CREATED_AT: ${{ steps.release.outputs.generated_at }}
           DASHBOARD_ROOT: ${{ runner.temp }}/huntx-dashboard/docs
         run: |
           set -euo pipefail
@@ -258,11 +312,20 @@ jobs:
           test -s "$DASHBOARD_ROOT/catalog.json"
           # Refresh the SPA's baked fallback layer from the SAME verified run so
           # bundle.js can never advertise stale sample data.
-          decoded="$(find "$SOURCE_ROOT/checkpoint" -name 'all_sources.npvt.decoded.json' -print -quit)"
-          test -n "$decoded" || { echo "::error::decoded artifact missing from checkpoint handoff"; exit 1; }
+          decoded="$(find "$SOURCE_DIST" \( -name 'all_sources.npvt.decoded.json' -o -name 'all_sources_npvt_decoded.json' \) -print -quit)"
+          # Remove checkout's historical data before generating the fallback.
+          rm -rf outputs
           mkdir -p outputs
-          cp "$decoded" outputs/all_sources.npvt.decoded.json
-          HUNTX_GENERATED_AT="$SOURCE_CREATED_AT" python scripts/generate_site_data.py
+          if PYTHONPATH=src python scripts/check_release_eligibility.py --empty-release --dist "$SOURCE_DIST"; then
+            echo "Verified explicit empty release: no decoded artifact is required."
+          else
+            test -n "$decoded" || { echo "::error::decoded artifact missing from checkpoint handoff"; exit 1; }
+            cp "$decoded" outputs/all_sources.npvt.decoded.json
+          fi
+          # Dev history remains cumulative in the snapshot, never fresh fallback data.
+          mkdir -p "$SOURCE_ROOT/empty-dev"
+          HUNTX_GENERATED_AT="$SOURCE_CREATED_AT" HUNTX_FALLBACK_DEV="$SOURCE_ROOT/empty-dev" \
+            python -c 'import os; from pathlib import Path; from scripts import generate_site_data as site; site.OUTPUTS_DEV_DIR = Path(os.environ["HUNTX_FALLBACK_DEV"]); site.main()'
           cp -a "$DASHBOARD_ROOT/catalog.json" docs/catalog.json
           rm -rf docs/artifacts
           cp -a "$DASHBOARD_ROOT/artifacts" docs/artifacts
@@ -290,7 +353,7 @@ jobs:
           SOURCE_RUN_ATTEMPT: ${{ steps.source.outputs.run_attempt }}
           SOURCE_HEAD_SHA: ${{ steps.source.outputs.head_sha }}
           SOURCE_HEAD_BRANCH: ${{ steps.source.outputs.head_branch }}
-          SOURCE_CREATED_AT: ${{ steps.source.outputs.created_at }}
+          SOURCE_CREATED_AT: ${{ steps.release.outputs.generated_at }}
         run: |
           set -euo pipefail
           python -m compileall -q \

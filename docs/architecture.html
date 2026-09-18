@@ -354,6 +354,7 @@
       font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', 'Liberation Mono', 'Noto Sans Mono CJK SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', monospace;
       background: var(--bg);
       min-height: 100vh;
+      min-height: 100dvh;
       padding: 2rem;
       color: var(--text);
       transition: background 0.2s ease, color 0.2s ease;
@@ -2104,7 +2105,7 @@
       font: inherit;
       font-size: 0.75rem;
     }
-    .node-finder-input:focus-visible { outline: none; }
+    .node-finder-input:focus-visible { outline: 2px solid var(--frontend-stroke); outline-offset: 2px; }
     .node-finder-input::placeholder { color: var(--text-faint); }
     .node-finder kbd {
       padding: 0.1rem 0.32rem;

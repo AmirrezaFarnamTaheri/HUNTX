@@ -17,13 +17,31 @@ function safeAtob(b64Str) {
     clean += "=";
   }
   try {
+    let binary = "";
     if (typeof atob !== "undefined") {
-      return atob(clean);
-    }
-    if (typeof Buffer !== "undefined") {
+      binary = atob(clean);
+    } else if (typeof Buffer !== "undefined") {
       return Buffer.from(clean, "base64").toString("utf-8");
+    } else {
+      return "";
     }
-    return "";
+    // atob yields one character per byte; multi-byte UTF-8 payloads (Cyrillic,
+    // CJK, emoji node names) must be decoded explicitly or they render as
+    // Latin-1 mojibake.
+    if (typeof TextDecoder !== "undefined") {
+      const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+      // Strict first: a payload that is not valid UTF-8 is corruption,
+      // and silently replacing bad bytes with U+FFFD would let a
+      // corrupted node name reach the dashboard as if it were real.
+      // Fall back to replacement so a noisy-but-decodable payload still
+      // renders instead of being dropped.
+      try {
+        return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+      } catch (e) {
+        return new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+      }
+    }
+    return decodeURIComponent(escape(binary));
   } catch (e) {
     throw new Error("Invalid Base64 payload");
   }
@@ -111,12 +129,13 @@ export function decodeProxyURI(rawUri) {
       server: server || "",
       port: port || 443,
       uuid: uuid || "",
+      flow: params.get("flow") || "",
       encryption: params.get("encryption") || "none",
       security: params.get("security") || "none",
       transport: params.get("type") || "tcp",
       headerType: params.get("headerType") || "none",
       host: params.get("host") || "",
-      path: safeDecodeURI(params.get("path")),
+      path: params.get("path") || "",
       sni: params.get("sni") || "",
       alpn: params.get("alpn") || "",
       fingerprint: params.get("fp") || "",
@@ -151,7 +170,7 @@ export function decodeProxyURI(rawUri) {
       security: params.get("security") || "tls",
       transport: params.get("type") || "tcp",
       host: params.get("host") || "",
-      path: safeDecodeURI(params.get("path")),
+      path: params.get("path") || "",
       sni: params.get("sni") || "",
       alpn: params.get("alpn") || "",
       fingerprint: params.get("fp") || "",
@@ -175,9 +194,9 @@ export function decodeProxyURI(rawUri) {
       const [authB64, hostPort] = mainPart.split("@");
       try {
         const decodedAuth = safeAtob(authB64);
-        const [m, p] = decodedAuth.split(":");
-        method = m || "unknown";
-        password = p || "";
+        const splitAt = decodedAuth.indexOf(":");
+        method = splitAt === -1 ? "unknown" : decodedAuth.slice(0, splitAt);
+        password = splitAt === -1 ? "" : decodedAuth.slice(splitAt + 1);
       } catch (e) {
         method = "raw";
         password = authB64;
@@ -189,9 +208,9 @@ export function decodeProxyURI(rawUri) {
       try {
         const decoded = safeAtob(mainPart);
         const [auth, hostPort] = decoded.split("@");
-        const [m, p] = (auth || "").split(":");
-        method = m || "unknown";
-        password = p || "";
+        const splitAt = (auth || "").indexOf(":");
+        method = splitAt === -1 ? "unknown" : auth.slice(0, splitAt);
+        password = splitAt === -1 ? "" : auth.slice(splitAt + 1);
         const parsedHP = parseHostAndPort(hostPort, 8388);
         server = parsedHP.server;
         port = parsedHP.port;

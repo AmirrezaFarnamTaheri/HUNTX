@@ -108,3 +108,120 @@ test("mobile tabs expose horizontal scrolling rather than hiding overflow afford
   });
   expect(Math.abs(moved)).toBeGreaterThan(0);
 });
+
+
+test("checksum-valid empty release renders no bundled endpoints", async ({ page }) => {
+  const { createHash } = await import("node:crypto");
+  const artifact = JSON.stringify({ total: 0, protocols: {}, entries: [] });
+  const sha256 = createHash("sha256").update(artifact).digest("hex");
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await isolateLocalPage(page);
+  await page.route("**/catalog.json", (route) => route.fulfill({
+    json: { files: [{ filename: "all_sources.npvt.decoded.json", path: "artifacts/release/empty-test.json", sha256 }] }
+  }));
+  await page.route("**/artifacts/release/empty-test.json", (route) => route.fulfill({
+    contentType: "application/json", body: artifact
+  }));
+  await page.goto("/#proxies");
+  await expect(page.locator("#data-status-pill")).toContainText("Artifact integrity verified");
+  await expect(page.locator("#tab-count-proxies, #tab-proxies-count-badge")).toHaveText("0");
+  await expect(page.locator("#nodes-grid")).toContainText("No proxy endpoints match");
+  expect(errors).toEqual([]);
+});
+
+
+test("protocol inspector preserves names, credentials, flow and encoded paths", async ({ page }) => {
+  await isolateLocalPage(page);
+  await page.goto("/#decoder");
+  const input = page.locator("#decoder-single-input");
+  const output = page.locator("#inspector-output");
+  const vmess = "vmess://" + Buffer.from(JSON.stringify({ ps: "Тегеран 東京", add: "example.com", port: 443, id: "test-id" })).toString("base64");
+  await input.fill(vmess);
+  await page.locator("#btn-run-inspect").click();
+  await expect(output).toContainText("Тегеран 東京");
+  await input.fill("ss://" + Buffer.from("aes-256-gcm:pass:word:123").toString("base64") + "@example.com:8388");
+  await page.locator("#btn-run-inspect").click();
+  await expect(output).toContainText("pass:word:123");
+  await input.fill("vless://test-id@example.com:443?flow=xtls-rprx-vision&type=ws&path=%2Fapi%252Fws");
+  await page.locator("#btn-run-inspect").click();
+  await expect(output).toContainText("xtls-rprx-vision");
+  await expect(output).toContainText("/api%2Fws");
+});
+
+
+test("radar keeps diagnostics in the first desktop viewport and active tabs visibly focused", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await isolateLocalPage(page);
+  await page.route("**/catalog.json", route => route.fulfill({ json: { files: [] } }));
+  await page.goto("/");
+  await expect(page.locator(".radar-summary h1")).toBeVisible();
+  await expect(page.locator(".radar-description")).toContainText("Artifact checksums do not verify connectivity");
+  const diagnostics = await page.locator("#radar-diagnostics").boundingBox();
+  expect(diagnostics.y).toBeLessThan(600);
+  for (const theme of ["dark", "light"]) {
+    await page.evaluate(theme => { document.documentElement.className = theme; }, theme);
+    const tab = page.locator("#tab-btn-radar");
+    await tab.focus();
+    await expect(tab).toHaveCSS("outline-style", "solid");
+    await expect(tab).toHaveCSS("outline-width", "2px");
+    await expect(tab).toHaveCSS("box-shadow", "none");
+  }
+});
+
+
+test("keyboard users can skip navigation and dismiss feeds back to their trigger", async ({ page }) => {
+  await isolateLocalPage(page);
+  await page.goto("/");
+  await expect(page.locator(".radar-summary h1")).toBeVisible();
+  const skip = page.getByRole("link", { name: "Skip to dashboard" });
+  await skip.focus();
+  await expect(skip).toBeVisible();
+  await skip.press("Enter");
+  await expect(page.locator("#dashboard-main")).toBeFocused();
+  await page.locator("#tab-btn-radar").focus();
+  await page.keyboard.press("b");
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator("#tab-btn-radar")).toBeFocused();
+});
+
+test("subscription dialog metadata remains readable and fits narrow screens", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 900 });
+  await isolateLocalPage(page);
+  await page.goto("/");
+  await expect(page.locator(".radar-summary h1")).toBeVisible();
+  await page.locator("#tab-btn-radar").focus();
+  await page.keyboard.press("b");
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  const metrics = await dialog.evaluate(el => {
+    const sizes = [...el.querySelectorAll("*")]
+      .filter(node => node.getBoundingClientRect().width > 0 && [...node.childNodes].some(child => child.nodeType === 3 && child.textContent.trim()))
+      .map(node => parseFloat(getComputedStyle(node).fontSize));
+    return { smallest: Math.min(...sizes), width: el.scrollWidth, viewport: innerWidth };
+  });
+  expect(metrics.smallest).toBeGreaterThanOrEqual(12);
+  expect(metrics.width).toBeLessThanOrEqual(metrics.viewport);
+});
+
+
+test("artifact QR closure does not hide subsequent dialogs", async ({ page }) => {
+  await isolateLocalPage(page);
+  await page.route("**/catalog.json", route => route.fulfill({ json: { files: [] } }));
+  await page.goto("/");
+  await expect(page.locator(".radar-summary h1")).toBeVisible();
+  await page.locator("#tab-btn-radar").focus();
+  await page.evaluate(() => window.huntxApp.openArtifactQRModal({
+    filename: "sample.txt", path: "artifacts/release/sample.txt", description: "Local test fixture"
+  }));
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByRole("button", { name: "Close QR Modal", exact: true }).click();
+  await expect(page.locator("#tab-btn-radar")).toBeFocused();
+  await page.keyboard.press("b");
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator("#tab-btn-radar")).toBeFocused();
+});
