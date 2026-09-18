@@ -1,5 +1,11 @@
 # HUNTX Hardening Audit — 2026-07-12
 
+> **Historical record — 2026-07-12, superseded.** Its four unresolved critical/high findings (C-01, H-04, H-05, H-06, tracking issues #44â#47) were all resolved by PR #61; see CONVERGENCE_2026-07-27.md. The ~1.7 GB repository size it cites predates the data_archive removal (RW-12).
+>
+> This file is preserved as an audit trail. Current status is derived from the
+> repository's own checks and maintainer approval, never from this document.
+
+
 ## Executive summary
 
 This pass reviewed state persistence, ingestion concurrency, Telegram bot behavior,

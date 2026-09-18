@@ -1,6 +1,6 @@
 # HUNTX (GatherX) — Cyber Telemetry & Sovereign Ingestion Engine
 
-[![Go Tests](https://github.com/AmirrezaFarnamTaheri/HUNTX/actions/workflows/ci.yml/badge.svg)](https://github.com/AmirrezaFarnamTaheri/HUNTX/actions)
+[![Go Tests](https://github.com/AmirrezaFarnamTaheri/HUNTX/actions/workflows/pr-validation.yml/badge.svg)](https://github.com/AmirrezaFarnamTaheri/HUNTX/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-blue)](https://github.com/AmirrezaFarnamTaheri/HUNTX)
 [![Architecture: C4 Model](https://img.shields.io/badge/Architecture-C4%20Model-cyan)](#architecture)
@@ -25,7 +25,7 @@
 
 ## 🏗️ Architecture (C4)
 
-One model, three zoom levels. This section is the **single source of truth** for HUNTX diagrams — the former 3D topology page and the standalone C4 document were consolidated here. Shapes: rounded = person · box = system or container · cylinder = datastore · dashed border = optional or partial.
+One model, three zoom levels. This section is the **single source of truth** for HUNTX's C4 diagrams — the standalone C4 document was consolidated here (see `docs/C4_ARCHITECTURE.md` for the pointer). The interactive archify visualization at `docs/architecture.html` remains as a companion 3D map, linked from the dashboard. Shapes: rounded = person · box = system or container · cylinder = datastore · dashed border = optional or partial.
 
 ### Level 1 — System context
 
@@ -240,18 +240,22 @@ HUNTX/
 ├── docs/                      # GitHub Pages Static Site & Telemetry SPA
 │   ├── index.html             # Pre-rendered cyber telemetry dashboard
 │   ├── C4_ARCHITECTURE.md     # Pointer to the canonical C4 model (README#architecture)
-│   ├── DESIGN.md              # Master UI design tokens & accessibility specification
+│   ├── architecture.html      # Interactive archify visualization (3D Architecture Map)
 │   ├── DEVELOPMENT.md         # Developer guide & technical notes
 │   ├── USER_GUIDE.md          # Comprehensive user manual & bot commands
 │   ├── catalog.json           # SHA-256 verified artifact manifest
 │   ├── artifacts/dev/         # Published proxy bundles (JSON, TXT, Base64 Sub)
 │   └── assets/js/
-│       ├── bundle.js          # CORS-immune standalone single-file bundle
 │       ├── app.js             # Reactive UI state controller & ARIA modal manager
 │       ├── data.js            # Node dataset, hub coordinates & catalog fallback
 │       ├── decoder.js         # Multi-protocol client-side URI parser
 │       ├── globe.js           # 3D WebGL Canvas radar engine
-│       └── qrcode.js          # Standalone SVG QR code matrix generator
+│       ├── qrcode.js          # Standalone SVG QR code matrix generator
+│       ├── i18n.js            # Language packs & translation registry
+│       ├── rule-studio.js     # Rule composition studio & export preview
+│       ├── telemetry-stream.js# Live telemetry canvas data feed
+│       ├── wasm_exec.js       # Go WASM bridge & module bootstrap
+│       └── wasm-worker.js     # Off-main-thread WASM runtime worker
 ├── configs/                   # Production & development YAML configurations
 ├── data/                      # Local cache, raw inboxes, and persistent state
 └── internal/                  # Shared Go packages (output verification, release manifests)

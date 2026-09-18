@@ -4,7 +4,7 @@
 
 HUNTX aggregates publicly available proxy/VPN configuration material into reproducible, deduplicated artifacts. Its primary product surfaces are generated subscription/configuration files, a verified static catalog, configured Telegram publication destinations, and the approval-gated GatherX Telegram bot.
 
-The repository currently operates one governed Python pipeline rather than a collection of independent services. The production configuration uses 85 Telegram MTProto sources, one aggregate publication route, and 12 configured route formats. Telegram Bot API and Go V2Ray collector source implementations also exist but are not enabled by the current production config.
+The repository currently operates one governed Python pipeline rather than a collection of independent services. The production configuration uses 81 Telegram MTProto sources, one aggregate publication route, and 12 configured route formats. Telegram Bot API and Go V2Ray collector source implementations also exist but are not enabled by the current production config.
 
 ## Intended users
 

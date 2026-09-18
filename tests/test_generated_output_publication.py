@@ -209,6 +209,51 @@ class TestDashboardDataWiring(unittest.TestCase):
             self.assertIn("docs/artifacts/dev/proxies_b64sub.txt", inventory)
             self.assertGreaterEqual(payload["dashboard_file_count"], 5)
 
+    def test_retired_bundle_is_never_staged_from_the_shell(self):
+        """The standalone bundle.js is retired: native modules are the
+        production entrypoint. A stray bundle in the shell must not land in the
+        generated-only snapshot or the main-sync inventory."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            checkpoint, previous, dist, logs = (
+                TestGeneratedSnapshotAssembly._build_fixture(self, root)
+            )
+            dashboard = self._dashboard_fixture(root)
+            shell = root / "shell"
+            (shell / "assets" / "js").mkdir(parents=True)
+            (shell / "index.html").write_text("<html></html>", encoding="utf-8")
+            (shell / "assets" / "js" / "data.js").write_text(
+                "window.HUNTX_DATA = {};", encoding="utf-8")
+            # Simulate a stale local checkout that still holds the retired bundle.
+            (shell / "assets" / "js" / "bundle.js").write_text(
+                "// retired", encoding="utf-8")
+            destination = root / "snapshot"
+
+            ASSEMBLER.assemble_snapshot(
+                checkpoint_root=checkpoint,
+                dist_root=dist,
+                logs_root=logs,
+                destination=destination,
+                run_id="123",
+                run_attempt="2",
+                head_sha="abc123",
+                head_branch="main",
+                source_created_at="2026-07-30T17:24:27Z",
+                previous_snapshot_root=previous,
+                dashboard_root=dashboard,
+                shell_root=shell,
+            )
+
+            self.assertTrue((destination / "docs" / "index.html").exists())
+            self.assertTrue((destination / "docs" / "assets" / "js" / "data.js").exists())
+            self.assertFalse(
+                (destination / "docs" / "assets" / "js" / "bundle.js").exists(),
+                "retired bundle.js must never be staged into the snapshot",
+            )
+            inventory = (destination / "manifests" / "main-sync-files.txt").read_text().splitlines()
+            self.assertNotIn("docs/assets/js/bundle.js", inventory)
+            self.assertIn("docs/assets/js/data.js", inventory)
+
     def test_assembly_without_dashboard_root_stays_back_compatible(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -349,6 +394,12 @@ class TestGeneratedMainSync(unittest.TestCase):
             self.assertTrue((repo / "docs" / "artifacts" / "release" / "manifest.json").exists())
             self.assertFalse(stale_docs_dev.exists())
             self.assertTrue(helper.exists(), "hand-maintained shell must not be touched")
+
+    def test_sync_rejects_the_retired_bundle_path(self):
+        """bundle.js is retired: it must not be a machine-managed path, or a
+        stray bundle could be mirrored into main over the native modules."""
+        with self.assertRaises(ValueError):
+            SYNCER.parse_managed_path("docs/assets/js/bundle.js")
 
     def test_sync_rejects_unmanaged_docs_paths(self):
         for value in (
