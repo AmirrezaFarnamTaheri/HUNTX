@@ -7,6 +7,7 @@ on:
       - ".github/workflows/**"
       - "configs/**"
       - "docs/**"
+      - "eslint.config.mjs"
       - "go.mod"
       - "go.sum"
       - "package.json"
@@ -31,6 +32,7 @@ on:
       - ".github/workflows/**"
       - "configs/**"
       - "docs/**"
+      - "eslint.config.mjs"
       - "go.mod"
       - "go.sum"
       - "package.json"
@@ -53,11 +55,18 @@ concurrency:
 permissions:
   contents: read
 
+# The gate is split into independent jobs so a failure in one language is
+# reported in minutes instead of after every slower stage has finished, and so
+# the slow stages (Docker/Helm, Playwright) run in parallel with the fast ones.
+#
+# `quality-gate` at the bottom keeps the check name that branch protection
+# already requires: it succeeds only when every job below succeeded, so
+# splitting the work does not weaken the merge requirement.
 jobs:
-  validate:
-    name: quality-gate
+  workflows:
+    name: workflow-syntax
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -73,6 +82,16 @@ jobs:
             abort "No workflow files found" if paths.empty?
             paths.each { |path| YAML.load_file(path) }
           '
+
+  go:
+    name: go
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -101,6 +120,16 @@ jobs:
             go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
           )
 
+  deploy-manifests:
+    name: deploy-manifests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
       - name: Validate fleet deployment manifests
         run: |
           set -euo pipefail
@@ -120,21 +149,57 @@ jobs:
           ./linux-amd64/helm lint deploy/helm/huntx-fleet "${helm_args[@]}"
           ./linux-amd64/helm template huntx deploy/helm/huntx-fleet "${helm_args[@]}" >/dev/null
 
+  frontend:
+    name: frontend
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
           cache: npm
 
-      - name: Frontend runtime and production asset gate
+      # update_frontend.py only needs the standard library.
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: npm ci --ignore-scripts
+
+      - name: Lint and unit tests
         run: |
           set -euo pipefail
-          npm ci --ignore-scripts
+          npm run lint
+          npm run test:unit
+
+      - name: Production asset gate
+        run: |
+          set -euo pipefail
           npm run build:css
           git diff --exit-code -- docs/assets/css/tailwind.css
-          node --experimental-default-type=module --test tests/frontend_runtime.test.mjs
+          python scripts/update_frontend.py --check
+
+      - name: Browser tests (accessibility, rendering, deploy version skew)
+        run: |
+          set -euo pipefail
           npx playwright install --with-deps chromium
           npx playwright test
-          python scripts/update_frontend.py --check
+
+  python:
+    name: python
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -156,3 +221,55 @@ jobs:
           python -m flake8 src/huntx tests scripts --count --statistics
           python -m mypy src/huntx
           python -m pytest -q -m "not perf" --strict-config --strict-markers --durations=20 --junitxml=pytest-results.xml
+
+  dependency-audit:
+    name: dependency-audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      # The scanners are tools, not shipped code, so they are installed
+      # separately from the hash-pinned runtime requirements. The audit reads
+      # the pinned file directly and never installs the project.
+      - name: Audit Python and npm dependencies for known vulnerabilities
+        run: |
+          set -euo pipefail
+          python -m pip install pip-audit==2.10.1
+          pip-audit -r requirements.txt --no-deps --disable-pip --strict
+          npm ci --ignore-scripts
+          npm audit --audit-level=high
+
+  # Required check. Its name is what branch protection matches, so it must not
+  # change. `if: always()` is essential: a skipped or failed dependency would
+  # otherwise skip this job, and GitHub treats a skipped required check as
+  # passing.
+  validate:
+    name: quality-gate
+    if: ${{ always() }}
+    needs: [workflows, go, deploy-manifests, frontend, python, dependency-audit]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every gate to have succeeded
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          echo "$RESULTS"
+          if echo "$RESULTS" | grep -Eq '"result": "(failure|cancelled|skipped)"'; then
+            echo "::error::at least one quality gate did not succeed"
+            exit 1
+          fi
