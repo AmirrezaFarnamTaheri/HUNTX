@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -79,7 +80,7 @@ func main() {
 	defer cancelHealthChecks()
 	daemon.StartHealthChecks(healthCtx, func(ctx context.Context, node DaemonNode) (time.Duration, error) {
 		start := time.Now()
-		connection, err := (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, "tcp", fmt.Sprintf("%s:%d", node.Server, node.Port))
+		connection, err := (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, "tcp", net.JoinHostPort(node.Server, strconv.Itoa(node.Port)))
 		if err != nil {
 			return 0, err
 		}
@@ -87,19 +88,27 @@ func main() {
 		return time.Since(start), nil
 	})
 	server := &http.Server{Addr: listenAddr, Handler: daemon.Handler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second}
+	serverErr := make(chan error, 1)
 	go func() {
 		fmt.Printf("[HUNTX-DAEMON] Control API active on http://%s\n", listenAddr)
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			fmt.Fprintf(os.Stderr, "server error: %v\n", err)
-		}
+		serverErr <- server.ListenAndServe()
 	}()
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	<-sigChan
-	fmt.Println("[HUNTX-DAEMON] Shutting down gracefully...")
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := server.Shutdown(shutdownCtx); err != nil {
-		fmt.Fprintf(os.Stderr, "shutdown error: %v\n", err)
+	select {
+	case <-sigChan:
+		fmt.Println("[HUNTX-DAEMON] Shutting down gracefully...")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			fmt.Fprintf(os.Stderr, "shutdown error: %v\n", err)
+		}
+	case err := <-serverErr:
+		// A listener that dies at startup (port in use, bad address) must end
+		// the process so supervisors can restart it instead of leaving a
+		// zombie that serves no API and never reports failure.
+		fmt.Fprintf(os.Stderr, "[HUNTX-DAEMON] fatal server error: %v\n", err)
+		cancelHealthChecks()
+		os.Exit(1)
 	}
 }

@@ -15,11 +15,13 @@ class _AdminHarness(AdminMixin):
         self.repo = MagicMock()
         self.blocking_runs = 0
         self.release_run = threading.Event()
+        self.release_eligible = True
 
     def _run_pipeline_blocking(self):
         self.blocking_runs += 1
         if not self.release_run.wait(timeout=5):
             raise TimeoutError("test did not release background pipeline")
+        return {"release_eligible": self.release_eligible}
 
 
 class TestAdminPipelineGuard(unittest.IsolatedAsyncioTestCase):
@@ -70,6 +72,27 @@ class TestAdminPipelineGuard(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(harness.blocking_runs, 1)
         harness.deliver_updates_active.assert_awaited_once()
         harness.client.send_message.assert_awaited_once()
+
+    async def test_ineligible_run_skips_subscription_delivery(self):
+        harness = _AdminHarness()
+        harness.release_eligible = False
+
+        event = MagicMock()
+        event.answer = AsyncMock()
+        event.respond = AsyncMock()
+        event.chat_id = 789
+
+        await harness._trigger_background_run(event)
+        started_task = harness._pipeline_task
+
+        harness.release_run.set()
+        await started_task
+
+        self.assertIsNone(harness._pipeline_task)
+        self.assertEqual(harness.blocking_runs, 1)
+        harness.deliver_updates_active.assert_not_awaited()
+        harness.client.send_message.assert_awaited_once()
+        self.assertIn("not release eligible", harness.client.send_message.await_args.args[1])
 
     async def test_prune_keeps_hash_still_referenced_by_live_row(self):
         harness = _AdminHarness()

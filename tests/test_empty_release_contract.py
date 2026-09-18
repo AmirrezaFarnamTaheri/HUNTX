@@ -37,13 +37,34 @@ def test_empty_snapshot_replaces_recent_owned_output_and_preserves_notes(tmp_pat
     assert json.loads(marker.read_text(encoding="utf-8")) == {
         "schema_version": 1, "status": "success", "record_count": 0,
         "reason": "no_eligible_records",
-        "generated_at": "2026-09-17T00:00:00Z",
-        "min_ingested_at": "2026-09-14T00:00:00Z",
+        "generated_at": "2026-09-17T00:00:00+00:00",
+        "min_ingested_at": "2026-09-14T00:00:00+00:00",
     }
     assert (output / "notes.txt").read_text(encoding="utf-8") == "operator notes"
     ownership.export_owned_outputs(runtime, [_result(b"next")])
     assert not marker.exists()
     assert (output / "route.txt").read_bytes() == b"next"
+
+
+def test_naive_retention_cutoff_is_normalized_before_release_metadata(tmp_path):
+    """A timezone-naive cutoff must not reach release metadata.
+
+    The record query formats the window without a timezone, and the
+    empty-release validator rejects naive timestamps, so an unnormalized
+    cutoff would publish a marker that fails publication validation.
+    """
+    runtime = _runtime(tmp_path)
+    runtime._release_window_start = "2026-09-14 12:00:00"
+    runtime._release_generated_at = "2026-09-17 12:00:00"
+    ownership.export_owned_outputs(runtime, [])
+    output = runtime.paths.output_dir
+    marker = json.loads((output / ownership.EMPTY_RELEASE_ARTIFACT).read_text(encoding="utf-8"))
+    assert marker["min_ingested_at"] == "2026-09-14T12:00:00+00:00"
+    assert marker["generated_at"] == "2026-09-17T12:00:00+00:00"
+    from huntx.store.release_manifest import build_release_manifest
+
+    manifest = build_release_manifest(output, [output / ownership.EMPTY_RELEASE_ARTIFACT])
+    assert ownership.is_explicit_empty_release(output, manifest)
 
 
 def test_export_manifest_failure_restores_pruned_snapshot(tmp_path, monkeypatch):

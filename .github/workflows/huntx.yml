@@ -506,7 +506,8 @@ jobs:
             cp -a docs/. "$candidate_dir/"
             .bin/huntx-tools site-data --data-dir persist/data --docs-dir "$candidate_dir" --generated-at "$generated_at" || return 1
             test -f "$candidate_dir/index.html" || return 1
-            test -f "$candidate_dir/assets/js/bundle.js" || return 1
+            test -f "$candidate_dir/assets/js/app.js" || return 1
+            test -f "$candidate_dir/assets/css/tailwind.css" || return 1
             test -f "$candidate_dir/sw.js" || return 1
             rm -rf docs
             mv "$candidate_dir" docs
@@ -581,6 +582,32 @@ jobs:
             --checkpoint-ready "${{ steps.checkpoint.outputs.ready || 'false' }}" \
             --package-ready "${{ steps.package.outputs.ready || 'false' }}" \
             --package-source "${{ steps.package.outputs.source || 'none' }}"
+
+      - name: Record explicit no-release verdict
+        if: ${{ always() && steps.package.outputs.ready != 'true' }}
+        run: |
+          set -euo pipefail
+          mkdir -p no-release-verdict
+          cat > no-release-verdict/no-release.json <<'HUNTX_NO_RELEASE'
+          {
+            "schema_version": 1,
+            "run_id": "${{ github.run_id }}",
+            "run_attempt": "${{ github.run_attempt }}",
+            "release_published": false,
+            "package_ready": false,
+            "package_source": "${{ steps.package.outputs.source }}"
+          }
+          HUNTX_NO_RELEASE
+
+      - name: Publish explicit no-release verdict
+        if: ${{ always() && steps.package.outputs.ready != 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: huntx-no-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: no-release-verdict/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
 
       - name: Upload checkpoint handoff
         if: steps.checkpoint.outputs.ready == 'true'

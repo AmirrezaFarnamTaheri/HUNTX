@@ -217,7 +217,15 @@ class AdminMixin:
         async def run_pipeline_task():
             """Run the blocking pipeline off-loop, then deliver resulting updates."""
             try:
-                await loop.run_in_executor(None, self._run_pipeline_blocking)
+                summary = await loop.run_in_executor(None, self._run_pipeline_blocking)
+                if not summary or not summary.get("release_eligible"):
+                    await self.client.send_message(
+                        event.chat_id,
+                        "Run finished but is not release eligible."
+                        "Subscription delivery was skipped; the last verified release stays in service.",
+                        parse_mode="md",
+                    )
+                    return
                 await self.deliver_updates_active()
                 await self.client.send_message(
                     event.chat_id,

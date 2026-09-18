@@ -51,7 +51,7 @@ def test_zero_record_success_exports_explicit_empty_then_recovers(tmp_path):
     assert set(tree(root)) == {EMPTY_RELEASE_ARTIFACT, OUTPUT_OWNERSHIP_MANIFEST}
     assert json.loads((root / EMPTY_RELEASE_ARTIFACT).read_text(encoding="utf-8")) == {
         "schema_version": 1, "status": "success", "record_count": 0, "reason": "no_eligible_records",
-        "generated_at": "2026-09-17T20:00:00Z", "min_ingested_at": "2026-09-14T20:00:00Z"
+        "generated_at": "2026-09-17T20:00:00+00:00", "min_ingested_at": "2026-09-14T20:00:00+00:00"
     }
     first = tree(root)
     export_owned_outputs(app, [])

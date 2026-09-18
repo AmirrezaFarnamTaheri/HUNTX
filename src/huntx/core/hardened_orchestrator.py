@@ -48,6 +48,16 @@ class HardenedOrchestrator(Orchestrator):
         """Execute the deadline-aware pipeline in a sync or async caller."""
         return run_sync(self._run_hardened(timeout, no_publish, allow_partial_export))
 
+    def _ingestion_demotion_reason(self) -> Optional[str]:
+        """Return why ingestion incompleteness should block a release.
+
+        The hardened base has no ingestion budget, so nothing demotes a
+        completed run. The optimized runtime overrides this to report an
+        exhausted ingestion budget or leftover queue residue *before* the
+        publication and export decisions are made.
+        """
+        return None
+
     async def _run_hardened(
         self,
         timeout: Optional[float],
@@ -70,6 +80,11 @@ class HardenedOrchestrator(Orchestrator):
         build_workers = min(self.max_workers, total_routes) if total_routes else 0
         publish_workers = max(1, self.max_workers)
         min_ingested_at = self._get_build_window_start()
+        # The empty-release marker records the retention window that selected
+        # this snapshot. It is formatted without a timezone on purpose for the
+        # record query; the export path normalizes it before it reaches
+        # release metadata, whose validator rejects naive timestamps.
+        self._release_window_start = min_ingested_at
 
         status = "completed"
         timed_out_stage: Optional[str] = None
@@ -87,6 +102,7 @@ class HardenedOrchestrator(Orchestrator):
         stage_seconds: dict[str, float] = {}
         transform_completed = True
         transform_stop_reason = "complete"
+        partial_reason: Optional[str] = None
 
         def remaining() -> Optional[float]:
             return deadline.remaining_seconds()
@@ -115,6 +131,7 @@ class HardenedOrchestrator(Orchestrator):
                 "formats": route.formats,
                 "from_sources": approved_route_sources,
                 "min_ingested_at": min_ingested_at,
+                "defer_output": True,
             }
             destinations = [
                 {
@@ -278,6 +295,19 @@ class HardenedOrchestrator(Orchestrator):
 
         # Recoverable progress is not permission to replace the last release.
         release_eligible = status == "completed" and results["ok"] > 0 and results["err"] == 0
+        # Ingestion that did not drain (budget exhausted or residue remaining)
+        # must block the release before the public snapshot is published or
+        # exported, not merely demote the summary afterwards.
+        # The legacy path reaches this contract through a bare Orchestrator
+        # instance that carries no ingestion budget, so resolve the hook
+        # defensively; absence means nothing demotes a completed run.
+        demotion_hook = getattr(self, "_ingestion_demotion_reason", None)
+        demotion_reason = demotion_hook() if demotion_hook is not None else None
+        if demotion_reason:
+            release_eligible = False
+            partial_reason = demotion_reason
+            if status == "completed":
+                status = "partial"
         pending_publish: dict[concurrent.futures.Future[Any], str] = {}
         if release_eligible and not no_publish and all_build_results:
             publish_start = time.monotonic()
@@ -439,6 +469,7 @@ class HardenedOrchestrator(Orchestrator):
             "publish_workers": publish_workers,
             "transform_completed": transform_completed,
             "transform_stop_reason": transform_stop_reason,
+            "partial_reason": partial_reason,
             "cleanup_skipped_due_to_deadline": cleanup_skipped_due_to_deadline,
         }
         logger.info("[Orchestrator] Final run summary: %s", summary)

@@ -27,7 +27,7 @@ export class RuleStudio {
               <div>
                 <h3 class="text-sm font-mono font-bold text-gray-100 uppercase tracking-wider flex items-center gap-2">
                   Visual Routing &amp; Profile Studio
-                  <span class="px-2 py-0.5 rounded-full text-[9px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">ACTIVE</span>
+                  <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">ACTIVE</span>
                 </h3>
                 <p class="text-xs text-gray-400 font-sans">Declarative client-side routing topology editor and multi-format config exporter</p>
               </div>
@@ -51,11 +51,11 @@ export class RuleStudio {
                 <div class="flex items-center justify-between p-3 rounded-xl bg-[#141b29]/90 border border-[#1d2638] text-xs font-mono group hover:border-cyan-500/40 transition-all">
                   <div class="flex items-center gap-3">
                     <span class="text-gray-500 font-bold w-4">${idx + 1}.</span>
-                    <span class="px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider ${rule.type === 'geosite' ? 'bg-indigo-900/40 text-indigo-300 border border-indigo-700/40' : rule.type === 'geoip' ? 'bg-amber-900/40 text-amber-300 border border-amber-700/40' : 'bg-slate-800 text-gray-300 border border-slate-700'}">${rule.type}</span>
+                    <span class="px-2 py-0.5 rounded text-xs uppercase font-bold tracking-wider ${rule.type === 'geosite' ? 'bg-indigo-900/40 text-indigo-300 border border-indigo-700/40' : rule.type === 'geoip' ? 'bg-amber-900/40 text-amber-300 border border-amber-700/40' : 'bg-slate-800 text-gray-300 border border-slate-700'}">${rule.type}</span>
                     <span class="text-cyan-200 font-semibold">${rule.target}</span>
                   </div>
                   <div class="flex items-center gap-2">
-                    <span class="px-2.5 py-1 rounded text-[11px] font-bold ${rule.action === 'BLOCK' ? 'bg-rose-900/40 text-rose-300 border border-rose-700/50' : rule.action === 'DIRECT' ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50' : 'bg-cyan-900/40 text-cyan-300 border border-cyan-700/50'}">${rule.action}</span>
+                    <span class="px-2.5 py-1 rounded text-xs font-bold ${rule.action === 'BLOCK' ? 'bg-rose-900/40 text-rose-300 border border-rose-700/50' : rule.action === 'DIRECT' ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50' : 'bg-cyan-900/40 text-cyan-300 border border-cyan-700/50'}">${rule.action}</span>
                   </div>
                 </div>
               `).join("")}
@@ -64,25 +64,25 @@ export class RuleStudio {
             <!-- Visual Topology Flow Preview -->
             <div class="lg:col-span-5 flex flex-col justify-between p-4 rounded-xl bg-[#070a0f]/80 border border-[#1d2638]">
               <div>
-                <span class="text-[11px] font-mono uppercase tracking-wider text-gray-400 block mb-2 font-bold">Routing Pipeline Topology</span>
-                <div class="space-y-2 text-[11px] font-mono">
+                <span class="text-xs font-mono uppercase tracking-wider text-gray-400 block mb-2 font-bold">Routing Pipeline Topology</span>
+                <div class="space-y-2 text-xs font-mono">
                   <div class="p-2 rounded bg-cyan-950/30 border border-cyan-800/40 text-cyan-300 flex items-center justify-between">
                     <span>1. Inbound (Mixed 7890 / TUN)</span>
-                    <span class="text-[9px] text-cyan-400">LISTEN</span>
+                    <span class="text-xs text-cyan-400">LISTEN</span>
                   </div>
                   <div class="text-center text-gray-600">↓</div>
                   <div class="p-2 rounded bg-indigo-950/30 border border-indigo-800/40 text-indigo-300 flex items-center justify-between">
                     <span>2. DNS &amp; Geo-Classifier</span>
-                    <span class="text-[9px] text-indigo-400">RESOLVE</span>
+                    <span class="text-xs text-indigo-400">RESOLVE</span>
                   </div>
                   <div class="text-center text-gray-600">↓</div>
                   <div class="p-2 rounded bg-emerald-950/30 border border-emerald-800/40 text-emerald-300 flex items-center justify-between">
                     <span>3. Multi-Hop Outbounds</span>
-                    <span class="text-[9px] text-emerald-400">EGRESS</span>
+                    <span class="text-xs text-emerald-400">EGRESS</span>
                   </div>
                 </div>
               </div>
-              <div class="mt-4 pt-3 border-t border-[#1d2638] flex items-center justify-between text-[10px] font-mono text-gray-500">
+              <div class="mt-4 pt-3 border-t border-[#1d2638] flex items-center justify-between text-xs font-mono text-gray-500">
                 <span>Rules: ${this.rules.length} active</span>
                 <span>Latency Penalty: ~0.4ms</span>
               </div>

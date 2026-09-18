@@ -22,9 +22,9 @@ from ..pipeline.build import BuildPipeline
 from ..pipeline.publish import PublishPipeline
 from ..formats.npvt import strip_proxy_remark, add_clean_remark
 from ..config.schema import AppConfig
-from ..utils.safe_names import safe_component
 from ..utils.atomic import atomic_write
 from ..connectors.base import maybe_await
+from .output_ownership import output_filename
 
 logger = logging.getLogger(__name__)
 
@@ -200,20 +200,8 @@ class Orchestrator:
 
     @staticmethod
     def _output_filename(route: str, fmt: str) -> str:
-        """Determine the output filename for a route+format pair."""
-        safe_route = safe_component(route, default="route")
-        if fmt.endswith(".decoded.json"):
-            base = safe_component(fmt.replace(".decoded.json", ""), default="decoded")
-            return f"{safe_route}_{base}_decoded.json"
-        elif fmt.endswith(".singbox.json"):
-            base = safe_component(fmt.replace(".singbox.json", ""), default="singbox")
-            return f"{safe_route}_{base}_singbox.json"
-        elif fmt.endswith(".b64sub"):
-            base = safe_component(fmt.replace(".b64sub", ""), default="b64sub")
-            return f"{safe_route}_{base}_b64sub.txt"
-        else:
-            safe_fmt = safe_component(fmt, default="fmt")
-            return f"{safe_route}.{safe_fmt}"
+        """Use the shared route/format naming contract."""
+        return output_filename(route, fmt)
 
     # ------------------------------------------------------------------
     # Dev output export
@@ -238,9 +226,19 @@ class Orchestrator:
         manifest: dict = {}  # {uri_string: first_seen_epoch}
         if manifest_path.exists():
             try:
-                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                loaded = json.loads(manifest_path.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, OSError) as e:
                 logger.warning(f"[DevExport] Could not read manifest, starting fresh: {e}")
+            else:
+                # Only numeric first_seen timestamps participate in dedup/sort;
+                # anything else would crash the deterministic sort below.
+                manifest = {
+                    uri: seen
+                    for uri, seen in loaded.items()
+                    if isinstance(seen, (int, float)) and not isinstance(seen, bool)
+                }
+                if len(manifest) != len(loaded):
+                    logger.warning("[DevExport] Dropped %s manifest entr(y/ies) with non-numeric first_seen", len(loaded) - len(manifest))
 
         # ── Add all known npvt/npvtsub records from state DB ────────
         source_ids = [s.id for s in self.config.sources]

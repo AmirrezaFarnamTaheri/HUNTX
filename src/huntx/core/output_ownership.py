@@ -114,6 +114,20 @@ def _bootstrap_owned_files(out_dir: Path, config: Any) -> dict[str, dict[str, st
     }
 
 
+def _normalize_release_timestamp(value: Any) -> str:
+    """Return a timezone-aware UTC ISO timestamp, treating naive input as UTC.
+
+    ``is_explicit_empty_release`` rejects naive timestamps, so a retention
+    cutoff formatted as "YYYY-MM-DD HH:MM:SS" must never reach release
+    metadata unchanged; it would make a successful empty build publish an
+    empty-release marker that fails publication validation.
+    """
+    parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc).isoformat()
+
+
 def export_owned_outputs(orchestrator: Any, all_build_results: list[Any]) -> None:
     """Export outputs and prune stale files using exact manifest ownership.
 
@@ -154,10 +168,10 @@ def export_owned_outputs(orchestrator: Any, all_build_results: list[Any]) -> Non
         payloads[filename] = (data, owner)
 
     generated_at = getattr(orchestrator, "_release_generated_at", None) or datetime.now(timezone.utc).isoformat()
-    metadata = {"generated_at": generated_at}
+    metadata = {"generated_at": _normalize_release_timestamp(generated_at)}
     window_start = getattr(orchestrator, "_release_window_start", None)
     if window_start is not None:
-        metadata["min_ingested_at"] = window_start
+        metadata["min_ingested_at"] = _normalize_release_timestamp(window_start)
 
     if not payloads:
         marker_path = out_dir / EMPTY_RELEASE_ARTIFACT
@@ -168,6 +182,15 @@ def export_owned_outputs(orchestrator: Any, all_build_results: list[Any]) -> Non
             {"route": "_release", "format": "empty"},
         )
 
+    # Compatibility: the historical base64 subscription URL keeps working as a
+    # byte-identical alias of the canonical npvt b64sub payload, so existing
+    # subscribers never need to change their URL. Exact ownership below removes
+    # prior-owned files only when this snapshot no longer emits them; this alias
+    # does not itself retire any of the pipeline's derivative formats.
+    alias = "all_sources.npvt.b64sub"
+    canonical = "all_sources_npvt_b64sub.txt"
+    if canonical in payloads and alias not in payloads:
+        payloads[alias] = payloads[canonical]
     next_owned = {name: owner for name, (_, owner) in payloads.items()}
     manifest = {
         **metadata,

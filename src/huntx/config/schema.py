@@ -114,7 +114,7 @@ class SourceConfig(BaseModel):
 class DestinationConfig(BaseModel):
     chat_id: str
     mode: str = "telegram"
-    caption_template: str = "{filename}"
+    caption_template: str = "Update: {timestamp}"
     token: Optional[str] = None
     required: bool = True
 

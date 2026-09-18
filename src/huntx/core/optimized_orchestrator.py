@@ -114,6 +114,26 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
             return None
         return stop - time.monotonic()
 
+    def _ingestion_demotion_reason(self) -> Optional[str]:
+        """Report ingestion incompleteness that blocks release eligibility.
+
+        Overrides the hardened base hook so an exhausted ingestion budget or
+        leftover queue residue blocks publication/export at decision time.
+        """
+        if getattr(self, "_ingestion_budget_exhausted", False):
+            return "ingestion_budget_exhausted"
+        queue = getattr(self, "_work_queue", None)
+        if queue is None:
+            return None
+        try:
+            remaining = int(queue.summary().get("remaining", 0))
+        except Exception:
+            logger.exception("[LIFO] Failed to read ingestion residue")
+            return None
+        if remaining > 0:
+            return "ingestion_residue_remaining"
+        return None
+
     def _reset_investigation_metrics(self) -> None:
         """Reset concrete ingestion-evidence counters for one run."""
         self._sources_checked = set()

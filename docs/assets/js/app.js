@@ -571,7 +571,8 @@ export class AppState {
       const res = await fetch("catalog.json", { cache: "no-store" });
       if (res.ok) {
         const liveCatalog = await res.json();
-        if (liveCatalog && Array.isArray(liveCatalog.files) && liveCatalog.files.length > 0) {
+        const hasLiveFiles = Array.isArray(liveCatalog?.files) && liveCatalog.files.length > 0;
+        if (liveCatalog && (liveCatalog.intentional_empty === true || hasLiveFiles)) {
           catalogCandidate = liveCatalog;
         }
       }
@@ -644,6 +645,14 @@ export class AppState {
       this.renderDataStatus();
     }
 
+    const liveCatalogFiles = Array.isArray(catalogCandidate?.files) ? catalogCandidate.files : [];
+    if (catalogCandidate?.intentional_empty === true && liveCatalogFiles.length === 0) {
+      // A verified empty release publishes zero nodes on purpose; never
+      // substitute the bundled sample data for it.
+      proxyCandidate = [];
+      globeCandidate = [];
+    }
+
     if (catalogCandidate && proxyCandidate) {
       this.catalog = catalogCandidate;
       this.proxies = proxyCandidate;
@@ -688,14 +697,14 @@ export class AppState {
           ${s.glow ? `<span class="animate-ping absolute inline-flex h-full w-full rounded-full ${s.glow}"></span>` : ""}
           <span class="relative inline-flex rounded-full h-2 w-2 ${s.dot}"></span>
         </span>
-        <span class="font-mono text-[11px] font-semibold ${s.tone}">${s.text}</span>`;
+        <span class="font-mono text-xs font-semibold ${s.tone}">${s.text}</span>`;
     }
 
     const radarBadge = document.getElementById("radar-live-badge");
     if (radarBadge) {
       const live = this.liveDataState === "ready";
       radarBadge.textContent = live ? "VERIFIED" : "BUNDLED";
-      radarBadge.className = `px-1.5 py-0.5 text-[9px] font-bold rounded border ${
+      radarBadge.className = `px-1.5 py-0.5 text-xs font-bold rounded border ${
         live
           ? "bg-cyan-950/80 text-cyan-300 border-cyan-800/60"
           : "bg-amber-950/80 text-amber-300 border-amber-800/60"
@@ -1073,16 +1082,25 @@ export class AppState {
     document.body.removeChild(ta);
   }
 
-  trapFocus(modalEl) {
+  trapFocus(modalEl, onClose = () => this.closeModal()) {
     const focusable = modalEl.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
     if (focusable.length === 0) return () => {};
 
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
 
+    if (!this.lastFocusedElement && !modalEl.contains(document.activeElement)) {
+      this.lastFocusedElement = document.activeElement;
+    }
     first.focus();
 
     const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+        return;
+      }
       if (e.key === "Tab") {
         if (e.shiftKey) {
           if (document.activeElement === first) {
@@ -1134,9 +1152,9 @@ export class AppState {
           <div>
             <div class="flex items-center gap-2">
               <span class="font-mono text-base font-bold tracking-tight text-white">HUNT<span class="text-cyan-400">X</span></span>
-              <span class="hidden sm:inline px-1.5 py-0.5 text-[9px] font-mono font-bold bg-cyan-950/80 text-cyan-400 border border-cyan-800/60 rounded">v2.5</span>
+              <span class="hidden sm:inline px-1.5 py-0.5 text-xs font-mono font-bold bg-cyan-950/80 text-cyan-400 border border-cyan-800/60 rounded">v2.5</span>
             </div>
-            <span class="text-[10px] text-gray-400 font-mono tracking-wider hidden sm:block">NODE TELEMETRY</span>
+            <span class="text-xs text-gray-400 font-mono tracking-wider hidden sm:block">NODE TELEMETRY</span>
           </div>
         </a>
 
@@ -1154,7 +1172,7 @@ export class AppState {
               aria-label="Global Search"
             />
             <div class="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none">
-              <kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 text-[10px] font-mono text-gray-400 rounded">/</kbd>
+              <kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 text-xs font-mono text-gray-400 rounded">/</kbd>
             </div>
           </div>
         </div>
@@ -1164,7 +1182,7 @@ export class AppState {
             <span class="relative flex h-2 w-2">
               <span class="relative inline-flex rounded-full h-2 w-2 bg-slate-400"></span>
             </span>
-            <span class="font-mono text-[11px] font-semibold text-slate-300">SYNCING</span>
+            <span class="font-mono text-xs font-semibold text-slate-300">SYNCING</span>
           </div>
 
           <label class="sr-only" for="language-selector">${i18n.translate("Language")}</label>
@@ -1367,58 +1385,18 @@ export class AppState {
     const sourcesCount = this.stats?.active_sources_count ?? "—";
 
     hero.innerHTML = `
-      <div class="relative grid grid-cols-1 lg:grid-cols-12 gap-8 items-center py-10 lg:py-14 border-b border-gray-800/60 pb-12">
-        <div class="lg:col-span-7 space-y-6">
-          <div class="inline-flex items-center gap-2 px-3.5 py-1.5 bg-cyan-950/50 border border-cyan-500/30 rounded-full text-cyan-300 text-xs font-mono font-semibold uppercase tracking-wider">
-            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-            Automated Multi-Source Collector
-          </div>
+      <div class="radar-overview">
+        <div class="radar-summary">
+          <h1>Proxy telemetry <span>&amp; node diagnostics</span></h1>
+          <p class="radar-description">Browse the loaded snapshot, compare recorded measurements, and inspect configurations. Artifact checksums do not verify connectivity.</p>
+          <dl class="radar-metrics">
+            <div><dt>Loaded nodes</dt><dd>${activeCount}</dd><span>${regionCount} regions</span></div>
+            <div><dt>Ingest sources</dt><dd>${sourcesCount}</dd><span>Channels</span></div>
+            <div><dt>Catalog files</dt><dd>${totalFiles}</dd><span>${escapeHTML(totalSize)}</span></div>
+            <div><dt>Avg latency</dt><dd>${avgLatencyNum === null ? "—" : `${avgLatencyNum}ms`}</dd><span>${minLatencyNum === null ? "Unmeasured" : `Min: ${minLatencyNum}ms`}</span></div>
+          </dl>
 
-          <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight">
-            Proxy Telemetry &amp; <br/>
-            <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-400 to-indigo-400">Node Diagnostics</span>
-          </h1>
-
-          <p class="text-sm sm:text-base text-gray-400 font-sans max-w-xl leading-relaxed">
-            Automated multi-source collector aggregating verified proxy protocols across ${sourcesCount === "—" ? "configured" : sourcesCount} pipeline channel${sourcesCount === 1 ? "" : "s"}.
-            Deduplicated with SHA-256 checksums, decoded client-side, and synchronized continuously.
-          </p>
-
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-            <div class="bg-gray-900/60 border border-gray-800/80 rounded-2xl p-4 backdrop-blur-sm">
-              <span class="text-[11px] font-mono text-gray-500 uppercase tracking-wider block">Active Nodes</span>
-              <div class="flex items-baseline gap-1.5 mt-1">
-                <span class="text-2xl font-mono font-bold text-cyan-400">${activeCount}</span>
-                <span class="text-[10px] font-mono text-emerald-400">${regionCount} Regions</span>
-              </div>
-            </div>
-
-            <div class="bg-gray-900/60 border border-gray-800/80 rounded-2xl p-4 backdrop-blur-sm">
-              <span class="text-[11px] font-mono text-gray-500 uppercase tracking-wider block">Ingest Sources</span>
-              <div class="flex items-baseline gap-1.5 mt-1">
-                <span class="text-2xl font-mono font-bold text-indigo-400">${sourcesCount}</span>
-                <span class="text-[10px] font-mono text-gray-400">Channels</span>
-              </div>
-            </div>
-
-            <div class="bg-gray-900/60 border border-gray-800/80 rounded-2xl p-4 backdrop-blur-sm">
-              <span class="text-[11px] font-mono text-gray-500 uppercase tracking-wider block">Published Files</span>
-              <div class="flex items-baseline gap-1.5 mt-1">
-                <span class="text-2xl font-mono font-bold text-emerald-400">${totalFiles}</span>
-                <span class="text-[10px] font-mono text-gray-400">${escapeHTML(totalSize)}</span>
-              </div>
-            </div>
-
-            <div class="bg-gray-900/60 border border-gray-800/80 rounded-2xl p-4 backdrop-blur-sm">
-              <span class="text-[11px] font-mono text-gray-500 uppercase tracking-wider block">Avg Latency</span>
-              <div class="flex items-baseline gap-1.5 mt-1">
-                <span class="text-2xl font-mono font-bold text-amber-400">${avgLatencyNum === null ? "—" : `${avgLatencyNum}ms`}</span>
-                <span class="text-[10px] font-mono text-gray-400">${minLatencyNum === null ? "Unmeasured" : `Min: ${minLatencyNum}ms`}</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="flex flex-wrap gap-2.5 pt-2">
+          <div class="hero-actions flex flex-wrap gap-2.5 pt-2">
             <button
               id="hero-copy-sub"
               class="px-4 py-2.5 min-h-[44px] bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-gray-950 font-mono font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/25 transition-all focus-ring cursor-pointer flex items-center gap-2"
@@ -1474,14 +1452,14 @@ export class AppState {
           </div>
         </div>
 
-        <div class="lg:col-span-5 flex flex-col items-center justify-center relative">
-          <div class="relative w-full aspect-square max-w-[420px] rounded-3xl bg-gray-950 border border-cyan-500/20 shadow-2xl shadow-cyan-950/40 overflow-hidden flex items-center justify-center group">
+        <div class="radar-globe flex flex-col items-center justify-center relative">
+          <div class="radar-globe-frame relative w-full aspect-square overflow-hidden flex items-center justify-center group">
             <canvas id="telemetry-globe-canvas" class="w-full h-full cursor-grab active:cursor-grabbing block" aria-label="3D Telemetry Globe Radar"></canvas>
 
             <div class="absolute top-4 left-4 pointer-events-none">
-              <span class="px-2.5 py-1 bg-gray-950/80 border border-cyan-500/30 rounded-lg text-[10px] font-mono text-cyan-300 backdrop-blur-md flex items-center gap-1.5">
-                <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
-                <span>INTERACTIVE 3D GEO-RADAR</span>
+              <span class="px-2.5 py-1 bg-gray-950/80 border border-cyan-500/30 rounded-lg text-xs font-mono text-cyan-300 backdrop-blur-md flex items-center gap-1.5">
+
+                <span>Snapshot geography</span>
               </span>
             </div>
 
@@ -1497,11 +1475,11 @@ export class AppState {
                 <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                 <span id="globe-touch-label">Explore 3D Globe</span>
               </button>
-              <span class="text-[10px] font-mono text-gray-400 bg-gray-950/80 px-2.5 py-1.5 rounded-lg border border-gray-800 pointer-events-none">TAP HUB</span>
+              <span class="text-xs font-mono text-gray-400 bg-gray-950/80 px-2.5 py-1.5 rounded-lg border border-gray-800 pointer-events-none">TAP HUB</span>
             </div>
 
             <div class="hidden md:block absolute bottom-3 right-4 pointer-events-none text-right">
-              <span class="text-[9px] font-mono text-gray-500 block">CLICK HUB TO FILTER</span>
+              <span class="text-xs font-mono text-gray-500 block">CLICK HUB TO FILTER</span>
             </div>
           </div>
         </div>
@@ -1606,8 +1584,8 @@ export class AppState {
           <div class="flex items-center justify-between pb-4 border-b border-gray-800 mb-4">
             <div>
               <h3 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
-                <span>📡</span> Live Carrier Latency &amp; Ingress Matrix
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">NO LIVE PROBES</span>
+                Carrier measurements
+                <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">NO LIVE PROBES</span>
               </h3>
               <p class="text-xs text-gray-400 font-sans mt-0.5">Observed operator latency and routing distribution (${this.proxies.length} nodes analyzed)</p>
             </div>
@@ -1618,13 +1596,13 @@ export class AppState {
               <div class="operator-card p-3 rounded-2xl bg-gray-950/80 border border-gray-800/80 hover:border-cyan-500/50 cursor-pointer transition-all flex flex-col justify-between group" data-operator="${escapeHTML(op.tag)}" title="Click to filter live proxies by ${escapeHTML(op.name)}">
                 <div class="flex items-center justify-between">
                   <span class="text-xs font-mono font-bold text-gray-200 group-hover:text-cyan-300 transition-colors truncate max-w-[90px]">${escapeHTML(op.name)}</span>
-                  <span class="text-[9px] font-mono font-extrabold text-cyan-400 bg-cyan-950/80 border border-cyan-500/30 px-1.5 py-0.5 rounded-md">${op.grade}</span>
+                  <span class="text-xs font-mono font-extrabold text-cyan-400 bg-cyan-950/80 border border-cyan-500/30 px-1.5 py-0.5 rounded-md">${op.grade}</span>
                 </div>
                 <div class="flex items-baseline justify-between mt-2">
                   <span class="font-mono text-base font-extrabold text-emerald-400">⚡ ${op.ping}</span>
-                  <span class="text-[10px] font-mono text-gray-500">${op.count} nodes</span>
+                  <span class="text-xs font-mono text-gray-500">${op.count} nodes</span>
                 </div>
-                <div class="flex items-center justify-between mt-1 text-[9px] font-mono text-gray-400 pt-1 border-t border-gray-800/40">
+                <div class="flex items-center justify-between mt-1 text-xs font-mono text-gray-400 pt-1 border-t border-gray-800/40">
                   <span>Loss: ${op.loss}</span>
                   <span class="text-cyan-400 font-semibold">${op.status}</span>
                 </div>
@@ -1638,8 +1616,8 @@ export class AppState {
           <div class="flex items-center justify-between pb-4 border-b border-gray-800 mb-4">
             <div>
               <h3 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
-                <span>🌍</span> Geographic Node Distribution
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">${sortedCountries.length} REGIONS</span>
+                Node distribution
+                <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">${sortedCountries.length} REGIONS</span>
               </h3>
               <p class="text-xs text-gray-400 font-sans mt-0.5">Node density across active edge regions and data centers</p>
             </div>
@@ -1671,14 +1649,14 @@ export class AppState {
       <div class="cyber-card p-6 bg-gradient-to-r from-cyan-950/40 via-gray-900/60 to-indigo-950/40 border border-cyan-500/30 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
         <div class="space-y-1">
           <h4 class="text-base font-mono font-bold text-white flex items-center gap-2">
-            <span>⚡</span> Ingestion Pipeline Synchronized &amp; Verified
+            Loaded snapshot
           </h4>
           <p class="text-xs font-sans text-gray-300">
-            ${this.proxies.length} published proxy endpoints ready for client routing, configuration export, and subscriptions.
+            ${this.proxies.length} loaded endpoints. Inspect configurations before importing; connectivity is not verified here.
           </p>
         </div>
         <button id="btn-explore-live-proxies" class="px-5 py-3 min-h-[44px] bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-gray-950 font-mono font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/25 transition-all cursor-pointer shrink-0">
-          Explore Published Proxies (${this.proxies.length}) →
+          Browse Proxies (${this.proxies.length}) →
         </button>
       </div>
     `;
@@ -1774,7 +1752,7 @@ export class AppState {
         <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <!-- Protocol Tabs -->
           <div class="flex flex-wrap gap-1.5 items-center" role="toolbar" aria-label="Protocol Filter">
-            <span class="text-[11px] font-mono font-bold text-gray-400 uppercase tracking-wider mr-1.5 flex items-center gap-1">
+            <span class="text-xs font-mono font-bold text-gray-400 uppercase tracking-wider mr-1.5 flex items-center gap-1">
               <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
               Protocol:
             </span>
@@ -1794,7 +1772,7 @@ export class AppState {
                   aria-pressed="${this.selectedProtocol === proto}"
                 >
                   <span>${escapeHTML(proto)}</span>
-                  <span class="px-1.5 py-0.5 text-[10px] rounded-md ${this.selectedProtocol === proto ? 'bg-gray-950 text-cyan-300' : 'bg-gray-950 text-gray-400'}">${count}</span>
+                  <span class="px-1.5 py-0.5 text-xs rounded-md ${this.selectedProtocol === proto ? 'bg-gray-950 text-cyan-300' : 'bg-gray-950 text-gray-400'}">${count}</span>
                 </button>
               `;
             }).join("")}
@@ -1851,7 +1829,7 @@ export class AppState {
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 items-center">
           <!-- Operator Dropdown -->
           <div class="relative">
-            <label class="block text-[10px] font-mono text-gray-400 mb-1">Operator / Carrier</label>
+            <label class="block text-xs font-mono text-gray-400 mb-1">Operator / Carrier</label>
             <select
               id="select-operator"
               class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
@@ -1863,7 +1841,7 @@ export class AppState {
 
           <!-- Transport Dropdown -->
           <div class="relative">
-            <label class="block text-[10px] font-mono text-gray-400 mb-1">Transport Layer</label>
+            <label class="block text-xs font-mono text-gray-400 mb-1">Transport Layer</label>
             <select
               id="select-transport"
               class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
@@ -1875,7 +1853,7 @@ export class AppState {
 
           <!-- Region Dropdown -->
           <div class="relative">
-            <label class="block text-[10px] font-mono text-gray-400 mb-1">Geo Location</label>
+            <label class="block text-xs font-mono text-gray-400 mb-1">Geo Location</label>
             <select
               id="select-country"
               class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
@@ -1887,7 +1865,7 @@ export class AppState {
 
           <!-- Health Grade Dropdown -->
           <div class="relative">
-            <label class="block text-[10px] font-mono text-gray-400 mb-1">Health Grade</label>
+            <label class="block text-xs font-mono text-gray-400 mb-1">Health Grade</label>
             <select
               id="select-grade"
               class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
@@ -1899,7 +1877,7 @@ export class AppState {
 
           <!-- Security Type Dropdown -->
           <div class="relative">
-            <label class="block text-[10px] font-mono text-gray-400 mb-1">Security / TLS</label>
+            <label class="block text-xs font-mono text-gray-400 mb-1">Security / TLS</label>
             <select
               id="select-security"
               class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
@@ -1911,7 +1889,7 @@ export class AppState {
 
           <!-- Telemetry Sorting Dropdown -->
           <div class="relative">
-            <label class="block text-[10px] font-mono text-gray-400 mb-1">Telemetry Sorting</label>
+            <label class="block text-xs font-mono text-gray-400 mb-1">Telemetry Sorting</label>
             <select
               id="select-sort"
               class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
@@ -1930,23 +1908,23 @@ export class AppState {
         <div class="flex flex-wrap items-center justify-between gap-3 p-3 bg-gray-950/80 border border-gray-800/80 rounded-2xl text-xs font-mono">
           <div class="flex items-center gap-2 text-gray-300">
             <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-            <span>Displaying <strong class="text-cyan-400">${filtered.length}</strong> of ${allProxies.length} nodes · latest verified run</span>
-            ${this.selectedCountry !== "ALL" ? `<span class="px-2 py-0.5 bg-gray-900 border border-gray-800 rounded text-[10px] text-cyan-300">${this.selectedCountry}</span>` : ''}
-            ${this.selectedOperator !== "ALL" ? `<span class="px-2 py-0.5 bg-gray-900 border border-gray-800 rounded text-[10px] text-blue-300">${this.selectedOperator}</span>` : ''}
+            <span>Displaying <strong class="text-cyan-400">${filtered.length}</strong> of ${allProxies.length} nodes · loaded snapshot</span>
+            ${this.selectedCountry !== "ALL" ? `<span class="px-2 py-0.5 bg-gray-900 border border-gray-800 rounded text-xs text-cyan-300">${this.selectedCountry}</span>` : ''}
+            ${this.selectedOperator !== "ALL" ? `<span class="px-2 py-0.5 bg-gray-900 border border-gray-800 rounded text-xs text-blue-300">${this.selectedOperator}</span>` : ''}
           </div>
 
           <div class="flex items-center gap-2 flex-wrap">
-            <button id="btn-batch-copy-filtered" class="px-3.5 py-2 min-h-[44px] bg-cyan-950 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-300 rounded-xl text-[11px] font-semibold cursor-pointer focus-ring transition-all flex items-center gap-1.5">
+            <button id="btn-batch-copy-filtered" class="px-3.5 py-2 min-h-[44px] bg-cyan-950 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-300 rounded-xl text-xs font-semibold cursor-pointer focus-ring transition-all flex items-center gap-1.5">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
               Copy Filtered (${filtered.length})
             </button>
-            <button id="btn-batch-export-singbox" class="px-3.5 py-2 min-h-[44px] bg-gray-900 hover:bg-gray-800 border border-gray-700 text-emerald-300 rounded-xl text-[11px] font-semibold cursor-pointer focus-ring transition-all">
+            <button id="btn-batch-export-singbox" class="px-3.5 py-2 min-h-[44px] bg-gray-900 hover:bg-gray-800 border border-gray-700 text-emerald-300 rounded-xl text-xs font-semibold cursor-pointer focus-ring transition-all">
               Sing-box JSON
             </button>
-            <button id="btn-batch-export-clash" class="px-3.5 py-2 min-h-[44px] bg-gray-900 hover:bg-gray-800 border border-gray-700 text-amber-300 rounded-xl text-[11px] font-semibold cursor-pointer focus-ring transition-all">
+            <button id="btn-batch-export-clash" class="px-3.5 py-2 min-h-[44px] bg-gray-900 hover:bg-gray-800 border border-gray-700 text-amber-300 rounded-xl text-xs font-semibold cursor-pointer focus-ring transition-all">
               Clash YAML
             </button>
-            <button id="btn-reset-all-filters" class="px-3.5 py-2 min-h-[44px] bg-gray-900 hover:bg-rose-950 text-gray-400 hover:text-rose-300 border border-gray-800 rounded-xl text-[11px] cursor-pointer focus-ring transition-all">
+            <button id="btn-reset-all-filters" class="px-3.5 py-2 min-h-[44px] bg-gray-900 hover:bg-rose-950 text-gray-400 hover:text-rose-300 border border-gray-800 rounded-xl text-xs cursor-pointer focus-ring transition-all">
               Reset Filters
             </button>
           </div>
@@ -2115,27 +2093,27 @@ export class AppState {
         const displayUUID = isUnmasked ? uuid : `${uuid.slice(0, 4)}••••-••••-••••-${uuid.slice(-4)}`;
 
         return `
-          <div class="bg-gray-900/70 hover:bg-gray-900/90 border border-gray-800/80 hover:border-cyan-500/40 rounded-2xl p-4 transition-all duration-200 flex flex-col justify-between group shadow-lg shadow-black/40 relative backdrop-blur-md">
+          <div class="proxy-card p-4 flex flex-col justify-between group relative">
             <div>
               <!-- Header Row: Flags, Protocol, Operator, Health Grade -->
-              <div class="flex items-center justify-between mb-2.5">
+              <div class="proxy-card-header flex items-center justify-between mb-2.5">
                 <div class="flex items-center gap-1.5 flex-wrap">
                   <span class="text-base" title="${escapeHTML(node.countryName)}">${flag}</span>
-                  <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded border ${protoColor}">
+                  <span class="px-2 py-0.5 text-xs font-mono font-bold uppercase rounded border ${protoColor}">
                     ${escapeHTML(node.protocol)}
                   </span>
-                  <span class="px-1.5 py-0.5 text-[10px] font-mono rounded border ${opBadgeColor}">
+                  <span class="proxy-secondary-tag px-1.5 py-0.5 text-xs font-mono ${opBadgeColor}">
                     ${escapeHTML(op)}
                   </span>
-                  <span class="px-1.5 py-0.5 text-[10px] font-mono text-gray-400 bg-gray-950 rounded border border-gray-800">
+                  <span class="proxy-secondary-tag px-1.5 py-0.5 text-xs font-mono text-gray-400">
                     ${escapeHTML(node.transport)}
                   </span>
                 </div>
                 <div class="flex items-center gap-1.5">
-                  <span class="px-2 py-0.5 text-[10px] font-mono font-bold rounded border ${gradeColor}" title="${score === null ? healthLabel : `Quality Score: ${score}/100 (${healthLabel})`}">
+                  <span class="px-2 py-0.5 text-xs font-mono font-bold rounded border ${gradeColor}" title="${score === null ? healthLabel : `Quality Score: ${score}/100 (${healthLabel})`}">
                     <span class="text-cyan-400 font-bold mr-0.5">Grade</span> ${grade}
                   </span>
-                  <div class="flex items-center gap-1 text-[11px] font-mono font-semibold ${latency === null ? 'text-gray-500' : latency < 60 ? 'text-emerald-400' : latency < 120 ? 'text-amber-400' : 'text-rose-400'}">
+                  <div class="flex items-center gap-1 text-xs font-mono font-semibold ${latency === null ? 'text-gray-500' : latency < 60 ? 'text-emerald-400' : latency < 120 ? 'text-amber-400' : 'text-rose-400'}">
                     <span class="w-1.5 h-1.5 rounded-full ${latency === null ? 'bg-gray-600' : latency < 60 ? 'bg-emerald-400' : latency < 120 ? 'bg-amber-400' : 'bg-rose-400'}"></span>
                     <span>${latency === null ? 'Unmeasured' : `${Math.round(latency)}ms`}</span>
                   </div>
@@ -2143,28 +2121,28 @@ export class AppState {
               </div>
 
               <!-- Node Title / Remark -->
-              <h3 class="text-xs font-mono font-bold text-gray-100 truncate group-hover:text-cyan-300 transition-colors flex items-center justify-between" title="${escapeHTML(node.name)}">
+              <h3 class="text-sm font-mono font-semibold text-gray-100 truncate group-hover:text-cyan-300 transition-colors flex items-center justify-between" title="${escapeHTML(node.name)}">
                 <span class="truncate">${escapeHTML(node.name)}</span>
               </h3>
 
               <!-- Specs Grid -->
-              <div class="mt-2.5 space-y-1.5 text-xs font-mono bg-gray-950/60 p-2.5 rounded-xl border border-gray-800/60">
-                <div class="flex items-center justify-between text-[11px]">
+              <div class="proxy-specs mt-2.5 space-y-1.5 text-xs font-mono">
+                <div class="flex items-center justify-between text-xs">
                   <span class="text-gray-400">Endpoint:</span>
                   <span class="technical-ltr text-gray-300 truncate max-w-[170px] select-all">${escapeHTML(node.server)}:${node.port}</span>
                 </div>
 
                 ${node.sni ? `
-                  <div class="flex items-center justify-between text-[11px]">
+                  <div class="flex items-center justify-between text-xs">
                     <span class="text-gray-400">SNI / Host:</span>
                     <span class="technical-ltr text-cyan-300 truncate max-w-[170px] select-all">${escapeHTML(node.sni)}</span>
                   </div>
                 ` : ''}
 
-                <div class="flex items-center justify-between text-[11px]">
+                <div class="flex items-center justify-between text-xs">
                   <span class="text-gray-400">Credential:</span>
                   <div class="flex items-center gap-1">
-                    <span class="technical-ltr text-gray-400 font-mono text-[10px]">${escapeHTML(displayUUID)}</span>
+                    <span class="technical-ltr text-gray-400 font-mono text-xs">${escapeHTML(displayUUID)}</span>
                     <button
                       class="btn-toggle-mask text-gray-400 hover:text-cyan-400 cursor-pointer p-2 min-h-[44px] min-w-[44px] flex items-center justify-center focus-ring rounded-lg transition-colors"
                       data-node-id="${node.id}"
@@ -2179,9 +2157,9 @@ export class AppState {
                   </div>
                 </div>
 
-                <div class="flex items-center justify-between text-[11px] pt-1 border-t border-gray-800/40">
+                <div class="flex items-center justify-between text-xs pt-1 border-t border-gray-800/40">
                   <span class="text-gray-400">Geo &amp; Carrier:</span>
-                  <span class="text-gray-300 font-semibold">${flag} ${escapeHTML(node.countryName || node.country_name || "Unknown")} • ${escapeHTML(op)} <span class="text-[9px] text-gray-500">(${node.geo_verified ? "verified" : node.geo_source === "unknown" ? "unknown" : "estimated"})</span></span>
+                  <span class="text-gray-300 font-semibold">${flag} ${escapeHTML(node.countryName || node.country_name || "Unknown")} • ${escapeHTML(op)} <span class="text-xs text-gray-500">(${node.geo_verified ? "verified" : node.geo_source === "unknown" ? "unknown" : "estimated"})</span></span>
                 </div>
               </div>
 
@@ -2189,7 +2167,7 @@ export class AppState {
               ${isQRVisible ? `
                 <div class="mt-3 p-3 bg-white rounded-xl flex flex-col items-center justify-center animate-fade-in shadow-md">
                   ${renderQRCodeSVG(node.raw, 160, "#070a0f", "#ffffff")}
-                  <span class="text-[9px] font-mono text-gray-800 mt-1 font-bold">Scan with v2rayNG / Sing-box</span>
+                  <span class="text-xs font-mono text-gray-800 mt-1 font-bold">Scan with v2rayNG / Sing-box</span>
                 </div>
               ` : ''}
             </div>
@@ -2241,7 +2219,7 @@ export class AppState {
         <div class="bg-gray-950 border border-gray-800 rounded-2xl overflow-hidden shadow-xl">
           <div class="overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
             <table class="w-full text-left font-mono text-xs">
-              <thead class="bg-gray-900/90 text-gray-400 border-b border-gray-800 text-[10px] uppercase tracking-wider">
+              <thead class="bg-gray-900/90 text-gray-400 border-b border-gray-800 text-xs uppercase tracking-wider">
                 <tr>
                   <th class="p-3.5">Region</th>
                   <th class="p-3.5">Protocol</th>
@@ -2261,15 +2239,15 @@ export class AppState {
                   const { grade } = this.getHealthScore(latency);
                   return `
                     <tr class="hover:bg-gray-900/50 transition-colors">
-                      <td class="p-3.5 font-bold text-sm">${flag} <span class="text-[10px] text-gray-500">${escapeHTML(node.country)}</span></td>
-                      <td class="p-3.5"><span class="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-cyan-950 text-cyan-300 border border-cyan-800">${escapeHTML(node.protocol)}</span></td>
+                      <td class="p-3.5 font-bold text-sm">${flag} <span class="text-xs text-gray-500">${escapeHTML(node.country)}</span></td>
+                      <td class="p-3.5"><span class="px-2 py-0.5 rounded text-xs uppercase font-bold bg-cyan-950 text-cyan-300 border border-cyan-800">${escapeHTML(node.protocol)}</span></td>
                       <td class="p-3.5 font-semibold text-gray-200 truncate max-w-[200px]" title="${escapeHTML(node.name)}">${escapeHTML(node.name)}</td>
                       <td class="p-3.5 text-cyan-300 select-all">${escapeHTML(node.server)}:${node.port}</td>
                       <td class="p-3.5 text-gray-400">${escapeHTML(node.transport)} ${node.sni ? `(${escapeHTML(node.sni)})` : ''}</td>
-                      <td class="p-3.5"><span class="px-2 py-0.5 bg-gray-900 rounded border border-gray-800 text-gray-300 text-[10px]">${escapeHTML(op)}</span></td>
+                      <td class="p-3.5"><span class="px-2 py-0.5 bg-gray-900 rounded border border-gray-800 text-gray-300 text-xs">${escapeHTML(op)}</span></td>
                       <td class="p-3.5">
                         <span class="font-bold ${latency === null ? 'text-gray-500' : latency < 60 ? 'text-emerald-400' : 'text-amber-400'}">${latency === null ? 'Unmeasured' : `${Math.round(latency)}ms`}</span>
-                        <span class="text-[10px] text-gray-500 ml-1">Grade ${grade}</span>
+                        <span class="text-xs text-gray-500 ml-1">Grade ${grade}</span>
                       </td>
                       <td class="p-3.5 text-right space-x-1 whitespace-nowrap">
                         <button class="btn-copy-node px-3 py-2 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 text-cyan-300 rounded-xl text-xs font-mono font-medium focus-ring cursor-pointer transition-all" data-raw="${encodeURIComponent(node.raw)}">Copy</button>
@@ -2415,7 +2393,7 @@ export class AppState {
               Pipeline Output &amp; Artifacts Repository
             </h2>
             <p class="text-xs font-mono text-gray-400 mt-1">Direct access to all ${allFiles.length} generated releases, cumulative datasets, split chunks, and client profiles</p>
-            <p class="text-[11px] font-mono text-gray-500 mt-2">
+            <p class="text-xs font-mono text-gray-500 mt-2">
               Link mode: <span class="text-cyan-300">${escapeHTML(linkMode.sourceLabel)}</span>${linkMode.isAbsolute ? "" : " for local previews. Serve over HTTP(S) or configure a public base URL for import-ready absolute links."}
             </p>
           </div>
@@ -2482,7 +2460,7 @@ export class AppState {
               <div class="bg-gray-900/60 hover:bg-gray-900 border border-gray-800 hover:border-cyan-500/40 rounded-2xl p-4 transition-all duration-200 flex flex-col justify-between group shadow-lg shadow-black/30">
                 <div>
                   <div class="flex items-center justify-between mb-2">
-                    <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded border ${badgeColor}">
+                    <span class="px-2 py-0.5 text-xs font-mono font-bold uppercase rounded border ${badgeColor}">
                       ${escapeHTML(file.ext || file.type)}
                     </span>
                     <span class="text-xs font-mono text-cyan-400 font-semibold">${escapeHTML(file.size_str)}</span>
@@ -2492,16 +2470,16 @@ export class AppState {
                     ${escapeHTML(file.filename)}
                   </h4>
 
-                  <p class="text-[11px] font-sans text-gray-400 mt-1 line-clamp-2 leading-relaxed">
+                  <p class="text-xs font-sans text-gray-400 mt-1 line-clamp-2 leading-relaxed">
                     ${escapeHTML(file.description || file.filename)}
                   </p>
 
-                  <div class="mt-2 text-[10px] font-mono text-gray-500 truncate" title="${escapeHTML(link.display)}">
+                  <div class="mt-2 text-xs font-mono text-gray-500 truncate" title="${escapeHTML(link.display)}">
                     ${escapeHTML(link.display)}
                   </div>
 
                   <div class="mt-2.5 flex flex-wrap gap-1">
-                    ${(file.tags || []).map(t => `<span class="text-[9px] font-mono text-gray-400 px-1.5 py-0.5 bg-gray-950 border border-gray-800 rounded">${escapeHTML(t)}</span>`).join("")}
+                    ${(file.tags || []).map(t => `<span class="text-xs font-mono text-gray-400 px-1.5 py-0.5 bg-gray-950 border border-gray-800 rounded">${escapeHTML(t)}</span>`).join("")}
                   </div>
                 </div>
 
@@ -2609,14 +2587,14 @@ export class AppState {
             <div class="p-2 bg-gray-950 border border-cyan-500/40 rounded-2xl shadow-lg shadow-cyan-950/30 flex items-center justify-center">
               ${renderQRCodeSVG(qrTargetUrl, 240, "#00d2ff", "#020617")}
             </div>
-            <p class="text-[11px] font-mono text-cyan-400 mt-2.5 text-center">
+            <p class="text-xs font-mono text-cyan-400 mt-2.5 text-center">
               Scan to import from the hosted dashboard
             </p>
         `
       : `
             <div class="w-full p-5 bg-gray-950 border border-dashed border-gray-700 rounded-2xl text-center space-y-2">
               <div class="text-sm font-mono font-bold text-gray-200">QR unavailable in local preview</div>
-              <p class="text-[11px] font-mono text-gray-400">Serve the dashboard over HTTP(S) or configure a public base URL before generating scannable feed QR codes.</p>
+              <p class="text-xs font-mono text-gray-400">Serve the dashboard over HTTP(S) or configure a public base URL before generating scannable feed QR codes.</p>
             </div>
         `;
 
@@ -2625,7 +2603,7 @@ export class AppState {
         <div class="relative w-full max-w-md bg-gray-900 border border-cyan-500/40 rounded-3xl p-6 shadow-2xl shadow-cyan-950/60 space-y-5 max-h-[90vh] max-h-[90dvh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="artifact-qr-title">
           <div class="flex items-center justify-between pb-3 border-b border-gray-800">
             <div class="flex items-center gap-2">
-              <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded border bg-cyan-950 text-cyan-300 border-cyan-700">
+              <span class="px-2 py-0.5 text-xs font-mono font-bold uppercase rounded border bg-cyan-950 text-cyan-300 border-cyan-700">
                 ${escapeHTML(file.type || "FEED")}
               </span>
               <h3 id="artifact-qr-title" class="text-sm font-mono font-bold text-white truncate max-w-[220px]" title="${escapeHTML(file.filename)}">
@@ -2642,21 +2620,21 @@ export class AppState {
           </div>
 
           <div class="bg-gray-950/80 border border-gray-800 rounded-xl p-3.5 space-y-2">
-            <div class="flex items-center justify-between text-[11px] font-mono">
+            <div class="flex items-center justify-between text-xs font-mono">
               <span class="text-gray-400">File Size:</span>
               <span class="text-emerald-400 font-bold">${escapeHTML(file.size_str || "")}</span>
             </div>
-            <div class="flex items-center justify-between text-[11px] font-mono">
+            <div class="flex items-center justify-between text-xs font-mono">
               <span class="text-gray-400">Link:</span>
               <span class="text-cyan-300 truncate max-w-[220px] font-mono" title="${escapeHTML(link.display)}">${escapeHTML(link.display)}</span>
             </div>
             ${file.hash ? `
-              <div class="flex items-center justify-between text-[10px] font-mono">
+              <div class="flex items-center justify-between text-xs font-mono">
                 <span class="text-gray-500">SHA-256:</span>
                 <span class="technical-ltr text-gray-400 font-mono truncate max-w-[220px]">${escapeHTML(file.hash.slice(0, 16))}...</span>
               </div>
             ` : ""}
-            <p class="text-[11px] font-sans text-gray-400 pt-1.5 border-t border-gray-800/60 leading-relaxed">
+            <p class="text-xs font-sans text-gray-400 pt-1.5 border-t border-gray-800/60 leading-relaxed">
               ${escapeHTML(file.description || "")}
             </p>
           </div>
@@ -2679,23 +2657,9 @@ export class AppState {
     if (overlay) {
       overlay.innerHTML = modalHTML;
       overlay.classList.remove("hidden");
-      overlay.removeAttribute("hidden");
-      overlay.style.setProperty("display", "block", "important");
-      const previousFocus = document.activeElement;
       const dialog = overlay.querySelector('[role="dialog"]');
-      if (dialog) {
-        dialog.setAttribute("tabindex", "-1");
-        dialog.focus();
-        this.trapFocus(dialog);
-      }
-
-      const closeModal = () => {
-        overlay.classList.add("hidden");
-        overlay.setAttribute("hidden", "true");
-        overlay.style.setProperty("display", "none", "important");
-        overlay.innerHTML = "";
-        previousFocus?.focus?.();
-      };
+      const closeModal = () => this.closeModal();
+      if (dialog) this.trapFocus(dialog);
 
       document.getElementById("btn-close-artifact-qr")?.addEventListener("click", closeModal);
       document.getElementById("btn-copy-artifact-qr-url")?.addEventListener("click", () => {
@@ -2704,11 +2668,6 @@ export class AppState {
           : `Copied portable artifact path for ${file.filename}`);
       });
 
-      overlay.addEventListener("click", (e) => {
-        if (e.target.id === "artifact-qr-modal-container") {
-          closeModal();
-        }
-      });
     }
   }
 
@@ -2737,7 +2696,7 @@ export class AppState {
               <div>
                 <h3 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
                   Routing Profile Reference
-                  <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-slate-800 text-slate-300 border border-slate-700">EXAMPLE</span>
+                  <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-slate-800 text-slate-300 border border-slate-700">EXAMPLE</span>
                 </h3>
                 <p class="text-xs text-gray-400 font-sans mt-0.5">Illustrative routing order. Download verified profiles from the published catalog; this panel does not modify a live client.</p>
               </div>
@@ -2760,11 +2719,11 @@ export class AppState {
                 <div class="flex items-center justify-between p-3.5 rounded-2xl bg-gray-950/80 border border-gray-800 text-xs font-mono group hover:border-cyan-500/40 transition-all">
                   <div class="flex items-center gap-3">
                     <span class="text-gray-500 font-bold w-4">${idx + 1}.</span>
-                    <span class="px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider ${rule.type === 'geosite' ? 'bg-indigo-950 text-indigo-300 border border-indigo-800' : rule.type === 'geoip' ? 'bg-amber-950 text-amber-300 border border-amber-800' : 'bg-slate-800 text-gray-300 border border-slate-700'}">${rule.type}</span>
+                    <span class="px-2 py-0.5 rounded text-xs uppercase font-bold tracking-wider ${rule.type === 'geosite' ? 'bg-indigo-950 text-indigo-300 border border-indigo-800' : rule.type === 'geoip' ? 'bg-amber-950 text-amber-300 border border-amber-800' : 'bg-slate-800 text-gray-300 border border-slate-700'}">${rule.type}</span>
                     <span class="text-cyan-200 font-semibold">${escapeHTML(rule.target)}</span>
                   </div>
                   <div class="flex items-center gap-2">
-                    <span class="px-2.5 py-1 rounded-lg text-[11px] font-bold ${rule.action === 'BLOCK' ? 'bg-rose-950 text-rose-300 border border-rose-800' : rule.action === 'DIRECT' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-cyan-950 text-cyan-300 border border-cyan-800'}">${rule.action}</span>
+                    <span class="px-2.5 py-1 rounded-lg text-xs font-bold ${rule.action === 'BLOCK' ? 'bg-rose-950 text-rose-300 border border-rose-800' : rule.action === 'DIRECT' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-cyan-950 text-cyan-300 border border-cyan-800'}">${rule.action}</span>
                   </div>
                 </div>
               `).join("")}
@@ -2776,21 +2735,21 @@ export class AppState {
                 <div class="space-y-2 text-xs font-mono">
                   <div class="p-3 rounded-xl bg-cyan-950/30 border border-cyan-800/40 text-cyan-300 flex items-center justify-between">
                     <span>1. Inbound (Mixed 7890 / TUN)</span>
-                    <span class="text-[10px] text-cyan-400 font-bold">LISTEN</span>
+                    <span class="text-xs text-cyan-400 font-bold">LISTEN</span>
                   </div>
                   <div class="text-center text-gray-600 text-sm">↓</div>
                   <div class="p-3 rounded-xl bg-indigo-950/30 border border-indigo-800/40 text-indigo-300 flex items-center justify-between">
                     <span>2. DNS &amp; Geo-Classifier</span>
-                    <span class="text-[10px] text-indigo-400 font-bold">RESOLVE</span>
+                    <span class="text-xs text-indigo-400 font-bold">RESOLVE</span>
                   </div>
                   <div class="text-center text-gray-600 text-sm">↓</div>
                   <div class="p-3 rounded-xl bg-emerald-950/30 border border-emerald-800/40 text-emerald-300 flex items-center justify-between">
                     <span>3. Multi-Hop Outbounds</span>
-                    <span class="text-[10px] text-emerald-400 font-bold">EGRESS</span>
+                    <span class="text-xs text-emerald-400 font-bold">EGRESS</span>
                   </div>
                 </div>
               </div>
-              <div class="mt-4 pt-3 border-t border-gray-800/80 flex items-center justify-between text-[11px] font-mono text-gray-400">
+              <div class="mt-4 pt-3 border-t border-gray-800/80 flex items-center justify-between text-xs font-mono text-gray-400">
                 <span>Example rules: ${rules.length}</span>
                 <span>Latency impact: not measured</span>
               </div>
@@ -2926,8 +2885,8 @@ export class AppState {
               <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-800/80 pb-3">
                 <div class="flex items-center gap-2">
                   <span class="text-lg">${flag}</span>
-                  <span class="px-2 py-0.5 rounded uppercase font-bold text-[11px] bg-cyan-950 text-cyan-300 border border-cyan-800">${escapeHTML(decoded.protocol)}</span>
-                  <span class="px-1.5 py-0.5 rounded text-[11px] bg-gray-900 text-gray-300 border border-gray-800">${escapeHTML(op)}</span>
+                  <span class="px-2 py-0.5 rounded uppercase font-bold text-xs bg-cyan-950 text-cyan-300 border border-cyan-800">${escapeHTML(decoded.protocol)}</span>
+                  <span class="px-1.5 py-0.5 rounded text-xs bg-gray-900 text-gray-300 border border-gray-800">${escapeHTML(op)}</span>
                   <span class="font-bold text-gray-200 truncate max-w-xs">${escapeHTML(decoded.name || 'Node')}</span>
                 </div>
                 <div class="flex flex-wrap gap-2">
@@ -2940,44 +2899,44 @@ export class AppState {
               <!-- Parameter Grid -->
               <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                 <div class="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800/60">
-                  <span class="text-[10px] text-gray-500 block">Server Address</span>
+                  <span class="text-xs text-gray-500 block">Server Address</span>
                   <span class="text-cyan-300 font-semibold select-all">${escapeHTML(decoded.server)}</span>
                 </div>
                 <div class="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800/60">
-                  <span class="text-[10px] text-gray-500 block">Port</span>
+                  <span class="text-xs text-gray-500 block">Port</span>
                   <span class="text-gray-200 select-all">${escapeHTML(decoded.port)}</span>
                 </div>
                 <div class="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800/60">
-                  <span class="text-[10px] text-gray-500 block">Credential / UUID</span>
+                  <span class="text-xs text-gray-500 block">Credential / UUID</span>
                   <span class="text-gray-300 select-all">${escapeHTML(decoded.uuid || decoded.password || "N/A")}</span>
                 </div>
                 <div class="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800/60">
-                  <span class="text-[10px] text-gray-500 block">Security / TLS</span>
+                  <span class="text-xs text-gray-500 block">Security / TLS</span>
                   <span class="text-indigo-300">${escapeHTML(decoded.security || "none")}</span>
                 </div>
                 <div class="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800/60">
-                  <span class="text-[10px] text-gray-500 block">SNI / ServerName</span>
+                  <span class="text-xs text-gray-500 block">SNI / ServerName</span>
                   <span class="text-cyan-300 select-all">${escapeHTML(decoded.sni || decoded.host || "None")}</span>
                 </div>
                 <div class="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800/60">
-                  <span class="text-[10px] text-gray-500 block">Transport Network</span>
+                  <span class="text-xs text-gray-500 block">Transport Network</span>
                   <span class="text-emerald-300">${escapeHTML(decoded.transport || "tcp")}</span>
                 </div>
                 ${decoded.publicKey ? `
                   <div class="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800/60">
-                    <span class="text-[10px] text-gray-500 block">Reality Public Key (pbk)</span>
+                    <span class="text-xs text-gray-500 block">Reality Public Key (pbk)</span>
                     <span class="text-amber-300 select-all">${escapeHTML(decoded.publicKey)}</span>
                   </div>
                 ` : ''}
                 ${decoded.shortId ? `
                   <div class="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800/60">
-                    <span class="text-[10px] text-gray-500 block">Short ID (sid)</span>
+                    <span class="text-xs text-gray-500 block">Short ID (sid)</span>
                     <span class="text-amber-300 select-all">${escapeHTML(decoded.shortId)}</span>
                   </div>
                 ` : ''}
                 ${decoded.serviceName ? `
                   <div class="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800/60">
-                    <span class="text-[10px] text-gray-500 block">gRPC ServiceName</span>
+                    <span class="text-xs text-gray-500 block">gRPC ServiceName</span>
                     <span class="text-cyan-300 select-all">${escapeHTML(decoded.serviceName)}</span>
                   </div>
                 ` : ''}
@@ -2985,8 +2944,8 @@ export class AppState {
 
               <!-- Full JSON Representation -->
               <div class="mt-2">
-                <span class="text-[11px] text-gray-400 block mb-1 font-bold">Sing-box Outbound Object:</span>
-                <pre class="p-3 bg-gray-900/80 rounded-xl border border-gray-800 overflow-x-auto text-[11px] text-gray-300">${escapeHTML(JSON.stringify(singboxOutbound, null, 2))}</pre>
+                <span class="text-xs text-gray-400 block mb-1 font-bold">Sing-box Outbound Object:</span>
+                <pre class="p-3 bg-gray-900/80 rounded-xl border border-gray-800 overflow-x-auto text-xs text-gray-300">${escapeHTML(JSON.stringify(singboxOutbound, null, 2))}</pre>
               </div>
             </div>
           `;
@@ -3174,15 +3133,15 @@ export class AppState {
           <div id="dedup-result-box" class="hidden space-y-3 pt-2">
             <div class="grid grid-cols-3 gap-3 font-mono text-xs">
               <div class="p-3 bg-gray-950 border border-gray-800 rounded-xl text-center">
-                <span class="text-gray-500 text-[10px] block">Ingested</span>
+                <span class="text-gray-500 text-xs block">Ingested</span>
                 <span id="stat-ingested" class="text-gray-200 font-bold text-sm">0</span>
               </div>
               <div class="p-3 bg-gray-950 border border-gray-800 rounded-xl text-center">
-                <span class="text-gray-500 text-[10px] block">Unique Nodes</span>
+                <span class="text-gray-500 text-xs block">Unique Nodes</span>
                 <span id="stat-unique" class="text-emerald-400 font-bold text-sm">0</span>
               </div>
               <div class="p-3 bg-gray-950 border border-gray-800 rounded-xl text-center">
-                <span class="text-gray-500 text-[10px] block">Duplicates Purged</span>
+                <span class="text-gray-500 text-xs block">Duplicates Purged</span>
                 <span id="stat-purged" class="text-rose-400 font-bold text-sm">0</span>
               </div>
             </div>
@@ -3252,7 +3211,7 @@ export class AppState {
 
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label for="qr-studio-color-preset" class="block text-[10px] font-mono text-gray-400 mb-1">Color Preset:</label>
+                  <label for="qr-studio-color-preset" class="block text-xs font-mono text-gray-400 mb-1">Color Preset:</label>
                   <select
                     id="qr-studio-color-preset"
                     class="w-full bg-gray-950 border border-gray-800 text-gray-300 text-xs font-mono rounded-xl px-3 py-2.5 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
@@ -3263,7 +3222,7 @@ export class AppState {
                   </select>
                 </div>
                 <div>
-                  <label for="qr-studio-ecc" class="block text-[10px] font-mono text-gray-400 mb-1">Error Correction (ECC):</label>
+                  <label for="qr-studio-ecc" class="block text-xs font-mono text-gray-400 mb-1">Error Correction (ECC):</label>
                   <select
                     id="qr-studio-ecc"
                     class="w-full bg-gray-950 border border-gray-800 text-gray-300 text-xs font-mono rounded-xl px-3 py-2.5 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
@@ -3373,7 +3332,7 @@ export class AppState {
           </div>
 
           <div id="modal-decoder-output" class="technical-ltr p-4 bg-gray-950 border border-gray-800 rounded-2xl max-h-[300px] overflow-y-auto font-mono text-xs">
-            ${decodedRes ? `<pre class="text-gray-300 text-[11px]">${escapeHTML(JSON.stringify(decodedRes, null, 2))}</pre>` : `<span class="text-gray-500">Click parse to inspect</span>`}
+            ${decodedRes ? `<pre class="text-gray-300 text-xs">${escapeHTML(JSON.stringify(decodedRes, null, 2))}</pre>` : `<span class="text-gray-500">Click parse to inspect</span>`}
           </div>
 
           <div class="flex flex-wrap justify-end gap-3 pt-2">
@@ -3396,7 +3355,7 @@ export class AppState {
     ta?.addEventListener("input", (e) => {
       try {
         const parsed = decodeProxyURI(e.target.value);
-        document.getElementById("modal-decoder-output").innerHTML = `<pre class="text-gray-300 text-[11px]">${escapeHTML(JSON.stringify(parsed, null, 2))}</pre>`;
+        document.getElementById("modal-decoder-output").innerHTML = `<pre class="text-gray-300 text-xs">${escapeHTML(JSON.stringify(parsed, null, 2))}</pre>`;
       } catch (err) {
         document.getElementById("modal-decoder-output").innerHTML = `<span class="text-rose-400">${escapeHTML(err.message)}</span>`;
       }
@@ -3435,7 +3394,7 @@ export class AppState {
             ${renderQRCodeSVG(raw, 220)}
           </div>
 
-          <p class="text-[11px] font-mono text-gray-400">Scan with v2rayNG, Streisand, Sing-box, or Shadowrocket</p>
+          <p class="text-xs font-mono text-gray-400">Scan with v2rayNG, Streisand, Sing-box, or Shadowrocket</p>
 
           <button id="btn-copy-qr-raw" class="w-full py-2.5 min-h-[44px] bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-mono font-bold text-xs rounded-xl focus-ring cursor-pointer" aria-label="Copy Node URI to clipboard">
             Copy Node URI
@@ -3481,14 +3440,14 @@ export class AppState {
       <div class="p-3.5 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs flex flex-col justify-between">
         <div>
           <span class="text-gray-200 font-bold block">${escapeHTML(label)}</span>
-          <span class="text-[11px] text-gray-500 block mt-0.5">${escapeHTML(description)}</span>
+          <span class="text-xs text-gray-500 block mt-0.5">${escapeHTML(description)}</span>
         </div>
         <div class="mt-3 rounded-lg border border-gray-800 bg-black/20 px-2.5 py-2">
-          <div class="text-[9px] uppercase tracking-wider text-gray-500 mb-1">${escapeHTML(link.sourceLabel)}</div>
-          <div class="text-[10px] text-${color}-300 break-all">${escapeHTML(link.display)}</div>
+          <div class="text-xs uppercase tracking-wider text-gray-500 mb-1">${escapeHTML(link.sourceLabel)}</div>
+          <div class="text-xs text-${color}-300 break-all">${escapeHTML(link.display)}</div>
         </div>
         <div class="mt-3 flex items-center justify-end gap-2">
-          <button class="btn-copy-custom px-3 py-1.5 min-h-[44px] bg-${color}-500 text-${color === "indigo" ? "white" : "gray-950"} font-bold rounded-lg text-[10px] cursor-pointer focus-ring" data-url="${escapeHTML(link.copyValue)}" data-absolute="${link.isAbsolute}">Copy</button>
+          <button class="btn-copy-custom px-3 py-1.5 min-h-[44px] bg-${color}-500 text-${color === "indigo" ? "white" : "gray-950"} font-bold rounded-lg text-xs cursor-pointer focus-ring" data-url="${escapeHTML(link.copyValue)}" data-absolute="${link.isAbsolute}">Copy</button>
         </div>
       </div>`;
     };
@@ -3525,7 +3484,7 @@ export class AppState {
                   ${devFeeds.filter((file) => !chunks.includes(file)).map((file) => feedCard({ label: file.filename || file.name, description: file.size_str || "Published artifact", color: "indigo", file })).join("")}
                 </div>
               </div>
-              ${chunks.length ? `<div><span class="text-xs font-mono font-bold text-emerald-400 uppercase tracking-wider block mb-2">3. Lightweight Split Chunks</span><p class="text-[11px] font-mono text-gray-500 mb-2">Only chunks included in this catalog are shown.</p><div class="grid grid-cols-2 sm:grid-cols-4 gap-2">${chunks.map((file, index) => { const link = getArtifactLinkModel(file.path); return `<button class="btn-copy-custom p-2.5 min-h-[44px] bg-gray-950 hover:bg-gray-800 border border-gray-800 hover:border-cyan-500/40 rounded-xl text-left font-mono text-xs transition-all cursor-pointer focus-ring" data-url="${escapeHTML(link.copyValue)}" data-absolute="${link.isAbsolute}" title="${escapeHTML(link.display)}"><div class="text-cyan-300 font-bold">Chunk ${index + 1}</div><div class="text-[10px] text-gray-500 truncate">${escapeHTML(file.size_str || "Published artifact")}</div><div class="text-[9px] text-gray-500 truncate mt-1">${escapeHTML(link.display)}</div></button>`; }).join("")}</div></div>` : ""}
+              ${chunks.length ? `<div><span class="text-xs font-mono font-bold text-emerald-400 uppercase tracking-wider block mb-2">3. Lightweight Split Chunks</span><p class="text-xs font-mono text-gray-500 mb-2">Only chunks included in this catalog are shown.</p><div class="grid grid-cols-2 sm:grid-cols-4 gap-2">${chunks.map((file, index) => { const link = getArtifactLinkModel(file.path); return `<button class="btn-copy-custom p-2.5 min-h-[44px] bg-gray-950 hover:bg-gray-800 border border-gray-800 hover:border-cyan-500/40 rounded-xl text-left font-mono text-xs transition-all cursor-pointer focus-ring" data-url="${escapeHTML(link.copyValue)}" data-absolute="${link.isAbsolute}" title="${escapeHTML(link.display)}"><div class="text-cyan-300 font-bold">Chunk ${index + 1}</div><div class="text-xs text-gray-500 truncate">${escapeHTML(file.size_str || "Published artifact")}</div><div class="text-xs text-gray-500 truncate mt-1">${escapeHTML(link.display)}</div></button>`; }).join("")}</div></div>` : ""}
             ` : ""}
           </div>
         </div>
@@ -3566,7 +3525,7 @@ export class AppState {
               </span>
               <div>
                 <h3 id="modal-scanner-title" class="text-base font-mono font-bold text-white">Cloudflare Clean IP Scanner</h3>
-                <span class="text-[10px] font-mono text-gray-400">In-Browser Bitshift CIDR Expansion &amp; Latency Speedtest</span>
+                <span class="text-xs font-mono text-gray-400">In-Browser Bitshift CIDR Expansion &amp; Latency Speedtest</span>
               </div>
             </div>
             <button id="btn-close-scanner" class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-800 text-gray-400 hover:text-white rounded-xl cursor-pointer focus-ring" aria-label="Close Clean IP Scanner Modal">
@@ -3577,7 +3536,7 @@ export class AppState {
           <!-- Controls -->
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-gray-950 border border-gray-800 rounded-2xl">
             <div>
-              <label for="scanner-cidr-select" class="block text-[11px] font-mono text-gray-400 mb-1">Target CIDR Subnet:</label>
+              <label for="scanner-cidr-select" class="block text-xs font-mono text-gray-400 mb-1">Target CIDR Subnet:</label>
               <select id="scanner-cidr-select" class="w-full px-3 py-2.5 min-h-[44px] bg-gray-900 border border-gray-800 focus:border-emerald-500 rounded-xl text-xs font-mono text-gray-200 focus-ring cursor-pointer">
                 <option value="104.16.0.0/12">104.16.0.0/12 (CDN Core 1)</option>
                 <option value="172.64.0.0/13">172.64.0.0/13 (CDN Core 2)</option>
@@ -3589,7 +3548,7 @@ export class AppState {
             </div>
 
             <div>
-              <label for="scanner-count-input" class="block text-[11px] font-mono text-gray-400 mb-1">Sample Count:</label>
+              <label for="scanner-count-input" class="block text-xs font-mono text-gray-400 mb-1">Sample Count:</label>
               <input type="number" id="scanner-count-input" value="12" min="3" max="50" class="w-full px-3 py-2.5 min-h-[44px] bg-gray-900 border border-gray-800 focus:border-emerald-500 rounded-xl text-xs font-mono text-gray-200 focus-ring" />
             </div>
 
@@ -3604,14 +3563,14 @@ export class AppState {
           <!-- Status Banner -->
           <div id="scanner-status-banner" class="flex items-center justify-between px-4 py-2.5 bg-gray-950 border border-gray-800 rounded-xl text-xs font-mono text-gray-400">
             <span id="scanner-status-text">Ready to scan. Select range and start speedtest.</span>
-            <span id="scanner-progress-pill" class="hidden px-2 py-0.5 bg-emerald-950 text-emerald-400 rounded text-[10px] font-bold">0 / 0</span>
+            <span id="scanner-progress-pill" class="hidden px-2 py-0.5 bg-emerald-950 text-emerald-400 rounded text-xs font-bold">0 / 0</span>
           </div>
 
           <!-- Results Grid -->
           <div class="border border-gray-800 rounded-2xl overflow-hidden bg-gray-950">
             <div class="max-h-[260px] overflow-y-auto">
               <table class="w-full text-left font-mono text-xs">
-                <thead class="bg-gray-900/80 sticky top-0 text-[10px] text-gray-500 uppercase tracking-wider border-b border-gray-800">
+                <thead class="bg-gray-900/80 sticky top-0 text-xs text-gray-500 uppercase tracking-wider border-b border-gray-800">
                   <tr>
                     <th class="p-3">#</th>
                     <th class="p-3">Target IP</th>
@@ -3708,17 +3667,17 @@ export class AppState {
       }
       tbody.innerHTML = scanResults.map((r, idx) => `
         <tr class="hover:bg-gray-900/60 transition-colors">
-          <td class="p-3 text-gray-500 font-mono text-[11px]">${idx + 1}</td>
+          <td class="p-3 text-gray-500 font-mono text-xs">${idx + 1}</td>
           <td class="p-3 font-mono font-semibold ${r.ok ? 'text-white' : 'text-gray-500'}">${escapeHTML(r.ip)}</td>
           <td class="p-3 font-mono">
             ${r.ok ? `
               <span class="${r.latency < 250 ? 'text-emerald-400' : r.latency < 600 ? 'text-amber-400' : 'text-orange-400'} font-bold">
                 ${r.latency} ms
               </span>
-            ` : `<span class="text-rose-400 text-[11px]">Timeout</span>`}
+            ` : `<span class="text-rose-400 text-xs">Timeout</span>`}
           </td>
           <td class="p-3">
-            <span class="px-2 py-0.5 text-[9px] font-mono font-bold rounded ${r.ok ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/50' : 'bg-rose-950 text-rose-400 border border-rose-800/50'}">
+            <span class="px-2 py-0.5 text-xs font-mono font-bold rounded ${r.ok ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/50' : 'bg-rose-950 text-rose-400 border border-rose-800/50'}">
               ${r.ok ? 'CLEAN' : 'TIMEOUT'}
             </span>
           </td>
@@ -3826,7 +3785,7 @@ export class AppState {
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-800/80 text-xs font-mono text-gray-500">
         <div class="flex items-center gap-2">
           <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
-          <span>HUNTX Ingestion Pipeline • SHA-256 Verified • ${this.catalog.total_files || 27} Artifacts Published</span>
+          <span>HUNTX • Snapshot catalog • ${this.catalog.total_files || 0} files</span>
         </div>
         <div class="flex items-center gap-4">
           <a href="DEVELOPMENT.md" class="hover:text-gray-300 transition-colors focus-ring rounded p-1">Dev Specs</a>
@@ -3857,7 +3816,7 @@ export class AppState {
             ${renderQRCodeSVG(uri, 220, "#070a0f", "#ffffff", "M")}
           </div>
 
-          <p class="text-[11px] font-mono text-gray-400">Scan using v2rayNG, Sing-box, NekoBox, Hiddify, or Streisand</p>
+          <p class="text-xs font-mono text-gray-400">Scan using v2rayNG, Sing-box, NekoBox, Hiddify, or Streisand</p>
 
           <div class="flex flex-wrap gap-2">
             <button id="btn-copy-qr-uri" class="flex-1 py-2.5 px-4 min-h-[44px] inline-flex items-center justify-center bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-mono font-bold text-xs rounded-xl focus-ring cursor-pointer transition-all shadow-md shadow-cyan-500/20">
@@ -3919,7 +3878,7 @@ export class AppState {
               </span>
               <div>
                 <h3 id="modal-shortcuts-title" class="text-base font-mono font-bold text-white">Keyboard Navigation</h3>
-                <span class="text-[10px] font-mono text-gray-400">Power-user keybindings for HUNTX</span>
+                <span class="text-xs font-mono text-gray-400">Power-user keybindings for HUNTX</span>
               </div>
             </div>
             <button id="btn-close-shortcuts" class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-800 text-gray-400 hover:text-white rounded-xl cursor-pointer focus-ring" aria-label="Close Shortcuts Modal">
@@ -3931,7 +3890,7 @@ export class AppState {
             ${shortcuts.map(s => `
               <div class="flex items-center justify-between p-2.5 bg-gray-950 border border-gray-800/80 rounded-xl">
                 <span class="text-gray-300">${escapeHTML(s.desc)}</span>
-                <kbd class="px-2.5 py-1 bg-gray-900 border border-gray-700 text-cyan-300 font-bold rounded-lg text-[11px] shadow-sm">${escapeHTML(s.key)}</kbd>
+                <kbd class="px-2.5 py-1 bg-gray-900 border border-gray-700 text-cyan-300 font-bold rounded-lg text-xs shadow-sm">${escapeHTML(s.key)}</kbd>
               </div>
             `).join("")}
           </div>

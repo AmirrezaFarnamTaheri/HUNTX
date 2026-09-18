@@ -78,8 +78,12 @@ func (d *Daemon) pacDirective(node DaemonNode) (string, error) {
 
 // NewDaemon initializes a new proxy management daemon.
 func NewDaemon(nodes []DaemonNode, opts ...DaemonOption) *Daemon {
+	// Own the node storage: callers may retain and mutate their slice, and
+	// health-check updates write through this struct's mutex.
+	owned := make([]DaemonNode, len(nodes))
+	copy(owned, nodes)
 	d := &Daemon{
-		nodes:         nodes,
+		nodes:         owned,
 		activeIdx:     0,
 		startTime:     time.Now(),
 		listenAddr:    "127.0.0.1:9090",

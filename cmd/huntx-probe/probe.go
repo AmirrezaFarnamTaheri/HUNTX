@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -115,11 +116,42 @@ func (a *ProbeAgent) EvaluateTargets(ctx context.Context, targets []string) Vant
 	return report
 }
 
+// validateTransport fails closed when a bearer token would be sent over a
+// plaintext remote connection. Loopback endpoints are permitted so local
+// development and tests keep working; anything else must use https.
+func (a *ProbeAgent) validateTransport() error {
+	if a.OrchestratorBearerToken == "" {
+		return nil
+	}
+	parsed, err := url.Parse(a.OrchestratorURL)
+	if err != nil || parsed.Host == "" {
+		return fmt.Errorf("invalid orchestrator url %q: %w", a.OrchestratorURL, err)
+	}
+	if parsed.Scheme == "https" {
+		return nil
+	}
+	host, _, splitErr := net.SplitHostPort(parsed.Host)
+	if splitErr != nil {
+		host = parsed.Host
+	}
+	if host == "localhost" || host == "127.0.0.1" || host == "::1" || host == "[::1]" {
+		return nil
+	}
+	return fmt.Errorf(
+		"refusing to send bearer token over plaintext scheme %q to %q; use https",
+		parsed.Scheme, parsed.Host,
+	)
+}
+
 // SubmitReport sends a JSON report to the central orchestrator.
 func (a *ProbeAgent) SubmitReport(ctx context.Context, report VantageReport) error {
 	payload, err := json.Marshal(report)
 	if err != nil {
 		return fmt.Errorf("failed to marshal report: %w", err)
+	}
+
+	if err := a.validateTransport(); err != nil {
+		return err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", a.OrchestratorURL, bytes.NewReader(payload))

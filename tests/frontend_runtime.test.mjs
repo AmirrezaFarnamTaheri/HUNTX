@@ -138,14 +138,23 @@ test("VLESS and Trojan query paths are decoded exactly once", async () => {
 
 test("an integrity-verified empty release is authoritative", async (t) => {
   const app = Object.create(AppState.prototype);
-  const catalog = { files: [{ filename: "all_sources.npvt.decoded.json", path: "artifacts/release/empty.json", sha256: "a".repeat(64) }] };
+  // The Go site generator emits exactly this shape for a verified empty
+  // release: intentional_empty with a null files list and no artifacts.
+  const catalog = {
+    intentional_empty: true,
+    schema_version: 1,
+    generated_at: "2026-09-17T00:00:00Z",
+    release_manifest: "artifacts/release/manifest.json",
+    total_files: 0,
+    total_size: 0,
+    files: null,
+  };
   t.mock.method(globalThis, "fetch", async () => ({ ok: true, json: async () => catalog }));
   app.renderDataStatus = () => {};
-  app.loadVerifiedJsonArtifact = async () => ({ entries: [] });
   let usedFallback = false;
   app.loadBundledFallback = async () => { usedFallback = true; };
   await app.loadLiveData();
-  assert.equal(usedFallback, false);
+  assert.equal(usedFallback, false, "bundled sample data must not back a verified empty release");
   assert.equal(app.liveDataState, "ready");
   assert.equal(app.catalog, catalog);
   assert.deepEqual(app.proxies, []);

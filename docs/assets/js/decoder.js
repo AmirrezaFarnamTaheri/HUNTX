@@ -30,7 +30,16 @@ function safeAtob(b64Str) {
     // Latin-1 mojibake.
     if (typeof TextDecoder !== "undefined") {
       const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
-      return new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+      // Strict first: a payload that is not valid UTF-8 is corruption,
+      // and silently replacing bad bytes with U+FFFD would let a
+      // corrupted node name reach the dashboard as if it were real.
+      // Fall back to replacement so a noisy-but-decodable payload still
+      // renders instead of being dropped.
+      try {
+        return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+      } catch (e) {
+        return new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+      }
     }
     return decodeURIComponent(escape(binary));
   } catch (e) {
