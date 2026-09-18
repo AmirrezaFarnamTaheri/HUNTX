@@ -127,6 +127,31 @@ test("VLESS flow reaches the Sing-box outbound", async () => {
   assert.equal(decodeProxyURI("vless://test-id@example.com:443").flow, "");
 });
 
+test("Sing-box config references only outbounds it declares", async () => {
+  // The shipped backend emits hijack-dns for DNS and no rule sets; the client-side
+  // preview must be equally self-contained so clients never reject the config.
+  const { decodeProxyURI, buildSingboxConfig } = await import("../docs/assets/js/decoder.js");
+  const nodes = [
+    decodeProxyURI("vless://test-id@example.com:443?security=tls&flow=xtls-rprx-vision#n1"),
+    decodeProxyURI("trojan://password@example.com:443#n2"),
+  ];
+  const config = buildSingboxConfig(nodes);
+  const tags = new Set(config.outbounds.map((o) => o.tag));
+  // Every route rule outbound target must exist (dns hijack needs no target).
+  for (const rule of config.route.rules) {
+    if (Object.prototype.hasOwnProperty.call(rule, "outbound")) {
+      assert.ok(tags.has(rule.outbound), `route rule targets undeclared outbound: ${rule.outbound}`);
+    }
+  }
+  assert.ok(tags.has(config.route.final), "route.final must name a declared outbound");
+  // No undeclared rule sets (the backend ships none)."
+  const json = JSON.stringify(config);
+  assert.equal(json.includes("rule_set"), false, "config must not reference undeclared rule sets");
+  assert.equal(json.includes("dns-out"), false, "dns hijack must not reference an undeclared dns-out outbound");
+  assert.ok(config.route.rules.some((r) => r.protocol === "dns" && r.action === "hijack-dns"));
+  assert.ok(config.route.rules.some((r) => r.ip_is_private === true));
+});
+
 test("VLESS and Trojan query paths are decoded exactly once", async () => {
   const { decodeProxyURI } = await import("../docs/assets/js/decoder.js");
   for (const scheme of ["vless", "trojan"]) {

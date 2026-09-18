@@ -312,7 +312,7 @@ jobs:
             --generated-at "$SOURCE_CREATED_AT"
           test -s "$DASHBOARD_ROOT/catalog.json"
           # Refresh the SPA's baked fallback layer from the SAME verified run so
-          # bundle.js can never advertise stale sample data.
+          # data.js can never advertise stale sample data.
           decoded="$(find "$SOURCE_DIST" \( -name 'all_sources.npvt.decoded.json' -o -name 'all_sources_npvt_decoded.json' \) -print -quit)"
           # Remove checkout's historical data before generating the fallback.
           rm -rf outputs

@@ -89,6 +89,10 @@ publishing:
 | NetMod | `.nm` | Binary / ZIP | `NmHandler` |
 | SocksIP | `.sip` | Binary / ZIP | `SipHandler` |
 | Dark Tunnel | `.dark` | Binary / ZIP | `DarkHandler` |
+| SlipNet | `.slipnet` | Encrypted Text | `SlipNetHandler` |
+| TUT | `.tut` | Encrypted Binary | `TutHandler` |
+| SKS | `.sks` | Encrypted Binary | `SksHandler` |
+| TMT | `.tmt` | Encrypted Binary | `TmtHandler` |
 | Generic Binary | `*` | Binary / ZIP | `OpaqueBundleHandler` |
 
 ---
@@ -165,7 +169,7 @@ HUNTX includes a static dashboard located at [`docs/index.html`](index.html).
 
 ### Offline / Local Use
 
-The page and JavaScript bundle can open directly, but the checked-in page uses
+The page and its native ES modules can open directly, but the checked-in page uses
 CDN fonts and utility CSS. Use a local HTTP server for the supported preview;
 for a truly offline deployment, vendor those external assets before making that
 claim.
@@ -199,10 +203,12 @@ The GatherX Telegram bot provides DM-based node delivery and subscription contro
 
 ## Architecture & C4 Model
 
-Detailed C4 Architecture diagrams and component contracts are documented in:
-- [`docs/C4_ARCHITECTURE.md`](C4_ARCHITECTURE.md) (Context, Container, Component, Code levels)
-- [`docs/DESIGN.md`](DESIGN.md) (Design system, OKLCH tokens, component states)
-- [`docs/DEVELOPMENT.md`](DEVELOPMENT.md) (Developer and build instructions)
+The canonical C4 model lives in the repository README:
+- [README — Architecture (C4)](../README.md#architecture) (Context, Container, Component levels)
+- [`docs/C4_ARCHITECTURE.md`](C4_ARCHITECTURE.md) (pointer stub to the model above)
+- [`docs/architecture.html`](architecture.html) (interactive archify 3D map, linked from the dashboard)
+- [`DESIGN.md`](../DESIGN.md) at the repository root (design system, OKLCH tokens, component states)
+- [`docs/DEVELOPMENT.md`](DEVELOPMENT.md) (developer and build instructions)
 
 ---
 

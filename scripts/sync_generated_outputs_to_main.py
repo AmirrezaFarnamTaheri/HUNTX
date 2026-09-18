@@ -12,7 +12,6 @@ ALLOWED_ROOTS = {"outputs", "outputs_dev"}
 MANAGED_DOCS_PATHS = {
     "docs/catalog.json",
     "docs/index.html",
-    "docs/assets/js/bundle.js",
     "docs/assets/js/data.js",
 }
 MANAGED_DOCS_PREFIXES = ("docs/artifacts/",)

@@ -162,8 +162,10 @@ Every PR #58 review family has a terminal target disposition:
   implementations and focused tests.
 - **Defects confined to excluded donor-only files**—the generic circuit breaker,
   scoring engine, benchmarker, geo/self-healing modules, Go engine, conductor
-  plans, and master compendium—cannot regress the target because those files and
-  authorities are not imported.
+  plans, and master compendium—cannot regress production: those modules are not on the
+  production execution path. The runtime is built through
+  core.runtime_factory.create_production_orchestrator(), and these modules are imported only
+  by src/huntx/__init__.py and tests, never by the orchestrator.
 - **Useful negative lessons**—single-probe recovery, finite/validated metrics,
   aggregate network budgets, no no-op commands, bounded accumulators, portable
   documentation, final-SHA verification, and approval-gated deployment—are

@@ -184,12 +184,11 @@ HUNTX adheres to **Enterprise Cloud Core (ECC) API standards** for all subscript
 
 ### 5.1 REST Endpoint & Resource Schema
 ```
-GET /docs/catalog.json                       # Catalog index of all 27 published artifacts
+GET /docs/catalog.json                       # Catalog index of all 24 published artifacts
 GET /artifacts/release/all_sources.npvt      # Production binary subscription feed
-GET /artifacts/release/all_sources.b64sub   # Base64 unified multi-protocol feed
-GET /artifacts/release/singbox.json          # Sing-box 1.10+ compiled outbounds
-GET /artifacts/release/clash.yaml            # Clash Meta / Mihomo proxies configuration
-GET /artifacts/release/v2ray_config.json     # Xray-core 1.8+ full client configuration
+GET /artifacts/release/all_sources.npvt.b64sub   # Base64 unified multi-protocol feed
+GET /artifacts/release/all_sources.npvt.singbox.json  # Sing-box 1.10+ compiled outbounds
+GET /artifacts/release/all_sources.npvt.xray.json     # Xray-core 1.8+ full client configuration
 GET /artifacts/dev/proxies.txt               # All-time cumulative raw proxy URIs
 GET /artifacts/dev/proxies_chunk_0001.txt    # Split lightweight feed chunk (1 of 11)
 ```
@@ -199,9 +198,9 @@ GET /artifacts/dev/proxies_chunk_0001.txt    # Split lightweight feed chunk (1 o
 {
   "schema_version": 1,
   "generated_at": "2026-08-21T22:45:00Z",
-  "total_files": 27,
-  "total_size": 33554432,
-  "total_size_str": "32.0 MB",
+  "total_files": 24,
+  "total_size": 103809024,
+  "total_size_str": "99.0 MB",
   "files": [
     {
       "filename": "all_sources.npvt.b64sub",
@@ -251,7 +250,7 @@ GET /artifacts/dev/proxies_chunk_0001.txt    # Split lightweight feed chunk (1 o
    - Tablet: `640px – 1023px` (Dual column grid, compact radar).
    - Desktop: `1024px – 1439px` (Three column grid, side-by-side 3D globe).
    - Ultra-wide: `≥ 1440px` (Max container width 1280px centered with ambient mesh).
-6. **Zero-Dependency Resilience**: Pure ES6 / Standalone IIFE bundle executing flawlessly in offline modes, `file:///` local paths, and behind censored networks.
+6. **Resilient Delivery**: The dashboard ships as native ES modules (`app.js`, `data.js`, `decoder.js`) that run from `file:///` paths and censored networks without a bundler step. Fonts and utility CSS are still CDN-served, so a fully self-hosted offline deployment requires vendoring those assets first.
 
 ---
 
@@ -294,7 +293,7 @@ The main dashboard is partitioned into 5 focused workspaces, providing clean men
 | ❌ Lorem Ipsum / Fabricated metrics | **CLEAN** | Real proxy configurations, real cryptographic parameters, real carrier ping grades. |
 | ❌ Sub-44px touch targets | **CLEAN** | All action triggers meet or exceed 44×44px hit-box requirements (WCAG 2.2 AA). |
 | ❌ Layout shifts on hover or loading | **CLEAN** | Dimensions locked via CSS skeleton pulsers and transform/opacity transitions. |
-| ❌ CDN dependencies that fail under censorship | **CLEAN** | 100% standalone zero-CORS bundle (`bundle.js`) with offline PWA service worker. |
+| ❌ CDN dependencies that fail under censorship | **PARTIAL** | Core UI ships as native ES modules (`app.js`, `data.js`, `decoder.js`) with an offline PWA service worker; fonts and utility CSS are still served from a CDN, so fully self-hosted delivery remains open. |
 | ❌ Masking fallbacks / swallowed errors | **CLEAN** | Explicit error reporting, robust parameter validation, zero silent defaults. |
 
 ---

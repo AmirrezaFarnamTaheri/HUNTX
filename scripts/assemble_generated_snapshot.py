@@ -465,7 +465,7 @@ def assemble_snapshot(
         if shell_root is not None:
             if not shell_root.is_dir():
                 raise ValueError(f"missing dashboard shell directory: {shell_root}")
-            for rel in ("index.html", "assets/js/bundle.js", "assets/js/data.js"):
+            for rel in ("index.html", "assets/js/data.js"):
                 source_file = shell_root / rel
                 if source_file.is_file():
                     target_file = destination / "docs" / rel

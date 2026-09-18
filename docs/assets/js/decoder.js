@@ -553,8 +553,7 @@ export function buildSingboxConfig(nodes) {
         { tag: "dns-direct", address: "https://1.1.1.1/dns-query", detour: "direct" }
       ],
       rules: [
-        { outbound: "any", server: "dns-direct" },
-        { rule_set: "geosite-cn", server: "dns-direct" }
+        { outbound: "any", server: "dns-direct" }
       ]
     },
     inbounds: [
@@ -581,12 +580,10 @@ export function buildSingboxConfig(nodes) {
     ],
     route: {
       rules: [
-        { protocol: "dns", outbound: "dns-out" },
-        { ip_is_private: true, outbound: "direct" },
-        { rule_set: "geosite-category-ads-all", outbound: "block" },
-        { rule_set: ["geosite-cn", "geoip-cn"], outbound: "direct" },
-        { outbound: "select-manual" }
+        { ip_is_private: true, action: "route", outbound: "direct" },
+        { protocol: "dns", action: "hijack-dns" }
       ],
+      final: "select-manual",
       auto_detect_interface: true
     }
   };

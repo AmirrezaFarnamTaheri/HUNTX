@@ -14,12 +14,32 @@
 Use the same substantive gates as PR CI:
 
 ```bash
-# Go
+# Workflows (fail fast on a malformed pipeline definition)
+python -m pip install --require-hashes -r requirements-ci.txt -e . >/dev/null
+for f in .github/workflows/*.yml; do python -c "import yaml,sys; yaml.safe_load(open(sys.argv[1]))" "$f"; done
+
+# Go (build all four production binaries; the nested v2ray collector module has its own gate)
 test -z "$(gofmt -l .)"
 go test -race ./...
 go vet ./...
 go build ./cmd/huntx-tools
 go build ./cmd/huntx-engine
+go build ./cmd/huntx-daemon
+go build ./cmd/huntx-probe
+(cd src/huntx/connectors/v2ray_collector && go test ./... && go vet ./...)
+
+# Fleet deployment manifests (Docker images + Helm chart)
+docker build -f deploy/Dockerfile.daemon -t huntx-daemon:gate .
+docker build -f deploy/Dockerfile.probe -t huntx-probe:gate .
+helm lint deploy/helm/huntx-fleet && helm template deploy/helm/huntx-fleet >/dev/null
+
+# Frontend assets (a drift here fails CI on the generated CSS)
+npm ci
+npm run build:css
+git diff --exit-code -- docs/assets/css/tailwind.css
+node --experimental-default-type=module --test tests/frontend_runtime.test.mjs
+npx playwright test
+python scripts/update_frontend.py --check
 
 # Python
 python -m pip check
