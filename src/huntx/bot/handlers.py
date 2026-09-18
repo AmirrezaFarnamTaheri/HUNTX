@@ -33,6 +33,15 @@ class HandlersMixin:
     _on_approve: Any
     _on_deny: Any
     _on_pending: Any
+    db: Any
+    _check_rate_limit: Any
+    _register_user: Any
+    _set_user_pref: Any
+    _send_format_to_user: Any
+    _send_latest_to_user: Any
+    _get_protocol_counts: Any
+    _get_system_stats: Any
+    _get_user_count: Any
 
     async def _require_named_access(self, event: Any, command: str) -> bool:
         """Apply the declared DM/approval/admin policy for one command."""

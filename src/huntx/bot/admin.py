@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import os
-from typing import Optional
+from typing import Any, Optional
 
 from telethon import Button
 
@@ -13,6 +13,16 @@ logger = logging.getLogger(__name__)
 
 class AdminMixin:
     """Restricted administrative commands mixed into ``InteractiveBot``."""
+
+    # Provided by InteractiveBot / DeliveryMixin; declared for type checking.
+    db: Any
+    repo: Any
+    client: Any
+    data_dir: str
+    db_path: str
+    deliver_updates_active: Any
+    _get_user_count: Any
+    _get_system_stats: Any
 
     def _is_admin(self, user_id: str, username: Optional[str] = None) -> bool:
         """Authorize only immutable numeric Telegram user IDs from ``HUNTX_ADMINS``."""
