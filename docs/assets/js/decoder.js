@@ -923,7 +923,8 @@ export function buildSurgeConfig(nodes) {
     const line = nodeToSurgeProxy(n);
     if (line) out += `${line}\n`;
   });
-  out += `\n[Proxy Group]\nAUTO-BEST = url-test, ${nodes.map(n => (n.name || 'node').replace(/[,=]/g, '_')).join(', ')}, url=http://www.gstatic.com/generate_204, interval=300\nPROXIES = select, AUTO-BEST, DIRECT, ${nodes.map(n => (n.name || 'node').replace(/[,=]/g, '_')).join(', ')}\n\n[Rule]\nGEOIP,IR,DIRECT\nFINAL,PROXIES\n`;
+  const taggedNodes = nodes.map(n => iniTag(n.name || 'node'));
+  out += `\n[Proxy Group]\nAUTO-BEST = url-test, ${taggedNodes.join(', ')}, url=http://www.gstatic.com/generate_204, interval=300\nPROXIES = select, AUTO-BEST, DIRECT, ${taggedNodes.join(', ')}\n\n[Rule]\nGEOIP,IR,DIRECT\nFINAL,PROXIES\n`;
   return out;
 }
 
@@ -933,7 +934,8 @@ export function buildLoonConfig(nodes) {
     const line = nodeToLoonProxy(n);
     if (line) out += `${line}\n`;
   });
-  out += `\n[Proxy Group]\nAUTO-BEST = url-test, ${nodes.map(n => (n.name || 'node').replace(/[,=]/g, '_')).join(', ')}, url=http://www.gstatic.com/generate_204, interval=300\n\n[Rule]\nGEOIP,IR,DIRECT\nFINAL,AUTO-BEST\n`;
+  const taggedNodes = nodes.map(n => iniTag(n.name || 'node'));
+  out += `\n[Proxy Group]\nAUTO-BEST = url-test, ${taggedNodes.join(', ')}, url=http://www.gstatic.com/generate_204, interval=300\n\n[Rule]\nGEOIP,IR,DIRECT\nFINAL,AUTO-BEST\n`;
   return out;
 }
 
@@ -943,7 +945,8 @@ export function buildQXConfig(nodes) {
     const line = nodeToQXServer(n);
     if (line) out += `${line}\n`;
   });
-  out += `\n[policy]\nurl-latency-benchmark = AUTO-BEST, ${nodes.map(n => (n.name || 'node').replace(/[,=]/g, '_')).join(', ')}, check-interval=300, tolerance=50\n\n[filter_local]\ngeoip, ir, direct\nfinal, AUTO-BEST\n`;
+  const taggedNodes = nodes.map(n => iniTag(n.name || 'node'));
+  out += `\n[policy]\nurl-latency-benchmark = AUTO-BEST, ${taggedNodes.join(', ')}, check-interval=300, tolerance=50\n\n[filter_local]\ngeoip, ir, direct\nfinal, AUTO-BEST\n`;
   return out;
 }
 

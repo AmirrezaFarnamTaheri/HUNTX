@@ -128,6 +128,10 @@ func (a *ProbeAgent) EvaluateTargets(ctx context.Context, targets []string) Vant
 			break
 		}
 		sem <- struct{}{}
+		if ctx.Err() != nil {
+			<-sem
+			break
+		}
 		wg.Add(1)
 		go func(i int, target string) {
 			defer wg.Done()

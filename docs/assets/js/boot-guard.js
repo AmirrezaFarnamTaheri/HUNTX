@@ -24,18 +24,11 @@
   var FLAG = "huntx_skew_recovered";
   var CACHE_PREFIX = "huntx-cache-";
 
-  // Messages engines produce when module linking or loading fails. Matching on
-  // message text is unavoidable: these errors expose no structured type.
-  var SKEW_PATTERN = new RegExp(
-    [
-      "does not provide an export named",
-      "Importing a module script failed",
-      "Failed to fetch dynamically imported module",
-      "error loading dynamically imported module",
-      "Unable to resolve module specifier",
-    ].join("|"),
-    "i"
-  );
+  // Messages that confirm incompatible module versions (e.g., browser cached
+  // an old module tree while the page loaded the new one). Generic "Failed to
+  // fetch" can match transient or offline errors; only recover for these
+  // version-skew-specific patterns.
+  var SKEW_PATTERN = /does not provide an export named|Unable to resolve module specifier/i;
 
   function isSkew(message) {
     return SKEW_PATTERN.test(String(message || ""));
@@ -81,10 +74,15 @@
     if ("serviceWorker" in navigator) {
       work.push(
         navigator.serviceWorker.getRegistrations().then(function (registrations) {
+          var huntxScope = new URL("./", document.baseURI).href;
           return Promise.all(
-            registrations.map(function (registration) {
-              return registration.unregister();
-            })
+            registrations
+              .filter(function (registration) {
+                return registration.scope === huntxScope;
+              })
+              .map(function (registration) {
+                return registration.unregister();
+              })
           );
         })
       );

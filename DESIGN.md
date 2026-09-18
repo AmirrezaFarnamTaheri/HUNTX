@@ -293,7 +293,7 @@ The main dashboard is partitioned into 5 focused workspaces, providing clean men
 | ❌ Lorem Ipsum / Fabricated metrics | **CLEAN** | Real proxy configurations, real cryptographic parameters, real carrier ping grades. |
 | ❌ Sub-44px touch targets | **CLEAN** | All action triggers meet or exceed 44×44px hit-box requirements (WCAG 2.2 AA). |
 | ❌ Layout shifts on hover or loading | **CLEAN** | Dimensions locked via CSS skeleton pulsers and transform/opacity transitions. |
-| ❌ CDN dependencies that fail under censorship | **PARTIAL** | Core UI ships as native ES modules (`app.js`, `data.js`, `decoder.js`) with an offline PWA service worker; fonts and utility CSS are still served from a CDN, so fully self-hosted delivery remains open. |
+| ❌ CDN dependencies that fail under censorship | **CLEAN** | Core UI, stylesheet, and service worker are same-origin. Fonts use a local or system fallback; no external CDN dependency. Full offline delivery via precached PWA manifest. |
 | ❌ Masking fallbacks / swallowed errors | **CLEAN** | Explicit error reporting, robust parameter validation, zero silent defaults. |
 
 ---

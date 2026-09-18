@@ -160,3 +160,28 @@ test("whole-profile builders stay injection free", () => {
     );
   }
 });
+
+test("surge group references use iniTag to prevent line injection", () => {
+  const hostile = [vlessNode({ name: LINE_BREAKOUT })];
+  const text = buildSurgeConfig(hostile);
+  const groupSection = text.slice(text.indexOf("[Proxy Group]"));
+  assert.ok(!groupSection.includes("\nProxy = attacker"), "group reference was not escaped");
+  // Verify the reference is present and normalized.
+  assert.ok(groupSection.includes(iniTag(LINE_BREAKOUT)), "normalized tag not found");
+});
+
+test("loon group references use iniTag to prevent line injection", () => {
+  const hostile = [vlessNode({ name: LINE_BREAKOUT })];
+  const text = buildLoonConfig(hostile);
+  const groupSection = text.slice(text.indexOf("[Proxy Group]"));
+  assert.ok(!groupSection.includes("\nProxy = attacker"), "group reference was not escaped");
+  assert.ok(groupSection.includes(iniTag(LINE_BREAKOUT)), "normalized tag not found");
+});
+
+test("qx policy references use iniTag to prevent line injection", () => {
+  const hostile = [vlessNode({ name: LINE_BREAKOUT })];
+  const text = buildQXConfig(hostile);
+  const policySection = text.slice(text.indexOf("[policy]"));
+  assert.ok(!policySection.includes("\nProxy = attacker"), "policy reference was not escaped");
+  assert.ok(policySection.includes(iniTag(LINE_BREAKOUT)), "normalized tag not found");
+});

@@ -85,7 +85,9 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     (freshReleaseData || deploymentShell) ? networkFirst(event.request).then((response) => {
       if (response) return response;
-      if (event.request.mode === 'navigate') return caches.match('./index.html');
+      if (event.request.mode === 'navigate') {
+        return caches.match('./index.html').then((fallback) => fallback || new Response('Offline dashboard unavailable', { status: 503, statusText: 'Service Unavailable' }));
+      }
       return new Response('Offline resource unavailable', { status: 503, statusText: 'Service Unavailable' });
     }) :
     caches.match(event.request).then((cached) => {
