@@ -3,9 +3,17 @@
     {
       "type": "vless",
       "tag": "vless-1",
-      "server": "212fnl-1213213.qarmiko.ir",
-      "server_port": 15219,
-      "uuid": "e26c57cc-472f-4a31-9e87-5bad6265723b",
+      "server": "t1.legendbusiness.cloud",
+      "server_port": 8080,
+      "uuid": "5e47576c-4289-4667-8fc9-9b557d634663",
+      "packet_encoding": "xudp"
+    },
+    {
+      "type": "vless",
+      "tag": "vless-2",
+      "server": "de-1.starsping.com",
+      "server_port": 443,
+      "uuid": "1577b744-8004-4eef-862c-8cae0cd27ab9",
       "packet_encoding": "xudp",
       "tls": {
         "enabled": true,
@@ -16,199 +24,42 @@
         },
         "reality": {
           "enabled": true,
-          "public_key": "ZUboXq95Y7w8gC7Paa8Ra0M02DHIp5X3Xf_U3mK0gVw",
-          "short_id": "38e4d2e622a0e689"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-2",
-      "server": "x3ytee6w.danqela.ir",
-      "server_port": 5051,
-      "uuid": "b2ee150f-58eb-4125-8fae-b0f79544bd25",
-      "flow": "xtls-rprx-vision",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "android.clients.google.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "edge"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "K-ra5wYRignlacUglfdjgTJOf4C4_oxKVm_T6YdgsTM",
-          "short_id": "8509f205ecd87e17"
+          "public_key": "ZBv1jOEHziWtQQoThg63_1gm4zIPyk_cfVmNJ1SOZSk",
+          "short_id": "a88550765b9956ee"
         }
       }
     },
     {
       "type": "vless",
       "tag": "vless-3",
-      "server": "130.49.77.6",
-      "server_port": 443,
-      "uuid": "2bb8b13c-b3f0-2552-da05-d0929bfb36db",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "download.nvidia.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "hwwiWVqYq5b7S0JaXNSxjWSEv_1OUFMaWJGHzeAGyRM"
-        }
-      }
+      "server": "192.248.182.183",
+      "server_port": 39244,
+      "uuid": "5fc7563b-552d-417f-9409-08ef92284599",
+      "packet_encoding": "xudp"
     },
     {
       "type": "vless",
       "tag": "vless-4",
-      "server": "188.137.227.194",
-      "server_port": 30393,
-      "uuid": "e0bc6cd5-892b-4b4c-80e4-88ee92e05dc7",
+      "server": "199.232.78.159",
+      "server_port": 443,
+      "uuid": "dd7be730-3170-4865-bb22-b587bdb5ceca",
       "packet_encoding": "xudp",
       "tls": {
         "enabled": true,
-        "server_name": "play-apps-features.googleusercontent.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "DiPkDPf7ldR7GvXWLo0j7s7IsdvDZrOUfKHVmHO46mM",
-          "short_id": "8559"
+        "server_name": "ssl.fastly.com"
+      },
+      "transport": {
+        "type": "ws",
+        "path": "/TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER?ed=2053",
+        "headers": {
+          "Host": "pan1.global.ssl.fastly.net"
         }
       }
     },
     {
       "type": "vless",
       "tag": "vless-5",
-      "server": "q7xfjcd5.danqela.ir",
-      "server_port": 5054,
-      "uuid": "b2ee150f-58eb-4125-8fae-b0f79544bd25",
-      "flow": "xtls-rprx-vision",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "android.clients.google.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "edge"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "K-ra5wYRignlacUglfdjgTJOf4C4_oxKVm_T6YdgsTM",
-          "short_id": "8509f205ecd87e17"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-6",
-      "server": "c-1.mrcloudi.ir",
-      "server_port": 443,
-      "uuid": "c26fe2f0-5c69-0015-8a1a-bf116ceb9215",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "jsv-p-tr1.donick.ir"
-      },
-      "transport": {
-        "type": "ws",
-        "path": "/?ed=2560"
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-7",
-      "server": "176.108.246.58",
-      "server_port": 9881,
-      "uuid": "5d16ac22-6eea-426f-b778-6f4c2961faef",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "dl.google.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "qq"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "ycPIUcY6ci2yi7YA_OHc20e4gzxEdJTqpmeShxSuHRU"
-        }
-      },
-      "transport": {
-        "type": "grpc",
-        "service_name": "grpc-tunnel"
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-8",
-      "server": "188.114.97.6",
-      "server_port": 443,
-      "uuid": "8102891d-7b37-4dc5-8261-9474b59b5c63",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "vip.868068.xyz"
-      },
-      "transport": {
-        "type": "ws",
-        "path": "/proxyip=us.xiabibi.cf",
-        "headers": {
-          "Host": "vip.868068.xyz"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-9",
-      "server": "c-1.mrcloudi.ir",
-      "server_port": 443,
-      "uuid": "c26fe2f0-5c69-001F-8a1a-bf116ceb9215",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "jsv-p-us1.donick.ir"
-      },
-      "transport": {
-        "type": "ws",
-        "path": "/?ed=2560"
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-10",
-      "server": "b2n.ir",
-      "server_port": 2087,
-      "uuid": "8c561eb2-f643-49ce-b5b6-81690ec268c0",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "fish.kaftarkakolbesarwifi.ir",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        }
-      }
-    },
-    {
-      "type": "shadowsocks",
-      "tag": "ss-1",
-      "server": "36.224.185.173",
-      "server_port": 50099,
-      "method": "chacha20-ietf-poly1305",
-      "password": "b1ae0fce-9340-4f2e-882d-fdb2218e2e2b"
-    },
-    {
-      "type": "vless",
-      "tag": "vless-11",
-      "server": "188.114.97.6",
+      "server": "104.21.60.109",
       "server_port": 443,
       "uuid": "44eae030-290b-4083-8102-6f8bab05701b",
       "packet_encoding": "xudp",
@@ -218,7 +69,7 @@
       },
       "transport": {
         "type": "ws",
-        "path": "/mtmvpn",
+        "path": "/",
         "headers": {
           "Host": "cfvvv-ev1.pages.dev"
         }
@@ -226,612 +77,56 @@
     },
     {
       "type": "vless",
-      "tag": "vless-12",
-      "server": "94.26.35.139",
-      "server_port": 25720,
-      "uuid": "be83425f-74c5-4b03-9c4b-20aa16322698",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "www.samsung.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "firefox"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "OueudVX2rTpyeEb2bNW3Jx3WtgSX4zFERs6yt8Szv0E",
-          "short_id": "fddf99d4a4f55a48"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-13",
-      "server": "172.66.156.82",
+      "tag": "vless-6",
+      "server": "sjzishh-production.up.railway.app",
       "server_port": 443,
-      "uuid": "7a657573-1936-bed7-40c5-ed19bdd7a759",
+      "uuid": "859d59b8-b432-4a44-bf82-81ac12b24b75",
       "packet_encoding": "xudp",
       "tls": {
         "enabled": true,
-        "server_name": "alzs5leoubzs.pedramgolnare.workers.dev",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "unsafe"
-        }
-      },
-      "transport": {
-        "type": "ws",
-        "path": "/stream/PANEL_ZEUS/ed19bdd7a759/loc-0",
-        "headers": {
-          "Host": "alzs5leoubzs.pedramgolnare.workers.dev"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-14",
-      "server": "eeqj7udq.danqela.ir",
-      "server_port": 5063,
-      "uuid": "b2ee150f-58eb-4125-8fae-b0f79544bd25",
-      "flow": "xtls-rprx-vision",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "android.clients.google.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "edge"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "K-ra5wYRignlacUglfdjgTJOf4C4_oxKVm_T6YdgsTM",
-          "short_id": "5261db918c5cf1a9"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-15",
-      "server": "130.49.77.6",
-      "server_port": 8443,
-      "uuid": "2bb8b13c-b3f0-2552-da05-d0929bfb36db",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "www.philips.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "Sq7mtLmaanwsTVNBR9gU7ECU87ftrb_wFGRLLNRBlmQ"
-        }
-      },
-      "transport": {
-        "type": "grpc",
-        "service_name": "TunService"
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-16",
-      "server": "jsv-ir.jmovies.ir",
-      "server_port": 443,
-      "uuid": "c26fe2f0-5c69-11f1-8a1a-bf116ceb9215",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "aparat.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "firefox"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "fwS6bEyF28VsSapBZZ2vz6LJmVismH0NYupk6STFRWc",
-          "short_id": "f373df45a687eaff"
-        }
-      }
-    },
-    {
-      "type": "shadowsocks",
-      "tag": "ss-2",
-      "server": "103.136.150.119",
-      "server_port": 30222,
-      "method": "aes-256-gcm",
-      "password": "72553320ae6bcc8f"
-    },
-    {
-      "type": "vless",
-      "tag": "vless-17",
-      "server": "pp2rnzr1.danqela.ir",
-      "server_port": 27812,
-      "uuid": "b2ee150f-58eb-4125-8fae-b0f79544bd25",
-      "flow": "xtls-rprx-vision",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "android.clients.google.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "edge"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "K-ra5wYRignlacUglfdjgTJOf4C4_oxKVm_T6YdgsTM",
-          "short_id": "8509f205ecd87e17"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-18",
-      "server": "104.245.240.6",
-      "server_port": 443,
-      "uuid": "2bb8b13c-b3f0-2552-da05-d0929bfb36db",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "download.nvidia.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "D2SXHZRRYM0WcFChGWd57XB-U73aIsGfMpe2-Gq5XSs"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-19",
-      "server": "jsv-tr1.jmovies.ir",
-      "server_port": 443,
-      "uuid": "c26fe2f0-5c69-0015-8a1a-bf116ceb9215",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "numpy.org",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "firefox"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "fwS6bEyF28VsSapBZZ2vz6LJmVismH0NYupk6STFRWc",
-          "short_id": "f373df45a687eaff"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-20",
-      "server": "47.83.173.110",
-      "server_port": 443,
-      "uuid": "bca6f15f-89db-40e2-a955-19d084229234",
-      "flow": "xtls-rprx-vision",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "www.samsung.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "BqFbrSSosM7RAVvUGTRmCrZlHY6aGwq9HEJs0fMdK0s",
-          "short_id": "8144589880395fa1"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-21",
-      "server": "207.148.118.108",
-      "server_port": 443,
-      "uuid": "c840f4a7-85dd-4fda-ad81-e6e1cc7bb3dd",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "www.canva.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "iXxVpLLyyqGkuoaKpEB6iWcWkj4gOLoyCOYKyLQdaDY",
-          "short_id": "41a923dd"
-        }
-      },
-      "transport": {
-        "type": "grpc",
-        "service_name": "grpc"
-      }
-    },
-    {
-      "type": "hysteria2",
-      "tag": "hysteria2-1",
-      "server": "144.31.49.138",
-      "server_port": 443,
-      "password": "cd74c0a406664a5bc0bac098220a2468",
-      "obfs": {
-        "type": "salamander",
-        "password": "44f1c1e2f8b99e792ceed574627a1eb0"
-      },
-      "tls": {
-        "enabled": true,
-        "server_name": "ru1.sferavpn.pro"
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-22",
-      "server": "jsv-de1.jmovies.ir",
-      "server_port": 443,
-      "uuid": "c26fe2f0-5c69-000B-8a1a-bf116ceb9215",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "numpy.org",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "firefox"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "fwS6bEyF28VsSapBZZ2vz6LJmVismH0NYupk6STFRWc",
-          "short_id": "f373df45a687eaff"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-23",
-      "server": "213.171.25.178",
-      "server_port": 9830,
-      "uuid": "5d16ac22-6eea-426f-b778-6f4c2961faef",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "dl.google.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "bnRIb3Er1i-K6NGGByCO9UbGfOvu43ZoiK7ulPd1SzU",
-          "short_id": "aabb"
-        }
-      },
-      "transport": {
-        "type": "grpc",
-        "service_name": "grpc-tunnel"
-      }
-    },
-    {
-      "type": "hysteria2",
-      "tag": "hysteria2-2",
-      "server": "162.249.125.133",
-      "server_port": 443,
-      "password": "QCgqi_I4EkV8UR-OgQ_tG4EnVTEVvIyR2GgRBzrIn2s",
-      "obfs": {
-        "type": "salamander",
-        "password": "c1b4086fea89914496c7e10967a419216566"
-      },
-      "tls": {
-        "enabled": true,
-        "server_name": "hy2-new.aspidnet.xyz"
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-24",
-      "server": "k2.cloud--vpn.site",
-      "server_port": 443,
-      "uuid": "cc3ec459-8d76-4066-ab4b-2614608f1afb",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "ssl.fastly.com",
+        "server_name": "sjzishh-production.up.railway.app",
         "alpn": [
-          "h2"
+          "h3"
         ],
         "utls": {
           "enabled": true,
-          "fingerprint": "firefox"
+          "fingerprint": "chrome"
         }
       },
       "transport": {
         "type": "ws",
-        "path": "/",
+        "path": "/ws/vless/859d59b8-b432-4a44-bf82-81ac12b24b75?ed=2048",
         "headers": {
-          "Host": "c12.com"
+          "Host": "sjzishh-production.up.railway.app"
         }
       }
     },
     {
       "type": "vless",
-      "tag": "vless-25",
-      "server": "130.49.77.6",
-      "server_port": 8443,
-      "uuid": "2bb8b13c-b3f0-2552-da05-d0929bfb36db",
+      "tag": "vless-7",
+      "server": "t4.php.rest",
+      "server_port": 53573,
+      "uuid": "60cc6133-190f-4584-a780-f0804327df70",
       "packet_encoding": "xudp",
       "tls": {
         "enabled": true,
-        "server_name": "www.philips.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "firefox"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "Sq7mtLmaanwsTVNBR9gU7ECU87ftrb_wFGRLLNRBlmQ"
-        }
-      },
-      "transport": {
-        "type": "grpc",
-        "service_name": "TunService"
-      }
-    },
-    {
-      "type": "hysteria2",
-      "tag": "hysteria2-3",
-      "server": "2.27.59.206",
-      "server_port": 443,
-      "password": "cd74c0a406664a5bc0bac098220a2468",
-      "obfs": {
-        "type": "salamander",
-        "password": "44f1c1e2f8b99e792ceed574627a1eb0"
-      },
-      "tls": {
-        "enabled": true,
-        "server_name": "de1.sferavpn.pro"
-      }
-    },
-    {
-      "type": "shadowsocks",
-      "tag": "ss-3",
-      "server": "5.75.192.44",
-      "server_port": 1080,
-      "method": "chacha20-ietf-poly1305",
-      "password": "IXa3ylzS_jBOAsQy071tIQ"
-    },
-    {
-      "type": "trojan",
-      "tag": "trojan-1",
-      "server": "www.speedtest.net",
-      "server_port": 443,
-      "password": "humanity",
-      "tls": {
-        "enabled": true,
-        "server_name": "www.ignitelimit.com"
+        "server_name": "pish-data-32.myket.ir"
       },
       "transport": {
         "type": "ws",
-        "path": "/assignment",
-        "headers": {
-          "Host": "www.ignitelimit.com"
-        }
+        "path": "/api"
       }
     },
     {
       "type": "vless",
-      "tag": "vless-26",
-      "server": "130.49.77.6",
+      "tag": "vless-8",
+      "server": "vodiwalkerpanel-production-4e61.up.railway.app",
       "server_port": 443,
-      "uuid": "2bb8b13c-b3f0-2552-da05-d0929bfb36db",
+      "uuid": "a1f54607-985f-21c1-5ca2-85a4b164927f",
       "packet_encoding": "xudp",
       "tls": {
         "enabled": true,
-        "server_name": "download.nvidia.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "hwwiWVqYq5b7S0JaXNSxjWSEv_1OUFMaWJGHzeAGyRM"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-27",
-      "server": "104.245.240.6",
-      "server_port": 443,
-      "uuid": "2bb8b13c-b3f0-2552-da05-d0929bfb36db",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "www.hp.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "QzFNQqkvBnDKIyjXUHJQe9jruaw9G5AV44vDC-qvnlo"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-28",
-      "server": "104.245.240.6",
-      "server_port": 443,
-      "uuid": "2bb8b13c-b3f0-2552-da05-d0929bfb36db",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "www.hp.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "QzFNQqkvBnDKIyjXUHJQe9jruaw9G5AV44vDC-qvnlo"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-29",
-      "server": "104.245.240.6",
-      "server_port": 443,
-      "uuid": "2bb8b13c-b3f0-2552-da05-d0929bfb36db",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "download.nvidia.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "D2SXHZRRYM0WcFChGWd57XB-U73aIsGfMpe2-Gq5XSs"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-30",
-      "server": "eeqj7udq.danqela.ir",
-      "server_port": 5063,
-      "uuid": "b2ee150f-58eb-4125-8fae-b0f79544bd25",
-      "flow": "xtls-rprx-vision",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "android.clients.google.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "edge"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "K-ra5wYRignlacUglfdjgTJOf4C4_oxKVm_T6YdgsTM",
-          "short_id": "5261db918c5cf1a9"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-31",
-      "server": "116.202.180.196",
-      "server_port": 27812,
-      "uuid": "b2ee150f-58eb-4125-8fae-b0f79544bd25",
-      "flow": "xtls-rprx-vision",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "android.clients.google.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "edge"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "K-ra5wYRignlacUglfdjgTJOf4C4_oxKVm_T6YdgsTM",
-          "short_id": "8509f205ecd87e17"
-        }
-      }
-    },
-    {
-      "type": "vmess",
-      "tag": "vmess-1",
-      "server": "104.21.94.64",
-      "server_port": 443,
-      "uuid": "39cec18f-a439-427c-9a4e-aeb6fcdf6f53",
-      "security": "auto",
-      "alter_id": 0,
-      "global_padding": false,
-      "authenticated_length": true,
-      "tls": {
-        "enabled": true,
-        "server_name": "linja05.hwcar.sbs"
-      },
-      "transport": {
-        "type": "ws",
-        "path": "/linkws",
-        "headers": {
-          "Host": "linja05.hwcar.sbs"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-32",
-      "server": "85.111.89.245",
-      "server_port": 48786,
-      "uuid": "7b52cfb5-d142-4973-ada0-6007b841d97e",
-      "packet_encoding": "xudp"
-    },
-    {
-      "type": "vless",
-      "tag": "vless-33",
-      "server": "188.114.96.6",
-      "server_port": 443,
-      "uuid": "13ba9154-0ace-443b-b38a-5349031d4e1d",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "DisVpn.us.kg",
-        "alpn": [
-          "h2",
-          "http/1.1"
-        ],
-        "utls": {
-          "enabled": true,
-          "fingerprint": "randomized"
-        }
-      },
-      "transport": {
-        "type": "ws",
-        "path": "/---------DisVpn---------DisVpn---------DisVpn",
-        "headers": {
-          "Host": "DisVpn.us.kg"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-34",
-      "server": "pp2rnzr1.danqela.ir",
-      "server_port": 27812,
-      "uuid": "b2ee150f-58eb-4125-8fae-b0f79544bd25",
-      "flow": "xtls-rprx-vision",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "android.clients.google.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "edge"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "K-ra5wYRignlacUglfdjgTJOf4C4_oxKVm_T6YdgsTM",
-          "short_id": "8509f205ecd87e17"
-        }
-      }
-    },
-    {
-      "type": "trojan",
-      "tag": "trojan-2",
-      "server": "199.232.78.160",
-      "server_port": 443,
-      "password": "MITIVPN",
-      "tls": {
-        "enabled": true,
-        "server_name": "ssl.fastly.com",
+        "server_name": "vodiwalkerpanel-production-4e61.up.railway.app",
         "alpn": [
           "http/1.1"
         ],
@@ -842,292 +137,28 @@
       },
       "transport": {
         "type": "ws",
-        "path": "mehrosaboram",
+        "path": "/ws/a1f54607-985f-21c1-5ca2-85a4b164927f",
         "headers": {
-          "Host": "mitivpn---ss--s---mitivpn-44s.global.ssl.fastly.net"
+          "Host": "vodiwalkerpanel-production-4e61.up.railway.app"
         }
       }
     },
     {
       "type": "vless",
-      "tag": "vless-35",
-      "server": "172.105.252.35",
+      "tag": "vless-9",
+      "server": "104.21.63.28",
       "server_port": 443,
-      "uuid": "99de7aac-d2a5-48fd-92cb-d1e6c3c719a4",
-      "flow": "xtls-rprx-vision",
+      "uuid": "44eae030-290b-4083-8102-6f8bab05701b",
       "packet_encoding": "xudp",
       "tls": {
         "enabled": true,
-        "server_name": "in-full.privateip.net",
-        "insecure": true
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-36",
-      "server": "104.17.148.22",
-      "server_port": 443,
-      "uuid": "c2ec17cc-e5a9-4f4a-88dc-496e3215dbab",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "sALAm-wOrD.pagEs.deV.",
-        "alpn": [
-          "h2",
-          "http/1.1"
-        ],
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        }
+        "server_name": "cfvvv-ev1.pages.dev"
       },
       "transport": {
         "type": "ws",
+        "path": "/?TELEGRAM--MARAMBASHI--MARAMBASHI?ed=512",
         "headers": {
-          "Host": "saLaM-Word.PaGeS.Dev."
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-37",
-      "server": "freeman.bestxau.ir",
-      "server_port": 19210,
-      "uuid": "d65a82af-a403-405e-8b7b-27a68b830511",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "play-apps-features.googleusercontent.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "112X7iICOgZtFOHXdn59EY7m_gwKultc-zwYPzBv6wU",
-          "short_id": "4f69072c426d46a6"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-38",
-      "server": "104.24.223.66",
-      "server_port": 8080,
-      "uuid": "2b59f595-bc0e-4642-a542-e8e0fc8926b6",
-      "packet_encoding": "xudp",
-      "transport": {
-        "type": "ws",
-        "path": "/Telegram:@vmessorg-Telegram:@vmessorg-Telegram:@vmessorg?ed=8080",
-        "headers": {
-          "Host": "join-to.vmessorg.Community."
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-39",
-      "server": "15.224.171.138",
-      "server_port": 22222,
-      "uuid": "e4514801-0d5a-42ba-869f-39bd605aef9e",
-      "packet_encoding": "xudp"
-    },
-    {
-      "type": "trojan",
-      "tag": "trojan-3",
-      "server": "167.82.76.7",
-      "server_port": 443,
-      "password": "MITIVPN",
-      "tls": {
-        "enabled": true,
-        "server_name": "ssl.fastly.com",
-        "alpn": [
-          "http/1.1"
-        ],
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        }
-      },
-      "transport": {
-        "type": "ws",
-        "path": "@bored_vpn",
-        "headers": {
-          "Host": "mitivpn---ss--s---mitivpn-33s.global.ssl.fastly.net"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-40",
-      "server": "x3ytee6w.danqela.ir",
-      "server_port": 5051,
-      "uuid": "b2ee150f-58eb-4125-8fae-b0f79544bd25",
-      "flow": "xtls-rprx-vision",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "android.clients.google.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "edge"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "K-ra5wYRignlacUglfdjgTJOf4C4_oxKVm_T6YdgsTM",
-          "short_id": "8509f205ecd87e17"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-41",
-      "server": "49.13.19.156",
-      "server_port": 28117,
-      "uuid": "d225a842-cef9-45de-9f8a-2bcbd584953e",
-      "packet_encoding": "xudp"
-    },
-    {
-      "type": "vmess",
-      "tag": "vmess-2",
-      "server": "188.114.97.1",
-      "server_port": 443,
-      "uuid": "03fcc618-b93d-6796-6aed-8a38c975d581",
-      "security": "auto",
-      "alter_id": 1,
-      "global_padding": false,
-      "authenticated_length": true,
-      "tls": {
-        "enabled": true,
-        "server_name": "odelia.autos"
-      },
-      "transport": {
-        "type": "ws",
-        "path": "linkvws",
-        "headers": {
-          "Host": "odelia.autos"
-        }
-      }
-    },
-    {
-      "type": "vmess",
-      "tag": "vmess-3",
-      "server": "irc.jahancloud.cfd",
-      "server_port": 443,
-      "uuid": "79e37b18-c19d-4441-89b2-dbbd02983bb3",
-      "security": "auto",
-      "alter_id": 0,
-      "global_padding": false,
-      "authenticated_length": true
-    },
-    {
-      "type": "trojan",
-      "tag": "trojan-4",
-      "server": "helping-shark.rooster465.autos",
-      "server_port": 443,
-      "password": "CF68213490",
-      "tls": {
-        "enabled": true
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-42",
-      "server": "104.17.191.15",
-      "server_port": 8880,
-      "uuid": "812b1aeb-c6f7-43cb-8d8b-981711fea21a",
-      "packet_encoding": "xudp",
-      "transport": {
-        "type": "ws",
-        "headers": {
-          "Host": "dark-cake-4743.198-46c.workers.dev"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-43",
-      "server": "185.146.173.37",
-      "server_port": 8080,
-      "uuid": "4cac189c-5611-4cfa-9946-bf1b2b3d152c",
-      "packet_encoding": "xudp",
-      "transport": {
-        "type": "ws",
-        "path": "/",
-        "headers": {
-          "Host": "xn--047h.iman-v2ray.sbs."
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-44",
-      "server": "q7xfjcd5.danqela.ir",
-      "server_port": 5054,
-      "uuid": "b2ee150f-58eb-4125-8fae-b0f79544bd25",
-      "flow": "xtls-rprx-vision",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "android.clients.google.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "edge"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "K-ra5wYRignlacUglfdjgTJOf4C4_oxKVm_T6YdgsTM",
-          "short_id": "8509f205ecd87e17"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-45",
-      "server": "104.17.148.22",
-      "server_port": 80,
-      "uuid": "8bdb892c-3f28-4821-8169-a73a23a9bb6d",
-      "packet_encoding": "xudp",
-      "transport": {
-        "type": "ws",
-        "headers": {
-          "Host": "asan.net.v2rayng6.6.6.6.ir.com.site.列列男事的事列上赛男.golestan-vpn.LINK."
-        }
-      }
-    },
-    {
-      "type": "trojan",
-      "tag": "trojan-5",
-      "server": "104.19.229.21",
-      "server_port": 443,
-      "password": "humanity",
-      "tls": {
-        "enabled": true
-      }
-    },
-    {
-      "type": "shadowsocks",
-      "tag": "ss-4",
-      "server": "108.181.118.10",
-      "server_port": 8388,
-      "method": "chacha20-ietf-poly1305",
-      "password": "G5p6ww4o67HB"
-    },
-    {
-      "type": "vmess",
-      "tag": "vmess-4",
-      "server": "russia.com",
-      "server_port": 2095,
-      "uuid": "b7c56170-edb4-4c4a-bb64-ed5ef40b8739",
-      "security": "auto",
-      "alter_id": 0,
-      "global_padding": false,
-      "authenticated_length": true,
-      "transport": {
-        "type": "ws",
-        "path": "/api/v3/download.getFile",
-        "headers": {
-          "Host": "sssub.v2.001.ssrsub.com"
+          "Host": "cfvvv-ev1.pages.dev"
         }
       }
     }
