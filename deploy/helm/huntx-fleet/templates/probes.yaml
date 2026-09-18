@@ -6,10 +6,10 @@ metadata: { name: {{ include "huntx-fleet.fullname" $ }}-{{ .id }} }
 spec:
   replicas: 1
   selector:
-    matchLabels: { app.kubernetes.io/name: {{ include "huntx-fleet.name" $ }}, app.kubernetes.io/instance: {{ .Release.Name }}, app.kubernetes.io/component: probe, app.kubernetes.io/probe-id: {{ .id }} }
+    matchLabels: { app.kubernetes.io/name: {{ include "huntx-fleet.name" $ }}, app.kubernetes.io/instance: {{ $.Release.Name }}, app.kubernetes.io/component: probe, app.kubernetes.io/probe-id: {{ .id }} }
   template:
     metadata:
-      labels: { app.kubernetes.io/name: {{ include "huntx-fleet.name" $ }}, app.kubernetes.io/instance: {{ .Release.Name }}, app.kubernetes.io/component: probe, app.kubernetes.io/probe-id: {{ .id }} }
+      labels: { app.kubernetes.io/name: {{ include "huntx-fleet.name" $ }}, app.kubernetes.io/instance: {{ $.Release.Name }}, app.kubernetes.io/component: probe, app.kubernetes.io/probe-id: {{ .id }} }
     spec:
       containers:
         - name: probe
