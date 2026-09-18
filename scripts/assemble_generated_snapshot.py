@@ -272,9 +272,16 @@ def write_dev_outputs(
     remark_counter: dict[str, int] = {}
     remarked_uris = [add_clean_remark(uri, remark_counter) for uri in sorted_uris]
     timestamp = _display_timestamp(source_created_at)
+    # An empty timestamp must not leave a dangling separator behind:
+    # trailing whitespace would trip `git diff --check` on the snapshot.
+    title = (
+        f"# huntx proxy list — {timestamp}"
+        if timestamp
+        else "# huntx proxy list"
+    )
 
     header = (
-        f"# huntx proxy list — {timestamp}\n"
+        f"{title}\n"
         f"# All-time cumulative history — {len(remarked_uris)} unique URIs\n"
         "# One proxy URI per line\n\n"
     )
