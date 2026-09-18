@@ -132,7 +132,6 @@ export function generateQRMatrix(text, errorCorrectionLevel = 'M') {
   // 6. Data Placement
   let bitIdx = 0;
   let dir = -1;
-  let curRow = moduleCount - 1;
   let curCol = moduleCount - 1;
 
   while (curCol > 0) {

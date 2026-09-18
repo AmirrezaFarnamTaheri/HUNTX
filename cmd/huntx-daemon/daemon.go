@@ -7,6 +7,8 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -194,11 +196,39 @@ func (d *Daemon) GetStatus() DaemonStatus {
 	}
 }
 
+// authorized reports whether the request carries the configured control token.
+//
+// The token is read on every call so that rotating it needs no restart. The
+// comparison hashes both sides first and compares the digests in constant
+// time: comparing the raw strings with == leaks, through response timing, how
+// many leading bytes of a guess were correct, and comparing raw byte slices
+// with ConstantTimeCompare still leaks the token's length because it returns
+// early on a length mismatch. Fixed-length digests remove both.
+func authorized(r *http.Request) bool {
+	token := os.Getenv("HUNTX_DAEMON_CONTROL_TOKEN")
+	if token == "" {
+		// No token configured means the control plane is disabled, not open.
+		return false
+	}
+	want := sha256.Sum256([]byte("Bearer " + token))
+	got := sha256.Sum256([]byte(r.Header.Get("Authorization")))
+	return subtle.ConstantTimeCompare(want[:], got[:]) == 1
+}
+
+// noStore marks a response as uncacheable. PAC files and status snapshots
+// describe the currently active node; a cached copy would keep clients pointed
+// at a proxy the daemon has already failed away from.
+func noStore(w http.ResponseWriter) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+}
+
 // Handler returns the HTTP mux for the local control REST API.
 func (d *Daemon) Handler() http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
+		noStore(w)
 		w.Header().Set("Content-Type", "application/json")
 		status := d.GetStatus()
 		_ = json.NewEncoder(w).Encode(status)
@@ -217,8 +247,9 @@ func (d *Daemon) Handler() http.Handler {
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		token := os.Getenv("HUNTX_DAEMON_CONTROL_TOKEN")
-		if token == "" || r.Header.Get("Authorization") != "Bearer "+token {
+		noStore(w)
+		if !authorized(r) {
+			w.Header().Set("WWW-Authenticate", `Bearer realm="huntx-daemon"`)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -251,6 +282,7 @@ func (d *Daemon) Handler() http.Handler {
     }
     return %s;
 }`, strconv.Quote(directive))
+		noStore(w)
 		w.Header().Set("Content-Type", "application/x-ns-proxy-autoconfig")
 		_, _ = w.Write([]byte(pacScript))
 	})

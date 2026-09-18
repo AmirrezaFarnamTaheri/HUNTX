@@ -1,6 +1,78 @@
 // HUNTX Client-Side Proxy Protocol Decoder & Parser
 // Hardened, IPv6-compliant, malformed URI resilient, and fully zero-dependency.
 
+// ---------------------------------------------------------------------------
+// Serialization guards
+//
+// Node metadata — names, SNI values, hosts, transport paths — arrives from
+// public channels and is attacker controlled. The generated Clash, Surge, Loon
+// and Quantumult X profiles are line- and comma-delimited formats, so a value
+// carrying a newline, a quote or a delimiter does not merely corrupt the
+// output: it appends directives the user never asked for to a config they are
+// about to load into a proxy client. Every untrusted value must pass through
+// one of these before it is interpolated.
+// ---------------------------------------------------------------------------
+
+/**
+ * Render a value as a double-quoted YAML scalar.
+ *
+ * Double-quoted YAML is the only style that can carry arbitrary text, and it
+ * needs backslash, quote and control characters escaped. Escaping newlines
+ * rather than stripping them keeps the value faithful while making it
+ * impossible to open a new YAML node.
+ *
+ * @param {unknown} value
+ * @returns {string} A quoted scalar, safe to place after `key: `.
+ */
+export function yamlQuote(value) {
+  const text = value === undefined || value === null ? "" : String(value);
+  const escaped = text
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\r/g, "\\r")
+    .replace(/\n/g, "\\n")
+    .replace(/\t/g, "\\t")
+    // Remaining C0 controls and DEL have no literal double-quoted form.
+    // eslint-disable-next-line no-control-regex -- matching controls is the point
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, (c) =>
+      `\\x${c.charCodeAt(0).toString(16).padStart(2, "0")}`
+    );
+  return `"${escaped}"`;
+}
+
+/**
+ * Sanitize a value for the comma-delimited, line-oriented config formats used
+ * by Surge, Loon and Quantumult X.
+ *
+ * These formats have no escaping mechanism at all, so the only safe transform
+ * is to remove the characters that carry structural meaning.
+ *
+ * @param {unknown} value
+ * @param {{ allowComma?: boolean }} [options]
+ * @returns {string}
+ */
+export function iniValue(value, { allowComma = false } = {}) {
+  const text = value === undefined || value === null ? "" : String(value);
+  // eslint-disable-next-line no-control-regex -- matching controls is the point
+  const stripped = text.replace(/[\r\n\u0000-\u001f\u007f]/g, "");
+  return allowComma ? stripped : stripped.replace(/,/g, "_");
+}
+
+/**
+ * Sanitize a node name for use as a Surge/Loon/QX entry label or tag.
+ *
+ * `=` separates the label from the directive body and `,` separates fields, so
+ * both are replaced in addition to the control characters handled above. An
+ * empty result would produce a nameless directive, so a placeholder is used.
+ *
+ * @param {unknown} value
+ * @returns {string}
+ */
+export function iniTag(value) {
+  const cleaned = iniValue(value).replace(/=/g, "_").trim();
+  return cleaned === "" ? "huntx-node" : cleaned;
+}
+
 function safeDecodeURI(str, fallback = "") {
   if (!str) return fallback;
   try {
@@ -316,7 +388,10 @@ export function extractAllURIs(text) {
     try {
       const decoded = safeAtob(text.trim());
       return extractAllURIs(decoded);
-    } catch {}
+    } catch {
+      // The input simply was not a base64 subscription. Fall through and
+      // return whatever the direct scheme scan found, which may be nothing.
+    }
   }
 
   return uris;
@@ -589,6 +664,54 @@ export function buildSingboxConfig(nodes) {
   };
 }
 
+/**
+ * Serialize one Clash Meta proxy object as a YAML list entry.
+ *
+ * Extracted so that the dashboard can offer a single node in the same format
+ * the full profile uses, and so the quoting rules live in exactly one place.
+ * Identifier-shaped fields (`type`, `network`, `cipher`) are emitted bare
+ * because they come from HUNTX's own protocol mapping; everything that
+ * originates in ingested metadata is quoted.
+ *
+ * @param {Record<string, any>} proxy A node from `nodeToClashProxy`.
+ * @param {string} [indent] Leading indentation for the entry.
+ * @returns {string} A YAML fragment ending in a newline, or "" for no proxy.
+ */
+export function clashProxyToYAML(proxy, indent = "  ") {
+  if (!proxy) return "";
+  const field = `${indent}  `;
+  let out = `${indent}- name: ${yamlQuote(proxy.name)}\n`;
+  out += `${field}type: ${proxy.type}\n`;
+  out += `${field}server: ${yamlQuote(proxy.server)}\n`;
+  out += `${field}port: ${Number(proxy.port) || 0}\n`;
+  if (proxy.uuid) out += `${field}uuid: ${yamlQuote(proxy.uuid)}\n`;
+  if (proxy.password) out += `${field}password: ${yamlQuote(proxy.password)}\n`;
+  if (proxy.cipher) out += `${field}cipher: ${yamlQuote(proxy.cipher)}\n`;
+  if (proxy.network) out += `${field}network: ${yamlQuote(proxy.network)}\n`;
+  if (proxy.tls !== undefined) out += `${field}tls: ${proxy.tls ? "true" : "false"}\n`;
+  if (proxy.servername) out += `${field}servername: ${yamlQuote(proxy.servername)}\n`;
+  if (proxy["client-fingerprint"]) {
+    out += `${field}client-fingerprint: ${yamlQuote(proxy["client-fingerprint"])}\n`;
+  }
+  if (proxy["reality-opts"]) {
+    out += `${field}reality-opts:\n`;
+    out += `${field}  public-key: ${yamlQuote(proxy["reality-opts"]["public-key"])}\n`;
+    out += `${field}  short-id: ${yamlQuote(proxy["reality-opts"]["short-id"])}\n`;
+  }
+  if (proxy["ws-opts"]) {
+    out += `${field}ws-opts:\n${field}  path: ${yamlQuote(proxy["ws-opts"].path)}\n`;
+    const wsHost = proxy["ws-opts"].headers && proxy["ws-opts"].headers.Host;
+    if (wsHost) {
+      out += `${field}  headers:\n${field}    Host: ${yamlQuote(wsHost)}\n`;
+    }
+  }
+  if (proxy["grpc-opts"]) {
+    out += `${field}grpc-opts:\n`;
+    out += `${field}  grpc-service-name: ${yamlQuote(proxy["grpc-opts"]["grpc-service-name"])}\n`;
+  }
+  return out;
+}
+
 export function buildClashMetaYAML(nodes) {
   const proxies = nodes.map(nodeToClashProxy).filter(Boolean);
   const proxyNames = proxies.map(p => p.name);
@@ -599,31 +722,15 @@ export function buildClashMetaYAML(nodes) {
 
   yaml += `proxies:\n`;
   proxies.forEach(p => {
-    yaml += `  - name: "${p.name}"\n    type: ${p.type}\n    server: ${p.server}\n    port: ${p.port}\n`;
-    if (p.uuid) yaml += `    uuid: ${p.uuid}\n`;
-    if (p.password) yaml += `    password: ${p.password}\n`;
-    if (p.cipher) yaml += `    cipher: ${p.cipher}\n`;
-    if (p.network) yaml += `    network: ${p.network}\n`;
-    if (p.tls !== undefined) yaml += `    tls: ${p.tls}\n`;
-    if (p.servername) yaml += `    servername: ${p.servername}\n`;
-    if (p["client-fingerprint"]) yaml += `    client-fingerprint: ${p["client-fingerprint"]}\n`;
-    if (p["reality-opts"]) {
-      yaml += `    reality-opts:\n      public-key: ${p["reality-opts"]["public-key"]}\n      short-id: ${p["reality-opts"]["short-id"]}\n`;
-    }
-    if (p["ws-opts"]) {
-      yaml += `    ws-opts:\n      path: "${p["ws-opts"].path}"\n`;
-    }
-    if (p["grpc-opts"]) {
-      yaml += `    grpc-opts:\n      grpc-service-name: "${p["grpc-opts"]["grpc-service-name"]}"\n`;
-    }
+    yaml += clashProxyToYAML(p);
   });
 
   yaml += `\nproxy-groups:\n`;
   yaml += `  - name: "AUTO-BEST"\n    type: url-test\n    url: http://www.gstatic.com/generate_204\n    interval: 300\n    tolerance: 50\n    proxies:\n`;
-  proxyNames.forEach(n => yaml += `      - "${n}"\n`);
+  proxyNames.forEach(n => { yaml += `      - ${yamlQuote(n)}\n`; });
 
   yaml += `  - name: "PROXIES"\n    type: select\n    proxies:\n      - AUTO-BEST\n`;
-  proxyNames.forEach(n => yaml += `      - "${n}"\n`);
+  proxyNames.forEach(n => { yaml += `      - ${yamlQuote(n)}\n`; });
   yaml += `      - DIRECT\n`;
 
   yaml += `\nrules:\n  - DOMAIN-SUFFIX,ir,DIRECT\n  - GEOIP,IR,DIRECT\n  - MATCH,PROXIES\n`;
@@ -633,103 +740,115 @@ export function buildClashMetaYAML(nodes) {
 export function nodeToSurgeProxy(node) {
   if (!node) return "";
   const proto = (node.protocol || "vless").toLowerCase();
-  const name = (node.name || `${proto}-${node.server}`).replace(/[,=]/g, "_");
+  const name = iniTag(node.name || `${proto}-${node.server}`);
+  const server = iniValue(node.server);
+  const port = Number(node.port) || 0;
 
   if (proto === "vless") {
-    let line = `${name} = vless, ${node.server}, ${node.port}, username=${node.uuid}`;
+    let line = `${name} = vless, ${server}, ${port}, username=${iniValue(node.uuid)}`;
     if (node.security === "tls" || node.security === "reality") line += `, tls=true`;
-    if (node.sni) line += `, sni=${node.sni}`;
-    if (node.publicKey) line += `, reality-public-key=${node.publicKey}`;
-    if (node.shortId) line += `, reality-short-id=${node.shortId}`;
+    if (node.sni) line += `, sni=${iniValue(node.sni)}`;
+    if (node.publicKey) line += `, reality-public-key=${iniValue(node.publicKey)}`;
+    if (node.shortId) line += `, reality-short-id=${iniValue(node.shortId)}`;
     if (node.transport === "ws" || node.transport === "websocket") {
-      line += `, ws=true, ws-path=${node.path || "/"}`;
-      if (node.host) line += `, ws-header=Host:${node.host}`;
+      line += `, ws=true, ws-path=${iniValue(node.path || "/")}`;
+      if (node.host) line += `, ws-header=Host:${iniValue(node.host)}`;
     }
     return line;
   }
 
   if (proto === "trojan") {
-    let line = `${name} = trojan, ${node.server}, ${node.port}, password=${node.password}`;
-    if (node.sni) line += `, sni=${node.sni}`;
+    let line = `${name} = trojan, ${server}, ${port}, password=${iniValue(node.password)}`;
+    if (node.sni) line += `, sni=${iniValue(node.sni)}`;
     line += `, tls=true`;
     return line;
   }
 
   if (proto === "shadowsocks") {
-    return `${name} = ss, ${node.server}, ${node.port}, encrypt-method=${node.cipher || "aes-128-gcm"}, password=${node.password}`;
+    return `${name} = ss, ${server}, ${port}, encrypt-method=${iniValue(node.cipher || "aes-128-gcm")}, password=${iniValue(node.password)}`;
   }
 
   if (proto === "hysteria2") {
-    let line = `${name} = hysteria2, ${node.server}, ${node.port}, password=${node.auth || node.password}`;
-    if (node.sni) line += `, sni=${node.sni}`;
+    let line = `${name} = hysteria2, ${server}, ${port}, password=${iniValue(node.auth || node.password)}`;
+    if (node.sni) line += `, sni=${iniValue(node.sni)}`;
     return line;
   }
 
-  return `${name} = http, ${node.server}, ${node.port}`;
+  return `${name} = http, ${server}, ${port}`;
 }
 
 export function nodeToLoonProxy(node) {
   if (!node) return "";
   const proto = (node.protocol || "vless").toLowerCase();
-  const name = (node.name || `${proto}-${node.server}`).replace(/[,=]/g, "_");
+  const name = iniTag(node.name || `${proto}-${node.server}`);
+  const server = iniValue(node.server);
+  const port = Number(node.port) || 0;
+  // Loon wraps some values in double quotes but offers no escape sequence, so
+  // an embedded quote would terminate the field early. Strip it alongside the
+  // structural characters iniValue already removes.
+  const quoted = (value) => `"${iniValue(value).replace(/"/g, "")}"`;
+  const tlsName = iniValue(node.sni || node.server);
 
   if (proto === "vless") {
-    let line = `${name} = vless, ${node.server}, ${node.port}, "${node.uuid}", fast-open=false, udp=true`;
+    let line = `${name} = vless, ${server}, ${port}, ${quoted(node.uuid)}, fast-open=false, udp=true`;
     if (node.security === "reality") {
-      line += `, tls-name=${node.sni || node.server}, reality=true, public-key="${node.publicKey || ""}", short-id="${node.shortId || ""}"`;
+      line += `, tls-name=${tlsName}, reality=true, public-key=${quoted(node.publicKey || "")}, short-id=${quoted(node.shortId || "")}`;
     } else if (node.security === "tls") {
-      line += `, tls-name=${node.sni || node.server}, tls=true`;
+      line += `, tls-name=${tlsName}, tls=true`;
     }
     if (node.transport === "ws" || node.transport === "websocket") {
-      line += `, transport=ws, path="${node.path || "/"}"`;
-      if (node.host) line += `, host="${node.host}"`;
+      line += `, transport=ws, path=${quoted(node.path || "/")}`;
+      if (node.host) line += `, host=${quoted(node.host)}`;
     }
     return line;
   }
 
   if (proto === "trojan") {
-    return `${name} = trojan, ${node.server}, ${node.port}, "${node.password}", tls-name=${node.sni || node.server}, tls=true, fast-open=false, udp=true`;
+    return `${name} = trojan, ${server}, ${port}, ${quoted(node.password)}, tls-name=${tlsName}, tls=true, fast-open=false, udp=true`;
   }
 
   if (proto === "shadowsocks") {
-    return `${name} = shadowsocks, ${node.server}, ${node.port}, "${node.cipher || "aes-128-gcm"}", "${node.password}", fast-open=false, udp=true`;
+    return `${name} = shadowsocks, ${server}, ${port}, ${quoted(node.cipher || "aes-128-gcm")}, ${quoted(node.password)}, fast-open=false, udp=true`;
   }
 
   if (proto === "hysteria2") {
-    return `${name} = hysteria2, ${node.server}, ${node.port}, "${node.auth || node.password}", sni=${node.sni || node.server}, fast-open=false, udp=true`;
+    return `${name} = hysteria2, ${server}, ${port}, ${quoted(node.auth || node.password)}, sni=${tlsName}, fast-open=false, udp=true`;
   }
 
-  return `${name} = http, ${node.server}, ${node.port}`;
+  return `${name} = http, ${server}, ${port}`;
 }
 
 export function nodeToQXServer(node) {
   if (!node) return "";
   const proto = (node.protocol || "vless").toLowerCase();
-  const name = (node.name || `${proto}-${node.server}`).replace(/[,=]/g, "_");
+  const name = iniTag(node.name || `${proto}-${node.server}`);
+  const server = iniValue(node.server);
+  const port = Number(node.port) || 0;
+  const tlsHost = iniValue(node.sni || node.server);
 
   if (proto === "vless") {
-    let line = `vless=${node.server}:${node.port}, method=none, password=${node.uuid}, fast-open=false, udp-relay=true, tag=${name}`;
+    let line = `vless=${server}:${port}, method=none, password=${iniValue(node.uuid)}, fast-open=false, udp-relay=true, tag=${name}`;
     if (node.security === "reality") {
-      line += `, tls=true, tls-host=${node.sni || node.server}, reality-base64=${node.publicKey || ""}, reality-short-id=${node.shortId || ""}`;
+      line += `, tls=true, tls-host=${tlsHost}, reality-base64=${iniValue(node.publicKey || "")}, reality-short-id=${iniValue(node.shortId || "")}`;
     } else if (node.security === "tls") {
-      line += `, tls=true, tls-host=${node.sni || node.server}`;
+      line += `, tls=true, tls-host=${tlsHost}`;
     }
     if (node.transport === "ws" || node.transport === "websocket") {
-      line += `, obfs=ws, obfs-uri=${node.path || "/"}`;
-      if (node.host) line += `, obfs-host=${node.host}`;
+      line += `, obfs=ws, obfs-uri=${iniValue(node.path || "/")}`;
+      if (node.host) line += `, obfs-host=${iniValue(node.host)}`;
     }
     return line;
   }
 
   if (proto === "trojan") {
-    return `trojan=${node.server}:${node.port}, password=${node.password}, over-tls=true, tls-host=${node.sni || node.server}, fast-open=false, udp-relay=true, tag=${name}`;
+    return `trojan=${server}:${port}, password=${iniValue(node.password)}, over-tls=true, tls-host=${tlsHost}, fast-open=false, udp-relay=true, tag=${name}`;
   }
 
   if (proto === "shadowsocks") {
-    return `shadowsocks=${node.server}:${node.port}, method=${node.cipher || "aes-128-gcm"}, password=${node.password}, fast-open=false, udp-relay=true, tag=${name}`;
+    return `shadowsocks=${server}:${port}, method=${iniValue(node.cipher || "aes-128-gcm")}, password=${iniValue(node.password)}, fast-open=false, udp-relay=true, tag=${name}`;
   }
 
-  return `http=${node.server}:${node.port}, tag=${name}`;
+  return `http=${server}:${port}, tag=${name}`;
 }
 
 export function buildXrayClientConfig(nodes) {
@@ -804,7 +923,8 @@ export function buildSurgeConfig(nodes) {
     const line = nodeToSurgeProxy(n);
     if (line) out += `${line}\n`;
   });
-  out += `\n[Proxy Group]\nAUTO-BEST = url-test, ${nodes.map(n => (n.name || 'node').replace(/[,=]/g, '_')).join(', ')}, url=http://www.gstatic.com/generate_204, interval=300\nPROXIES = select, AUTO-BEST, DIRECT, ${nodes.map(n => (n.name || 'node').replace(/[,=]/g, '_')).join(', ')}\n\n[Rule]\nGEOIP,IR,DIRECT\nFINAL,PROXIES\n`;
+  const taggedNodes = nodes.map(n => iniTag(n.name || 'node'));
+  out += `\n[Proxy Group]\nAUTO-BEST = url-test, ${taggedNodes.join(', ')}, url=http://www.gstatic.com/generate_204, interval=300\nPROXIES = select, AUTO-BEST, DIRECT, ${taggedNodes.join(', ')}\n\n[Rule]\nGEOIP,IR,DIRECT\nFINAL,PROXIES\n`;
   return out;
 }
 
@@ -814,7 +934,8 @@ export function buildLoonConfig(nodes) {
     const line = nodeToLoonProxy(n);
     if (line) out += `${line}\n`;
   });
-  out += `\n[Proxy Group]\nAUTO-BEST = url-test, ${nodes.map(n => (n.name || 'node').replace(/[,=]/g, '_')).join(', ')}, url=http://www.gstatic.com/generate_204, interval=300\n\n[Rule]\nGEOIP,IR,DIRECT\nFINAL,AUTO-BEST\n`;
+  const taggedNodes = nodes.map(n => iniTag(n.name || 'node'));
+  out += `\n[Proxy Group]\nAUTO-BEST = url-test, ${taggedNodes.join(', ')}, url=http://www.gstatic.com/generate_204, interval=300\n\n[Rule]\nGEOIP,IR,DIRECT\nFINAL,AUTO-BEST\n`;
   return out;
 }
 
@@ -824,7 +945,8 @@ export function buildQXConfig(nodes) {
     const line = nodeToQXServer(n);
     if (line) out += `${line}\n`;
   });
-  out += `\n[policy]\nurl-latency-benchmark = AUTO-BEST, ${nodes.map(n => (n.name || 'node').replace(/[,=]/g, '_')).join(', ')}, check-interval=300, tolerance=50\n\n[filter_local]\ngeoip, ir, direct\nfinal, AUTO-BEST\n`;
+  const taggedNodes = nodes.map(n => iniTag(n.name || 'node'));
+  out += `\n[policy]\nurl-latency-benchmark = AUTO-BEST, ${taggedNodes.join(', ')}, check-interval=300, tolerance=50\n\n[filter_local]\ngeoip, ir, direct\nfinal, AUTO-BEST\n`;
   return out;
 }
 

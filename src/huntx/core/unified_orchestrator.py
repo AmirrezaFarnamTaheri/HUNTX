@@ -5,6 +5,8 @@ from typing import Any
 from .geo_routing import GeoRoutingEngine
 from .optimized_orchestrator import OptimizedHardenedOrchestrator
 from .resilience import AsyncCircuitBreaker
+from .runtime_factory import wire_production_governance
+from .runtime_resilience import apply_runtime_resilience
 from .scoring import ProxyScoringEngine
 from .self_healing import SelfHealingDaemon
 from ..formats.streaming import StreamingChunkParser
@@ -18,6 +20,12 @@ class UnifiedOrchestrator(OptimizedHardenedOrchestrator):
     path lets deadlines, source governance, persistence and publication policy
     drift from production.  The facade now inherits the optimized hardened
     pipeline and adds only its next-generation helper components/metadata.
+
+    Inheriting the class is not enough to obtain the production contract: the
+    resilient runtime overrides and the governed build pipeline are installed by
+    ``apply_runtime_resilience`` and ``wire_production_governance``, and until
+    this constructor called them a caller who used ``huntx.UnifiedOrchestrator``
+    directly ran an ungoverned pipeline while the docstring claimed otherwise.
     """
 
     def __init__(
@@ -27,7 +35,9 @@ class UnifiedOrchestrator(OptimizedHardenedOrchestrator):
         max_proxy_latency_ms: int = 1500,
         **kwargs: Any,
     ) -> None:
+        apply_runtime_resilience()
         super().__init__(*args, **kwargs)
+        wire_production_governance(self, self.config)
         self.enable_benchmarking = bool(enable_benchmarking)
         self.max_proxy_latency_ms = max(1, int(max_proxy_latency_ms))
         self.circuit_breaker = AsyncCircuitBreaker()

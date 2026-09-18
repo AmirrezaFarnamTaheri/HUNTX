@@ -154,6 +154,49 @@ INDEX_HTML = """<!DOCTYPE html>
         radial-gradient(900px 600px at 10% 40%, rgba(16, 185, 129, 0.04), transparent 60%);
     }
 
+    /*
+      Focus indication (WCAG 2.4.7).
+
+      :focus-visible carries the refined behaviour — a keyboard user gets the
+      indicator, a mouse user does not. It is not sufficient on its own: the
+      heuristic that decides whether a focus is "visible" varies between
+      engines and does not resolve at all when focus is moved
+      programmatically, which is how dynamically rendered controls such as the
+      artifact copy buttons end up focused with no indicator.
+
+      So :focus provides the guarantee and :focus-visible provides the polish.
+      Every focused control is always indicated; a control focused by pointer
+      gets a dimmer indicator rather than none.
+    */
+    /*
+      Baseline for every native control, at zero specificity (:where) so any
+      component rule overrides it. Without this, a control is only
+      keyboard-operable if whoever wrote it remembered to add .focus-ring —
+      the primary "Browse Proxies" call to action had not.
+    */
+    :where(button, [role="button"], a[href], summary, [tabindex]:not([tabindex="-1"])):focus {
+      outline: 2px solid var(--accent-cyan);
+      outline-offset: 2px;
+    }
+
+    .focus-ring:focus {
+      outline: 2px solid var(--accent-cyan);
+      outline-offset: 2px;
+      /*
+        Many focusable controls carry `transition: all` (Tailwind's
+        transition-all, and .nav-tab-btn), which would animate the outline
+        width from 0 to 2px. A focus indicator must be present the instant
+        focus lands — for screen magnifier users and for anyone tabbing
+        quickly — so outline properties are excluded from the transition.
+        Higher specificity than the utility class, so it wins on focus-in.
+      */
+      transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+    }
+
+    .focus-ring:focus:not(:focus-visible) {
+      outline-color: color-mix(in srgb, var(--accent-cyan) 55%, transparent);
+    }
+
     .focus-ring:focus-visible {
       outline: 2px solid var(--accent-cyan);
       outline-offset: 2px;
@@ -1026,6 +1069,8 @@ INDEX_HTML = """<!DOCTYPE html>
   <div id="toast-container" role="status" aria-live="polite" aria-atomic="true" class="fixed bottom-6 inset-x-4 sm:inset-x-auto sm:right-6 z-[9999] flex flex-col items-center sm:items-end gap-2 pointer-events-none max-w-md mx-auto sm:mx-0"></div>
 
   <!-- Native ES-module entrypoint; fallback data is lazy-loaded on demand. -->
+  <!-- Recovers a visit whose cached modules predate the deployed entry script. Must precede the module. -->
+  <script src="assets/js/boot-guard.js"></script>
   <script type="module" src="assets/js/app.js"></script>
 
   <!-- Progressive Web App (PWA) Offline ServiceWorker Registration -->

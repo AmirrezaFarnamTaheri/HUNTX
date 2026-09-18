@@ -1,0 +1,28 @@
+name: Feature request
+description: Propose a capability, a format, or a dashboard change.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What is hard or impossible today? Describe the situation, not the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like instead
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - label: This adds a new proxy format, and I understand it needs a decoder, a normalizer, and malformed-input tests.
+        - label: This changes what gets published, and I have considered what it does to existing subscribers.

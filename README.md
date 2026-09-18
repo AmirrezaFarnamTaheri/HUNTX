@@ -157,17 +157,17 @@ The two dashed paths are the **no-cloud mode**: without any AWS/S3 configuration
 
 ### 1. Web Dashboard (Local preview & GitHub Pages)
 
-Open the dashboard directly in any browser:
-```bash
-# Option A: open the checked-in snapshot directly. Network-hosted fonts and
-# utility CSS may be unavailable, so use an HTTP server for the supported view.
-open docs/index.html   # macOS
-xdg-open docs/index.html # Linux
-start docs/index.html  # Windows
+Serve the `docs/` directory over HTTP and open <http://localhost:8000>:
 
-# Option B: Local HTTP server
+```bash
 python -m http.server 8000 --directory docs
 ```
+
+Opening `docs/index.html` straight from disk (`file://`) does **not** work. The
+dashboard is an ES-module application and a service-worker PWA; browsers block
+module scripts and service workers on the `file:` origin, so the page renders
+its static shell and nothing else. The dashboard makes no third-party requests
+and needs no build step to view.
 
 ### 2. Building and Running the Go Engine
 
@@ -227,16 +227,17 @@ runnable probe fleet.
 ```
 HUNTX/
 ├── cmd/
-│   ├── huntx-engine/          # High-performance Go ingestion & stream engine
+│   ├── huntx-engine/          # Go analysis CLI: parse, benchmark, geo-route (not the production orchestrator)
 │   │   ├── benchmark/         # TCP/TLS latency & jitter benchmarker
 │   │   ├── georoute/          # IP & GeoIP regional classification engine
 │   │   ├── healing/           # Proactive node recovery daemon
 │   │   ├── internal/parse/    # Protocol grammar parsers (VLESS, VMess, Trojan, SS, Hy2)
 │   │   ├── stream/            # Stream tokenizer and payload isolator
 │   │   └── main.go            # Engine CLI entrypoint
-│   └── huntx-tools/           # Administrative utilities and manifest verifiers
+│   ├── huntx-tools/           # Administrative utilities and manifest verifiers
 │   ├── huntx-daemon/          # Authenticated local PAC/control API
-│   └── huntx-probe/           # TCP vantage probe reporter
+│   ├── huntx-probe/           # TCP vantage probe reporter
+│   └── huntx-wasm/            # GOOS=js/wasm build of the parser (built, not yet loaded by the dashboard)
 ├── docs/                      # GitHub Pages Static Site & Telemetry SPA
 │   ├── index.html             # Pre-rendered cyber telemetry dashboard
 │   ├── C4_ARCHITECTURE.md     # Pointer to the canonical C4 model (README#architecture)
@@ -246,6 +247,7 @@ HUNTX/
 │   ├── catalog.json           # SHA-256 verified artifact manifest
 │   ├── artifacts/dev/         # Published proxy bundles (JSON, TXT, Base64 Sub)
 │   └── assets/js/
+│       ├── boot-guard.js      # Recovers a visit whose cached modules predate the deployed entry script
 │       ├── app.js             # Reactive UI state controller & ARIA modal manager
 │       ├── data.js            # Node dataset, hub coordinates & catalog fallback
 │       ├── decoder.js         # Multi-protocol client-side URI parser
@@ -270,7 +272,7 @@ HUNTX/
 3. **Redacted Telemetry**: Node passwords, UUIDs, and private keys are never logged or transmitted to third-party analytics services.
 4. **Control-plane boundary**: The daemon binds to `127.0.0.1:9090` by default. Its state-changing `POST /rotate` endpoint requires `Authorization: Bearer <HUNTX_DAEMON_CONTROL_TOKEN>`; do not expose it through an unauthenticated reverse proxy.
 5. **Probe receiver boundary**: Probe agents only originate TCP checks and POST JSON. They do not host a collector; point them at a private receiver URL and use `ORCHESTRATOR_BEARER_TOKEN` when that receiver requires bearer auth.
-6. **Privacy boundary**: HUNTX does not include analytics beacons or cookies. The checked-in dashboard currently references CDN-hosted fonts and utility CSS; serve it over HTTP for the supported experience or replace those assets with locally bundled equivalents before claiming fully offline use.
+6. **Privacy boundary**: HUNTX does not include analytics beacons or cookies, and the dashboard loads no third-party scripts, styles or fonts — everything is served from the same origin, and the service worker makes it usable offline after the first visit. The one outbound request the page can make is the **Cloudflare IP scanner** in the Studio tab, which sends a `no-cors` request to each IP the user enters, and only when the user starts a scan. `localStorage` holds the theme, locale and last tab; nothing else.
 
 ---
 

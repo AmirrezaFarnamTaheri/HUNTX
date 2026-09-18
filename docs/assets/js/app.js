@@ -3,21 +3,18 @@
 
 import { initTelemetryGlobe } from "./globe.js";
 import { i18n } from "./i18n.js";
+// Batch conversion for every client format goes through `convertProxyBatch`,
+// which owns the format switch. Only the single-node helpers and the feed
+// builders used directly by the dashboard are imported here.
 import {
   decodeProxyURI,
   extractAllURIs,
   convertProxyBatch,
   nodeToSingboxOutbound,
   nodeToClashProxy,
-  nodeToSurgeProxy,
-  nodeToLoonProxy,
-  nodeToQXServer,
+  clashProxyToYAML,
   buildSingboxConfig,
   buildClashMetaYAML,
-  buildXrayClientConfig,
-  buildSurgeConfig,
-  buildLoonConfig,
-  buildQXConfig,
   buildBase64Sub
 } from "./decoder.js";
 import { renderQRCodeSVG } from "./qrcode.js";
@@ -393,7 +390,10 @@ function setStoredTheme(theme) {
     if (typeof localStorage !== "undefined") {
       localStorage.setItem("huntx_theme", theme);
     }
-  } catch (e) {}
+  } catch {
+    // Private browsing and storage-blocked contexts throw on write. The theme
+    // simply does not persist across reloads; the page itself still works.
+  }
 }
 
 export class AppState {
@@ -438,7 +438,9 @@ export class AppState {
       try {
         const stored = localStorage.getItem("huntx_active_tab");
         if (stored && validTabs.includes(stored)) return stored;
-      } catch (e) {}
+      } catch {
+        // Storage unavailable. Fall through to the default tab.
+      }
     }
     return "radar";
   }
@@ -494,7 +496,9 @@ export class AppState {
 
     try {
       localStorage.setItem("huntx_active_tab", tabTarget);
-    } catch (e) {}
+    } catch {
+      // Storage unavailable. The tab is still switched for this session.
+    }
 
     if (updateHash && typeof window !== "undefined") {
       history.replaceState(null, null, "#" + tabTarget);
@@ -576,7 +580,11 @@ export class AppState {
           catalogCandidate = liveCatalog;
         }
       }
-    } catch (e) {}
+    } catch {
+      // The live catalog is optional. A fetch or parse failure leaves the
+      // previously resolved candidate in place so the dashboard degrades to
+      // the bundled snapshot instead of rendering nothing.
+    }
 
     // Published release data is authoritative even when smaller than the demo bundle.
     try {
@@ -1655,7 +1663,7 @@ export class AppState {
             ${this.proxies.length} loaded endpoints. Inspect configurations before importing; connectivity is not verified here.
           </p>
         </div>
-        <button id="btn-explore-live-proxies" class="px-5 py-3 min-h-[44px] bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-gray-950 font-mono font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/25 transition-all cursor-pointer shrink-0">
+        <button id="btn-explore-live-proxies" class="px-5 py-3 min-h-[44px] bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-gray-950 font-mono font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/25 transition-all cursor-pointer shrink-0 focus-ring">
           Browse Proxies (${this.proxies.length}) →
         </button>
       </div>
@@ -2087,7 +2095,10 @@ export class AppState {
         let decoded = null;
         try {
           if (node.raw) decoded = decodeProxyURI(node.raw);
-        } catch {}
+        } catch {
+          // An undecodable node still renders from its normalized fields; only
+          // the credential preview falls back to a placeholder.
+        }
 
         const uuid = (decoded && (decoded.uuid || decoded.password)) || "8f7b3c2a-9e1d-4a5b";
         const displayUUID = isUnmasked ? uuid : `${uuid.slice(0, 4)}••••-••••-••••-${uuid.slice(-4)}`;
@@ -2957,8 +2968,10 @@ export class AppState {
             this.copyText(JSON.stringify(singboxOutbound, null, 2), "Sing-box outbound JSON copied");
           });
           document.getElementById("btn-copy-node-clash")?.addEventListener("click", () => {
-            let clashYaml = `name: "${clashProxy.name}"\ntype: ${clashProxy.type}\nserver: ${clashProxy.server}\nport: ${clashProxy.port}`;
-            this.copyText(JSON.stringify(clashProxy, null, 2), "Clash Meta definition copied");
+            // Clash profiles are YAML. Emit the same entry the full profile
+            // builder produces, so what is copied can be pasted straight under
+            // a `proxies:` key rather than needing manual conversion.
+            this.copyText(clashProxyToYAML(clashProxy), "Clash Meta definition copied");
           });
         } catch (err) {
           out.innerHTML = `<div class="p-4 bg-rose-950/40 border border-rose-800 rounded-xl text-rose-300 font-mono text-xs">Error inspecting link: ${escapeHTML(err.message)}</div>`;
@@ -3301,11 +3314,14 @@ export class AppState {
     const modalContainer = document.getElementById("modal-overlay");
     if (!modalContainer) return;
 
-    let defaultVal = initialUri || (this.proxies[0] && this.proxies[0].raw) || "";
+    const defaultVal = initialUri || (this.proxies[0] && this.proxies[0].raw) || "";
     let decodedRes = null;
     try {
       decodedRes = decodeProxyURI(defaultVal);
-    } catch {}
+    } catch {
+      // The modal opens with an empty result panel and waits for the user to
+      // paste something decodable.
+    }
 
     modalContainer.innerHTML = `
       <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="modal-decoder-title">
@@ -3372,47 +3388,6 @@ export class AppState {
       } catch {
         this.showToast("Cannot copy invalid JSON", "error");
       }
-    });
-  }
-
-  openQRModal(raw, name) {
-    if (typeof document === "undefined") return;
-    const modalContainer = document.getElementById("modal-overlay");
-    if (!modalContainer) return;
-
-    modalContainer.innerHTML = `
-      <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="modal-qr-title">
-        <div id="modal-box" class="relative w-full max-w-sm bg-gray-900 border border-cyan-500/30 rounded-3xl p-6 shadow-2xl shadow-cyan-950/50 text-center space-y-4 max-h-[90vh] max-h-[90dvh] overflow-y-auto">
-          <div class="flex items-center justify-between">
-            <h3 id="modal-qr-title" class="text-sm font-mono font-bold text-white truncate max-w-[240px]">${escapeHTML(name)}</h3>
-            <button id="btn-close-qr" class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-800 text-gray-400 hover:text-white rounded-xl cursor-pointer focus-ring" aria-label="Close QR Modal">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
-          </div>
-
-          <div class="flex items-center justify-center py-3">
-            ${renderQRCodeSVG(raw, 220)}
-          </div>
-
-          <p class="text-xs font-mono text-gray-400">Scan with v2rayNG, Streisand, Sing-box, or Shadowrocket</p>
-
-          <button id="btn-copy-qr-raw" class="w-full py-2.5 min-h-[44px] bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-mono font-bold text-xs rounded-xl focus-ring cursor-pointer" aria-label="Copy Node URI to clipboard">
-            Copy Node URI
-          </button>
-        </div>
-      </div>
-    `;
-
-    modalContainer.classList.remove("hidden");
-    const box = document.getElementById("modal-box");
-    if (box) this.trapFocus(box);
-
-    document.getElementById("btn-close-qr")?.addEventListener("click", () => {
-      this.closeModal();
-    });
-
-    document.getElementById("btn-copy-qr-raw")?.addEventListener("click", () => {
-      this.copyText(raw, "Node URI copied to clipboard");
     });
   }
 

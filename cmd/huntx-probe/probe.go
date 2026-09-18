@@ -6,15 +6,25 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
+
+// maxConcurrentProbes bounds simultaneous dials in one sweep. Enough to finish a
+// large target list inside a single reporting interval, few enough not to look
+// like a scan or exhaust file descriptors on a small vantage host.
+const maxConcurrentProbes = 16
+
+// probeProtocol labels what an observation measured: a TCP handshake.
+const probeProtocol = "tcp"
 
 // Observation records an individual vantage probe target measurement.
 type Observation struct {
@@ -63,6 +73,10 @@ type ProbeAgent struct {
 	OrchestratorURL         string
 	OrchestratorBearerToken string
 	client                  *http.Client
+	// dial opens the measured connection. It is a field so tests can inject
+	// latency and failure without touching the network; production uses a
+	// net.Dialer bounded by Timeout.
+	dial func(ctx context.Context, network, address string) (net.Conn, error)
 }
 
 // NewProbeAgent initializes a new probe agent.
@@ -72,48 +86,88 @@ func NewProbeAgent(opts ...ProbeAgentOption) *ProbeAgent {
 		Provider:        "generic",
 		Timeout:         1000 * time.Millisecond,
 		OrchestratorURL: "http://localhost:8080/api/vantage/report",
-		client:          &http.Client{Timeout: 5 * time.Second},
+		client: &http.Client{
+			Timeout: 5 * time.Second,
+			// A report is a one-shot POST to a configured URL. Following a redirect
+			// could replay the bearer token to a different scheme or path than the
+			// one validateTransport approved.
+			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+		},
 	}
 	for _, opt := range opts {
 		opt(a)
 	}
+	if a.dial == nil {
+		dialer := &net.Dialer{Timeout: a.Timeout}
+		a.dial = dialer.DialContext
+	}
 	return a
 }
 
-// EvaluateTargets conducts non-blocking handshakes across target endpoints.
+// EvaluateTargets measures a TCP handshake to every target, concurrently but
+// with a bounded fan-out, and returns the observations in target order.
+//
+// Sequential dialling made a sweep cost N x Timeout when targets were down, so
+// a large list of dead endpoints outran the reporting interval and every
+// report arrived late. Order is preserved because consumers correlate
+// observations positionally with the configured target list.
 func (a *ProbeAgent) EvaluateTargets(ctx context.Context, targets []string) VantageReport {
 	report := VantageReport{
-		RegionID:     a.RegionID,
-		Provider:     a.Provider,
-		Timestamp:    time.Now().UTC().Format(time.RFC3339),
-		Observations: make([]Observation, 0, len(targets)),
+		RegionID:  a.RegionID,
+		Provider:  a.Provider,
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
 	}
 
-	dialer := net.Dialer{Timeout: a.Timeout}
-	for _, target := range targets {
+	results := make([]Observation, len(targets))
+	measured := make([]bool, len(targets))
+	sem := make(chan struct{}, maxConcurrentProbes)
+	var wg sync.WaitGroup
+
+	for i, target := range targets {
 		if ctx.Err() != nil {
 			break
 		}
-		start := time.Now()
-		conn, err := dialer.DialContext(ctx, "tcp", target)
-		if err != nil {
-			report.Observations = append(report.Observations, Observation{
-				Target:    target,
-				Alive:     false,
-				LatencyMs: 0.0,
-			})
-			continue
+		sem <- struct{}{}
+		if ctx.Err() != nil {
+			<-sem
+			break
 		}
-		latency := time.Since(start)
-		_ = conn.Close()
-		report.Observations = append(report.Observations, Observation{
-			Target:    target,
-			Alive:     true,
-			LatencyMs: float64(latency.Microseconds()) / 1000.0,
-		})
+		wg.Add(1)
+		go func(i int, target string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			results[i] = a.measure(ctx, target)
+			measured[i] = true
+		}(i, target)
 	}
+	wg.Wait()
 
+	report.Observations = make([]Observation, 0, len(targets))
+	for i, ok := range measured {
+		// A target skipped because the context was cancelled has no
+		// observation; reporting it as dead would be a fabricated result.
+		if ok {
+			report.Observations = append(report.Observations, results[i])
+		}
+	}
 	return report
+}
+
+// measure times one TCP handshake.
+func (a *ProbeAgent) measure(ctx context.Context, target string) Observation {
+	start := time.Now()
+	conn, err := a.dial(ctx, "tcp", target)
+	if err != nil {
+		return Observation{Target: target, Alive: false, LatencyMs: 0.0, Protocol: probeProtocol}
+	}
+	latency := time.Since(start)
+	_ = conn.Close()
+	return Observation{
+		Target:    target,
+		Alive:     true,
+		LatencyMs: float64(latency.Microseconds()) / 1000.0,
+		Protocol:  probeProtocol,
+	}
 }
 
 // validateTransport fails closed when a bearer token would be sent over a
@@ -168,8 +222,12 @@ func (a *ProbeAgent) SubmitReport(ctx context.Context, report VantageReport) err
 		return fmt.Errorf("failed to submit report: %w", err)
 	}
 	defer resp.Body.Close()
+	// Drain (bounded) so the keep-alive connection returns to the pool.
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
 
-	if resp.StatusCode >= 400 {
+	// Redirects are not followed (see NewProbeAgent), so a 3xx means the
+	// configured URL is wrong and the report was not accepted.
+	if resp.StatusCode >= 300 {
 		return fmt.Errorf("orchestrator returned status %d", resp.StatusCode)
 	}
 	return nil
