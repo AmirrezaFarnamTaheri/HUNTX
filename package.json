@@ -2,10 +2,17 @@
   "name": "huntx-static-dashboard",
   "private": true,
   "scripts": {
-    "build:css": "tailwindcss -i docs/assets/css/input.css -o docs/assets/css/tailwind.css --minify"
+    "build:css": "tailwindcss -i docs/assets/css/input.css -o docs/assets/css/tailwind.css --minify",
+    "lint": "eslint .",
+    "test:unit": "node --experimental-default-type=module --test tests/frontend_runtime.test.mjs tests/frontend_config_injection.test.mjs",
+    "test:e2e": "playwright test",
+    "check:frontend": "npm run lint && npm run test:unit && python scripts/update_frontend.py --check"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@playwright/test": "^1.63.0",
+    "eslint": "^9.39.5",
+    "globals": "^15.15.0",
     "tailwindcss": "3.4.17"
   }
 }

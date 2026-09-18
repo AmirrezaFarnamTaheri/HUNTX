@@ -54,7 +54,7 @@ test("globe module owns touch inactivity and does not treat cancellation as clic
   assert.match(source, /clearTimeout\(touchInactivityTimer\)/);
   assert.match(source, /const sourceHubs = Array\.isArray\(customHubs\) \? customHubs : DEFAULT_HUBS/);
   assert.doesNotMatch(source, /customHubs\.length > 0/);
-  assert.match(source, /function onPointerUp\(e\) \{\r?\n    if \(e\.pointerType === "touch"\) noteTouchActivity\(\);/);
+  assert.match(source, /function onPointerUp\(e\) \{\r?\n {4}if \(e\.pointerType === "touch"\) noteTouchActivity\(\);/);
 });
 
 

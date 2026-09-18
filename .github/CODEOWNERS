@@ -1,0 +1,13 @@
+# Default owner for everything in the repository.
+*                       @AmirrezaFarnamTaheri
+
+# Generated artifacts. Changes here should come from a pipeline run, not a hand edit.
+/docs/assets/js/data.js @AmirrezaFarnamTaheri
+/docs/artifacts/        @AmirrezaFarnamTaheri
+/outputs/               @AmirrezaFarnamTaheri
+/outputs_dev/           @AmirrezaFarnamTaheri
+
+# Anything that can change what runs in CI or what ships to the published site.
+/.github/workflows/     @AmirrezaFarnamTaheri
+/deploy/                @AmirrezaFarnamTaheri
+/configs/               @AmirrezaFarnamTaheri

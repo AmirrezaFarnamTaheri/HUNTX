@@ -1044,7 +1044,11 @@ export class I18nRuntime {
     document.documentElement.lang = locale;
     document.documentElement.dir = locale === "fa" ? "rtl" : "ltr";
     if (persist) {
-      try { localStorage.setItem("huntx_locale", locale); } catch {}
+      try {
+        localStorage.setItem("huntx_locale", locale);
+      } catch {
+        // Storage unavailable; the locale applies to this session only.
+      }
     }
     this.isTranslating = true;
     try {
