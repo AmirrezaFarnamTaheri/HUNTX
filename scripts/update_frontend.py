@@ -1069,6 +1069,8 @@ INDEX_HTML = """<!DOCTYPE html>
   <div id="toast-container" role="status" aria-live="polite" aria-atomic="true" class="fixed bottom-6 inset-x-4 sm:inset-x-auto sm:right-6 z-[9999] flex flex-col items-center sm:items-end gap-2 pointer-events-none max-w-md mx-auto sm:mx-0"></div>
 
   <!-- Native ES-module entrypoint; fallback data is lazy-loaded on demand. -->
+  <!-- Recovers a visit whose cached modules predate the deployed entry script. Must precede the module. -->
+  <script src="assets/js/boot-guard.js"></script>
   <script type="module" src="assets/js/app.js"></script>
 
   <!-- Progressive Web App (PWA) Offline ServiceWorker Registration -->

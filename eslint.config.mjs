@@ -94,6 +94,24 @@ export default [
   },
 
   {
+    // Runs before the app module, in browsers that may be about to fail to
+    // load it, so it is written in conservative ES5 on purpose.
+    files: ["docs/assets/js/boot-guard.js"],
+    languageOptions: {
+      ecmaVersion: 5,
+      sourceType: "script",
+      // ES5 syntax, but any browser that can hit the failure this guards
+      // against supports module scripts, and therefore Promise.
+      globals: { ...globals.browser, Promise: "readonly" },
+    },
+    rules: {
+      "no-var": "off",
+      "prefer-const": "off",
+      "no-implicit-globals": "off",
+    },
+  },
+
+  {
     files: ["tests/**/*.mjs", "*.mjs", "*.cjs"],
     languageOptions: {
       ecmaVersion: 2022,
