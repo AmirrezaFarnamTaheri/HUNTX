@@ -1,6 +1,7 @@
 docs/artifacts/dev/proxies.json
 docs/artifacts/dev/proxies.txt
 docs/artifacts/dev/proxies_b64sub.txt
+docs/artifacts/release/all_sources.conf_lines
 docs/artifacts/release/all_sources.dark
 docs/artifacts/release/all_sources.ehi
 docs/artifacts/release/all_sources.hc
@@ -26,6 +27,7 @@ docs/assets/js/data.js
 docs/catalog.json
 docs/index.html
 outputs/.huntx-output-ownership.json
+outputs/all_sources.conf_lines
 outputs/all_sources.dark
 outputs/all_sources.ehi
 outputs/all_sources.hc

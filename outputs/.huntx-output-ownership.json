@@ -1,5 +1,9 @@
 {
   "files": {
+    "all_sources.conf_lines": {
+      "format": "conf_lines",
+      "route": "all_sources"
+    },
     "all_sources.dark": {
       "format": "dark",
       "route": "all_sources"
@@ -61,7 +65,7 @@
       "route": "all_sources"
     }
   },
-  "generated_at": "2026-09-19T07:26:19.142443+00:00",
-  "min_ingested_at": "2026-09-16T07:24:39+00:00",
+  "generated_at": "2026-09-19T23:45:29.732005+00:00",
+  "min_ingested_at": "2026-09-16T23:39:21+00:00",
   "schema_version": 1
 }
