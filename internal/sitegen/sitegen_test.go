@@ -94,7 +94,6 @@ func TestGenerateReplacesExistingCatalog(t *testing.T) {
 	}
 }
 
-
 func TestGenerateKeepsCompatibilityArtifactsOutOfProductCatalog(t *testing.T) {
 	dataDir := t.TempDir()
 	dist := filepath.Join(dataDir, "dist")
