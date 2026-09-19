@@ -39,6 +39,44 @@ type Catalog struct {
 	Files            []Entry `json:"files"`
 }
 
+type productMetadata struct {
+	Tags        []string
+	Description string
+}
+
+// frontendReleaseProducts is deliberately narrower than the release manifest.
+// The manifest remains the compatibility/source-of-truth inventory, while the
+// dashboard shows only the canonical end-user products. Legacy aliases and
+// specialist formats stay downloadable by direct URL without being advertised
+// as separate products.
+var frontendReleaseProducts = map[string]productMetadata{
+	"all_sources_npvt_raw.txt": {
+		Tags: []string{"release", "verified", "subscription", "multi-node", "uri-feed"},
+		Description: "Canonical multi-node proxy URI subscription feed. Add this URL as a subscription in compatible clients; each line is an individual proxy node.",
+	},
+	"all_sources_npvt_singbox.json": {
+		Tags: []string{"release", "verified", "singbox", "full-config", "profile"},
+		Description: "Complete sing-box client configuration containing all representable proxy outbounds. Importing this JSON creates one profile by design; use the raw TXT feed for a multi-node subscription.",
+	},
+	"all_sources_npvt_xray.json": {
+		Tags: []string{"release", "verified", "xray", "full-config", "profile"},
+		Description: "Complete Xray client configuration containing all representable proxy outbounds. Importing this JSON creates one profile by design; use the raw TXT feed for a multi-node subscription.",
+	},
+	"all_sources_npvt_nekobox.json": {
+		Tags: []string{"release", "verified", "nekobox", "outbound-bundle", "profile"},
+		Description: "NekoBox-compatible outbound bundle. Clients that import JSON as a custom configuration show this as one profile; use the raw TXT feed when a subscription URL is required.",
+	},
+	"all_sources_npvt_decoded.json": {
+		Tags: []string{"release", "verified", "decoded", "diagnostic", "dataset"},
+		Description: "Decoded structured proxy dataset for inspection and dashboard telemetry. This is diagnostic JSON, not a client subscription.",
+	},
+}
+
+func frontendReleaseProduct(path string) (productMetadata, bool) {
+	metadata, ok := frontendReleaseProducts[filepath.Base(path)]
+	return metadata, ok
+}
+
 func Generate(dataDir, docsDir string, generatedAt time.Time) (Catalog, error) {
 	dist := filepath.Join(dataDir, "dist")
 	manifestPath := filepath.Join(dist, "manifest.json")
@@ -85,7 +123,8 @@ func Generate(dataDir, docsDir string, generatedAt time.Time) (Catalog, error) {
 		if err := runtimegen.WriteBytesAtomic(destination, payload, 0o600); err != nil {
 			return Catalog{}, err
 		}
-		if intentionalEmpty {
+		metadata, visible := frontendReleaseProduct(record.Path)
+		if intentionalEmpty || !visible {
 			continue
 		}
 		entries = append(entries, Entry{
@@ -95,11 +134,11 @@ func Generate(dataDir, docsDir string, generatedAt time.Time) (Catalog, error) {
 			SizeString:  formatSize(record.Size),
 			MediaType:   record.MediaType,
 			SHA256:      record.SHA256,
-			Tags:        []string{"release", "verified"},
+			Tags:        append([]string(nil), metadata.Tags...),
 			Section:     "release",
 			Type:        artifactType(record.Path),
 			Ext:         artifactType(record.Path),
-			Description: "Verified artifact from the latest published run",
+			Description: metadata.Description,
 		})
 		total += record.Size
 	}
