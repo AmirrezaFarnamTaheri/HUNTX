@@ -1,4 +1,4 @@
-"""Render NekoBox-compatible sing-box outbound subscriptions."""
+"""Render NekoBox-compatible multi-node JSON subscriptions."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ def _proxy_only_outbound(outbound: dict) -> dict | None:
 
 
 def build_nekobox_outbounds_bytes(text: str) -> bytes:
-    """Render a NekoBox subscription object containing proxy-only sing-box outbounds."""
+    """Render a NekoBox JSON-array subscription of proxy-only outbounds.\n\n    NekoBox recognizes a top-level array as individual subscription nodes.\n    Wrapping the same outbounds in a full sing-box-style object can be imported\n    as one custom configuration instead of expanding the nodes.\n    """
     try:
         config = config_from_uris(text.splitlines())
     except AttributeError:
@@ -35,7 +35,7 @@ def build_nekobox_outbounds_bytes(text: str) -> bytes:
     if not proxy_outbounds:
         return b""
     return json.dumps(
-        {"outbounds": proxy_outbounds},
+        proxy_outbounds,
         indent=2,
         ensure_ascii=False,
     ).encode("utf-8")
