@@ -63,8 +63,8 @@ var frontendReleaseProducts = map[string]productMetadata{
 		Description: "Complete Xray client configuration containing all representable proxy outbounds. Importing this JSON creates one profile by design; use the raw TXT feed for a multi-node subscription.",
 	},
 	"all_sources_npvt_nekobox.json": {
-		Tags: []string{"release", "verified", "nekobox", "outbound-bundle", "profile"},
-		Description: "NekoBox-compatible outbound bundle. Clients that import JSON as a custom configuration show this as one profile; use the raw TXT feed when a subscription URL is required.",
+		Tags: []string{"release", "verified", "nekobox", "subscription", "multi-node", "json-array"},
+		Description: "NekoBox multi-node JSON subscription. The top-level outbound array is intentionally shaped so NekoBox expands entries into individual proxy nodes instead of one custom configuration.",
 	},
 	"all_sources_npvt_decoded.json": {
 		Tags: []string{"release", "verified", "decoded", "diagnostic", "dataset"},
