@@ -3402,9 +3402,9 @@ export class AppState {
     const findArtifact = (filename) => files.find((file) => (file.filename || file.name) === filename);
     const productionFeeds = [
       ["all_sources_npvt_raw.txt", "Raw URI Subscription", "Multi-node URI feed for compatible clients", "cyan"],
+      ["all_sources_npvt_nekobox.json", "NekoBox Node Subscription", "JSON array expanded into individual proxy nodes", "emerald"],
       ["all_sources_npvt_singbox.json", "Sing-box Full Profile", "Complete client config (imports as one profile)", "cyan"],
       ["all_sources_npvt_xray.json", "Xray Full Profile", "Complete client config (imports as one profile)", "indigo"],
-      ["all_sources.ovpn", "OpenVPN Profile", "Standard .ovpn multi-gateway", "amber"],
     ].map(([filename, label, description, color]) => ({ filename, label, description, color, file: findArtifact(filename) }));
     const devFeeds = files.filter((file) => file.section === "dev" || file.category === "dev" || file.tags?.includes("dev"));
     const chunks = devFeeds.filter((file) => /chunk_/i.test(file.filename || file.name || ""));
