@@ -519,7 +519,7 @@ export class AppState {
 
   getDecodedArtifactRecord(catalog = this.catalog) {
     const files = Array.isArray(catalog?.files) ? catalog.files : [];
-    return files.find((file) => file?.filename === "all_sources.npvt.decoded.json"
+    return files.find((file) => file?.filename === "all_sources_npvt_decoded.json"
       && typeof file.path === "string"
       && /^artifacts\/release\/[A-Za-z0-9._/-]+$/.test(file.path)
       && typeof file.sha256 === "string"
@@ -1408,16 +1408,16 @@ export class AppState {
             <button
               id="hero-copy-sub"
               class="px-4 py-2.5 min-h-[44px] bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-gray-950 font-mono font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/25 transition-all focus-ring cursor-pointer flex items-center gap-2"
-              aria-label="Copy Production Base64 Subscription URL"
+              aria-label="Copy Production Raw URI Subscription URL"
             >
               <svg class="w-4 h-4 text-gray-950" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-              Copy Production Feed
+              Copy Raw URI Feed
             </button>
 
             <a
               id="hero-download-singbox"
-              data-artifact="all_sources.npvt.singbox.json"
-              href="artifacts/release/all_sources.npvt.singbox.json"
+              data-artifact="all_sources_npvt_singbox.json"
+              href="artifacts/release/all_sources_npvt_singbox.json"
               download
               class="px-3.5 py-2.5 min-h-[44px] bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 hover:border-cyan-400 text-cyan-300 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-1.5"
               aria-label="Download Sing-box 1.10+ JSON"
@@ -1428,8 +1428,8 @@ export class AppState {
 
             <a
               id="hero-download-xray"
-              data-artifact="all_sources.npvt.xray.json"
-              href="artifacts/release/all_sources.npvt.xray.json"
+              data-artifact="all_sources_npvt_xray.json"
+              href="artifacts/release/all_sources_npvt_xray.json"
               download
               class="px-3.5 py-2.5 min-h-[44px] bg-indigo-950/60 hover:bg-indigo-900/60 border border-indigo-500/30 hover:border-indigo-400 text-indigo-300 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-1.5"
               aria-label="Download Xray Config"
@@ -1505,9 +1505,9 @@ export class AppState {
     this.syncGlobeTouchControl(this.globeInstance?.isTouchInteractive?.() || false);
 
     document.getElementById("hero-copy-sub")?.addEventListener("click", (e) => {
-      const subUrl = resolveArtifactUrl("artifacts/release/all_sources.npvt.b64sub");
+      const subUrl = resolveArtifactUrl("artifacts/release/all_sources_npvt_raw.txt");
       this.copyText(subUrl, isHostedDashboard()
-        ? "Production feed URL copied to clipboard"
+        ? "Raw URI subscription URL copied to clipboard"
         : "Portable artifact path copied — deploy or serve over HTTPS before importing", e.currentTarget);
     });
 
@@ -2713,11 +2713,11 @@ export class AppState {
               </div>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
-              <a href="artifacts/release/all_sources.npvt.singbox.json" download class="px-3.5 py-2 min-h-[44px] bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-xs font-mono font-bold rounded-xl transition-all focus-ring flex items-center gap-1.5 cursor-pointer">
+              <a href="artifacts/release/all_sources_npvt_singbox.json" download class="px-3.5 py-2 min-h-[44px] bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-xs font-mono font-bold rounded-xl transition-all focus-ring flex items-center gap-1.5 cursor-pointer">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                 Sing-box JSON
               </a>
-              <a href="artifacts/release/v2ray_test_config.json" download class="px-3.5 py-2 min-h-[44px] bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 text-xs font-mono font-bold rounded-xl transition-all focus-ring flex items-center gap-1.5 cursor-pointer">
+              <a href="artifacts/release/all_sources_npvt_xray.json" download class="px-3.5 py-2 min-h-[44px] bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 text-xs font-mono font-bold rounded-xl transition-all focus-ring flex items-center gap-1.5 cursor-pointer">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                 Xray Config
               </a>
@@ -3401,10 +3401,10 @@ export class AppState {
     const files = Array.isArray(this.catalog?.files) ? this.catalog.files : [];
     const findArtifact = (filename) => files.find((file) => (file.filename || file.name) === filename);
     const productionFeeds = [
-      ["all_sources.npvt.b64sub", "Base64 Unified Feed", "Shadowrocket, v2rayNG, Streisand", "cyan"],
-      ["all_sources.npvt.singbox.json", "Sing-box 1.10+ Outbounds", "Sing-box JSON outbounds format", "cyan"],
-      ["v2ray_test_config.json", "Xray / V2Ray Core Config", "Complete client config JSON", "indigo"],
-      ["all_sources.ovpn", "OpenVPN Profile", "Standard .ovpn multi-gateway", "amber"],
+      ["all_sources_npvt_raw.txt", "Raw URI Subscription", "Multi-node URI feed for compatible clients", "cyan"],
+      ["all_sources_npvt_nekobox.json", "NekoBox Node Subscription", "JSON array expanded into individual proxy nodes", "emerald"],
+      ["all_sources_npvt_singbox.json", "Sing-box Full Profile", "Complete client config (imports as one profile)", "cyan"],
+      ["all_sources_npvt_xray.json", "Xray Full Profile", "Complete client config (imports as one profile)", "indigo"],
     ].map(([filename, label, description, color]) => ({ filename, label, description, color, file: findArtifact(filename) }));
     const devFeeds = files.filter((file) => file.section === "dev" || file.category === "dev" || file.tags?.includes("dev"));
     const chunks = devFeeds.filter((file) => /chunk_/i.test(file.filename || file.name || ""));

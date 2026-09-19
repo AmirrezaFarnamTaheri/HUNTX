@@ -192,7 +192,7 @@ test("fallback is restored after bundled to live to unavailable transition", asy
   await app.loadBundledFallback();
   const bundledCatalog = app.catalog;
   const bundledProxies = structuredClone(app.proxies);
-  const catalog = { files: [{ filename: "all_sources.npvt.decoded.json", path: "artifacts/release/live.json", sha256: "b".repeat(64) }] };
+  const catalog = { files: [{ filename: "all_sources_npvt_decoded.json", path: "artifacts/release/live.json", sha256: "b".repeat(64) }] };
   let available = true;
   t.mock.method(globalThis, "fetch", async () => ({ ok: available, json: async () => catalog }));
   app.loadVerifiedJsonArtifact = async () => ({ entries: [{ protocol: "vless", address: "example.com", tag: "live" }] });

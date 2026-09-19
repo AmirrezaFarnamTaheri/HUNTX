@@ -119,7 +119,7 @@ test("checksum-valid empty release renders no bundled endpoints", async ({ page 
   page.on("pageerror", (error) => errors.push(error.message));
   await isolateLocalPage(page);
   await page.route("**/catalog.json", (route) => route.fulfill({
-    json: { files: [{ filename: "all_sources.npvt.decoded.json", path: "artifacts/release/empty-test.json", sha256 }] }
+    json: { files: [{ filename: "all_sources_npvt_decoded.json", path: "artifacts/release/empty-test.json", sha256 }] }
   }));
   await page.route("**/artifacts/release/empty-test.json", (route) => route.fulfill({
     contentType: "application/json", body: artifact
