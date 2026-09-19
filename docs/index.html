@@ -15,7 +15,7 @@
 
   <!-- Production-Grade Standalone Design Tokens & Cyber Styling -->
   <style>
-    /* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V5 */
+    /* Dashboard refinement: retain cyan and protocol semantics; prioritize readable data. */
     :root {
       color-scheme: dark;
       --bg-void: #070a0f;
@@ -89,6 +89,7 @@
     html, body {
       overflow-x: clip;
       min-height: 100vh;
+      min-height: 100dvh;
       background-color: var(--bg-void);
       color: var(--text-main);
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -148,9 +149,52 @@
         radial-gradient(900px 600px at 10% 40%, rgba(16, 185, 129, 0.04), transparent 60%);
     }
 
+    /*
+      Focus indication (WCAG 2.4.7).
+
+      :focus-visible carries the refined behaviour — a keyboard user gets the
+      indicator, a mouse user does not. It is not sufficient on its own: the
+      heuristic that decides whether a focus is "visible" varies between
+      engines and does not resolve at all when focus is moved
+      programmatically, which is how dynamically rendered controls such as the
+      artifact copy buttons end up focused with no indicator.
+
+      So :focus provides the guarantee and :focus-visible provides the polish.
+      Every focused control is always indicated; a control focused by pointer
+      gets a dimmer indicator rather than none.
+    */
+    /*
+      Baseline for every native control, at zero specificity (:where) so any
+      component rule overrides it. Without this, a control is only
+      keyboard-operable if whoever wrote it remembered to add .focus-ring —
+      the primary "Browse Proxies" call to action had not.
+    */
+    :where(button, [role="button"], a[href], summary, [tabindex]:not([tabindex="-1"])):focus {
+      outline: 2px solid var(--accent-cyan);
+      outline-offset: 2px;
+    }
+
+    .focus-ring:focus {
+      outline: 2px solid var(--accent-cyan);
+      outline-offset: 2px;
+      /*
+        Many focusable controls carry `transition: all` (Tailwind's
+        transition-all, and .nav-tab-btn), which would animate the outline
+        width from 0 to 2px. A focus indicator must be present the instant
+        focus lands — for screen magnifier users and for anyone tabbing
+        quickly — so outline properties are excluded from the transition.
+        Higher specificity than the utility class, so it wins on focus-in.
+      */
+      transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+    }
+
+    .focus-ring:focus:not(:focus-visible) {
+      outline-color: color-mix(in srgb, var(--accent-cyan) 55%, transparent);
+    }
+
     .focus-ring:focus-visible {
-      outline: none;
-      box-shadow: 0 0 0 2px var(--accent-cyan), 0 0 0 4px var(--bg-void);
+      outline: 2px solid var(--accent-cyan);
+      outline-offset: 2px;
     }
 
     /* Keep pointer targets usable on touch screens, including dynamically rendered controls. */
@@ -381,7 +425,7 @@
       background-color: rgba(8, 51, 68, 0.8) !important;
       border-color: rgba(6, 182, 212, 0.6) !important;
       color: #22d3ee !important;
-      box-shadow: 0 4px 12px -2px rgba(0, 210, 255, 0.25) !important;
+      box-shadow: none !important;
     }
 
     /* Master Comprehensive Light Mode Overrides */
@@ -411,7 +455,7 @@
       background-color: #e0f2fe !important;
       border-color: #7dd3fc !important;
       color: #0369a1 !important;
-      box-shadow: 0 2px 8px -2px rgba(2, 132, 199, 0.25) !important;
+      box-shadow: none !important;
     }
 
     html.light .bg-gray-900,
@@ -463,32 +507,32 @@
 
     html.light .text-gray-500,
     html.light .text-gray-600 {
-      color: #64748b !important;
+      color: #475569 !important;
     }
 
     html.light .text-cyan-300,
     html.light .text-cyan-400 {
-      color: #0284c7 !important;
+      color: #0369a1 !important;
     }
 
     html.light .text-emerald-300,
     html.light .text-emerald-400 {
-      color: #059669 !important;
+      color: #047857 !important;
     }
 
     html.light .text-amber-300,
     html.light .text-amber-400 {
-      color: #d97706 !important;
+      color: #92400e !important;
     }
 
     html.light .text-indigo-300,
     html.light .text-indigo-400 {
-      color: #4f46e5 !important;
+      color: #4338ca !important;
     }
 
     html.light .text-rose-300,
     html.light .text-rose-400 {
-      color: #e11d48 !important;
+      color: #be123c !important;
     }
 
     html.light .text-purple-300,
@@ -496,8 +540,16 @@
       color: #7c3aed !important;
     }
 
+    html.light .text-sky-300,
+    html.light .text-sky-400 {
+      color: #0369a1 !important;
+    }
+
     /* Badges & Pills in Light Mode */
     html.light .bg-cyan-950,
+    html.light .bg-cyan-950\/20,
+    html.light .bg-cyan-950\/30,
+    html.light .bg-cyan-950\/40,
     html.light .bg-cyan-950\/50,
     html.light .bg-cyan-950\/60,
     html.light .bg-cyan-950\/80 {
@@ -507,6 +559,8 @@
     }
 
     html.light .bg-emerald-950,
+    html.light .bg-emerald-950\/30,
+    html.light .bg-emerald-950\/40,
     html.light .bg-emerald-950\/50,
     html.light .bg-emerald-950\/60,
     html.light .bg-emerald-950\/80 {
@@ -516,14 +570,19 @@
     }
 
     html.light .bg-amber-950,
+    html.light .bg-amber-950\/20,
+    html.light .bg-amber-950\/30,
+    html.light .bg-amber-950\/40,
     html.light .bg-amber-950\/60,
     html.light .bg-amber-950\/80 {
       background-color: #fef3c7 !important;
       border-color: #fde68a !important;
-      color: #b45309 !important;
+      color: #92400e !important;
     }
 
     html.light .bg-indigo-950,
+    html.light .bg-indigo-950\/30,
+    html.light .bg-indigo-950\/40,
     html.light .bg-indigo-950\/50,
     html.light .bg-indigo-950\/60,
     html.light .bg-indigo-950\/80 {
@@ -541,6 +600,7 @@
     }
 
     html.light .bg-rose-950,
+    html.light .bg-rose-950\/40,
     html.light .bg-rose-950\/60,
     html.light .bg-rose-950\/80 {
       background-color: #ffe4e6 !important;
@@ -552,7 +612,7 @@
     html.light .bg-sky-950\/80 {
       background-color: #e0f2fe !important;
       border-color: #bae6fd !important;
-      color: #0284c7 !important;
+      color: #0369a1 !important;
     }
 
     html.light .bg-teal-950,
@@ -567,8 +627,13 @@
     html.light select,
     html.light textarea {
       background-color: #ffffff !important;
-      border-color: #cbd5e1 !important;
+      border-color: #64748b !important;
       color: #0f172a !important;
+    }
+    html.dark input,
+    html.dark select,
+    html.dark textarea {
+      border-color: #64748b !important;
     }
     html.light input::placeholder,
     html.light textarea::placeholder {
@@ -595,13 +660,27 @@
 
     /* Primary Cyan/Blue Gradient */
     html.light .bg-gradient-to-r.from-cyan-500.to-blue-600 {
-      background: linear-gradient(135deg, #0284c7, #2563eb) !important;
+      background: linear-gradient(135deg, #0369a1, #1d4ed8) !important;
       color: #ffffff !important;
-      box-shadow: 0 4px 14px 0 rgba(2, 132, 199, 0.35) !important;
+      box-shadow: none !important;
     }
     html.light .bg-gradient-to-r.from-cyan-500.to-blue-600 svg,
     html.light .bg-gradient-to-r.from-cyan-500.to-blue-600 span {
       color: #ffffff !important;
+    }
+
+    /* Dark theme: the blue-600 end of the same gradient reads 4.02:1 against
+       these near-black 12px bold labels. Setting the stops directly to
+       cyan-500 -> blue-500 puts the whole surface at 5.63:1. Scoped to the two
+       buttons that are not covered by the quiet .hero-actions treatment. */
+    html.dark #btn-explore-live-proxies,
+    html.dark #btn-copy-artifact-qr-url {
+      background: linear-gradient(135deg, #06b6d4, #3b82f6) !important;
+      color: #020617 !important;
+    }
+    html.dark #btn-explore-live-proxies:hover,
+    html.dark #btn-copy-artifact-qr-url:hover {
+      background: linear-gradient(135deg, #22d3ee, #3b82f6) !important;
     }
 
     /* Table styling in Light Mode */
@@ -639,13 +718,106 @@
     html.light #telemetry-globe-canvas {
       background: radial-gradient(circle at 50% 50%, #ffffff 0%, #f1f5f9 100%);
     }
+
+    /* Operate mode: compact summary, quiet panels, readable snapshot metadata. */
+    .radar-overview { display: grid; gap: 1.5rem; padding: 0.5rem 0 1.5rem; border-bottom: 1px solid var(--border-subtle); }
+    .radar-summary { min-width: 0; }
+    .radar-summary h1 { font-size: clamp(1.5rem, 2.3vw, 2rem); line-height: 1.25; font-weight: 650; letter-spacing: -0.025em; }
+    .radar-summary h1 span { color: var(--text-muted); }
+    .radar-description { color: var(--text-muted); font-size: 0.875rem; max-width: 65ch; margin-top: 0.75rem; }
+    .radar-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin: 1.5rem 0 1rem; }
+    .radar-metrics dt { color: var(--text-muted); font-size: 0.75rem; }
+    .radar-metrics dd { font-size: 1.5rem; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 0.25rem; }
+    .radar-metrics span { color: var(--text-muted); font-size: 0.75rem; display: block; }
+    .radar-globe-frame { max-width: 240px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-surface); }
+    .radar-globe-frame .animate-ping { animation: none; }
+    html .bg-cyber-mesh { background-image: none; }
+    html .hero-actions > :is(a, button) { background: var(--bg-surface) !important; border: 1px solid var(--border-subtle) !important; color: var(--text-main) !important; box-shadow: none !important; border-radius: var(--radius-sm); }
+    html .hero-actions > :is(a, button):hover { border-color: var(--accent-cyan) !important; }
+    html .hero-actions > :is(a, button) svg { color: currentColor !important; }
+    /* Light theme only: these are 12px bold labels (not large text), and
+       white on the gradient's light end #0284c7 measures 4.10:1, under the
+       4.5:1 floor. A deeper solid cyan clears it at 5.93:1. The dark hero
+       keeps its cyan->blue gradient with near-black text, which measures
+       4.0:1 at the blue end and 8.5:1 at the cyan end. */
+    html.light #hero-copy-sub, html.light #btn-explore-live-proxies { background: #0369a1 !important; color: #ffffff !important; box-shadow: none !important; border-radius: var(--radius-sm); }
+    html #hero-copy-sub svg { color: currentColor !important; }
+    html #radar-diagnostics > .grid { margin-top: 0; }
+    html #radar-diagnostics .cyber-card { background: var(--bg-surface) !important; border-color: var(--border-subtle) !important; border-radius: var(--radius-md); box-shadow: none !important; backdrop-filter: none; }
+    #radar-diagnostics h3 { flex-wrap: wrap; font-family: inherit; font-size: 1rem; }
+    #radar-diagnostics .operator-card { border-radius: var(--radius-sm); background: transparent !important; border-color: transparent !important; padding: 0.5rem 0; }
+    #radar-diagnostics .operator-card:hover { background: var(--bg-elevated) !important; }
+    #radar-diagnostics .operator-card > div { flex-wrap: wrap; gap: 0.25rem; }
+    #radar-diagnostics .operator-card .truncate { max-width: 100%; }
+    #radar-diagnostics .operator-card > div:last-child { border: 0; }
+    #radar-diagnostics .geo-density-row .bg-gradient-to-r { background: var(--accent-cyan); }
+    html .proxy-card { min-width: 0; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); }
+    html .proxy-card:hover { border-color: var(--border-active); }
+    .proxy-card-header { flex-wrap: wrap; gap: 0.5rem; }
+    html .proxy-card .proxy-secondary-tag { background: transparent !important; color: var(--text-muted) !important; box-shadow: none !important; }
+    .proxy-card-header .shadow-sm { box-shadow: none; }
+    .proxy-specs > div { gap: 0.5rem; flex-wrap: wrap; }
+    .proxy-specs > div > :last-child { min-width: 0; overflow-wrap: anywhere; }
+    .proxy-specs .technical-ltr { max-width: 100%; }
+    .proxy-specs > div > .flex { flex-wrap: wrap; }
+    html.dark .text-gray-500,
+    html.dark .text-gray-600 { color: var(--text-muted); }
+    /* Broadened beyond main: the header, footer and kbd hints carry the
+       same classes and also need the deeper cyan. */
+    html.light input::placeholder, html.light textarea::placeholder { color: var(--text-dimmed) !important; }
+    .skip-link { position: fixed; top: 12px; left: 12px; z-index: 200; padding: 12px 16px; background: var(--bg-surface); color: var(--text-main); border: 1px solid var(--accent-cyan); border-radius: var(--radius-sm); transform: translateY(-200%); }
+    .skip-link:focus { transform: translateY(0); outline: 2px solid var(--accent-cyan); outline-offset: 2px; }
+    #dashboard-main { scroll-margin-top: 140px; }
+    #dashboard-main:focus-visible { outline: 2px solid var(--accent-cyan); outline-offset: -2px; }
+    html #data-status-pill { max-width: calc(100vw - 24px); border-radius: var(--radius-sm); }
+    @media (min-width: 640px) { .radar-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+    @media (min-width: 1024px) {
+      .radar-overview { grid-template-columns: minmax(0, 1fr) 280px; align-items: center; }
+      .radar-globe-frame { max-width: 280px; }
+    }
+
+    /* WCAG 2.2 contrast hardening (audit 2026-09-18, harness in
+       tests/lib/wcag_audit.mjs). Per the W3C understanding of 1.4.11 a control that
+       shows a text label or a >=3:1 icon is already identifiable and needs no
+       boundary, so these rules cover only surfaces and form fields. Every
+       ratio was measured against the rendered surface, not the palette. */
+
+    /* Dark theme: placeholder and muted gray text must clear 4.5:1
+       (text-gray-500/600 read 4.17:1 and 2.67:1 on the darkest surfaces). */
+    html.dark input::placeholder,
+    html.dark textarea::placeholder { color: #94a3b8 !important; }
+
+    /* Light theme: cyan-200 has no override elsewhere. */
+    html.light .text-cyan-200 { color: #0369a1 !important; }
+
+    /* Light theme: the slate family has no light overrides and was rendering
+       dark-on-dark (1.4:1 on badges, dark surfaces behind footer links). */
+    html.light .bg-slate-800,
+    html.light .bg-slate-900,
+    html.light .bg-slate-900\/60 { background-color: #ffffff !important; border-color: #e2e8f0 !important; color: #0f172a !important; }
+    html.light .text-slate-300,
+    html.light .text-slate-400 { color: #334155 !important; }
+    html.light .border-slate-700,
+    html.light .border-slate-700\/50 { border-color: #cbd5e1 !important; }
+
+    /* Light theme: arbitrary near-black surfaces have no override and stay
+       dark, so muted text on them fell to 3.35:1. */
+    html.light .bg-\[\#070a0f\]\/90,
+    html.light .bg-\[\#070a0f\]\/80 { background-color: #f8fafc !important; border-color: #e2e8f0 !important; }
+
+    /* Light theme: translucent 500/20 badge fills are not covered by the 950
+       overrides; give them the same tinted surfaces the 950 badges use. */
+    html.light .bg-cyan-500\/20 { background-color: #e0f2fe !important; }
+    html.light .bg-emerald-500\/20 { background-color: #dcfce7 !important; }
+    html.light .bg-indigo-500\/20 { background-color: #e0e7ff !important; }
   </style>
 
 </head>
 <body class="bg-cyber-mesh min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-black">
+  <a class="skip-link" href="#dashboard-main">Skip to dashboard</a>
   <div id="data-status-pill" role="status" aria-live="polite" class="data-status data-status-loading">Bundled snapshot</div>
   <style>
-    .data-status{position:fixed;left:12px;bottom:12px;z-index:80;font:600 11px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.02em;padding:6px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.35);background:rgba(7,10,15,.85);color:#94a3b8}
+    .data-status{position:fixed;left:12px;bottom:12px;z-index:80;font:500 12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.02em;padding:6px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.35);background:rgba(7,10,15,.85);color:#94a3b8}
     .data-status-ready{color:#34d399;border-color:rgba(52,211,153,.45)}
     .data-status-stale{color:#fbbf24;border-color:rgba(251,191,36,.5)}
     @media (prefers-reduced-motion: reduce){.data-status{transition:none}}
@@ -653,11 +825,11 @@
 
   <!-- Sticky Cyber Header -->
   <header id="main-header" class="sticky top-0 z-50 bg-[#070a0f]/80 backdrop-blur-md border-b border-[#1d2638]">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+    <div class="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-4">
       <a href="#" class="flex items-center gap-3 group focus-ring rounded-lg p-1" aria-label="HUNTX Home">
         <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 via-blue-600 to-indigo-700 p-0.5 shadow-lg shadow-cyan-500/20">
           <div class="w-full h-full bg-gray-950 rounded-[10px] flex items-center justify-center">
-            <svg class="w-5 h-5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg class="w-5 h-5 text-cyan-400" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
               <polyline points="2 17 12 22 22 17"></polyline>
               <polyline points="2 12 12 17 22 12"></polyline>
@@ -667,16 +839,16 @@
         <div>
           <div class="flex items-center gap-2">
             <span class="font-mono text-base font-bold tracking-tight text-white">HUNT<span class="text-cyan-400">X</span></span>
-            <span class="px-1.5 py-0.5 text-[9px] font-mono font-bold bg-cyan-950/80 text-cyan-400 border border-cyan-800/60 rounded">v2.5</span>
+            <span class="hidden sm:inline px-1.5 py-0.5 text-xs font-mono font-bold bg-cyan-950/80 text-cyan-400 border border-cyan-800/60 rounded">v2.5</span>
           </div>
-          <span class="text-[10px] text-gray-400 font-mono tracking-wider hidden sm:block">NODE TELEMETRY</span>
+          <span class="text-xs text-gray-400 font-mono tracking-wider hidden sm:block">NODE TELEMETRY</span>
         </div>
       </a>
 
       <div class="flex-1 max-w-md hidden md:block">
         <div class="relative group">
           <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            <svg class="w-4 h-4" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
           </div>
           <input
             id="global-search-input"
@@ -686,7 +858,7 @@
             aria-label="Global Search"
           />
           <div class="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none">
-            <kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 text-[10px] font-mono text-gray-400 rounded">/</kbd>
+            <kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 text-xs font-mono text-gray-400 rounded">/</kbd>
           </div>
         </div>
       </div>
@@ -697,7 +869,7 @@
             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
-          <span class="font-mono text-[11px] font-semibold text-emerald-400">PIPELINE ONLINE</span>
+          <span class="font-mono text-xs font-semibold text-emerald-400">SNAPSHOT DASHBOARD</span>
         </div>
 
         <button
@@ -706,7 +878,7 @@
           title="Open Clean IP Scanner (Press S)"
           aria-label="Open Clean IP Scanner"
         >
-          <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+          <svg class="w-3.5 h-3.5 text-emerald-400" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
           <span class="hidden sm:inline">IP Scanner</span>
         </button>
 
@@ -716,7 +888,7 @@
           title="Open Subscription Builder"
           aria-label="Open Subscription Builder"
         >
-          <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+          <svg class="w-3.5 h-3.5 text-cyan-400" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
           <span class="hidden sm:inline">Sub Builder</span>
         </button>
 
@@ -726,7 +898,7 @@
           title="Toggle Light / Dark Theme (Press T)"
           aria-label="Toggle Theme"
         >
-          <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+          <svg class="w-4 h-4 text-amber-400" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
         </button>
 
         <a
@@ -772,7 +944,7 @@
             <path d="M2 12h20"></path>
           </svg>
           <span>Telemetry Radar</span>
-          <span id="radar-live-badge" class="px-1.5 py-0.5 text-[9px] font-bold rounded bg-slate-950/80 text-slate-300 border border-slate-800/60">SYNCING</span>
+          <span id="radar-live-badge" class="px-1.5 py-0.5 text-xs font-bold rounded bg-slate-950/80 text-slate-300 border border-slate-800/60">SYNCING</span>
         </button>
 
         <!-- Tab 2: Published Proxies -->
@@ -788,7 +960,7 @@
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
           </svg>
           <span>Published Proxies</span>
-          <span id="tab-proxies-count-badge" class="px-1.5 py-0.5 text-[9px] font-bold rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/60">1046</span>
+          <span id="tab-proxies-count-badge" class="px-1.5 py-0.5 text-xs font-bold rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/60">2391</span>
         </button>
 
         <!-- Tab 3: Protocol Studio -->
@@ -804,7 +976,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
           </svg>
           <span>Protocol Studio</span>
-          <span class="px-1.5 py-0.5 text-[9px] font-bold rounded bg-indigo-950/80 text-indigo-300 border border-indigo-800/60">STUDIO</span>
+          <span class="px-1.5 py-0.5 text-xs font-bold rounded bg-indigo-950/80 text-indigo-300 border border-indigo-800/60">STUDIO</span>
         </button>
 
         <!-- Tab 4: Deep Inspector -->
@@ -820,7 +992,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
           </svg>
           <span>Protocol Inspector</span>
-          <span class="px-1.5 py-0.5 text-[9px] font-bold rounded bg-purple-950/80 text-purple-300 border border-purple-800/60">RAW</span>
+          <span class="px-1.5 py-0.5 text-xs font-bold rounded bg-purple-950/80 text-purple-300 border border-purple-800/60">RAW</span>
         </button>
 
         <!-- Tab 5: Artifacts Repository -->
@@ -836,18 +1008,18 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
           </svg>
           <span>Artifacts &amp; Feeds</span>
-          <span id="tab-artifacts-count-badge" class="px-1.5 py-0.5 text-[9px] font-bold rounded bg-amber-950/80 text-amber-300 border border-amber-800/60">24</span>
+          <span id="tab-artifacts-count-badge" class="px-1.5 py-0.5 text-xs font-bold rounded bg-amber-950/80 text-amber-300 border border-amber-800/60">23</span>
         </button>
       </div>
 
-      <div class="hidden lg:flex items-center gap-2 text-[11px] font-mono text-gray-500">
+      <div class="hidden lg:flex items-center gap-2 text-xs font-mono" style="color: var(--text-muted)">
         <span>Tabs: <kbd class="px-1.5 py-0.5 bg-gray-900 border border-gray-800 rounded text-cyan-400 font-bold">1</kbd>–<kbd class="px-1.5 py-0.5 bg-gray-900 border border-gray-800 rounded text-cyan-400 font-bold">5</kbd></span>
       </div>
     </div>
   </nav>
 
   <!-- Main Telemetry Tabbed Workspace -->
-  <main class="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-16">
+  <main id="dashboard-main" tabindex="-1" class="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-16">
     <!-- TAB 1 PANEL: Telemetry Radar & 3D Globe -->
     <div id="tab-panel-radar" class="tab-panel animate-fade-in space-y-8" role="tabpanel" aria-labelledby="tab-btn-radar" style="display: block;">
       <section id="hero-section"></section>
@@ -892,6 +1064,8 @@
   <div id="toast-container" role="status" aria-live="polite" aria-atomic="true" class="fixed bottom-6 inset-x-4 sm:inset-x-auto sm:right-6 z-[9999] flex flex-col items-center sm:items-end gap-2 pointer-events-none max-w-md mx-auto sm:mx-0"></div>
 
   <!-- Native ES-module entrypoint; fallback data is lazy-loaded on demand. -->
+  <!-- Recovers a visit whose cached modules predate the deployed entry script. Must precede the module. -->
+  <script src="assets/js/boot-guard.js"></script>
   <script type="module" src="assets/js/app.js"></script>
 
   <!-- Progressive Web App (PWA) Offline ServiceWorker Registration -->
