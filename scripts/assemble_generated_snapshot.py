@@ -336,11 +336,11 @@ def _refresh_frontend_index(project_root: Path) -> None:
 
 
 def _catalog_dev_trio(docs_dir: Path, dev_dir: Path) -> None:
-    """Append the cumulative dev datasets to the staged catalog.
+    """Expose only the canonical cumulative dataset in the staged catalog.
 
-    The release catalog only knows dist artifacts; without this the SPA's
-    artifacts browser reports CUMULATIVE DEV (0) even though the trio is
-    deployed next to it.
+    The raw TXT and Base64 cumulative feeds remain deployed for direct/backward-
+    compatible URLs, but they are implementation variants rather than distinct
+    final products and therefore stay out of the public artifact browser.
     """
     catalog_path = docs_dir / "catalog.json"
     if not catalog_path.is_file():
@@ -348,30 +348,26 @@ def _catalog_dev_trio(docs_dir: Path, dev_dir: Path) -> None:
     catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
     files_list = catalog.get("files") or []
     known = {entry.get("filename") for entry in files_list}
-    media_types = {"proxies.json": "application/json", "proxies.txt": "text/plain", "proxies_b64sub.txt": "text/plain"}
     total_size = int(catalog.get("total_size") or 0)
     added = False
-    for name in ("proxies.json", "proxies.txt", "proxies_b64sub.txt"):
+    for name in ("proxies.json",):
         source = dev_dir / name
         if not source.is_file() or name in known:
             continue
         payload = source.read_bytes()
         total_size += len(payload)
-        tags = ["dev"]
-        if name == "proxies_b64sub.txt":
-            tags.append("subscription")
         files_list.append({
             "filename": name,
             "path": f"artifacts/dev/{name}",
             "size": len(payload),
             "size_str": _format_size(len(payload)),
-            "media_type": media_types[name],
+            "media_type": "application/json",
             "sha256": hashlib.sha256(payload).hexdigest(),
-            "tags": tags,
+            "tags": ["dev", "cumulative", "dataset"],
             "section": "dev",
-            "type": "DEV",
-            "ext": name.rsplit(".", 1)[-1].upper(),
-            "description": "All-time cumulative dataset (outside the release manifest)",
+            "type": "JSON",
+            "ext": "JSON",
+            "description": "All-time cumulative proxy dataset (outside the release manifest)",
         })
         added = True
     if not added:
