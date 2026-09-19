@@ -274,12 +274,18 @@ func formatSize(size int64) string {
 func artifactType(path string) string {
 	filename := strings.ToLower(filepath.Base(path))
 	switch {
-	case strings.HasSuffix(filename, ".singbox.json"):
+	case strings.HasSuffix(filename, ".singbox.json"), strings.HasSuffix(filename, "_singbox.json"):
 		return "SINGBOX"
-	case strings.HasSuffix(filename, ".b64sub"):
+	case strings.HasSuffix(filename, ".xray.json"), strings.HasSuffix(filename, "_xray.json"):
+		return "XRAY"
+	case strings.HasSuffix(filename, ".nekobox.json"), strings.HasSuffix(filename, "_nekobox.json"):
+		return "NEKOBOX"
+	case strings.HasSuffix(filename, ".b64sub"), strings.HasSuffix(filename, "_b64sub.txt"):
 		return "B64SUB"
 	case strings.HasSuffix(filename, ".ovpn"):
 		return "OVPN"
+	case strings.HasSuffix(filename, "_raw.txt"):
+		return "NPVT"
 	case strings.HasSuffix(filename, ".json"):
 		return "JSON"
 	case strings.HasSuffix(filename, ".txt"):
