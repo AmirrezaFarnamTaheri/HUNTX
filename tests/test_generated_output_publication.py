@@ -189,15 +189,15 @@ class TestDashboardDataWiring(unittest.TestCase):
 
             staged_catalog = json.loads((destination / "docs" / "catalog.json").read_text())
             dev_entries = [f for f in staged_catalog["files"] if f.get("section") == "dev"]
-            assert len(dev_entries) == 3
-            assert staged_catalog["total_files"] == 4
-            assert all(f["path"].startswith("artifacts/dev/") for f in dev_entries)
-            assert all(len(f["sha256"]) == 64 for f in dev_entries)
+            assert [f["filename"] for f in dev_entries] == ["proxies.json"]
+            assert staged_catalog["total_files"] == 2
+            assert dev_entries[0]["path"] == "artifacts/dev/proxies.json"
+            assert len(dev_entries[0]["sha256"]) == 64
             self.assertTrue(
                 (destination / "docs" / "artifacts" / "release" / "manifest.json").exists()
             )
-            # The SPA's dev download links point at artifacts/dev/*; they must
-            # carry the cumulative dev trio so downloads are never stale.
+            # Compatibility variants remain deployed for direct URLs, but only
+            # proxies.json is advertised as the final cumulative product.
             for name in ("proxies.json", "proxies.txt", "proxies_b64sub.txt"):
                 self.assertTrue(
                     (destination / "docs" / "artifacts" / "dev" / name).exists(),
