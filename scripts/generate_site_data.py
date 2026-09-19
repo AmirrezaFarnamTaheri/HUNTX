@@ -77,7 +77,6 @@ def _is_frontend_product(section: str, filename: str) -> bool:
     return False
 
 
-
 def _format_size(size_bytes: int) -> str:
     """Format a byte count for compact dashboard display."""
     if size_bytes < 1024:
