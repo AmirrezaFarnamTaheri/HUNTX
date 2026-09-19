@@ -19,7 +19,12 @@ def _proxy_only_outbound(outbound: dict) -> dict | None:
 
 
 def build_nekobox_outbounds_bytes(text: str) -> bytes:
-    """Render a NekoBox JSON-array subscription of proxy-only outbounds.\n\n    NekoBox recognizes a top-level array as individual subscription nodes.\n    Wrapping the same outbounds in a full sing-box-style object can be imported\n    as one custom configuration instead of expanding the nodes.\n    """
+    """Render a NekoBox JSON-array subscription of proxy-only outbounds.
+
+    NekoBox recognizes a top-level array as individual subscription nodes.
+    Wrapping the same outbounds in a full sing-box-style object can be imported
+    as one custom configuration instead of expanding the nodes.
+    """
     try:
         config = config_from_uris(text.splitlines())
     except AttributeError:
