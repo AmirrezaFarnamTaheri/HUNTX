@@ -1408,10 +1408,10 @@ export class AppState {
             <button
               id="hero-copy-sub"
               class="px-4 py-2.5 min-h-[44px] bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-gray-950 font-mono font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/25 transition-all focus-ring cursor-pointer flex items-center gap-2"
-              aria-label="Copy Production Base64 Subscription URL"
+              aria-label="Copy Production Raw URI Subscription URL"
             >
               <svg class="w-4 h-4 text-gray-950" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-              Copy Production Feed
+              Copy Raw URI Feed
             </button>
 
             <a
@@ -1507,7 +1507,7 @@ export class AppState {
     document.getElementById("hero-copy-sub")?.addEventListener("click", (e) => {
       const subUrl = resolveArtifactUrl("artifacts/release/all_sources_npvt_raw.txt");
       this.copyText(subUrl, isHostedDashboard()
-        ? "Production feed URL copied to clipboard"
+        ? "Raw URI subscription URL copied to clipboard"
         : "Portable artifact path copied — deploy or serve over HTTPS before importing", e.currentTarget);
     });
 
