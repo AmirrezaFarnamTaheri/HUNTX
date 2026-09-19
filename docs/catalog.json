@@ -1,247 +1,7 @@
 {
   "files": [
     {
-      "description": "Verified artifact from the latest published run",
-      "ext": "DARK",
-      "filename": "all_sources.dark",
-      "media_type": "application/octet-stream",
-      "path": "artifacts/release/all_sources.dark",
-      "section": "release",
-      "sha256": "25de970c6564f2aa857f4d32930ae382d90ffd851bdd142e70e4152899a9fb9a",
-      "size": 61088,
-      "size_str": "59.7 KB",
-      "tags": [
-        "release",
-        "verified"
-      ],
-      "type": "DARK"
-    },
-    {
-      "description": "Verified artifact from the latest published run",
-      "ext": "EHI",
-      "filename": "all_sources.ehi",
-      "media_type": "application/octet-stream",
-      "path": "artifacts/release/all_sources.ehi",
-      "section": "release",
-      "sha256": "13d2f91564c13e231e42efb1a394835398ed9da8074464c8cf26b7dd4e41b890",
-      "size": 295886,
-      "size_str": "289.0 KB",
-      "tags": [
-        "release",
-        "verified"
-      ],
-      "type": "EHI"
-    },
-    {
-      "description": "Verified artifact from the latest published run",
-      "ext": "HC",
-      "filename": "all_sources.hc",
-      "media_type": "application/octet-stream",
-      "path": "artifacts/release/all_sources.hc",
-      "section": "release",
-      "sha256": "5f3ef244582a68f95abed8d4dc05f49d2f525f334eadcaf8fc8bfcc066ab5d6b",
-      "size": 114824,
-      "size_str": "112.1 KB",
-      "tags": [
-        "release",
-        "verified"
-      ],
-      "type": "HC"
-    },
-    {
-      "description": "Verified artifact from the latest published run",
-      "ext": "NM",
-      "filename": "all_sources.nm",
-      "media_type": "application/octet-stream",
-      "path": "artifacts/release/all_sources.nm",
-      "section": "release",
-      "sha256": "30face8d57c4d1c67b83fc1f2d35a010a5fde1426e6f9a5b9518b8e944048403",
-      "size": 44368,
-      "size_str": "43.3 KB",
-      "tags": [
-        "release",
-        "verified"
-      ],
-      "type": "NM"
-    },
-    {
-      "description": "Verified artifact from the latest published run",
-      "ext": "NPVT",
-      "filename": "all_sources.npvt",
-      "media_type": "application/octet-stream",
-      "path": "artifacts/release/all_sources.npvt",
-      "section": "release",
-      "sha256": "0c05ea7af990621d58ccbbc6febcf7399464f816425f1a9c891dfff8a0586bcc",
-      "size": 589657,
-      "size_str": "575.8 KB",
-      "tags": [
-        "release",
-        "verified"
-      ],
-      "type": "NPVT"
-    },
-    {
-      "description": "Verified artifact from the latest published run",
-      "ext": "B64SUB",
-      "filename": "all_sources.npvt.b64sub",
-      "media_type": "application/octet-stream",
-      "path": "artifacts/release/all_sources.npvt.b64sub",
-      "section": "release",
-      "sha256": "4f0a10da369ce39f09ffa9eb39ef3edd374a95c7f3b5445e78c51e610bf7ad12",
-      "size": 786212,
-      "size_str": "767.8 KB",
-      "tags": [
-        "release",
-        "verified"
-      ],
-      "type": "B64SUB"
-    },
-    {
-      "description": "Verified artifact from the latest published run",
-      "ext": "JSON",
-      "filename": "all_sources.npvt.decoded.json",
-      "media_type": "application/json",
-      "path": "artifacts/release/all_sources.npvt.decoded.json",
-      "section": "release",
-      "sha256": "ea34c4c776b7f952b1e889d334c776682e152a1c71294751c2f3a9f788a0c4ae",
-      "size": 8378,
-      "size_str": "8.2 KB",
-      "tags": [
-        "release",
-        "verified"
-      ],
-      "type": "JSON"
-    },
-    {
-      "description": "Verified artifact from the latest published run",
-      "ext": "JSON",
-      "filename": "all_sources.npvt.nekobox.json",
-      "media_type": "application/json",
-      "path": "artifacts/release/all_sources.npvt.nekobox.json",
-      "section": "release",
-      "sha256": "bec6d678899d678ff3852c84d6bdb12d09f8bf4b0f5280264642aee5d9302b66",
-      "size": 4274,
-      "size_str": "4.2 KB",
-      "tags": [
-        "release",
-        "verified"
-      ],
-      "type": "JSON"
-    },
-    {
-      "description": "Verified artifact from the latest published run",
-      "ext": "TXT",
-      "filename": "all_sources.npvt.raw.txt",
-      "media_type": "text/plain",
-      "path": "artifacts/release/all_sources.npvt.raw.txt",
-      "section": "release",
-      "sha256": "7257e87e26669f5ae6e5eb8ea122cea997f8d82517c6bd6233692fd98b85cf50",
-      "size": 3067,
-      "size_str": "3.0 KB",
-      "tags": [
-        "release",
-        "verified"
-      ],
-      "type": "TXT"
-    },
-    {
-      "description": "Verified artifact from the latest published run",
-      "ext": "SINGBOX",
-      "filename": "all_sources.npvt.singbox.json",
-      "media_type": "application/json",
-      "path": "artifacts/release/all_sources.npvt.singbox.json",
-      "section": "release",
-      "sha256": "c67214c07da113d17204c1cb76124b1b41d3d190d3059ff06ba9711ecd2f4fa9",
-      "size": 6054,
-      "size_str": "5.9 KB",
-      "tags": [
-        "release",
-        "verified"
-      ],
-      "type": "SINGBOX"
-    },
-    {
-      "description": "Verified artifact from the latest published run",
-      "ext": "JSON",
-      "filename": "all_sources.npvt.xray.json",
-      "media_type": "application/json",
-      "path": "artifacts/release/all_sources.npvt.xray.json",
-      "section": "release",
-      "sha256": "44190ab0033c7445c5f97a0d95e3504f3ca5935894b6f75a85c51415df6427c6",
-      "size": 3926,
-      "size_str": "3.8 KB",
-      "tags": [
-        "release",
-        "verified"
-      ],
-      "type": "JSON"
-    },
-    {
-      "description": "Verified artifact from the latest published run",
-      "ext": "OPAQUE_BUNDLE",
-      "filename": "all_sources.opaque_bundle",
-      "media_type": "application/octet-stream",
-      "path": "artifacts/release/all_sources.opaque_bundle",
-      "section": "release",
-      "sha256": "d69605885546ceb3e51767057228b48a934375f3c8cc2592162bfa8e2d0dcc5f",
-      "size": 12578932,
-      "size_str": "12.0 MB",
-      "tags": [
-        "release",
-        "verified"
-      ],
-      "type": "OPAQUE_BUNDLE"
-    },
-    {
-      "description": "Verified artifact from the latest published run",
-      "ext": "OVPN",
-      "filename": "all_sources.ovpn",
-      "media_type": "application/x-openvpn-profile",
-      "path": "artifacts/release/all_sources.ovpn",
-      "section": "release",
-      "sha256": "69c3dce4d8a3a98e5ec4b0dc5e005802460aedec6b844f4da699c626f9d57350",
-      "size": 97325,
-      "size_str": "95.0 KB",
-      "tags": [
-        "release",
-        "verified"
-      ],
-      "type": "OVPN"
-    },
-    {
-      "description": "Verified artifact from the latest published run",
-      "ext": "SIP",
-      "filename": "all_sources.sip",
-      "media_type": "application/octet-stream",
-      "path": "artifacts/release/all_sources.sip",
-      "section": "release",
-      "sha256": "91c10d1aac1980056ca62456be852b84858f12b9ea9a6d20cd133c4011a65000",
-      "size": 49531,
-      "size_str": "48.4 KB",
-      "tags": [
-        "release",
-        "verified"
-      ],
-      "type": "SIP"
-    },
-    {
-      "description": "Verified artifact from the latest published run",
-      "ext": "TXT",
-      "filename": "all_sources_npvt_b64sub.txt",
-      "media_type": "text/plain",
-      "path": "artifacts/release/all_sources_npvt_b64sub.txt",
-      "section": "release",
-      "sha256": "4f0a10da369ce39f09ffa9eb39ef3edd374a95c7f3b5445e78c51e610bf7ad12",
-      "size": 786212,
-      "size_str": "767.8 KB",
-      "tags": [
-        "release",
-        "verified"
-      ],
-      "type": "TXT"
-    },
-    {
-      "description": "Verified artifact from the latest published run",
+      "description": "Decoded structured proxy dataset for inspection and dashboard telemetry. This is diagnostic JSON, not a client subscription.",
       "ext": "JSON",
       "filename": "all_sources_npvt_decoded.json",
       "media_type": "application/json",
@@ -252,13 +12,16 @@
       "size_str": "1.7 MB",
       "tags": [
         "release",
-        "verified"
+        "verified",
+        "decoded",
+        "diagnostic",
+        "dataset"
       ],
       "type": "JSON"
     },
     {
-      "description": "Verified artifact from the latest published run",
-      "ext": "JSON",
+      "description": "NekoBox multi-node JSON subscription. The generator emits a top-level outbound array so NekoBox expands entries into individual proxy nodes instead of one custom configuration.",
+      "ext": "NEKOBOX",
       "filename": "all_sources_npvt_nekobox.json",
       "media_type": "application/json",
       "path": "artifacts/release/all_sources_npvt_nekobox.json",
@@ -268,13 +31,17 @@
       "size_str": "1.0 MB",
       "tags": [
         "release",
-        "verified"
+        "verified",
+        "nekobox",
+        "subscription",
+        "multi-node",
+        "json-array"
       ],
-      "type": "JSON"
+      "type": "NEKOBOX"
     },
     {
-      "description": "Verified artifact from the latest published run",
-      "ext": "TXT",
+      "description": "Canonical multi-node proxy URI subscription feed. Add this URL as a subscription in compatible clients; each line is an individual proxy node.",
+      "ext": "NPVT",
       "filename": "all_sources_npvt_raw.txt",
       "media_type": "text/plain",
       "path": "artifacts/release/all_sources_npvt_raw.txt",
@@ -284,13 +51,16 @@
       "size_str": "575.8 KB",
       "tags": [
         "release",
-        "verified"
+        "verified",
+        "subscription",
+        "multi-node",
+        "uri-feed"
       ],
-      "type": "TXT"
+      "type": "NPVT"
     },
     {
-      "description": "Verified artifact from the latest published run",
-      "ext": "JSON",
+      "description": "Complete sing-box client configuration containing all representable proxy outbounds. Importing this JSON creates one profile by design; use the raw TXT feed for a multi-node subscription.",
+      "ext": "SINGBOX",
       "filename": "all_sources_npvt_singbox.json",
       "media_type": "application/json",
       "path": "artifacts/release/all_sources_npvt_singbox.json",
@@ -300,13 +70,16 @@
       "size_str": "1.2 MB",
       "tags": [
         "release",
-        "verified"
+        "verified",
+        "singbox",
+        "full-config",
+        "profile"
       ],
-      "type": "JSON"
+      "type": "SINGBOX"
     },
     {
-      "description": "Verified artifact from the latest published run",
-      "ext": "JSON",
+      "description": "Complete Xray client configuration containing all representable proxy outbounds. Importing this JSON creates one profile by design; use the raw TXT feed for a multi-node subscription.",
+      "ext": "XRAY",
       "filename": "all_sources_npvt_xray.json",
       "media_type": "application/json",
       "path": "artifacts/release/all_sources_npvt_xray.json",
@@ -316,12 +89,15 @@
       "size_str": "860.9 KB",
       "tags": [
         "release",
-        "verified"
+        "verified",
+        "xray",
+        "full-config",
+        "profile"
       ],
-      "type": "JSON"
+      "type": "XRAY"
     },
     {
-      "description": "All-time cumulative dataset (outside the release manifest)",
+      "description": "All-time cumulative proxy dataset (outside the release manifest)",
       "ext": "JSON",
       "filename": "proxies.json",
       "media_type": "application/json",
@@ -331,46 +107,17 @@
       "size": 37284780,
       "size_str": "35.6 MB",
       "tags": [
-        "dev"
-      ],
-      "type": "DEV"
-    },
-    {
-      "description": "All-time cumulative dataset (outside the release manifest)",
-      "ext": "TXT",
-      "filename": "proxies.txt",
-      "media_type": "text/plain",
-      "path": "artifacts/dev/proxies.txt",
-      "section": "dev",
-      "sha256": "5d47db62253bfa3cd03164902e7745cefdd91ccf3287d416385fb2927f21e456",
-      "size": 28190685,
-      "size_str": "26.9 MB",
-      "tags": [
-        "dev"
-      ],
-      "type": "DEV"
-    },
-    {
-      "description": "All-time cumulative dataset (outside the release manifest)",
-      "ext": "TXT",
-      "filename": "proxies_b64sub.txt",
-      "media_type": "text/plain",
-      "path": "artifacts/dev/proxies_b64sub.txt",
-      "section": "dev",
-      "sha256": "8db2af2ab75108e6fdd5954f2a0609ec066ba936d7ae164fa0bcb6173ab1c37f",
-      "size": 37587413,
-      "size_str": "35.8 MB",
-      "tags": [
         "dev",
-        "subscription"
+        "cumulative",
+        "dataset"
       ],
-      "type": "DEV"
+      "type": "JSON"
     }
   ],
   "generated_at": "2026-09-19T07:27:37.791633Z",
   "release_manifest": "artifacts/release/manifest.json",
   "schema_version": 1,
-  "total_files": 23,
-  "total_size": 124001179,
-  "total_size_str": "118.3 MB"
+  "total_files": 6,
+  "total_size": 42793347,
+  "total_size_str": "40.8 MB"
 }
