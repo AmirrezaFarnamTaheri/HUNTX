@@ -7,32 +7,10 @@
 export const FALLBACK_CATALOG = {
   "schema_version": 1,
   "generated_at": "2026-09-19T07:27:37.791633+00:00",
-  "total_files": 1,
-  "total_size": 1742971,
-  "total_size_str": "1.7 MB",
-  "files": [
-    {
-      "filename": "all_sources.npvt.decoded.json",
-      "path": "artifacts/release/all_sources.npvt.decoded.json",
-      "section": "release",
-      "size": 1742971,
-      "size_str": "1.7 MB",
-      "type": "JSON",
-      "ext": "JSON",
-      "tags": [
-        "release",
-        "production",
-        "decoded",
-        "parameters",
-        "metadata"
-      ],
-      "description": "Parsed and structured proxy connection parameters JSON dataset",
-      "sha256": "1173c369ba56de3201aef5af9612175290478becc2c41b77fa1d9799be763834",
-      "hash": "1173c369",
-      "media_type": "application/json",
-      "last_modified": "2026-09-19T07:32:31.908156+00:00"
-    }
-  ]
+  "total_files": 0,
+  "total_size": 0,
+  "total_size_str": "0 B",
+  "files": []
 };
 
 export const SAMPLE_PROXIES = [
@@ -73500,9 +73478,9 @@ export const INGEST_STATS = {
   "generated_at": "2026-09-19T07:27:37.791633+00:00",
   "total_production_nodes": 2365,
   "total_cumulative_nodes": 0,
-  "total_published_files": 1,
-  "total_storage_bytes": 1742971,
-  "total_storage_str": "1.7 MB",
+  "total_published_files": 0,
+  "total_storage_bytes": 0,
+  "total_storage_str": "0 B",
   "active_sources_count": 81,
   "protocols": {
     "vless": 1707,

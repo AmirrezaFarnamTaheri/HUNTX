@@ -20,7 +20,7 @@
       "type": "JSON"
     },
     {
-      "description": "NekoBox multi-node JSON subscription. The generator emits a top-level outbound array so NekoBox expands entries into individual proxy nodes instead of one custom configuration.",
+      "description": "NekoBox multi-node JSON subscription. The top-level outbound array is intentionally shaped so NekoBox expands entries into individual proxy nodes instead of one custom configuration.",
       "ext": "NEKOBOX",
       "filename": "all_sources_npvt_nekobox.json",
       "media_type": "application/json",
@@ -103,8 +103,8 @@
       "media_type": "application/json",
       "path": "artifacts/dev/proxies.json",
       "section": "dev",
-      "sha256": "05972df28e29101d2b8e2e7cc6f99e477f9d75c42a0a6e81ed8dc81f9c89d968",
-      "size": 37284780,
+      "sha256": "e5dde727b16d8e9030edaecdc6ecf847257e10d521bd59eec9bd3dce5363260f",
+      "size": 37293634,
       "size_str": "35.6 MB",
       "tags": [
         "dev",
@@ -118,6 +118,6 @@
   "release_manifest": "artifacts/release/manifest.json",
   "schema_version": 1,
   "total_files": 6,
-  "total_size": 42793347,
+  "total_size": 42802201,
   "total_size_str": "40.8 MB"
 }
