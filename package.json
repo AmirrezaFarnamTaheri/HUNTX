@@ -9,7 +9,7 @@
     "check:frontend": "npm run lint && npm run test:unit && python scripts/update_frontend.py --check"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.5",
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.63.0",
     "eslint": "^9.39.5",
     "globals": "^15.15.0",
