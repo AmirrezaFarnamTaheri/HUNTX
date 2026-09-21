@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "artifact_count": 21,
+  "artifact_count": 16,
   "artifacts": [
     {
       "path": "all_sources.conf_lines",
@@ -9,39 +9,15 @@
       "media_type": "application/octet-stream"
     },
     {
-      "path": "all_sources.dark",
-      "size": 61088,
-      "sha256": "956c112888e3712ba1dc87cd0b5d95d30e409d2c4bc1b61b6f636254adb93e61",
-      "media_type": "application/octet-stream"
-    },
-    {
-      "path": "all_sources.ehi",
-      "size": 295886,
-      "sha256": "389487c3baa320955625d7f66b4de0a79d8031e7f633643d6a69cc99e0792896",
-      "media_type": "application/octet-stream"
-    },
-    {
-      "path": "all_sources.hc",
-      "size": 114824,
-      "sha256": "632e24986e35e82c15c5d1ea8ddb2b7661c8be904a5030ae89bb1609c12927e7",
-      "media_type": "application/octet-stream"
-    },
-    {
-      "path": "all_sources.nm",
-      "size": 44368,
-      "sha256": "075aadf8b1ec40e5ddc83ba2d2b4f3fca85ccd56cb95bb9b2ba3bccca572bf68",
-      "media_type": "application/octet-stream"
-    },
-    {
       "path": "all_sources.npvt",
-      "size": 599154,
-      "sha256": "67c90d8d810748d56887bef6eb34828491f5c0e5e8b46e6a296b6cc837b7cd6b",
+      "size": 584029,
+      "sha256": "7e5290bf416c3664d1b62c1f8eb89f4c66dd87b3f65784b2fe7de6579a622383",
       "media_type": "application/octet-stream"
     },
     {
       "path": "all_sources.npvt.b64sub",
-      "size": 798872,
-      "sha256": "5c0b1feae52502784e7b13d1cddc1e14a79b6fe51b16a3430b6a0c2faef49419",
+      "size": 778708,
+      "sha256": "7c9755e3f16c182e3873371629b3142040f11abd2d097c28423d804a83e9c633",
       "media_type": "application/octet-stream"
     },
     {
@@ -76,56 +52,50 @@
     },
     {
       "path": "all_sources.opaque_bundle",
-      "size": 17133403,
-      "sha256": "ed5d1b8974a02357f94e30660bd1f2083e79170f5fa4a4158b26980822468f95",
+      "size": 15477472,
+      "sha256": "ba0c61432cbd792dc6431694200b45853a9578d648c6a6244e2d28dd4d01be1d",
       "media_type": "application/octet-stream"
     },
     {
       "path": "all_sources.ovpn",
-      "size": 112176,
-      "sha256": "dcd21d719ceeb2db1013b8265b710d6e40950d659fb394a631e05d565ead10e5",
+      "size": 37002,
+      "sha256": "e6337bb9b4b7dccd2109ecd33527bb39d52f9fbc0334c594cd363a280e58fcc6",
       "media_type": "application/x-openvpn-profile"
     },
     {
-      "path": "all_sources.sip",
-      "size": 49531,
-      "sha256": "58239dea865d892c52981efd9b30be8f458f054addbd3213b5b6b750ab3f00ce",
-      "media_type": "application/octet-stream"
-    },
-    {
       "path": "all_sources_npvt_b64sub.txt",
-      "size": 798872,
-      "sha256": "5c0b1feae52502784e7b13d1cddc1e14a79b6fe51b16a3430b6a0c2faef49419",
+      "size": 778708,
+      "sha256": "7c9755e3f16c182e3873371629b3142040f11abd2d097c28423d804a83e9c633",
       "media_type": "text/plain"
     },
     {
       "path": "all_sources_npvt_decoded.json",
-      "size": 1744501,
-      "sha256": "df3275162bea724be395715a107705fada1bf7aab0f60096d0765593f3b5ab7d",
+      "size": 1694931,
+      "sha256": "27f4132a973b1f19d79ecf9ebea2051852b93c5d0ab67c21ae5ba8e86c6aef30",
       "media_type": "application/json"
     },
     {
       "path": "all_sources_npvt_nekobox.json",
-      "size": 970111,
-      "sha256": "415e009d96499a3100bd63a1638b73fed5c0c7d7ae367075aca27362864e12b1",
+      "size": 934052,
+      "sha256": "5cadc279a11897e68f90880ea57b5efeaa87ff9dd90fd423303f534143668adf",
       "media_type": "application/json"
     },
     {
       "path": "all_sources_npvt_raw.txt",
-      "size": 599154,
-      "sha256": "67c90d8d810748d56887bef6eb34828491f5c0e5e8b46e6a296b6cc837b7cd6b",
+      "size": 584029,
+      "sha256": "7e5290bf416c3664d1b62c1f8eb89f4c66dd87b3f65784b2fe7de6579a622383",
       "media_type": "text/plain"
     },
     {
       "path": "all_sources_npvt_singbox.json",
-      "size": 1169806,
-      "sha256": "ceabc6a7f0d6d5b70681634d3702be4de8912ba04586a00f7903e691667d3470",
+      "size": 1125302,
+      "sha256": "1557a8f4f96ef0e897064bbdf2a96206c569d7409a7410659c579817c10eba75",
       "media_type": "application/json"
     },
     {
       "path": "all_sources_npvt_xray.json",
-      "size": 857541,
-      "sha256": "84dd4d3ccf0f436715015900f6226233155e460b06946a4e119039b6cf2480f3",
+      "size": 855303,
+      "sha256": "c52f3db40d6823a0d16cc75ecc2acdcdace4b2e40a83997f00043319a28e5f07",
       "media_type": "application/json"
     }
   ]
