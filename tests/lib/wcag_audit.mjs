@@ -22,6 +22,12 @@ export function wcagAuditInPage() {
   const findings = [];
   const seen = new Set();
   const stats = { text: 0, controls: 0, headings: 0 };
+
+  // Thousands of descendants share the same ancestors: memoising the
+  // per-element background resolution turns a computed-style walk per text
+  // node into one per element, which is what makes a 1k-card tab auditable.
+  const bgCandidateMemo = new WeakMap();
+  const bgEffectiveMemo = new WeakMap();
   const add = (level, criterion, el, message) => {
     const selector = describe(el);
     const key = level + "|" + criterion + "|" + selector + "|" + message;
@@ -55,6 +61,8 @@ export function wcagAuditInPage() {
     return [top[0] * a + bottom[0] * (1 - a), top[1] * a + bottom[1] * (1 - a), top[2] * a + bottom[2] * (1 - a), 1];
   };
   const effectiveBackground = (el) => {
+    const hit = bgEffectiveMemo.get(el);
+    if (hit) return hit;
     const chain = [];
     let node = el;
     while (node && node.nodeType === 1) {
@@ -64,6 +72,7 @@ export function wcagAuditInPage() {
     }
     let acc = chain[0] || [255, 255, 255, 1];
     for (let i = 1; i < chain.length; i++) acc = blend(chain[i], acc);
+    bgEffectiveMemo.set(el, acc);
     return acc;
   };
   // Gradient stops are real backgrounds. Chromium serializes computed
@@ -83,6 +92,8 @@ export function wcagAuditInPage() {
   // background -- a solid or a gradient; anything beyond that first painter is
   // hidden behind it. A translucent layer is blended over what shows through.
   const backgroundCandidates = (el) => {
+    const cached = bgCandidateMemo.get(el);
+    if (cached) return cached;
     let node = el;
     while (node && node.nodeType === 1) {
       const cs = getComputedStyle(node);
@@ -94,11 +105,14 @@ export function wcagAuditInPage() {
         const out = [];
         for (const g of grads) out.push(g[3] < 1 ? blend(g, behind) : g);
         if (hasSolid) out.push(solid[3] < 1 ? blend(solid, behind) : solid);
+        bgCandidateMemo.set(el, out);
         return out;
       }
       node = node.parentElement;
     }
-    return [effectiveBackground(el)];
+    const fallback = [effectiveBackground(el)];
+    bgCandidateMemo.set(el, fallback);
+    return fallback;
   };
   const srgbLin = (c) => {
     const v = c / 255;

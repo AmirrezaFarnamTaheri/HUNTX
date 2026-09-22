@@ -396,6 +396,13 @@ function setStoredTheme(theme) {
   } catch (e) {}
 }
 
+// Progressive node reveal: one card per node is the heaviest work on the
+// dashboard, so only the first window is painted and the rest stream in as
+// the container is scrolled. Counts, exports and the raw-URI feed still see
+// the whole filtered list.
+const NODES_INITIAL = 60;
+const NODES_INCREMENT = 60;
+
 export class AppState {
   constructor() {
     this.catalog = { files: [], total_files: 0, total_size: 0, total_size_str: "0 B" };
@@ -422,6 +429,8 @@ export class AppState {
     this.copyFeedbackStates = new WeakMap();
     this.unmaskedNodes = new Set();
     this.activeQRNodes = new Set();
+    this.nodeRenderLimit = NODES_INITIAL;
+    this.nodesObserver = null;
     this.livePings = new Map();
     this.liveDataState = "idle";
     this.renderDataStatus();
@@ -850,8 +859,12 @@ export class AppState {
   }
 
   refreshProxyWorkspace() {
-    this.renderFilterBar();
-    this.renderNodes();
+    // The filter bar counts and the node grid derive from one filtered set;
+    // computing it once here keeps a ~1k-node filter+sort from running twice
+    // on every keystroke and select change.
+    const filtered = this.getFilteredProxies();
+    this.renderFilterBar(filtered);
+    this.renderNodes(filtered);
   }
 
   resetProxyFilters({ focusSearch = false } = {}) {
@@ -1688,7 +1701,7 @@ export class AppState {
     });
   }
 
-  renderFilterBar() {
+  renderFilterBar(precomputed = null) {
     if (typeof document === "undefined") return;
     const filterContainer = document.getElementById("filter-bar") || document.getElementById("filter-section");
     if (!filterContainer) return;
@@ -1744,7 +1757,7 @@ export class AppState {
       { id: "None", label: "Plain / Direct" }
     ];
 
-    const filtered = this.getFilteredProxies();
+    const filtered = precomputed || this.getFilteredProxies();
 
     filterContainer.innerHTML = `
       <div class="space-y-4 py-6">
@@ -2029,12 +2042,12 @@ export class AppState {
     });
   }
 
-  renderNodes() {
+  renderNodes(precomputed = null, { keepLimit = false } = {}) {
     if (typeof document === "undefined") return;
     const nodesContainer = document.getElementById("nodes-grid");
     if (!nodesContainer) return;
 
-    const filtered = this.getFilteredProxies();
+    const filtered = precomputed || this.getFilteredProxies();
 
     if (filtered.length === 0) {
       nodesContainer.className = "col-span-full";
@@ -2052,12 +2065,93 @@ export class AppState {
       return;
     }
 
+    // Progressive reveal: only the first window of nodes is painted; the
+    // rest stream in as the container is scrolled.
+    if (!keepLimit || this.nodeRenderLimit > filtered.length) {
+      this.nodeRenderLimit = NODES_INITIAL;
+    }
+    this.disconnectNodesObserver();
+
     // 1. Grid Cards View
     if (this.viewMode === "grid") {
       nodesContainer.className = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4";
-      nodesContainer.innerHTML = filtered.map(node => {
+      nodesContainer.innerHTML = this.visibleNodes(filtered)
+        .map((node) => this.nodeCardHTML(node)).join("")
+        + this.nodesSentinelHTML(filtered.length - this.nodeRenderLimit);
+      this.bindNodeActions(nodesContainer);
+      this.observeNodesSentinel(filtered);
+    }
+
+    // 2. Compact Table View
+    else if (this.viewMode === "table") {
+      nodesContainer.className = "col-span-full";
+      nodesContainer.innerHTML = `
+        <div class="bg-gray-950 border border-gray-800 rounded-2xl overflow-hidden shadow-xl">
+          <div class="overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
+            <table class="w-full text-left font-mono text-xs">
+              <thead class="bg-gray-900/90 text-gray-400 border-b border-gray-800 text-xs uppercase tracking-wider">
+                <tr>
+                  <th class="p-3.5">Region</th>
+                  <th class="p-3.5">Protocol</th>
+                  <th class="p-3.5">Remark / Name</th>
+                  <th class="p-3.5">Endpoint (Host:Port)</th>
+                  <th class="p-3.5">Transport &amp; TLS</th>
+                  <th class="p-3.5">Carrier</th>
+                  <th class="p-3.5">Health</th>
+                  <th class="p-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="nodes-table-body" class="divide-y divide-gray-800/60"></tbody>
+            </table>
+          </div>
+        </div>
+      ` + this.nodesSentinelHTML(filtered.length - this.nodeRenderLimit);
+      const tbody = document.getElementById("nodes-table-body");
+      if (tbody) {
+        tbody.innerHTML = this.visibleNodes(filtered)
+          .map((node) => this.nodeRowHTML(node)).join("");
+      }
+      this.bindNodeActions(nodesContainer);
+      this.observeNodesSentinel(filtered);
+    }
+
+    // 3. Raw Text / Feed View
+    else if (this.viewMode === "feed") {
+      const feedURIs = filtered.map(p => p.raw).filter(Boolean).join("\n");
+      nodesContainer.className = "col-span-full";
+      nodesContainer.innerHTML = `
+        <div class="p-5 bg-gray-950 border border-gray-800 rounded-2xl space-y-3 font-mono text-xs shadow-xl">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <span class="text-cyan-400 font-bold flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+              Raw URI Stream (${filtered.length} matching nodes)
+            </span>
+            <div class="flex gap-2">
+              <button id="btn-copy-feed-box" class="px-4 py-2.5 min-h-[44px] bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold rounded-xl focus-ring cursor-pointer shadow-md shadow-cyan-500/20 transition-all">Copy Plain URIs</button>
+              <button id="btn-copy-feed-b64" class="px-4 py-2.5 min-h-[44px] bg-gray-800 hover:bg-gray-700 text-cyan-300 rounded-xl focus-ring cursor-pointer transition-all">Copy Base64 Feed</button>
+            </div>
+          </div>
+          <textarea rows="14" readonly aria-label="Raw URI stream" class="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-xl text-xs font-mono text-cyan-200 select-all focus:outline-none">${escapeHTML(feedURIs)}</textarea>
+        </div>
+      `;
+
+      document.getElementById("btn-copy-feed-box")?.addEventListener("click", () => {
+        this.copyText(feedURIs, `${filtered.length} plain URIs copied to clipboard`);
+      });
+
+      document.getElementById("btn-copy-feed-b64")?.addEventListener("click", () => {
+        const b64 = buildBase64Sub(filtered.map(p => p.raw));
+        this.copyText(b64, "Base64 subscription feed copied to clipboard");
+      });
+    }
+
+  }
+
+  // One node's compact card. Extracted so the initial window and the
+  // progressive appends render nodes through exactly one code path.
+    nodeCardHTML(node) {
         const flag = this.getCountryFlag(node.country);
-        const op = this.detectOperator(node.server, node.sni, node.name);
+        const op = node.carrier || node.org || this.detectOperator(node.server, node.sni, node.name);
         const latency = this.getLatency(node);
         const { score, grade, label: healthLabel, color: gradeColor } = this.getHealthScore(latency);
         const isUnmasked = this.unmaskedNodes.has(node.id);
@@ -2084,12 +2178,9 @@ export class AppState {
           Arvan: "bg-teal-950/80 text-teal-300 border-teal-800"
         }[op] || "bg-gray-950 text-gray-400 border-gray-800";
 
-        let decoded = null;
-        try {
-          if (node.raw) decoded = decodeProxyURI(node.raw);
-        } catch {}
-
-        const uuid = (decoded && (decoded.uuid || decoded.password)) || "8f7b3c2a-9e1d-4a5b";
+        // Credentials are parsed once at load time; re-decoding every
+        // node's URI on each render was the hottest call in this path.
+        const uuid = node.uuid || node.password || "8f7b3c2a-9e1d-4a5b";
         const displayUUID = isUnmasked ? uuid : `${uuid.slice(0, 4)}••••-••••-••••-${uuid.slice(-4)}`;
 
         return `
@@ -2209,32 +2300,12 @@ export class AppState {
             </div>
           </div>
         `;
-      }).join("");
     }
 
-    // 2. Compact Table View
-    else if (this.viewMode === "table") {
-      nodesContainer.className = "col-span-full";
-      nodesContainer.innerHTML = `
-        <div class="bg-gray-950 border border-gray-800 rounded-2xl overflow-hidden shadow-xl">
-          <div class="overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
-            <table class="w-full text-left font-mono text-xs">
-              <thead class="bg-gray-900/90 text-gray-400 border-b border-gray-800 text-xs uppercase tracking-wider">
-                <tr>
-                  <th class="p-3.5">Region</th>
-                  <th class="p-3.5">Protocol</th>
-                  <th class="p-3.5">Remark / Name</th>
-                  <th class="p-3.5">Endpoint (Host:Port)</th>
-                  <th class="p-3.5">Transport &amp; TLS</th>
-                  <th class="p-3.5">Carrier</th>
-                  <th class="p-3.5">Health</th>
-                  <th class="p-3.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-800/60">
-                ${filtered.map(node => {
+  // One node's table row, sharing the reveal window with the card view.
+    nodeRowHTML(node) {
                   const flag = this.getCountryFlag(node.country);
-                  const op = this.detectOperator(node.server, node.sni, node.name);
+                  const op = node.carrier || node.org || this.detectOperator(node.server, node.sni, node.name);
                   const latency = this.getLatency(node);
                   const { grade } = this.getHealthScore(latency);
                   return `
@@ -2255,52 +2326,19 @@ export class AppState {
                       </td>
                     </tr>
                   `;
-                }).join("")}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      `;
     }
 
-    // 3. Raw Text / Feed View
-    else if (this.viewMode === "feed") {
-      const feedURIs = filtered.map(p => p.raw).filter(Boolean).join("\n");
-      nodesContainer.className = "col-span-full";
-      nodesContainer.innerHTML = `
-        <div class="p-5 bg-gray-950 border border-gray-800 rounded-2xl space-y-3 font-mono text-xs shadow-xl">
-          <div class="flex items-center justify-between flex-wrap gap-2">
-            <span class="text-cyan-400 font-bold flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-              Raw URI Stream (${filtered.length} matching nodes)
-            </span>
-            <div class="flex gap-2">
-              <button id="btn-copy-feed-box" class="px-4 py-2.5 min-h-[44px] bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold rounded-xl focus-ring cursor-pointer shadow-md shadow-cyan-500/20 transition-all">Copy Plain URIs</button>
-              <button id="btn-copy-feed-b64" class="px-4 py-2.5 min-h-[44px] bg-gray-800 hover:bg-gray-700 text-cyan-300 rounded-xl focus-ring cursor-pointer transition-all">Copy Base64 Feed</button>
-            </div>
-          </div>
-          <textarea rows="14" readonly aria-label="Raw URI stream" class="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-xl text-xs font-mono text-cyan-200 select-all focus:outline-none">${escapeHTML(feedURIs)}</textarea>
-        </div>
-      `;
-
-      document.getElementById("btn-copy-feed-box")?.addEventListener("click", () => {
-        this.copyText(feedURIs, `${filtered.length} plain URIs copied to clipboard`);
-      });
-
-      document.getElementById("btn-copy-feed-b64")?.addEventListener("click", () => {
-        const b64 = buildBase64Sub(filtered.map(p => p.raw));
-        this.copyText(b64, "Base64 subscription feed copied to clipboard");
-      });
-    }
-
-    nodesContainer.querySelectorAll(".btn-copy-node").forEach(btn => {
+  // Bind the per-node action buttons for the rendered window and for every
+  // progressive append, so a node that scrolls in is never inert.
+  bindNodeActions(scope) {
+    scope.querySelectorAll(".btn-copy-node").forEach(btn => {
       btn.addEventListener("click", (e) => {
         const raw = decodeURIComponent(e.currentTarget.dataset.raw);
         this.copyText(raw, "Node URI copied to clipboard", e.currentTarget);
       });
     });
 
-    nodesContainer.querySelectorAll(".btn-toggle-mask").forEach(btn => {
+    scope.querySelectorAll(".btn-toggle-mask").forEach(btn => {
       btn.addEventListener("click", (e) => {
         const nodeId = e.currentTarget.dataset.nodeId;
         if (this.unmaskedNodes.has(nodeId)) {
@@ -2308,11 +2346,11 @@ export class AppState {
         } else {
           this.unmaskedNodes.add(nodeId);
         }
-        this.renderNodes();
+        this.renderNodes(undefined, { keepLimit: true });
       });
     });
 
-    nodesContainer.querySelectorAll(".btn-toggle-inline-qr").forEach(btn => {
+    scope.querySelectorAll(".btn-toggle-inline-qr").forEach(btn => {
       btn.addEventListener("click", (e) => {
         const nodeId = e.currentTarget.dataset.nodeId;
         if (this.activeQRNodes.has(nodeId)) {
@@ -2320,11 +2358,11 @@ export class AppState {
         } else {
           this.activeQRNodes.add(nodeId);
         }
-        this.renderNodes();
+        this.renderNodes(undefined, { keepLimit: true });
       });
     });
 
-    nodesContainer.querySelectorAll(".btn-open-qr-modal").forEach(btn => {
+    scope.querySelectorAll(".btn-open-qr-modal").forEach(btn => {
       btn.addEventListener("click", (e) => {
         const raw = decodeURIComponent(e.currentTarget.dataset.raw);
         const name = e.currentTarget.dataset.name || "Proxy Node";
@@ -2332,7 +2370,7 @@ export class AppState {
       });
     });
 
-    nodesContainer.querySelectorAll(".btn-inspect-node").forEach(btn => {
+    scope.querySelectorAll(".btn-inspect-node").forEach(btn => {
       btn.addEventListener("click", (e) => {
         this.lastFocusedElement = e.currentTarget;
         const raw = decodeURIComponent(e.currentTarget.dataset.raw);
@@ -2347,7 +2385,7 @@ export class AppState {
       });
     });
 
-    nodesContainer.querySelectorAll(".btn-export-snippet").forEach(btn => {
+    scope.querySelectorAll(".btn-export-snippet").forEach(btn => {
       btn.addEventListener("click", (e) => {
         const raw = decodeURIComponent(e.currentTarget.dataset.raw);
         try {
@@ -2359,6 +2397,78 @@ export class AppState {
         }
       });
     });
+  }
+
+  // The slice of the filtered list that is currently allowed to render.
+  visibleNodes(filtered) {
+    return filtered.slice(0, this.nodeRenderLimit);
+  }
+
+  // Marker at the end of the rendered window; empty when every node is
+  // already on screen.
+  nodesSentinelHTML(remaining) {
+    if (remaining <= 0) return "";
+    return `<div id="nodes-grid-sentinel" class="col-span-full py-3 text-center text-xs font-mono text-gray-400" aria-hidden="true">Scroll for ${remaining} more nodes</div>`;
+  }
+
+  observeNodesSentinel(filtered) {
+    this.disconnectNodesObserver();
+    if (this.nodeRenderLimit >= filtered.length) return;
+    const sentinel = document.getElementById("nodes-grid-sentinel");
+    if (!sentinel || typeof IntersectionObserver === "undefined") return;
+    this.nodesObserver = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          this.appendNextNodeWindow(filtered);
+        }
+      },
+      { rootMargin: "400px" }
+    );
+    this.nodesObserver.observe(sentinel);
+  }
+
+  disconnectNodesObserver() {
+    this.nodesObserver?.disconnect?.();
+    this.nodesObserver = null;
+  }
+
+  // Append the next window without re-parsing the nodes already on screen:
+  // the HTML is built in a scratch element and bound there, then the nodes
+  // are moved into place so the grid keeps card children and the table
+  // keeps row children.
+  appendNextNodeWindow(filtered) {
+    const nodesContainer = document.getElementById("nodes-grid");
+    if (!nodesContainer) return;
+    const start = Math.min(this.nodeRenderLimit, filtered.length);
+    const end = Math.min(start + NODES_INCREMENT, filtered.length);
+    if (start >= end) {
+      this.disconnectNodesObserver();
+      document.getElementById("nodes-grid-sentinel")?.remove();
+      return;
+    }
+    this.nodeRenderLimit = end;
+    // A <tbody> holder parses <tr> children; a <div> context would drop them.
+    const holder = document.createElement(this.viewMode === "table" ? "tbody" : "div");
+    if (this.viewMode === "table") {
+      holder.innerHTML = filtered.slice(start, end)
+        .map((node) => this.nodeRowHTML(node)).join("");
+      this.bindNodeActions(holder);
+      document.getElementById("nodes-table-body")?.append(...holder.childNodes);
+    } else if (this.viewMode === "grid") {
+      holder.innerHTML = filtered.slice(start, end)
+        .map((node) => this.nodeCardHTML(node)).join("");
+      this.bindNodeActions(holder);
+      const sentinel = document.getElementById("nodes-grid-sentinel");
+      if (sentinel) sentinel.before(...holder.childNodes);
+      else nodesContainer.append(...holder.childNodes);
+    } else {
+      // The feed view has no per-node DOM to reveal.
+      return;
+    }
+    if (this.nodeRenderLimit >= filtered.length) {
+      this.disconnectNodesObserver();
+      document.getElementById("nodes-grid-sentinel")?.remove();
+    }
   }
 
   renderArtifacts() {

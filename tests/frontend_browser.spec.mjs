@@ -299,3 +299,42 @@ test("dashboard keeps WCAG 2.2 AA contrast and control semantics on every tab", 
   const serious = findings.filter((f) => f.level === "serious");
   expect(serious).toEqual([]);
 });
+
+test("node grid reveals progressively and keeps appended cards interactive", async ({ page }) => {
+  // One card per node is the heaviest render on the dashboard, so only the
+  // first window is painted and the rest stream in as the sentinel scrolls
+  // into view. Counts, exports and the raw-URI feed still see the whole list.
+  // The bundled 735-node snapshot exercises the reveal; a live release small
+  // enough to fit one window has nothing to stream and skips it.
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await isolateLocalPage(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  // No decoded artifact on the live catalog -> the bundled snapshot is used.
+  await page.route("**/catalog.json", (route) => route.fulfill({ json: { files: [] } }));
+  await page.goto("/#proxies");
+  await expect(page.locator("#data-status-pill")).toContainText("Bundled snapshot");
+
+  const cards = page.locator("#nodes-grid .proxy-card");
+  await expect(cards.first()).toBeVisible();
+
+  const initial = await cards.count();
+  expect(initial).toBe(60);                       // NODES_INITIAL
+
+  const sentinel = page.locator("#nodes-grid-sentinel");
+  await expect(sentinel).toBeVisible();
+  const sentinelText = (await sentinel.textContent()) ?? "";
+  const remaining = Number(sentinelText.match(/\d+/)?.[0] ?? 0);
+  expect(remaining).toBeGreaterThan(0);           // more nodes wait off-screen
+
+  // Scrolling the marker into view appends the next window without dropping
+  // the cards already on screen.
+  await sentinel.scrollIntoViewIfNeeded();
+  await expect(cards).toHaveCount(initial + 60);  // NODES_INCREMENT
+
+  // A card that scrolled in is bound, not inert: its copy action answers.
+  await cards.nth(initial + 5).locator(".btn-copy-node").click();
+  await expect(page.locator(".toast-pill").first()).toBeVisible();
+
+  expect(errors).toEqual([]);
+});

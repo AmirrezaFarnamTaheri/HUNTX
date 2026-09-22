@@ -257,8 +257,10 @@ export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null, op
   }
 
   function render(time = 0) {
-    if (!isVisible) {
-      rafId = requestAnimationFrame(render);
+    // An off-screen or hidden tab must not keep scheduling frames: the
+    // label-collision and photon passes are the heaviest work on the page.
+    if (!isVisible || !isIntersecting) {
+      rafId = null;
       return;
     }
 
