@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "note": "Single source of truth for artifact classification. The Go site generator (internal/sitegen) embeds this file and the Python dashboard generator (scripts/generate_site_data.py) reads it, so both describe the same filename the same way. Rules are evaluated in order; the first match wins. Precedence is deliberate: all_sources.npvt.singbox.json is a Sing-box profile, not an NPVT feed.",
+  "sections": {
+    "release": {
+      "base_tags": ["release", "production"],
+      "default_description": "Verified artifact from the latest published run",
+      "rules": [
+        {
+          "match": {"kind": "contains", "value": "singbox"},
+          "type": "SINGBOX",
+          "tags": ["singbox", "routing-profile", "outbounds"],
+          "description": "Complete Sing-box 1.10+ client configuration (profile import, not a subscription)"
+        },
+        {
+          "match": {"kind": "contains_any", "value": ["v2ray", "xray"]},
+          "type": "XRAY",
+          "tags": ["xray", "v2ray", "core-config"],
+          "description": "Complete Xray-core 1.8+ / V2Ray client configuration (profile import, not a subscription)"
+        },
+        {
+          "match": {"kind": "equals", "value": "manifest.json"},
+          "type": "MANIFEST",
+          "tags": ["manifest", "checksums", "release-gate"],
+          "description": "Release manifest: per-artifact size and SHA-256 checksum index"
+        },
+        {
+          "match": {"kind": "equals", "value": ".huntx-output-ownership.json"},
+          "type": "OWNERSHIP",
+          "tags": ["ownership", "provenance", "release-gate"],
+          "description": "Per-file ownership map tying each release artifact to its pipeline route"
+        },
+        {
+          "match": {"kind": "contains", "value": "ovpn"},
+          "type": "OVPN",
+          "tags": ["openvpn", "vpn", "gateway"],
+          "description": "Standard OpenVPN multi-gateway client profile with TLS auth"
+        },
+        {
+          "match": {"kind": "endswith", "value": "decoded.json"},
+          "type": "JSON",
+          "tags": ["decoded", "parameters", "metadata"],
+          "description": "Parsed and structured proxy connection parameters JSON dataset"
+        },
+        {
+          "match": {"kind": "contains", "value": "b64sub"},
+          "type": "B64SUB",
+          "tags": ["subscription", "base64", "unified-feed"],
+          "description": "Base64-encoded subscription feed for Shadowrocket, v2rayNG, and Streisand"
+        },
+        {
+          "match": {"kind": "contains", "value": "nekobox"},
+          "type": "NEKOBOX",
+          "tags": ["subscription", "json-nodes"],
+          "description": "NekoBox-compatible JSON node feed (top-level array of sing-box outbounds)"
+        },
+        {
+          "match": {"kind": "endswith", "value": "raw.txt"},
+          "type": "TXT",
+          "tags": ["raw-uris", "plain-text"],
+          "description": "Exact raw proxy URI copy of the production feed"
+        },
+        {
+          "match": {"kind": "contains", "value": "npvt"},
+          "type": "NPVT",
+          "tags": ["subscription", "uri-feed"],
+          "description": "Plain-text proxy URI subscription feed (NapsternetV compatible)"
+        },
+        {
+          "match": {"kind": "contains", "value": "opaque_bundle"},
+          "type": "BUNDLE",
+          "tags": ["bundle", "opaque", "encrypted"],
+          "description": "ZIP archive of opaque encrypted client config blobs"
+        },
+        {
+          "match": {"kind": "endswith", "value": ".conf_lines"},
+          "type": "CONF_LINES",
+          "tags": ["proxy-lines", "deduped"],
+          "description": "Deduplicated proxy configuration line list for line-based clients"
+        },
+        {
+          "match": {"kind": "endswith", "value": ".dark"},
+          "type": "DARK",
+          "tags": ["opaque", "encrypted", "dark-tunnel"],
+          "description": "Dark Tunnel VPN encrypted client config (opaque binary bundle)"
+        },
+        {
+          "match": {"kind": "endswith", "value": ".ehi"},
+          "type": "EHI",
+          "tags": ["opaque", "encrypted"],
+          "description": "Encrypted client config blob shipped as an opaque binary bundle"
+        },
+        {
+          "match": {"kind": "endswith", "value": ".hc"},
+          "type": "HC",
+          "tags": ["opaque", "encrypted"],
+          "description": "Encrypted client config blob shipped as an opaque binary bundle"
+        },
+        {
+          "match": {"kind": "endswith", "value": ".sip"},
+          "type": "SIP",
+          "tags": ["opaque", "encrypted"],
+          "description": "Encrypted client config blob shipped as an opaque binary bundle"
+        },
+        {
+          "match": {"kind": "endswith", "value": ".nm"},
+          "type": "NM",
+          "tags": ["opaque", "encrypted", "netmod"],
+          "description": "NetMod encrypted client config with optional decryption enrichment"
+        },
+        {
+          "match": {"kind": "endswith", "value": ".npv4"},
+          "type": "NPV4",
+          "tags": ["opaque", "encrypted", "napsternetv"],
+          "description": "NapsternetV v4 encrypted blob with optional decryption metadata"
+        },
+        {
+          "match": {"kind": "endswith", "value": ".hat"},
+          "type": "HAT",
+          "tags": ["opaque", "encrypted", "ha-tunnel"],
+          "description": "HA Tunnel Plus encrypted blob with optional decryption metadata"
+        },
+        {
+          "match": {"kind": "endswith_any", "value": [".tut", ".sks", ".tmt"]},
+          "type": "from_extension",
+          "tags": ["opaque", "encrypted"],
+          "description": "Encrypted client config blob with optional deep-decryption metadata"
+        },
+        {
+          "match": {"kind": "endswith", "value": ".md"},
+          "type": "MD",
+          "tags": ["documentation"],
+          "description": "Production release documentation and checksum index"
+        }
+      ]
+    },
+    "dev": {
+      "base_tags": ["dev", "cumulative"],
+      "default_description": "Development and cumulative output artifact",
+      "rules": [
+        {
+          "match": {"kind": "starts_with", "value": "proxies_chunk_"},
+          "type": "CHUNK",
+          "tags": ["chunk", "split-feed", "lightweight"],
+          "description": "Lightweight split feed chunk ({filename}) for bandwidth-constrained clients"
+        },
+        {
+          "match": {"kind": "contains", "value": "b64sub"},
+          "type": "B64SUB",
+          "tags": ["subscription", "base64", "all-time"],
+          "description": "All-time cumulative Base64 subscription feed across 49+ sources"
+        },
+        {
+          "match": {"kind": "equals", "value": "proxies.json"},
+          "type": "JSON",
+          "tags": ["aggregated", "all-time", "full-json"],
+          "description": "Complete all-time cumulative proxy dataset with first-seen timestamps"
+        },
+        {
+          "match": {"kind": "equals", "value": "proxies.txt"},
+          "type": "TXT",
+          "tags": ["raw-uris", "deduped", "all-time"],
+          "description": "All-time cumulative raw proxy URI list (SHA-256 deduplicated)"
+        },
+        {
+          "match": {"kind": "equals", "value": "_manifest.json"},
+          "type": "MANIFEST",
+          "tags": ["manifest", "telemetry", "state"],
+          "description": "Durable cumulative first-seen timestamp manifest index"
+        },
+        {
+          "match": {"kind": "endswith", "value": ".md"},
+          "type": "MD",
+          "tags": ["documentation"],
+          "description": "Development and cumulative output documentation"
+        }
+      ]
+    }
+  }
+}

@@ -1,6 +1,7 @@
 package sitegen
 
 import (
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +13,80 @@ import (
 	"github.com/AmirrezaFarnamTaheri/HUNTX/internal/releasemanifest"
 	"github.com/AmirrezaFarnamTaheri/HUNTX/internal/runtimegen"
 )
+
+// artifactFormatsTable is the single source of truth for artifact
+// classification. scripts/generate_site_data.py reads the same file, so the
+// catalog this tool writes and the fallback the Python generator writes
+// describe one filename identically.
+//
+//go:embed artifact_formats.json
+var artifactFormatsTable []byte
+
+type artifactFormatRule struct {
+	Match       map[string]any `json:"match"`
+	Type        string         `json:"type"`
+	Tags        []string       `json:"tags"`
+	Description string         `json:"description"`
+}
+
+type artifactFormatSection struct {
+	BaseTags           []string             `json:"base_tags"`
+	DefaultDescription string               `json:"default_description"`
+	Rules              []artifactFormatRule `json:"rules"`
+}
+
+type artifactFormats struct {
+	Sections map[string]artifactFormatSection `json:"sections"`
+}
+
+var sharedArtifactFormats = mustLoadArtifactFormats()
+
+func mustLoadArtifactFormats() artifactFormats {
+	var table artifactFormats
+	if err := json.Unmarshal(artifactFormatsTable, &table); err != nil {
+		panic(fmt.Sprintf("sitegen: invalid embedded artifact_formats.json: %v", err))
+	}
+	return table
+}
+
+func ruleMatches(name string, rule artifactFormatRule) bool {
+	match := rule.Match
+	if match == nil {
+		return false
+	}
+	kind, _ := match["kind"].(string)
+	switch kind {
+	case "contains":
+		value, _ := match["value"].(string)
+		return value != "" && strings.Contains(name, value)
+	case "contains_any":
+		values, _ := match["value"].([]any)
+		for _, raw := range values {
+			if value, _ := raw.(string); value != "" && strings.Contains(name, value) {
+				return true
+			}
+		}
+		return false
+	case "endswith":
+		value, _ := match["value"].(string)
+		return value != "" && strings.HasSuffix(name, value)
+	case "endswith_any":
+		values, _ := match["value"].([]any)
+		for _, raw := range values {
+			if value, _ := raw.(string); value != "" && strings.HasSuffix(name, value) {
+				return true
+			}
+		}
+		return false
+	case "starts_with":
+		value, _ := match["value"].(string)
+		return value != "" && strings.HasPrefix(name, value)
+	case "equals":
+		value, _ := match["value"].(string)
+		return name == value
+	}
+	return false
+}
 
 type Entry struct {
 	Filename    string   `json:"filename"`
@@ -88,6 +163,7 @@ func Generate(dataDir, docsDir string, generatedAt time.Time) (Catalog, error) {
 		if intentionalEmpty {
 			continue
 		}
+		tags, description, kind := artifactMeta(record.Path)
 		entries = append(entries, Entry{
 			Filename:    filepath.Base(record.Path),
 			Path:        filepath.ToSlash(filepath.Join("artifacts", "release", record.Path)),
@@ -95,11 +171,11 @@ func Generate(dataDir, docsDir string, generatedAt time.Time) (Catalog, error) {
 			SizeString:  formatSize(record.Size),
 			MediaType:   record.MediaType,
 			SHA256:      record.SHA256,
-			Tags:        []string{"release", "verified"},
+			Tags:        tags,
 			Section:     "release",
-			Type:        artifactType(record.Path),
-			Ext:         artifactType(record.Path),
-			Description: "Verified artifact from the latest published run",
+			Type:        kind,
+			Ext:         kind,
+			Description: description,
 		})
 		total += record.Size
 	}
@@ -232,19 +308,42 @@ func formatSize(size int64) string {
 	return fmt.Sprintf("%.1f MB", float64(size)/(1024*1024))
 }
 
-func artifactType(path string) string {
-	filename := strings.ToLower(filepath.Base(path))
-	switch {
-	case strings.HasSuffix(filename, ".singbox.json"):
-		return "SINGBOX"
-	case strings.HasSuffix(filename, ".b64sub"):
-		return "B64SUB"
-	case strings.HasSuffix(filename, ".ovpn"):
-		return "OVPN"
-	case strings.HasSuffix(filename, ".json"):
-		return "JSON"
-	case strings.HasSuffix(filename, ".txt"):
-		return "TXT"
+// artifactMeta classifies a published release artifact from the embedded
+// shared table, which is the same file scripts/generate_site_data.py reads.
+// Rules are evaluated in file order and the first match wins, so precedence
+// is data rather than code: "all_sources.npvt.singbox.json" is a Sing-box
+// profile, not an NPVT feed.
+func artifactMeta(path string) (tags []string, description, kind string) {
+	name := strings.ToLower(filepath.Base(path))
+	kind = strings.TrimPrefix(strings.ToUpper(filepath.Ext(name)), ".")
+	if kind == "" {
+		kind = "FILE"
 	}
-	return strings.TrimPrefix(strings.ToUpper(filepath.Ext(filename)), ".")
+	section, ok := sharedArtifactFormats.Sections["release"]
+	if !ok {
+		// Unreachable when the table is embedded; the fallback keeps the base
+		// tags the table defines so a missing section cannot re-divide them.
+		return []string{"release", "production"}, "Verified artifact from the latest published run", kind
+	}
+	tags = append(tags, section.BaseTags...)
+	if len(tags) == 0 {
+		tags = []string{"release"}
+	}
+	description = section.DefaultDescription
+	for _, rule := range section.Rules {
+		if !ruleMatches(name, rule) {
+			continue
+		}
+		if rule.Type == "" || rule.Type == "from_extension" {
+			kind = strings.TrimPrefix(strings.ToUpper(filepath.Ext(name)), ".")
+		} else {
+			kind = rule.Type
+		}
+		tags = append(tags, rule.Tags...)
+		if rule.Description != "" {
+			description = strings.ReplaceAll(rule.Description, "{filename}", filepath.Base(path))
+		}
+		break
+	}
+	return tags, description, kind
 }
