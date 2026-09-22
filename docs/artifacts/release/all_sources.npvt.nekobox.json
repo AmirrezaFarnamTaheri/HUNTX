@@ -1,166 +1,164 @@
-{
-  "outbounds": [
-    {
-      "type": "vless",
-      "tag": "vless-1",
-      "server": "t1.legendbusiness.cloud",
-      "server_port": 8080,
-      "uuid": "5e47576c-4289-4667-8fc9-9b557d634663",
-      "packet_encoding": "xudp"
-    },
-    {
-      "type": "vless",
-      "tag": "vless-2",
-      "server": "de-1.starsping.com",
-      "server_port": 443,
-      "uuid": "1577b744-8004-4eef-862c-8cae0cd27ab9",
-      "packet_encoding": "xudp",
-      "tls": {
+[
+  {
+    "type": "vless",
+    "tag": "vless-1",
+    "server": "t1.legendbusiness.cloud",
+    "server_port": 8080,
+    "uuid": "5e47576c-4289-4667-8fc9-9b557d634663",
+    "packet_encoding": "xudp"
+  },
+  {
+    "type": "vless",
+    "tag": "vless-2",
+    "server": "de-1.starsping.com",
+    "server_port": 443,
+    "uuid": "1577b744-8004-4eef-862c-8cae0cd27ab9",
+    "packet_encoding": "xudp",
+    "tls": {
+      "enabled": true,
+      "server_name": "play.google.com",
+      "utls": {
         "enabled": true,
-        "server_name": "play.google.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "edge"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "ZBv1jOEHziWtQQoThg63_1gm4zIPyk_cfVmNJ1SOZSk",
-          "short_id": "a88550765b9956ee"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-3",
-      "server": "192.248.182.183",
-      "server_port": 39244,
-      "uuid": "5fc7563b-552d-417f-9409-08ef92284599",
-      "packet_encoding": "xudp"
-    },
-    {
-      "type": "vless",
-      "tag": "vless-4",
-      "server": "199.232.78.159",
-      "server_port": 443,
-      "uuid": "dd7be730-3170-4865-bb22-b587bdb5ceca",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "ssl.fastly.com"
+        "fingerprint": "edge"
       },
-      "transport": {
-        "type": "ws",
-        "path": "/TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER?ed=2053",
-        "headers": {
-          "Host": "pan1.global.ssl.fastly.net"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-5",
-      "server": "104.21.60.109",
-      "server_port": 443,
-      "uuid": "44eae030-290b-4083-8102-6f8bab05701b",
-      "packet_encoding": "xudp",
-      "tls": {
+      "reality": {
         "enabled": true,
-        "server_name": "cfvvv-ev1.pages.dev"
-      },
-      "transport": {
-        "type": "ws",
-        "path": "/",
-        "headers": {
-          "Host": "cfvvv-ev1.pages.dev"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-6",
-      "server": "sjzishh-production.up.railway.app",
-      "server_port": 443,
-      "uuid": "859d59b8-b432-4a44-bf82-81ac12b24b75",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "sjzishh-production.up.railway.app",
-        "alpn": [
-          "h3"
-        ],
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        }
-      },
-      "transport": {
-        "type": "ws",
-        "path": "/ws/vless/859d59b8-b432-4a44-bf82-81ac12b24b75?ed=2048",
-        "headers": {
-          "Host": "sjzishh-production.up.railway.app"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-7",
-      "server": "t4.php.rest",
-      "server_port": 53573,
-      "uuid": "60cc6133-190f-4584-a780-f0804327df70",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "pish-data-32.myket.ir"
-      },
-      "transport": {
-        "type": "ws",
-        "path": "/api"
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-8",
-      "server": "vodiwalkerpanel-production-4e61.up.railway.app",
-      "server_port": 443,
-      "uuid": "a1f54607-985f-21c1-5ca2-85a4b164927f",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "vodiwalkerpanel-production-4e61.up.railway.app",
-        "alpn": [
-          "http/1.1"
-        ],
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        }
-      },
-      "transport": {
-        "type": "ws",
-        "path": "/ws/a1f54607-985f-21c1-5ca2-85a4b164927f",
-        "headers": {
-          "Host": "vodiwalkerpanel-production-4e61.up.railway.app"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "vless-9",
-      "server": "104.21.63.28",
-      "server_port": 443,
-      "uuid": "44eae030-290b-4083-8102-6f8bab05701b",
-      "packet_encoding": "xudp",
-      "tls": {
-        "enabled": true,
-        "server_name": "cfvvv-ev1.pages.dev"
-      },
-      "transport": {
-        "type": "ws",
-        "path": "/?TELEGRAM--MARAMBASHI--MARAMBASHI?ed=512",
-        "headers": {
-          "Host": "cfvvv-ev1.pages.dev"
-        }
+        "public_key": "ZBv1jOEHziWtQQoThg63_1gm4zIPyk_cfVmNJ1SOZSk",
+        "short_id": "a88550765b9956ee"
       }
     }
-  ]
-}
+  },
+  {
+    "type": "vless",
+    "tag": "vless-3",
+    "server": "192.248.182.183",
+    "server_port": 39244,
+    "uuid": "5fc7563b-552d-417f-9409-08ef92284599",
+    "packet_encoding": "xudp"
+  },
+  {
+    "type": "vless",
+    "tag": "vless-4",
+    "server": "199.232.78.159",
+    "server_port": 443,
+    "uuid": "dd7be730-3170-4865-bb22-b587bdb5ceca",
+    "packet_encoding": "xudp",
+    "tls": {
+      "enabled": true,
+      "server_name": "ssl.fastly.com"
+    },
+    "transport": {
+      "type": "ws",
+      "path": "/TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER,TELEGRAM_NUFiLTER?ed=2053",
+      "headers": {
+        "Host": "pan1.global.ssl.fastly.net"
+      }
+    }
+  },
+  {
+    "type": "vless",
+    "tag": "vless-5",
+    "server": "104.21.60.109",
+    "server_port": 443,
+    "uuid": "44eae030-290b-4083-8102-6f8bab05701b",
+    "packet_encoding": "xudp",
+    "tls": {
+      "enabled": true,
+      "server_name": "cfvvv-ev1.pages.dev"
+    },
+    "transport": {
+      "type": "ws",
+      "path": "/",
+      "headers": {
+        "Host": "cfvvv-ev1.pages.dev"
+      }
+    }
+  },
+  {
+    "type": "vless",
+    "tag": "vless-6",
+    "server": "sjzishh-production.up.railway.app",
+    "server_port": 443,
+    "uuid": "859d59b8-b432-4a44-bf82-81ac12b24b75",
+    "packet_encoding": "xudp",
+    "tls": {
+      "enabled": true,
+      "server_name": "sjzishh-production.up.railway.app",
+      "alpn": [
+        "h3"
+      ],
+      "utls": {
+        "enabled": true,
+        "fingerprint": "chrome"
+      }
+    },
+    "transport": {
+      "type": "ws",
+      "path": "/ws/vless/859d59b8-b432-4a44-bf82-81ac12b24b75?ed=2048",
+      "headers": {
+        "Host": "sjzishh-production.up.railway.app"
+      }
+    }
+  },
+  {
+    "type": "vless",
+    "tag": "vless-7",
+    "server": "t4.php.rest",
+    "server_port": 53573,
+    "uuid": "60cc6133-190f-4584-a780-f0804327df70",
+    "packet_encoding": "xudp",
+    "tls": {
+      "enabled": true,
+      "server_name": "pish-data-32.myket.ir"
+    },
+    "transport": {
+      "type": "ws",
+      "path": "/api"
+    }
+  },
+  {
+    "type": "vless",
+    "tag": "vless-8",
+    "server": "vodiwalkerpanel-production-4e61.up.railway.app",
+    "server_port": 443,
+    "uuid": "a1f54607-985f-21c1-5ca2-85a4b164927f",
+    "packet_encoding": "xudp",
+    "tls": {
+      "enabled": true,
+      "server_name": "vodiwalkerpanel-production-4e61.up.railway.app",
+      "alpn": [
+        "http/1.1"
+      ],
+      "utls": {
+        "enabled": true,
+        "fingerprint": "chrome"
+      }
+    },
+    "transport": {
+      "type": "ws",
+      "path": "/ws/a1f54607-985f-21c1-5ca2-85a4b164927f",
+      "headers": {
+        "Host": "vodiwalkerpanel-production-4e61.up.railway.app"
+      }
+    }
+  },
+  {
+    "type": "vless",
+    "tag": "vless-9",
+    "server": "104.21.63.28",
+    "server_port": 443,
+    "uuid": "44eae030-290b-4083-8102-6f8bab05701b",
+    "packet_encoding": "xudp",
+    "tls": {
+      "enabled": true,
+      "server_name": "cfvvv-ev1.pages.dev"
+    },
+    "transport": {
+      "type": "ws",
+      "path": "/?TELEGRAM--MARAMBASHI--MARAMBASHI?ed=512",
+      "headers": {
+        "Host": "cfvvv-ev1.pages.dev"
+      }
+    }
+  }
+]

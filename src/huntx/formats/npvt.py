@@ -104,7 +104,15 @@ def format_enriched_remark(uri: str, counter: dict, metadata: dict | None = None
         flag = _country_to_flag(country)
         op = metadata.get('operator') or _detect_operator(uri)
         op_tag = f"-{op}" if op else ""
+        # Protocol tag carries the transport and security actually in use so
+        # a user picking a node from a long list can tell a plain TCP VLESS
+        # from a REALITY-over-gRPC one at a glance.
         proto_tag = scheme.upper()
+        transport = metadata.get('transport') or metadata.get('network') or ''
+        security = metadata.get('security') or ''
+        for detail in (transport, security):
+            if isinstance(detail, str) and detail.strip().lower() not in ('', 'none', 'auto', 'unknown'):
+                proto_tag += '-' + detail.strip().upper()
 
         parts = [f"{flag} {country}{op_tag}", proto_tag]
 
@@ -116,8 +124,13 @@ def format_enriched_remark(uri: str, counter: dict, metadata: dict | None = None
             and math.isfinite(latency)
         ):
             parts.append(f"⚡{latency}ms")
+        # A measured probe result outranks a caller-declared grade: an
+        # unreachable node advertises its failure instead of a score.
         grade = metadata.get('health_grade')
-        if isinstance(grade, str) and grade.strip() not in ('', '-'):
+        probe_failed = metadata.get('probe_ok') is False
+        if probe_failed:
+            parts.append("⭐F")
+        elif isinstance(grade, str) and grade.strip() not in ('', '-'):
             parts.append(f"⭐{grade.strip()}")
         parts.append(f"#{idx:03d}")
         tag = " | ".join(parts)

@@ -1,25 +1,52 @@
 {
   "files": [
     {
-      "description": "Verified artifact from the latest published run",
+      "description": "Per-file ownership map tying each release artifact to its pipeline route",
+      "ext": "OWNERSHIP",
+      "filename": ".huntx-output-ownership.json",
+      "hash": "3472f10a",
+      "last_modified": "2026-09-18T12:56:48.125892+00:00",
+      "media_type": "application/json",
+      "path": "artifacts/release/.huntx-output-ownership.json",
+      "section": "release",
+      "sha256": "3472f10a40a54307d194494054dd6bc021ce6e54510f95cab30098e7f7db077f",
+      "size": 1546,
+      "size_str": "1.5 KB",
+      "tags": [
+        "release",
+        "production",
+        "ownership",
+        "provenance",
+        "release-gate"
+      ],
+      "type": "OWNERSHIP"
+    },
+    {
+      "description": "Deduplicated proxy configuration line list for line-based clients",
       "ext": "CONF_LINES",
       "filename": "all_sources.conf_lines",
+      "hash": "558b377b",
+      "last_modified": "2026-09-18T12:56:48.126893+00:00",
       "media_type": "application/octet-stream",
       "path": "artifacts/release/all_sources.conf_lines",
       "section": "release",
-      "sha256": "6201e601f9358526dd4f84ad254803996a20ded8bb9aa83f698df04be90c73bd",
-      "size": 1620,
+      "sha256": "558b377b25c6573f0f6bc60748ea68383ab1ad08755b9b06cc7d64d5e64a2b0e",
+      "size": 1641,
       "size_str": "1.6 KB",
       "tags": [
         "release",
-        "verified"
+        "production",
+        "proxy-lines",
+        "deduped"
       ],
       "type": "CONF_LINES"
     },
     {
-      "description": "Verified artifact from the latest published run",
+      "description": "Dark Tunnel VPN encrypted client config (opaque binary bundle)",
       "ext": "DARK",
       "filename": "all_sources.dark",
+      "hash": "5606dcd2",
+      "last_modified": "2026-09-18T12:56:48.127246+00:00",
       "media_type": "application/octet-stream",
       "path": "artifacts/release/all_sources.dark",
       "section": "release",
@@ -28,14 +55,19 @@
       "size_str": "5.7 KB",
       "tags": [
         "release",
-        "verified"
+        "production",
+        "opaque",
+        "encrypted",
+        "dark-tunnel"
       ],
       "type": "DARK"
     },
     {
-      "description": "Verified artifact from the latest published run",
+      "description": "Encrypted client config blob shipped as an opaque binary bundle",
       "ext": "EHI",
       "filename": "all_sources.ehi",
+      "hash": "dd3b81e6",
+      "last_modified": "2026-09-18T12:56:48.128756+00:00",
       "media_type": "application/octet-stream",
       "path": "artifacts/release/all_sources.ehi",
       "section": "release",
@@ -44,14 +76,18 @@
       "size_str": "289.0 KB",
       "tags": [
         "release",
-        "verified"
+        "production",
+        "opaque",
+        "encrypted"
       ],
       "type": "EHI"
     },
     {
-      "description": "Verified artifact from the latest published run",
+      "description": "Encrypted client config blob shipped as an opaque binary bundle",
       "ext": "HC",
       "filename": "all_sources.hc",
+      "hash": "feec601c",
+      "last_modified": "2026-09-18T12:56:48.129800+00:00",
       "media_type": "application/octet-stream",
       "path": "artifacts/release/all_sources.hc",
       "section": "release",
@@ -60,14 +96,18 @@
       "size_str": "112.1 KB",
       "tags": [
         "release",
-        "verified"
+        "production",
+        "opaque",
+        "encrypted"
       ],
       "type": "HC"
     },
     {
-      "description": "Verified artifact from the latest published run",
+      "description": "NetMod encrypted client config with optional decryption enrichment",
       "ext": "NM",
       "filename": "all_sources.nm",
+      "hash": "1e56747a",
+      "last_modified": "2026-09-18T12:56:48.130778+00:00",
       "media_type": "application/octet-stream",
       "path": "artifacts/release/all_sources.nm",
       "section": "release",
@@ -76,31 +116,40 @@
       "size_str": "43.3 KB",
       "tags": [
         "release",
-        "verified"
+        "production",
+        "opaque",
+        "encrypted",
+        "netmod"
       ],
       "type": "NM"
     },
     {
-      "description": "Verified artifact from the latest published run",
+      "description": "Plain-text proxy URI subscription feed (NapsternetV compatible)",
       "ext": "NPVT",
       "filename": "all_sources.npvt",
-      "media_type": "application/octet-stream",
+      "hash": "bc45ca1a",
+      "last_modified": "2026-09-18T12:56:48.130778+00:00",
+      "media_type": "application/x-npvt-subscription",
       "path": "artifacts/release/all_sources.npvt",
       "section": "release",
-      "sha256": "7257e87e26669f5ae6e5eb8ea122cea997f8d82517c6bd6233692fd98b85cf50",
-      "size": 3067,
+      "sha256": "bc45ca1a2161189a9d7fda8e18ab77d823adae8027ec0641810cd9211d816888",
+      "size": 3075,
       "size_str": "3.0 KB",
       "tags": [
         "release",
-        "verified"
+        "production",
+        "subscription",
+        "uri-feed"
       ],
       "type": "NPVT"
     },
     {
-      "description": "Verified artifact from the latest published run",
+      "description": "Base64-encoded subscription feed for Shadowrocket, v2rayNG, and Streisand",
       "ext": "B64SUB",
       "filename": "all_sources.npvt.b64sub",
-      "media_type": "application/octet-stream",
+      "hash": "28a1968d",
+      "last_modified": "2026-09-18T12:56:48.130778+00:00",
+      "media_type": "text/plain",
       "path": "artifacts/release/all_sources.npvt.b64sub",
       "section": "release",
       "sha256": "28a1968d08d13e448714b35ff858f0e86db30cc5ab46a4c92322836a0cbfdffb",
@@ -108,94 +157,122 @@
       "size_str": "4.0 KB",
       "tags": [
         "release",
-        "verified"
+        "production",
+        "subscription",
+        "base64",
+        "unified-feed"
       ],
       "type": "B64SUB"
     },
     {
-      "description": "Verified artifact from the latest published run",
+      "description": "Parsed and structured proxy connection parameters JSON dataset",
       "ext": "JSON",
       "filename": "all_sources.npvt.decoded.json",
+      "hash": "2e5c4271",
+      "last_modified": "2026-09-18T12:56:48.131762+00:00",
       "media_type": "application/json",
       "path": "artifacts/release/all_sources.npvt.decoded.json",
       "section": "release",
-      "sha256": "ea34c4c776b7f952b1e889d334c776682e152a1c71294751c2f3a9f788a0c4ae",
-      "size": 8378,
-      "size_str": "8.2 KB",
+      "sha256": "2e5c42713a2ed5bc4ef2ee7b7534f1a1106bcc58431c40584affe7eab5b2f4cc",
+      "size": 8556,
+      "size_str": "8.4 KB",
       "tags": [
         "release",
-        "verified"
+        "production",
+        "decoded",
+        "parameters",
+        "metadata"
       ],
       "type": "JSON"
     },
     {
-      "description": "Verified artifact from the latest published run",
-      "ext": "JSON",
+      "description": "NekoBox-compatible JSON node feed (top-level array of sing-box outbounds)",
+      "ext": "NEKOBOX",
       "filename": "all_sources.npvt.nekobox.json",
+      "hash": "b75c8772",
+      "last_modified": "2026-09-21T17:32:39.325320+00:00",
       "media_type": "application/json",
       "path": "artifacts/release/all_sources.npvt.nekobox.json",
       "section": "release",
-      "sha256": "bec6d678899d678ff3852c84d6bdb12d09f8bf4b0f5280264642aee5d9302b66",
-      "size": 4274,
-      "size_str": "4.2 KB",
+      "sha256": "b75c8772785cd1aaae4f4d3391efd5e1230eb20e3bedad548e86560eca44d094",
+      "size": 3930,
+      "size_str": "3.8 KB",
       "tags": [
         "release",
-        "verified"
+        "production",
+        "subscription",
+        "json-nodes"
       ],
-      "type": "JSON"
+      "type": "NEKOBOX"
     },
     {
-      "description": "Verified artifact from the latest published run",
+      "description": "Exact raw proxy URI copy of the production feed",
       "ext": "TXT",
       "filename": "all_sources.npvt.raw.txt",
+      "hash": "bc45ca1a",
+      "last_modified": "2026-09-18T12:56:48.131762+00:00",
       "media_type": "text/plain",
       "path": "artifacts/release/all_sources.npvt.raw.txt",
       "section": "release",
-      "sha256": "7257e87e26669f5ae6e5eb8ea122cea997f8d82517c6bd6233692fd98b85cf50",
-      "size": 3067,
+      "sha256": "bc45ca1a2161189a9d7fda8e18ab77d823adae8027ec0641810cd9211d816888",
+      "size": 3075,
       "size_str": "3.0 KB",
       "tags": [
         "release",
-        "verified"
+        "production",
+        "raw-uris",
+        "plain-text"
       ],
       "type": "TXT"
     },
     {
-      "description": "Verified artifact from the latest published run",
+      "description": "Complete Sing-box 1.10+ client configuration (profile import, not a subscription)",
       "ext": "SINGBOX",
       "filename": "all_sources.npvt.singbox.json",
+      "hash": "18f6546a",
+      "last_modified": "2026-09-18T12:56:48.132762+00:00",
       "media_type": "application/json",
       "path": "artifacts/release/all_sources.npvt.singbox.json",
       "section": "release",
-      "sha256": "c67214c07da113d17204c1cb76124b1b41d3d190d3059ff06ba9711ecd2f4fa9",
-      "size": 6054,
-      "size_str": "5.9 KB",
+      "sha256": "18f6546a837e97999fc7beeb627103ea83b3548163feb62706066435f01b8ec1",
+      "size": 6312,
+      "size_str": "6.2 KB",
       "tags": [
         "release",
-        "verified"
+        "production",
+        "singbox",
+        "routing-profile",
+        "outbounds"
       ],
       "type": "SINGBOX"
     },
     {
-      "description": "Verified artifact from the latest published run",
-      "ext": "JSON",
+      "description": "Complete Xray-core 1.8+ / V2Ray client configuration (profile import, not a subscription)",
+      "ext": "XRAY",
       "filename": "all_sources.npvt.xray.json",
+      "hash": "c47cc781",
+      "last_modified": "2026-09-18T12:56:48.132762+00:00",
       "media_type": "application/json",
       "path": "artifacts/release/all_sources.npvt.xray.json",
       "section": "release",
-      "sha256": "44190ab0033c7445c5f97a0d95e3504f3ca5935894b6f75a85c51415df6427c6",
-      "size": 3926,
-      "size_str": "3.8 KB",
+      "sha256": "c47cc781ea88e31e2417b557c4ae8471d82d773508e7a384e0525ec3ff4244fd",
+      "size": 4082,
+      "size_str": "4.0 KB",
       "tags": [
         "release",
-        "verified"
+        "production",
+        "xray",
+        "v2ray",
+        "core-config"
       ],
-      "type": "JSON"
+      "type": "XRAY"
     },
     {
-      "description": "Verified artifact from the latest published run",
-      "ext": "OPAQUE_BUNDLE",
+      "description": "ZIP archive of opaque encrypted client config blobs",
+      "ext": "BUNDLE",
       "filename": "all_sources.opaque_bundle",
+      "hash": "db45fe6f",
+      "last_modified": "2026-09-18T12:56:48.134755+00:00",
       "media_type": "application/octet-stream",
       "path": "artifacts/release/all_sources.opaque_bundle",
       "section": "release",
@@ -204,14 +281,19 @@
       "size_str": "234.9 KB",
       "tags": [
         "release",
-        "verified"
+        "production",
+        "bundle",
+        "opaque",
+        "encrypted"
       ],
-      "type": "OPAQUE_BUNDLE"
+      "type": "BUNDLE"
     },
     {
-      "description": "Verified artifact from the latest published run",
+      "description": "Standard OpenVPN multi-gateway client profile with TLS auth",
       "ext": "OVPN",
       "filename": "all_sources.ovpn",
+      "hash": "da9bebcd",
+      "last_modified": "2026-09-18T12:56:48.134755+00:00",
       "media_type": "application/x-openvpn-profile",
       "path": "artifacts/release/all_sources.ovpn",
       "section": "release",
@@ -220,14 +302,19 @@
       "size_str": "80.7 KB",
       "tags": [
         "release",
-        "verified"
+        "production",
+        "openvpn",
+        "vpn",
+        "gateway"
       ],
       "type": "OVPN"
     },
     {
-      "description": "Verified artifact from the latest published run",
+      "description": "Encrypted client config blob shipped as an opaque binary bundle",
       "ext": "SIP",
       "filename": "all_sources.sip",
+      "hash": "f4b1d08a",
+      "last_modified": "2026-09-18T12:56:48.135762+00:00",
       "media_type": "application/octet-stream",
       "path": "artifacts/release/all_sources.sip",
       "section": "release",
@@ -236,14 +323,18 @@
       "size_str": "48.4 KB",
       "tags": [
         "release",
-        "verified"
+        "production",
+        "opaque",
+        "encrypted"
       ],
       "type": "SIP"
     },
     {
-      "description": "Verified artifact from the latest published run",
-      "ext": "TXT",
+      "description": "Base64-encoded subscription feed for Shadowrocket, v2rayNG, and Streisand",
+      "ext": "B64SUB",
       "filename": "all_sources_npvt_b64sub.txt",
+      "hash": "b1d1086d",
+      "last_modified": "2026-09-18T12:56:48.135762+00:00",
       "media_type": "text/plain",
       "path": "artifacts/release/all_sources_npvt_b64sub.txt",
       "section": "release",
@@ -252,141 +343,494 @@
       "size_str": "71.2 KB",
       "tags": [
         "release",
-        "verified"
+        "production",
+        "subscription",
+        "base64",
+        "unified-feed"
       ],
-      "type": "TXT"
+      "type": "B64SUB"
     },
     {
-      "description": "Verified artifact from the latest published run",
+      "description": "Parsed and structured proxy connection parameters JSON dataset",
       "ext": "JSON",
       "filename": "all_sources_npvt_decoded.json",
+      "hash": "2f967938",
+      "last_modified": "2026-09-18T12:56:48.136758+00:00",
       "media_type": "application/json",
       "path": "artifacts/release/all_sources_npvt_decoded.json",
       "section": "release",
-      "sha256": "719b356d10c353b0a98a125730f44b9edc24392ddcf8b397ee66421db91fe73c",
-      "size": 146235,
-      "size_str": "142.8 KB",
+      "sha256": "2f96793803c1bbae049242e217c54efca03bbf869d0465b83d857e0ae23dca66",
+      "size": 149295,
+      "size_str": "145.8 KB",
       "tags": [
         "release",
-        "verified"
+        "production",
+        "decoded",
+        "parameters",
+        "metadata"
       ],
       "type": "JSON"
     },
     {
-      "description": "Verified artifact from the latest published run",
-      "ext": "JSON",
+      "description": "NekoBox-compatible JSON node feed (top-level array of sing-box outbounds)",
+      "ext": "NEKOBOX",
       "filename": "all_sources_npvt_nekobox.json",
+      "hash": "507c5d6e",
+      "last_modified": "2026-09-21T17:32:39.340851+00:00",
       "media_type": "application/json",
       "path": "artifacts/release/all_sources_npvt_nekobox.json",
       "section": "release",
-      "sha256": "9040579e5cbbba42c3086635a847830521fa03ae4887fe2afcf2c4670daa11c0",
-      "size": 78010,
-      "size_str": "76.2 KB",
+      "sha256": "507c5d6e75fce9e0bfc54256353b18a74c761994e2df36394170b62af466254d",
+      "size": 71728,
+      "size_str": "70.0 KB",
       "tags": [
         "release",
-        "verified"
+        "production",
+        "subscription",
+        "json-nodes"
       ],
-      "type": "JSON"
+      "type": "NEKOBOX"
     },
     {
-      "description": "Verified artifact from the latest published run",
+      "description": "Exact raw proxy URI copy of the production feed",
       "ext": "TXT",
       "filename": "all_sources_npvt_raw.txt",
+      "hash": "f037d888",
+      "last_modified": "2026-09-18T12:56:48.138759+00:00",
       "media_type": "text/plain",
       "path": "artifacts/release/all_sources_npvt_raw.txt",
       "section": "release",
-      "sha256": "bf911eba087174c7fe88bb8bb020258b5a8fb0b4b1c052649a1b0ba38de334d0",
-      "size": 54717,
-      "size_str": "53.4 KB",
+      "sha256": "f037d888df4459f95d98d62743b7c8b3ff3009e497fd9187a1d297da08a0069d",
+      "size": 54883,
+      "size_str": "53.6 KB",
       "tags": [
         "release",
-        "verified"
+        "production",
+        "raw-uris",
+        "plain-text"
       ],
       "type": "TXT"
     },
     {
-      "description": "Verified artifact from the latest published run",
-      "ext": "JSON",
+      "description": "Complete Sing-box 1.10+ client configuration (profile import, not a subscription)",
+      "ext": "SINGBOX",
       "filename": "all_sources_npvt_singbox.json",
+      "hash": "06a39e9b",
+      "last_modified": "2026-09-18T12:56:48.138759+00:00",
       "media_type": "application/json",
       "path": "artifacts/release/all_sources_npvt_singbox.json",
       "section": "release",
-      "sha256": "fec3fc3927f132454ce9820bd1049623fc025ee78c70db71a03ac8bba46575d7",
-      "size": 86798,
-      "size_str": "84.8 KB",
+      "sha256": "06a39e9b7b0087f95dc4b43122b184d287d90eb4693eddd5fb777924e7ee0fba",
+      "size": 90361,
+      "size_str": "88.2 KB",
       "tags": [
         "release",
-        "verified"
+        "production",
+        "singbox",
+        "routing-profile",
+        "outbounds"
       ],
-      "type": "JSON"
+      "type": "SINGBOX"
     },
     {
-      "description": "Verified artifact from the latest published run",
-      "ext": "JSON",
+      "description": "Complete Xray-core 1.8+ / V2Ray client configuration (profile import, not a subscription)",
+      "ext": "XRAY",
       "filename": "all_sources_npvt_xray.json",
+      "hash": "4b4b5969",
+      "last_modified": "2026-09-18T12:56:48.139766+00:00",
       "media_type": "application/json",
       "path": "artifacts/release/all_sources_npvt_xray.json",
       "section": "release",
-      "sha256": "936c2bd69d9ec0cad09f05a7b408657529d08cbccfe8bd9e2c91107039585fce",
-      "size": 60122,
-      "size_str": "58.7 KB",
+      "sha256": "4b4b5969bca6db90e102b7b8f682c43071583dc0c861bbde08d44e12021d1796",
+      "size": 62496,
+      "size_str": "61.0 KB",
       "tags": [
         "release",
-        "verified"
+        "production",
+        "xray",
+        "v2ray",
+        "core-config"
+      ],
+      "type": "XRAY"
+    },
+    {
+      "description": "Production release documentation and checksum index",
+      "ext": "MD",
+      "filename": "README.md",
+      "hash": "70156f4c",
+      "last_modified": "2026-04-20T11:52:06.307231+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/release/README.md",
+      "section": "release",
+      "sha256": "70156f4c51c472f39b0c4b4e48c602f9c2ec872c5432163018d2e408986d1ed6",
+      "size": 71,
+      "size_str": "71 B",
+      "tags": [
+        "release",
+        "production",
+        "documentation"
+      ],
+      "type": "MD"
+    },
+    {
+      "description": "Complete Xray-core 1.8+ / V2Ray client configuration (profile import, not a subscription)",
+      "ext": "XRAY",
+      "filename": "v2ray_test_config.json",
+      "hash": "ccf6e6ff",
+      "last_modified": "2026-04-20T11:52:06.307231+00:00",
+      "media_type": "application/json",
+      "path": "artifacts/release/v2ray_test_config.json",
+      "section": "release",
+      "sha256": "ccf6e6ffe7c6167bc985e4e2d08ed06a894ae7c8ccd8ad53f82c61d410aa606e",
+      "size": 408685,
+      "size_str": "399.1 KB",
+      "tags": [
+        "release",
+        "production",
+        "xray",
+        "v2ray",
+        "core-config"
+      ],
+      "type": "XRAY"
+    },
+    {
+      "description": "Durable cumulative first-seen timestamp manifest index",
+      "ext": "MANIFEST",
+      "filename": "_manifest.json",
+      "hash": "e75d76f8",
+      "last_modified": "2026-09-18T12:56:48.242694+00:00",
+      "media_type": "application/json",
+      "path": "artifacts/dev/_manifest.json",
+      "section": "dev",
+      "sha256": "e75d76f86ae9bab1056a9556fb6f1ec9809ae9de0058ee2d5f1a996695d9fa33",
+      "size": 29428945,
+      "size_str": "28.1 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "manifest",
+        "telemetry",
+        "state"
+      ],
+      "type": "MANIFEST"
+    },
+    {
+      "description": "Complete all-time cumulative proxy dataset with first-seen timestamps",
+      "ext": "JSON",
+      "filename": "proxies.json",
+      "hash": "e68437d3",
+      "last_modified": "2026-09-18T12:56:48.374976+00:00",
+      "media_type": "application/json",
+      "path": "artifacts/dev/proxies.json",
+      "section": "dev",
+      "sha256": "e68437d375fb0d1d03dd59aab7f9f60db3ef783eb1f78abd0dc67ff4e84bc339",
+      "size": 37585577,
+      "size_str": "35.8 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "aggregated",
+        "all-time",
+        "full-json"
       ],
       "type": "JSON"
     },
     {
-      "description": "All-time cumulative dataset (outside the release manifest)",
-      "ext": "JSON",
-      "filename": "proxies.json",
-      "media_type": "application/json",
-      "path": "artifacts/dev/proxies.json",
-      "section": "dev",
-      "sha256": "86c1e1ad4aefc75b979c710723b170bbb815466d5b8d1982526f63c765edee74",
-      "size": 37052350,
-      "size_str": "35.3 MB",
-      "tags": [
-        "dev"
-      ],
-      "type": "DEV"
-    },
-    {
-      "description": "All-time cumulative dataset (outside the release manifest)",
+      "description": "All-time cumulative raw proxy URI list (SHA-256 deduplicated)",
       "ext": "TXT",
       "filename": "proxies.txt",
+      "hash": "fa1ff6e2",
+      "last_modified": "2026-09-18T12:56:48.475264+00:00",
       "media_type": "text/plain",
       "path": "artifacts/dev/proxies.txt",
       "section": "dev",
-      "sha256": "e862d72e96ef1bd8b5c96803b96083469b1e03d89b6f1a8852d5673ff96daa79",
-      "size": 28006089,
-      "size_str": "26.7 MB",
+      "sha256": "fa1ff6e2ee77eeac480db0ac61f7272abae41360f0d15052998a3bc5b414b590",
+      "size": 28139398,
+      "size_str": "26.8 MB",
       "tags": [
-        "dev"
+        "dev",
+        "cumulative",
+        "raw-uris",
+        "deduped",
+        "all-time"
       ],
-      "type": "DEV"
+      "type": "TXT"
     },
     {
-      "description": "All-time cumulative dataset (outside the release manifest)",
-      "ext": "TXT",
+      "description": "All-time cumulative Base64 subscription feed across 49+ sources",
+      "ext": "B64SUB",
       "filename": "proxies_b64sub.txt",
+      "hash": "e6391101",
+      "last_modified": "2026-09-18T12:56:48.618179+00:00",
       "media_type": "text/plain",
       "path": "artifacts/dev/proxies_b64sub.txt",
       "section": "dev",
-      "sha256": "574b10796fec10b89c2d28d5e3b7d07711fd465d033fd1c5e015f82778551de4",
-      "size": 37341285,
+      "sha256": "e6391101d777b1f2ac17451e2f0a7905ba6c4c60517e42af7a7cef50574ee1fe",
+      "size": 37341286,
       "size_str": "35.6 MB",
       "tags": [
         "dev",
-        "subscription"
+        "cumulative",
+        "subscription",
+        "base64",
+        "all-time"
       ],
-      "type": "DEV"
+      "type": "B64SUB"
+    },
+    {
+      "description": "Lightweight split feed chunk (proxies_chunk_0001.txt) for bandwidth-constrained clients",
+      "ext": "CHUNK",
+      "filename": "proxies_chunk_0001.txt",
+      "hash": "977752f8",
+      "last_modified": "2026-05-26T12:33:38.166693+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/proxies_chunk_0001.txt",
+      "section": "dev",
+      "sha256": "977752f82ae65045f1314ae0e082186cd955d222e3f493fdac5d2d401497ddfc",
+      "size": 1671692,
+      "size_str": "1.6 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "chunk",
+        "split-feed",
+        "lightweight"
+      ],
+      "type": "CHUNK"
+    },
+    {
+      "description": "Lightweight split feed chunk (proxies_chunk_0002.txt) for bandwidth-constrained clients",
+      "ext": "CHUNK",
+      "filename": "proxies_chunk_0002.txt",
+      "hash": "930b55b2",
+      "last_modified": "2026-05-26T12:33:38.490700+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/proxies_chunk_0002.txt",
+      "section": "dev",
+      "sha256": "930b55b2b46ebe30e8700f93d551b45108c764939b62886ee2ef752bc765250b",
+      "size": 1437875,
+      "size_str": "1.4 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "chunk",
+        "split-feed",
+        "lightweight"
+      ],
+      "type": "CHUNK"
+    },
+    {
+      "description": "Lightweight split feed chunk (proxies_chunk_0003.txt) for bandwidth-constrained clients",
+      "ext": "CHUNK",
+      "filename": "proxies_chunk_0003.txt",
+      "hash": "eb1ff835",
+      "last_modified": "2026-05-26T12:33:38.865428+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/proxies_chunk_0003.txt",
+      "section": "dev",
+      "sha256": "eb1ff83588f092f01a138ecd28ec67e46db4d6d789684a0e36372654e3aab2e4",
+      "size": 2122326,
+      "size_str": "2.0 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "chunk",
+        "split-feed",
+        "lightweight"
+      ],
+      "type": "CHUNK"
+    },
+    {
+      "description": "Lightweight split feed chunk (proxies_chunk_0004.txt) for bandwidth-constrained clients",
+      "ext": "CHUNK",
+      "filename": "proxies_chunk_0004.txt",
+      "hash": "0d227e16",
+      "last_modified": "2026-05-26T12:33:39.137513+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/proxies_chunk_0004.txt",
+      "section": "dev",
+      "sha256": "0d227e161136cad241eb602cc8386570be0cdb1c6b64f30819b10fe3d3ef2836",
+      "size": 2264702,
+      "size_str": "2.2 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "chunk",
+        "split-feed",
+        "lightweight"
+      ],
+      "type": "CHUNK"
+    },
+    {
+      "description": "Lightweight split feed chunk (proxies_chunk_0005.txt) for bandwidth-constrained clients",
+      "ext": "CHUNK",
+      "filename": "proxies_chunk_0005.txt",
+      "hash": "1534ca5a",
+      "last_modified": "2026-05-26T12:33:39.399302+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/proxies_chunk_0005.txt",
+      "section": "dev",
+      "sha256": "1534ca5a49dd9782379296cb58090071b41a0099342c7d96e426f8bfeb3de750",
+      "size": 2027862,
+      "size_str": "1.9 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "chunk",
+        "split-feed",
+        "lightweight"
+      ],
+      "type": "CHUNK"
+    },
+    {
+      "description": "Lightweight split feed chunk (proxies_chunk_0006.txt) for bandwidth-constrained clients",
+      "ext": "CHUNK",
+      "filename": "proxies_chunk_0006.txt",
+      "hash": "c1b87403",
+      "last_modified": "2026-05-26T12:33:39.846354+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/proxies_chunk_0006.txt",
+      "section": "dev",
+      "sha256": "c1b87403f0195641be5f493a05b2860a2d0c1d7628321f23f9928b2e4a951a8f",
+      "size": 2342010,
+      "size_str": "2.2 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "chunk",
+        "split-feed",
+        "lightweight"
+      ],
+      "type": "CHUNK"
+    },
+    {
+      "description": "Lightweight split feed chunk (proxies_chunk_0007.txt) for bandwidth-constrained clients",
+      "ext": "CHUNK",
+      "filename": "proxies_chunk_0007.txt",
+      "hash": "cd791452",
+      "last_modified": "2026-05-26T12:33:40.214081+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/proxies_chunk_0007.txt",
+      "section": "dev",
+      "sha256": "cd791452e66c28f41ab98ec73bc0ea7e7111c996e6b18e56e3042566257a4c6f",
+      "size": 2175546,
+      "size_str": "2.1 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "chunk",
+        "split-feed",
+        "lightweight"
+      ],
+      "type": "CHUNK"
+    },
+    {
+      "description": "Lightweight split feed chunk (proxies_chunk_0008.txt) for bandwidth-constrained clients",
+      "ext": "CHUNK",
+      "filename": "proxies_chunk_0008.txt",
+      "hash": "f27be1f5",
+      "last_modified": "2026-05-26T12:33:40.617286+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/proxies_chunk_0008.txt",
+      "section": "dev",
+      "sha256": "f27be1f53489cb1f3ec3a562df0e5e75643807d9764deed683406e8fc063992b",
+      "size": 2257325,
+      "size_str": "2.2 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "chunk",
+        "split-feed",
+        "lightweight"
+      ],
+      "type": "CHUNK"
+    },
+    {
+      "description": "Lightweight split feed chunk (proxies_chunk_0009.txt) for bandwidth-constrained clients",
+      "ext": "CHUNK",
+      "filename": "proxies_chunk_0009.txt",
+      "hash": "3293bc22",
+      "last_modified": "2026-05-26T12:33:40.862150+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/proxies_chunk_0009.txt",
+      "section": "dev",
+      "sha256": "3293bc22f67ec317c28b0f0a430d502aab1e2a211bbc913062d2db66e137f912",
+      "size": 2206586,
+      "size_str": "2.1 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "chunk",
+        "split-feed",
+        "lightweight"
+      ],
+      "type": "CHUNK"
+    },
+    {
+      "description": "Lightweight split feed chunk (proxies_chunk_0010.txt) for bandwidth-constrained clients",
+      "ext": "CHUNK",
+      "filename": "proxies_chunk_0010.txt",
+      "hash": "14bcf665",
+      "last_modified": "2026-05-26T12:33:41.124850+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/proxies_chunk_0010.txt",
+      "section": "dev",
+      "sha256": "14bcf6651dff894ea822dc952ab42bace370f134e8541357687ed6004be7cdda",
+      "size": 2115592,
+      "size_str": "2.0 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "chunk",
+        "split-feed",
+        "lightweight"
+      ],
+      "type": "CHUNK"
+    },
+    {
+      "description": "Lightweight split feed chunk (proxies_chunk_0011.txt) for bandwidth-constrained clients",
+      "ext": "CHUNK",
+      "filename": "proxies_chunk_0011.txt",
+      "hash": "b084ea98",
+      "last_modified": "2026-05-26T12:33:41.445993+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/proxies_chunk_0011.txt",
+      "section": "dev",
+      "sha256": "b084ea9883727e23094637fdd69aa6cf144612f89c60f320b6d083ed6a33faad",
+      "size": 2113566,
+      "size_str": "2.0 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "chunk",
+        "split-feed",
+        "lightweight"
+      ],
+      "type": "CHUNK"
+    },
+    {
+      "description": "Development and cumulative output documentation",
+      "ext": "MD",
+      "filename": "README.md",
+      "hash": "23f00703",
+      "last_modified": "2026-04-20T11:52:06.307231+00:00",
+      "media_type": "text/plain",
+      "path": "artifacts/dev/README.md",
+      "section": "dev",
+      "sha256": "23f00703e20b1224e15ed6c1821d703fa09ba16459b8d44a7bc8e8b17b9f75ff",
+      "size": 86,
+      "size_str": "86 B",
+      "tags": [
+        "dev",
+        "cumulative",
+        "documentation"
+      ],
+      "type": "MD"
     }
   ],
-  "generated_at": "2026-09-18T07:24:28Z",
-  "release_manifest": "artifacts/release/manifest.json",
+  "generated_at": "2026-09-22T03:35:58.740399+00:00",
   "schema_version": 1,
-  "total_files": 24,
-  "total_size": 103766680,
-  "total_size_str": "99.0 MB"
+  "total_files": 40,
+  "total_size": 157010798,
+  "total_size_str": "149.7 MB"
 }

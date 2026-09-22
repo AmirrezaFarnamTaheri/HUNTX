@@ -42,3 +42,22 @@ def test_metadata_normalization_and_sequence():
     assert first == "🇩🇪 DE-CF | VLESS | ⚡42ms | ⭐A+ | #001"
     assert second.endswith("#002")
     assert metadata["country"] == " de "
+
+
+@pytest.mark.parametrize("transport,security,expected", [
+    ("grpc", "reality", "VLESS-GRPC-REALITY"),
+    ("ws", "", "VLESS-WS"),
+    ("tcp", "tls", "VLESS-TCP-TLS"),
+    ("", "", "VLESS"),
+])
+def test_transport_and_security_are_shown_in_the_protocol_tag(transport, security, expected):
+    """Transport and security belong in the remark so nodes differ at a glance."""
+    remark = format_enriched_remark(URI, {}, {"country": "DE", "transport": transport, "security": security})
+    assert f"DE | {expected} |" in remark
+
+
+@pytest.mark.parametrize("junk", ["none", "auto", "unknown", "NONE"])
+def test_placeholder_transport_values_are_not_displayed(junk):
+    remark = format_enriched_remark(URI, {}, {"country": "DE", "transport": junk})
+    assert "DE | VLESS-" not in remark
+    assert "DE | VLESS |" in remark
