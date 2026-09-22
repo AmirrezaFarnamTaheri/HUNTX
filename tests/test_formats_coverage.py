@@ -8,6 +8,14 @@ from huntx.formats.ehi import EhiHandler
 from huntx.formats.hc import HcHandler
 from huntx.formats.hat import HatHandler
 from huntx.formats.sip import SipHandler
+from huntx.formats.ovpn import OvpnHandler
+from huntx.formats.dark import DarkHandler
+from huntx.formats.nm import NmHandler
+from huntx.formats.npv4 import Npv4Handler
+from huntx.formats.tut import TutHandler
+from huntx.formats.sks import SksHandler
+from huntx.formats.tmt import TmtHandler
+from huntx.formats.slipnet import SlipNetHandler
 
 
 class TestFormatsCoverage(unittest.TestCase):
@@ -186,6 +194,67 @@ class TestFormatsCoverage(unittest.TestCase):
         parsed = fmt.parse(data, {"filename": "account.sip"})
         self.assertEqual(len(parsed), 1)
         self.assertEqual(parsed[0]["data"]["filename"], "account.sip")
+
+    def _assert_opaque_bundle_round_trip(self, handler_class, payload, filename):
+        """Every opaque format republishes the source blob inside a ZIP."""
+        mock_store = MagicMock()
+        mock_store.get.return_value = payload
+        handler = handler_class(mock_store)
+        parsed = handler.parse(payload, {"filename": filename})
+        self.assertEqual(len(parsed), 1)
+        self.assertEqual(parsed[0]["data"]["filename"], filename)
+
+        built = handler.build(parsed)
+        self.assertTrue(built.startswith(b"PK"))
+        import io
+        import zipfile
+
+        with zipfile.ZipFile(io.BytesIO(built)) as zf:
+            self.assertEqual(zf.read(filename), payload)
+
+    def test_ovpn_handler(self):
+        self.assertEqual(OvpnHandler(MagicMock()).format_id, "ovpn")
+        self._assert_opaque_bundle_round_trip(OvpnHandler, b"ovpn-config", "tunnel.ovpn")
+
+    def test_dark_handler(self):
+        self.assertEqual(DarkHandler(MagicMock()).format_id, "dark")
+        self._assert_opaque_bundle_round_trip(DarkHandler, b"dark-config", "tunnel.dark")
+
+    def test_nm_handler(self):
+        self.assertEqual(NmHandler(MagicMock()).format_id, "nm")
+        self._assert_opaque_bundle_round_trip(NmHandler, b"nm-config", "tunnel.nm")
+
+    def test_npv4_handler(self):
+        # No decryption credential is configured here, so the blob is
+        # preserved verbatim: the encrypted source stays canonical.
+        self.assertEqual(Npv4Handler(MagicMock()).format_id, "npv4")
+        self._assert_opaque_bundle_round_trip(Npv4Handler, b"npv4-config", "tunnel.npv4")
+
+    def test_tut_sks_tmt_handlers(self):
+        for handler, suffix in (
+            (TutHandler, ".tut"),
+            (SksHandler, ".sks"),
+            (TmtHandler, ".tmt"),
+        ):
+            with self.subTest(format=suffix.lstrip(".")):
+                self.assertEqual(handler(MagicMock()).format_id, suffix.lstrip("."))
+                self._assert_opaque_bundle_round_trip(
+                    handler, ("payload" + suffix).encode(), "tunnel" + suffix
+                )
+
+    def test_slipnet_handler(self):
+        fmt = SlipNetHandler()
+        self.assertEqual(fmt.format_id, "slipnet")
+
+        # An undecryptable link is still a record: the encrypted form is
+        # the canonical artifact when no credential is configured.
+        link = "slipnet-enc://dGVzdA==-abc123"
+        parsed = fmt.parse(link.encode(), {})
+        self.assertEqual(len(parsed), 1)
+        self.assertEqual(parsed[0]["data"]["line"], link)
+
+        built = fmt.build(parsed)
+        self.assertEqual(built.decode("utf-8"), link + "\n")
 
     def test_malformed_payload_handling(self):
         # NPVT malformed Base64 handling
