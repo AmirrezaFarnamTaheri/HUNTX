@@ -1,0 +1,126 @@
+name: dev-output-refresh
+
+# Cyclical health check on the dev output pipeline.
+#
+# The production run publishes continuously, but the dev outputs under
+# outputs_dev/ and the generator that turns them into dashboard data are only
+# exercised when someone changes them. This workflow regenerates the whole
+# static-publishing path from the committed dev fixtures on a schedule, so a
+# stale fixture, a generator regression, or a format handler that stopped
+# producing real telemetry is caught within a week rather than at the next
+# release.
+
+on:
+  schedule:
+    # Mondays 06:17 UTC, off the top of the hour to avoid the CI rush.
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "scripts/generate_site_data.py"
+      - "scripts/update_frontend.py"
+      - "outputs_dev/**"
+      - ".github/workflows/dev-output-refresh.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dev-output-refresh-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  refresh:
+    name: regenerate-and-verify-dev-outputs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout immutable source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: pyproject.toml
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-ci.txt
+
+      - name: Regenerate dashboard data from committed dev fixtures
+        run: |
+          # Regenerate into a scratch docs root so the committed artifacts are
+          # never touched by this check; it must be read-only on main.
+          python - <<'PY'
+          import importlib.util, pathlib, tempfile
+          spec = importlib.util.spec_from_file_location(
+              "site", "scripts/generate_site_data.py"
+          )
+          site = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(site)
+          scratch = pathlib.Path(tempfile.mkdtemp())
+          site.DOCS_DIR = scratch
+          site.ARTIFACTS_DIR = scratch / "artifacts"
+          site.CATALOG_FILE = scratch / "catalog.json"
+          site.DATA_JS_FILE = scratch / "assets" / "js" / "data.js"
+          site.generate_all()
+          # Hand the scratch root to the verification step by path, not by
+          # guessing which /tmp directory was newest.
+          pathlib.Path("scratch-root.txt").write_text(str(scratch), encoding="utf-8")
+          print(f"scratch root: {scratch}")
+          PY
+
+      - name: Verify the regenerated data carries telemetry
+        run: |
+          python - <<'PY'
+          import json, pathlib, re
+          scratch = pathlib.Path(pathlib.Path("scratch-root.txt").read_text(encoding="utf-8"))
+          data_file = scratch / "assets" / "js" / "data.js"
+          assert data_file.is_file(), f"no data.js was produced at {data_file}"
+          raw = data_file.read_text(encoding="utf-8")
+          proxies = json.loads(
+              re.search(r"SAMPLE_PROXIES\s*=\s*(\[.*?\]);\s*\n", raw, re.S).group(1)
+          )
+          assert proxies, "regeneration produced zero proxies"
+          measured = [p for p in proxies if p.get("probe_ok") is not None]
+          print(f"proxies={len(proxies)} measured={len(measured)}")
+          # The probe stage must run for every node, even the unreachable ones:
+          # probe_ok=False is a measurement, probe_ok=None is a skipped one.
+          assert len(measured) == len(proxies), (
+              f"{len(proxies) - len(measured)} nodes skipped measurement entirely"
+          )
+          graded = [p for p in proxies if p.get("health_grade")]
+          scored = [p for p in proxies if p.get("pca_score") is not None]
+          print(f"graded={len(graded)} scored={len(scored)}")
+          assert len(graded) == len(proxies), "health grading did not cover the fleet"
+          assert len(scored) == len(proxies), "governed scoring did not cover the fleet"
+          PY
+
+      - name: Run the one-time output parity gate
+        run: |
+          # The catalog and data.js this gate reads are the committed copies,
+          # which the publish pipeline rewrites on the next release; staleness
+          # between releases is an expected xfail, not a red suite.
+          python -m pytest -q -p no:cacheprovider \
+            tests/test_output_telemetry_coverage.py \
+            tests/test_frontend_delivery.py \
+            tests/test_formats_coverage.py \
+            tests/test_verify_new_proxy_outputs.py
+
+      - name: Report unresolved freshness markers
+        if: always()
+        run: |
+          # A marker here means the committed snapshot predates a generator
+          # improvement; the next publish reconciles it. Surfaced, never fatal.
+          python -m pytest -q -p no:cacheprovider -rxX \
+            tests/test_output_telemetry_coverage.py 2>&1 | grep -E "XFAIL|failed" || true
