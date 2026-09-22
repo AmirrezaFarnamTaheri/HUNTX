@@ -114,6 +114,44 @@ type Catalog struct {
 	Files            []Entry `json:"files"`
 }
 
+type productMetadata struct {
+	Tags        []string
+	Description string
+}
+
+// frontendReleaseProducts is deliberately narrower than the release manifest.
+// The manifest remains the compatibility/source-of-truth inventory, while the
+// dashboard shows only the canonical end-user products. Legacy aliases and
+// specialist formats stay downloadable by direct URL without being advertised
+// as separate products.
+var frontendReleaseProducts = map[string]productMetadata{
+	"all_sources_npvt_raw.txt": {
+		Tags:        []string{"release", "verified", "subscription", "multi-node", "uri-feed"},
+		Description: "Canonical multi-node proxy URI subscription feed. Add this URL as a subscription in compatible clients; each line is an individual proxy node.",
+	},
+	"all_sources_npvt_singbox.json": {
+		Tags:        []string{"release", "verified", "singbox", "full-config", "profile"},
+		Description: "Complete sing-box client configuration containing all representable proxy outbounds. Importing this JSON creates one profile by design; use the raw TXT feed for a multi-node subscription.",
+	},
+	"all_sources_npvt_xray.json": {
+		Tags:        []string{"release", "verified", "xray", "full-config", "profile"},
+		Description: "Complete Xray client configuration containing all representable proxy outbounds. Importing this JSON creates one profile by design; use the raw TXT feed for a multi-node subscription.",
+	},
+	"all_sources_npvt_nekobox.json": {
+		Tags:        []string{"release", "verified", "nekobox", "subscription", "multi-node", "json-array"},
+		Description: "NekoBox multi-node JSON subscription. The top-level outbound array is intentionally shaped so NekoBox expands entries into individual proxy nodes instead of one custom configuration.",
+	},
+	"all_sources_npvt_decoded.json": {
+		Tags:        []string{"release", "verified", "decoded", "diagnostic", "dataset"},
+		Description: "Decoded structured proxy dataset for inspection and dashboard telemetry. This is diagnostic JSON, not a client subscription.",
+	},
+}
+
+func frontendReleaseProduct(path string) (productMetadata, bool) {
+	metadata, ok := frontendReleaseProducts[filepath.Base(path)]
+	return metadata, ok
+}
+
 func Generate(dataDir, docsDir string, generatedAt time.Time) (Catalog, error) {
 	dist := filepath.Join(dataDir, "dist")
 	manifestPath := filepath.Join(dist, "manifest.json")
@@ -160,7 +198,8 @@ func Generate(dataDir, docsDir string, generatedAt time.Time) (Catalog, error) {
 		if err := runtimegen.WriteBytesAtomic(destination, payload, 0o600); err != nil {
 			return Catalog{}, err
 		}
-		if intentionalEmpty {
+		_, visible := frontendReleaseProduct(record.Path)
+		if intentionalEmpty || !visible {
 			continue
 		}
 		tags, description, kind := artifactMeta(record.Path)

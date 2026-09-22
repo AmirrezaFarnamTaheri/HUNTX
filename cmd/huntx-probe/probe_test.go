@@ -19,8 +19,10 @@ func TestProbeAgentCollectsTelemetry(t *testing.T) {
 		t.Errorf("unexpected agent configuration: %+v", agent)
 	}
 
-	// Test report generation on targets
-	targets := []string{"1.1.1.1:443", "8.8.8.8:443"}
+	// Hermetic: the report shape is under test, not the reachability of public
+	// addresses, so a CI runner without outbound access behaves identically.
+	agent.dial = stubDial(0, map[string]bool{"unreachable.invalid:443": true})
+	targets := []string{"reachable.invalid:443", "unreachable.invalid:443"}
 	report := agent.EvaluateTargets(context.Background(), targets)
 
 	if report.RegionID != "eu-central-fra" {

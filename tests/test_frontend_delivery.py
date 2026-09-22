@@ -384,3 +384,29 @@ def test_geoip_enrichment_matches_hostname_nodes_through_resolved_ip() -> None:
     assert proxies[0]["carrier"] == "Hetzner"
     assert proxies[0]["geo_source"] == "ip-api"
     assert proxies[0]["geo_verified"] is True
+
+
+def test_frontend_uses_only_canonical_product_artifact_names() -> None:
+    application = (ROOT / "docs" / "assets" / "js" / "app.js").read_text(encoding="utf-8")
+
+    for canonical in (
+        "all_sources_npvt_decoded.json",
+        "all_sources_npvt_nekobox.json",
+        "all_sources_npvt_raw.txt",
+        "all_sources_npvt_singbox.json",
+        "all_sources_npvt_xray.json",
+    ):
+        assert canonical in application
+
+    for stale in (
+        "all_sources.npvt.decoded.json",
+        "all_sources.npvt.nekobox.json",
+        "all_sources.npvt.raw.txt",
+        "all_sources.npvt.singbox.json",
+        "all_sources.npvt.xray.json",
+        "v2ray_test_config.json",
+    ):
+        assert stale not in application
+
+    assert "NekoBox Node Subscription" in application
+    assert "imports as one profile" in application

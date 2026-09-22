@@ -54,7 +54,7 @@ test("globe module owns touch inactivity and does not treat cancellation as clic
   assert.match(source, /clearTimeout\(touchInactivityTimer\)/);
   assert.match(source, /const sourceHubs = Array\.isArray\(customHubs\) \? customHubs : DEFAULT_HUBS/);
   assert.doesNotMatch(source, /customHubs\.length > 0/);
-  assert.match(source, /function onPointerUp\(e\) \{\r?\n    if \(e\.pointerType === "touch"\) noteTouchActivity\(\);/);
+  assert.match(source, /function onPointerUp\(e\) \{\r?\n {4}if \(e\.pointerType === "touch"\) noteTouchActivity\(\);/);
 });
 
 
@@ -192,7 +192,7 @@ test("fallback is restored after bundled to live to unavailable transition", asy
   await app.loadBundledFallback();
   const bundledCatalog = app.catalog;
   const bundledProxies = structuredClone(app.proxies);
-  const catalog = { files: [{ filename: "all_sources.npvt.decoded.json", path: "artifacts/release/live.json", sha256: "b".repeat(64) }] };
+  const catalog = { files: [{ filename: "all_sources_npvt_decoded.json", path: "artifacts/release/live.json", sha256: "b".repeat(64) }] };
   let available = true;
   t.mock.method(globalThis, "fetch", async () => ({ ok: available, json: async () => catalog }));
   app.loadVerifiedJsonArtifact = async () => ({ entries: [{ protocol: "vless", address: "example.com", tag: "live" }] });

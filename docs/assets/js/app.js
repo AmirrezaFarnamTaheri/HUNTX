@@ -3,21 +3,18 @@
 
 import { initTelemetryGlobe } from "./globe.js";
 import { i18n } from "./i18n.js";
+// Batch conversion for every client format goes through `convertProxyBatch`,
+// which owns the format switch. Only the single-node helpers and the feed
+// builders used directly by the dashboard are imported here.
 import {
   decodeProxyURI,
   extractAllURIs,
   convertProxyBatch,
   nodeToSingboxOutbound,
   nodeToClashProxy,
-  nodeToSurgeProxy,
-  nodeToLoonProxy,
-  nodeToQXServer,
+  clashProxyToYAML,
   buildSingboxConfig,
   buildClashMetaYAML,
-  buildXrayClientConfig,
-  buildSurgeConfig,
-  buildLoonConfig,
-  buildQXConfig,
   buildBase64Sub
 } from "./decoder.js";
 import { renderQRCodeSVG } from "./qrcode.js";
@@ -393,7 +390,10 @@ function setStoredTheme(theme) {
     if (typeof localStorage !== "undefined") {
       localStorage.setItem("huntx_theme", theme);
     }
-  } catch (e) {}
+  } catch {
+    // Private browsing and storage-blocked contexts throw on write. The theme
+    // simply does not persist across reloads; the page itself still works.
+  }
 }
 
 // Progressive node reveal: one card per node is the heaviest work on the
@@ -447,7 +447,9 @@ export class AppState {
       try {
         const stored = localStorage.getItem("huntx_active_tab");
         if (stored && validTabs.includes(stored)) return stored;
-      } catch (e) {}
+      } catch {
+        // Storage unavailable. Fall through to the default tab.
+      }
     }
     return "radar";
   }
@@ -503,7 +505,9 @@ export class AppState {
 
     try {
       localStorage.setItem("huntx_active_tab", tabTarget);
-    } catch (e) {}
+    } catch {
+      // Storage unavailable. The tab is still switched for this session.
+    }
 
     if (updateHash && typeof window !== "undefined") {
       history.replaceState(null, null, "#" + tabTarget);
@@ -524,7 +528,7 @@ export class AppState {
 
   getDecodedArtifactRecord(catalog = this.catalog) {
     const files = Array.isArray(catalog?.files) ? catalog.files : [];
-    return files.find((file) => file?.filename === "all_sources.npvt.decoded.json"
+    return files.find((file) => file?.filename === "all_sources_npvt_decoded.json"
       && typeof file.path === "string"
       && /^artifacts\/release\/[A-Za-z0-9._/-]+$/.test(file.path)
       && typeof file.sha256 === "string"
@@ -585,7 +589,11 @@ export class AppState {
           catalogCandidate = liveCatalog;
         }
       }
-    } catch (e) {}
+    } catch {
+      // The live catalog is optional. A fetch or parse failure leaves the
+      // previously resolved candidate in place so the dashboard degrades to
+      // the bundled snapshot instead of rendering nothing.
+    }
 
     // Published release data is authoritative even when smaller than the demo bundle.
     try {
@@ -1413,16 +1421,16 @@ export class AppState {
             <button
               id="hero-copy-sub"
               class="px-4 py-2.5 min-h-[44px] bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-gray-950 font-mono font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/25 transition-all focus-ring cursor-pointer flex items-center gap-2"
-              aria-label="Copy Production Base64 Subscription URL"
+              aria-label="Copy Production Raw URI Subscription URL"
             >
               <svg class="w-4 h-4 text-gray-950" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-              Copy Production Feed
+              Copy Raw URI Feed
             </button>
 
             <a
               id="hero-download-singbox"
-              data-artifact="all_sources.npvt.singbox.json"
-              href="artifacts/release/all_sources.npvt.singbox.json"
+              data-artifact="all_sources_npvt_singbox.json"
+              href="artifacts/release/all_sources_npvt_singbox.json"
               download
               class="px-3.5 py-2.5 min-h-[44px] bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 hover:border-cyan-400 text-cyan-300 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-1.5"
               aria-label="Download Sing-box 1.10+ JSON"
@@ -1433,8 +1441,8 @@ export class AppState {
 
             <a
               id="hero-download-xray"
-              data-artifact="all_sources.npvt.xray.json"
-              href="artifacts/release/all_sources.npvt.xray.json"
+              data-artifact="all_sources_npvt_xray.json"
+              href="artifacts/release/all_sources_npvt_xray.json"
               download
               class="px-3.5 py-2.5 min-h-[44px] bg-indigo-950/60 hover:bg-indigo-900/60 border border-indigo-500/30 hover:border-indigo-400 text-indigo-300 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-1.5"
               aria-label="Download Xray Config"
@@ -1510,9 +1518,9 @@ export class AppState {
     this.syncGlobeTouchControl(this.globeInstance?.isTouchInteractive?.() || false);
 
     document.getElementById("hero-copy-sub")?.addEventListener("click", (e) => {
-      const subUrl = resolveArtifactUrl("artifacts/release/all_sources.npvt.b64sub");
+      const subUrl = resolveArtifactUrl("artifacts/release/all_sources_npvt_raw.txt");
       this.copyText(subUrl, isHostedDashboard()
-        ? "Production feed URL copied to clipboard"
+        ? "Raw URI subscription URL copied to clipboard"
         : "Portable artifact path copied — deploy or serve over HTTPS before importing", e.currentTarget);
     });
 
@@ -1668,7 +1676,7 @@ export class AppState {
             ${this.proxies.length} loaded endpoints. Inspect configurations before importing; connectivity is not verified here.
           </p>
         </div>
-        <button id="btn-explore-live-proxies" class="px-5 py-3 min-h-[44px] bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-gray-950 font-mono font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/25 transition-all cursor-pointer shrink-0">
+        <button id="btn-explore-live-proxies" class="px-5 py-3 min-h-[44px] bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-gray-950 font-mono font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/25 transition-all cursor-pointer shrink-0 focus-ring">
           Browse Proxies (${this.proxies.length}) →
         </button>
       </div>
@@ -2179,7 +2187,9 @@ export class AppState {
         }[op] || "bg-gray-950 text-gray-400 border-gray-800";
 
         // Credentials are parsed once at load time; re-decoding every
-        // node's URI on each render was the hottest call in this path.
+        // node's URI on each render was the hottest call in this path. An
+        // undecodable node still renders from its normalized fields and
+        // only the credential preview falls back to the placeholder.
         const uuid = node.uuid || node.password || "8f7b3c2a-9e1d-4a5b";
         const displayUUID = isUnmasked ? uuid : `${uuid.slice(0, 4)}••••-••••-••••-${uuid.slice(-4)}`;
 
@@ -2812,11 +2822,11 @@ export class AppState {
               </div>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
-              <a href="artifacts/release/all_sources.npvt.singbox.json" download class="px-3.5 py-2 min-h-[44px] bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-xs font-mono font-bold rounded-xl transition-all focus-ring flex items-center gap-1.5 cursor-pointer">
+              <a href="artifacts/release/all_sources_npvt_singbox.json" download class="px-3.5 py-2 min-h-[44px] bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-xs font-mono font-bold rounded-xl transition-all focus-ring flex items-center gap-1.5 cursor-pointer">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                 Sing-box JSON
               </a>
-              <a href="artifacts/release/v2ray_test_config.json" download class="px-3.5 py-2 min-h-[44px] bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 text-xs font-mono font-bold rounded-xl transition-all focus-ring flex items-center gap-1.5 cursor-pointer">
+              <a href="artifacts/release/all_sources_npvt_xray.json" download class="px-3.5 py-2 min-h-[44px] bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 text-xs font-mono font-bold rounded-xl transition-all focus-ring flex items-center gap-1.5 cursor-pointer">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                 Xray Config
               </a>
@@ -3067,8 +3077,10 @@ export class AppState {
             this.copyText(JSON.stringify(singboxOutbound, null, 2), "Sing-box outbound JSON copied");
           });
           document.getElementById("btn-copy-node-clash")?.addEventListener("click", () => {
-            let clashYaml = `name: "${clashProxy.name}"\ntype: ${clashProxy.type}\nserver: ${clashProxy.server}\nport: ${clashProxy.port}`;
-            this.copyText(JSON.stringify(clashProxy, null, 2), "Clash Meta definition copied");
+            // Clash profiles are YAML. Emit the same entry the full profile
+            // builder produces, so what is copied can be pasted straight under
+            // a `proxies:` key rather than needing manual conversion.
+            this.copyText(clashProxyToYAML(clashProxy), "Clash Meta definition copied");
           });
         } catch (err) {
           out.innerHTML = `<div class="p-4 bg-rose-950/40 border border-rose-800 rounded-xl text-rose-300 font-mono text-xs">Error inspecting link: ${escapeHTML(err.message)}</div>`;
@@ -3411,11 +3423,14 @@ export class AppState {
     const modalContainer = document.getElementById("modal-overlay");
     if (!modalContainer) return;
 
-    let defaultVal = initialUri || (this.proxies[0] && this.proxies[0].raw) || "";
+    const defaultVal = initialUri || (this.proxies[0] && this.proxies[0].raw) || "";
     let decodedRes = null;
     try {
       decodedRes = decodeProxyURI(defaultVal);
-    } catch {}
+    } catch {
+      // The modal opens with an empty result panel and waits for the user to
+      // paste something decodable.
+    }
 
     modalContainer.innerHTML = `
       <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="modal-decoder-title">
@@ -3485,47 +3500,6 @@ export class AppState {
     });
   }
 
-  openQRModal(raw, name) {
-    if (typeof document === "undefined") return;
-    const modalContainer = document.getElementById("modal-overlay");
-    if (!modalContainer) return;
-
-    modalContainer.innerHTML = `
-      <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="modal-qr-title">
-        <div id="modal-box" class="relative w-full max-w-sm bg-gray-900 border border-cyan-500/30 rounded-3xl p-6 shadow-2xl shadow-cyan-950/50 text-center space-y-4 max-h-[90vh] max-h-[90dvh] overflow-y-auto">
-          <div class="flex items-center justify-between">
-            <h3 id="modal-qr-title" class="text-sm font-mono font-bold text-white truncate max-w-[240px]">${escapeHTML(name)}</h3>
-            <button id="btn-close-qr" class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-800 text-gray-400 hover:text-white rounded-xl cursor-pointer focus-ring" aria-label="Close QR Modal">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
-          </div>
-
-          <div class="flex items-center justify-center py-3">
-            ${renderQRCodeSVG(raw, 220)}
-          </div>
-
-          <p class="text-xs font-mono text-gray-400">Scan with v2rayNG, Streisand, Sing-box, or Shadowrocket</p>
-
-          <button id="btn-copy-qr-raw" class="w-full py-2.5 min-h-[44px] bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-mono font-bold text-xs rounded-xl focus-ring cursor-pointer" aria-label="Copy Node URI to clipboard">
-            Copy Node URI
-          </button>
-        </div>
-      </div>
-    `;
-
-    modalContainer.classList.remove("hidden");
-    const box = document.getElementById("modal-box");
-    if (box) this.trapFocus(box);
-
-    document.getElementById("btn-close-qr")?.addEventListener("click", () => {
-      this.closeModal();
-    });
-
-    document.getElementById("btn-copy-qr-raw")?.addEventListener("click", () => {
-      this.copyText(raw, "Node URI copied to clipboard");
-    });
-  }
-
   openSubscriptionBuilderModal() {
     if (typeof document === "undefined") return;
     const modalContainer = document.getElementById("modal-overlay");
@@ -3536,10 +3510,10 @@ export class AppState {
     const files = Array.isArray(this.catalog?.files) ? this.catalog.files : [];
     const findArtifact = (filename) => files.find((file) => (file.filename || file.name) === filename);
     const productionFeeds = [
-      ["all_sources.npvt.b64sub", "Base64 Unified Feed", "Shadowrocket, v2rayNG, Streisand", "cyan"],
-      ["all_sources.npvt.singbox.json", "Sing-box 1.10+ Outbounds", "Sing-box JSON outbounds format", "cyan"],
-      ["v2ray_test_config.json", "Xray / V2Ray Core Config", "Complete client config JSON", "indigo"],
-      ["all_sources.ovpn", "OpenVPN Profile", "Standard .ovpn multi-gateway", "amber"],
+      ["all_sources_npvt_raw.txt", "Raw URI Subscription", "Multi-node URI feed for compatible clients", "cyan"],
+      ["all_sources_npvt_nekobox.json", "NekoBox Node Subscription", "JSON array expanded into individual proxy nodes", "emerald"],
+      ["all_sources_npvt_singbox.json", "Sing-box Full Profile", "Complete client config (imports as one profile)", "cyan"],
+      ["all_sources_npvt_xray.json", "Xray Full Profile", "Complete client config (imports as one profile)", "indigo"],
     ].map(([filename, label, description, color]) => ({ filename, label, description, color, file: findArtifact(filename) }));
     const devFeeds = files.filter((file) => file.section === "dev" || file.category === "dev" || file.tags?.includes("dev"));
     const chunks = devFeeds.filter((file) => /chunk_/i.test(file.filename || file.name || ""));

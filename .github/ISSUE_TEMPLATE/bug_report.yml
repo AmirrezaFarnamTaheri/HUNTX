@@ -1,0 +1,52 @@
+name: Bug report
+description: Something in the pipeline, the tools, or the dashboard behaves incorrectly.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not use this form for security vulnerabilities. Open a private
+        advisory instead — see SECURITY.md.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Python pipeline (src/huntx)
+        - Go engine or tools (cmd/huntx-engine, cmd/huntx-tools)
+        - Daemon (cmd/huntx-daemon)
+        - Probe (cmd/huntx-probe)
+        - Dashboard (docs/)
+        - CI workflows (.github/workflows)
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: commit
+    attributes:
+      label: Commit or published run
+      description: The commit SHA you are on, or the run ID shown on the dashboard.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected to happen
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What actually happened
+      description: Include the error and enough log output to locate it.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: |
+        A failing input is worth more than a description. For a decoding bug,
+        paste the proxy URI with its credential redacted.
+    validations:
+      required: true

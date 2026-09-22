@@ -2,7 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests",
-  testMatch: "frontend_browser.spec.mjs",
+  testMatch: ["frontend_browser.spec.mjs", "frontend_skew.spec.mjs"],
   timeout: 30_000,
   fullyParallel: false,
   use: {

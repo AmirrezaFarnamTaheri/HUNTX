@@ -250,7 +250,7 @@ GET /artifacts/dev/proxies_chunk_0001.txt    # Split lightweight feed chunk (1 o
    - Tablet: `640px – 1023px` (Dual column grid, compact radar).
    - Desktop: `1024px – 1439px` (Three column grid, side-by-side 3D globe).
    - Ultra-wide: `≥ 1440px` (Max container width 1280px centered with ambient mesh).
-6. **Resilient Delivery**: The dashboard ships as native ES modules (`app.js`, `data.js`, `decoder.js`) that run from `file:///` paths and censored networks without a bundler step. Fonts and utility CSS are still CDN-served, so a fully self-hosted offline deployment requires vendoring those assets first.
+6. **Resilient Delivery**: The dashboard ships as native ES modules (`app.js`, `data.js`, `decoder.js`) that need no bundler step and load nothing from a third party — scripts, the compiled Tailwind stylesheet and all data are same-origin, so it works on censored networks and offline after the first visit (via the service worker). It must be served over HTTP: module scripts and service workers are blocked on `file:///`. First-party code is served network-first so a deployment can never leave a returning visitor with mismatched module versions, and `boot-guard.js` recovers the one transitional visit where an older worker is still running. Typography: the stylesheet names *Plus Jakarta Sans* and *JetBrains Mono* but ships no `@font-face`, so they render only where installed and otherwise fall back to the system stack; vendoring the font files would make the intended typography universal.
 
 ---
 
@@ -293,7 +293,7 @@ The main dashboard is partitioned into 5 focused workspaces, providing clean men
 | ❌ Lorem Ipsum / Fabricated metrics | **CLEAN** | Real proxy configurations, real cryptographic parameters, real carrier ping grades. |
 | ❌ Sub-44px touch targets | **CLEAN** | All action triggers meet or exceed 44×44px hit-box requirements (WCAG 2.2 AA). |
 | ❌ Layout shifts on hover or loading | **CLEAN** | Dimensions locked via CSS skeleton pulsers and transform/opacity transitions. |
-| ❌ CDN dependencies that fail under censorship | **PARTIAL** | Core UI ships as native ES modules (`app.js`, `data.js`, `decoder.js`) with an offline PWA service worker; fonts and utility CSS are still served from a CDN, so fully self-hosted delivery remains open. |
+| ❌ CDN dependencies that fail under censorship | **CLEAN** | Core UI, stylesheet, and service worker are same-origin. Fonts use a local or system fallback; no external CDN dependency. Full offline delivery via precached PWA manifest. |
 | ❌ Masking fallbacks / swallowed errors | **CLEAN** | Explicit error reporting, robust parameter validation, zero silent defaults. |
 
 ---

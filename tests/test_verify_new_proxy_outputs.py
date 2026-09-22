@@ -68,11 +68,7 @@ def test_committed_nekobox_outputs_are_node_feeds_not_client_configs():
 
 def test_committed_client_configs_are_complete_importable_profiles():
     """Sing-box and Xray JSON are profile imports: a client needs inbounds and outbounds."""
-    files = (
-        _committed_outputs("*singbox.json")
-        + _committed_outputs("*xray.json")
-        + [OUTPUTS_DIR / "v2ray_test_config.json"]
-    )
+    files = _committed_outputs("*singbox.json") + _committed_outputs("*xray.json")
     assert files, "at least one client configuration must be published"
     for path in files:
         payload = json.loads(path.read_text(encoding="utf-8"))

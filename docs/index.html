@@ -149,6 +149,49 @@
         radial-gradient(900px 600px at 10% 40%, rgba(16, 185, 129, 0.04), transparent 60%);
     }
 
+    /*
+      Focus indication (WCAG 2.4.7).
+
+      :focus-visible carries the refined behaviour — a keyboard user gets the
+      indicator, a mouse user does not. It is not sufficient on its own: the
+      heuristic that decides whether a focus is "visible" varies between
+      engines and does not resolve at all when focus is moved
+      programmatically, which is how dynamically rendered controls such as the
+      artifact copy buttons end up focused with no indicator.
+
+      So :focus provides the guarantee and :focus-visible provides the polish.
+      Every focused control is always indicated; a control focused by pointer
+      gets a dimmer indicator rather than none.
+    */
+    /*
+      Baseline for every native control, at zero specificity (:where) so any
+      component rule overrides it. Without this, a control is only
+      keyboard-operable if whoever wrote it remembered to add .focus-ring —
+      the primary "Browse Proxies" call to action had not.
+    */
+    :where(button, [role="button"], a[href], summary, [tabindex]:not([tabindex="-1"])):focus {
+      outline: 2px solid var(--accent-cyan);
+      outline-offset: 2px;
+    }
+
+    .focus-ring:focus {
+      outline: 2px solid var(--accent-cyan);
+      outline-offset: 2px;
+      /*
+        Many focusable controls carry `transition: all` (Tailwind's
+        transition-all, and .nav-tab-btn), which would animate the outline
+        width from 0 to 2px. A focus indicator must be present the instant
+        focus lands — for screen magnifier users and for anyone tabbing
+        quickly — so outline properties are excluded from the transition.
+        Higher specificity than the utility class, so it wins on focus-in.
+      */
+      transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+    }
+
+    .focus-ring:focus:not(:focus-visible) {
+      outline-color: color-mix(in srgb, var(--accent-cyan) 55%, transparent);
+    }
+
     .focus-ring:focus-visible {
       outline: 2px solid var(--accent-cyan);
       outline-offset: 2px;
@@ -917,7 +960,7 @@
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
           </svg>
           <span>Published Proxies</span>
-          <span id="tab-proxies-count-badge" class="px-1.5 py-0.5 text-xs font-bold rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/60">735</span>
+          <span id="tab-proxies-count-badge" class="px-1.5 py-0.5 text-xs font-bold rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/60">2019</span>
         </button>
 
         <!-- Tab 3: Protocol Studio -->
@@ -965,7 +1008,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
           </svg>
           <span>Artifacts &amp; Feeds</span>
-          <span id="tab-artifacts-count-badge" class="px-1.5 py-0.5 text-xs font-bold rounded bg-amber-950/80 text-amber-300 border border-amber-800/60">40</span>
+          <span id="tab-artifacts-count-badge" class="px-1.5 py-0.5 text-xs font-bold rounded bg-amber-950/80 text-amber-300 border border-amber-800/60">6</span>
         </button>
       </div>
 
@@ -1021,6 +1064,8 @@
   <div id="toast-container" role="status" aria-live="polite" aria-atomic="true" class="fixed bottom-6 inset-x-4 sm:inset-x-auto sm:right-6 z-[9999] flex flex-col items-center sm:items-end gap-2 pointer-events-none max-w-md mx-auto sm:mx-0"></div>
 
   <!-- Native ES-module entrypoint; fallback data is lazy-loaded on demand. -->
+  <!-- Recovers a visit whose cached modules predate the deployed entry script. Must precede the module. -->
+  <script src="assets/js/boot-guard.js"></script>
   <script type="module" src="assets/js/app.js"></script>
 
   <!-- Progressive Web App (PWA) Offline ServiceWorker Registration -->

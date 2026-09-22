@@ -68,6 +68,26 @@ ARTIFACT_FORMATS_FILE = REPO_ROOT / "internal" / "sitegen" / "artifact_formats.j
 # go:embed cannot reference files above the package directory, so the table
 # lives with the Go tool that compiles it in; this module reads the same file.
 
+# Public products are intentionally narrower than the generated artifact tree.
+# Compatibility variants remain copied and directly addressable, but are not
+# presented as separate final products in the dashboard.
+FRONTEND_RELEASE_PRODUCTS = {
+    "all_sources_npvt_decoded.json",
+    "all_sources_npvt_nekobox.json",
+    "all_sources_npvt_raw.txt",
+    "all_sources_npvt_singbox.json",
+    "all_sources_npvt_xray.json",
+}
+FRONTEND_DEV_PRODUCTS = {"proxies.json"}
+
+
+def _is_frontend_product(section: str, filename: str) -> bool:
+    if section == "release":
+        return filename in FRONTEND_RELEASE_PRODUCTS
+    if section == "dev":
+        return filename in FRONTEND_DEV_PRODUCTS
+    return False
+
 
 def _format_size(size_bytes: int) -> str:
     """Format a byte count for compact dashboard display."""
@@ -765,10 +785,10 @@ def parse_production_proxies() -> list[dict]:
     """Load and normalize the production proxy snapshot for static publishing."""
     raw_nodes: list[dict] = []
 
-    # 1. Curated production release dataset: all_sources.npvt.decoded.json
-    decoded_file = OUTPUTS_DIR / "all_sources.npvt.decoded.json"
+    # 1. Prefer the canonical production derivative; dotted naming is legacy.
+    decoded_file = OUTPUTS_DIR / "all_sources_npvt_decoded.json"
     if not decoded_file.exists():
-        decoded_file = OUTPUTS_DIR / "all_sources_npvt_decoded.json"
+        decoded_file = OUTPUTS_DIR / "all_sources.npvt.decoded.json"
 
     if decoded_file.exists():
         try:
@@ -1021,24 +1041,25 @@ def generate_all() -> None:
             digest = _sha256(src_file)
             ext, tags, desc = _infer_tags_and_type(src_file, section)
 
-            entry = {
-                "filename": src_file.name,
-                "path": destination_rel_docs,
-                "section": section,
-                "size": file_size,
-                "size_str": _format_size(file_size),
-                "type": ext,
-                "ext": ext,
-                "tags": tags,
-                "description": desc,
-                "sha256": digest,
-                "hash": digest[:8],
-                "media_type": _infer_media_type(src_file),
-                "last_modified": datetime.fromtimestamp(
-                    src_file.stat().st_mtime, timezone.utc
-                ).isoformat(),
-            }
-            catalog_entries.append(entry)
+            if _is_frontend_product(section, src_file.name):
+                entry = {
+                    "filename": src_file.name,
+                    "path": destination_rel_docs,
+                    "section": section,
+                    "size": file_size,
+                    "size_str": _format_size(file_size),
+                    "type": ext,
+                    "ext": ext,
+                    "tags": tags,
+                    "description": desc,
+                    "sha256": digest,
+                    "hash": digest[:8],
+                    "media_type": _infer_media_type(src_file),
+                    "last_modified": datetime.fromtimestamp(
+                        src_file.stat().st_mtime, timezone.utc
+                    ).isoformat(),
+                }
+                catalog_entries.append(entry)
 
     total_size = sum(e["size"] for e in catalog_entries)
     catalog = {

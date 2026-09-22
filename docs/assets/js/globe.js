@@ -642,7 +642,10 @@ export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null, op
     velY = 0;
     try {
       canvas.setPointerCapture(e.pointerId);
-    } catch (err) {}
+    } catch {
+      // Pointer capture is a progressive enhancement for drag-rotate. Without
+      // it a drag that leaves the canvas simply stops; nothing else breaks.
+    }
   }
 
   function onPointerMove(e) {
@@ -694,7 +697,10 @@ export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null, op
       isDragging = false;
       try {
         canvas.releasePointerCapture(e.pointerId);
-      } catch (err) {}
+      } catch {
+        // Releasing a capture that was never taken, or was already lost, is
+        // not an error worth surfacing.
+      }
 
       // Click Hub Detection
       if (moveDist < 6) {
@@ -715,7 +721,9 @@ export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null, op
     velY = reduceMotion ? 0 : 0.0032;
     try {
       canvas.releasePointerCapture(e.pointerId);
-    } catch (err) {}
+    } catch {
+      // As above: nothing to recover from.
+    }
   }
 
   canvas.addEventListener("pointerdown", onPointerDown);

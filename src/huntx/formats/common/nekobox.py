@@ -24,7 +24,8 @@ def build_nekobox_outbounds_bytes(text: str) -> bytes:
     NekoBox and similar clients import a subscription-style top-level JSON
     array as individual selectable nodes. Wrapping the nodes inside a
     configuration-shaped ``{"outbounds": [...]}`` object made the whole
-    artifact import as one custom JSON configuration instead.
+    artifact import as one custom JSON configuration instead of expanding
+    the nodes.
     """
     try:
         config = config_from_uris(text.splitlines())
