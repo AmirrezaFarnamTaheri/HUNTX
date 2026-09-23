@@ -1,5 +1,7 @@
 outputs/.huntx-output-ownership.json
 outputs/all_sources.conf_lines
+outputs/all_sources.dark
+outputs/all_sources.ehi
 outputs/all_sources.npvt
 outputs/all_sources.npvt.b64sub
 outputs/all_sources.npvt.decoded.json
@@ -9,6 +11,7 @@ outputs/all_sources.npvt.singbox.json
 outputs/all_sources.npvt.xray.json
 outputs/all_sources.opaque_bundle
 outputs/all_sources.ovpn
+outputs/all_sources.sip
 outputs/all_sources_npvt_b64sub.txt
 outputs/all_sources_npvt_decoded.json
 outputs/all_sources_npvt_nekobox.json
@@ -23,6 +26,8 @@ docs/artifacts/dev/proxies.json
 docs/artifacts/dev/proxies.txt
 docs/artifacts/dev/proxies_b64sub.txt
 docs/artifacts/release/all_sources.conf_lines
+docs/artifacts/release/all_sources.dark
+docs/artifacts/release/all_sources.ehi
 docs/artifacts/release/all_sources.npvt
 docs/artifacts/release/all_sources.npvt.b64sub
 docs/artifacts/release/all_sources.npvt.decoded.json
@@ -32,6 +37,7 @@ docs/artifacts/release/all_sources.npvt.singbox.json
 docs/artifacts/release/all_sources.npvt.xray.json
 docs/artifacts/release/all_sources.opaque_bundle
 docs/artifacts/release/all_sources.ovpn
+docs/artifacts/release/all_sources.sip
 docs/artifacts/release/all_sources_npvt_b64sub.txt
 docs/artifacts/release/all_sources_npvt_decoded.json
 docs/artifacts/release/all_sources_npvt_nekobox.json

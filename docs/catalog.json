@@ -1,98 +1,95 @@
 {
   "files": [
     {
-      "description": "Decoded structured proxy dataset for inspection and dashboard telemetry. This is diagnostic JSON, not a client subscription.",
+      "description": "Parsed and structured proxy connection parameters JSON dataset",
       "ext": "JSON",
       "filename": "all_sources_npvt_decoded.json",
       "media_type": "application/json",
       "path": "artifacts/release/all_sources_npvt_decoded.json",
       "section": "release",
-      "sha256": "d2d40188633772a20ac7332bff480793eca2ab6ebafd8808a94493f70cb00a63",
-      "size": 1550270,
-      "size_str": "1.5 MB",
+      "sha256": "577a422a2460a51e12a17df194de8af632d4aee92146b047366d286ee42b2471",
+      "size": 1474509,
+      "size_str": "1.4 MB",
       "tags": [
         "release",
-        "verified",
+        "production",
         "decoded",
-        "diagnostic",
-        "dataset"
+        "parameters",
+        "metadata"
       ],
       "type": "JSON"
     },
     {
-      "description": "NekoBox multi-node JSON subscription. The top-level outbound array is intentionally shaped so NekoBox expands entries into individual proxy nodes instead of one custom configuration.",
+      "description": "NekoBox-compatible JSON node feed (top-level array of sing-box outbounds)",
       "ext": "NEKOBOX",
       "filename": "all_sources_npvt_nekobox.json",
       "media_type": "application/json",
       "path": "artifacts/release/all_sources_npvt_nekobox.json",
       "section": "release",
-      "sha256": "573a02b907a7bd9d7c16ccb0bfba7bd057fe3083b020844dd758264194ec0978",
-      "size": 854117,
-      "size_str": "834.1 KB",
+      "sha256": "92862ca880e6bd491eef10200886b6f89c3a0f4bd492514b696bd0e4b67cbaa4",
+      "size": 816320,
+      "size_str": "797.2 KB",
       "tags": [
         "release",
-        "verified",
-        "nekobox",
+        "production",
         "subscription",
-        "multi-node",
-        "json-array"
+        "json-nodes"
       ],
       "type": "NEKOBOX"
     },
     {
-      "description": "Canonical multi-node proxy URI subscription feed. Add this URL as a subscription in compatible clients; each line is an individual proxy node.",
-      "ext": "NPVT",
+      "description": "Exact raw proxy URI copy of the production feed",
+      "ext": "TXT",
       "filename": "all_sources_npvt_raw.txt",
       "media_type": "text/plain",
       "path": "artifacts/release/all_sources_npvt_raw.txt",
       "section": "release",
-      "sha256": "b5fba7da28c66f6f62faebffa5f9e3499381a9588281b5062c6c9eb1564a8d71",
-      "size": 537619,
-      "size_str": "525.0 KB",
+      "sha256": "012f6bd5c4b1995a94f76e21f727ffa0eca254c34c9fc33fa2e8d6f6190d1ecd",
+      "size": 509078,
+      "size_str": "497.1 KB",
       "tags": [
         "release",
-        "verified",
-        "subscription",
-        "multi-node",
-        "uri-feed"
+        "production",
+        "raw-uris",
+        "plain-text"
       ],
-      "type": "NPVT"
+      "type": "TXT"
     },
     {
-      "description": "Complete sing-box client configuration containing all representable proxy outbounds. Importing this JSON creates one profile by design; use the raw TXT feed for a multi-node subscription.",
+      "description": "Complete Sing-box 1.10+ client configuration (profile import, not a subscription)",
       "ext": "SINGBOX",
       "filename": "all_sources_npvt_singbox.json",
       "media_type": "application/json",
       "path": "artifacts/release/all_sources_npvt_singbox.json",
       "section": "release",
-      "sha256": "3a8d01a361872c2bc6115d28edd97103e97267d27578496a9767912fabdb6944",
-      "size": 1027029,
-      "size_str": "1003.0 KB",
+      "sha256": "fa0bfd140f77915a1a0e3c9d9b5674ec7675a72cbcf8038da5d910f1b0281cab",
+      "size": 981256,
+      "size_str": "958.3 KB",
       "tags": [
         "release",
-        "verified",
+        "production",
         "singbox",
-        "full-config",
-        "profile"
+        "routing-profile",
+        "outbounds"
       ],
       "type": "SINGBOX"
     },
     {
-      "description": "Complete Xray client configuration containing all representable proxy outbounds. Importing this JSON creates one profile by design; use the raw TXT feed for a multi-node subscription.",
+      "description": "Complete Xray-core 1.8+ / V2Ray client configuration (profile import, not a subscription)",
       "ext": "XRAY",
       "filename": "all_sources_npvt_xray.json",
       "media_type": "application/json",
       "path": "artifacts/release/all_sources_npvt_xray.json",
       "section": "release",
-      "sha256": "4ba28839134760049c8910007c72c090c7ce7e7aa6a63a7f5cab093e5eb014d9",
-      "size": 792368,
-      "size_str": "773.8 KB",
+      "sha256": "335e3c8a384efeef94cf4291c31f73effdd4758afd82ce2fc265d24f69f7e6a6",
+      "size": 750803,
+      "size_str": "733.2 KB",
       "tags": [
         "release",
-        "verified",
+        "production",
         "xray",
-        "full-config",
-        "profile"
+        "v2ray",
+        "core-config"
       ],
       "type": "XRAY"
     },
@@ -103,9 +100,9 @@
       "media_type": "application/json",
       "path": "artifacts/dev/proxies.json",
       "section": "dev",
-      "sha256": "d5efa47d7a8f7297f3d281c6295472e3bf240e79f69cc4ed45279d4b8f24b862",
-      "size": 52056128,
-      "size_str": "49.6 MB",
+      "sha256": "fcaf63324c56079fae4b5bc10715ea886258d9315ba912b2c8d204186e654662",
+      "size": 64816259,
+      "size_str": "61.8 MB",
       "tags": [
         "dev",
         "cumulative",
@@ -114,10 +111,10 @@
       "type": "JSON"
     }
   ],
-  "generated_at": "2026-09-22T11:47:46.684587Z",
+  "generated_at": "2026-09-23T06:54:45.781021Z",
   "release_manifest": "artifacts/release/manifest.json",
   "schema_version": 1,
   "total_files": 6,
-  "total_size": 56817531,
-  "total_size_str": "54.2 MB"
+  "total_size": 69348225,
+  "total_size_str": "66.1 MB"
 }
