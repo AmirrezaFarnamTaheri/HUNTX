@@ -39,6 +39,19 @@ def test_previously_owned_file_absent_from_next_snapshot_is_pruned(tmp_path):
     assert not legacy.exists()
 
 
+def test_unowned_legacy_derivative_is_pruned_when_replaced(tmp_path):
+    out = tmp_path / "outputs"
+    out.mkdir()
+    legacy = out / "all_sources.npvt.nekobox.json"
+    legacy.write_text('{"outbounds": [{"type": "vless"}]}', encoding="utf-8")
+    canonical = b'[{"type": "vless", "tag": "node"}]'
+
+    _export(out, [{"route_name": "all_sources", "format": "npvt.nekobox.json", "data": canonical}])
+
+    assert not legacy.exists()
+    assert (out / "all_sources_npvt_nekobox.json").read_bytes() == canonical
+
+
 def test_unowned_unrelated_file_is_never_pruned(tmp_path):
     out = _export(tmp_path / "outputs", [{"route_name": "all_sources", "format": "npvt", "data": b"x"}])
     (out / "operator_notes.txt").write_text("keep", encoding="utf-8")
