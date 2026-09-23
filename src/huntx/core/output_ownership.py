@@ -18,6 +18,12 @@ logger = logging.getLogger(__name__)
 OUTPUT_OWNERSHIP_MANIFEST = ".huntx-output-ownership.json"
 _OUTPUT_OWNERSHIP_SCHEMA = 1
 EMPTY_RELEASE_ARTIFACT = "empty-release.json"
+_LEGACY_DERIVED_FORMATS = frozenset({
+    "npvt.decoded.json", "npvt.raw.txt", "npvt.singbox.json",
+    "npvt.xray.json", "npvt.nekobox.json",
+    "npvtsub.decoded.json", "npvtsub.raw.txt", "npvtsub.singbox.json",
+    "npvtsub.xray.json", "npvtsub.nekobox.json",
+})
 _EMPTY_RELEASE_PAYLOAD = {
     "schema_version": 1,
     "status": "success",
@@ -202,7 +208,15 @@ def export_owned_outputs(orchestrator: Any, all_build_results: list[Any]) -> Non
         for name, (data, _) in payloads.items()
     }
     writes[OUTPUT_OWNERSHIP_MANIFEST] = json.dumps(manifest, indent=2, sort_keys=True).encode("utf-8")
-    stale = sorted(set(prior_owned) - set(payloads))
+    # Early releases used dotted derivative filenames. They predate the
+    # ownership manifest, so a restored checkpoint can keep publishing stale
+    # copies even after the canonical replacement has been generated.
+    legacy_derivatives = {
+        f"{safe_component(owner['route'], default='route')}.{owner['format']}"
+        for _, owner in payloads.values()
+        if owner["format"] in _LEGACY_DERIVED_FORMATS
+    }
+    stale = sorted((set(prior_owned) | legacy_derivatives) - set(payloads))
     affected = sorted(set(writes) | set(stale))
 
     # Prepare every payload and backup before mutating the current snapshot.
