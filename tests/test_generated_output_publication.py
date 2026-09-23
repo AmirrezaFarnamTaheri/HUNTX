@@ -209,6 +209,46 @@ class TestDashboardDataWiring(unittest.TestCase):
             self.assertIn("docs/artifacts/dev/proxies_b64sub.txt", inventory)
             self.assertGreaterEqual(payload["dashboard_file_count"], 5)
 
+    def test_republishing_old_run_does_not_restore_dotted_derivatives(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            checkpoint, previous, dist, logs = TestGeneratedSnapshotAssembly._build_fixture(self, root)
+            dashboard = self._dashboard_fixture(root)
+            legacy = "all_sources.npvt.nekobox.json"
+            canonical = "all_sources_npvt_nekobox.json"
+            for directory in (checkpoint / "outputs", dashboard / "artifacts" / "release"):
+                (directory / legacy).write_text('{"outbounds": []}', encoding="utf-8")
+                (directory / canonical).write_text('[{"type": "vless", "tag": "node"}]', encoding="utf-8")
+            _write_json(dashboard / "artifacts" / "release" / "manifest.json", {
+                "schema_version": 1,
+                "artifact_count": 2,
+                "artifacts": [{"path": legacy}, {"path": canonical}],
+            })
+            destination = root / "snapshot"
+
+            ASSEMBLER.assemble_snapshot(
+                checkpoint_root=checkpoint,
+                dist_root=dist,
+                logs_root=logs,
+                destination=destination,
+                run_id="123",
+                run_attempt="2",
+                head_sha="abc123",
+                head_branch="main",
+                source_created_at="2026-07-30T17:24:27Z",
+                previous_snapshot_root=previous,
+                dashboard_root=dashboard,
+            )
+
+            assert not (destination / "outputs" / legacy).exists()
+            assert not (destination / "docs" / "artifacts" / "release" / legacy).exists()
+            assert (destination / "outputs" / canonical).exists()
+            manifest = json.loads((destination / "docs" / "artifacts" / "release" / "manifest.json").read_text())
+            assert manifest["artifact_count"] == 1
+            assert [item["path"] for item in manifest["artifacts"]] == [canonical]
+            inventory = (destination / "manifests" / "main-sync-files.txt").read_text().splitlines()
+            assert not any(path.endswith(legacy) for path in inventory)
+
     def test_retired_bundle_is_never_staged_from_the_shell(self):
         """The standalone bundle.js is retired: native modules are the
         production entrypoint. A stray bundle in the shell must not land in the

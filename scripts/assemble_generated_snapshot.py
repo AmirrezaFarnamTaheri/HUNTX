@@ -15,12 +15,59 @@ from typing import Any
 
 ManifestValue = float | int | str
 LEGACY_FIRST_SEEN = 0
+_DERIVED_SUFFIXES = (
+    "decoded.json", "raw.txt", "singbox.json", "xray.json", "nekobox.json",
+)
 
 
 def copy_tree(src: Path, dst: Path) -> None:
     if not src.exists():
         return
     shutil.copytree(src, dst, dirs_exist_ok=True)
+
+
+def retire_legacy_derivatives(directory: Path) -> set[str]:
+    """Remove dotted derivatives only when their canonical replacement exists."""
+    removed: set[str] = set()
+    for fmt in ("npvt", "npvtsub"):
+        for suffix in _DERIVED_SUFFIXES:
+            ending = f".{fmt}.{suffix}"
+            for legacy in directory.glob(f"*{ending}"):
+                route = legacy.name.removesuffix(ending)
+                canonical = directory / f"{route}_{fmt}_{suffix}"
+                if route and legacy.is_file() and canonical.is_file():
+                    legacy.unlink()
+                    removed.add(legacy.name)
+    return removed
+
+
+def retire_dashboard_derivatives(docs_dir: Path) -> None:
+    release_dir = docs_dir / "artifacts" / "release"
+    removed = retire_legacy_derivatives(release_dir)
+    if not removed:
+        return
+
+    manifest_path = release_dir / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    artifacts = manifest.get("artifacts")
+    if not isinstance(artifacts, list):
+        raise ValueError("release manifest is missing its artifacts list")
+    manifest["artifacts"] = [item for item in artifacts if item.get("path") not in removed]
+    manifest["artifact_count"] = len(manifest["artifacts"])
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
+    catalog_path = docs_dir / "catalog.json"
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    files = catalog.get("files")
+    if isinstance(files, list):
+        retired_paths = {f"artifacts/release/{name}" for name in removed}
+        retained = [item for item in files if item.get("path") not in retired_paths]
+        if len(retained) != len(files):
+            catalog["files"] = retained
+            catalog["total_files"] = len(retained)
+            catalog["total_size"] = sum(item["size"] for item in retained)
+            catalog["total_size_str"] = _format_size(catalog["total_size"])
+            catalog_path.write_text(json.dumps(catalog, indent=2) + "\n", encoding="utf-8")
 
 
 def first_dir(root: Path, name: str) -> Path | None:
@@ -433,6 +480,7 @@ def assemble_snapshot(
 
     copy_tree(dist, destination / "dist")
     copy_tree(current_outputs, destination / "outputs")
+    retire_legacy_derivatives(destination / "outputs")
     if current_dev is not None:
         copy_tree(current_dev, destination / "outputs_dev")
 
@@ -452,6 +500,7 @@ def assemble_snapshot(
         if not dashboard_root.is_dir():
             raise ValueError(f"missing dashboard data directory: {dashboard_root}")
         copy_tree(dashboard_root, destination / "docs")
+        retire_dashboard_derivatives(destination / "docs")
         dev_artifacts = destination / "docs" / "artifacts" / "dev"
         dev_artifacts.mkdir(parents=True, exist_ok=True)
         for name in ("proxies.json", "proxies.txt", "proxies_b64sub.txt"):
