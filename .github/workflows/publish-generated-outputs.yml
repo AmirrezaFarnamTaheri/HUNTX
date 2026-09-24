@@ -408,6 +408,12 @@ jobs:
             --head-sha "$SOURCE_HEAD_SHA" \
             --head-branch "$SOURCE_HEAD_BRANCH" \
             --source-created-at "$SOURCE_CREATED_AT"
+          python scripts/sync_generated_outputs_to_main.py \
+            --snapshot-root "$SOURCE_ROOT/snapshot" \
+            --repo-root "$SOURCE_ROOT/snapshot" \
+            --inventory-path manifests/main-sync-files.txt \
+            --prune-catalog-only
+          python scripts/update_frontend.py --root "$SOURCE_ROOT/snapshot"
           test -n "$(find "$SOURCE_ROOT/snapshot/outputs" -type f -size +0c -print -quit)"
           test -s "$SOURCE_ROOT/snapshot/outputs_dev/_manifest.json.gz.index.json"
           test -s "$SOURCE_ROOT/snapshot/manifests/main-sync-files.txt"
@@ -430,13 +436,11 @@ jobs:
           SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
           SOURCE_RUN_ATTEMPT: ${{ steps.source.outputs.run_attempt }}
           RESTORED_SHA: ${{ steps.previous.outputs.sha }}
-          SYNC_HELPER: ${{ runner.temp }}/sync_generated_outputs_to_main.py
         run: |
           set -euo pipefail
           # The dashboard step regenerates tracked files in-place while
           # assembling the snapshot; this step works on the pristine
           # branches, so discard that working-copy dirt first.
-          cp scripts/sync_generated_outputs_to_main.py "$SYNC_HELPER"
           git checkout -- . >/dev/null 2>&1 || true
           git clean -fdq
 
@@ -465,11 +469,6 @@ jobs:
             "$GIT_SNAPSHOT_ROOT/docs/artifacts/dev/proxies.json" \
             "$GIT_SNAPSHOT_ROOT/docs/artifacts/dev/proxies.txt" \
             "$GIT_SNAPSHOT_ROOT/docs/artifacts/dev/proxies_b64sub.txt"
-          python "$SYNC_HELPER" \
-            --snapshot-root "$GIT_SNAPSHOT_ROOT" \
-            --repo-root "$GIT_SNAPSHOT_ROOT" \
-            --inventory-path manifests/main-sync-files.txt \
-            --prune-catalog-only
           cp -a "$GIT_SNAPSHOT_ROOT"/. .
 
           git config user.name github-actions[bot]

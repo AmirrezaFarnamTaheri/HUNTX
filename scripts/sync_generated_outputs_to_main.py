@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 from pathlib import Path, PurePosixPath
 
@@ -112,20 +113,45 @@ def prune_catalog_to_inventory(repo_root: Path, managed: list[Path]) -> bool:
         or not entry["path"].startswith("artifacts/")
         or entry["path"] in available
     ]
-    if len(retained) == len(entries):
-        return False
 
-    catalog["files"] = retained
-    catalog["total_files"] = len(retained)
-    catalog["total_size"] = sum(int(entry.get("size") or 0) for entry in retained if isinstance(entry, dict))
-    size = float(catalog["total_size"])
-    for unit in ("B", "KB", "MB", "GB"):
-        if size < 1024 or unit == "GB":
-            catalog["total_size_str"] = f"{int(size)} B" if unit == "B" else f"{size:.1f} {unit}"
-            break
-        size /= 1024
-    catalog_path.write_text(json.dumps(catalog, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    return True
+    changed = len(retained) != len(entries)
+    if changed:
+        catalog["files"] = retained
+        catalog["total_files"] = len(retained)
+        catalog["total_size"] = sum(
+            int(entry.get("size") or 0)
+            for entry in retained
+            if isinstance(entry, dict)
+        )
+        size = float(catalog["total_size"])
+        for unit in ("B", "KB", "MB", "GB"):
+            if size < 1024 or unit == "GB":
+                catalog["total_size_str"] = (
+                    f"{int(size)} B" if unit == "B" else f"{size:.1f} {unit}"
+                )
+                break
+            size /= 1024
+        catalog_path.write_text(
+            json.dumps(catalog, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+
+    data_path = repo_root / "docs" / "assets" / "js" / "data.js"
+    if data_path.is_file():
+        data_content = data_path.read_text(encoding="utf-8")
+        updated_data, replacements = re.subn(
+            r"(?m)^export const FALLBACK_CATALOG = .*;$",
+            "export const FALLBACK_CATALOG = "
+            + json.dumps(catalog, separators=(",", ":"))
+            + ";",
+            data_content,
+            count=1,
+        )
+        if replacements != 1:
+            raise ValueError(f"dashboard data has no fallback catalog: {data_path}")
+        if updated_data != data_content:
+            data_path.write_text(updated_data, encoding="utf-8")
+            changed = True
+    return changed
 
 
 def sync_generated_outputs(
