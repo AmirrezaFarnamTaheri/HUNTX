@@ -430,11 +430,13 @@ jobs:
           SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
           SOURCE_RUN_ATTEMPT: ${{ steps.source.outputs.run_attempt }}
           RESTORED_SHA: ${{ steps.previous.outputs.sha }}
+          SYNC_HELPER: ${{ runner.temp }}/sync_generated_outputs_to_main.py
         run: |
           set -euo pipefail
           # The dashboard step regenerates tracked files in-place while
           # assembling the snapshot; this step works on the pristine
           # branches, so discard that working-copy dirt first.
+          cp scripts/sync_generated_outputs_to_main.py "$SYNC_HELPER"
           git checkout -- . >/dev/null 2>&1 || true
           git clean -fdq
 
@@ -463,7 +465,7 @@ jobs:
             "$GIT_SNAPSHOT_ROOT/docs/artifacts/dev/proxies.json" \
             "$GIT_SNAPSHOT_ROOT/docs/artifacts/dev/proxies.txt" \
             "$GIT_SNAPSHOT_ROOT/docs/artifacts/dev/proxies_b64sub.txt"
-          python scripts/sync_generated_outputs_to_main.py \
+          python "$SYNC_HELPER" \
             --snapshot-root "$GIT_SNAPSHOT_ROOT" \
             --repo-root "$GIT_SNAPSHOT_ROOT" \
             --inventory-path manifests/main-sync-files.txt \
