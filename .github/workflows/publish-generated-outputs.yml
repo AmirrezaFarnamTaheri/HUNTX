@@ -408,12 +408,6 @@ jobs:
             --head-sha "$SOURCE_HEAD_SHA" \
             --head-branch "$SOURCE_HEAD_BRANCH" \
             --source-created-at "$SOURCE_CREATED_AT"
-          python scripts/sync_generated_outputs_to_main.py \
-            --snapshot-root "$SOURCE_ROOT/snapshot" \
-            --repo-root "$SOURCE_ROOT/snapshot" \
-            --inventory-path manifests/main-sync-files.txt \
-            --prune-catalog-only
-          python scripts/update_frontend.py --root "$SOURCE_ROOT/snapshot"
           test -n "$(find "$SOURCE_ROOT/snapshot/outputs" -type f -size +0c -print -quit)"
           test -s "$SOURCE_ROOT/snapshot/outputs_dev/_manifest.json.gz.index.json"
           test -s "$SOURCE_ROOT/snapshot/manifests/main-sync-files.txt"
@@ -509,6 +503,7 @@ jobs:
               --snapshot-root "$SNAPSHOT_ROOT" \
               --repo-root "$GITHUB_WORKSPACE" \
               --inventory-path .github/huntx-generated-files.txt
+            python scripts/update_frontend.py
 
             test -n "$(find outputs -type f -size +0c -print -quit)"
             test -s outputs_dev/_manifest.json.gz.index.json
