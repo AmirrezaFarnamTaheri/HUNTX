@@ -115,7 +115,7 @@ function safeAtob(b64Str) {
     }
     return decodeURIComponent(escape(binary));
   } catch (e) {
-    throw new Error("Invalid Base64 payload");
+    throw new Error("Invalid Base64 payload", { cause: e });
   }
 }
 
@@ -178,7 +178,7 @@ export function decodeProxyURI(rawUri) {
         raw: str
       };
     } catch (e) {
-      throw new Error("Failed to decode VMess Base64 payload: " + e.message);
+      throw new Error("Failed to decode VMess Base64 payload: " + e.message, { cause: e });
     }
   }
 
@@ -259,7 +259,7 @@ export function decodeProxyURI(rawUri) {
 
     let method = "unknown";
     let password = "";
-    let server = "";
+    let server;
     let port = 8388;
 
     if (mainPart.includes("@")) {

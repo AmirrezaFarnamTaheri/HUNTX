@@ -129,8 +129,8 @@ export function resolveGeoAndCarrier(address, sni = "", host = "") {
   const hostLower = (host || "").toLowerCase().trim();
   const full = `${addr} ${sniLower} ${hostLower}`;
 
-  let country = null;
-  let carrier = null;
+  let country;
+  let carrier;
 
   // 1. Explicit domain TLDs & contextual keywords
   if (addr.includes(".ir") || full.includes("iran") || full.includes("tehran") || full.includes("soundfiy") || full.includes("zula.ir")) {
