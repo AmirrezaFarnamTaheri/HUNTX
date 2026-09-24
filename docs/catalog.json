@@ -92,12 +92,29 @@
         "core-config"
       ],
       "type": "XRAY"
+    },
+    {
+      "description": "All-time cumulative proxy dataset (outside the release manifest)",
+      "ext": "JSON",
+      "filename": "proxies.json",
+      "media_type": "application/json",
+      "path": "artifacts/dev/proxies.json",
+      "section": "dev",
+      "sha256": "8adf3c1e4eccc4e50f400858db420282814304d37c3f0e1f5dd7db4f744434c6",
+      "size": 134284902,
+      "size_str": "128.1 MB",
+      "tags": [
+        "dev",
+        "cumulative",
+        "dataset"
+      ],
+      "type": "JSON"
     }
   ],
   "generated_at": "2026-09-24T11:58:48.33899Z",
   "release_manifest": "artifacts/release/manifest.json",
   "schema_version": 1,
-  "total_files": 5,
-  "total_size": 3863680,
-  "total_size_str": "3.7 MB"
+  "total_files": 6,
+  "total_size": 138148582,
+  "total_size_str": "131.7 MB"
 }
