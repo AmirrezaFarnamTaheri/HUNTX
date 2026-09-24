@@ -1,6 +1,6 @@
 # update_frontend.py
-import argparse
 import re
+import sys
 from pathlib import Path
 
 INDEX_HTML = """<!DOCTYPE html>
@@ -1122,17 +1122,8 @@ def write_index(root: Path | None = None) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--root",
-        type=Path,
-        default=Path(__file__).resolve().parents[1],
-        help="Repository root containing docs/.",
-    )
-    parser.add_argument("--check", action="store_true")
-    args = parser.parse_args()
-    root = args.root.resolve()
-    if args.check:
+    root = Path(__file__).resolve().parents[1]
+    if sys.argv[1:] == ["--check"]:
         expected = build_index_content(root)
         actual = (root / "docs" / "index.html").read_text(encoding="utf-8")
         if actual != expected:
