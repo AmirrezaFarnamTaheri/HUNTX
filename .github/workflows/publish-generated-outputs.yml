@@ -463,6 +463,11 @@ jobs:
             "$GIT_SNAPSHOT_ROOT/docs/artifacts/dev/proxies.json" \
             "$GIT_SNAPSHOT_ROOT/docs/artifacts/dev/proxies.txt" \
             "$GIT_SNAPSHOT_ROOT/docs/artifacts/dev/proxies_b64sub.txt"
+          python scripts/sync_generated_outputs_to_main.py \
+            --snapshot-root "$GIT_SNAPSHOT_ROOT" \
+            --repo-root "$GIT_SNAPSHOT_ROOT" \
+            --inventory-path manifests/main-sync-files.txt \
+            --prune-catalog-only
           cp -a "$GIT_SNAPSHOT_ROOT"/. .
 
           git config user.name github-actions[bot]

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 from pathlib import Path, PurePosixPath
 
@@ -90,6 +91,43 @@ def _prune_empty_directories(repo_root: Path) -> None:
                 pass
 
 
+def prune_catalog_to_inventory(repo_root: Path, managed: list[Path]) -> bool:
+    """Keep the catalog aligned with dashboard files included in the mirror."""
+    catalog_path = repo_root / "docs" / "catalog.json"
+    if not catalog_path.is_file():
+        return False
+
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    entries = catalog.get("files")
+    if entries is None:
+        return False
+    if not isinstance(entries, list):
+        raise ValueError(f"dashboard catalog is missing its files list: {catalog_path}")
+
+    available = {path.as_posix()[len("docs/") :] for path in managed if path.as_posix().startswith("docs/artifacts/")}
+    retained = [
+        entry for entry in entries
+        if not isinstance(entry, dict)
+        or not isinstance(entry.get("path"), str)
+        or not entry["path"].startswith("artifacts/")
+        or entry["path"] in available
+    ]
+    if len(retained) == len(entries):
+        return False
+
+    catalog["files"] = retained
+    catalog["total_files"] = len(retained)
+    catalog["total_size"] = sum(int(entry.get("size") or 0) for entry in retained if isinstance(entry, dict))
+    size = float(catalog["total_size"])
+    for unit in ("B", "KB", "MB", "GB"):
+        if size < 1024 or unit == "GB":
+            catalog["total_size_str"] = f"{int(size)} B" if unit == "B" else f"{size:.1f} {unit}"
+            break
+        size /= 1024
+    catalog_path.write_text(json.dumps(catalog, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return True
+
+
 def sync_generated_outputs(
     snapshot_root: Path,
     repo_root: Path,
@@ -143,6 +181,8 @@ def sync_generated_outputs(
         shutil.copy2(source, destination)
         copied += 1
 
+    prune_catalog_to_inventory(repo_root, new_paths)
+
     _prune_empty_directories(repo_root)
     inventory_path.parent.mkdir(parents=True, exist_ok=True)
     inventory_temp = inventory_path.with_name(inventory_path.name + ".tmp")
@@ -163,7 +203,23 @@ def main() -> int:
         type=Path,
         default=Path(".github/huntx-generated-files.txt"),
     )
+    parser.add_argument(
+        "--prune-catalog-only",
+        action="store_true",
+        help="Remove catalog entries for artifact files absent from the managed inventory.",
+    )
     args = parser.parse_args()
+
+    if args.prune_catalog_only:
+        root = args.repo_root.resolve()
+        inventory = args.inventory_path
+        if not inventory.is_absolute():
+            inventory = root / inventory
+        _ensure_within(root, inventory, "inventory path")
+        managed = read_inventory(inventory, required=True)
+        changed = prune_catalog_to_inventory(root, managed)
+        print(f"Updated dashboard catalog: {'pruned unavailable files' if changed else 'already current'}.")
+        return 0
 
     copied, removed = sync_generated_outputs(
         snapshot_root=args.snapshot_root,
