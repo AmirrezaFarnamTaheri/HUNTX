@@ -347,6 +347,32 @@ class TestDashboardDataWiring(unittest.TestCase):
 
 
 class TestGeneratedMainSync(unittest.TestCase):
+    def test_catalog_omits_files_outside_the_generated_inventory(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            catalog_path = repo / "docs" / "catalog.json"
+            catalog_path.parent.mkdir(parents=True)
+            _write_json(catalog_path, {
+                "files": [
+                    {"path": "artifacts/dev/proxies.json", "size": 120},
+                    {"path": "artifacts/release/current.json", "size": 50},
+                ],
+                "total_files": 2,
+                "total_size": 170,
+                "total_size_str": "170 B",
+            })
+
+            changed = SYNCER.prune_catalog_to_inventory(
+                repo,
+                [Path("docs/catalog.json"), Path("docs/artifacts/release/current.json")],
+            )
+
+            catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+            self.assertTrue(changed)
+            self.assertEqual([entry["path"] for entry in catalog["files"]], ["artifacts/release/current.json"])
+            self.assertEqual(catalog["total_files"], 1)
+            self.assertEqual(catalog["total_size"], 50)
+
     def test_sync_removes_only_managed_stale_files_and_preserves_helpers(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
