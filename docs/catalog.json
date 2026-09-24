@@ -7,9 +7,9 @@
       "media_type": "application/json",
       "path": "artifacts/release/all_sources_npvt_decoded.json",
       "section": "release",
-      "sha256": "bb46c86e4d516f252ca742aa5906aa38a0c60a908407cfa37203d09a328afac4",
-      "size": 1295219,
-      "size_str": "1.2 MB",
+      "sha256": "5640643181c4a8627e218b93bba5f19baa191b64c971a7e5b81ab9a052dd5938",
+      "size": 1377654,
+      "size_str": "1.3 MB",
       "tags": [
         "release",
         "production",
@@ -26,9 +26,9 @@
       "media_type": "application/json",
       "path": "artifacts/release/all_sources_npvt_nekobox.json",
       "section": "release",
-      "sha256": "0c3341c5ff5c7bb8fbb28e78cb41e6993eab10ace50e31ed98a21567936c1ad6",
-      "size": 741531,
-      "size_str": "724.2 KB",
+      "sha256": "193cef26b87498764ec9fcfd557837577313bb3028ca12beb017b64862267b10",
+      "size": 787157,
+      "size_str": "768.7 KB",
       "tags": [
         "release",
         "production",
@@ -44,9 +44,9 @@
       "media_type": "text/plain",
       "path": "artifacts/release/all_sources_npvt_raw.txt",
       "section": "release",
-      "sha256": "a5ea80d087dbd01fbfe8ceae144bd1a505b9d3350ea1f3ec350595d5286061bf",
-      "size": 441856,
-      "size_str": "431.5 KB",
+      "sha256": "6c4d9a09ac8fb783550760c22443abe75903f0aa5c95e3e31f52ad18a4540d60",
+      "size": 470560,
+      "size_str": "459.5 KB",
       "tags": [
         "release",
         "production",
@@ -62,9 +62,9 @@
       "media_type": "application/json",
       "path": "artifacts/release/all_sources_npvt_singbox.json",
       "section": "release",
-      "sha256": "1dcbbf7f0c1af5938678596a7ad8a2ffb8f7638d43d5f7c3897a625afd2aa832",
-      "size": 887777,
-      "size_str": "867.0 KB",
+      "sha256": "f848e98593d49ba45d02813a94b6a3ebca23a1b3e57196f05340a445d0043993",
+      "size": 942515,
+      "size_str": "920.4 KB",
       "tags": [
         "release",
         "production",
@@ -81,9 +81,9 @@
       "media_type": "application/json",
       "path": "artifacts/release/all_sources_npvt_xray.json",
       "section": "release",
-      "sha256": "2cd1d78cfb04756ce2b2682ec117be1abcc7fad4b55626f425dd06cc335af2ed",
-      "size": 670703,
-      "size_str": "655.0 KB",
+      "sha256": "ce8b5e71829f7c4b998e4fd3c4e67e7fb91a21ee6a603c81476f469a962d9264",
+      "size": 710321,
+      "size_str": "693.7 KB",
       "tags": [
         "release",
         "production",
@@ -94,10 +94,10 @@
       "type": "XRAY"
     }
   ],
-  "generated_at": "2026-09-24T17:27:25.383449Z",
+  "generated_at": "2026-09-24T20:57:20.495804Z",
   "release_manifest": "artifacts/release/manifest.json",
   "schema_version": 1,
   "total_files": 5,
-  "total_size": 4037086,
-  "total_size_str": "3.9 MB"
+  "total_size": 4288207,
+  "total_size_str": "4.1 MB"
 }
