@@ -5,6 +5,8 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import subprocess
+import sys
 from pathlib import Path
 from unittest import mock
 
@@ -32,6 +34,22 @@ def test_checked_in_index_matches_frontend_generator() -> None:
     assert 'cdn.tailwindcss.com' not in published
     assert 'assets/css/tailwind.css' in published
     assert not (ROOT / "docs" / "assets" / "js" / "bundle.js").exists()
+
+
+def test_frontend_generator_cli_accepts_a_snapshot_root(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "catalog.json").write_text(
+        json.dumps({"files": [{"path": "a"}, {"path": "b"}]}),
+        encoding="utf-8",
+    )
+    subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "update_frontend.py"), "--root", str(tmp_path)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert (docs / "index.html").read_text(encoding="utf-8") == _load_frontend_builder().build_index_content(tmp_path)
 
 
 def test_service_worker_uses_network_first_for_deployment_shell() -> None:

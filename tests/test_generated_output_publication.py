@@ -361,6 +361,17 @@ class TestGeneratedMainSync(unittest.TestCase):
                 "total_size": 170,
                 "total_size_str": "170 B",
             })
+            data_path = repo / "docs" / "assets" / "js" / "data.js"
+            data_path.parent.mkdir(parents=True)
+            data_path.write_text(
+                'export const FALLBACK_CATALOG = '
+                + json.dumps({"files": [
+                    {"path": "artifacts/dev/proxies.json", "size": 120},
+                    {"path": "artifacts/release/current.json", "size": 50},
+                ]})
+                + ";\n",
+                encoding="utf-8",
+            )
 
             changed = SYNCER.prune_catalog_to_inventory(
                 repo,
@@ -372,6 +383,44 @@ class TestGeneratedMainSync(unittest.TestCase):
             self.assertEqual([entry["path"] for entry in catalog["files"]], ["artifacts/release/current.json"])
             self.assertEqual(catalog["total_files"], 1)
             self.assertEqual(catalog["total_size"], 50)
+            fallback = data_path.read_text(encoding="utf-8")
+            self.assertNotIn("artifacts/dev/proxies.json", fallback)
+            self.assertIn('"total_files":1', fallback)
+
+    def test_catalog_prune_syncs_a_stale_fallback_when_catalog_is_current(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            docs = repo / "docs"
+            catalog_path = docs / "catalog.json"
+            data_path = docs / "assets" / "js" / "data.js"
+            data_path.parent.mkdir(parents=True)
+            current_catalog = {
+                "files": [{"path": "artifacts/release/current.json", "size": 50}],
+                "total_files": 1,
+                "total_size": 50,
+                "total_size_str": "50 B",
+            }
+            _write_json(catalog_path, current_catalog)
+            data_path.write_text(
+                'export const FALLBACK_CATALOG = '
+                + json.dumps({
+                    **current_catalog,
+                    "files": current_catalog["files"]
+                    + [{"path": "artifacts/dev/proxies.json", "size": 120}],
+                })
+                + ";\n",
+                encoding="utf-8",
+            )
+
+            changed = SYNCER.prune_catalog_to_inventory(
+                repo,
+                [Path("docs/catalog.json"), Path("docs/artifacts/release/current.json")],
+            )
+
+            self.assertTrue(changed)
+            fallback = data_path.read_text(encoding="utf-8")
+            self.assertNotIn("artifacts/dev/proxies.json", fallback)
+            self.assertIn('"total_files":1', fallback)
 
     def test_sync_removes_only_managed_stale_files_and_preserves_helpers(self):
         with tempfile.TemporaryDirectory() as temp_dir:
