@@ -116,8 +116,33 @@ class TestGeneratedSnapshotAssembly(unittest.TestCase):
 
             inventory = (destination / "manifests" / "main-sync-files.txt").read_text().splitlines()
             self.assertIn("outputs/current.txt", inventory)
-            self.assertIn("outputs_dev/_manifest.json", inventory)
-            self.assertIn("outputs_dev/proxies.txt", inventory)
+            self.assertNotIn("outputs_dev/_manifest.json", inventory)
+            self.assertIn("outputs_dev/_manifest.json.gz.index.json", inventory)
+            self.assertTrue(any(path.startswith("outputs_dev/_manifest.json.gz.part") for path in inventory))
+            self.assertNotIn("outputs_dev/proxies.txt", inventory)
+            self.assertTrue((destination / "outputs_dev" / "proxies.txt").is_file())
+
+    def test_compressed_cumulative_manifest_loads_from_sharded_git_format(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dev_dir = Path(temp_dir) / "outputs_dev"
+            dev_dir.mkdir()
+            expected = {
+                "vless://first.example:443?encryption=none": 100,
+                "vmess://eyJhZGQiOiJzZWNvbmQuZXhhbXBsZSJ9": 200,
+            }
+            chunk_size = ASSEMBLER._MANIFEST_CHUNK_BYTES
+            ASSEMBLER._MANIFEST_CHUNK_BYTES = 32
+            try:
+                ASSEMBLER.write_compressed_dev_manifest(dev_dir, expected)
+            finally:
+                ASSEMBLER._MANIFEST_CHUNK_BYTES = chunk_size
+
+            self.assertEqual(
+                ASSEMBLER.load_dev_manifest(dev_dir / "_manifest.json"),
+                expected,
+            )
+            self.assertTrue((dev_dir / "_manifest.json.gz.index.json").is_file())
+            self.assertGreater(len(list(dev_dir.glob("_manifest.json.gz.part*"))), 1)
 
     def test_republishing_the_same_run_is_deterministic(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -206,7 +231,8 @@ class TestDashboardDataWiring(unittest.TestCase):
             inventory = (destination / "manifests" / "main-sync-files.txt").read_text().splitlines()
             self.assertIn("docs/catalog.json", inventory)
             self.assertIn("docs/artifacts/release/manifest.json", inventory)
-            self.assertIn("docs/artifacts/dev/proxies_b64sub.txt", inventory)
+            self.assertNotIn("docs/artifacts/dev/proxies_b64sub.txt", inventory)
+            self.assertTrue((destination / "docs" / "artifacts" / "dev" / "proxies_b64sub.txt").is_file())
             self.assertGreaterEqual(payload["dashboard_file_count"], 5)
 
     def test_republishing_old_run_does_not_restore_dotted_derivatives(self):

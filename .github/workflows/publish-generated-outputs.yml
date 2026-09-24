@@ -29,6 +29,8 @@ on:
 permissions:
   actions: write
   contents: write
+  pages: write
+  id-token: write
 
 concurrency:
   group: publish-generated-outputs
@@ -40,6 +42,9 @@ jobs:
     if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: Resolve and validate source run
@@ -390,13 +395,24 @@ jobs:
             --head-branch "$SOURCE_HEAD_BRANCH" \
             --source-created-at "$SOURCE_CREATED_AT"
           test -n "$(find "$SOURCE_ROOT/snapshot/outputs" -type f -size +0c -print -quit)"
-          test -s "$SOURCE_ROOT/snapshot/outputs_dev/_manifest.json"
+          test -s "$SOURCE_ROOT/snapshot/outputs_dev/_manifest.json.gz.index.json"
           test -s "$SOURCE_ROOT/snapshot/manifests/main-sync-files.txt"
+
+      - name: Configure Pages deployment
+        if: steps.release.outputs.ready == 'true'
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Upload cumulative dashboard to Pages
+        if: steps.release.outputs.ready == 'true'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: ${{ runner.temp }}/huntx-publication/snapshot/docs
 
       - name: Commit atomic generated-only snapshot
         if: steps.release.outputs.ready == 'true'
         env:
           SNAPSHOT_ROOT: ${{ runner.temp }}/huntx-publication/snapshot
+          GIT_SNAPSHOT_ROOT: ${{ runner.temp }}/huntx-publication/git-snapshot
           SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
           SOURCE_RUN_ATTEMPT: ${{ steps.source.outputs.run_attempt }}
           RESTORED_SHA: ${{ steps.previous.outputs.sha }}
@@ -422,7 +438,18 @@ jobs:
           fi
           git rm -rf . >/dev/null 2>&1 || true
           git clean -fdx
-          cp -a "$SNAPSHOT_ROOT"/. .
+          rm -rf "$GIT_SNAPSHOT_ROOT"
+          mkdir -p "$GIT_SNAPSHOT_ROOT"
+          cp -a "$SNAPSHOT_ROOT"/. "$GIT_SNAPSHOT_ROOT"/
+          rm -f \
+            "$GIT_SNAPSHOT_ROOT/outputs_dev/_manifest.json" \
+            "$GIT_SNAPSHOT_ROOT/outputs_dev/proxies.json" \
+            "$GIT_SNAPSHOT_ROOT/outputs_dev/proxies.txt" \
+            "$GIT_SNAPSHOT_ROOT/outputs_dev/proxies_b64sub.txt" \
+            "$GIT_SNAPSHOT_ROOT/docs/artifacts/dev/proxies.json" \
+            "$GIT_SNAPSHOT_ROOT/docs/artifacts/dev/proxies.txt" \
+            "$GIT_SNAPSHOT_ROOT/docs/artifacts/dev/proxies_b64sub.txt"
+          cp -a "$GIT_SNAPSHOT_ROOT"/. .
 
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
@@ -440,6 +467,11 @@ jobs:
           else
             git push origin HEAD:refs/heads/generated-outputs
           fi
+
+      - name: Deploy cumulative dashboard to Pages
+        if: steps.release.outputs.ready == 'true'
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
 
       - name: Mirror verified outputs to main
         if: steps.release.outputs.ready == 'true'
@@ -459,7 +491,7 @@ jobs:
               --inventory-path .github/huntx-generated-files.txt
 
             test -n "$(find outputs -type f -size +0c -print -quit)"
-            test -s outputs_dev/_manifest.json
+            test -s outputs_dev/_manifest.json.gz.index.json
             test -f scripts/verify_output.py
 
             git add -- outputs outputs_dev docs .github/huntx-generated-files.txt

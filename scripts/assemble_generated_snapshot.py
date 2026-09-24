@@ -6,6 +6,7 @@ import argparse
 import base64
 import binascii
 import datetime as dt
+import gzip
 import hashlib
 import json
 import runpy
@@ -15,6 +16,7 @@ from typing import Any
 
 ManifestValue = float | int | str
 LEGACY_FIRST_SEEN = 0
+_MANIFEST_CHUNK_BYTES = 16 * 1024 * 1024
 _DERIVED_SUFFIXES = (
     "decoded.json", "raw.txt", "singbox.json", "xray.json", "nekobox.json",
 )
@@ -155,13 +157,48 @@ def normalise_manifest(raw: Any, source: Path) -> dict[str, ManifestValue]:
 
 
 def load_dev_manifest(path: Path | None) -> dict[str, ManifestValue]:
-    if path is None or not path.exists():
+    if path is None:
         return {}
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        if path.exists():
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        else:
+            index_path = path.with_name(path.name + ".gz.index.json")
+            if not index_path.exists():
+                return {}
+            index = json.loads(index_path.read_text(encoding="utf-8"))
+            parts = index.get("parts") if isinstance(index, dict) else None
+            if not isinstance(parts, list) or not parts or not all(
+                isinstance(part, str) and Path(part).name == part for part in parts
+            ):
+                raise ValueError("compressed dev manifest index has invalid parts")
+            compressed = b"".join((index_path.parent / part).read_bytes() for part in parts)
+            raw = json.loads(gzip.decompress(compressed).decode("utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, gzip.BadGzipFile) as exc:
         raise ValueError(f"could not read dev manifest {path}: {exc}") from exc
     return normalise_manifest(raw, path)
+
+
+def write_compressed_dev_manifest(dev_dir: Path, manifest: dict[str, ManifestValue]) -> None:
+    """Write deterministic small gzip members so every Git blob stays below 100 MB."""
+    for stale_part in dev_dir.glob("_manifest.json.gz.part*"):
+        stale_part.unlink()
+    payload = json.dumps(manifest, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    parts: list[str] = []
+    for offset in range(0, len(payload), _MANIFEST_CHUNK_BYTES):
+        name = f"_manifest.json.gz.part{len(parts) + 1:04d}"
+        (dev_dir / name).write_bytes(
+            gzip.compress(payload[offset : offset + _MANIFEST_CHUNK_BYTES], compresslevel=9, mtime=0)
+        )
+        parts.append(name)
+    if not parts:
+        name = "_manifest.json.gz.part0001"
+        (dev_dir / name).write_bytes(gzip.compress(b"{}", compresslevel=9, mtime=0))
+        parts.append(name)
+    index = {"encoding": "concatenated-gzip-json", "parts": parts}
+    (dev_dir / "_manifest.json.gz.index.json").write_text(
+        json.dumps(index, separators=(",", ":")) + "\n", encoding="utf-8"
+    )
 
 
 def merge_dev_manifests(
@@ -245,7 +282,8 @@ def load_legacy_dev_identities(dev_dir: Path | None) -> dict[str, ManifestValue]
     nonempty_sources: list[Path] = []
 
     manifest_path = dev_dir / "_manifest.json"
-    if manifest_path.is_file() and manifest_path.stat().st_size > 0:
+    compressed_index = manifest_path.with_name(manifest_path.name + ".gz.index.json")
+    if (manifest_path.is_file() and manifest_path.stat().st_size > 0) or compressed_index.is_file():
         nonempty_sources.append(manifest_path)
         try:
             manifest.update(load_dev_manifest(manifest_path))
@@ -313,6 +351,7 @@ def write_dev_outputs(
         json.dumps(manifest, ensure_ascii=False, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    write_compressed_dev_manifest(dev_dir, manifest)
 
     sorted_uris = sorted(manifest)
     sorted_uris.sort(key=lambda uri: _timestamp_sort_key(manifest[uri]), reverse=True)
@@ -434,7 +473,14 @@ def write_main_sync_inventory(destination: Path) -> None:
             continue
         for path in sorted(directory.rglob("*")):
             if path.is_file():
-                managed.append(path.relative_to(destination).as_posix())
+                relative = path.relative_to(destination).as_posix()
+                if relative == "outputs_dev/_manifest.json":
+                    continue
+                if relative.startswith(("outputs_dev/", "docs/artifacts/dev/")) and path.name in {
+                    "proxies.json", "proxies.txt", "proxies_b64sub.txt"
+                }:
+                    continue
+                managed.append(relative)
     if not managed:
         raise ValueError("generated snapshot has no main-sync output files")
     (destination / "manifests" / "main-sync-files.txt").write_text(
