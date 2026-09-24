@@ -1,9 +1,8 @@
-docs/artifacts/dev/proxies.json
-docs/artifacts/dev/proxies.txt
-docs/artifacts/dev/proxies_b64sub.txt
 docs/artifacts/release/all_sources.conf_lines
 docs/artifacts/release/all_sources.dark
 docs/artifacts/release/all_sources.ehi
+docs/artifacts/release/all_sources.hc
+docs/artifacts/release/all_sources.nm
 docs/artifacts/release/all_sources.npvt
 docs/artifacts/release/all_sources.npvt.b64sub
 docs/artifacts/release/all_sources.opaque_bundle
@@ -23,6 +22,8 @@ outputs/.huntx-output-ownership.json
 outputs/all_sources.conf_lines
 outputs/all_sources.dark
 outputs/all_sources.ehi
+outputs/all_sources.hc
+outputs/all_sources.nm
 outputs/all_sources.npvt
 outputs/all_sources.npvt.b64sub
 outputs/all_sources.opaque_bundle
@@ -34,7 +35,12 @@ outputs/all_sources_npvt_nekobox.json
 outputs/all_sources_npvt_raw.txt
 outputs/all_sources_npvt_singbox.json
 outputs/all_sources_npvt_xray.json
-outputs_dev/_manifest.json
-outputs_dev/proxies.json
-outputs_dev/proxies.txt
-outputs_dev/proxies_b64sub.txt
+outputs_dev/_manifest.json.gz.index.json
+outputs_dev/_manifest.json.gz.part0001
+outputs_dev/_manifest.json.gz.part0002
+outputs_dev/_manifest.json.gz.part0003
+outputs_dev/_manifest.json.gz.part0004
+outputs_dev/_manifest.json.gz.part0005
+outputs_dev/_manifest.json.gz.part0006
+outputs_dev/_manifest.json.gz.part0007
+outputs_dev/_manifest.json.gz.part0008
