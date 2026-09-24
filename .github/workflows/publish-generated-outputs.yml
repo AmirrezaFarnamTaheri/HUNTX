@@ -240,7 +240,21 @@ jobs:
           git fetch --no-tags origin \
             refs/heads/generated-outputs:refs/remotes/origin/generated-outputs
           git worktree add --detach "$PREVIOUS_ROOT" refs/remotes/origin/generated-outputs
-          test -s "$PREVIOUS_ROOT/outputs_dev/_manifest.json"
+          if [[ -s "$PREVIOUS_ROOT/outputs_dev/_manifest.json" ]]; then
+            echo "Restored legacy plain cumulative manifest."
+          else
+            manifest_index="$PREVIOUS_ROOT/outputs_dev/_manifest.json.gz.index.json"
+            if [[ ! -s "$manifest_index" ]]; then
+              echo "::error title=Previous cumulative manifest missing::Neither a plain manifest nor a compressed manifest index was found."
+              exit 1
+            fi
+            jq -e '.parts | type == "array" and length > 0 and all(.[]; type == "string" and (contains("/") | not) and (contains("\\") | not))' \
+              "$manifest_index" >/dev/null
+            while IFS= read -r part; do
+              test -s "$PREVIOUS_ROOT/outputs_dev/$part"
+            done < <(jq -r '.parts[]' "$manifest_index")
+            echo "Restored compressed cumulative manifest and all indexed parts."
+          fi
 
       - name: Download verified checkpoint handoff
         if: steps.source.outputs.ready == 'true'
