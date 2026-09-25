@@ -113,7 +113,7 @@ def test_production_packaging_requires_current_frontend_assets() -> None:
         for prefix in ('test -f "$candidate_dir/', 'test -s "$candidate_dir/'):
             if stripped.startswith(prefix):
                 required.append(stripped[len(prefix):].split('"', 1)[0])
-    assert {"index.html", "assets/js/app.js", "assets/css/tailwind.css", "sw.js"} <= set(required)
+    assert {"index.html", "assets/js/app.js", "assets/js/data.js", "assets/css/tailwind.css", "sw.js"} <= set(required)
     assert "assets/js/bundle.js" not in required
     for relative in required:
         assert (ROOT / "docs" / relative).is_file(), relative
@@ -410,3 +410,76 @@ def test_frontend_uses_only_canonical_product_artifact_names() -> None:
 
     assert "NekoBox Node Subscription" in application
     assert "imports as one profile" in application
+
+
+def test_dashboard_only_generator_reuses_the_verified_catalog(tmp_path: Path) -> None:
+    """Telemetry generation must reuse the Go catalog instead of inventing one."""
+    module = _load_site_generator()
+    outputs = tmp_path / "outputs"
+    outputs_dev = tmp_path / "outputs_dev"
+    outputs.mkdir()
+    outputs_dev.mkdir()
+    catalog_file = tmp_path / "catalog.json"
+    data_file = tmp_path / "assets" / "js" / "data.js"
+    catalog = {
+        "schema_version": 1,
+        "generated_at": "2026-09-25T00:00:00+00:00",
+        "total_files": 6,
+        "total_size": 42,
+        "total_size_str": "42 B",
+        "files": [{"filename": "release.json", "path": "artifacts/release/release.json", "sha256": "a" * 64}],
+    }
+    catalog_file.write_text(json.dumps(catalog), encoding="utf-8")
+    proxy = {
+        "id": "px-0001",
+        "protocol": "vless",
+        "name": "ZZ-node",
+        "server": "203.0.113.10",
+        "port": 443,
+        "security": "tls",
+        "transport": "tcp",
+        "latency": None,
+        "probe_ok": False,
+        "country": "ZZ",
+        "country_name": "Unknown",
+        "flag": "🌐",
+        "carrier": "Unverified",
+        "org": "Unverified",
+        "city": "Unknown",
+        "latitude": None,
+        "longitude": None,
+        "geo_source": "unknown",
+        "geo_verified": False,
+        "raw_uri": "vless://node@203.0.113.10:443#node",
+    }
+    with mock.patch.object(module, "parse_production_proxies", return_value=[proxy]), mock.patch.object(
+        module, "drop_unreachable_proxies", side_effect=lambda values: values
+    ), mock.patch.object(module, "enrich_proxies_with_geoip", side_effect=lambda values: values), mock.patch.object(
+        module, "probe_tcp_latency", side_effect=lambda values: values
+    ), mock.patch.object(module, "grade_proxy_health", side_effect=lambda values: values), mock.patch.object(
+        module, "score_governed_pca", side_effect=lambda values: values
+    ):
+        module.generate_dashboard_data(outputs, outputs_dev, catalog_file, data_file)
+
+    generated = data_file.read_text(encoding="utf-8")
+    assert '"total_files":6' in generated.replace(" ", "")
+    assert '"generated_at":"2026-09-25T00:00:00+00:00"' in generated
+    assert '"raw_uri":"vless://node@203.0.113.10:443#node"' in generated
+
+
+def test_primary_pages_workflow_generates_telemetry_before_upload() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "huntx.yml").read_text(encoding="utf-8")
+    package = workflow.split("          try_package() {", 1)[1].split("          restore_previous_outputs()", 1)[0]
+    telemetry_index = package.index("generate_dashboard_data")
+    upload_index = workflow.index("actions/upload-pages-artifact")
+    assert telemetry_index < upload_index
+    assert 'test -s "$candidate_dir/assets/js/data.js"' in package
+    assert 'HUNTX_GENERATED_AT="$generated_at"' in package
+
+
+def test_publish_workflow_uses_telemetry_only_entry_point() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "publish-generated-outputs.yml").read_text(encoding="utf-8")
+    assert "site.generate_dashboard_data(" in workflow
+    step = workflow.split("Build verified dashboard data from release dist", 1)[1].split("Download structured runtime diagnostics", 1)[0]
+    assert "site.main()" not in step
+    assert 'cp "$DASHBOARD_ROOT/assets/js/data.js" docs/assets/js/data.js' in step

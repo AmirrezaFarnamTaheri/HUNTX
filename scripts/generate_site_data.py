@@ -1003,6 +1003,60 @@ def compute_aggregate_stats(proxies: list[dict], catalog: dict) -> dict:
     }
 
 
+def _write_dashboard_data(catalog: dict, proxies: list[dict], stats: dict, data_js_file: Path) -> None:
+    """Write the browser data module from one catalog/telemetry generation."""
+    data_js_content = f"""/**
+ * HUNTX Telemetry & Artifacts Data Store
+ * Dynamically generated from outputs/ and outputs_dev/ pipeline outputs.
+ * Timestamp: {stats["generated_at"]}
+ */
+
+// Compact separators: this module ships to the browser as a static asset and
+// is never hand-edited, so the readable layout is pure download cost.
+export const FALLBACK_CATALOG = {json.dumps(catalog, separators=(',', ':'))};
+
+export const SAMPLE_PROXIES = {json.dumps(proxies, separators=(',', ':'))};
+
+export const INGEST_STATS = {json.dumps(stats, separators=(',', ':'))};
+"""
+    data_js_file.parent.mkdir(parents=True, exist_ok=True)
+    data_js_file.write_text(data_js_content, encoding="utf-8")
+
+
+def generate_dashboard_data(
+    outputs_dir: Path,
+    outputs_dev_dir: Path,
+    catalog_file: Path,
+    data_js_file: Path,
+) -> None:
+    """Generate only data.js from an already verified catalog and current outputs.
+
+    The Pages workflow owns the catalog and artifact copies. This entry point
+    reuses that catalog and runs the telemetry stages against the same run's
+    outputs, so the browser never has to merge generations.
+    """
+    global OUTPUTS_DIR, OUTPUTS_DEV_DIR, DATA_JS_FILE
+    previous = (OUTPUTS_DIR, OUTPUTS_DEV_DIR, DATA_JS_FILE)
+    try:
+        OUTPUTS_DIR = Path(outputs_dir)
+        OUTPUTS_DEV_DIR = Path(outputs_dev_dir)
+        DATA_JS_FILE = Path(data_js_file)
+        catalog = json.loads(Path(catalog_file).read_text(encoding="utf-8"))
+        proxies = score_governed_pca(
+            grade_proxy_health(
+                probe_tcp_latency(
+                    enrich_proxies_with_geoip(
+                        drop_unreachable_proxies(parse_production_proxies())
+                    )
+                )
+            )
+        )
+        stats = compute_aggregate_stats(proxies, catalog)
+        _write_dashboard_data(catalog, proxies, stats, DATA_JS_FILE)
+    finally:
+        OUTPUTS_DIR, OUTPUTS_DEV_DIR, DATA_JS_FILE = previous
+
+
 def generate_all() -> None:
     """Generate the static artifact catalog and frontend data module."""
     DOCS_DIR.mkdir(parents=True, exist_ok=True)
@@ -1116,22 +1170,7 @@ def generate_all() -> None:
     # dataset actually loaded (live artifact or bundled fallback), so a
     # second copy computed here would only go stale; the browser's own
     # clustering is the single source of truth.
-    data_js_content = f"""/**
- * HUNTX Telemetry & Artifacts Data Store
- * Dynamically generated from outputs/ and outputs_dev/ pipeline outputs.
- * Timestamp: {_generated_at()}
- */
-
-// Compact separators: this module ships to the browser as a static asset and
-// is never hand-edited, so the readable layout is pure download cost.
-export const FALLBACK_CATALOG = {json.dumps(catalog, separators=(',', ':'))};
-
-export const SAMPLE_PROXIES = {json.dumps(proxies, separators=(',', ':'))};
-
-export const INGEST_STATS = {json.dumps(stats, separators=(',', ':'))};
-"""
-    DATA_JS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    DATA_JS_FILE.write_text(data_js_content, encoding="utf-8")
+    _write_dashboard_data(catalog, proxies, stats, DATA_JS_FILE)
 
     print(f"[site] Generated catalog with {len(catalog_entries)} files ({catalog['total_size_str']})")
     print(f"[site] Generated {len(proxies)} production proxies")

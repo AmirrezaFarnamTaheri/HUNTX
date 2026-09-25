@@ -505,7 +505,12 @@ jobs:
             mkdir -p "$candidate_dir"
             cp -a docs/. "$candidate_dir/"
             .bin/huntx-tools site-data --data-dir persist/data --docs-dir "$candidate_dir" --generated-at "$generated_at" || return 1
+            # Generate telemetry from this same run's outputs and the Go-verified
+            # catalog. The dashboard data module is part of the Pages artifact,
+            # not a stale file copied from the checkout.
+            HUNTX_GENERATED_AT="$generated_at" PYTHONPATH=src python -c 'from pathlib import Path; from scripts import generate_site_data as site; site.generate_dashboard_data(Path("persist/data/outputs"), Path("persist/data/outputs_dev"), Path("'"$candidate_dir"'/catalog.json"), Path("'"$candidate_dir"'/assets/js/data.js"))' || return 1
             test -f "$candidate_dir/index.html" || return 1
+            test -s "$candidate_dir/assets/js/data.js" || return 1
             test -f "$candidate_dir/assets/js/app.js" || return 1
             test -f "$candidate_dir/assets/css/tailwind.css" || return 1
             test -f "$candidate_dir/sw.js" || return 1

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { AppState, HEALTH_GRADES, healthForLatency, resolveGeoAndCarrier, securityGrade } from "../docs/assets/js/app.js";
+import * as huntx from "../docs/assets/js/app.js";
+const { AppState, HEALTH_GRADES, healthForLatency, resolveGeoAndCarrier, securityGrade } = huntx;
 
 test("missing latency remains unmeasured instead of becoming zero", () => {
   const getLatency = AppState.prototype.getLatency;
@@ -204,4 +205,71 @@ test("fallback is restored after bundled to live to unavailable transition", asy
   assert.equal(app.liveDataState, "stale");
   assert.equal(app.catalog, bundledCatalog);
   assert.deepEqual(app.proxies, bundledProxies);
+});
+
+
+// Telemetry contract regressions: the live path must not discard the
+// telemetry sidecar generated for the same catalog generation.
+test("live artifact mapping retains same-generation telemetry", async (t) => {
+  const { SAMPLE_PROXIES, INGEST_STATS } = await import("../docs/assets/js/data.js");
+  const source = SAMPLE_PROXIES[0];
+  assert.ok(source, "the bundled telemetry fixture must contain a node");
+  const entry = {
+    protocol: source.protocol,
+    address: source.server,
+    port: source.port,
+    tag: source.name,
+    params: { sni: source.sni, host: source.host, type: source.transport, security: source.security },
+    user: source.uuid,
+    raw: source.raw_uri
+  };
+  const app = Object.create(AppState.prototype);
+  app.renderDataStatus = () => {};
+  app.loadVerifiedJsonArtifact = async () => ({ entries: [entry] });
+  t.mock.method(globalThis, "fetch", async () => ({
+    ok: true,
+    json: async () => ({
+      generated_at: INGEST_STATS.generated_at.replace("+00:00", "Z"),
+      files: [{ filename: "all_sources_npvt_decoded.json", path: "artifacts/release/live.json", sha256: "a".repeat(64) }]
+    })
+  }));
+  await app.loadLiveData();
+  assert.equal(app.liveDataState, "ready");
+  assert.equal(app.proxies[0].latency, source.latency);
+  assert.equal(app.proxies[0].health_grade, source.health_grade);
+  assert.equal(app.proxies[0].pca_score, source.pca_score);
+  assert.equal(app.proxies[0].country, source.country);
+  assert.equal(app.proxies[0].raw, source.raw_uri);
+});
+
+test("bundled fallback normalizes raw_uri into the raw feed contract", async () => {
+  const app = Object.create(AppState.prototype);
+  await app.loadBundledFallback();
+  assert.ok(app.proxies.length > 0);
+  assert.ok(app.proxies.every((proxy) => typeof proxy.raw === "string" && proxy.raw.length > 0));
+});
+
+test("published health grade wins over the frontend latency approximation", () => {
+  const app = Object.create(AppState.prototype);
+  const published = app.getHealthScore({ latency: 46, health_grade: "B+", pca_score: 0.6 });
+  assert.equal(published.grade, "B+");
+  assert.equal(published.score, 60);
+  assert.equal(app.getHealthScore({ latency: 46 }).grade, "A");
+});
+
+test("unknown geography is reported separately from known regions", () => {
+  assert.deepEqual(huntx.summarizeRegions([
+    { country: "ZZ" },
+    { country: "DE" },
+    { country: "DE" },
+    { country: "US" },
+    { country: null }
+  ]), { regionCount: 2, unknownCount: 2, countries: [["DE", 2], ["US", 1]] });
+});
+
+
+test("generation timestamps compare by instant across RFC3339 spellings", () => {
+  assert.equal(huntx.isSameGeneration("2026-09-23T06:54:45.781021+00:00", "2026-09-23T06:54:45.781021Z"), true);
+  assert.equal(huntx.isSameGeneration("2026-09-23T06:54:45.781021+00:00", "2026-09-24T06:54:45.781021Z"), false);
+  assert.equal(huntx.isSameGeneration("", "2026-09-23T06:54:45.781021Z"), false);
 });

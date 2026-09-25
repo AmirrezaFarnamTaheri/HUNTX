@@ -377,6 +377,77 @@ export function securityGrade(security) {
   return "B+";
 }
 
+const PUBLISHED_HEALTH_GRADE_META = Object.freeze({
+  "A+": { label: "Snapshot A+", color: "text-emerald-400 border-emerald-800/80 bg-emerald-950/60" },
+  "A": { label: "Snapshot A", color: "text-cyan-400 border-cyan-800/80 bg-cyan-950/60" },
+  "B+": { label: "Snapshot B+", color: "text-sky-400 border-sky-800/80 bg-sky-950/60" },
+  "B": { label: "Snapshot B", color: "text-amber-400 border-amber-800/80 bg-amber-950/60" },
+  "C+": { label: "Snapshot C+", color: "text-orange-400 border-orange-800/80 bg-orange-950/60" },
+  "C": { label: "Snapshot C", color: "text-rose-400 border-rose-800/80 bg-rose-950/60" },
+  "F": { label: "Unreachable at publish", color: "text-gray-400 border-gray-700 bg-gray-900" }
+});
+
+/** Compare generation timestamps across RFC3339 spellings. */
+export function isSameGeneration(left, right) {
+  if (!left || !right) return false;
+  const leftTime = Date.parse(left);
+  const rightTime = Date.parse(right);
+  return Number.isFinite(leftTime) && Number.isFinite(rightTime) && leftTime === rightTime;
+}
+
+/** Normalize generated records to the fields consumed by the dashboard. */
+export function normalizeProxyRecord(proxy) {
+  const raw = proxy?.raw ?? proxy?.raw_uri ?? "";
+  const latency = proxy?.latency ?? proxy?.ping;
+  return {
+    ...proxy,
+    raw,
+    raw_uri: raw,
+    ping: latency
+  };
+}
+
+/** Keep unresolved geography out of the known-region count and ranking. */
+export function summarizeRegions(proxies) {
+  const counts = new Map();
+  let unknownCount = 0;
+  for (const proxy of proxies || []) {
+    const code = String(proxy?.country || "ZZ").toUpperCase();
+    if (!code || code === "ZZ") {
+      unknownCount += 1;
+      continue;
+    }
+    counts.set(code, (counts.get(code) || 0) + 1);
+  }
+  const countries = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  return { regionCount: countries.length, unknownCount, countries };
+}
+
+function telemetryKey(node) {
+  const raw = node?.raw ?? node?.raw_uri ?? "";
+  if (raw) return `raw:${raw}`;
+  return [
+    String(node?.protocol || "").toLowerCase(),
+    String(node?.server || node?.address || "").toLowerCase(),
+    String(node?.port || ""),
+    String(node?.user || node?.uuid || node?.password || "")
+  ].join("|");
+}
+
+function mergeTelemetryRecord(node, telemetry) {
+  if (!telemetry) return normalizeProxyRecord(node);
+  const merged = { ...node };
+  for (const field of [
+    "latency", "probe_ok", "health_grade", "health_status", "latency_grade",
+    "pca_score", "pca_version", "country", "country_name", "flag", "carrier",
+    "org", "city", "latitude", "longitude", "geo_source", "geo_verified",
+    "security_grade"
+  ]) {
+    if (Object.prototype.hasOwnProperty.call(telemetry, field)) merged[field] = telemetry[field];
+  }
+  return normalizeProxyRecord(merged);
+}
+
 function getStoredTheme() {
   try {
     return (typeof localStorage !== "undefined" && localStorage.getItem("huntx_theme")) || "dark";
@@ -433,6 +504,7 @@ export class AppState {
     this.nodesObserver = null;
     this.livePings = new Map();
     this.liveDataState = "idle";
+    this.telemetryState = "unavailable";
     this.renderDataStatus();
     this.liveRefreshTimer = null;
     this.liveRefreshInFlight = false;
@@ -561,6 +633,8 @@ export class AppState {
         ...proxy,
         latency,
         ping: latency,
+        raw: proxy.raw ?? proxy.raw_uri ?? "",
+        raw_uri: proxy.raw_uri ?? proxy.raw ?? "",
         latency_grade: healthForLatency(latency).grade,
         security_grade: proxy.security_grade || securityGrade(proxy.security),
         geo_source: proxy.geo_source || "legacy-estimate",
@@ -569,6 +643,7 @@ export class AppState {
     });
     this.globeHubs = clusterGlobeHubs(this.proxies);
     this.stats = data.INGEST_STATS || {};
+    this.telemetryState = "bundled";
   }
 
   async loadLiveData() {
@@ -577,6 +652,7 @@ export class AppState {
     let catalogCandidate = null;
     let proxyCandidate = null;
     let globeCandidate = null;
+    let telemetrySnapshot = null;
 
     // Keep the catalog and its decoded proxy data as one verified snapshot. A
     // new catalog must never be rendered beside stale bundled proxy records.
@@ -595,16 +671,34 @@ export class AppState {
       // the bundled snapshot instead of rendering nothing.
     }
 
+    // The telemetry sidecar is usable only when it was generated for this
+    // catalog. A stale or mismatched generation must stay explicitly
+    // unmeasured instead of being silently merged into a newer snapshot.
+    try {
+      const bundled = await import("./data.js");
+      const bundledGeneration = bundled.INGEST_STATS?.generated_at || "";
+      if (isSameGeneration(bundledGeneration, catalogCandidate?.generated_at)) {
+        telemetrySnapshot = bundled.SAMPLE_PROXIES || [];
+        this.telemetryState = "same-generation";
+      } else {
+        this.telemetryState = "unavailable";
+      }
+    } catch {
+      this.telemetryState = "unavailable";
+    }
+
     // Published release data is authoritative even when smaller than the demo bundle.
     try {
       const decodedArtifact = this.getDecodedArtifactRecord(catalogCandidate);
       if (decodedArtifact) {
         const decodedData = await this.loadVerifiedJsonArtifact(decodedArtifact);
         if (decodedData && Array.isArray(decodedData.entries)) {
+          const telemetryByKey = new Map((telemetrySnapshot || []).map((record) => [telemetryKey(record), record]));
           proxyCandidate = decodedData.entries.map((entry, idx) => {
             const proto = (entry.protocol || "vless").toLowerCase();
             const tag = entry.tag || `${proto}-${idx + 1}`;
-            const host = entry.address || "127.0.0.1";
+            const host = entry.address || "";
+            if (!host) return null;
             const port = entry.port || 443;
             const params = entry.params || {};
             const sni = params.sni || "";
@@ -619,7 +713,7 @@ export class AppState {
             const measuredLatency = rawLatency === null || rawLatency === undefined || rawLatency === "" ? null : Number(rawLatency);
             const latency = Number.isFinite(measuredLatency) && measuredLatency >= 0 ? measuredLatency : null;
 
-            return {
+            const liveNode = {
               id: `px-${String(idx + 1).padStart(4, "0")}`,
               protocol: proto,
               name: `${geo.country}-${tag}`,
@@ -652,7 +746,8 @@ export class AppState {
               raw_uri: raw,
               raw: raw
             };
-          });
+            return mergeTelemetryRecord(liveNode, telemetryByKey.get(telemetryKey(liveNode)));
+          }).filter(Boolean);
 
           globeCandidate = clusterGlobeHubs(proxyCandidate);
         }
@@ -688,7 +783,12 @@ export class AppState {
     if (!pill) return;
     const when = escapeHTML(this.catalog?.generated_at || "");
     const map = {
-      ready: { cls: "data-status-ready", text: `Artifact integrity verified${when ? " · " + when : ""}` },
+      ready: {
+        cls: "data-status-ready",
+        text: this.telemetryState === "same-generation"
+          ? `Artifact + telemetry verified${when ? " · " + when : ""}`
+          : `Artifact integrity verified · telemetry unavailable${when ? " · " + when : ""}`
+      },
       stale: { cls: "data-status-stale", text: "Bundled snapshot — published data unavailable" },
       "integrity-error": { cls: "data-status-stale", text: "Integrity check failed — bundled snapshot shown" },
       loading: { cls: "data-status-loading", text: "Verifying published snapshot…" },
@@ -850,8 +950,17 @@ export class AppState {
     return resolved.carrier;
   }
 
-  getHealthScore(ping) {
-    return healthForLatency(ping);
+  getHealthScore(nodeOrPing) {
+    const node = nodeOrPing && typeof nodeOrPing === "object" ? nodeOrPing : null;
+    const publishedGrade = node?.health_grade;
+    if (node && typeof publishedGrade === "string" && PUBLISHED_HEALTH_GRADE_META[publishedGrade]) {
+      const rawScore = node.pca_score === null || node.pca_score === undefined || node.pca_score === ""
+        ? null
+        : Number(node.pca_score);
+      const score = rawScore !== null && Number.isFinite(rawScore) ? Math.round(rawScore * 100) : null;
+      return { score, grade: publishedGrade, ...PUBLISHED_HEALTH_GRADE_META[publishedGrade] };
+    }
+    return healthForLatency(node ? this.getLatency(node) : nodeOrPing);
   }
 
   getLatency(node) {
@@ -862,7 +971,7 @@ export class AppState {
   }
 
   getHealthSortValue(node) {
-    const { score } = this.getHealthScore(this.getLatency(node));
+    const { score } = this.getHealthScore(node);
     return score ?? Number.NEGATIVE_INFINITY;
   }
 
@@ -939,7 +1048,8 @@ export class AppState {
 
     if (this.selectedGrade !== "ALL") {
       result = result.filter(p => {
-        const { grade } = this.getHealthScore(this.getLatency(p));
+        if (this.selectedGrade === "UNMEASURED") return this.getLatency(p) === null;
+        const { grade } = this.getHealthScore(p);
         return grade === this.selectedGrade;
       });
     }
@@ -1393,7 +1503,8 @@ export class AppState {
     if (!hero) return;
 
     const activeCount = this.proxies.length;
-    const regionCount = new Set(this.proxies.map(p => p.country || "US")).size;
+    const regionSummary = summarizeRegions(this.proxies);
+    const regionCount = regionSummary.regionCount;
     const measuredLatencies = this.proxies
       .map((proxy) => this.getLatency(proxy))
       .filter((value) => Number.isFinite(value) && value > 0);
@@ -1411,7 +1522,7 @@ export class AppState {
           <h1>Proxy telemetry <span>&amp; node diagnostics</span></h1>
           <p class="radar-description">Browse the loaded snapshot, compare recorded measurements, and inspect configurations. Artifact checksums do not verify connectivity.</p>
           <dl class="radar-metrics">
-            <div><dt>Loaded nodes</dt><dd>${activeCount}</dd><span>${regionCount} regions</span></div>
+            <div><dt>Loaded nodes</dt><dd>${activeCount}</dd><span>${regionCount} regions${regionSummary.unknownCount ? ` · ${regionSummary.unknownCount} unresolved` : ""}</span></div>
             <div><dt>Ingest sources</dt><dd>${sourcesCount}</dd><span>Channels</span></div>
             <div><dt>Catalog files</dt><dd>${totalFiles}</dd><span>${escapeHTML(totalSize)}</span></div>
             <div><dt>Avg latency</dt><dd>${avgLatencyNum === null ? "—" : `${avgLatencyNum}ms`}</dd><span>${minLatencyNum === null ? "Unmeasured" : `Min: ${minLatencyNum}ms`}</span></div>
@@ -1586,15 +1697,9 @@ export class AppState {
       };
     });
 
-    // 2. Top Strategic Geo-Clusters computed from loaded proxies
-    const countryCounts = {};
-    for (const p of this.proxies) {
-      const c = p.country || "US";
-      countryCounts[c] = (countryCounts[c] || 0) + 1;
-    }
-    const sortedCountries = Object.entries(countryCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8);
+    // 2. Known regions only; unresolved geography is reported separately.
+    const regionSummary = summarizeRegions(this.proxies);
+    const sortedCountries = regionSummary.countries.slice(0, 8);
 
     const maxCount = sortedCountries.length > 0 ? sortedCountries[0][1] : 1;
 
@@ -1606,9 +1711,9 @@ export class AppState {
             <div>
               <h2 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
                 Carrier measurements
-                <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">NO LIVE PROBES</span>
+                <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">${this.telemetryState === "same-generation" ? "SNAPSHOT TELEMETRY" : "NO SNAPSHOT TELEMETRY"}</span>
               </h3>
-              <p class="text-xs text-gray-400 font-sans mt-0.5">Observed operator latency and routing distribution (${this.proxies.length} nodes analyzed)</p>
+              <p class="text-xs text-gray-400 font-sans mt-0.5">Snapshot operator latency and routing distribution (${this.proxies.length} nodes analyzed)</p>
             </div>
           </div>
 
@@ -1662,6 +1767,11 @@ export class AppState {
                 </div>
               `;
             }).join("")}
+            ${regionSummary.unknownCount ? `
+              <div class="text-xs font-mono text-gray-400 border-t border-gray-800 pt-3">
+                Unresolved geography: ${regionSummary.unknownCount} nodes (excluded from region ranking)
+              </div>
+            ` : ""}
           </div>
         </div>
       </div>
@@ -1745,16 +1855,25 @@ export class AppState {
     ];
 
     const hasMeasuredLatency = allProxies.some((proxy) => this.getLatency(proxy) !== null);
-    if (!hasMeasuredLatency && this.selectedGrade !== "ALL") this.selectedGrade = "ALL";
-    const grades = hasMeasuredLatency
+    const hasUnmeasuredLatency = allProxies.some((proxy) => this.getLatency(proxy) === null);
+    if (!hasMeasuredLatency && this.selectedGrade !== "ALL" && this.selectedGrade !== "UNMEASURED") this.selectedGrade = "ALL";
+    const publishedGrades = new Set(allProxies.map((proxy) => proxy.health_grade).filter(Boolean));
+    const gradeOptions = publishedGrades.size
+      ? [...publishedGrades].map((id) => ({
+          id,
+          label: id === "F" ? "Unreachable at publish" : `Published grade ${id}`
+        }))
+      : HEALTH_GRADES.map((grade) => ({
+          id: grade.id,
+          label: Number.isFinite(grade.maxLatency)
+            ? `Grade ${grade.id} (≤${grade.maxLatency}ms)`
+            : `Grade ${grade.id} (>${HEALTH_GRADES[HEALTH_GRADES.length - 2].maxLatency}ms)`
+        }));
+    const grades = hasMeasuredLatency || publishedGrades.size
       ? [
           { id: "ALL", label: "All Latency Grades" },
-          ...HEALTH_GRADES.map((grade) => ({
-            id: grade.id,
-            label: Number.isFinite(grade.maxLatency)
-              ? `Grade ${grade.id} (≤${grade.maxLatency}ms)`
-              : `Grade ${grade.id} (>${HEALTH_GRADES[HEALTH_GRADES.length - 2].maxLatency}ms)`
-          }))
+          ...gradeOptions,
+          ...(hasUnmeasuredLatency ? [{ id: "UNMEASURED", label: "Unmeasured / unreachable" }] : [])
         ]
       : [{ id: "ALL", label: "Latency unmeasured" }];
 
@@ -2161,7 +2280,7 @@ export class AppState {
         const flag = this.getCountryFlag(node.country);
         const op = node.carrier || node.org || this.detectOperator(node.server, node.sni, node.name);
         const latency = this.getLatency(node);
-        const { score, grade, label: healthLabel, color: gradeColor } = this.getHealthScore(latency);
+        const { score, grade, label: healthLabel, color: gradeColor } = this.getHealthScore(node);
         const isUnmasked = this.unmaskedNodes.has(node.id);
         const isQRVisible = this.activeQRNodes.has(node.id);
 
@@ -2317,7 +2436,7 @@ export class AppState {
                   const flag = this.getCountryFlag(node.country);
                   const op = node.carrier || node.org || this.detectOperator(node.server, node.sni, node.name);
                   const latency = this.getLatency(node);
-                  const { grade } = this.getHealthScore(latency);
+                  const { grade } = this.getHealthScore(node);
                   return `
                     <tr class="hover:bg-gray-900/50 transition-colors">
                       <td class="p-3.5 font-bold text-sm">${flag} <span class="text-xs text-gray-500">${escapeHTML(node.country)}</span></td>
