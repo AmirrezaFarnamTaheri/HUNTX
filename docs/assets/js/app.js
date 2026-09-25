@@ -387,6 +387,18 @@ const PUBLISHED_HEALTH_GRADE_META = Object.freeze({
   "F": { label: "Unreachable at publish", color: "text-gray-400 border-gray-700 bg-gray-900" }
 });
 
+/** Build a cache-busted module URL for one catalog generation. */
+export function telemetryModuleUrl(generation) {
+  const encoded = encodeURIComponent(String(generation || "unknown"));
+  return `./data.js?generation=${encoded}`;
+}
+
+/** Keep a selected health grade only when the current dataset still offers it. */
+export function reconcileGradeSelection(selectedGrade, gradeOptions) {
+  const available = new Set(["ALL", "UNMEASURED", ...(gradeOptions || []).map((grade) => grade.id)]);
+  return available.has(selectedGrade) ? selectedGrade : "ALL";
+}
+
 /** Compare generation timestamps across RFC3339 spellings. */
 export function isSameGeneration(left, right) {
   if (!left || !right) return false;
@@ -430,7 +442,15 @@ function telemetryKey(node) {
     String(node?.protocol || "").toLowerCase(),
     String(node?.server || node?.address || "").toLowerCase(),
     String(node?.port || ""),
-    String(node?.user || node?.uuid || node?.password || "")
+    String(node?.user || node?.uuid || node?.password || ""),
+    String(node?.sni || "").toLowerCase(),
+    String(node?.host || "").toLowerCase(),
+    String(node?.transport || "").toLowerCase(),
+    String(node?.security || "").toLowerCase(),
+    String(node?.path || ""),
+    String(node?.pbk || ""),
+    String(node?.sid || ""),
+    String(node?.flow || "").toLowerCase()
   ].join("|");
 }
 
@@ -675,7 +695,7 @@ export class AppState {
     // catalog. A stale or mismatched generation must stay explicitly
     // unmeasured instead of being silently merged into a newer snapshot.
     try {
-      const bundled = await import("./data.js");
+      const bundled = await import(telemetryModuleUrl(catalogCandidate?.generated_at));
       const bundledGeneration = bundled.INGEST_STATS?.generated_at || "";
       if (isSameGeneration(bundledGeneration, catalogCandidate?.generated_at)) {
         telemetrySnapshot = bundled.SAMPLE_PROXIES || [];
@@ -786,7 +806,7 @@ export class AppState {
       ready: {
         cls: "data-status-ready",
         text: this.telemetryState === "same-generation"
-          ? `Artifact + telemetry verified${when ? " · " + when : ""}`
+          ? `Artifact integrity verified · snapshot telemetry available${when ? " · " + when : ""}`
           : `Artifact integrity verified · telemetry unavailable${when ? " · " + when : ""}`
       },
       stale: { cls: "data-status-stale", text: "Bundled snapshot — published data unavailable" },
@@ -1856,7 +1876,6 @@ export class AppState {
 
     const hasMeasuredLatency = allProxies.some((proxy) => this.getLatency(proxy) !== null);
     const hasUnmeasuredLatency = allProxies.some((proxy) => this.getLatency(proxy) === null);
-    if (!hasMeasuredLatency && this.selectedGrade !== "ALL" && this.selectedGrade !== "UNMEASURED") this.selectedGrade = "ALL";
     const publishedGrades = new Set(allProxies.map((proxy) => proxy.health_grade).filter(Boolean));
     const gradeOptions = publishedGrades.size
       ? [...publishedGrades].map((id) => ({
@@ -1869,6 +1888,7 @@ export class AppState {
             ? `Grade ${grade.id} (≤${grade.maxLatency}ms)`
             : `Grade ${grade.id} (>${HEALTH_GRADES[HEALTH_GRADES.length - 2].maxLatency}ms)`
         }));
+    this.selectedGrade = reconcileGradeSelection(this.selectedGrade, gradeOptions);
     const grades = hasMeasuredLatency || publishedGrades.size
       ? [
           { id: "ALL", label: "All Latency Grades" },

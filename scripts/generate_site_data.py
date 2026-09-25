@@ -981,7 +981,7 @@ def compute_aggregate_stats(proxies: list[dict], catalog: dict) -> dict:
             reachable += 1
 
     return {
-        "generated_at": _generated_at(),
+        "generated_at": catalog.get("generated_at") or _generated_at(),
         "total_production_nodes": len(proxies),
         "total_cumulative_nodes": cum_count,
         "total_published_files": catalog["total_files"],

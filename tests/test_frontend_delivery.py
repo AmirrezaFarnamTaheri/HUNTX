@@ -465,6 +465,7 @@ def test_dashboard_only_generator_reuses_the_verified_catalog(tmp_path: Path) ->
     assert '"total_files":6' in generated.replace(" ", "")
     assert '"generated_at":"2026-09-25T00:00:00+00:00"' in generated
     assert '"raw_uri":"vless://node@203.0.113.10:443#node"' in generated
+    assert '"generated_at":"2026-09-25T00:00:00+00:00"' in generated
 
 
 def test_primary_pages_workflow_generates_telemetry_before_upload() -> None:

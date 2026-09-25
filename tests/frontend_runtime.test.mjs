@@ -273,3 +273,19 @@ test("generation timestamps compare by instant across RFC3339 spellings", () => 
   assert.equal(huntx.isSameGeneration("2026-09-23T06:54:45.781021+00:00", "2026-09-24T06:54:45.781021Z"), false);
   assert.equal(huntx.isSameGeneration("", "2026-09-23T06:54:45.781021Z"), false);
 });
+
+
+test("telemetry module URLs are generation-specific and cache-busted", () => {
+  const first = huntx.telemetryModuleUrl("2026-09-23T06:54:45.781021Z");
+  const second = huntx.telemetryModuleUrl("2026-09-24T06:54:45.781021Z");
+  assert.notEqual(first, second);
+  assert.match(first, /^\.\/data\.js\?generation=/);
+  assert.equal(first.includes("2026-09-23"), true);
+});
+
+test("published grade selection survives a fleet with no measured latency", () => {
+  const options = [{ id: "F", label: "Unreachable at publish" }];
+  assert.equal(huntx.reconcileGradeSelection("F", options), "F");
+  assert.equal(huntx.reconcileGradeSelection("A+", options), "ALL");
+  assert.equal(huntx.reconcileGradeSelection("UNMEASURED", options), "UNMEASURED");
+});

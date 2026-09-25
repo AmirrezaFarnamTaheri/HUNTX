@@ -58,7 +58,7 @@ The browser contract is:
 
 ```text
 node --test tests/frontend_runtime.test.mjs
-# 22 passed
+# 24 passed
 
 node_modules/.bin/playwright test --reporter=line
 # 21 passed
