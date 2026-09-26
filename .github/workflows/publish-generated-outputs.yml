@@ -333,6 +333,7 @@ jobs:
           SOURCE_DIST: ${{ runner.temp }}/huntx-publication/dist
           SOURCE_CREATED_AT: ${{ steps.release.outputs.generated_at }}
           DASHBOARD_ROOT: ${{ runner.temp }}/huntx-dashboard/docs
+          HUNTX_FALLBACK_DEV: ${{ runner.temp }}/huntx-publication/empty-dev
         run: |
           set -euo pipefail
           mkdir -p .bin
@@ -359,11 +360,12 @@ jobs:
           fi
           # Dev history remains cumulative in the snapshot, never fresh fallback data.
           mkdir -p "$SOURCE_ROOT/empty-dev"
-          HUNTX_GENERATED_AT="$SOURCE_CREATED_AT" HUNTX_FALLBACK_DEV="$SOURCE_ROOT/empty-dev" \
-            python -c 'import os; from pathlib import Path; from scripts import generate_site_data as site; site.OUTPUTS_DEV_DIR = Path(os.environ["HUNTX_FALLBACK_DEV"]); site.main()'
+          HUNTX_GENERATED_AT="$SOURCE_CREATED_AT" PYTHONPATH=src python -c 'import os; from pathlib import Path; from scripts import generate_site_data as site; site.generate_dashboard_data(Path("outputs"), Path(os.environ["HUNTX_FALLBACK_DEV"]), Path(os.environ["DASHBOARD_ROOT"]) / "catalog.json", Path(os.environ["DASHBOARD_ROOT"]) / "assets/js/data.js")'
           cp -a "$DASHBOARD_ROOT/catalog.json" docs/catalog.json
           rm -rf docs/artifacts
           cp -a "$DASHBOARD_ROOT/artifacts" docs/artifacts
+          mkdir -p docs/assets/js
+          cp "$DASHBOARD_ROOT/assets/js/data.js" docs/assets/js/data.js
           python scripts/update_frontend.py
           test -s docs/assets/js/data.js
           find "$DASHBOARD_ROOT" -type f -printf '%s\t%p\n' | sort -nr | head -50

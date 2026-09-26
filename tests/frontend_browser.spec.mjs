@@ -111,11 +111,16 @@ test("mobile tabs expose horizontal scrolling rather than hiding overflow afford
 });
 
 
-test("checksum-valid empty release renders no bundled endpoints", async ({ page }) => {
+test("checksum-valid empty release renders no bundled endpoints", async ({ browser }) => {
   const { createHash } = await import("node:crypto");
   const artifact = JSON.stringify({ total: 0, protocols: {}, entries: [] });
   const sha256 = createHash("sha256").update(artifact).digest("hex");
   const errors = [];
+  // A service worker can bypass page.route() mocks and serve the real 404 for
+  // the synthetic artifact. Block workers for this contract test so the mock
+  // exercises the application boundary itself.
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  const page = await context.newPage();
   page.on("pageerror", (error) => errors.push(error.message));
   await isolateLocalPage(page);
   await page.route("**/catalog.json", (route) => route.fulfill({
@@ -129,6 +134,7 @@ test("checksum-valid empty release renders no bundled endpoints", async ({ page 
   await expect(page.locator("#tab-count-proxies, #tab-proxies-count-badge")).toHaveText("0");
   await expect(page.locator("#nodes-grid")).toContainText("No proxy endpoints match");
   expect(errors).toEqual([]);
+  await context.close();
 });
 
 
