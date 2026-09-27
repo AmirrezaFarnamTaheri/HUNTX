@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "note": "Single source of truth for artifact classification. The Go site generator (internal/sitegen) embeds this file and the Python dashboard generator (scripts/generate_site_data.py) reads it, so both describe the same filename the same way. Rules are evaluated in order; the first match wins. Precedence is deliberate: all_sources.npvt.singbox.json is a Sing-box profile, not an NPVT feed.",
+  "note": "Single source of truth for artifact classification. The Go site generator (internal/sitegen) embeds this file and the Python dashboard generator (scripts/generate_site_data.py) reads it, so both describe the same filename the same way. Rules are evaluated in order; the first match wins. Precedence is deliberate: all_sources_singbox.json is a Sing-box profile, not the plain-text URI feed, and the order also keeps the .json rule below the profile rules that already matched.",
   "sections": {
     "release": {
       "base_tags": ["release", "production"],
@@ -10,13 +10,13 @@
           "match": {"kind": "contains", "value": "singbox"},
           "type": "SINGBOX",
           "tags": ["singbox", "routing-profile", "outbounds"],
-          "description": "Complete Sing-box 1.10+ client configuration (profile import, not a subscription)"
+          "description": "Complete Sing-box 1.10+ client configuration. This is a whole profile, not a subscription: importing it as a subscription URL creates ONE entry by design. Use the base64 feed for a multi-node subscription."
         },
         {
           "match": {"kind": "contains_any", "value": ["v2ray", "xray"]},
           "type": "XRAY",
           "tags": ["xray", "v2ray", "core-config"],
-          "description": "Complete Xray-core 1.8+ / V2Ray client configuration (profile import, not a subscription)"
+          "description": "Complete Xray-core 1.8+ / V2Ray client configuration. This is a whole profile, not a subscription: importing it as a subscription URL creates ONE entry by design. Use the base64 feed for a multi-node subscription."
         },
         {
           "match": {"kind": "equals", "value": "manifest.json"},
@@ -37,34 +37,34 @@
           "description": "Standard OpenVPN multi-gateway client profile with TLS auth"
         },
         {
-          "match": {"kind": "endswith", "value": "decoded.json"},
-          "type": "JSON",
-          "tags": ["decoded", "parameters", "metadata"],
-          "description": "Parsed and structured proxy connection parameters JSON dataset"
-        },
-        {
-          "match": {"kind": "contains", "value": "b64sub"},
+          "match": {"kind": "contains_any", "value": ["base64", "b64sub"]},
           "type": "B64SUB",
-          "tags": ["subscription", "base64", "unified-feed"],
-          "description": "Base64-encoded subscription feed for Shadowrocket, v2rayNG, and Streisand"
+          "tags": ["subscription", "base64", "unified-feed", "multi-node"],
+          "description": "Base64-encoded multi-node subscription for Shadowrocket, v2rayNG, Streisand, Hiddify and NekoBox. This is the link to add as a subscription URL: the body is one encoded node per line, so it expands into individual nodes."
         },
         {
           "match": {"kind": "contains", "value": "nekobox"},
           "type": "NEKOBOX",
           "tags": ["subscription", "json-nodes"],
-          "description": "NekoBox-compatible JSON node feed (top-level array of sing-box outbounds)"
+          "description": "NekoBox-compatible JSON node feed: a top-level array of sing-box outbounds, which is what makes clients expand it into individual nodes. Wrapping the same outbounds in a configuration-shaped object would import as a single custom configuration instead."
         },
         {
-          "match": {"kind": "endswith", "value": "raw.txt"},
+          "match": {"kind": "endswith", "value": ".json"},
+          "type": "JSON",
+          "tags": ["decoded", "parameters", "metadata"],
+          "description": "Parsed and structured proxy connection parameters JSON dataset for inspection. This is a diagnostic dataset, not a client subscription."
+        },
+        {
+          "match": {"kind": "endswith", "value": ".txt"},
           "type": "TXT",
-          "tags": ["raw-uris", "plain-text"],
-          "description": "Exact raw proxy URI copy of the production feed"
+          "tags": ["raw-uris", "plain-text", "multi-node", "uri-feed"],
+          "description": "Plain-text multi-node proxy URI subscription feed, one node per line. Use the base64 feed in clients that only accept a base64 subscription body."
         },
         {
           "match": {"kind": "contains", "value": "npvt"},
           "type": "NPVT",
           "tags": ["subscription", "uri-feed"],
-          "description": "Plain-text proxy URI subscription feed (NapsternetV compatible)"
+          "description": "Frozen compatibility alias of the plain-text proxy URI feed, published under an earlier filename."
         },
         {
           "match": {"kind": "contains", "value": "opaque_bundle"},

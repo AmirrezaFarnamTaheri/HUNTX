@@ -72,11 +72,12 @@ ARTIFACT_FORMATS_FILE = REPO_ROOT / "internal" / "sitegen" / "artifact_formats.j
 # Compatibility variants remain copied and directly addressable, but are not
 # presented as separate final products in the dashboard.
 FRONTEND_RELEASE_PRODUCTS = {
-    "all_sources_npvt_decoded.json",
-    "all_sources_npvt_nekobox.json",
-    "all_sources_npvt_raw.txt",
-    "all_sources_npvt_singbox.json",
-    "all_sources_npvt_xray.json",
+    "all_sources_base64.txt",
+    "all_sources.json",
+    "all_sources_nekobox.json",
+    "all_sources_singbox.json",
+    "all_sources.txt",
+    "all_sources_xray.json",
 }
 FRONTEND_DEV_PRODUCTS = {"proxies.json"}
 
@@ -187,8 +188,8 @@ def _infer_tags_and_type(path: Path, section: str) -> tuple[str, list[str], str]
 
     Rules come from internal/sitegen/artifact_formats.json, evaluated in file
     order so
-    the first match wins. Precedence matters: ``all_sources.npvt.singbox.json``
-    is a Sing-box profile, not an NPVT feed.
+    the first match wins. Precedence matters: ``all_sources_singbox.json`` is
+    a Sing-box profile, not the plain-text URI feed it would also match.
     """
     name = path.name.lower()
     section_table = (_load_artifact_formats().get("sections") or {}).get(section) or {}
@@ -785,10 +786,13 @@ def parse_production_proxies() -> list[dict]:
     """Load and normalize the production proxy snapshot for static publishing."""
     raw_nodes: list[dict] = []
 
-    # 1. Prefer the canonical production derivative; dotted naming is legacy.
-    decoded_file = OUTPUTS_DIR / "all_sources_npvt_decoded.json"
-    if not decoded_file.exists():
-        decoded_file = OUTPUTS_DIR / "all_sources.npvt.decoded.json"
+    # 1. Prefer the canonical product name; the earlier names are still
+    #    published as frozen aliases, so a directory carrying only those still
+    #    resolves rather than silently publishing an empty dashboard.
+    decoded_file = OUTPUTS_DIR / "all_sources.json"
+    for legacy in ("all_sources_npvt_decoded.json", "all_sources.npvt.decoded.json"):
+        if not decoded_file.exists():
+            decoded_file = OUTPUTS_DIR / legacy
 
     if decoded_file.exists():
         try:
@@ -893,7 +897,12 @@ def parse_production_proxies() -> list[dict]:
         proxy_obj = {
             "id": f"px-{idx:04d}",
             "protocol": protocol,
-            "name": f"{geo['country']}-{tag}",
+            # The dashboard must show the remark a client will actually see.
+            # The published feed carries a clean protocol-index tag (vless-1);
+            # composing a country prefix here made the site and the imported
+            # subscription disagree about a node's name. Country, flag and
+            # carrier are already separate fields the UI renders on their own.
+            "name": tag,
             "server": address,
             "port": port,
             "uuid": uuid_str,

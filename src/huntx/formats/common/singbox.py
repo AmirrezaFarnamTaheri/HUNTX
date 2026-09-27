@@ -512,6 +512,24 @@ def _parse_anytls(uri: str) -> Optional[ProxyNode]:
     return node
 
 
+def _socks_credentials(username: Optional[str], password: Optional[str]) -> tuple[str, str]:
+    """Split SOCKS share-link userinfo into a username and password.
+
+    Publishers use two conventions for the same link: a literal ``user:pass``
+    pair, or that pair base64-encoded into one opaque token. Splitting only on
+    a literal colon sent the whole encoded blob as the username and left the
+    password empty, so every such node could never authenticate — and
+    sing-box rejects a ``socks`` outbound that names a user with no password.
+    """
+    user = urllib.parse.unquote(username or '')
+    secret = urllib.parse.unquote(password or '')
+    if user and not secret and ':' not in user:
+        decoded = _safe_b64(user)
+        if ':' in decoded:
+            user, _, secret = decoded.partition(':')
+    return user, secret
+
+
 def _parse_socks(uri: str) -> Optional[ProxyNode]:
     """Parse a SOCKS4, SOCKS4a, or SOCKS5 endpoint URI."""
     result = _parsed_url(uri, default_port=1080)
@@ -521,13 +539,14 @@ def _parse_socks(uri: str) -> Optional[ProxyNode]:
     scheme = parsed.scheme.lower()
     version = {'socks4': '4', 'socks4a': '4a', 'socks5': '5'}.get(scheme, '5')
     params = _query(parsed)
+    username, password = _socks_credentials(parsed.username, parsed.password)
     return ProxyNode(
         type='socks',
         tag=_full_unquote(parsed.fragment) or scheme,
         server=parsed.hostname or '',
         port=port,
-        username=urllib.parse.unquote(parsed.username or ''),
-        password=urllib.parse.unquote(parsed.password or ''),
+        username=username,
+        password=password,
         version=version,
         network=params.get('network', '') if params.get('network') in {'tcp', 'udp'} else '',
     )

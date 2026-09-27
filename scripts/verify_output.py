@@ -162,7 +162,7 @@ def validate_file(path: Path) -> Dict[str, Any]:
         print("    WARNING: Empty file.")
         return {"type": "empty"}
 
-    if _matches_derived_name(name, ".decoded.json", "_decoded.json"):
+    if name.endswith(".json") or _matches_derived_name(name, ".decoded.json", "_decoded.json"):
         stats = validate_json_file(path)
         if stats["entries"]:
             protos = ", ".join(f"{k}:{v}" for k, v in stats["protocols"].most_common(10))
@@ -184,7 +184,7 @@ def validate_file(path: Path) -> Dict[str, Any]:
         print(f"    NekoBox outbounds: {size_kb:.1f} KB")
         return stats
 
-    if name.endswith(".b64sub") or name.endswith("_b64sub.txt"):
+    if name.endswith(".b64sub") or name.endswith("_b64sub.txt") or name.endswith("_base64.txt"):
         print(f"    Base64 subscription: {size_kb:.1f} KB")
         return {"type": "b64sub", "size": size}
 
@@ -255,9 +255,9 @@ def main():
             format_counts["nekobox.json"] += 1
         elif _matches_derived_name(name, ".decoded.json", "_decoded.json"):
             format_counts["decoded.json"] += 1
-        elif name.endswith(".raw.txt") or name.endswith("_raw.txt"):
+        elif name.endswith(".raw.txt") or name.endswith("_raw.txt") or name.endswith(".txt"):
             format_counts["raw.txt"] += 1
-        elif name.endswith(".b64sub") or name.endswith("_b64sub.txt"):
+        elif name.endswith(".b64sub") or name.endswith("_b64sub.txt") or name.endswith("_base64.txt"):
             format_counts["b64sub"] += 1
         else:
             format_counts[suffix or "unknown"] += 1

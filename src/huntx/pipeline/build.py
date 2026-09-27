@@ -224,19 +224,23 @@ class BuildPipeline:
     def _proxy_derivatives(
         self,
         artifact_bytes: bytes,
-    ) -> tuple[bytes, bytes, bytes, bytes, bytes, bytes]:
-        """Create proxy derivative artifacts from one UTF-8 decode."""
+    ) -> tuple[bytes, bytes, bytes, bytes, bytes]:
+        """Create proxy derivative artifacts from one UTF-8 decode.
+
+        The raw artifact is not among them: it is the base output itself, and
+        publishing it a second time under a derivative name only duplicated the
+        feed on disk and in the catalog.
+        """
         try:
             text = artifact_bytes.decode('utf-8', errors='ignore')
         except (AttributeError, UnicodeDecodeError):
-            return b'', b'', b'', b'', b'', b''
+            return b'', b'', b'', b'', b''
         stripped = text.strip()
         if not stripped:
-            return b'', b'', b'', b'', b'', b''
+            return b'', b'', b'', b'', b''
         return (
             self._decode_proxy_text(text),
             base64.b64encode(stripped.encode('utf-8')),
-            artifact_bytes,
             build_singbox_config_bytes(text),
             build_xray_config_bytes(text),
             build_nekobox_outbounds_bytes(text),
@@ -318,7 +322,7 @@ class BuildPipeline:
                 built_formats.append(format_id)
                 format_count = len(format_records)
                 if format_id in _DERIVED_PROXY_FORMATS:
-                    decoded, reencoded, raw, singbox, xray, nekobox = self._proxy_derivatives(
+                    decoded, reencoded, singbox, xray, nekobox = self._proxy_derivatives(
                         artifact_bytes
                     )
                     if decoded:
@@ -331,11 +335,12 @@ class BuildPipeline:
                         if not defer_output:
                             self.artifact_store.save_output(route_name, derived_format, reencoded)
                         results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(reencoded).hexdigest(), 'data': reencoded, 'count': format_count})
-                    if raw:
-                        derived_format = f'{format_id}.raw.txt'
-                        if not defer_output:
-                            self.artifact_store.save_output(route_name, derived_format, raw)
-                        results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(raw).hexdigest(), 'data': raw, 'count': format_count})
+                    # The raw pass-through is deliberately not a product: it is
+                    # byte-for-byte the base artifact, and publishing it under a
+                    # second name only duplicated the feed. The canonical name
+                    # for the raw URI list is the base format's own output; the
+                    # URLs earlier runs published are kept alive as byte-identical
+                    # aliases by the export layer.
                     if singbox:
                         derived_format = f'{format_id}.singbox.json'
                         if not defer_output:

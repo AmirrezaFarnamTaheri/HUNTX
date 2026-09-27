@@ -390,13 +390,20 @@ class DeliveryMixin:
         n = name.lower()
         f = fmt.lower()
         if f in ("npvt", "npvtsub"):
-            return n.endswith(f".{f}") or n.endswith(f"_{f}.txt")
+            # The canonical name dropped the format segment; the earlier
+            # spellings stay matchable so a restored snapshot still resolves.
+            return (
+                n.endswith(f".{f}")
+                or n.endswith(f"_{f}.txt")
+                or (f == "npvt" and n.endswith(".txt"))
+                or (f == "npvtsub" and n.endswith("_sub.txt"))
+            )
         if f in ("b64sub", "npvt.b64sub", "npvtsub.b64sub"):
-            return ".b64sub" in n or n.endswith("_b64sub.txt")
+            return ".b64sub" in n or n.endswith("_b64sub.txt") or n.endswith("_base64.txt")
         if f in ("decoded.json", "npvt.decoded.json", "npvtsub.decoded.json"):
-            return ".decoded.json" in n or n.endswith("_decoded.json")
+            return ".decoded.json" in n or n.endswith("_decoded.json") or n.endswith(".json")
         if f in ("raw.txt", "npvt.raw.txt", "npvtsub.raw.txt"):
-            return n.endswith(".raw.txt") or n.endswith("_raw.txt")
+            return n.endswith(".raw.txt") or n.endswith("_raw.txt") or n.endswith(".txt")
         if f in ("singbox.json", "npvt.singbox.json", "npvtsub.singbox.json"):
             return ".singbox.json" in n or n.endswith("_singbox.json")
         if f in ("xray.json", "npvt.xray.json", "npvtsub.xray.json"):

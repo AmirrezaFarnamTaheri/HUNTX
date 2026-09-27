@@ -64,6 +64,42 @@ export function getFlagEmoji(countryCode) {
 }
 
 /**
+ * Choose the catalog entry a client will expand into individual nodes.
+ *
+ * A subscription has to be a node list. The sing-box and Xray artifacts are
+ * whole client configurations, so a client asked to import one of those as a
+ * subscription correctly shows a single entry. Base64 is preferred over every
+ * other node feed because it is the one body format Shadowrocket, v2rayNG,
+ * Streisand, Hiddify and NekoBox all accept, whereas a JSON array only
+ * expands in JSON-aware clients.
+ */
+export function pickSubscriptionArtifact(files) {
+  const entries = Array.isArray(files) ? files.filter((f) => f && typeof f.filename === "string" && typeof f.path === "string") : [];
+  const subscriptions = entries.filter((f) => (Array.isArray(f.tags) ? f.tags : []).includes("subscription"));
+  const score = (f) => {
+    const tags = Array.isArray(f.tags) ? f.tags : [];
+    let value = 0;
+    if (tags.includes("base64")) value += 5;
+    if (tags.includes("multi-node")) value += 4;
+    if (tags.includes("json-nodes") || tags.includes("json-array")) value += 3;
+    if (tags.includes("uri-feed") || tags.includes("raw-uris")) value += 1;
+    if (tags.includes("full-config") || tags.includes("profile")) value -= 10;
+    return value;
+  };
+  const ranked = subscriptions
+    .map((f) => ({ file: f, rank: score(f) }))
+    .sort((a, z) => z.rank - a.rank || a.file.filename.localeCompare(z.file.filename));
+  const best = ranked[0];
+  if (!best || best.rank <= 0) return null;
+  const tags = Array.isArray(best.file.tags) ? best.file.tags : [];
+  return {
+    path: best.file.path,
+    filename: best.file.filename,
+    label: tags.includes("base64") ? "Base64" : (tags.includes("json-nodes") || tags.includes("json-array")) ? "JSON node feed" : "Raw URI feed"
+  };
+}
+
+/**
  * Create artifact links that remain safe to copy from both a deployed
  * dashboard and a local file preview. `file:` URLs expose a developer's
  * filesystem and are not importable on another device, so local previews
@@ -620,7 +656,10 @@ export class AppState {
 
   getDecodedArtifactRecord(catalog = this.catalog) {
     const files = Array.isArray(catalog?.files) ? catalog.files : [];
-    return files.find((file) => file?.filename === "all_sources_npvt_decoded.json"
+    // The canonical decoded dataset, with the frozen name accepted so a
+    // snapshot published before the rename still resolves.
+    return files.find((file) => (file?.filename === "all_sources.json"
+      || file?.filename === "all_sources_npvt_decoded.json")
       && typeof file.path === "string"
       && /^artifacts\/release\/[A-Za-z0-9._/-]+$/.test(file.path)
       && typeof file.sha256 === "string"
@@ -1552,16 +1591,16 @@ export class AppState {
             <button
               id="hero-copy-sub"
               class="px-4 py-2.5 min-h-[44px] bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-gray-950 font-mono font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/25 transition-all focus-ring cursor-pointer flex items-center gap-2"
-              aria-label="Copy Production Raw URI Subscription URL"
+              aria-label="Copy Multi-Node Subscription URL"
             >
               <svg class="w-4 h-4 text-gray-950" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-              Copy Raw URI Feed
+              Copy Subscription URL
             </button>
 
             <a
               id="hero-download-singbox"
-              data-artifact="all_sources_npvt_singbox.json"
-              href="artifacts/release/all_sources_npvt_singbox.json"
+              data-artifact="all_sources_singbox.json"
+              href="artifacts/release/all_sources_singbox.json"
               download
               class="px-3.5 py-2.5 min-h-[44px] bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 hover:border-cyan-400 text-cyan-300 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-1.5"
               aria-label="Download Sing-box 1.10+ JSON"
@@ -1572,8 +1611,8 @@ export class AppState {
 
             <a
               id="hero-download-xray"
-              data-artifact="all_sources_npvt_xray.json"
-              href="artifacts/release/all_sources_npvt_xray.json"
+              data-artifact="all_sources_xray.json"
+              href="artifacts/release/all_sources_xray.json"
               download
               class="px-3.5 py-2.5 min-h-[44px] bg-indigo-950/60 hover:bg-indigo-900/60 border border-indigo-500/30 hover:border-indigo-400 text-indigo-300 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-1.5"
               aria-label="Download Xray Config"
@@ -1593,6 +1632,7 @@ export class AppState {
 
             <a
               id="hero-download-json"
+              data-artifact="proxies.json"
               href="artifacts/dev/proxies.json"
               download
               class="px-3.5 py-2.5 min-h-[44px] bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-cyan-500/40 text-gray-200 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-1.5"
@@ -1649,9 +1689,13 @@ export class AppState {
     this.syncGlobeTouchControl(this.globeInstance?.isTouchInteractive?.() || false);
 
     document.getElementById("hero-copy-sub")?.addEventListener("click", (e) => {
-      const subUrl = resolveArtifactUrl("artifacts/release/all_sources_npvt_raw.txt");
-      this.copyText(subUrl, isHostedDashboard()
-        ? "Raw URI subscription URL copied to clipboard"
+      const sub = this.resolveSubscriptionArtifact();
+      if (!sub) {
+        this.showToast("No subscription feed in this snapshot", "error");
+        return;
+      }
+      this.copyText(resolveArtifactUrl(sub.path), isHostedDashboard()
+        ? `${sub.label} subscription URL copied to clipboard`
         : "Portable artifact path copied — deploy or serve over HTTPS before importing", e.currentTarget);
     });
 
@@ -1661,6 +1705,12 @@ export class AppState {
     });
 
     this.reconcileArtifactLinks(hero);
+  }
+
+  // The subscription offered to a user is whichever node feed this snapshot
+  // actually published, never a whole client configuration.
+  resolveSubscriptionArtifact(catalog = this.catalog) {
+    return pickSubscriptionArtifact(Array.isArray(catalog?.files) ? catalog.files : []);
   }
 
   // Hero download buttons must never 404: resolve every data-artifact anchor
@@ -1680,6 +1730,51 @@ export class AppState {
       anchor.hidden = false;
       anchor.removeAttribute("aria-hidden");
       anchor.setAttribute("href", entry.path);
+    });
+  }
+
+  // One pasted subscription link expands to every node it carries. The batch
+  // converter is the only place a multi-node feed becomes a client config or a
+  // subscription body, so that is where the payload is handed.
+  renderSubscriptionInspect(decoded, out) {
+    const payload = decoded.raw || decoded.lines.join("\n");
+    const uris = extractAllURIs(payload);
+    const byProtocol = {};
+    for (const uri of uris) {
+      const scheme = uri.split("://")[0].toLowerCase();
+      byProtocol[scheme] = (byProtocol[scheme] || 0) + 1;
+    }
+    const breakdown = Object.entries(byProtocol)
+      .sort((a, z) => z[1] - a[1])
+      .map(([scheme, count]) =>
+        `<span class="px-1.5 py-0.5 rounded text-[11px] bg-gray-900 text-gray-300 border border-gray-800">${escapeHTML(scheme)} ${count}</span>`
+      ).join(" ");
+
+    out.innerHTML = `
+      <div class="bg-gray-950 border border-cyan-900/60 rounded-2xl p-5 space-y-4 font-mono text-xs">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-800/80 pb-3">
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded uppercase font-bold text-xs bg-cyan-950 text-cyan-300 border border-cyan-800">subscription</span>
+            <span class="font-bold text-gray-100">${uris.length} nodes found</span>
+          </div>
+          <button id="btn-subscription-convert" class="px-3.5 py-2 min-h-[44px] inline-flex items-center justify-center bg-cyan-600 hover:bg-cyan-500 text-gray-950 font-bold rounded-xl text-xs font-mono font-medium cursor-pointer focus-ring">Import all ${uris.length} nodes</button>
+        </div>
+        <p class="text-gray-400 leading-relaxed">This is a multi-node subscription, not a single proxy link. Import all of them to build a full client config or a subscription body for your app.</p>
+        <div class="flex flex-wrap gap-1.5">${breakdown || `<span class="text-gray-500">No supported share links in this payload</span>`}</div>
+      </div>
+    `;
+
+    document.getElementById("btn-subscription-convert")?.addEventListener("click", () => {
+      // switchPageTab only reveals the page; the converter textarea is
+      // created by renderDecoderSection, so it has to be rendered before
+      // the payload can be handed to it.
+      this.converterTab = "converter";
+      this.switchPageTab("decoder", true);
+      this.renderDecoderSection();
+      const field = document.getElementById("converter-input-text");
+      if (!field) return;
+      field.value = payload;
+      document.getElementById("btn-run-convert")?.click();
     });
   }
 
@@ -2961,11 +3056,11 @@ export class AppState {
               </div>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
-              <a href="artifacts/release/all_sources_npvt_singbox.json" download class="px-3.5 py-2 min-h-[44px] bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-xs font-mono font-bold rounded-xl transition-all focus-ring flex items-center gap-1.5 cursor-pointer">
+              <a data-artifact="all_sources_singbox.json" href="artifacts/release/all_sources_singbox.json" download class="px-3.5 py-2 min-h-[44px] bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-xs font-mono font-bold rounded-xl transition-all focus-ring flex items-center gap-1.5 cursor-pointer">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                 Sing-box JSON
               </a>
-              <a href="artifacts/release/all_sources_npvt_xray.json" download class="px-3.5 py-2 min-h-[44px] bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 text-xs font-mono font-bold rounded-xl transition-all focus-ring flex items-center gap-1.5 cursor-pointer">
+              <a data-artifact="all_sources_xray.json" href="artifacts/release/all_sources_xray.json" download class="px-3.5 py-2 min-h-[44px] bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 text-xs font-mono font-bold rounded-xl transition-all focus-ring flex items-center gap-1.5 cursor-pointer">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                 Xray Config
               </a>
@@ -3134,6 +3229,16 @@ export class AppState {
         }
         try {
           const decoded = decodeProxyURI(inputVal);
+
+          // A pasted subscription link is not one node. decodeProxyURI already
+          // expands a base64 feed into its lines, so report what was found and
+          // hand the whole payload to the batch converter instead of printing
+          // a node card whose server, port and uuid are all undefined.
+          if (decoded && decoded.protocol === "subscription" && Array.isArray(decoded.lines)) {
+            this.renderSubscriptionInspect(decoded, out);
+            return;
+          }
+
           const flag = this.getCountryFlag(this.inferCountryFromTagOrHost(decoded.name, decoded.server));
           const op = this.detectOperator(decoded.server, decoded.sni || decoded.host, decoded.name);
           const singboxOutbound = nodeToSingboxOutbound(decoded);
@@ -3649,10 +3754,11 @@ export class AppState {
     const files = Array.isArray(this.catalog?.files) ? this.catalog.files : [];
     const findArtifact = (filename) => files.find((file) => (file.filename || file.name) === filename);
     const productionFeeds = [
-      ["all_sources_npvt_raw.txt", "Raw URI Subscription", "Multi-node URI feed for compatible clients", "cyan"],
-      ["all_sources_npvt_nekobox.json", "NekoBox Node Subscription", "JSON array expanded into individual proxy nodes", "emerald"],
-      ["all_sources_npvt_singbox.json", "Sing-box Full Profile", "Complete client config (imports as one profile)", "cyan"],
-      ["all_sources_npvt_xray.json", "Xray Full Profile", "Complete client config (imports as one profile)", "indigo"],
+      ["all_sources_base64.txt", "Base64 Subscription", "Multi-node subscription for Shadowrocket, v2rayNG, Streisand, Hiddify and NekoBox", "cyan"],
+      ["all_sources.txt", "Raw URI Subscription", "Multi-node URI feed, one node per line", "cyan"],
+      ["all_sources_nekobox.json", "NekoBox Node Subscription", "JSON array expanded into individual proxy nodes", "emerald"],
+      ["all_sources_singbox.json", "Sing-box Full Profile", "Complete client config (imports as one profile)", "cyan"],
+      ["all_sources_xray.json", "Xray Full Profile", "Complete client config (imports as one profile)", "indigo"],
     ].map(([filename, label, description, color]) => ({ filename, label, description, color, file: findArtifact(filename) }));
     const devFeeds = files.filter((file) => file.section === "dev" || file.category === "dev" || file.tags?.includes("dev"));
     const chunks = devFeeds.filter((file) => /chunk_/i.test(file.filename || file.name || ""));

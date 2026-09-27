@@ -348,7 +348,10 @@ jobs:
           test -s "$DASHBOARD_ROOT/catalog.json"
           # Refresh the SPA's baked fallback layer from the SAME verified run so
           # data.js can never advertise stale sample data.
-          decoded="$(find "$SOURCE_DIST" \( -name 'all_sources.npvt.decoded.json' -o -name 'all_sources_npvt_decoded.json' \) -print -quit)"
+          decoded="$(find "$SOURCE_DIST" -name 'all_sources.json' -print -quit)"
+          if [ -z "$decoded" ]; then
+            decoded="$(find "$SOURCE_DIST" \( -name 'all_sources.npvt.decoded.json' -o -name 'all_sources_npvt_decoded.json' \) -print -quit)"
+          fi
           # Remove checkout's historical data before generating the fallback.
           rm -rf outputs
           mkdir -p outputs
@@ -356,7 +359,7 @@ jobs:
             echo "Verified explicit empty release: no decoded artifact is required."
           else
             test -n "$decoded" || { echo "::error::decoded artifact missing from checkpoint handoff"; exit 1; }
-            cp "$decoded" outputs/all_sources.npvt.decoded.json
+            cp "$decoded" outputs/all_sources.json
           fi
           # Dev history remains cumulative in the snapshot, never fresh fallback data.
           mkdir -p "$SOURCE_ROOT/empty-dev"

@@ -289,3 +289,33 @@ test("published grade selection survives a fleet with no measured latency", () =
   assert.equal(huntx.reconcileGradeSelection("A+", options), "ALL");
   assert.equal(huntx.reconcileGradeSelection("UNMEASURED", options), "UNMEASURED");
 });
+
+test("the advertised subscription is a node feed, never a whole client profile", () => {
+  // Importing a complete sing-box/Xray configuration as a subscription is what
+  // makes a client show one entry instead of a node list, so the profile
+  // artifacts must never be selected as "the subscription".
+  const profiles = [
+    { filename: "all_sources_npvt_singbox.json", path: "artifacts/release/all_sources_npvt_singbox.json", tags: ["release", "singbox", "full-config", "profile"] },
+    { filename: "all_sources_npvt_xray.json", path: "artifacts/release/all_sources_npvt_xray.json", tags: ["release", "xray", "full-config", "profile"] }
+  ];
+  assert.equal(huntx.pickSubscriptionArtifact(profiles), null);
+
+  const withB64 = [...profiles, { filename: "all_sources_npvt_b64sub.txt", path: "artifacts/release/all_sources_npvt_b64sub.txt", tags: ["release", "subscription", "base64"] }];
+  const chosen = huntx.pickSubscriptionArtifact(withB64);
+  assert.equal(chosen.filename, "all_sources_npvt_b64sub.txt");
+  assert.equal(chosen.label, "Base64");
+  assert.equal(chosen.path, "artifacts/release/all_sources_npvt_b64sub.txt");
+});
+
+test("a JSON node feed is offered when no base64 feed is published", () => {
+  const files = [{ filename: "all_sources_npvt_nekobox.json", path: "artifacts/release/all_sources_npvt_nekobox.json", tags: ["release", "subscription", "json-nodes"] }];
+  const chosen = huntx.pickSubscriptionArtifact(files);
+  assert.equal(chosen.filename, "all_sources_npvt_nekobox.json");
+  assert.equal(chosen.label, "JSON node feed");
+});
+
+test("a snapshot with no node feed never yields a subscription link", () => {
+  assert.equal(huntx.pickSubscriptionArtifact([]), null);
+  assert.equal(huntx.pickSubscriptionArtifact(undefined), null);
+  assert.equal(huntx.pickSubscriptionArtifact([{ filename: "manifest.json", path: "artifacts/release/manifest.json", tags: ["release"] }]), null);
+});
