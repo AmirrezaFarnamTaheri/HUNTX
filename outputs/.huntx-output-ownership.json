@@ -4,6 +4,10 @@
       "format": "conf_lines",
       "route": "all_sources"
     },
+    "all_sources.nm": {
+      "format": "nm",
+      "route": "all_sources"
+    },
     "all_sources.npvt": {
       "format": "npvt",
       "route": "all_sources"
@@ -45,7 +49,7 @@
       "route": "all_sources"
     }
   },
-  "generated_at": "2026-09-27T21:46:53.983890+00:00",
-  "min_ingested_at": "2026-09-24T21:44:59+00:00",
+  "generated_at": "2026-09-27T23:08:15.671854+00:00",
+  "min_ingested_at": "2026-09-24T23:07:02+00:00",
   "schema_version": 1
 }

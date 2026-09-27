@@ -1,5 +1,6 @@
 outputs/.huntx-output-ownership.json
 outputs/all_sources.conf_lines
+outputs/all_sources.nm
 outputs/all_sources.npvt
 outputs/all_sources.npvt.b64sub
 outputs/all_sources.opaque_bundle
@@ -20,6 +21,7 @@ outputs_dev/_manifest.json.gz.part0006
 outputs_dev/_manifest.json.gz.part0007
 outputs_dev/_manifest.json.gz.part0008
 docs/artifacts/release/all_sources.conf_lines
+docs/artifacts/release/all_sources.nm
 docs/artifacts/release/all_sources.npvt
 docs/artifacts/release/all_sources.npvt.b64sub
 docs/artifacts/release/all_sources.opaque_bundle
