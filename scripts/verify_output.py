@@ -17,6 +17,15 @@ DIST_DIR = DATA_DIR / "dist"
 # Known binary format extensions (published as ZIP)
 _ZIP_EXTENSIONS = {".ovpn", ".npv4", ".ehi", ".hc", ".hat", ".sip", ".nm", ".zip"}
 
+# JSON files that describe the release rather than carrying proxy records, so
+# they must not be reported as a decoded dataset.
+_NON_PRODUCT_JSON = frozenset({
+    "manifest.json",
+    ".huntx-output-ownership.json",
+    "empty-release.json",
+    "v2ray_test_config.json",
+})
+
 
 def decode_base64_safe(data: str) -> str:
     missing_padding = len(data) % 4
@@ -162,13 +171,9 @@ def validate_file(path: Path) -> Dict[str, Any]:
         print("    WARNING: Empty file.")
         return {"type": "empty"}
 
-    if name.endswith(".json") or _matches_derived_name(name, ".decoded.json", "_decoded.json"):
-        stats = validate_json_file(path)
-        if stats["entries"]:
-            protos = ", ".join(f"{k}:{v}" for k, v in stats["protocols"].most_common(10))
-            print(f"    JSON: {stats['entries']} entries  protocols=[{protos}]")
-        return stats
-
+    # Specific product shapes first. A blanket ".json" test placed ahead of them
+    # reported every profile as a decoded dataset, and one placed behind them
+    # never ran for the canonical "<route>.json" the rename introduced.
     if _matches_derived_name(name, ".singbox.json", "_singbox.json"):
         stats = validate_json_file(path)
         print(f"    sing-box config: {size_kb:.1f} KB")
@@ -187,6 +192,13 @@ def validate_file(path: Path) -> Dict[str, Any]:
     if name.endswith(".b64sub") or name.endswith("_b64sub.txt") or name.endswith("_base64.txt"):
         print(f"    Base64 subscription: {size_kb:.1f} KB")
         return {"type": "b64sub", "size": size}
+
+    if name.endswith(".json") and name not in _NON_PRODUCT_JSON:
+        stats = validate_json_file(path)
+        if stats["entries"]:
+            protos = ", ".join(f"{k}:{v}" for k, v in stats["protocols"].most_common(10))
+            print(f"    JSON: {stats['entries']} entries  protocols=[{protos}]")
+        return stats
 
     suffix = path.suffix.lower()
     if suffix in _ZIP_EXTENSIONS:
@@ -244,7 +256,11 @@ def main():
         fsize = item.stat().st_size
         total_size += fsize
 
-        # Track format
+        # Track format, in the same precedence order as validate_file so the
+        # counts and the per-file report never disagree. The base64 test has to
+        # precede the blanket ".txt" one or the base64 feed is counted as a raw
+        # URI list, and the canonical "<route>.json" has to be recognised or the
+        # decoded dataset is not counted at all.
         name = item.name.lower()
         suffix = item.suffix.lower()
         if _matches_derived_name(name, ".singbox.json", "_singbox.json"):
@@ -253,12 +269,16 @@ def main():
             format_counts["xray.json"] += 1
         elif _matches_derived_name(name, ".nekobox.json", "_nekobox.json"):
             format_counts["nekobox.json"] += 1
-        elif _matches_derived_name(name, ".decoded.json", "_decoded.json"):
-            format_counts["decoded.json"] += 1
-        elif name.endswith(".raw.txt") or name.endswith("_raw.txt") or name.endswith(".txt"):
-            format_counts["raw.txt"] += 1
         elif name.endswith(".b64sub") or name.endswith("_b64sub.txt") or name.endswith("_base64.txt"):
             format_counts["b64sub"] += 1
+        elif (
+            name.endswith(".decoded.json")
+            or name.endswith("_decoded.json")
+            or (name.endswith(".json") and name not in _NON_PRODUCT_JSON)
+        ):
+            format_counts["decoded.json"] += 1
+        elif name.endswith(".txt"):
+            format_counts["raw.txt"] += 1
         else:
             format_counts[suffix or "unknown"] += 1
 

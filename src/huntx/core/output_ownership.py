@@ -37,7 +37,17 @@ _EMPTY_RELEASE_PAYLOAD = {
 # produced the file. The products now read: all_sources.txt (the URI feed),
 # all_sources_base64.txt, all_sources.json, all_sources_singbox.json,
 # all_sources_xray.json and all_sources_nekobox.json.
+#
+# configs/config.prod.yaml enables BOTH npvt and npvtsub on the all_sources
+# route, and both are in _DERIVED_PROXY_FORMATS, so each one produces its own
+# decoded/base64/singbox/xray/nekobox derivative. Dropping the format segment
+# outright made all five pairs want the same filename, which only surfaced at
+# export time as a RuntimeError because derived products are not configured
+# formats and configured_output_identities cannot see them. Each base format
+# therefore carries a stem, empty for the primary npvt feed and "_sub" for the
+# npvtsub one, so the two families stay distinct and conventional.
 _CANONICAL_BASE_SUFFIX = {"npvt": ".txt", "npvtsub": "_sub.txt"}
+_DERIVED_STEM = {"npvt": "", "npvtsub": "_sub"}
 _DERIVED_CANONICAL_SUFFIX = {
     ".b64sub": "_base64.txt",
     ".decoded.json": ".json",
@@ -59,17 +69,21 @@ _FROZEN_FILENAME_ALIASES = {
     "npvt.singbox.json": ("_singbox.json", ("_npvt_singbox.json",)),
     "npvt.xray.json": ("_xray.json", ("_npvt_xray.json",)),
     "npvt.nekobox.json": ("_nekobox.json", ("_npvt_nekobox.json",)),
+    "npvtsub.b64sub": ("_sub_base64.txt", ("_npvtsub_b64sub.txt",)),
+    "npvtsub.decoded.json": ("_sub.json", ("_npvtsub_decoded.json",)),
+    "npvtsub.singbox.json": ("_sub_singbox.json", ("_npvtsub_singbox.json",)),
+    "npvtsub.xray.json": ("_sub_xray.json", ("_npvtsub_xray.json",)),
+    "npvtsub.nekobox.json": ("_sub_nekobox.json", ("_npvtsub_nekobox.json",)),
 }
 
 
 def output_filename(route: str, fmt: str) -> str:
     """Return the canonical generated filename for one route/format identity.
 
-    Two base formats of the same route cannot both own the same canonical name
-    (``npvt`` and ``npvtsub`` both want ``.json`` for their decoded dataset), so
-    that case surfaces through the existing collision guards in
-    ``configured_output_identities`` and ``export_owned_outputs`` rather than
-    silently overwriting one product with another.
+    Every product name is unique per (route, format) by construction: a base
+    format gets its own suffix, and a derived product carries the stem of the
+    base format it was built from. ``npvt`` and ``npvtsub`` on one route
+    therefore produce ten distinct files rather than five colliding pairs.
     """
     safe_route = safe_component(route, default="route")
     base = _CANONICAL_BASE_SUFFIX.get(fmt)
@@ -77,7 +91,12 @@ def output_filename(route: str, fmt: str) -> str:
         return f"{safe_route}{base}"
     for dotted, suffix in _DERIVED_CANONICAL_SUFFIX.items():
         if fmt.endswith(dotted):
-            return f"{safe_route}{suffix}"
+            owner = fmt[: -len(dotted)]
+            # An empty stem is a deliberate value, not a missing one: npvt is the
+            # primary feed and its products carry no stem at all. A truthiness
+            # check here would fall through to the fallback and re-add "_npvt".
+            stem = _DERIVED_STEM[owner] if owner in _DERIVED_STEM else f"_{safe_component(owner, default='fmt')}"
+            return f"{safe_route}{stem}{suffix}"
     return f"{safe_route}.{safe_component(fmt, default='fmt')}"
 
 

@@ -319,3 +319,28 @@ test("a snapshot with no node feed never yields a subscription link", () => {
   assert.equal(huntx.pickSubscriptionArtifact(undefined), null);
   assert.equal(huntx.pickSubscriptionArtifact([{ filename: "manifest.json", path: "artifacts/release/manifest.json", tags: ["release"] }]), null);
 });
+
+test("the subscription and unsupported panels are localised", async () => {
+  const { i18n } = await import("../docs/assets/js/i18n.js");
+  for (const locale of ["fa", "zh-CN", "ru"]) {
+    for (const source of [
+      "Copy Subscription URL",
+      "No subscription feed in this snapshot",
+      "No supported share links in this payload",
+      "Copy link",
+      "Base64 Subscription",
+      "Raw URI Subscription",
+      "This is a multi-node subscription, not a single proxy link. Import all of them to build a full client config or a subscription body for your app."
+    ]) {
+      assert.notEqual(i18n.translate(source, locale), source, locale + ": " + source);
+    }
+    // Interpolated strings cannot be dictionary keys.
+    for (const source of [
+      "Import all 12 nodes",
+      "12 nodes found",
+      "Base64 subscription URL copied to clipboard"
+    ]) {
+      assert.notEqual(i18n.translate(source, locale), source, locale + ": " + source);
+    }
+  }
+});

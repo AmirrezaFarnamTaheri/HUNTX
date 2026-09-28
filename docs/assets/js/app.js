@@ -1778,6 +1778,33 @@ export class AppState {
     });
   }
 
+  // A share link the decoder cannot model is reported as such. Rendering it as
+  // a node would print undefined cells and offer a conversion that emits an
+  // outbound of an invented type, which no client can load.
+  renderUnsupportedInspect(decoded, out) {
+    const scheme = String(decoded.protocol || "unknown").toLowerCase();
+    out.innerHTML = `
+      <div class="bg-gray-950 border border-amber-900/60 rounded-2xl p-5 space-y-3 font-mono text-xs">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="px-2 py-0.5 rounded uppercase font-bold text-xs bg-amber-950 text-amber-300 border border-amber-800">${escapeHTML(scheme)}</span>
+          <span class="font-bold text-gray-100">${escapeHTML(decoded.name || "Unrecognized link")}</span>
+        </div>
+        <p class="text-gray-400 leading-relaxed">
+          This link parsed as a valid <span class="text-amber-300">${escapeHTML(scheme)}://</span> share link, but the dashboard does not model that protocol yet,
+          so there are no connection parameters to inspect and no Sing-box or Clash definition to export.
+          The link is preserved exactly as published below.
+        </p>
+        <div class="flex flex-wrap gap-2">
+          <button id="btn-unsupported-copy" class="px-3.5 py-2 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-xl text-xs font-mono font-medium cursor-pointer focus-ring">Copy link</button>
+        </div>
+        <p class="text-gray-600 break-all">${escapeHTML(decoded.raw || "")}</p>
+      </div>
+    `;
+    document.getElementById("btn-unsupported-copy")?.addEventListener("click", () => {
+      this.copyText(decoded.raw || "", "Proxy link copied to clipboard");
+    });
+  }
+
   renderRadarDiagnostics() {
     if (typeof document === "undefined") return;
     const container = document.getElementById("radar-diagnostics");
@@ -2634,6 +2661,12 @@ export class AppState {
         const raw = decodeURIComponent(e.currentTarget.dataset.raw);
         try {
           const decoded = decodeProxyURI(raw);
+          if (decoded && decoded.supported === false) {
+            // There is no faithful Sing-box outbound for a protocol this
+            // decoder does not model; copy the link rather than an invented one.
+            this.copyText(raw, "Proxy link copied (no Sing-box definition for this protocol)");
+            return;
+          }
           const outbound = nodeToSingboxOutbound(decoded);
           this.copyText(JSON.stringify(outbound, null, 2), "Sing-box outbound JSON copied to clipboard");
         } catch {
@@ -3236,6 +3269,15 @@ export class AppState {
           // a node card whose server, port and uuid are all undefined.
           if (decoded && decoded.protocol === "subscription" && Array.isArray(decoded.lines)) {
             this.renderSubscriptionInspect(decoded, out);
+            return;
+          }
+
+          // A share link whose protocol this decoder does not model yet has no
+          // server, port or credential to show. Say so instead of rendering a
+          // node card full of "undefined" and offering a conversion that would
+          // produce a config the client cannot load.
+          if (decoded && decoded.supported === false) {
+            this.renderUnsupportedInspect(decoded, out);
             return;
           }
 

@@ -199,6 +199,28 @@ test("a pasted subscription link imports every node instead of rendering one emp
   await expect(page.locator("#converter-status")).toHaveText(/Conversion complete/);
 });
 
+test("a link whose protocol the decoder cannot model is reported, not rendered as an empty node", async ({ page }) => {
+  await isolateLocalPage(page);
+  await page.goto("/#decoder");
+  const input = page.locator("#decoder-single-input");
+  const output = page.locator("#inspector-output");
+  // wireguard:// is a valid share link the decoder does not model: it has no
+  // server/port/credential to show, so a node card would print "undefined" and
+  // offer a Sing-box export of an invented outbound type.
+  await input.fill("wireguard://key@198.51.100.9:51820#wg-1");
+  await page.locator("#btn-run-inspect").click();
+
+  await expect(output).toContainText("wireguard");
+  await expect(output).toContainText("does not model that protocol yet");
+  await expect(output).not.toContainText("undefined");
+  // No Sing-box/Clash export is offered for something that cannot be converted.
+  await expect(page.locator("#btn-copy-node-singbox")).toHaveCount(0);
+  await expect(page.locator("#btn-copy-node-clash")).toHaveCount(0);
+  // The original link is preserved verbatim so it is still usable.
+  await expect(output).toContainText("wireguard://key@198.51.100.9:51820#wg-1");
+});
+
+
 test("radar keeps diagnostics in the first desktop viewport and active tabs visibly focused", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await isolateLocalPage(page);

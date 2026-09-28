@@ -184,14 +184,33 @@ HUNTX adheres to **Enterprise Cloud Core (ECC) API standards** for all subscript
 
 ### 5.1 REST Endpoint & Resource Schema
 ```
-GET /docs/catalog.json                       # Catalog index of all 24 published artifacts
-GET /artifacts/release/all_sources.npvt      # Production binary subscription feed
-GET /artifacts/release/all_sources.npvt.b64sub   # Base64 unified multi-protocol feed
-GET /artifacts/release/all_sources.npvt.singbox.json  # Sing-box 1.10+ compiled outbounds
-GET /artifacts/release/all_sources.npvt.xray.json     # Xray-core 1.8+ full client configuration
+GET /docs/catalog.json                       # Catalog index of the published artifacts
+GET /artifacts/release/all_sources_base64.txt   # Base64 multi-node subscription - GIVE SUBSCRIBERS THIS
+GET /artifacts/release/all_sources.txt          # Plain-text URI feed, one node per line
+GET /artifacts/release/all_sources_nekobox.json # Bare outbound array, expands into individual nodes
+GET /artifacts/release/all_sources_singbox.json # Sing-box 1.10+ full client profile
+GET /artifacts/release/all_sources_xray.json    # Xray-core 1.8+ full client profile
+GET /artifacts/release/all_sources.json         # Decoded dataset for inspection, not a subscription
 GET /artifacts/dev/proxies.txt               # All-time cumulative raw proxy URIs
 GET /artifacts/dev/proxies_chunk_0001.txt    # Split lightweight feed chunk (1 of 11)
 ```
+
+A subscription body must be a **node list**. `*_singbox.json` and `*_xray.json`
+are complete client configurations: importing one as a subscription produces a
+single profile, which is the correct behaviour and not a defect.
+`*_nekobox.json` is a top-level array precisely so it expands into nodes.
+`*_base64.txt` is the one body format Shadowrocket, v2rayNG, Streisand, Hiddify
+and NekoBox all accept, and is the link to hand a user.
+
+The names above drop the internal format handle. Earlier spellings
+(`all_sources.npvt`, `all_sources.npvt.b64sub`, `all_sources_npvt_raw.txt`,
+`all_sources_npvt_b64sub.txt`, `all_sources_npvt_decoded.json`,
+`all_sources_npvt_singbox.json`, `all_sources_npvt_xray.json`,
+`all_sources_npvt_nekobox.json`, `all_sources.npvt.raw.txt`) are still
+published as byte-identical frozen aliases so existing subscriber links keep
+resolving; they are not advertised as separate products. The `npvtsub` feed
+publishes alongside under an `_sub` stem (`all_sources_sub.txt`,
+`all_sources_sub_base64.txt`, `all_sources_sub.json`, ...).
 
 ### 5.2 Standard Response Envelope Schema
 ```json
@@ -203,14 +222,14 @@ GET /artifacts/dev/proxies_chunk_0001.txt    # Split lightweight feed chunk (1 o
   "total_size_str": "99.0 MB",
   "files": [
     {
-      "filename": "all_sources.npvt.b64sub",
-      "path": "artifacts/release/all_sources.npvt.b64sub",
+      "filename": "all_sources_base64.txt",
+      "path": "artifacts/release/all_sources_base64.txt",
       "section": "release",
       "size": 10532,
       "size_str": "10.3 KB",
       "type": "B64SUB",
       "tags": ["release", "production", "subscription", "base64"],
-      "description": "Base64-encoded subscription feed for Shadowrocket, v2rayNG, and Streisand",
+      "description": "Base64-encoded multi-node subscription for Shadowrocket, v2rayNG, Streisand, Hiddify and NekoBox",
       "sha256": "258a4ae2414eb767131a18e2add038011520df8705a7cdd3b1155f4df05724d1",
       "hash": "258a4ae2",
       "media_type": "text/plain",

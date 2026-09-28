@@ -361,14 +361,13 @@ class DeliveryMixin:
                 continue
 
             size_kb = f.stat().st_size / 1024
-            if name.endswith(".npvt"):
+            low = name.lower()
+            if name.endswith(".npvt") or name.endswith(".txt"):
                 caption = f"📋 `{name}` — proxy URI list ({size_kb:.0f} KB)"
-            elif "b64sub" in name:
+            elif "b64sub" in low or "base64" in low:
                 caption = f"🔗 `{name}` — base64 subscription ({size_kb:.0f} KB)"
-            elif "decoded.json" in name:
+            elif "decoded.json" in low or low.endswith(".json"):
                 caption = f"📊 `{name}` — decoded JSON ({size_kb:.0f} KB)"
-            elif "raw.txt" in name:
-                caption = f"📝 `{name}` — raw proxy URI list ({size_kb:.0f} KB)"
             elif "singbox.json" in name:
                 caption = f"📦 `{name}` — sing-box config ({size_kb:.0f} KB)"
             elif "xray.json" in name:
