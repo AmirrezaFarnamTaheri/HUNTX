@@ -81,6 +81,50 @@ def test_a_frozen_alias_is_never_deleted_by_its_own_canonical_name(tmp_path):
     assert (tmp_path / "all_sources.npvt.raw.txt").exists()
 
 
+def test_the_assembler_imports_cleanly_without_pythonpath(tmp_path):
+    """The publish workflow runs this script with no PYTHONPATH.
+
+    A lazy ``from huntx...`` import inside a function passed every pytest run -
+    pytest puts src/ on sys.path - and then failed in production with
+    ``ModuleNotFoundError: No module named 'huntx'``.
+    """
+    import os
+    import subprocess
+    import sys
+
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+    out = subprocess.run(
+        [sys.executable, "-c",
+         "import runpy, sys; "
+         "sys.argv=['assemble_generated_snapshot.py','--help']; "
+         "runpy.run_path('scripts/assemble_generated_snapshot.py', run_name='__main__')"],
+        cwd=ROOT, env=env, capture_output=True, text=True, timeout=300,
+    )
+    assert "ModuleNotFoundError" not in out.stderr, out.stderr
+    assert "No module named 'huntx'" not in out.stderr, out.stderr
+
+
+def test_the_assembler_resolves_canonical_names_through_the_shared_rule(tmp_path):
+    """It must not re-derive the naming rule; the package owns it."""
+    import os
+    import subprocess
+    import sys
+
+    module = _load_assembler()
+    assert module.output_filename("all_sources", "npvt.singbox.json") == "all_sources_singbox.json"
+
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+    out = subprocess.run(
+        [sys.executable, "-c",
+         "import runpy, sys; "
+         "sys.argv=['assemble_generated_snapshot.py','--help']; "
+         "runpy.run_path('scripts/assemble_generated_snapshot.py', run_name='__main__')"],
+        cwd=ROOT, env=env, capture_output=True, text=True, timeout=300,
+    )
+    # --help exits non-zero via argparse; the import must still have succeeded.
+    assert "cannot import name 'output_filename'" not in out.stderr, out.stderr
+
+
 def test_an_empty_directory_is_handled(tmp_path):
     module = _load_assembler()
     assert module.retire_legacy_derivatives(tmp_path) == set()
