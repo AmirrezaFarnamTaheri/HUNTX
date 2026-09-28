@@ -157,6 +157,70 @@ test("protocol inspector preserves names, credentials, flow and encoded paths", 
 });
 
 
+
+
+test("a pasted subscription link imports every node instead of rendering one empty card", async ({ page }) => {
+  await isolateLocalPage(page);
+  await page.goto("/#decoder");
+  const input = page.locator("#decoder-single-input");
+  const output = page.locator("#inspector-output");
+  // socks:// and warp:// are here on purpose: the old scheme list dropped them
+  // silently, so "import all" used to hand back a subset.
+  const lines = [
+    "vless://a@example.com:443#vless-1",
+    "trojan://secret@198.51.100.6:443#trojan-1",
+    "socks://MTExOjExMQ@198.51.100.1:11310#socks-1",
+    "warp://key@198.51.100.4:2408#warp-1"
+  ];
+  const payload = Buffer.from(lines.join(String.fromCharCode(10)), "utf8").toString("base64");
+  await input.fill(payload);
+  await page.locator("#btn-run-inspect").click();
+
+  await expect(output).toContainText("subscription");
+  await expect(output).toContainText(`${lines.length} nodes found`);
+  await expect(output).toContainText("socks 1");
+  await expect(output).toContainText("warp 1");
+  // A single-node card prints undefined server/port cells instead.
+  await expect(output).not.toContainText("undefined");
+
+  const importAll = page.locator("#btn-subscription-convert");
+  await expect(importAll).toBeVisible();
+  await expect(importAll).toHaveText(`Import all ${lines.length} nodes`);
+  await importAll.click();
+  // The converter takes the subscription body as-is, base64 included.
+  await expect(page.locator("#converter-input-text")).toHaveValue(payload);
+  // socks:// now converts to a real outbound; warp:// is reported as
+  // unsupported and deliberately not emitted as a fake "raw" node.
+  const converted = page.locator("#converter-output-text");
+  await expect(converted).toHaveValue(/vless-1/);
+  await expect(converted).toHaveValue(/"type": "socks"/);
+  await expect(converted).toHaveValue(/socks-1/);
+  await expect(converted).not.toHaveValue(/Raw Proxy/);
+  await expect(page.locator("#converter-status")).toHaveText(/Conversion complete/);
+});
+
+test("a link whose protocol the decoder cannot model is reported, not rendered as an empty node", async ({ page }) => {
+  await isolateLocalPage(page);
+  await page.goto("/#decoder");
+  const input = page.locator("#decoder-single-input");
+  const output = page.locator("#inspector-output");
+  // wireguard:// is a valid share link the decoder does not model: it has no
+  // server/port/credential to show, so a node card would print "undefined" and
+  // offer a Sing-box export of an invented outbound type.
+  await input.fill("wireguard://key@198.51.100.9:51820#wg-1");
+  await page.locator("#btn-run-inspect").click();
+
+  await expect(output).toContainText("wireguard");
+  await expect(output).toContainText("does not model that protocol yet");
+  await expect(output).not.toContainText("undefined");
+  // No Sing-box/Clash export is offered for something that cannot be converted.
+  await expect(page.locator("#btn-copy-node-singbox")).toHaveCount(0);
+  await expect(page.locator("#btn-copy-node-clash")).toHaveCount(0);
+  // The original link is preserved verbatim so it is still usable.
+  await expect(output).toContainText("wireguard://key@198.51.100.9:51820#wg-1");
+});
+
+
 test("radar keeps diagnostics in the first desktop viewport and active tabs visibly focused", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await isolateLocalPage(page);

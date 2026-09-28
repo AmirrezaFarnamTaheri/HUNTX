@@ -31,29 +31,99 @@ _EMPTY_RELEASE_PAYLOAD = {
     "reason": "no_eligible_records",
 }
 
+# Published names drop the internal format handle. The route already identifies
+# the feed and the extension already identifies the product, so
+# "all_sources_npvt_decoded.json" only ever told a reader which internal handler
+# produced the file. The products now read: all_sources.txt (the URI feed),
+# all_sources_base64.txt, all_sources.json, all_sources_singbox.json,
+# all_sources_xray.json and all_sources_nekobox.json.
+#
+# configs/config.prod.yaml enables BOTH npvt and npvtsub on the all_sources
+# route, and both are in _DERIVED_PROXY_FORMATS, so each one produces its own
+# decoded/base64/singbox/xray/nekobox derivative. Dropping the format segment
+# outright made all five pairs want the same filename, which only surfaced at
+# export time as a RuntimeError because derived products are not configured
+# formats and configured_output_identities cannot see them. Each base format
+# therefore carries a stem, empty for the primary npvt feed and "_sub" for the
+# npvtsub one, so the two families stay distinct and conventional.
+_CANONICAL_BASE_SUFFIX = {"npvt": ".txt", "npvtsub": "_sub.txt"}
+_DERIVED_STEM = {"npvt": "", "npvtsub": "_sub"}
+_DERIVED_CANONICAL_SUFFIX = {
+    ".b64sub": "_base64.txt",
+    ".decoded.json": ".json",
+    ".singbox.json": "_singbox.json",
+    ".xray.json": "_xray.json",
+    ".nekobox.json": "_nekobox.json",
+}
+
+# Filenames published under earlier names, keyed by the logical format that owns
+# them. Each alias is a byte-identical copy of that format's canonical artifact
+# and none is advertised as a dashboard product; they exist so a URL that was
+# already handed out keeps resolving after a rename. Keying on the format
+# rather than the suffix matters: a route whose format is literally named "txt"
+# also produces a ".txt" file, and it must not inherit the npvt aliases.
+_FROZEN_FILENAME_ALIASES = {
+    "npvt": (".txt", (".npvt", ".npvt.raw.txt", "_npvt_raw.txt")),
+    "npvt.b64sub": ("_base64.txt", (".npvt.b64sub", "_npvt_b64sub.txt")),
+    "npvt.decoded.json": (".json", ("_npvt_decoded.json",)),
+    "npvt.singbox.json": ("_singbox.json", ("_npvt_singbox.json",)),
+    "npvt.xray.json": ("_xray.json", ("_npvt_xray.json",)),
+    "npvt.nekobox.json": ("_nekobox.json", ("_npvt_nekobox.json",)),
+    "npvtsub.b64sub": ("_sub_base64.txt", ("_npvtsub_b64sub.txt",)),
+    "npvtsub.decoded.json": ("_sub.json", ("_npvtsub_decoded.json",)),
+    "npvtsub.singbox.json": ("_sub_singbox.json", ("_npvtsub_singbox.json",)),
+    "npvtsub.xray.json": ("_sub_xray.json", ("_npvtsub_xray.json",)),
+    "npvtsub.nekobox.json": ("_sub_nekobox.json", ("_npvtsub_nekobox.json",)),
+}
+
 
 def output_filename(route: str, fmt: str) -> str:
-    """Return the canonical generated filename for one route/format identity."""
+    """Return the canonical generated filename for one route/format identity.
+
+    Every product name is unique per (route, format) by construction: a base
+    format gets its own suffix, and a derived product carries the stem of the
+    base format it was built from. ``npvt`` and ``npvtsub`` on one route
+    therefore produce ten distinct files rather than five colliding pairs.
+    """
     safe_route = safe_component(route, default="route")
-    if fmt.endswith(".decoded.json"):
-        base = safe_component(fmt.removesuffix(".decoded.json"), default="decoded")
-        return f"{safe_route}_{base}_decoded.json"
-    if fmt.endswith(".raw.txt"):
-        base = safe_component(fmt.removesuffix(".raw.txt"), default="raw")
-        return f"{safe_route}_{base}_raw.txt"
-    if fmt.endswith(".singbox.json"):
-        base = safe_component(fmt.removesuffix(".singbox.json"), default="singbox")
-        return f"{safe_route}_{base}_singbox.json"
-    if fmt.endswith(".xray.json"):
-        base = safe_component(fmt.removesuffix(".xray.json"), default="xray")
-        return f"{safe_route}_{base}_xray.json"
-    if fmt.endswith(".nekobox.json"):
-        base = safe_component(fmt.removesuffix(".nekobox.json"), default="nekobox")
-        return f"{safe_route}_{base}_nekobox.json"
-    if fmt.endswith(".b64sub"):
-        base = safe_component(fmt.removesuffix(".b64sub"), default="b64sub")
-        return f"{safe_route}_{base}_b64sub.txt"
+    base = _CANONICAL_BASE_SUFFIX.get(fmt)
+    if base is not None:
+        return f"{safe_route}{base}"
+    for dotted, suffix in _DERIVED_CANONICAL_SUFFIX.items():
+        if fmt.endswith(dotted):
+            owner = fmt[: -len(dotted)]
+            # An empty stem is a deliberate value, not a missing one: npvt is the
+            # primary feed and its products carry no stem at all. A truthiness
+            # check here would fall through to the fallback and re-add "_npvt".
+            stem = _DERIVED_STEM[owner] if owner in _DERIVED_STEM else f"_{safe_component(owner, default='fmt')}"
+            return f"{safe_route}{stem}{suffix}"
     return f"{safe_route}.{safe_component(fmt, default='fmt')}"
+
+
+def _frozen_alias_payloads(
+    payloads: dict[str, tuple[Any, dict[str, str]]],
+) -> dict[str, tuple[Any, dict[str, str]]]:
+    """Copy every canonical artifact onto the URLs published under older names.
+
+    Only the logical format that owns a canonical name contributes aliases, so
+    two routes that happen to share a suffix cannot cross-publish each other's
+    frozen URLs.
+    """
+    by_identity = {
+        (owner["route"], owner["format"]): (data, owner)
+        for data, owner in payloads.values()
+    }
+    aliased: dict[str, tuple[Any, dict[str, str]]] = {}
+    for fmt, (_, frozen) in _FROZEN_FILENAME_ALIASES.items():
+        for (route, owner_format), entry in by_identity.items():
+            if owner_format != fmt:
+                continue
+            safe_route = safe_component(route, default="route")
+            for alias_suffix in frozen:
+                alias = f"{safe_route}{alias_suffix}"
+                if alias not in payloads:
+                    aliased[alias] = entry
+    return aliased
 
 
 def configured_output_identities(config: Any) -> dict[str, dict[str, str]]:
@@ -188,15 +258,12 @@ def export_owned_outputs(orchestrator: Any, all_build_results: list[Any]) -> Non
             {"route": "_release", "format": "empty"},
         )
 
-    # Compatibility: the historical base64 subscription URL keeps working as a
-    # byte-identical alias of the canonical npvt b64sub payload, so existing
-    # subscribers never need to change their URL. Exact ownership below removes
-    # prior-owned files only when this snapshot no longer emits them; this alias
-    # does not itself retire any of the pipeline's derivative formats.
-    alias = "all_sources.npvt.b64sub"
-    canonical = "all_sources_npvt_b64sub.txt"
-    if canonical in payloads and alias not in payloads:
-        payloads[alias] = payloads[canonical]
+    # Compatibility: the URLs published under earlier names stay byte-identical
+    # aliases of the canonical artifacts, so existing subscribers never need to
+    # change their URL. Exact ownership below removes prior-owned files only when
+    # this snapshot no longer emits them; these aliases do not themselves retire
+    # any of the pipeline's derivative formats.
+    payloads.update(_frozen_alias_payloads(payloads))
     next_owned = {name: owner for name, (_, owner) in payloads.items()}
     manifest = {
         **metadata,

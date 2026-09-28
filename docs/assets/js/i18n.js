@@ -123,6 +123,25 @@ export const TRANSLATIONS = Object.freeze({
     "Copy": "کپی",
     "Copy URI": "کپی لینک",
     "Copy Node URI": "کپی نشانی گره",
+    "Copy Subscription URL": "کپی نشانی اشتراک",
+    "Copy Multi-Node Subscription URL": "کپی نشانی اشتراک چندگرهی",
+    "No subscription feed in this snapshot": "در اینSnapshot هیچ خوراک اشتراکی وجود ندارد",
+    "Import all": "وارد کردن همه",
+    "nodes found": "گره یافت شد",
+    "subscription": "اشتراک",
+    "Base64": "Base64",
+    "JSON node feed": "خوراک گره JSON",
+    "Raw URI feed": "خوراک URI خام",
+    "Base64 Subscription": "اشتراک Base64",
+    "Raw URI Subscription": "اشتراک URI خام",
+    "Multi-node URI feed, one node per line": "خوراک URI چندگرهی، هر خط یک گره",
+    "Multi-node subscription for Shadowrocket, v2rayNG, Streisand, Hiddify and NekoBox": "اشتراک چندگرهی برای Shadowrocket، v2rayNG، Streisand، Hiddify و NekoBox",
+    "This is a multi-node subscription, not a single proxy link. Import all of them to build a full client config or a subscription body for your app.": "این یک اشتراک چندگرهی است، نه یک لینک پروکسی تکی. همه را وارد کنید تا یک پیکربندی کامل کلاینت یا بدنه اشتراک برای برنامه‌تان ساخته شود.",
+    "No supported share links in this payload": "هیچ لینک اشتراکی پشتیبانی‌شده‌ای در این محتوا یافت نشد",
+    "Copy link": "کپی لینک",
+    "Proxy link copied to clipboard": "لینک پروکسی در کلیپ‌بورد کپی شد",
+    "Proxy link copied (no Sing-box definition for this protocol)": "لینک پروکسی کپی شد (تعریف Sing-box برای این پروتکل وجود ندارد)",
+    "Unrecognized link": "لینک شناسایی‌نشده",
     "Copy Output": "کپی خروجی",
     "Download": "دانلود",
     "Download File": "دانلود فایل",
@@ -391,6 +410,25 @@ export const TRANSLATIONS = Object.freeze({
     "Copy": "复制",
     "Copy URI": "复制链接",
     "Copy Node URI": "复制节点 URI",
+    "Copy Subscription URL": "复制订阅链接",
+    "Copy Multi-Node Subscription URL": "复制多节点订阅链接",
+    "No subscription feed in this snapshot": "此快照中没有订阅源",
+    "Import all": "导入全部",
+    "nodes found": "个节点",
+    "subscription": "订阅",
+    "Base64": "Base64",
+    "JSON node feed": "JSON 节点源",
+    "Raw URI feed": "原始 URI 源",
+    "Base64 Subscription": "Base64 订阅",
+    "Raw URI Subscription": "原始 URI 订阅",
+    "Multi-node URI feed, one node per line": "多节点 URI 源，每行一个节点",
+    "Multi-node subscription for Shadowrocket, v2rayNG, Streisand, Hiddify and NekoBox": "适用于 Shadowrocket、v2rayNG、Streisand、Hiddify 和 NekoBox 的多节点订阅",
+    "This is a multi-node subscription, not a single proxy link. Import all of them to build a full client config or a subscription body for your app.": "这是一个多节点订阅，而不是单个代理链接。导入全部节点以生成完整的客户端配置或订阅内容。",
+    "No supported share links in this payload": "此内容中没有受支持的分享链接",
+    "Copy link": "复制链接",
+    "Proxy link copied to clipboard": "代理链接已复制到剪贴板",
+    "Proxy link copied (no Sing-box definition for this protocol)": "代理链接已复制（此协议没有 Sing-box 定义）",
+    "Unrecognized link": "无法识别的链接",
     "Copy Output": "复制输出",
     "Download": "下载",
     "Download File": "下载文件",
@@ -659,6 +697,25 @@ export const TRANSLATIONS = Object.freeze({
     "Copy": "Копировать",
     "Copy URI": "Копировать URI",
     "Copy Node URI": "Копировать URI узла",
+    "Copy Subscription URL": "Копировать ссылку подписки",
+    "Copy Multi-Node Subscription URL": "Копировать ссылку мультиузловой подписки",
+    "No subscription feed in this snapshot": "В этом снимке нет ленты подписки",
+    "Import all": "Импортировать все",
+    "nodes found": "узлов найдено",
+    "subscription": "подписка",
+    "Base64": "Base64",
+    "JSON node feed": "JSON-лента узлов",
+    "Raw URI feed": "лента URI",
+    "Base64 Subscription": "Подписка Base64",
+    "Raw URI Subscription": "Подписка URI",
+    "Multi-node URI feed, one node per line": "Мультиузловая лента URI, по узлу в строке",
+    "Multi-node subscription for Shadowrocket, v2rayNG, Streisand, Hiddify and NekoBox": "Мультиузловая подписка для Shadowrocket, v2rayNG, Streisand, Hiddify и NekoBox",
+    "This is a multi-node subscription, not a single proxy link. Import all of them to build a full client config or a subscription body for your app.": "Это мультиузловая подписка, а не одна ссылка прокси. Импортируйте все узлы, чтобы собрать полный конфиг клиента или тело подписки.",
+    "No supported share links in this payload": "В этом содержимом нет поддерживаемых ссылок",
+    "Copy link": "Копировать ссылку",
+    "Proxy link copied to clipboard": "Ссылка прокси скопирована в буфер обмена",
+    "Proxy link copied (no Sing-box definition for this protocol)": "Ссылка прокси скопирована (для этого протокола нет определения Sing-box)",
+    "Unrecognized link": "Нераспознанная ссылка",
     "Copy Output": "Копировать результат",
     "Download": "Скачать",
     "Download File": "Скачать файл",
@@ -953,6 +1010,24 @@ export class I18nRuntime {
       if (locale === "fa") return `${loadedConverterMatch[1]} گره در مبدل بارگذاری شد`;
       if (locale === "zh-CN") return `已将 ${loadedConverterMatch[1]} 个节点载入转换器`;
       if (locale === "ru") return `В конвертер загружено узлов: ${loadedConverterMatch[1]}`;
+    }
+    const importAllMatch = source.match(/^Import all\s+(\d+)\s+nodes$/i);
+    if (importAllMatch) {
+      if (locale === "fa") return `\u0648\u0627\u0631\u062f \u06a9\u0631\u062f\u0646 \u0647\u0645\u0647: ${importAllMatch[1]}`;
+      if (locale === "zh-CN") return `\u5bfc\u5165\u5168\u90e8 ${importAllMatch[1]} \u4e2a\u8282\u70b9`;
+      if (locale === "ru") return `\u0418\u043c\u043f\u043e\u0440\u0442 \u0432\u0441\u0435\u0445: ${importAllMatch[1]}`;
+    }
+    const nodesFoundMatch = source.match(/^(\d+)\s+nodes found$/i);
+    if (nodesFoundMatch) {
+      if (locale === "fa") return `${nodesFoundMatch[1]} \u06af\u0631\u0647 \u06cc\u0627\u0641\u062a \u0634\u062f`;
+      if (locale === "zh-CN") return `\u627e\u5230 ${nodesFoundMatch[1]} \u4e2a\u8282\u70b9`;
+      if (locale === "ru") return `\u041d\u0430\u0439\u0434\u0435\u043d\u043e \u0443\u0437\u043b\u043e\u0432: ${nodesFoundMatch[1]}`;
+    }
+    const subCopiedMatch = source.match(/^(.+?)\s+subscription URL copied to clipboard$/i);
+    if (subCopiedMatch) {
+      if (locale === "fa") return `${subCopiedMatch[1]} \u0646\u0634\u0627\u0646\u06cc \u0627\u0634\u062a\u0631\u0627\u06a9 \u062f\u0631 \u06a9\u0644\u06cc\u067e\u200c\u0628\u0648\u0631\u062f \u06a9\u067e\u06cc \u0634\u062f`;
+      if (locale === "zh-CN") return `${subCopiedMatch[1]} \u8ba2\u9605\u94fe\u63a5\u5df2\u590d\u5236\u5230\u526a\u8d34\u677f`;
+      if (locale === "ru") return `${subCopiedMatch[1]}: \u0441\u0441\u044b\u043b\u043a\u0430 \u043d\u0430 \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0443 \u0441\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u043d\u0430`;
     }
     const dedupMatch = source.match(/^Deduplication complete:\s*(\d+)\s+unique nodes\.$/i);
     if (dedupMatch) {

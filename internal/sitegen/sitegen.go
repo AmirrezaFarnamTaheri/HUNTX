@@ -114,42 +114,32 @@ type Catalog struct {
 	Files            []Entry `json:"files"`
 }
 
-type productMetadata struct {
-	Tags        []string
-	Description string
-}
-
-// frontendReleaseProducts is deliberately narrower than the release manifest.
-// The manifest remains the compatibility/source-of-truth inventory, while the
-// dashboard shows only the canonical end-user products. Legacy aliases and
+// frontendReleaseProducts is the allowlist of artifacts the dashboard
+// advertises. It is deliberately narrower than the release manifest: the
+// manifest remains the compatibility/source-of-truth inventory, while the
+// dashboard lists only the canonical end-user products. Legacy aliases and
 // specialist formats stay downloadable by direct URL without being advertised
 // as separate products.
-var frontendReleaseProducts = map[string]productMetadata{
-	"all_sources_npvt_raw.txt": {
-		Tags:        []string{"release", "verified", "subscription", "multi-node", "uri-feed"},
-		Description: "Canonical multi-node proxy URI subscription feed. Add this URL as a subscription in compatible clients; each line is an individual proxy node.",
-	},
-	"all_sources_npvt_singbox.json": {
-		Tags:        []string{"release", "verified", "singbox", "full-config", "profile"},
-		Description: "Complete sing-box client configuration containing all representable proxy outbounds. Importing this JSON creates one profile by design; use the raw TXT feed for a multi-node subscription.",
-	},
-	"all_sources_npvt_xray.json": {
-		Tags:        []string{"release", "verified", "xray", "full-config", "profile"},
-		Description: "Complete Xray client configuration containing all representable proxy outbounds. Importing this JSON creates one profile by design; use the raw TXT feed for a multi-node subscription.",
-	},
-	"all_sources_npvt_nekobox.json": {
-		Tags:        []string{"release", "verified", "nekobox", "subscription", "multi-node", "json-array"},
-		Description: "NekoBox multi-node JSON subscription. The top-level outbound array is intentionally shaped so NekoBox expands entries into individual proxy nodes instead of one custom configuration.",
-	},
-	"all_sources_npvt_decoded.json": {
-		Tags:        []string{"release", "verified", "decoded", "diagnostic", "dataset"},
-		Description: "Decoded structured proxy dataset for inspection and dashboard telemetry. This is diagnostic JSON, not a client subscription.",
-	},
+//
+// This is a visibility gate and nothing more. The tags and description a user
+// reads come from artifactMeta, which reads the shared artifact_formats.json
+// table that scripts/generate_site_data.py also reads. Keeping a second copy
+// of that prose here would let the two catalog writers drift with no failure
+// to notice, because these fields were never read.
+var frontendReleaseProducts = map[string]struct{}{
+	"all_sources.txt":          {},
+	"all_sources_base64.txt":   {},
+	"all_sources.json":         {},
+	"all_sources_singbox.json": {},
+	"all_sources_xray.json":    {},
+	"all_sources_nekobox.json": {},
 }
 
-func frontendReleaseProduct(path string) (productMetadata, bool) {
-	metadata, ok := frontendReleaseProducts[filepath.Base(path)]
-	return metadata, ok
+// isFrontendReleaseProduct reports whether a published artifact is advertised
+// as a dashboard product.
+func isFrontendReleaseProduct(path string) bool {
+	_, ok := frontendReleaseProducts[filepath.Base(path)]
+	return ok
 }
 
 func Generate(dataDir, docsDir string, generatedAt time.Time) (Catalog, error) {
@@ -198,7 +188,7 @@ func Generate(dataDir, docsDir string, generatedAt time.Time) (Catalog, error) {
 		if err := runtimegen.WriteBytesAtomic(destination, payload, 0o600); err != nil {
 			return Catalog{}, err
 		}
-		_, visible := frontendReleaseProduct(record.Path)
+		visible := isFrontendReleaseProduct(record.Path)
 		if intentionalEmpty || !visible {
 			continue
 		}
@@ -350,8 +340,8 @@ func formatSize(size int64) string {
 // artifactMeta classifies a published release artifact from the embedded
 // shared table, which is the same file scripts/generate_site_data.py reads.
 // Rules are evaluated in file order and the first match wins, so precedence
-// is data rather than code: "all_sources.npvt.singbox.json" is a Sing-box
-// profile, not an NPVT feed.
+// is data rather than code: "all_sources_singbox.json" is a Sing-box profile,
+// not the plain-text URI feed it would otherwise match.
 func artifactMeta(path string) (tags []string, description, kind string) {
 	name := strings.ToLower(filepath.Base(path))
 	kind = strings.TrimPrefix(strings.ToUpper(filepath.Ext(name)), ".")

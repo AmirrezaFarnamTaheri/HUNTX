@@ -232,29 +232,37 @@ def test_catalog_tags_keep_client_configs_out_of_subscription_feeds() -> None:
     """Complete client configs are profile imports; node feeds stay subscription-usable."""
     module = _load_site_generator()
     singbox_type, singbox_tags, singbox_desc = module._infer_tags_and_type(
-        Path("release/all_sources_npvt_singbox.json"), "release"
+        Path("release/all_sources_singbox.json"), "release"
     )
     assert singbox_type == "SINGBOX"
     assert "subscription" not in singbox_tags
     assert "not a subscription" in singbox_desc
     xray_type, xray_tags, _ = module._infer_tags_and_type(
-        Path("release/all_sources_npvt_xray.json"), "release"
+        Path("release/all_sources_xray.json"), "release"
     )
     assert xray_type == "XRAY"
     assert "subscription" not in xray_tags
     nekobox_type, nekobox_tags, _ = module._infer_tags_and_type(
-        Path("release/all_sources_npvt_nekobox.json"), "release"
+        Path("release/all_sources_nekobox.json"), "release"
     )
     assert nekobox_type == "NEKOBOX"
     assert "subscription" in nekobox_tags
     assert "json-nodes" in nekobox_tags
     raw_type, raw_tags, _ = module._infer_tags_and_type(
-        Path("release/all_sources_npvt_raw.txt"), "release"
+        Path("release/all_sources.txt"), "release"
     )
     assert raw_type == "TXT"
-    assert "subscription" not in raw_tags
+    assert "multi-node" in raw_tags
+    b64_type, b64_tags, _ = module._infer_tags_and_type(
+        Path("release/all_sources_base64.txt"), "release"
+    )
+    assert b64_type == "B64SUB"
+    assert "subscription" in b64_tags
+    # The base64 feed is the one link a client expands into every node, so it
+    # must be the one tagged as a multi-node subscription.
+    assert "multi-node" in b64_tags
     npvt_type, npvt_tags, _ = module._infer_tags_and_type(
-        Path("release/all_sources.npvt.json"), "release"
+        Path("release/all_sources.npvt"), "release"
     )
     assert npvt_type == "NPVT"
     assert "subscription" in npvt_tags
@@ -390,11 +398,11 @@ def test_frontend_uses_only_canonical_product_artifact_names() -> None:
     application = (ROOT / "docs" / "assets" / "js" / "app.js").read_text(encoding="utf-8")
 
     for canonical in (
-        "all_sources_npvt_decoded.json",
-        "all_sources_npvt_nekobox.json",
-        "all_sources_npvt_raw.txt",
-        "all_sources_npvt_singbox.json",
-        "all_sources_npvt_xray.json",
+        # The products the dashboard offers a download for. The decoded dataset
+        # and the node feed have no hero anchor — they are reached through the
+        # catalog, and the subscription link is resolved from it at click time.
+        "all_sources_singbox.json",
+        "all_sources_xray.json",
     ):
         assert canonical in application
 
@@ -404,6 +412,10 @@ def test_frontend_uses_only_canonical_product_artifact_names() -> None:
         "all_sources.npvt.raw.txt",
         "all_sources.npvt.singbox.json",
         "all_sources.npvt.xray.json",
+        "all_sources_npvt_nekobox.json",
+        "all_sources_npvt_raw.txt",
+        "all_sources_npvt_singbox.json",
+        "all_sources_npvt_xray.json",
         "v2ray_test_config.json",
     ):
         assert stale not in application

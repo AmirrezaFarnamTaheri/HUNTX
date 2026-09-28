@@ -220,7 +220,59 @@ export function decodeProxyURI(rawUri) {
     };
   }
 
-  // 3. Trojan (trojan://password@host:port?query#name)
+  // 3. SOCKS (socks://[user:pass@]host:port#name)
+  //
+  // Publishers emit the userinfo either as a literal "user:pass" pair or as
+  // that pair base64-encoded into one opaque token. Splitting only on a
+  // literal colon sent the whole encoded blob through as the username and
+  // left the password empty, so the node could never authenticate.
+  if (/^socks(?:4a|4|5)?:\/\//i.test(str)) {
+    const scheme = str.slice(0, str.indexOf("://")).toLowerCase();
+    const version = { socks: "5", socks5: "5", socks4: "4", socks4a: "4a" }[scheme] || "5";
+    const body = str.slice(str.indexOf("://") + 3);
+    const hashAt = body.indexOf("#");
+    const remark = hashAt === -1 ? "" : decodeURIComponent(body.slice(hashAt + 1));
+    const main = hashAt === -1 ? body : body.slice(0, hashAt);
+    const qAt = main.indexOf("?");
+    const query = qAt === -1 ? "" : main.slice(qAt + 1);
+    const withoutQuery = qAt === -1 ? main : main.slice(0, qAt);
+    const atAt = withoutQuery.lastIndexOf("@");
+    let username = "";
+    let password = "";
+    let hostport = withoutQuery;
+    if (atAt !== -1) {
+      const userinfo = withoutQuery.slice(0, atAt);
+      hostport = withoutQuery.slice(atAt + 1);
+      let candidate = decodeURIComponent(userinfo);
+      if (!candidate.includes(":")) {
+        const decoded = safeAtob(candidate);
+        if (decoded.includes(":")) candidate = decoded;
+      }
+      const colon = candidate.indexOf(":");
+      if (colon === -1) {
+        username = candidate;
+      } else {
+        username = candidate.slice(0, colon);
+        password = candidate.slice(colon + 1);
+      }
+    }
+    const { server: host, port } = parseHostAndPort(hostport, 1080);
+    if (!host) throw new Error("Invalid SOCKS endpoint: " + str);
+    const params = new URLSearchParams(query);
+    return {
+      protocol: "socks",
+      name: remark || "socks-" + host,
+      server: host,
+      port: port,
+      version: version,
+      username: username,
+      password: password,
+      network: params.get("network") === "udp" ? "udp" : "",
+      raw: str
+    };
+  }
+
+  // 4. Trojan (trojan://password@host:port?query#name)
   if (str.startsWith("trojan://")) {
     const withoutScheme = str.slice(9);
     const hashIdx = withoutScheme.indexOf("#");
@@ -353,33 +405,83 @@ export function decodeProxyURI(rawUri) {
     // Not a valid base64 subscription
   }
 
+  // 5. A share link whose protocol this decoder does not model yet (wireguard,
+  // anytls, tuic, warp, mieru and friends). Report it under its real scheme and
+  // flag it, rather than handing back an opaque "raw" node that the converters
+  // then emit as a sing-box outbound of type "raw" - which no client can use,
+  // and which is indistinguishable from a real node in the output.
+  const unsupported = str.match(/^([a-z0-9+.-]+):\/\//i);
+  if (unsupported && PROXY_URI_SCHEMES.includes(unsupported[1].toLowerCase())) {
+    const scheme = unsupported[1].toLowerCase();
+    const remark = str.includes("#") ? decodeURIComponent(str.split("#").pop()) : "";
+    return {
+      protocol: scheme,
+      name: remark || scheme + "-unsupported",
+      supported: false,
+      raw: str
+    };
+  }
+
   return {
     protocol: "raw",
     name: "Raw Proxy / Config",
-    raw: str
+    raw: str,
+    supported: false
   };
 }
 
+
+/**
+ * Every share-link scheme the pipeline can emit, mirroring
+ * ``_PROXY_SCHEMES`` in ``src/huntx/core/router.py``.
+ *
+ * The batch converter used to carry a hand-written ten-entry list, and
+ * anything outside it was dropped without a word: converting the published
+ * feed silently lost every ``socks://``, ``ssr://``, ``hysteria://``,
+ * ``wireguard://``, ``anytls://`` and ``warp://`` node. Asking to import all
+ * proxies and silently receiving a subset is worse than a visible error.
+ * ``http://`` and ``https://`` are deliberately absent because they match
+ * ordinary web links; only an authenticated CONNECT proxy is collected.
+ */
+export const PROXY_URI_SCHEMES = [
+  "vmess", "vless", "trojan", "ss", "ssr",
+  "hysteria2+realm+http", "hysteria2+realm", "hysteria2", "hy2", "hysteria",
+  "tuic", "wireguard", "wg",
+  "socks", "socks5", "socks4", "socks4a",
+  "anytls", "juicity", "mieru", "mierus", "warp",
+  "shadowtls", "naive+https", "naive+quic",
+  "ssh", "dns", "dnstt"
+];
+
+// Longest-first alternation: a bare "hysteria2" must not swallow the
+// "hysteria2+realm" link, and "socks" must not shadow "socks5".
+const PROXY_URI_PATTERN = new RegExp(
+  `^(?:${PROXY_URI_SCHEMES.slice()
+    .sort((a, z) => z.length - a.length)
+    .map((s) => s.replace(/[+]/g, String.raw`\+`))
+    .join("|")})://`,
+  "i"
+);
+
+/** Return whether a trimmed line is a complete share link. */
+export function isProxyURILine(line) {
+  return PROXY_URI_PATTERN.test(String(line || "").trim());
+}
 
 export function extractAllURIs(text) {
   if (!text || typeof text !== "string") return [];
   const lines = text.split(/\r?\n/);
   const uris = [];
-  const schemes = ["vless://", "vmess://", "trojan://", "ss://", "hysteria2://", "hy2://", "tuic://", "socks5://", "http://", "https://"];
 
   for (let line of lines) {
     line = line.trim();
     if (!line || line.startsWith("#") || line.startsWith("//")) continue;
 
-    // Check if line contains a supported scheme
-    for (const s of schemes) {
-      const idx = line.indexOf(s);
-      if (idx !== -1) {
-        // Extract substring until whitespace
-        const sub = line.slice(idx).split(/\s+/)[0];
-        uris.push(sub);
-        break;
-      }
+    // Anchor at the start of the line: a share link may itself contain
+    // "http://" as a host or SNI value, and a substring match on any
+    // scheme would shred those lines.
+    if (isProxyURILine(line)) {
+      uris.push(line.split(/\s+/)[0]);
     }
   }
 
@@ -964,13 +1066,30 @@ export function convertProxyBatch(rawInput, format = "singbox") {
     throw new Error("No valid proxy URIs detected in input payload");
   }
 
-  const nodes = uris.map(u => {
+  // A node the decoder could not model is reported, not emitted: turning it
+  // into an outbound of an invented type produces a config that fails to load
+  // and hides the fact that the node was never converted.
+  const nodes = [];
+  let skipped = 0;
+  for (const u of uris) {
     try {
-      return decodeProxyURI(u);
+      const node = decodeProxyURI(u);
+      if (node && node.supported === false) {
+        skipped += 1;
+        continue;
+      }
+      if (node) nodes.push(node);
     } catch {
-      return null;
+      skipped += 1;
     }
-  }).filter(Boolean);
+  }
+  if (nodes.length === 0) {
+    throw new Error(
+      skipped === 1
+        ? "The only share link in this payload uses a protocol the converter does not model"
+        : "No convertible proxy URIs in this payload (" + skipped + " unsupported or unparseable)"
+    );
+  }
 
   switch (format.toLowerCase()) {
     case "singbox":

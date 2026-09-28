@@ -361,14 +361,13 @@ class DeliveryMixin:
                 continue
 
             size_kb = f.stat().st_size / 1024
-            if name.endswith(".npvt"):
+            low = name.lower()
+            if name.endswith(".npvt") or name.endswith(".txt"):
                 caption = f"📋 `{name}` — proxy URI list ({size_kb:.0f} KB)"
-            elif "b64sub" in name:
+            elif "b64sub" in low or "base64" in low:
                 caption = f"🔗 `{name}` — base64 subscription ({size_kb:.0f} KB)"
-            elif "decoded.json" in name:
+            elif "decoded.json" in low or low.endswith(".json"):
                 caption = f"📊 `{name}` — decoded JSON ({size_kb:.0f} KB)"
-            elif "raw.txt" in name:
-                caption = f"📝 `{name}` — raw proxy URI list ({size_kb:.0f} KB)"
             elif "singbox.json" in name:
                 caption = f"📦 `{name}` — sing-box config ({size_kb:.0f} KB)"
             elif "xray.json" in name:
@@ -390,13 +389,20 @@ class DeliveryMixin:
         n = name.lower()
         f = fmt.lower()
         if f in ("npvt", "npvtsub"):
-            return n.endswith(f".{f}") or n.endswith(f"_{f}.txt")
+            # The canonical name dropped the format segment; the earlier
+            # spellings stay matchable so a restored snapshot still resolves.
+            return (
+                n.endswith(f".{f}")
+                or n.endswith(f"_{f}.txt")
+                or (f == "npvt" and n.endswith(".txt"))
+                or (f == "npvtsub" and n.endswith("_sub.txt"))
+            )
         if f in ("b64sub", "npvt.b64sub", "npvtsub.b64sub"):
-            return ".b64sub" in n or n.endswith("_b64sub.txt")
+            return ".b64sub" in n or n.endswith("_b64sub.txt") or n.endswith("_base64.txt")
         if f in ("decoded.json", "npvt.decoded.json", "npvtsub.decoded.json"):
-            return ".decoded.json" in n or n.endswith("_decoded.json")
+            return ".decoded.json" in n or n.endswith("_decoded.json") or n.endswith(".json")
         if f in ("raw.txt", "npvt.raw.txt", "npvtsub.raw.txt"):
-            return n.endswith(".raw.txt") or n.endswith("_raw.txt")
+            return n.endswith(".raw.txt") or n.endswith("_raw.txt") or n.endswith(".txt")
         if f in ("singbox.json", "npvt.singbox.json", "npvtsub.singbox.json"):
             return ".singbox.json" in n or n.endswith("_singbox.json")
         if f in ("xray.json", "npvt.xray.json", "npvtsub.xray.json"):

@@ -274,14 +274,25 @@ def test_the_classification_table_is_the_single_source_of_truth(generator) -> No
     # Precedence is data: a prefixed variant is its specific format, not the
     # generic npvt feed rule it also matches. Go's test asserts the same order.
     for name, expected in [
+        ("all_sources_singbox.json", "SINGBOX"),
+        ("all_sources_xray.json", "XRAY"),
+        ("all_sources_nekobox.json", "NEKOBOX"),
+        ("all_sources.json", "JSON"),
+        ("all_sources_base64.txt", "B64SUB"),
+        ("all_sources.txt", "TXT"),
+        # The frozen aliases published under earlier names must keep classifying
+        # exactly as the canonical product they copy.
         ("all_sources.npvt.singbox.json", "SINGBOX"),
         ("all_sources_npvt_singbox.json", "SINGBOX"),
         ("all_sources.npvt.xray.json", "XRAY"),
         ("all_sources_npvt_xray.json", "XRAY"),
         ("all_sources.npvt.nekobox.json", "NEKOBOX"),
         ("all_sources.npvt.decoded.json", "JSON"),
+        ("all_sources_npvt_decoded.json", "JSON"),
         ("all_sources.npvt.raw.txt", "TXT"),
+        ("all_sources_npvt_raw.txt", "TXT"),
         ("all_sources.npvt.b64sub", "B64SUB"),
+        ("all_sources_npvt_b64sub.txt", "B64SUB"),
         ("all_sources.npvt", "NPVT"),
     ]:
         kind, _, _ = generator._infer_tags_and_type(Path(name), "release")

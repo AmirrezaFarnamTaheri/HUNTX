@@ -18,7 +18,7 @@ func TestGeneratePublishesReleasePathsAndCatalogFields(t *testing.T) {
 	if err := os.MkdirAll(dist, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	artifact := filepath.Join(dist, "all_sources_npvt_raw.txt")
+	artifact := filepath.Join(dist, "all_sources.txt")
 	if err := os.WriteFile(artifact, []byte("dm1lc3M6Ly9leGFtcGxl"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +39,7 @@ func TestGeneratePublishesReleasePathsAndCatalogFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := catalog.Files[0].Path, "artifacts/release/all_sources_npvt_raw.txt"; got != want {
+	if got, want := catalog.Files[0].Path, "artifacts/release/all_sources.txt"; got != want {
 		t.Fatalf("artifact path = %q, want %q", got, want)
 	}
 	if got, want := catalog.Files[0].Type, "TXT"; got != want {
@@ -47,7 +47,7 @@ func TestGeneratePublishesReleasePathsAndCatalogFields(t *testing.T) {
 	}
 	for _, path := range []string{
 		filepath.Join(docsDir, "catalog.json"),
-		filepath.Join(docsDir, "artifacts", "release", "all_sources_npvt_raw.txt"),
+		filepath.Join(docsDir, "artifacts", "release", "all_sources.txt"),
 		filepath.Join(docsDir, "artifacts", "release", "manifest.json"),
 	} {
 		if _, err := os.Stat(path); err != nil {
@@ -62,7 +62,7 @@ func TestGenerateReplacesExistingCatalog(t *testing.T) {
 	if err := os.MkdirAll(dist, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	artifact := filepath.Join(dist, "all_sources_npvt_raw.txt")
+	artifact := filepath.Join(dist, "all_sources.txt")
 	writeRelease := func(payload string) {
 		t.Helper()
 		if err := os.WriteFile(artifact, []byte(payload), 0o600); err != nil {
@@ -90,7 +90,7 @@ func TestGenerateReplacesExistingCatalog(t *testing.T) {
 	if _, err := Generate(dataDir, docsDir, time.Now()); err != nil {
 		t.Fatalf("second generation must replace catalog and artifacts: %v", err)
 	}
-	published, err := os.ReadFile(filepath.Join(docsDir, "artifacts", "release", "all_sources_npvt_raw.txt"))
+	published, err := os.ReadFile(filepath.Join(docsDir, "artifacts", "release", "all_sources.txt"))
 	if err != nil || string(published) != "second-release" {
 		t.Fatalf("published release = %q, err=%v", published, err)
 	}
@@ -117,6 +117,14 @@ func TestArtifactMetaClassifiesEveryShippedFormat(t *testing.T) {
 		"all_sources.opaque_bundle",
 		"all_sources.ovpn",
 		"all_sources.sip",
+		// The canonical products.
+		"all_sources.txt",
+		"all_sources_base64.txt",
+		"all_sources.json",
+		"all_sources_nekobox.json",
+		"all_sources_singbox.json",
+		"all_sources_xray.json",
+		// The frozen aliases published under earlier names.
 		"all_sources_npvt_b64sub.txt",
 		"all_sources_npvt_decoded.json",
 		"all_sources_npvt_nekobox.json",
@@ -133,10 +141,12 @@ func TestArtifactMetaClassifiesEveryShippedFormat(t *testing.T) {
 			t.Errorf("%s: tags = %v, want the release base tags plus format tags", name, tags)
 		}
 		if kind == "JSON" || kind == "TXT" {
-			// The decoded dataset is a JSON document and the raw copy is plain
+			// The decoded dataset is a JSON document and the URI feed is plain
 			// text; every other feed has a format-specific type. A generic type
-			// there means the name slipped past the classification table.
-			if !strings.HasSuffix(name, "decoded.json") && !strings.HasSuffix(name, "raw.txt") {
+			// on any other name means it slipped past the classification table.
+			generic := name == "all_sources.json" || name == "all_sources.txt" ||
+				strings.HasSuffix(name, "decoded.json") || strings.HasSuffix(name, "raw.txt")
+			if !generic {
 				t.Errorf("%s: generic type %q", name, kind)
 			}
 		}
@@ -149,8 +159,10 @@ func TestArtifactMetaClassifiesEveryShippedFormat(t *testing.T) {
 // what made clients import one JSON profile instead of a node list.
 func TestArtifactMetaKeepsClientConfigsOutOfSubscriptionTags(t *testing.T) {
 	for _, name := range []string{
+		"all_sources_singbox.json",
 		"all_sources.npvt.singbox.json",
 		"all_sources_npvt_singbox.json",
+		"all_sources_xray.json",
 		"all_sources.npvt.xray.json",
 		"all_sources_npvt_xray.json",
 	} {
@@ -186,12 +198,18 @@ func TestEmbeddedTableIsTheOnePythonReads(t *testing.T) {
 	// test in tests/test_output_telemetry_coverage.py, so a change here must be
 	// made in the table and mirrored by regenerating that expectation.
 	for _, name := range []string{
+		"all_sources_singbox.json",
 		"all_sources.npvt.singbox.json",
+		"all_sources_xray.json",
 		"all_sources_npvt_xray.json",
+		"all_sources_nekobox.json",
 		"all_sources.npvt.nekobox.json",
+		"all_sources_base64.txt",
 		"all_sources.npvt.b64sub",
 		"all_sources.npvt",
+		"all_sources.json",
 		"all_sources.npvt.decoded.json",
+		"all_sources.txt",
 		"all_sources.npvt.raw.txt",
 	} {
 		tags, description, kind := artifactMeta(name)
@@ -227,7 +245,7 @@ func TestEmbeddedTablePrecedenceIsSpecificToGeneric(t *testing.T) {
 		{"all_sources.npvt.decoded.json", "JSON"},
 		{"all_sources_npvt_decoded.json", "JSON"},
 		{"all_sources.npvt.raw.txt", "TXT"},
-		{"all_sources_npvt_raw.txt", "TXT"},
+		{"all_sources.txt", "TXT"},
 		{"all_sources.npvt.b64sub", "B64SUB"},
 		{"all_sources_npvt_b64sub.txt", "B64SUB"},
 		// The unprefixed feed has no more specific rule, so npvt wins here.
@@ -283,8 +301,8 @@ func TestGenerateKeepsCompatibilityArtifactsOutOfProductCatalog(t *testing.T) {
 	if err := os.MkdirAll(dist, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	visible := filepath.Join(dist, "all_sources_npvt_raw.txt")
-	stale := filepath.Join(dist, "all_sources.npvt.raw.txt")
+	visible := filepath.Join(dist, "all_sources.txt")
+	stale := filepath.Join(dist, "all_sources.npvt")
 	if err := os.WriteFile(visible, []byte("vless://canonical.example:443\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -311,10 +329,10 @@ func TestGenerateKeepsCompatibilityArtifactsOutOfProductCatalog(t *testing.T) {
 	if got, want := len(catalog.Files), 1; got != want {
 		t.Fatalf("catalog files = %d, want %d", got, want)
 	}
-	if got, want := catalog.Files[0].Filename, "all_sources_npvt_raw.txt"; got != want {
+	if got, want := catalog.Files[0].Filename, "all_sources.txt"; got != want {
 		t.Fatalf("catalog filename = %q, want %q", got, want)
 	}
-	if _, err := os.Stat(filepath.Join(docsDir, "artifacts", "release", "all_sources.npvt.raw.txt")); err != nil {
+	if _, err := os.Stat(filepath.Join(docsDir, "artifacts", "release", "all_sources.npvt")); err != nil {
 		t.Fatalf("compatibility artifact should remain directly downloadable: %v", err)
 	}
 }

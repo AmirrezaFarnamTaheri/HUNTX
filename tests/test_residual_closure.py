@@ -166,12 +166,22 @@ def test_structural_output_manifest_never_prunes_unowned_prefix_files(tmp_path):
         [{"route_name": "prod", "format": "npvt", "data": b"prod-v2"}],
     )
 
+    assert (output_dir / "prod.txt").read_bytes() == b"prod-v2"
+    # The frozen URLs stay published as byte-identical copies of the canonical
+    # product, so an existing subscriber link keeps resolving.
     assert (output_dir / "prod.npvt").read_bytes() == b"prod-v2"
+    assert (output_dir / "prod.npvt.raw.txt").read_bytes() == b"prod-v2"
+    assert (output_dir / "prod_npvt_raw.txt").read_bytes() == b"prod-v2"
     assert not stale.exists()
     assert unrelated.read_text(encoding="utf-8") == "operator notes"
 
     manifest = json.loads((output_dir / OUTPUT_OWNERSHIP_MANIFEST).read_text(encoding="utf-8"))
-    assert manifest["files"] == {"prod.npvt": {"format": "npvt", "route": "prod"}}
+    assert manifest["files"] == {
+        "prod.npvt": {"format": "npvt", "route": "prod"},
+        "prod.npvt.raw.txt": {"format": "npvt", "route": "prod"},
+        "prod.txt": {"format": "npvt", "route": "prod"},
+        "prod_npvt_raw.txt": {"format": "npvt", "route": "prod"},
+    }
 
 
 def test_source_revocation_invalidates_active_lease_and_rolls_back_page_transaction(tmp_path):

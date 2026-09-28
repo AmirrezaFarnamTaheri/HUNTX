@@ -241,7 +241,7 @@ class TestDashboardDataWiring(unittest.TestCase):
             checkpoint, previous, dist, logs = TestGeneratedSnapshotAssembly._build_fixture(self, root)
             dashboard = self._dashboard_fixture(root)
             legacy = "all_sources.npvt.nekobox.json"
-            canonical = "all_sources_npvt_nekobox.json"
+            canonical = "all_sources_nekobox.json"
             for directory in (checkpoint / "outputs", dashboard / "artifacts" / "release"):
                 (directory / legacy).write_text('{"outbounds": []}', encoding="utf-8")
                 (directory / canonical).write_text('[{"type": "vless", "tag": "node"}]', encoding="utf-8")

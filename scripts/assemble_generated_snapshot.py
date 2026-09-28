@@ -29,15 +29,28 @@ def copy_tree(src: Path, dst: Path) -> None:
 
 
 def retire_legacy_derivatives(directory: Path) -> set[str]:
-    """Remove dotted derivatives only when their canonical replacement exists."""
+    """Remove dotted derivatives only when their canonical replacement exists.
+
+    The canonical name is taken from ``output_filename`` rather than rebuilt
+    here. Re-deriving the naming rule in a second place meant this kept looking
+    for the pre-rename ``{route}_{fmt}_{suffix}`` spelling, so after the rename
+    it found the legacy file, decided no replacement existed, and left both in
+    the snapshot forever.
+    """
+    from huntx.core.output_ownership import output_filename
+
     removed: set[str] = set()
     for fmt in ("npvt", "npvtsub"):
         for suffix in _DERIVED_SUFFIXES:
             ending = f".{fmt}.{suffix}"
             for legacy in directory.glob(f"*{ending}"):
                 route = legacy.name.removesuffix(ending)
-                canonical = directory / f"{route}_{fmt}_{suffix}"
-                if route and legacy.is_file() and canonical.is_file():
+                if not route or not legacy.is_file():
+                    continue
+                canonical = directory / output_filename(route, f"{fmt}.{suffix}")
+                # A retired format whose canonical name is the legacy name itself
+                # must not delete the only copy of itself.
+                if canonical.is_file() and canonical.resolve() != legacy.resolve():
                     legacy.unlink()
                     removed.add(legacy.name)
     return removed
