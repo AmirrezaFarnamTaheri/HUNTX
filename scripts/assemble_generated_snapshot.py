@@ -11,8 +11,19 @@ import hashlib
 import json
 import runpy
 import shutil
+import sys
 from pathlib import Path
 from typing import Any
+
+# The publish workflow runs this script directly, without PYTHONPATH=src, so the
+# package it shares naming rules with has to be importable from the repo this
+# file lives in. Retiring legacy derivatives must resolve a canonical filename
+# through huntx.core.output_ownership rather than re-deriving the rule here.
+_SRC = Path(__file__).resolve().parents[1] / "src"
+if str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
+
+from huntx.core.output_ownership import output_filename  # noqa: E402
 
 ManifestValue = float | int | str
 LEGACY_FIRST_SEEN = 0
@@ -37,8 +48,6 @@ def retire_legacy_derivatives(directory: Path) -> set[str]:
     it found the legacy file, decided no replacement existed, and left both in
     the snapshot forever.
     """
-    from huntx.core.output_ownership import output_filename
-
     removed: set[str] = set()
     for fmt in ("npvt", "npvtsub"):
         for suffix in _DERIVED_SUFFIXES:
