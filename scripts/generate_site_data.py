@@ -71,20 +71,37 @@ ARTIFACT_FORMATS_FILE = REPO_ROOT / "internal" / "sitegen" / "artifact_formats.j
 # Public products are intentionally narrower than the generated artifact tree.
 # Compatibility variants remain copied and directly addressable, but are not
 # presented as separate final products in the dashboard.
-FRONTEND_RELEASE_PRODUCTS = {
-    "all_sources_base64.txt",
-    "all_sources.json",
-    "all_sources_nekobox.json",
-    "all_sources_singbox.json",
-    "all_sources.txt",
-    "all_sources_xray.json",
-}
+#
+# The product -> filename mapping (including every frozen alias) lives in
+# internal/sitegen/artifact_formats.json under "products", the same table the Go
+# catalog generator reads. Keeping a second copy here let the two writers drift,
+# and this copy had the same cross-version blind spot: a dist built before the
+# artifact rename matches neither list, which silently emptied the dashboard's
+# baked fallback catalog.
 FRONTEND_DEV_PRODUCTS = {"proxies.json"}
+
+
+def _release_products() -> tuple[dict[str, list[str]], set[str]]:
+    """Return (product -> filenames, advertised filenames) from the shared table."""
+    table = _load_artifact_formats().get("products") or {}
+    mapping: dict[str, list[str]] = {}
+    for product, filenames in table.items():
+        if isinstance(filenames, list):
+            mapping[str(product)] = [str(name) for name in filenames]
+    return mapping, {name for names in mapping.values() for name in names}
+
+
+def _product_for_artifact(filename: str) -> str | None:
+    """Resolve a published filename to the canonical product it represents."""
+    for product, filenames in _release_products()[0].items():
+        if filename in filenames:
+            return product
+    return None
 
 
 def _is_frontend_product(section: str, filename: str) -> bool:
     if section == "release":
-        return filename in FRONTEND_RELEASE_PRODUCTS
+        return filename in _release_products()[1]
     if section == "dev":
         return filename in FRONTEND_DEV_PRODUCTS
     return False

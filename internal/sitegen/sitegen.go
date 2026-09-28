@@ -37,6 +37,9 @@ type artifactFormatSection struct {
 
 type artifactFormats struct {
 	Sections map[string]artifactFormatSection `json:"sections"`
+	// Products maps a canonical dashboard product name to every published
+	// filename that represents it: the canonical name plus its frozen aliases.
+	Products map[string][]string `json:"products"`
 }
 
 var sharedArtifactFormats = mustLoadArtifactFormats()
@@ -114,32 +117,42 @@ type Catalog struct {
 	Files            []Entry `json:"files"`
 }
 
-// frontendReleaseProducts is the allowlist of artifacts the dashboard
-// advertises. It is deliberately narrower than the release manifest: the
-// manifest remains the compatibility/source-of-truth inventory, while the
-// dashboard lists only the canonical end-user products. Legacy aliases and
-// specialist formats stay downloadable by direct URL without being advertised
-// as separate products.
+// The dashboard product mapping is NOT declared here. It lives in the shared
+// artifact_formats.json under "products" - the same table that supplies each
+// artifact's tags and description, and that scripts/generate_site_data.py reads
+// too. Declaring it in Go as well meant the two writers could drift with no
+// failure to notice.
 //
-// This is a visibility gate and nothing more. The tags and description a user
-// reads come from artifactMeta, which reads the shared artifact_formats.json
-// table that scripts/generate_site_data.py also reads. Keeping a second copy
-// of that prose here would let the two catalog writers drift with no failure
-// to notice, because these fields were never read.
-var frontendReleaseProducts = map[string]struct{}{
-	"all_sources.txt":          {},
-	"all_sources_base64.txt":   {},
-	"all_sources.json":         {},
-	"all_sources_singbox.json": {},
-	"all_sources_xray.json":    {},
-	"all_sources_nekobox.json": {},
-}
+// The visibility rule it encodes: the catalog advertises the canonical end-user
+// products only. Legacy aliases and specialist formats stay downloadable by
+// direct URL without being advertised as separate products.
+//
+// It matters across a rename. The publisher is a workflow_run consumer: it
+// checks out the current code but consumes a dist produced by whichever
+// pipeline run last succeeded, which may predate the rename. A gate that
+// accepted only the post-rename names matched nothing in such a dist, admitted
+// zero products, and failed the release with "catalog file count mismatch" - so
+// the published names were pinned to the pipeline's build, not just to this repo.
+//
+// The tags and description a user reads come from artifactMeta, which reads the
+// same table. A second copy of that prose in Go would drift the same way.
 
-// isFrontendReleaseProduct reports whether a published artifact is advertised
-// as a dashboard product.
-func isFrontendReleaseProduct(path string) bool {
-	_, ok := frontendReleaseProducts[filepath.Base(path)]
-	return ok
+var _ = sharedArtifactFormats.Products
+
+// frontendProductFor resolves a published filename to the dashboard product it
+// represents, and reports whether that product is advertised at all. The
+// mapping lives in the shared artifact_formats.json so the Python dashboard
+// generator reads exactly the same table.
+func frontendProductFor(path string) (string, bool) {
+	name := filepath.Base(path)
+	for product, filenames := range sharedArtifactFormats.Products {
+		for _, candidate := range filenames {
+			if candidate == name {
+				return product, true
+			}
+		}
+	}
+	return "", false
 }
 
 func Generate(dataDir, docsDir string, generatedAt time.Time) (Catalog, error) {
@@ -173,7 +186,27 @@ func Generate(dataDir, docsDir string, generatedAt time.Time) (Catalog, error) {
 	}
 	defer os.RemoveAll(stage)
 
-	entries := make([]Entry, 0, len(manifest.Artifacts))
+	// One catalog entry per dashboard product. A dist that carries both a
+	// canonical name and its frozen alias must still advertise the product
+	// once, under the canonical name; a dist that carries only the alias must
+	// still advertise it, under whichever name it actually has.
+	visible := map[string]releasemanifest.Artifact{}
+	for _, record := range manifest.Artifacts {
+		product, advertised := frontendProductFor(record.Path)
+		if intentionalEmpty || !advertised {
+			continue
+		}
+		// The manifest is walked in path order, so a canonical name must win
+		// over an alias regardless of which sorts first.
+		if existing, seen := visible[product]; seen {
+			if filepath.Base(existing.Path) == product || filepath.Base(record.Path) != product {
+				continue
+			}
+		}
+		visible[product] = record
+	}
+
+	entries := make([]Entry, 0, len(visible))
 	var total int64
 	for _, record := range manifest.Artifacts {
 		source := filepath.Join(dist, filepath.FromSlash(record.Path))
@@ -188,8 +221,8 @@ func Generate(dataDir, docsDir string, generatedAt time.Time) (Catalog, error) {
 		if err := runtimegen.WriteBytesAtomic(destination, payload, 0o600); err != nil {
 			return Catalog{}, err
 		}
-		visible := isFrontendReleaseProduct(record.Path)
-		if intentionalEmpty || !visible {
+		product, advertised := frontendProductFor(record.Path)
+		if intentionalEmpty || !advertised || visible[product].Path != record.Path {
 			continue
 		}
 		tags, description, kind := artifactMeta(record.Path)
