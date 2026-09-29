@@ -1747,7 +1747,7 @@ export class AppState {
     const breakdown = Object.entries(byProtocol)
       .sort((a, z) => z[1] - a[1])
       .map(([scheme, count]) =>
-        `<span class="px-1.5 py-0.5 rounded text-[11px] bg-gray-900 text-gray-300 border border-gray-800">${escapeHTML(scheme)} ${count}</span>`
+        `<span class="px-1.5 py-0.5 rounded text-[12px] bg-gray-900 text-gray-300 border border-gray-800">${escapeHTML(scheme)} ${count}</span>`
       ).join(" ");
 
     out.innerHTML = `
@@ -3795,22 +3795,29 @@ export class AppState {
     const publicBase = getConfiguredPublicBase();
     const files = Array.isArray(this.catalog?.files) ? this.catalog.files : [];
     const findArtifact = (filename) => files.find((file) => (file.filename || file.name) === filename);
-    const productionFeeds = [
-      ["all_sources_base64.txt", "Base64 Subscription", "Multi-node subscription for Shadowrocket, v2rayNG, Streisand, Hiddify and NekoBox", "cyan"],
-      ["all_sources.txt", "Raw URI Subscription", "Multi-node URI feed, one node per line", "cyan"],
-      ["all_sources_nekobox.json", "NekoBox Node Subscription", "JSON array expanded into individual proxy nodes", "emerald"],
-      ["all_sources_singbox.json", "Sing-box Full Profile", "Complete client config (imports as one profile)", "cyan"],
-      ["all_sources_xray.json", "Xray Full Profile", "Complete client config (imports as one profile)", "indigo"],
-    ].map(([filename, label, description, color]) => ({ filename, label, description, color, file: findArtifact(filename) }));
+    // A subscription must be a NODE LIST. Anything that is a whole client
+    // configuration is a profile import, and offering it beside the feeds with
+    // the same "Copy" action is how a user ends up with half a dozen
+    // subscriptions that each contain one unusable node.
+    const subscriptionFeeds = [
+      ["all_sources_base64.txt", "Base64 subscription", "The link to add as a subscription URL. One encoded node per line; expands into individual nodes in Shadowrocket, v2rayNG, Streisand, Hiddify and NekoBox.", "cyan", true],
+      ["all_sources.txt", "Raw URI subscription", "One node per line, unencoded. Use this only if your client rejects a base64 body.", "emerald", false],
+      ["all_sources_nekobox.json", "NekoBox node feed", "A top-level JSON array of outbounds. Expands into individual nodes in NekoBox and other JSON-aware clients only.", "amber", false],
+    ].map(([filename, label, description, color, recommended]) => ({ filename, label, description, color, recommended, file: findArtifact(filename) }));
+    const profileArtifacts = [
+      ["all_sources_singbox.json", "Sing-box full profile", "cyan"],
+      ["all_sources_xray.json", "Xray full profile", "indigo"],
+    ].map(([filename, label, color]) => ({ filename, label, color, file: findArtifact(filename) }));
     const devFeeds = files.filter((file) => file.section === "dev" || file.category === "dev" || file.tags?.includes("dev"));
     const chunks = devFeeds.filter((file) => /chunk_/i.test(file.filename || file.name || ""));
-    const feedCard = ({ label, description, color, file }) => {
+    const feedCard = ({ label, description, color, file, recommended, copyLabel }) => {
       if (!file) return "";
       const link = getArtifactLinkModel(file.path);
+      const action = copyLabel || "Copy subscription URL";
       return `
-      <div class="p-3.5 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs flex flex-col justify-between">
+      <div class="p-3.5 ${recommended ? "bg-cyan-950/40 border-cyan-500/40" : "bg-gray-950 border-gray-800"} border rounded-xl font-mono text-xs flex flex-col justify-between">
         <div>
-          <span class="text-gray-200 font-bold block">${escapeHTML(label)}</span>
+          <span class="text-gray-200 font-bold block">${escapeHTML(label)}${recommended ? `<span class="ml-2 align-middle px-1.5 py-0.5 rounded bg-cyan-500 text-gray-950 text-[12px] font-bold uppercase">recommended</span>` : ""}</span>
           <span class="text-xs text-gray-500 block mt-0.5">${escapeHTML(description)}</span>
         </div>
         <div class="mt-3 rounded-lg border border-gray-800 bg-black/20 px-2.5 py-2">
@@ -3818,7 +3825,25 @@ export class AppState {
           <div class="text-xs text-${color}-300 break-all">${escapeHTML(link.display)}</div>
         </div>
         <div class="mt-3 flex items-center justify-end gap-2">
-          <button class="btn-copy-custom px-3 py-1.5 min-h-[44px] bg-${color}-500 text-${color === "indigo" ? "white" : "gray-950"} font-bold rounded-lg text-xs cursor-pointer focus-ring" data-url="${escapeHTML(link.copyValue)}" data-absolute="${link.isAbsolute}">Copy</button>
+          <button class="btn-copy-custom px-3 py-1.5 min-h-[44px] bg-${color}-500 text-${color === "indigo" ? "white" : "gray-950"} font-bold rounded-lg text-xs cursor-pointer focus-ring" data-url="${escapeHTML(link.copyValue)}" data-absolute="${link.isAbsolute}">${escapeHTML(action)}</button>
+        </div>
+      </div>`;
+    };
+    const profileCard = ({ label, color, file }) => {
+      if (!file) return "";
+      const link = getArtifactLinkModel(file.path);
+      return `
+      <div class="p-3.5 bg-gray-950 border border-amber-800/50 rounded-xl font-mono text-xs flex flex-col justify-between">
+        <div>
+          <span class="text-gray-200 font-bold block">${escapeHTML(label)}</span>
+          <span class="text-xs text-amber-300/80 block mt-0.5">A whole client configuration, not a node list. Adding it as a subscription creates a single entry.</span>
+        </div>
+        <div class="mt-3 rounded-lg border border-gray-800 bg-black/20 px-2.5 py-2">
+          <div class="text-xs uppercase tracking-wider text-gray-500 mb-1">${escapeHTML(link.sourceLabel)}</div>
+          <div class="text-xs text-${color}-300 break-all">${escapeHTML(link.display)}</div>
+        </div>
+        <div class="mt-3 flex items-center justify-end gap-2">
+          <a class="btn-download-profile px-3 py-1.5 min-h-[44px] inline-flex items-center bg-gray-800 hover:bg-${color}-500 hover:text-gray-950 text-gray-200 font-bold rounded-lg text-xs cursor-pointer focus-ring" href="${escapeHTML(link.display)}" download>Download file</a>
         </div>
       </div>`;
     };
@@ -3829,33 +3854,43 @@ export class AppState {
           <div class="flex items-center justify-between border-b border-gray-800 pb-3">
             <h3 id="modal-sub-title" class="text-base font-mono font-bold text-white flex items-center gap-2">
               <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-              Subscription Feeds &amp; Client Configurations
+              Subscription Links
             </h3>
             <button id="btn-close-sub" class="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-800 text-gray-400 hover:text-white rounded-lg cursor-pointer focus-ring" aria-label="Close Subscription Builder Modal">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
           </div>
 
-          <p class="text-xs font-mono text-gray-400">Choose a verified client profile. Links are generated from the published catalog and never from a local filesystem path.</p>
+          <p class="text-xs font-mono text-gray-400">Add <strong>one</strong> of the subscription links below. A subscription must be a list of individual nodes; the client profiles further down are whole configurations and will show up as a single entry if you add one as a subscription. Links are generated from the published catalog and never from a local filesystem path.</p>
           ${hosted || publicBase ? "" : `<div class="rounded-xl border border-amber-500/30 bg-amber-950/30 px-3.5 py-3 text-xs leading-relaxed text-amber-200"><strong>Local preview:</strong> copy actions use portable relative paths. Serve or deploy this dashboard over HTTPS, or configure <code>HUNTX_PUBLIC_BASE_URL</code> / <code>&lt;meta name="huntx-public-base-url"&gt;</code>, before importing a subscription on another device.</div>`}
 
           <div class="space-y-4">
-            <!-- Production Feeds -->
+            <!-- Subscriptions: node lists, one per line -->
             <div>
-              <span class="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider block mb-2">1. Production Feeds (Latest Verified Run)</span>
+              <span class="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider block mb-1">1. Subscriptions (add as a subscription URL)</span>
+              <p class="text-xs text-gray-500 mb-2">Each of these expands into individual nodes. Add one.</p>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                ${productionFeeds.map(feedCard).join("") || `<p class="col-span-full rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-xs text-amber-200">No compatible production profiles are in this published catalog.</p>`}
+                ${subscriptionFeeds.map(feedCard).join("") || `<p class="col-span-full rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-xs text-amber-200">No compatible production profiles are in this published catalog.</p>`}
+              </div>
+            </div>
+
+            <!-- Profiles: whole configurations, deliberately not subscriptions -->
+            <div>
+              <span class="text-xs font-mono font-bold text-amber-400 uppercase tracking-wider block mb-1">2. Client profiles (download, do not add as a subscription)</span>
+              <p class="text-xs text-gray-500 mb-2">These are complete sing-box and Xray configurations. Importing one into a client creates a single profile containing every node - it is not a node list.</p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                ${profileArtifacts.map(profileCard).join("") || `<p class="col-span-full rounded-xl border border-gray-800 bg-gray-950/40 p-3 text-xs text-gray-500">No client profiles are in this published catalog.</p>`}
               </div>
             </div>
 
             ${devFeeds.length ? `
               <div>
-                <span class="text-xs font-mono font-bold text-indigo-400 uppercase tracking-wider block mb-2">2. Additional Published Feeds</span>
+                <span class="text-xs font-mono font-bold text-indigo-400 uppercase tracking-wider block mb-1">3. Additional Published Feeds</span>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  ${devFeeds.filter((file) => !chunks.includes(file)).map((file) => feedCard({ label: file.filename || file.name, description: file.size_str || "Published artifact", color: "indigo", file })).join("")}
+                  ${devFeeds.filter((file) => !chunks.includes(file)).map((file) => feedCard({ label: file.filename || file.name, description: file.type === "JSON" ? "Cumulative JSON dataset. Inspection data, not a subscription." : (file.size_str || "Published artifact"), color: "indigo", file, copyLabel: "Copy URL" })).join("")}
                 </div>
               </div>
-              ${chunks.length ? `<div><span class="text-xs font-mono font-bold text-emerald-400 uppercase tracking-wider block mb-2">3. Lightweight Split Chunks</span><p class="text-xs font-mono text-gray-500 mb-2">Only chunks included in this catalog are shown.</p><div class="grid grid-cols-2 sm:grid-cols-4 gap-2">${chunks.map((file, index) => { const link = getArtifactLinkModel(file.path); return `<button class="btn-copy-custom p-2.5 min-h-[44px] bg-gray-950 hover:bg-gray-800 border border-gray-800 hover:border-cyan-500/40 rounded-xl text-left font-mono text-xs transition-all cursor-pointer focus-ring" data-url="${escapeHTML(link.copyValue)}" data-absolute="${link.isAbsolute}" title="${escapeHTML(link.display)}"><div class="text-cyan-300 font-bold">Chunk ${index + 1}</div><div class="text-xs text-gray-500 truncate">${escapeHTML(file.size_str || "Published artifact")}</div><div class="text-xs text-gray-500 truncate mt-1">${escapeHTML(link.display)}</div></button>`; }).join("")}</div></div>` : ""}
+              ${chunks.length ? `<div><span class="text-xs font-mono font-bold text-emerald-400 uppercase tracking-wider block mb-1">4. Lightweight Split Chunks</span><p class="text-xs font-mono text-gray-500 mb-2">Only chunks included in this catalog are shown.</p><div class="grid grid-cols-2 sm:grid-cols-4 gap-2">${chunks.map((file, index) => { const link = getArtifactLinkModel(file.path); return `<button class="btn-copy-custom p-2.5 min-h-[44px] bg-gray-950 hover:bg-gray-800 border border-gray-800 hover:border-cyan-500/40 rounded-xl text-left font-mono text-xs transition-all cursor-pointer focus-ring" data-url="${escapeHTML(link.copyValue)}" data-absolute="${link.isAbsolute}" title="${escapeHTML(link.display)}"><div class="text-cyan-300 font-bold">Chunk ${index + 1}</div><div class="text-xs text-gray-500 truncate">${escapeHTML(file.size_str || "Published artifact")}</div><div class="text-xs text-gray-500 truncate mt-1">${escapeHTML(link.display)}</div></button>`; }).join("")}</div></div>` : ""}
             ` : ""}
           </div>
         </div>

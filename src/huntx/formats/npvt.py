@@ -89,7 +89,15 @@ def _detect_operator(uri: str) -> str:
 
 
 def format_enriched_remark(uri: str, counter: dict, metadata: dict | None = None) -> str:
-    """Format an information-dense display remark with geo, protocol, and stats."""
+    """Format an information-dense display remark with geo, protocol, and stats.
+
+    Not wired to the published feed. Every production call site of
+    ``add_clean_remark`` passes no metadata, so the published artifacts carry the
+    clean ``{scheme}-{n}`` tag. The dashboard displays that exact string, so a
+    node reads the same in a client as it does on the site. Adopting this form
+    for the feed would change what subscribers see and break that parity; it is
+    available for a surface that wants geo and grade in the remark itself.
+    """
     scheme = uri.split('://')[0].lower() if '://' in uri else 'proxy'
     counter[scheme] = counter.get(scheme, 0) + 1
     idx = counter[scheme]

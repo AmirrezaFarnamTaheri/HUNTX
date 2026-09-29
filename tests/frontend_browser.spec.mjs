@@ -221,6 +221,66 @@ test("a link whose protocol the decoder cannot model is reported, not rendered a
 });
 
 
+test("the subscription builder never offers a whole client profile as a subscription", async ({ page }) => {
+  await isolateLocalPage(page);
+  await page.goto("/");
+  // The header re-renders continuously, so clicking the control is flaky, and a
+  // route stub cannot beat the served catalog. The app instance is published on
+  // window, so inject a catalog that carries every product and drive the same
+  // method the button is bound to.
+  await page.waitForFunction(() => Boolean(window.huntxApp));
+  await page.evaluate(() => {
+    const products = [
+      "all_sources.txt", "all_sources_base64.txt", "all_sources_nekobox.json",
+      "all_sources_singbox.json", "all_sources_xray.json", "all_sources.json"
+    ];
+    window.huntxApp.catalog = {
+      generated_at: "2026-09-29T00:00:00+00:00",
+      release_manifest: "artifacts/release/manifest.json",
+      total_files: products.length,
+      total_size: 600,
+      total_size_str: "600 B",
+      files: products.map((filename) => ({
+        filename,
+        type: filename.endsWith(".txt") ? "TXT" : "JSON",
+        section: "release",
+        path: "artifacts/release/" + filename,
+        size: 100,
+        size_str: "100 B",
+        sha256: "a".repeat(64),
+        tags: ["release", "production"]
+      }))
+    };
+    window.huntxApp.openSubscriptionBuilderModal();
+  });
+
+  const modal = page.locator("#modal-box");
+  await expect(modal).toBeVisible();
+
+  // The two sections exist and are named so the distinction is unmissable.
+  await expect(modal).toContainText("Subscriptions (add as a subscription URL)");
+  await expect(modal).toContainText("Client profiles (download, do not add as a subscription)");
+
+  // Exactly the three node feeds are offered as subscriptions.
+  const subscriptionButtons = modal.locator("button.btn-copy-custom");
+  await expect(subscriptionButtons).toHaveCount(3);
+  for (const label of await subscriptionButtons.allTextContents()) {
+    expect(label).toBe("Copy subscription URL");
+  }
+
+  // The whole profiles are downloads, never copy-as-subscription buttons.
+  const profileLinks = modal.locator("a.btn-download-profile");
+  await expect(profileLinks).toHaveCount(2);
+  for (const href of await profileLinks.evaluateAll((els) => els.map((e) => e.getAttribute("href")))) {
+    expect(href).toMatch(/_(singbox|xray)\.json$/);
+  }
+  await expect(modal).toContainText("creates a single entry");
+
+  // The decoded dataset is inspection data, never a subscription candidate.
+  await expect(modal).not.toContainText("all_sources.json");
+});
+
+
 test("radar keeps diagnostics in the first desktop viewport and active tabs visibly focused", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await isolateLocalPage(page);

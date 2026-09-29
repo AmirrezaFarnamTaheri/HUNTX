@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import collections
 import ipaddress
 import json
 import urllib.parse
@@ -459,8 +460,65 @@ def _outbound(node: ProxyNode, tag: str) -> Optional[dict[str, Any]]:
     }
 
 
-def proxy_outbounds_from_uris(uris: list[str]) -> list[dict[str, Any]]:
-    """Convert representable share URIs into unique-tagged Xray proxy outbounds."""
+def omission_reason(uri: str, node: Optional[ProxyNode]) -> str:
+    """Name the guard that makes one share URI unrepresentable in current Xray.
+
+    The omission is a deliberate fail-safe: a node is left out rather than
+    emitted as a config Xray refuses to load or that would silently
+    misrepresent its security (plaintext VLESS to a public address, a removed
+    ``allowInsecure``, an unrecognised uTLS fingerprint). It is reported rather
+    than hidden, because an outbound count that is lower than the feed looks
+    like data loss to anyone reading the artifact - which is exactly the
+    misreading this function exists to prevent.
+    """
+    if node is None:
+        return "unparseable share link"
+    if not _declared_transport_is_representable(uri, node):
+        return "transport is not representable in current Xray"
+    if node.tls_insecure:
+        return "URI requests allowInsecure, removed in Xray 26.7"
+    fingerprint = node.tls_utls_fingerprint.lower()
+    if fingerprint and fingerprint not in _XRAY_FINGERPRINTS:
+        return f"unknown uTLS fingerprint {fingerprint}"
+    if node.tls_reality_enabled and not _valid_reality_credentials(node):
+        return "Reality without a usable public key or short id"
+    if node.type == "vmess":
+        if not _valid_xray_id(node.uuid):
+            return "VMess id is not a valid UUID"
+        if node.alter_id:
+            return "VMess alterId is non-zero"
+        if (node.security or "auto").lower() not in _XRAY_VMESS_SECURITIES:
+            return f"VMess security {node.security or 'auto'} is unsupported"
+    if node.type == "vless":
+        if not _valid_xray_id(node.uuid):
+            return "VLESS id is not a valid UUID"
+        if node.flow not in _XRAY_VLESS_FLOWS:
+            return f"VLESS flow {node.flow} is unsupported"
+        if node.flow and (not node.tls_enabled or node.transport_type):
+            return "VLESS flow requires direct TCP with TLS or REALITY"
+        if not node.tls_enabled and not _address_is_known_private(node.server):
+            return "plaintext VLESS to a public address, which Xray refuses"
+    if node.type == "trojan" and not node.tls_enabled and not _address_is_known_private(node.server):
+        return "plaintext Trojan to a public address, which Xray refuses"
+    if node.type == "shadowsocks" and node.method.lower() not in _XRAY_SHADOWSOCKS_METHODS:
+        return f"Shadowsocks method {node.method} is unsupported"
+    if _protocol_settings(node) is None:
+        return "no faithful protocol settings"
+    if _stream_settings(node) is None:
+        return "no faithful stream settings"
+    return "omitted without a stated reason"
+
+
+def proxy_outbounds_from_uris(
+    uris: list[str],
+    omissions: Optional[collections.Counter] = None,
+) -> list[dict[str, Any]]:
+    """Convert representable share URIs into unique-tagged Xray proxy outbounds.
+
+    When ``omissions`` is supplied it is filled with a reason -> count mapping
+    for every URI left out, so a caller can report the omission instead of
+    leaving it to be inferred from a lower outbound count.
+    """
     outbounds: list[dict[str, Any]] = []
     seen_tags = {"direct", "socks-in"}
     for uri in uris:
@@ -473,11 +531,16 @@ def proxy_outbounds_from_uris(uris: list[str]) -> list[dict[str, Any]]:
             or not _declared_transport_is_representable(uri, node)
             or not _node_features_are_representable(node)
         ):
+            if omissions is not None:
+                omissions[omission_reason(uri, node)] += 1
             continue
         tag = _unique_tag(node.tag or node.type, seen_tags)
         outbound = _outbound(node, tag)
-        if outbound is not None:
-            outbounds.append(outbound)
+        if outbound is None:
+            if omissions is not None:
+                omissions[omission_reason(uri, node)] += 1
+            continue
+        outbounds.append(outbound)
     return outbounds
 
 
@@ -512,3 +575,30 @@ def build_xray_config_bytes(text: str) -> bytes:
         indent=2,
         ensure_ascii=False,
     ).encode("utf-8")
+
+
+def xray_fidelity_report(text: str) -> dict[str, Any]:
+    """Report which share URIs Xray cannot carry, and why.
+
+    The Xray artifact is a *subset* of the feed by design: a node is omitted
+    when emitting it would produce a config current Xray refuses to load, or
+    would misrepresent the node's security. Reading only the outbound count
+    makes that look like data loss, so the omission is counted and attributed
+    here, and logged at build time.
+    """
+    uris = text.splitlines()
+    omissions: collections.Counter = collections.Counter()
+    outbounds = proxy_outbounds_from_uris(uris, omissions)
+    considered = sum(
+        1
+        for line in uris
+        if line.strip() and not line.strip().startswith("#")
+    )
+    unattributed = dict(omissions).pop("omitted without a stated reason", 0)
+    return {
+        "considered": considered,
+        "represented": len(outbounds),
+        "omitted": considered - len(outbounds),
+        "reasons": dict(omissions.most_common()),
+        "unattributed": unattributed,
+    }
