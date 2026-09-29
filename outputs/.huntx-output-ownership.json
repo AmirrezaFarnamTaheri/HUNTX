@@ -4,6 +4,10 @@
       "format": "conf_lines",
       "route": "all_sources"
     },
+    "all_sources.json": {
+      "format": "npvt.decoded.json",
+      "route": "all_sources"
+    },
     "all_sources.nm": {
       "format": "nm",
       "route": "all_sources"
@@ -16,12 +20,28 @@
       "format": "npvt.b64sub",
       "route": "all_sources"
     },
+    "all_sources.npvt.raw.txt": {
+      "format": "npvt",
+      "route": "all_sources"
+    },
     "all_sources.opaque_bundle": {
       "format": "opaque_bundle",
       "route": "all_sources"
     },
     "all_sources.ovpn": {
       "format": "ovpn",
+      "route": "all_sources"
+    },
+    "all_sources.txt": {
+      "format": "npvt",
+      "route": "all_sources"
+    },
+    "all_sources_base64.txt": {
+      "format": "npvt.b64sub",
+      "route": "all_sources"
+    },
+    "all_sources_nekobox.json": {
+      "format": "npvt.nekobox.json",
       "route": "all_sources"
     },
     "all_sources_npvt_b64sub.txt": {
@@ -37,7 +57,7 @@
       "route": "all_sources"
     },
     "all_sources_npvt_raw.txt": {
-      "format": "npvt.raw.txt",
+      "format": "npvt",
       "route": "all_sources"
     },
     "all_sources_npvt_singbox.json": {
@@ -47,9 +67,17 @@
     "all_sources_npvt_xray.json": {
       "format": "npvt.xray.json",
       "route": "all_sources"
+    },
+    "all_sources_singbox.json": {
+      "format": "npvt.singbox.json",
+      "route": "all_sources"
+    },
+    "all_sources_xray.json": {
+      "format": "npvt.xray.json",
+      "route": "all_sources"
     }
   },
-  "generated_at": "2026-09-28T20:44:03.810958+00:00",
-  "min_ingested_at": "2026-09-25T20:38:25+00:00",
+  "generated_at": "2026-09-29T01:23:34.235315+00:00",
+  "min_ingested_at": "2026-09-26T01:20:29+00:00",
   "schema_version": 1
 }
