@@ -12,7 +12,7 @@ from typing import Any, Optional
 from urllib.parse import parse_qs, unquote, urlparse
 from ..formats.common.nekobox import build_nekobox_outbounds_bytes
 from ..formats.common.singbox import build_singbox_config_bytes
-from ..formats.common.xray import build_xray_config_bytes
+from ..formats.common.xray import build_xray_config_bytes, xray_fidelity_report
 from ..formats.registry import FormatRegistry
 from ..state.repo import StateRepo
 from ..store.artifact_store import ArtifactStore
@@ -246,6 +246,36 @@ class BuildPipeline:
             build_nekobox_outbounds_bytes(text),
         )
 
+    @staticmethod
+    def _log_xray_fidelity(fmt: str, artifact_bytes: bytes) -> None:
+        """Report the Xray artifact's omissions, so a subset is never mistaken for loss.
+
+        The Xray config carries a subset of the feed by design: a node is left
+        out rather than emitted as a config current Xray refuses to load, or one
+        that would misrepresent the node's security. Only reporting the outbound
+        byte count made that look like the pipeline had dropped a quarter of the
+        fleet.
+        """
+        try:
+            text = artifact_bytes.decode('utf-8', errors='ignore')
+        except (AttributeError, UnicodeDecodeError):
+            return
+        report = xray_fidelity_report(text)
+        if report['omitted'] <= 0:
+            return
+        breakdown = ', '.join(f'{count} {reason}' for reason, count in report['reasons'].items())
+        logger.warning(
+            '[Build] format=%s.xray.json represents %d of %d nodes; %d omitted because '
+            'current Xray cannot load or safely represent them [%s]',
+            fmt, report['represented'], report['considered'], report['omitted'], breakdown,
+        )
+        if report['unattributed']:
+            logger.error(
+                '[Build] format=%s.xray.json: %d node(s) omitted with no stated reason - '
+                'that is a defect, not a fail-safe',
+                fmt, report['unattributed'],
+            )
+
     def run(self, route_config: dict[str, Any], *, records: Optional[list[dict[str, Any]]] = None, deadline: Deadline | None = None) -> list[dict[str, Any]]:
         """Build one route with a single record grouping pass."""
         route_start = time.monotonic()
@@ -347,6 +377,7 @@ class BuildPipeline:
                             self.artifact_store.save_output(route_name, derived_format, singbox)
                         results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(singbox).hexdigest(), 'data': singbox, 'count': format_count})
                     if xray:
+                        self._log_xray_fidelity(format_id, artifact_bytes)
                         derived_format = f'{format_id}.xray.json'
                         if not defer_output:
                             self.artifact_store.save_output(route_name, derived_format, xray)
