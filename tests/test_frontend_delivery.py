@@ -420,8 +420,17 @@ def test_frontend_uses_only_canonical_product_artifact_names() -> None:
     ):
         assert stale not in application
 
-    assert "NekoBox Node Subscription" in application
-    assert "imports as one profile" in application
+    # A subscription has to be a node list. The builder must keep the node feeds
+    # and the whole client configurations in separate sections, offer the former
+    # as "Copy subscription URL" and the latter only as a download, and say that
+    # a profile import creates a single entry.
+    assert "Subscriptions (add as a subscription URL)" in application
+    assert "Client profiles (download, do not add as a subscription)" in application
+    assert "Copy subscription URL" in application
+    assert "creates a single entry" in application
+    assert "btn-download-profile" in application
+    assert "NekoBox node feed" in application
+    assert "do not add as a subscription" in application
 
 
 def test_dashboard_only_generator_reuses_the_verified_catalog(tmp_path: Path) -> None:
