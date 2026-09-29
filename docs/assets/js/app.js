@@ -1747,7 +1747,7 @@ export class AppState {
     const breakdown = Object.entries(byProtocol)
       .sort((a, z) => z[1] - a[1])
       .map(([scheme, count]) =>
-        `<span class="px-1.5 py-0.5 rounded text-[11px] bg-gray-900 text-gray-300 border border-gray-800">${escapeHTML(scheme)} ${count}</span>`
+        `<span class="px-1.5 py-0.5 rounded text-[12px] bg-gray-900 text-gray-300 border border-gray-800">${escapeHTML(scheme)} ${count}</span>`
       ).join(" ");
 
     out.innerHTML = `
@@ -3817,7 +3817,7 @@ export class AppState {
       return `
       <div class="p-3.5 ${recommended ? "bg-cyan-950/40 border-cyan-500/40" : "bg-gray-950 border-gray-800"} border rounded-xl font-mono text-xs flex flex-col justify-between">
         <div>
-          <span class="text-gray-200 font-bold block">${escapeHTML(label)}${recommended ? `<span class="ml-2 align-middle px-1.5 py-0.5 rounded bg-cyan-500 text-gray-950 text-[10px] font-bold uppercase">recommended</span>` : ""}</span>
+          <span class="text-gray-200 font-bold block">${escapeHTML(label)}${recommended ? `<span class="ml-2 align-middle px-1.5 py-0.5 rounded bg-cyan-500 text-gray-950 text-[12px] font-bold uppercase">recommended</span>` : ""}</span>
           <span class="text-xs text-gray-500 block mt-0.5">${escapeHTML(description)}</span>
         </div>
         <div class="mt-3 rounded-lg border border-gray-800 bg-black/20 px-2.5 py-2">
