@@ -92,7 +92,15 @@ class BuildPipeline:
         """Decode one VMess share URI into structured JSON metadata."""
         try:
             obj = json.loads(BuildPipeline._b64_decode(line[8:]))
-            return {'protocol': 'vmess', 'decoded': obj, 'raw': line}
+            # A VMess remark lives in the payload's "ps" field, not in the URI
+            # fragment, so without this the dashboard invents its own
+            # "vmess-N" name and disagrees with the client.
+            return {
+                'protocol': 'vmess',
+                'decoded': obj,
+                'tag': str(obj.get('ps') or ''),
+                'raw': line,
+            }
         except Exception:
             return {'protocol': 'vmess', 'raw': line, 'error': 'decode_failed'}
 
