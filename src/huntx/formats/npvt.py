@@ -33,6 +33,48 @@ def _extract_proxy_uris(text: str) -> List[str]:
     return matches
 
 
+# Transports worth naming in a remark. "raw"/"" carry no information, and
+# naming them would just add noise to every second node.
+_REMARK_TRANSPORTS = frozenset({
+    'ws', 'websocket', 'grpc', 'http', 'h2', 'xhttp', 'httpupgrade',
+    'quic', 'kcp', 'splithttp',
+})
+
+# Protocols whose transport is TLS by design. Naming "tls" on them would put the
+# same word on every node of that type, which tells a reader nothing.
+_TLS_IMPLYING_SCHEMES = frozenset({
+    'trojan', 'hysteria', 'hysteria2', 'hy2', 'anytls', 'tuic', 'ssr',
+})
+
+
+def remark_qualifier(uri: str) -> str:
+    """Return the transport/security qualifier for one node's remark.
+
+    Deterministic and derived from the URI alone, so the same node always
+    produces the same remark. Returns an empty string when the node has no
+    distinguishing transport or security, which keeps a plain TCP VLESS node
+    reading ``vless-3`` rather than ``vless-tcp-none-3``.
+    """
+    try:
+        from .common.singbox import parse_proxy_uri
+
+        node = parse_proxy_uri(uri)
+    except Exception:
+        return ''
+    if node is None:
+        return ''
+    parts: list[str] = []
+    transport = (node.transport_type or '').strip().lower()
+    if transport in _REMARK_TRANSPORTS:
+        parts.append('ws' if transport == 'websocket' else transport)
+    scheme = (node.type or '').lower()
+    if node.tls_reality_enabled:
+        parts.append('reality')
+    elif node.tls_enabled and scheme not in _TLS_IMPLYING_SCHEMES:
+        parts.append('tls')
+    return '-'.join(parts)
+
+
 def strip_proxy_remark(uri: str) -> str:
     """Remove display remarks while preserving proxy semantics."""
     if uri.startswith('vmess://'):
@@ -147,13 +189,18 @@ def format_enriched_remark(uri: str, counter: dict, metadata: dict | None = None
 
 
 def add_clean_remark(uri: str, counter: dict, metadata: dict | None = None) -> str:
-    """Attach a deterministic display remark to a proxy URI."""
+    """Attach a deterministic display remark to a proxy URI.
+
+    Without metadata the remark is ``<scheme>[-<transport>][-<security>]-<n>``,
+    so nodes of the same protocol are still distinguishable in a long list.
+    """
     if metadata:
         tag = format_enriched_remark(uri, counter, metadata)
     else:
         scheme = uri.split('://')[0].lower() if '://' in uri else 'proxy'
         counter[scheme] = counter.get(scheme, 0) + 1
-        tag = f'{scheme}-{counter[scheme]}'
+        qualifier = remark_qualifier(uri)
+        tag = f'{scheme}-{qualifier}-{counter[scheme]}' if qualifier else f'{scheme}-{counter[scheme]}'
 
     if uri.startswith('vmess://'):
         try:
