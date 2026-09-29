@@ -1,33 +1,54 @@
 {
   "files": [
     {
-      "description": "Frozen compatibility alias of the plain-text proxy URI feed, published under an earlier filename.",
-      "ext": "NPVT",
-      "filename": "all_sources.npvt",
-      "media_type": "application/octet-stream",
-      "path": "artifacts/release/all_sources.npvt",
+      "description": "Parsed and structured proxy connection parameters JSON dataset for inspection. This is a diagnostic dataset, not a client subscription.",
+      "ext": "JSON",
+      "filename": "all_sources.json",
+      "media_type": "application/json",
+      "path": "artifacts/release/all_sources.json",
       "section": "release",
-      "sha256": "034ecaea93cd7345e25de420a2d651166eab725969a75cc328ff5e82c28f8266",
-      "size": 490544,
-      "size_str": "479.0 KB",
+      "sha256": "2c73014c3bd36285c74d4a5efefb79e6f07268a530958cf0d894a10a5ecb2e96",
+      "size": 1315081,
+      "size_str": "1.3 MB",
       "tags": [
         "release",
         "production",
-        "subscription",
+        "decoded",
+        "parameters",
+        "metadata"
+      ],
+      "type": "JSON"
+    },
+    {
+      "description": "Plain-text multi-node proxy URI subscription feed, one node per line. Use the base64 feed in clients that only accept a base64 subscription body.",
+      "ext": "TXT",
+      "filename": "all_sources.txt",
+      "media_type": "text/plain",
+      "path": "artifacts/release/all_sources.txt",
+      "section": "release",
+      "sha256": "4197bb35c3b2a941b71c2de3337087d0ef5ff98212990361e8d4e3cd52420df0",
+      "size": 454476,
+      "size_str": "443.8 KB",
+      "tags": [
+        "release",
+        "production",
+        "raw-uris",
+        "plain-text",
+        "multi-node",
         "uri-feed"
       ],
-      "type": "NPVT"
+      "type": "TXT"
     },
     {
       "description": "Base64-encoded multi-node subscription for Shadowrocket, v2rayNG, Streisand, Hiddify and NekoBox. This is the link to add as a subscription URL: the body is one encoded node per line, so it expands into individual nodes.",
       "ext": "B64SUB",
-      "filename": "all_sources.npvt.b64sub",
-      "media_type": "application/octet-stream",
-      "path": "artifacts/release/all_sources.npvt.b64sub",
+      "filename": "all_sources_base64.txt",
+      "media_type": "text/plain",
+      "path": "artifacts/release/all_sources_base64.txt",
       "section": "release",
-      "sha256": "d10f67334bc96c58cebc5378e9febc523ecc764c9c6013f65a5e9906ced37e98",
-      "size": 654060,
-      "size_str": "638.7 KB",
+      "sha256": "f5bde1a13eb4574f2db316274b4220005de5d20e92abc732eff9e50932843eaf",
+      "size": 605968,
+      "size_str": "591.8 KB",
       "tags": [
         "release",
         "production",
@@ -39,34 +60,15 @@
       "type": "B64SUB"
     },
     {
-      "description": "Parsed and structured proxy connection parameters JSON dataset for inspection. This is a diagnostic dataset, not a client subscription.",
-      "ext": "JSON",
-      "filename": "all_sources_npvt_decoded.json",
-      "media_type": "application/json",
-      "path": "artifacts/release/all_sources_npvt_decoded.json",
-      "section": "release",
-      "sha256": "ce4cbdbd869714624bb230247d1c621b005bb5cce2655f3ccb7a9956ac643d5a",
-      "size": 1419430,
-      "size_str": "1.4 MB",
-      "tags": [
-        "release",
-        "production",
-        "decoded",
-        "parameters",
-        "metadata"
-      ],
-      "type": "JSON"
-    },
-    {
       "description": "NekoBox-compatible JSON node feed: a top-level array of sing-box outbounds, which is what makes clients expand it into individual nodes. Wrapping the same outbounds in a configuration-shaped object would import as a single custom configuration instead.",
       "ext": "NEKOBOX",
-      "filename": "all_sources_npvt_nekobox.json",
+      "filename": "all_sources_nekobox.json",
       "media_type": "application/json",
-      "path": "artifacts/release/all_sources_npvt_nekobox.json",
+      "path": "artifacts/release/all_sources_nekobox.json",
       "section": "release",
-      "sha256": "34b0460beca9cca8b264d2a5eb2619591c24fc60e7733dca8d8868c232698565",
-      "size": 778837,
-      "size_str": "760.6 KB",
+      "sha256": "feb00782b309b2c0d808bbc691904367d9b8504a658188b38958c5d0fd75d983",
+      "size": 722235,
+      "size_str": "705.3 KB",
       "tags": [
         "release",
         "production",
@@ -78,13 +80,13 @@
     {
       "description": "Complete Sing-box 1.10+ client configuration. This is a whole profile, not a subscription: importing it as a subscription URL creates ONE entry by design. Use the base64 feed for a multi-node subscription.",
       "ext": "SINGBOX",
-      "filename": "all_sources_npvt_singbox.json",
+      "filename": "all_sources_singbox.json",
       "media_type": "application/json",
-      "path": "artifacts/release/all_sources_npvt_singbox.json",
+      "path": "artifacts/release/all_sources_singbox.json",
       "section": "release",
-      "sha256": "dad9d5b5b9a44c13bb1355a069d08e7733fc707cbc6f5b914db54ff2933d73a8",
-      "size": 938117,
-      "size_str": "916.1 KB",
+      "sha256": "ed8a50277ab157bc213959c721550c658704a7dc986368b67577c97b63995fca",
+      "size": 869910,
+      "size_str": "849.5 KB",
       "tags": [
         "release",
         "production",
@@ -97,13 +99,13 @@
     {
       "description": "Complete Xray-core 1.8+ / V2Ray client configuration. This is a whole profile, not a subscription: importing it as a subscription URL creates ONE entry by design. Use the base64 feed for a multi-node subscription.",
       "ext": "XRAY",
-      "filename": "all_sources_npvt_xray.json",
+      "filename": "all_sources_xray.json",
       "media_type": "application/json",
-      "path": "artifacts/release/all_sources_npvt_xray.json",
+      "path": "artifacts/release/all_sources_xray.json",
       "section": "release",
-      "sha256": "b3e923ce1796e051b33ba381b1a1fad66894778765741f3aaedfd81bd8d201a7",
-      "size": 708676,
-      "size_str": "692.1 KB",
+      "sha256": "fad92350c649daf34c169e8a6ae2ef7ffaacdcb7d5339dbddf01716ce108d1a8",
+      "size": 657664,
+      "size_str": "642.2 KB",
       "tags": [
         "release",
         "production",
@@ -114,10 +116,10 @@
       "type": "XRAY"
     }
   ],
-  "generated_at": "2026-09-28T20:47:06.407938Z",
+  "generated_at": "2026-09-29T01:27:07.94242Z",
   "release_manifest": "artifacts/release/manifest.json",
   "schema_version": 1,
   "total_files": 6,
-  "total_size": 4989664,
-  "total_size_str": "4.8 MB"
+  "total_size": 4625334,
+  "total_size_str": "4.4 MB"
 }
