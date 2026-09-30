@@ -4,6 +4,18 @@
       "format": "conf_lines",
       "route": "all_sources"
     },
+    "all_sources.dark": {
+      "format": "dark",
+      "route": "all_sources"
+    },
+    "all_sources.ehi": {
+      "format": "ehi",
+      "route": "all_sources"
+    },
+    "all_sources.hc": {
+      "format": "hc",
+      "route": "all_sources"
+    },
     "all_sources.json": {
       "format": "npvt.decoded.json",
       "route": "all_sources"
@@ -30,6 +42,10 @@
     },
     "all_sources.ovpn": {
       "format": "ovpn",
+      "route": "all_sources"
+    },
+    "all_sources.sip": {
+      "format": "sip",
       "route": "all_sources"
     },
     "all_sources.txt": {
@@ -77,7 +93,7 @@
       "route": "all_sources"
     }
   },
-  "generated_at": "2026-09-30T16:15:56.380360+00:00",
-  "min_ingested_at": "2026-09-27T16:11:05+00:00",
+  "generated_at": "2026-09-30T22:20:38.975843+00:00",
+  "min_ingested_at": "2026-09-27T22:19:18+00:00",
   "schema_version": 1
 }
