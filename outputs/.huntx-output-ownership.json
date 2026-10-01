@@ -20,10 +20,6 @@
       "format": "npvt.decoded.json",
       "route": "all_sources"
     },
-    "all_sources.nm": {
-      "format": "nm",
-      "route": "all_sources"
-    },
     "all_sources.npvt": {
       "format": "npvt",
       "route": "all_sources"
@@ -93,7 +89,7 @@
       "route": "all_sources"
     }
   },
-  "generated_at": "2026-09-30T22:20:38.975843+00:00",
-  "min_ingested_at": "2026-09-27T22:19:18+00:00",
+  "generated_at": "2026-10-01T01:24:06.683008+00:00",
+  "min_ingested_at": "2026-09-28T01:23:17+00:00",
   "schema_version": 1
 }
