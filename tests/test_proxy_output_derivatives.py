@@ -42,9 +42,9 @@ def _build_results(proxy_text: bytes):
     return results, artifact_store
 
 
-def test_proxy_derivatives_early_returns_keep_six_result_slots():
+def test_proxy_derivatives_early_returns_keep_eight_result_slots():
     pipeline = BuildPipeline(Mock(), Mock(), Mock())
-    expected = (b"", b"", b"", b"", b"", b"")
+    expected = (b"", b"", b"", b"", b"", b"", b"", b"")
     assert pipeline._proxy_derivatives(b"   \n") == expected
     assert pipeline._proxy_derivatives(None) == expected  # type: ignore[arg-type]
 
@@ -119,8 +119,27 @@ def test_proxy_build_emits_raw_xray_and_nekobox_derivatives():
     assert [item["name"] for item in clash_items] == ["My Node", "Second Node"]
     assert len(clash_items) == 2
 
+    singbox_profile = json.loads(
+        by_format["npvt.singbox.profile.json"]["data"].decode("utf-8")
+    )
+    assert "inbounds" in singbox_profile
+    assert "dns" in singbox_profile
+    assert "route" in singbox_profile
+
+    xray_profile = json.loads(
+        by_format["npvt.xray.profile.json"]["data"].decode("utf-8")
+    )
+    assert "inbounds" in xray_profile
+    assert any(item.get("protocol") == "vless" for item in xray_profile["outbounds"])
+
     saved_formats = {call.args[1] for call in artifact_store.save_output.call_args_list}
-    assert {"npvt.xray.json", "npvt.nekobox.json", "npvt.clash.yaml"} <= saved_formats
+    assert {
+        "npvt.xray.json",
+        "npvt.nekobox.json",
+        "npvt.clash.yaml",
+        "npvt.singbox.profile.json",
+        "npvt.xray.profile.json",
+    } <= saved_formats
     # The raw pass-through is not a product: it is byte-for-byte the base
     # artifact, and the URLs earlier runs published stay alive as frozen
     # aliases of the base output instead.
@@ -148,6 +167,14 @@ def test_new_derivatives_have_canonical_output_filenames():
     assert output_filename("all_sources", "npvt.xray.json") == "all_sources_xray.json"
     assert output_filename("all_sources", "npvt.nekobox.json") == "all_sources_nekobox.json"
     assert output_filename("all_sources", "npvt.clash.yaml") == "all_sources_clash.yaml"
+    assert (
+        output_filename("all_sources", "npvt.singbox.profile.json")
+        == "all_sources_singbox_profile.json"
+    )
+    assert (
+        output_filename("all_sources", "npvt.xray.profile.json")
+        == "all_sources_xray_profile.json"
+    )
     # Formats outside the proxy family keep the route.format convention.
     assert output_filename("all_sources", "ovpn") == "all_sources.ovpn"
 
@@ -188,14 +215,20 @@ def test_every_published_url_ever_handed_out_still_resolves():
         "xray.json",
         "nekobox.json",
         "clash.yaml",
+        "singbox.profile.json",
+        "xray.profile.json",
         "npvt.raw.txt",
         "npvt.xray.json",
         "npvt.nekobox.json",
         "npvt.clash.yaml",
+        "npvt.singbox.profile.json",
+        "npvt.xray.profile.json",
         "npvtsub.raw.txt",
         "npvtsub.xray.json",
         "npvtsub.nekobox.json",
         "npvtsub.clash.yaml",
+        "npvtsub.singbox.profile.json",
+        "npvtsub.xray.profile.json",
     ],
 )
 def test_route_config_rejects_new_automatic_derivative_outputs(fmt):
