@@ -42,6 +42,11 @@ def _build_results(proxy_text: bytes):
     return results, artifact_store
 
 
+def test_proxy_derivatives_empty_input_keeps_six_result_slots():
+    pipeline = BuildPipeline(Mock(), Mock(), Mock())
+    assert pipeline._proxy_derivatives(b"   \n") == (b"", b"", b"", b"", b"", b"")
+
+
 def test_proxy_build_emits_raw_xray_and_nekobox_derivatives():
     proxy_text = (
         b"vless://11111111-2222-3333-4444-555555555555@example.com:443"
