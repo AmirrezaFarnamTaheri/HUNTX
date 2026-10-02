@@ -152,7 +152,8 @@
           "type": "NEKOBOX",
           "tags": [
             "subscription",
-            "json-nodes"
+            "json-nodes",
+            "multi-node"
           ],
           "description": "NekoBox-compatible JSON node feed: a minimal object containing standalone sing-box outbounds and no DNS, route, or inbound policy. Current NekoBox expands those outbounds into independent nodes instead of treating the document as one full custom configuration."
         },
