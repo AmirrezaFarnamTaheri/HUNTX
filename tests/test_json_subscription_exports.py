@@ -41,8 +41,6 @@ def test_nekobox_subscription_wraps_nodes_in_outbounds_object() -> None:
     assert payload["outbounds"][0]["type"] == "trojan"
 
 
-
-
 def _clash_items(payload: bytes) -> list[dict[str, object]]:
     lines = payload.decode("utf-8").splitlines()
     assert lines and lines[0] == "proxies:"
