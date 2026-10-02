@@ -2,8 +2,14 @@ import json
 
 from huntx.formats.common.clash import build_clash_subscription_bytes
 from huntx.formats.common.nekobox import build_nekobox_outbounds_bytes
-from huntx.formats.common.singbox import build_singbox_config_bytes
-from huntx.formats.common.xray import build_xray_config_bytes
+from huntx.formats.common.singbox import (
+    build_singbox_config_bytes,
+    build_singbox_profile_bytes,
+)
+from huntx.formats.common.xray import (
+    build_xray_config_bytes,
+    build_xray_profile_bytes,
+)
 
 
 TROJAN = (
@@ -18,9 +24,29 @@ def test_singbox_subscription_is_outbounds_only() -> None:
     assert set(payload) == {"outbounds"}
     assert len(payload["outbounds"]) == 1
     assert payload["outbounds"][0]["type"] == "trojan"
+    assert "domain_resolver" not in payload["outbounds"][0]
     assert "inbounds" not in payload
     assert "dns" not in payload
     assert "route" not in payload
+
+
+def test_singbox_full_profile_is_preserved_separately() -> None:
+    payload = json.loads(build_singbox_profile_bytes(TROJAN).decode("utf-8"))
+
+    assert "inbounds" in payload
+    assert "dns" in payload
+    assert "route" in payload
+    proxy = next(item for item in payload["outbounds"] if item.get("type") == "trojan")
+    assert proxy["domain_resolver"] == "google"
+
+
+def test_xray_full_profile_is_preserved_separately() -> None:
+    payload = json.loads(build_xray_profile_bytes(TROJAN).decode("utf-8"))
+
+    assert "inbounds" in payload
+    assert len(payload["inbounds"]) == 1
+    assert payload["inbounds"][0]["protocol"] == "socks"
+    assert any(item.get("protocol") == "trojan" for item in payload["outbounds"])
 
 
 def test_xray_subscription_is_outbounds_only() -> None:
