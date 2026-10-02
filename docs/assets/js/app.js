@@ -81,7 +81,7 @@ export function pickSubscriptionArtifact(files) {
     let value = 0;
     if (tags.includes("base64")) value += 5;
     if (tags.includes("multi-node")) value += 4;
-    if (tags.includes("json-nodes") || tags.includes("json-array")) value += 3;
+    if (tags.includes("json-nodes") || tags.includes("json-array") || tags.includes("yaml-nodes")) value += 3;
     if (tags.includes("uri-feed") || tags.includes("raw-uris")) value += 1;
     if (tags.includes("full-config") || tags.includes("profile")) value -= 10;
     return value;
@@ -95,7 +95,7 @@ export function pickSubscriptionArtifact(files) {
   return {
     path: best.file.path,
     filename: best.file.filename,
-    label: tags.includes("base64") ? "Base64" : (tags.includes("json-nodes") || tags.includes("json-array")) ? "JSON node feed" : "Raw URI feed"
+    label: tags.includes("base64") ? "Base64" : tags.includes("yaml-nodes") ? "Clash/Mihomo provider" : (tags.includes("json-nodes") || tags.includes("json-array")) ? "JSON node feed" : "Raw URI feed"
   };
 }
 
