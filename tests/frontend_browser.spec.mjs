@@ -233,6 +233,7 @@ test("the subscription builder exposes only independent-node subscription URLs",
     const products = [
       "all_sources.txt", "all_sources_base64.txt", "all_sources_nekobox.json",
       "all_sources_singbox.json", "all_sources_xray.json", "all_sources_clash.yaml",
+      "all_sources_singbox_profile.json", "all_sources_xray_profile.json",
       "all_sources.json"
     ];
     window.huntxApp.catalog = {
@@ -271,10 +272,23 @@ test("the subscription builder exposes only independent-node subscription URLs",
   for (const label of await subscriptionButtons.allTextContents()) {
     expect(label).toBe("Copy Node Subscription URL");
   }
+  // Full runnable configurations remain available, but only as separate
+  // downloads. They are never copyable subscription URLs.
+  await expect(modal).toContainText("Full runnable profiles (download only)");
+  await expect(modal).toContainText("Sing-box full profile");
+  await expect(modal).toContainText("Xray full profile");
   await expect(modal).not.toContainText("Copy Profile URL");
-  await expect(modal).not.toContainText("Sing-box full profile");
-  await expect(modal).not.toContainText("Xray full profile");
-  await expect(modal.locator("a.btn-download-profile")).toHaveCount(0);
+  const profileLinks = modal.locator("a.btn-download-profile");
+  await expect(profileLinks).toHaveCount(2);
+  const profileHrefs = await profileLinks.evaluateAll((els) =>
+    els.map((el) => el.getAttribute("href"))
+  );
+  expect(profileHrefs).toEqual(
+    expect.arrayContaining([
+      expect.stringContaining("all_sources_singbox_profile.json"),
+      expect.stringContaining("all_sources_xray_profile.json"),
+    ])
+  );
 
   // The decoded dataset is inspection data, never a subscription candidate.
   await expect(modal).not.toContainText("all_sources.json");
