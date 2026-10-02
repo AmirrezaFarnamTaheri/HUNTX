@@ -947,17 +947,48 @@ def config_from_uris(
     return build_singbox_config(outbounds, listen=listen, mixed_port=mixed_port, tun_enabled=tun_enabled)
 
 
-def build_singbox_config_bytes(text: str) -> bytes:
-    """Render proxy text as UTF-8 sing-box JSON bytes."""
+def build_singbox_profile_bytes(text: str) -> bytes:
+    """Render the complete runnable Sing-box client profile."""
     try:
         config = config_from_uris(text.splitlines())
     except AttributeError:
         return b''
-    proxy_outbounds = [
-        outbound
+    proxy_types = {'selector', 'urltest', 'direct', 'block', 'dns'}
+    if not any(
+        outbound.get('type') not in proxy_types
         for outbound in config.get('outbounds', [])
-        if outbound.get('type') not in {'selector', 'urltest', 'direct'}
-    ]
-    if not proxy_outbounds:
+        if isinstance(outbound, dict)
+    ):
         return b''
     return json.dumps(config, indent=2, ensure_ascii=False).encode('utf-8')
+
+
+def build_singbox_config_bytes(text: str) -> bytes:
+    """Render a Sing-box JSON subscription that expands into independent nodes.
+
+    Full-profile keys (inbounds, DNS and route policy) are intentionally absent.
+    Profile-only dial dependencies are also removed so each exported outbound is
+    self-contained when a client imports it as an independent subscription item.
+    """
+    try:
+        config = config_from_uris(text.splitlines())
+    except AttributeError:
+        return b''
+    proxy_outbounds = []
+    for outbound in config.get('outbounds', []):
+        if (
+            not isinstance(outbound, dict)
+            or outbound.get('type') in {'selector', 'urltest', 'direct', 'block', 'dns'}
+            or outbound.get('detour')
+        ):
+            continue
+        independent = dict(outbound)
+        independent.pop('domain_resolver', None)
+        proxy_outbounds.append(independent)
+    if not proxy_outbounds:
+        return b''
+    return json.dumps(
+        {'outbounds': proxy_outbounds},
+        indent=2,
+        ensure_ascii=False,
+    ).encode('utf-8')

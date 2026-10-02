@@ -36,11 +36,12 @@ _EMPTY_RELEASE_PAYLOAD = {
 # "all_sources_npvt_decoded.json" only ever told a reader which internal handler
 # produced the file. The products now read: all_sources.txt (the URI feed),
 # all_sources_base64.txt, all_sources.json, all_sources_singbox.json,
-# all_sources_xray.json and all_sources_nekobox.json.
+# all_sources_xray.json, all_sources_nekobox.json, all_sources_clash.yaml,
+# all_sources_singbox_profile.json and all_sources_xray_profile.json.
 #
 # configs/config.prod.yaml enables BOTH npvt and npvtsub on the all_sources
 # route, and both are in _DERIVED_PROXY_FORMATS, so each one produces its own
-# decoded/base64/singbox/xray/nekobox derivative. Dropping the format segment
+# decoded/base64/singbox/xray/nekobox/clash plus full-profile derivatives. Dropping the format segment
 # outright made all five pairs want the same filename, which only surfaced at
 # export time as a RuntimeError because derived products are not configured
 # formats and configured_output_identities cannot see them. Each base format
@@ -54,6 +55,9 @@ _DERIVED_CANONICAL_SUFFIX = {
     ".singbox.json": "_singbox.json",
     ".xray.json": "_xray.json",
     ".nekobox.json": "_nekobox.json",
+    ".clash.yaml": "_clash.yaml",
+    ".singbox.profile.json": "_singbox_profile.json",
+    ".xray.profile.json": "_xray_profile.json",
 }
 
 # Filenames published under earlier names, keyed by the logical format that owns

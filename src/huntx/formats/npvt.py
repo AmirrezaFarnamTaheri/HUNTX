@@ -79,7 +79,8 @@ def strip_proxy_remark(uri: str) -> str:
     """Remove display remarks while preserving proxy semantics."""
     if uri.startswith('vmess://'):
         try:
-            b64 = uri[8:]
+            body = uri.partition('#')[0]
+            b64 = body[8:]
             raw = _b64_decode_safe(b64)
             obj = json.loads(raw)
             obj.pop('ps', None)

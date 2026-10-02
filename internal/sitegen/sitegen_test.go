@@ -124,6 +124,9 @@ func TestArtifactMetaClassifiesEveryShippedFormat(t *testing.T) {
 		"all_sources_nekobox.json",
 		"all_sources_singbox.json",
 		"all_sources_xray.json",
+		"all_sources_clash.yaml",
+		"all_sources_singbox_profile.json",
+		"all_sources_xray_profile.json",
 		// The frozen aliases published under earlier names.
 		"all_sources_npvt_b64sub.txt",
 		"all_sources_npvt_decoded.json",
@@ -153,27 +156,67 @@ func TestArtifactMetaClassifiesEveryShippedFormat(t *testing.T) {
 	}
 }
 
-// TestArtifactMetaKeepsClientConfigsOutOfSubscriptionTags encodes the contract
-// the dashboard and the parity gate both depend on: a complete client
-// configuration is a profile import, and advertising it as a subscription is
-// what made clients import one JSON profile instead of a node list.
-func TestArtifactMetaKeepsClientConfigsOutOfSubscriptionTags(t *testing.T) {
-	for _, name := range []string{
-		"all_sources_singbox.json",
-		"all_sources.npvt.singbox.json",
-		"all_sources_npvt_singbox.json",
-		"all_sources_xray.json",
-		"all_sources.npvt.xray.json",
-		"all_sources_npvt_xray.json",
-	} {
-		tags, _, kind := artifactMeta(name)
-		if kind != "SINGBOX" && kind != "XRAY" {
-			t.Errorf("%s: kind = %q, want SINGBOX or XRAY", name, kind)
+// TestArtifactMetaMarksClientNodeFeedsAsSubscriptions encodes the public
+// contract: these artifacts contain independent nodes and are meant to be
+// added as subscription/provider URLs, not imported as one complete profile.
+func TestArtifactMetaMarksClientNodeFeedsAsSubscriptions(t *testing.T) {
+	cases := []struct {
+		name string
+		kind string
+	}{
+		{"all_sources_singbox.json", "SINGBOX"},
+		{"all_sources.npvt.singbox.json", "SINGBOX"},
+		{"all_sources_npvt_singbox.json", "SINGBOX"},
+		{"all_sources_xray.json", "XRAY"},
+		{"all_sources.npvt.xray.json", "XRAY"},
+		{"all_sources_npvt_xray.json", "XRAY"},
+		{"all_sources_nekobox.json", "NEKOBOX"},
+		{"all_sources_clash.yaml", "CLASH"},
+	}
+	for _, tc := range cases {
+		tags, _, kind := artifactMeta(tc.name)
+		if kind != tc.kind {
+			t.Errorf("%s: kind = %q, want %q", tc.name, kind, tc.kind)
 		}
+		hasSubscription := false
 		for _, tag := range tags {
 			if tag == "subscription" {
-				t.Errorf("%s: complete client config must not carry the subscription tag", name)
+				hasSubscription = true
 			}
+		}
+		if !hasSubscription {
+			t.Errorf("%s: independent-node feed must carry the subscription tag", tc.name)
+		}
+	}
+}
+
+func TestArtifactMetaMarksFullProfilesAsClientConfigs(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		kind string
+	}{
+		{"all_sources_singbox_profile.json", "SINGBOX"},
+		{"all_sources_xray_profile.json", "XRAY"},
+	} {
+		tags, _, kind := artifactMeta(tc.name)
+		if kind != tc.kind {
+			t.Errorf("%s: kind = %q, want %q", tc.name, kind, tc.kind)
+		}
+		hasClientConfig := false
+		hasFullConfig := false
+		for _, tag := range tags {
+			if tag == "subscription" {
+				t.Errorf("%s: full profile must not carry subscription tag", tc.name)
+			}
+			if tag == "client-config" {
+				hasClientConfig = true
+			}
+			if tag == "full-config" {
+				hasFullConfig = true
+			}
+		}
+		if !hasClientConfig || !hasFullConfig {
+			t.Errorf("%s: tags = %v, want client-config + full-config", tc.name, tags)
 		}
 	}
 }
@@ -204,6 +247,9 @@ func TestEmbeddedTableIsTheOnePythonReads(t *testing.T) {
 		"all_sources_npvt_xray.json",
 		"all_sources_nekobox.json",
 		"all_sources.npvt.nekobox.json",
+		"all_sources_clash.yaml",
+		"all_sources_singbox_profile.json",
+		"all_sources_xray_profile.json",
 		"all_sources_base64.txt",
 		"all_sources.npvt.b64sub",
 		"all_sources.npvt",
@@ -242,6 +288,10 @@ func TestEmbeddedTablePrecedenceIsSpecificToGeneric(t *testing.T) {
 		{"all_sources_npvt_xray.json", "XRAY"},
 		{"all_sources.npvt.nekobox.json", "NEKOBOX"},
 		{"all_sources_npvt_nekobox.json", "NEKOBOX"},
+		{"all_sources.npvt.clash.yaml", "CLASH"},
+		{"all_sources_clash.yaml", "CLASH"},
+		{"all_sources_singbox_profile.json", "SINGBOX"},
+		{"all_sources_xray_profile.json", "XRAY"},
 		{"all_sources.npvt.decoded.json", "JSON"},
 		{"all_sources_npvt_decoded.json", "JSON"},
 		{"all_sources.npvt.raw.txt", "TXT"},

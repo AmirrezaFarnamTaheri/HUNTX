@@ -87,20 +87,24 @@ test("the batch converter turns a pasted subscription into a full config", () =>
   assert.equal(rebuilt.trim().split("\n").length, lines.length);
 });
 
-test("a complete client configuration is never offered as the subscription", () => {
-  // Importing one of these as a subscription is what makes a client show a
-  // single entry instead of a node list.
-  const profiles = [
-    { filename: "all_sources_singbox.json", path: "p/s", tags: ["release", "singbox", "full-config", "profile"] },
-    { filename: "all_sources_xray.json", path: "p/x", tags: ["release", "xray", "full-config", "profile"] }
+test("Sing-box, Xray and Clash feeds are valid node subscriptions", () => {
+  const jsonFeeds = [
+    { filename: "all_sources_singbox.json", path: "p/s", tags: ["release", "subscription", "singbox", "json-nodes", "multi-node"] },
+    { filename: "all_sources_xray.json", path: "p/x", tags: ["release", "subscription", "xray", "json-nodes", "multi-node"] },
+    { filename: "all_sources_clash.yaml", path: "p/c", tags: ["release", "subscription", "clash", "mihomo", "yaml-nodes", "multi-node"] }
   ];
-  assert.equal(pickSubscriptionArtifact(profiles), null);
 
-  const withBase64 = [...profiles, { filename: "all_sources_base64.txt", path: "p/b", tags: ["release", "subscription", "base64"] }];
+  const jsonChoice = pickSubscriptionArtifact(jsonFeeds);
+  assert.ok(jsonChoice);
+  assert.equal(jsonChoice.filename, "all_sources_singbox.json");
+
+  const clashOnly = pickSubscriptionArtifact([jsonFeeds[2]]);
+  assert.ok(clashOnly);
+  assert.equal(clashOnly.filename, "all_sources_clash.yaml");
+  assert.equal(clashOnly.label, "Clash/Mihomo provider");
+
+  const withBase64 = [...jsonFeeds, { filename: "all_sources_base64.txt", path: "p/b", tags: ["release", "subscription", "base64", "multi-node"] }];
   assert.equal(pickSubscriptionArtifact(withBase64).filename, "all_sources_base64.txt");
-
-  const withJsonNodes = [...profiles, { filename: "all_sources_nekobox.json", path: "p/n", tags: ["release", "subscription", "json-nodes"] }];
-  assert.equal(pickSubscriptionArtifact(withJsonNodes).filename, "all_sources_nekobox.json");
 });
 
 test("the dashboard resolves its subscription link from the published catalog", () => {
