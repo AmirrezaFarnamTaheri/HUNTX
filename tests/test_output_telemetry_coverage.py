@@ -146,22 +146,22 @@ def test_published_sha256_matches_the_file_on_disk(catalog: dict) -> None:
         pytest.xfail(f"catalog trails its artifacts: {mismatches[:5]}")
 
 
-def test_subscription_tagged_outputs_are_node_feeds_not_client_configs(generator) -> None:
-    """Anything tagged subscription must be a node feed a client imports as a list."""
-    subscription_entries = [
-        entry
-        for entry in _catalog().get("files", [])
-        if "subscription" in (entry.get("tags") or [])
-    ]
-    # Complete client configurations are profile imports: advertising them as
-    # subscriptions is the exact mistake that made clients import one JSON
-    # profile instead of a node list.
-    configs = [
-        entry.get("filename")
-        for entry in subscription_entries
-        if (entry.get("type") or entry.get("ext")) in {"SINGBOX", "XRAY"}
-    ]
-    assert not configs, f"client configs mistagged as subscriptions: {configs}"
+def test_subscription_tagged_outputs_are_independent_node_feeds(generator) -> None:
+    """Client-format subscription products must classify as multi-node feeds."""
+    for name, expected_type, shape_tag in (
+        ("all_sources_singbox.json", "SINGBOX", "json-nodes"),
+        ("all_sources_xray.json", "XRAY", "json-nodes"),
+        ("all_sources_nekobox.json", "NEKOBOX", "json-nodes"),
+        ("all_sources_clash.yaml", "CLASH", "yaml-nodes"),
+    ):
+        kind, tags, description = generator._infer_tags_and_type(
+            Path("release") / name, "release"
+        )
+        assert kind == expected_type
+        assert "subscription" in tags
+        assert "multi-node" in tags
+        assert shape_tag in tags
+        assert "independent" in description.lower()
 
 
 def test_every_registered_format_has_a_serializer(generator) -> None:
@@ -277,6 +277,7 @@ def test_the_classification_table_is_the_single_source_of_truth(generator) -> No
         ("all_sources_singbox.json", "SINGBOX"),
         ("all_sources_xray.json", "XRAY"),
         ("all_sources_nekobox.json", "NEKOBOX"),
+        ("all_sources_clash.yaml", "CLASH"),
         ("all_sources.json", "JSON"),
         ("all_sources_base64.txt", "B64SUB"),
         ("all_sources.txt", "TXT"),
@@ -287,6 +288,7 @@ def test_the_classification_table_is_the_single_source_of_truth(generator) -> No
         ("all_sources.npvt.xray.json", "XRAY"),
         ("all_sources_npvt_xray.json", "XRAY"),
         ("all_sources.npvt.nekobox.json", "NEKOBOX"),
+        ("all_sources.npvt.clash.yaml", "CLASH"),
         ("all_sources.npvt.decoded.json", "JSON"),
         ("all_sources_npvt_decoded.json", "JSON"),
         ("all_sources.npvt.raw.txt", "TXT"),

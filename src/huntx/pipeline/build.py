@@ -10,6 +10,7 @@ import time
 from collections import defaultdict
 from typing import Any, Optional
 from urllib.parse import parse_qs, unquote, urlparse
+from ..formats.common.clash import build_clash_subscription_bytes
 from ..formats.common.nekobox import build_nekobox_outbounds_bytes
 from ..formats.common.singbox import build_singbox_config_bytes
 from ..formats.common.xray import build_xray_config_bytes, xray_fidelity_report
@@ -232,7 +233,7 @@ class BuildPipeline:
     def _proxy_derivatives(
         self,
         artifact_bytes: bytes,
-    ) -> tuple[bytes, bytes, bytes, bytes, bytes]:
+    ) -> tuple[bytes, bytes, bytes, bytes, bytes, bytes]:
         """Create proxy derivative artifacts from one UTF-8 decode.
 
         The raw artifact is not among them: it is the base output itself, and
@@ -242,7 +243,7 @@ class BuildPipeline:
         try:
             text = artifact_bytes.decode('utf-8', errors='ignore')
         except (AttributeError, UnicodeDecodeError):
-            return b'', b'', b'', b'', b''
+            return b'', b'', b'', b'', b'', b'', b''
         stripped = text.strip()
         if not stripped:
             return b'', b'', b'', b'', b''
@@ -252,6 +253,7 @@ class BuildPipeline:
             build_singbox_config_bytes(text),
             build_xray_config_bytes(text),
             build_nekobox_outbounds_bytes(text),
+            build_clash_subscription_bytes(text),
         )
 
     @staticmethod
@@ -360,7 +362,7 @@ class BuildPipeline:
                 built_formats.append(format_id)
                 format_count = len(format_records)
                 if format_id in _DERIVED_PROXY_FORMATS:
-                    decoded, reencoded, singbox, xray, nekobox = self._proxy_derivatives(
+                    decoded, reencoded, singbox, xray, nekobox, clash = self._proxy_derivatives(
                         artifact_bytes
                     )
                     if decoded:
@@ -395,6 +397,11 @@ class BuildPipeline:
                         if not defer_output:
                             self.artifact_store.save_output(route_name, derived_format, nekobox)
                         results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(nekobox).hexdigest(), 'data': nekobox, 'count': format_count})
+                    if clash:
+                        derived_format = f'{format_id}.clash.yaml'
+                        if not defer_output:
+                            self.artifact_store.save_output(route_name, derived_format, clash)
+                        results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(clash).hexdigest(), 'data': clash, 'count': format_count})
                 results.append({'route_name': route_name, 'format': format_id, 'unique_id': f'{route_name}:{format_id}', 'artifact_hash': artifact_hash, 'data': artifact_bytes, 'count': format_count})
                 logger.info('[Build] route=%s format=%s records=%s bytes=%s build_seconds=%.3f hash=%s', route_name, format_id, format_count, len(artifact_bytes), build_duration, artifact_hash[:12] if artifact_hash else 'N/A')
             except DeadlineExceeded:

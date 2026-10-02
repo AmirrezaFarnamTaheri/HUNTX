@@ -948,7 +948,12 @@ def config_from_uris(
 
 
 def build_singbox_config_bytes(text: str) -> bytes:
-    """Render proxy text as UTF-8 sing-box JSON bytes."""
+    """Render a Sing-box JSON subscription that expands into independent nodes.
+
+    Full-profile keys (inbounds, DNS and route policy) are intentionally absent.
+    Current NekoBox and v2rayN therefore take their per-outbound subscription
+    paths instead of storing the whole document as one custom profile.
+    """
     try:
         config = config_from_uris(text.splitlines())
     except AttributeError:
@@ -956,8 +961,13 @@ def build_singbox_config_bytes(text: str) -> bytes:
     proxy_outbounds = [
         outbound
         for outbound in config.get('outbounds', [])
-        if outbound.get('type') not in {'selector', 'urltest', 'direct'}
+        if outbound.get('type') not in {'selector', 'urltest', 'direct', 'block', 'dns'}
+        and not outbound.get('detour')
     ]
     if not proxy_outbounds:
         return b''
-    return json.dumps(config, indent=2, ensure_ascii=False).encode('utf-8')
+    return json.dumps(
+        {'outbounds': proxy_outbounds},
+        indent=2,
+        ensure_ascii=False,
+    ).encode('utf-8')

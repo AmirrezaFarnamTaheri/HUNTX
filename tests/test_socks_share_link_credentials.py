@@ -61,7 +61,7 @@ class TestSocksShareLinkCredentials(unittest.TestCase):
         payload = build_nekobox_outbounds_bytes(
             f"socks://{_encoded('123', '123')}@198.51.100.6:3060#socks-3"
         )
-        outbound = json.loads(payload)[0]
+        outbound = json.loads(payload)["outbounds"][0]
         self.assertEqual(outbound["username"], "123")
         self.assertEqual(outbound["password"], "123")
 

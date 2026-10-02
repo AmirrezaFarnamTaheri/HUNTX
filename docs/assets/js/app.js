@@ -66,12 +66,12 @@ export function getFlagEmoji(countryCode) {
 /**
  * Choose the catalog entry a client will expand into individual nodes.
  *
- * A subscription has to be a node list. The sing-box and Xray artifacts are
- * whole client configurations, so a client asked to import one of those as a
- * subscription correctly shows a single entry. Base64 is preferred over every
- * other node feed because it is the one body format Shadowrocket, v2rayNG,
- * Streisand, Hiddify and NekoBox all accept, whereas a JSON array only
- * expands in JSON-aware clients.
+ * This resolver selects only feeds that expand into independent proxy entries.
+ * Sing-box and Xray release JSONs are also node subscriptions: their generators
+ * deliberately omit the full-profile envelope that would make clients store one
+ * custom configuration. Base64 remains preferred because it is the one body
+ * format Shadowrocket, v2rayNG, Streisand, Hiddify and NekoBox all accept,
+ * whereas a JSON node container only expands in JSON-aware clients.
  */
 export function pickSubscriptionArtifact(files) {
   const entries = Array.isArray(files) ? files.filter((f) => f && typeof f.filename === "string" && typeof f.path === "string") : [];
@@ -1174,7 +1174,12 @@ export class AppState {
     } else if (filter === "SUBSCRIPTIONS") {
       list = list.filter(f => f.type === "B64SUB" || f.ext === "B64SUB" || f.type === "NPVT" || f.ext === "NPVT" || (f.tags && f.tags.includes("subscription")));
     } else if (filter === "CONFIGS") {
-      list = list.filter(f => ["SINGBOX", "XRAY", "OVPN", "WARP", "CLASH"].includes(f.type || f.ext) || (f.tags && (f.tags.includes("singbox") || f.tags.includes("xray") || f.tags.includes("openvpn"))));
+      list = list.filter(f => {
+        const tags = Array.isArray(f.tags) ? f.tags : [];
+        if (tags.includes("subscription")) return false;
+        return ["SINGBOX", "XRAY", "OVPN", "WARP", "CLASH"].includes(f.type || f.ext)
+          || tags.some(tag => ["singbox", "xray", "openvpn", "clash"].includes(tag));
+      });
     } else if (filter === "CHUNKS") {
       list = list.filter(f => f.type === "CHUNK" || f.ext === "CHUNK" || (f.filename || f.name || "").includes("chunk_") || (f.tags && f.tags.includes("chunk")));
     }
@@ -1594,7 +1599,7 @@ export class AppState {
               aria-label="Copy Multi-Node Subscription URL"
             >
               <svg class="w-4 h-4 text-gray-950" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-              Copy Subscription URL
+              Copy Node Subscription URL
             </button>
 
             <a
@@ -1603,10 +1608,10 @@ export class AppState {
               href="artifacts/release/all_sources_singbox.json"
               download
               class="px-3.5 py-2.5 min-h-[44px] bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 hover:border-cyan-400 text-cyan-300 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-1.5"
-              aria-label="Download Sing-box 1.10+ JSON"
+              aria-label="Download Sing-box node subscription JSON"
             >
               <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-              Sing-box Profile
+              Sing-box Subscription
             </a>
 
             <a
@@ -1615,10 +1620,10 @@ export class AppState {
               href="artifacts/release/all_sources_xray.json"
               download
               class="px-3.5 py-2.5 min-h-[44px] bg-indigo-950/60 hover:bg-indigo-900/60 border border-indigo-500/30 hover:border-indigo-400 text-indigo-300 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-1.5"
-              aria-label="Download Xray Config"
+              aria-label="Download Xray node subscription JSON"
             >
               <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-              Xray Config
+              Xray Subscription
             </a>
 
             <button
@@ -1691,7 +1696,7 @@ export class AppState {
     document.getElementById("hero-copy-sub")?.addEventListener("click", (e) => {
       const sub = this.resolveSubscriptionArtifact();
       if (!sub) {
-        this.showToast("No subscription feed in this snapshot", "error");
+        this.showToast("No node subscription feed in this snapshot", "error");
         return;
       }
       this.copyText(resolveArtifactUrl(sub.path), isHostedDashboard()
@@ -1707,8 +1712,9 @@ export class AppState {
     this.reconcileArtifactLinks(hero);
   }
 
-  // The subscription offered to a user is whichever node feed this snapshot
-  // actually published, never a whole client configuration.
+  // The hero action selects the highest-ranked multi-node subscription from the
+  // published catalog. Sing-box/Xray JSON are eligible because their release
+  // derivatives are intentionally outbounds-only node feeds.
   resolveSubscriptionArtifact(catalog = this.catalog) {
     return pickSubscriptionArtifact(Array.isArray(catalog?.files) ? catalog.files : []);
   }
@@ -3082,10 +3088,10 @@ export class AppState {
               </div>
               <div>
                 <h3 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
-                  Routing Profile Reference
+                  Routing / Subscription Reference
                   <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-slate-800 text-slate-300 border border-slate-700">EXAMPLE</span>
                 </h3>
-                <p class="text-xs text-gray-400 font-sans mt-0.5">Illustrative routing order. Download verified profiles from the published catalog; this panel does not modify a live client.</p>
+                <p class="text-xs text-gray-400 font-sans mt-0.5">Illustrative routing order only. The Sing-box/Xray links below are node subscriptions and intentionally omit this profile-level routing policy.</p>
               </div>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
@@ -3795,25 +3801,21 @@ export class AppState {
     const publicBase = getConfiguredPublicBase();
     const files = Array.isArray(this.catalog?.files) ? this.catalog.files : [];
     const findArtifact = (filename) => files.find((file) => (file.filename || file.name) === filename);
-    // A subscription must be a NODE LIST. Anything that is a whole client
-    // configuration is a profile import, and offering it beside the feeds with
-    // the same "Copy" action is how a user ends up with half a dozen
-    // subscriptions that each contain one unusable node.
+    // Every entry here is a real node subscription. JSON generators omit
+    // inbound/DNS/route profile policy specifically so an update expands nodes
+    // instead of creating one custom full-config item.
     const subscriptionFeeds = [
-      ["all_sources_base64.txt", "Base64 subscription", "The link to add as a subscription URL. One encoded node per line; expands into individual nodes in Shadowrocket, v2rayNG, Streisand, Hiddify and NekoBox.", "cyan", true],
-      ["all_sources.txt", "Raw URI subscription", "One node per line, unencoded. Use this only if your client rejects a base64 body.", "emerald", false],
-      ["all_sources_nekobox.json", "NekoBox node feed", "A top-level JSON array of outbounds. Expands into individual nodes in NekoBox and other JSON-aware clients only.", "amber", false],
+      ["all_sources_base64.txt", "Base64 subscription", "Recommended lossless subscription: the complete one-node-per-line URI list encoded as one Base64 body. Decoding preserves the node list 1:1.", "cyan", true],
+      ["all_sources.txt", "Raw URI subscription", "One node per line, unencoded. Use this when the client accepts raw share-link subscriptions.", "emerald", false],
+      ["all_sources_singbox.json", "Sing-box JSON subscription", "Outbounds-only JSON. Compatible subscription updaters expand the contained proxies into independent entries.", "sky", false],
+      ["all_sources_xray.json", "Xray JSON subscription", "Outbounds-only Xray/V2Ray JSON. Current v2rayN imports the contained outbounds as independent subscription items.", "indigo", false],
+      ["all_sources_clash.yaml", "Clash / Mihomo subscription", "Proxy-provider YAML containing only independent entries under proxies. Refreshing the provider updates the node list without importing a full profile.", "violet", false],
+      ["all_sources_nekobox.json", "NekoBox JSON subscription", "Minimal outbounds container with no profile-level routing/DNS; current NekoBox expands each outbound independently.", "amber", false],
     ].map(([filename, label, description, color, recommended]) => ({ filename, label, description, color, recommended, file: findArtifact(filename) }));
-    const profileArtifacts = [
-      ["all_sources_singbox.json", "Sing-box full profile", "cyan"],
-      ["all_sources_xray.json", "Xray full profile", "indigo"],
-    ].map(([filename, label, color]) => ({ filename, label, color, file: findArtifact(filename) }));
-    const devFeeds = files.filter((file) => file.section === "dev" || file.category === "dev" || file.tags?.includes("dev"));
-    const chunks = devFeeds.filter((file) => /chunk_/i.test(file.filename || file.name || ""));
     const feedCard = ({ label, description, color, file, recommended, copyLabel }) => {
       if (!file) return "";
       const link = getArtifactLinkModel(file.path);
-      const action = copyLabel || "Copy subscription URL";
+      const action = copyLabel || "Copy Node Subscription URL";
       return `
       <div class="p-3.5 ${recommended ? "bg-cyan-950/40 border-cyan-500/40" : "bg-gray-950 border-gray-800"} border rounded-xl font-mono text-xs flex flex-col justify-between">
         <div>
@@ -3825,29 +3827,10 @@ export class AppState {
           <div class="text-xs text-${color}-300 break-all">${escapeHTML(link.display)}</div>
         </div>
         <div class="mt-3 flex items-center justify-end gap-2">
-          <button class="btn-copy-custom px-3 py-1.5 min-h-[44px] bg-${color}-500 text-${color === "indigo" ? "white" : "gray-950"} font-bold rounded-lg text-xs cursor-pointer focus-ring" data-url="${escapeHTML(link.copyValue)}" data-absolute="${link.isAbsolute}">${escapeHTML(action)}</button>
+          <button class="btn-copy-custom px-3 py-1.5 min-h-[44px] bg-${color}-500 text-${color === "indigo" ? "white" : "gray-950"} font-bold rounded-lg text-xs cursor-pointer focus-ring" data-url="${escapeHTML(link.copyValue)}" data-absolute="${link.isAbsolute}" data-copy-message="Node subscription URL copied">${escapeHTML(action)}</button>
         </div>
       </div>`;
     };
-    const profileCard = ({ label, color, file }) => {
-      if (!file) return "";
-      const link = getArtifactLinkModel(file.path);
-      return `
-      <div class="p-3.5 bg-gray-950 border border-amber-800/50 rounded-xl font-mono text-xs flex flex-col justify-between">
-        <div>
-          <span class="text-gray-200 font-bold block">${escapeHTML(label)}</span>
-          <span class="text-xs text-amber-300/80 block mt-0.5">A whole client configuration, not a node list. Adding it as a subscription creates a single entry.</span>
-        </div>
-        <div class="mt-3 rounded-lg border border-gray-800 bg-black/20 px-2.5 py-2">
-          <div class="text-xs uppercase tracking-wider text-gray-500 mb-1">${escapeHTML(link.sourceLabel)}</div>
-          <div class="text-xs text-${color}-300 break-all">${escapeHTML(link.display)}</div>
-        </div>
-        <div class="mt-3 flex items-center justify-end gap-2">
-          <a class="btn-download-profile px-3 py-1.5 min-h-[44px] inline-flex items-center bg-gray-800 hover:bg-${color}-500 hover:text-gray-950 text-gray-200 font-bold rounded-lg text-xs cursor-pointer focus-ring" href="${escapeHTML(link.display)}" download>Download file</a>
-        </div>
-      </div>`;
-    };
-
     modalContainer.innerHTML = `
       <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="modal-sub-title">
         <div id="modal-box" class="relative w-full max-w-2xl bg-gray-900 border border-cyan-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-cyan-950/50 space-y-5 max-h-[90vh] max-h-[90dvh] overflow-y-auto">
@@ -3861,37 +3844,19 @@ export class AppState {
             </button>
           </div>
 
-          <p class="text-xs font-mono text-gray-400">Add <strong>one</strong> of the subscription links below. A subscription must be a list of individual nodes; the client profiles further down are whole configurations and will show up as a single entry if you add one as a subscription. Links are generated from the published catalog and never from a local filesystem path.</p>
+          <p class="text-xs font-mono text-gray-400"><strong>Every link below is a subscription that expands into independent proxy entries.</strong> Sing-box/Xray feeds are intentionally outbounds-only, and Clash/Mihomo is proxies-only, so updating a subscription refreshes its nodes instead of creating one custom profile.</p>
           ${hosted || publicBase ? "" : `<div class="rounded-xl border border-amber-500/30 bg-amber-950/30 px-3.5 py-3 text-xs leading-relaxed text-amber-200"><strong>Local preview:</strong> copy actions use portable relative paths. Serve or deploy this dashboard over HTTPS, or configure <code>HUNTX_PUBLIC_BASE_URL</code> / <code>&lt;meta name="huntx-public-base-url"&gt;</code>, before importing a subscription on another device.</div>`}
 
           <div class="space-y-4">
-            <!-- Subscriptions: node lists, one per line -->
+            <!-- Node subscriptions: expand into separate proxy entries -->
             <div>
-              <span class="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider block mb-1">1. Subscriptions (add as a subscription URL)</span>
-              <p class="text-xs text-gray-500 mb-2">Each of these expands into individual nodes. Add one.</p>
+              <span class="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider block mb-1">1. Node subscriptions (separate entries)</span>
+              <p class="text-xs text-gray-500 mb-2">Each of these expands into individual proxy entries. Use this when you want nodes listed separately.</p>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 ${subscriptionFeeds.map(feedCard).join("") || `<p class="col-span-full rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-xs text-amber-200">No compatible production profiles are in this published catalog.</p>`}
               </div>
             </div>
 
-            <!-- Profiles: whole configurations, deliberately not subscriptions -->
-            <div>
-              <span class="text-xs font-mono font-bold text-amber-400 uppercase tracking-wider block mb-1">2. Client profiles (download, do not add as a subscription)</span>
-              <p class="text-xs text-gray-500 mb-2">These are complete sing-box and Xray configurations. Importing one into a client creates a single profile containing every node - it is not a node list.</p>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                ${profileArtifacts.map(profileCard).join("") || `<p class="col-span-full rounded-xl border border-gray-800 bg-gray-950/40 p-3 text-xs text-gray-500">No client profiles are in this published catalog.</p>`}
-              </div>
-            </div>
-
-            ${devFeeds.length ? `
-              <div>
-                <span class="text-xs font-mono font-bold text-indigo-400 uppercase tracking-wider block mb-1">3. Additional Published Feeds</span>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  ${devFeeds.filter((file) => !chunks.includes(file)).map((file) => feedCard({ label: file.filename || file.name, description: file.type === "JSON" ? "Cumulative JSON dataset. Inspection data, not a subscription." : (file.size_str || "Published artifact"), color: "indigo", file, copyLabel: "Copy URL" })).join("")}
-                </div>
-              </div>
-              ${chunks.length ? `<div><span class="text-xs font-mono font-bold text-emerald-400 uppercase tracking-wider block mb-1">4. Lightweight Split Chunks</span><p class="text-xs font-mono text-gray-500 mb-2">Only chunks included in this catalog are shown.</p><div class="grid grid-cols-2 sm:grid-cols-4 gap-2">${chunks.map((file, index) => { const link = getArtifactLinkModel(file.path); return `<button class="btn-copy-custom p-2.5 min-h-[44px] bg-gray-950 hover:bg-gray-800 border border-gray-800 hover:border-cyan-500/40 rounded-xl text-left font-mono text-xs transition-all cursor-pointer focus-ring" data-url="${escapeHTML(link.copyValue)}" data-absolute="${link.isAbsolute}" title="${escapeHTML(link.display)}"><div class="text-cyan-300 font-bold">Chunk ${index + 1}</div><div class="text-xs text-gray-500 truncate">${escapeHTML(file.size_str || "Published artifact")}</div><div class="text-xs text-gray-500 truncate mt-1">${escapeHTML(link.display)}</div></button>`; }).join("")}</div></div>` : ""}
-            ` : ""}
           </div>
         </div>
       </div>
@@ -3909,8 +3874,9 @@ export class AppState {
       btn.addEventListener("click", (e) => {
         const url = e.currentTarget.dataset.url;
         const isAbsolute = e.currentTarget.dataset.absolute === "true";
+        const copyMessage = e.currentTarget.dataset.copyMessage || "Subscription URL copied";
         this.copyText(url, isAbsolute
-          ? "Subscription feed URL copied"
+          ? copyMessage
           : "Portable artifact path copied — configure a public base URL for direct client import");
       });
     });

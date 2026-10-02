@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "note": "Single source of truth for artifact classification. The Go site generator (internal/sitegen) embeds this file and the Python dashboard generator (scripts/generate_site_data.py) reads it, so both describe the same filename the same way. Rules are evaluated in order; the first match wins. Precedence is deliberate: all_sources_singbox.json is a Sing-box profile, not the plain-text URI feed, and the order also keeps the .json rule below the profile rules that already matched.",
+  "note": "Single source of truth for artifact classification. The Go site generator (internal/sitegen) embeds this file and the Python dashboard generator (scripts/generate_site_data.py) reads it, so both describe the same filename the same way. Rules are evaluated in order; the first match wins. Precedence is deliberate: client-format node subscriptions must match before generic JSON/YAML metadata, and the order also keeps the .json rule below the profile rules that already matched.",
   "products": {
     "all_sources.txt": [
       "all_sources.txt",
@@ -28,6 +28,9 @@
     "all_sources_nekobox.json": [
       "all_sources_nekobox.json",
       "all_sources_npvt_nekobox.json"
+    ],
+    "all_sources_clash.yaml": [
+      "all_sources_clash.yaml"
     ]
   },
   "sections": {
@@ -45,11 +48,12 @@
           },
           "type": "SINGBOX",
           "tags": [
+            "subscription",
             "singbox",
-            "routing-profile",
-            "outbounds"
+            "json-nodes",
+            "multi-node"
           ],
-          "description": "Complete Sing-box 1.10+ client configuration. This is a whole profile, not a subscription: importing it as a subscription URL creates ONE entry by design. Use the base64 feed for a multi-node subscription."
+          "description": "Sing-box JSON multi-node subscription. The payload contains standalone proxy outbounds only and deliberately omits inbound/DNS/route profile policy so compatible subscription updaters expand nodes independently."
         },
         {
           "match": {
@@ -61,11 +65,13 @@
           },
           "type": "XRAY",
           "tags": [
+            "subscription",
             "xray",
             "v2ray",
-            "core-config"
+            "json-nodes",
+            "multi-node"
           ],
-          "description": "Complete Xray-core 1.8+ / V2Ray client configuration. This is a whole profile, not a subscription: importing it as a subscription URL creates ONE entry by design. Use the base64 feed for a multi-node subscription."
+          "description": "Xray/V2Ray JSON multi-node subscription. The payload is outbounds-only, so compatible subscription updaters such as v2rayN import each outbound as an independent subscription item."
         },
         {
           "match": {
@@ -92,6 +98,21 @@
             "release-gate"
           ],
           "description": "Per-file ownership map tying each release artifact to its pipeline route"
+        },
+        {
+          "match": {
+            "kind": "contains",
+            "value": "clash"
+          },
+          "type": "CLASH",
+          "tags": [
+            "subscription",
+            "clash",
+            "mihomo",
+            "yaml-nodes",
+            "multi-node"
+          ],
+          "description": "Clash/Mihomo proxy-provider subscription. The payload contains only a proxies list of standalone nodes, so provider refresh updates independent proxy entries without importing routing, DNS, listeners, or proxy groups."
         },
         {
           "match": {
@@ -133,7 +154,7 @@
             "subscription",
             "json-nodes"
           ],
-          "description": "NekoBox-compatible JSON node feed: a top-level array of sing-box outbounds, which is what makes clients expand it into individual nodes. Wrapping the same outbounds in a configuration-shaped object would import as a single custom configuration instead."
+          "description": "NekoBox-compatible JSON node feed: a minimal object containing standalone sing-box outbounds and no DNS, route, or inbound policy. Current NekoBox expands those outbounds into independent nodes instead of treating the document as one full custom configuration."
         },
         {
           "match": {

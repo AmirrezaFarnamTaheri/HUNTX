@@ -159,8 +159,11 @@ class TestSingboxConfig(unittest.TestCase):
         raw = build_singbox_config_bytes("trojan://secret@t.example.com:443?sni=t.example.com#Node")
         self.assertTrue(raw)
         parsed = json.loads(raw.decode("utf-8"))
-        self.assertIn("outbounds", parsed)
-        self.assertIn("inbounds", parsed)
+        self.assertEqual(set(parsed), {"outbounds"})
+        self.assertEqual(len(parsed["outbounds"]), 1)
+        self.assertNotIn("inbounds", parsed)
+        self.assertNotIn("dns", parsed)
+        self.assertNotIn("route", parsed)
 
 
 class TestBuildPipelineSingboxDerivative(unittest.TestCase):
@@ -192,7 +195,9 @@ class TestBuildPipelineSingboxDerivative(unittest.TestCase):
 
         singbox_result = next(result for result in results if result["format"] == "npvt.singbox.json")
         parsed = json.loads(singbox_result["data"].decode("utf-8"))
-        self.assertIn("outbounds", parsed)
+        self.assertEqual(set(parsed), {"outbounds"})
+        self.assertEqual(len(parsed["outbounds"]), 1)
+        self.assertNotIn("inbounds", parsed)
 
     def test_no_singbox_derivative_when_no_parseable_uris(self):
         route_config = {"name": "route1", "formats": ["npvt"], "from_sources": ["src1"]}

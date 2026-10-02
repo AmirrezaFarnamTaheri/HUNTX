@@ -228,26 +228,38 @@ def test_tcp_probe_records_measured_latency_and_failure() -> None:
     assert succeeded[0]["latency"] == 42
 
 
-def test_catalog_tags_keep_client_configs_out_of_subscription_feeds() -> None:
-    """Complete client configs are profile imports; node feeds stay subscription-usable."""
+def test_catalog_tags_reserve_subscription_for_node_feeds() -> None:
+    """Only artifacts that expand into independent nodes may be subscriptions."""
     module = _load_site_generator()
     singbox_type, singbox_tags, singbox_desc = module._infer_tags_and_type(
         Path("release/all_sources_singbox.json"), "release"
     )
     assert singbox_type == "SINGBOX"
-    assert "subscription" not in singbox_tags
-    assert "not a subscription" in singbox_desc
+    assert "subscription" in singbox_tags
+    assert "json-nodes" in singbox_tags
+    assert "multi-node" in singbox_tags
+    assert "independent" in singbox_desc
     xray_type, xray_tags, _ = module._infer_tags_and_type(
         Path("release/all_sources_xray.json"), "release"
     )
     assert xray_type == "XRAY"
-    assert "subscription" not in xray_tags
+    assert "subscription" in xray_tags
+    assert "json-nodes" in xray_tags
+    assert "multi-node" in xray_tags
     nekobox_type, nekobox_tags, _ = module._infer_tags_and_type(
         Path("release/all_sources_nekobox.json"), "release"
     )
     assert nekobox_type == "NEKOBOX"
     assert "subscription" in nekobox_tags
     assert "json-nodes" in nekobox_tags
+    clash_type, clash_tags, clash_desc = module._infer_tags_and_type(
+        Path("release/all_sources_clash.yaml"), "release"
+    )
+    assert clash_type == "CLASH"
+    assert "subscription" in clash_tags
+    assert "yaml-nodes" in clash_tags
+    assert "multi-node" in clash_tags
+    assert "independent" in clash_desc
     raw_type, raw_tags, _ = module._infer_tags_and_type(
         Path("release/all_sources.txt"), "release"
     )
@@ -258,8 +270,8 @@ def test_catalog_tags_keep_client_configs_out_of_subscription_feeds() -> None:
     )
     assert b64_type == "B64SUB"
     assert "subscription" in b64_tags
-    # The base64 feed is the one link a client expands into every node, so it
-    # must be the one tagged as a multi-node subscription.
+    # Base64 is lossless across raw URI schemes, but the client-specific feeds
+    # are multi-node subscriptions too.
     assert "multi-node" in b64_tags
     npvt_type, npvt_tags, _ = module._infer_tags_and_type(
         Path("release/all_sources.npvt"), "release"
@@ -268,16 +280,14 @@ def test_catalog_tags_keep_client_configs_out_of_subscription_feeds() -> None:
     assert "subscription" in npvt_tags
 
 
-def test_frontend_feeds_filter_includes_json_node_feeds() -> None:
-    """The subscriptions filter offers tagged JSON node feeds; client configs are a separate bucket."""
+def test_frontend_feeds_filter_separates_node_subscriptions_from_full_configs() -> None:
+    """Client-format node feeds stay subscriptions instead of masquerading as configs."""
     application = (ROOT / "docs" / "assets" / "js" / "app.js").read_text(encoding="utf-8")
-    # The catalog tags NEKOBOX JSON node feeds as "subscription", and the
-    # subscriptions filter admits anything carrying that tag.
     subs = application.split('filter === "SUBSCRIPTIONS"')[1].split("} else if")[0]
     assert 'f.tags.includes("subscription")' in subs
-    # A JSON node feed is not a client config: the config bucket lists clients only.
     configs = application.split('filter === "CONFIGS"')[1].split("} else if")[0]
-    assert "NEKOBOX" not in configs
+    assert 'tags.includes("subscription")' in configs
+    assert "return false" in configs
 
 
 def test_unresolvable_servers_are_dropped_but_tcp_failures_kept() -> None:
@@ -403,6 +413,7 @@ def test_frontend_uses_only_canonical_product_artifact_names() -> None:
         # catalog, and the subscription link is resolved from it at click time.
         "all_sources_singbox.json",
         "all_sources_xray.json",
+        "all_sources_clash.yaml",
     ):
         assert canonical in application
 
@@ -420,17 +431,15 @@ def test_frontend_uses_only_canonical_product_artifact_names() -> None:
     ):
         assert stale not in application
 
-    # A subscription has to be a node list. The builder must keep the node feeds
-    # and the whole client configurations in separate sections, offer the former
-    # as "Copy subscription URL" and the latter only as a download, and say that
-    # a profile import creates a single entry.
-    assert "Subscriptions (add as a subscription URL)" in application
-    assert "Client profiles (download, do not add as a subscription)" in application
-    assert "Copy subscription URL" in application
-    assert "creates a single entry" in application
-    assert "btn-download-profile" in application
-    assert "NekoBox node feed" in application
-    assert "do not add as a subscription" in application
+    # Sing-box/Xray/Clash are node feeds: their generators omit full-profile
+    # policy specifically so subscription updates expand independent entries.
+    assert "Node subscriptions (separate entries)" in application
+    assert "Every link below is a subscription that expands into independent proxy entries" in application
+    assert "Copy Node Subscription URL" in application
+    assert "Sing-box JSON subscription" in application
+    assert "Xray JSON subscription" in application
+    assert "Clash / Mihomo subscription" in application
+    assert "NekoBox JSON subscription" in application
 
 
 def test_dashboard_only_generator_reuses_the_verified_catalog(tmp_path: Path) -> None:

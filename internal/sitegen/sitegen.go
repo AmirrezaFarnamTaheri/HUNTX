@@ -373,8 +373,8 @@ func formatSize(size int64) string {
 // artifactMeta classifies a published release artifact from the embedded
 // shared table, which is the same file scripts/generate_site_data.py reads.
 // Rules are evaluated in file order and the first match wins, so precedence
-// is data rather than code: "all_sources_singbox.json" is a Sing-box profile,
-// not the plain-text URI feed it would otherwise match.
+// is data rather than code: "all_sources_singbox.json" is a Sing-box node
+// subscription, not generic JSON metadata it would otherwise match.
 func artifactMeta(path string) (tags []string, description, kind string) {
 	name := strings.ToLower(filepath.Base(path))
 	kind = strings.TrimPrefix(strings.ToUpper(filepath.Ext(name)), ".")

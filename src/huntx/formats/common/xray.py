@@ -563,15 +563,29 @@ def build_xray_config(outbounds: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def build_xray_config_bytes(text: str) -> bytes:
-    """Render proxy text as UTF-8 Xray JSON, or empty bytes if nothing maps safely."""
+    """Render an outbounds-only Xray JSON subscription.
+
+    Omitting inbounds is deliberate: current v2rayN expands the outbounds of
+    such a subscription into independent items, whereas a document containing
+    both inbounds and outbounds is classified as one custom Xray configuration.
+    """
     try:
         outbounds = proxy_outbounds_from_uris(text.splitlines())
     except AttributeError:
         return b""
-    if not outbounds:
+    independent = [
+        outbound
+        for outbound in outbounds
+        if not (
+            outbound.get("streamSettings", {})
+            .get("sockopt", {})
+            .get("dialerProxy")
+        )
+    ]
+    if not independent:
         return b""
     return json.dumps(
-        build_xray_config(outbounds),
+        {"outbounds": independent},
         indent=2,
         ensure_ascii=False,
     ).encode("utf-8")

@@ -13,6 +13,7 @@ _DERIVED_FORMATS = {
     "singbox.json",
     "xray.json",
     "nekobox.json",
+    "clash.yaml",
 }
 _DERIVED_SUFFIXES = (
     ".b64sub",
@@ -21,6 +22,7 @@ _DERIVED_SUFFIXES = (
     ".singbox.json",
     ".xray.json",
     ".nekobox.json",
+    ".clash.yaml",
 )
 
 
@@ -54,7 +56,7 @@ def _validate_route_format(registry: FormatRegistry, route_name: str, fmt: str) 
         raise ValueError(
             f"Route {route_name} format {fmt!r} is a derived output, not a route input; "
             "configure 'npvt' and/or 'npvtsub' and HUNTX will generate supported "
-            "decoded/base64/raw/sing-box/Xray/NekoBox derivatives automatically"
+            "decoded/base64/raw/sing-box/Xray/NekoBox/Clash derivatives automatically"
         )
 
     registered = set(registry.list_formats())

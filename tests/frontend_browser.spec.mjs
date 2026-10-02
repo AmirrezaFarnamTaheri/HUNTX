@@ -221,7 +221,7 @@ test("a link whose protocol the decoder cannot model is reported, not rendered a
 });
 
 
-test("the subscription builder never offers a whole client profile as a subscription", async ({ page }) => {
+test("the subscription builder exposes only independent-node subscription URLs", async ({ page }) => {
   await isolateLocalPage(page);
   await page.goto("/");
   // The header re-renders continuously, so clicking the control is flaky, and a
@@ -232,7 +232,8 @@ test("the subscription builder never offers a whole client profile as a subscrip
   await page.evaluate(() => {
     const products = [
       "all_sources.txt", "all_sources_base64.txt", "all_sources_nekobox.json",
-      "all_sources_singbox.json", "all_sources_xray.json", "all_sources.json"
+      "all_sources_singbox.json", "all_sources_xray.json", "all_sources_clash.yaml",
+      "all_sources.json"
     ];
     window.huntxApp.catalog = {
       generated_at: "2026-09-29T00:00:00+00:00",
@@ -257,24 +258,23 @@ test("the subscription builder never offers a whole client profile as a subscrip
   const modal = page.locator("#modal-box");
   await expect(modal).toBeVisible();
 
-  // The two sections exist and are named so the distinction is unmissable.
-  await expect(modal).toContainText("Subscriptions (add as a subscription URL)");
-  await expect(modal).toContainText("Client profiles (download, do not add as a subscription)");
+  // Every copyable item is a node feed. Sing-box and Xray are generated
+  // without the full-profile envelope, so they belong here with Base64/raw/NekoBox.
+  await expect(modal).toContainText("Node subscriptions (separate entries)");
+  await expect(modal).toContainText("Every link below is a subscription that expands into independent proxy entries");
+  await expect(modal).toContainText("Sing-box JSON subscription");
+  await expect(modal).toContainText("Xray JSON subscription");
+  await expect(modal).toContainText("Clash / Mihomo subscription");
 
-  // Exactly the three node feeds are offered as subscriptions.
   const subscriptionButtons = modal.locator("button.btn-copy-custom");
-  await expect(subscriptionButtons).toHaveCount(3);
+  await expect(subscriptionButtons).toHaveCount(6);
   for (const label of await subscriptionButtons.allTextContents()) {
-    expect(label).toBe("Copy subscription URL");
+    expect(label).toBe("Copy Node Subscription URL");
   }
-
-  // The whole profiles are downloads, never copy-as-subscription buttons.
-  const profileLinks = modal.locator("a.btn-download-profile");
-  await expect(profileLinks).toHaveCount(2);
-  for (const href of await profileLinks.evaluateAll((els) => els.map((e) => e.getAttribute("href")))) {
-    expect(href).toMatch(/_(singbox|xray)\.json$/);
-  }
-  await expect(modal).toContainText("creates a single entry");
+  await expect(modal).not.toContainText("Copy Profile URL");
+  await expect(modal).not.toContainText("Sing-box full profile");
+  await expect(modal).not.toContainText("Xray full profile");
+  await expect(modal.locator("a.btn-download-profile")).toHaveCount(0);
 
   // The decoded dataset is inspection data, never a subscription candidate.
   await expect(modal).not.toContainText("all_sources.json");

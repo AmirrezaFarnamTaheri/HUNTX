@@ -134,23 +134,60 @@ def validate_zip_file(path: Path) -> Dict[str, Any]:
 
 
 def validate_json_file(path: Path) -> Dict[str, Any]:
-    """Validate a decoded or client JSON artifact."""
+    """Validate a decoded dataset or an independent-node JSON subscription."""
     stats: Dict[str, Any] = {"type": "json", "entries": 0, "protocols": Counter()}
 
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         if isinstance(data, list):
-            stats["entries"] = len(data)
-            for entry in data:
-                if not isinstance(entry, dict):
-                    continue
-                proto = entry.get("protocol") or entry.get("type", "unknown")
-                stats["protocols"][proto] += 1
+            items = data
+        elif isinstance(data, dict) and isinstance(data.get("outbounds"), list):
+            # Sing-box/Xray/NekoBox subscription artifacts intentionally carry
+            # node arrays without a full profile envelope. Count the children,
+            # not the JSON document itself.
+            items = list(data["outbounds"])
+            endpoints = data.get("endpoints")
+            if isinstance(endpoints, list):
+                items.extend(endpoints)
+        elif isinstance(data, dict) and isinstance(data.get("entries"), list):
+            items = data["entries"]
         elif isinstance(data, dict):
-            stats["entries"] = 1
+            items = [data]
+        else:
+            items = []
+
+        stats["entries"] = len(items)
+        for entry in items:
+            if not isinstance(entry, dict):
+                continue
+            proto = entry.get("protocol") or entry.get("type", "unknown")
+            stats["protocols"][proto] += 1
     except Exception as e:
         print(f"  ERROR: Invalid JSON: {e}")
 
+    return stats
+
+
+def validate_clash_subscription(path: Path) -> Dict[str, Any]:
+    """Validate HUNTX's proxies-only Mihomo provider without a YAML dependency."""
+    stats: Dict[str, Any] = {"type": "clash.yaml", "entries": 0, "protocols": Counter()}
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+        if not lines or lines[0].strip() != "proxies:":
+            raise ValueError("Clash subscription must start with a proxies: list")
+        for line in lines[1:]:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if not stripped.startswith("- "):
+                raise ValueError("Clash subscription contains profile-level YAML")
+            item = json.loads(stripped[2:])
+            if not isinstance(item, dict) or not item.get("name") or not item.get("type"):
+                raise ValueError("Clash subscription contains an invalid proxy mapping")
+            stats["entries"] += 1
+            stats["protocols"][str(item["type"])] += 1
+    except Exception as e:
+        print(f"  ERROR: Invalid Clash subscription: {e}")
     return stats
 
 
@@ -176,17 +213,22 @@ def validate_file(path: Path) -> Dict[str, Any]:
     # never ran for the canonical "<route>.json" the rename introduced.
     if _matches_derived_name(name, ".singbox.json", "_singbox.json"):
         stats = validate_json_file(path)
-        print(f"    sing-box config: {size_kb:.1f} KB")
+        print(f"    sing-box subscription: {stats['entries']} nodes  {size_kb:.1f} KB")
         return stats
 
     if _matches_derived_name(name, ".xray.json", "_xray.json"):
         stats = validate_json_file(path)
-        print(f"    Xray config: {size_kb:.1f} KB")
+        print(f"    Xray subscription: {stats['entries']} nodes  {size_kb:.1f} KB")
         return stats
 
     if _matches_derived_name(name, ".nekobox.json", "_nekobox.json"):
         stats = validate_json_file(path)
-        print(f"    NekoBox outbounds: {size_kb:.1f} KB")
+        print(f"    NekoBox subscription: {stats['entries']} nodes  {size_kb:.1f} KB")
+        return stats
+
+    if _matches_derived_name(name, ".clash.yaml", "_clash.yaml"):
+        stats = validate_clash_subscription(path)
+        print(f"    Clash/Mihomo subscription: {stats['entries']} nodes  {size_kb:.1f} KB")
         return stats
 
     if name.endswith(".b64sub") or name.endswith("_b64sub.txt") or name.endswith("_base64.txt"):
@@ -269,6 +311,8 @@ def main():
             format_counts["xray.json"] += 1
         elif _matches_derived_name(name, ".nekobox.json", "_nekobox.json"):
             format_counts["nekobox.json"] += 1
+        elif _matches_derived_name(name, ".clash.yaml", "_clash.yaml"):
+            format_counts["clash.yaml"] += 1
         elif name.endswith(".b64sub") or name.endswith("_b64sub.txt") or name.endswith("_base64.txt"):
             format_counts["b64sub"] += 1
         elif (
