@@ -280,6 +280,8 @@ def test_the_classification_table_is_the_single_source_of_truth(generator) -> No
         "all_sources_npvt_raw.txt",
         "all_sources_npvt_singbox.json",
         "all_sources_npvt_xray.json",
+        "all_sources_singbox_profile.json",
+        "all_sources_xray_profile.json",
     ]
     for name in shipped:
         kind, tags, description = generator._infer_tags_and_type(Path(name), "release")
@@ -294,6 +296,8 @@ def test_the_classification_table_is_the_single_source_of_truth(generator) -> No
         ("all_sources_xray.json", "XRAY"),
         ("all_sources_nekobox.json", "NEKOBOX"),
         ("all_sources_clash.yaml", "CLASH"),
+        ("all_sources_singbox_profile.json", "SINGBOX"),
+        ("all_sources_xray_profile.json", "XRAY"),
         ("all_sources.json", "JSON"),
         ("all_sources_base64.txt", "B64SUB"),
         ("all_sources.txt", "TXT"),
