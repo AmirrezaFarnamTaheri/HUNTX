@@ -2765,14 +2765,19 @@ export class AppState {
     const releaseCount = allFiles.filter(f => f.category === "release" || f.section === "release").length;
     const devCount = allFiles.filter(f => f.category === "dev" || f.section === "dev").length;
     const subsCount = allFiles.filter(f => f.type === "B64SUB" || f.ext === "B64SUB" || f.type === "NPVT" || f.ext === "NPVT" || (f.tags && f.tags.includes("subscription"))).length;
-    const configsCount = allFiles.filter(f => ["SINGBOX", "XRAY", "OVPN", "WARP", "CLASH"].includes(f.type || f.ext) || (f.tags && (f.tags.includes("singbox") || f.tags.includes("xray")))).length;
+    const configsCount = allFiles.filter(f => {
+      const tags = Array.isArray(f.tags) ? f.tags : [];
+      if (tags.includes("subscription")) return false;
+      return ["SINGBOX", "XRAY", "OVPN", "WARP", "CLASH"].includes(f.type || f.ext)
+        || tags.some(tag => ["singbox", "xray", "openvpn", "clash"].includes(tag));
+    }).length;
     const chunksCount = allFiles.filter(f => f.type === "CHUNK" || f.ext === "CHUNK" || (f.filename || f.name || "").includes("chunk_")).length;
 
     const categories = [
       { id: "ALL", label: `ALL (${allFiles.length})` },
       { id: "RELEASE", label: `PRODUCTION RELEASES (${releaseCount})` },
       { id: "DEV", label: `CUMULATIVE DEV (${devCount})` },
-      { id: "SUBSCRIPTIONS", label: `FEEDS (B64 / NPVT) (${subsCount})` },
+      { id: "SUBSCRIPTIONS", label: `SUBSCRIPTIONS (${subsCount})` },
       { id: "CONFIGS", label: `CORE CONFIGS (${configsCount})` },
       { id: "CHUNKS", label: `SPLIT CHUNKS (${chunksCount})` }
     ].filter((category) => category.id === "ALL" || !category.label.endsWith("(0)"));
