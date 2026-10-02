@@ -414,6 +414,8 @@ def test_frontend_uses_only_canonical_product_artifact_names() -> None:
         "all_sources_singbox.json",
         "all_sources_xray.json",
         "all_sources_clash.yaml",
+        "all_sources_singbox_profile.json",
+        "all_sources_xray_profile.json",
     ):
         assert canonical in application
 
@@ -440,6 +442,10 @@ def test_frontend_uses_only_canonical_product_artifact_names() -> None:
     assert "Xray JSON subscription" in application
     assert "Clash / Mihomo subscription" in application
     assert "NekoBox JSON subscription" in application
+    assert "Full runnable profiles (download only)" in application
+    assert "Sing-box full profile" in application
+    assert "Xray full profile" in application
+    assert "btn-download-profile" in application
 
 
 def test_dashboard_only_generator_reuses_the_verified_catalog(tmp_path: Path) -> None:
