@@ -125,6 +125,8 @@ func TestArtifactMetaClassifiesEveryShippedFormat(t *testing.T) {
 		"all_sources_singbox.json",
 		"all_sources_xray.json",
 		"all_sources_clash.yaml",
+		"all_sources_singbox_profile.json",
+		"all_sources_xray_profile.json",
 		// The frozen aliases published under earlier names.
 		"all_sources_npvt_b64sub.txt",
 		"all_sources_npvt_decoded.json",
@@ -188,6 +190,37 @@ func TestArtifactMetaMarksClientNodeFeedsAsSubscriptions(t *testing.T) {
 	}
 }
 
+func TestArtifactMetaMarksFullProfilesAsClientConfigs(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		kind string
+	}{
+		{"all_sources_singbox_profile.json", "SINGBOX"},
+		{"all_sources_xray_profile.json", "XRAY"},
+	} {
+		tags, _, kind := artifactMeta(tc.name)
+		if kind != tc.kind {
+			t.Errorf("%s: kind = %q, want %q", tc.name, kind, tc.kind)
+		}
+		hasClientConfig := false
+		hasFullConfig := false
+		for _, tag := range tags {
+			if tag == "subscription" {
+				t.Errorf("%s: full profile must not carry subscription tag", tc.name)
+			}
+			if tag == "client-config" {
+				hasClientConfig = true
+			}
+			if tag == "full-config" {
+				hasFullConfig = true
+			}
+		}
+		if !hasClientConfig || !hasFullConfig {
+			t.Errorf("%s: tags = %v, want client-config + full-config", tc.name, tags)
+		}
+	}
+}
+
 // TestEmbeddedTableIsTheOnePythonReads pins the single-source-of-truth claim:
 // the bytes the Go tool compiles in must be the same bytes on disk that
 // scripts/generate_site_data.py::_infer_tags_and_type reads. A copy of the
@@ -215,6 +248,8 @@ func TestEmbeddedTableIsTheOnePythonReads(t *testing.T) {
 		"all_sources_nekobox.json",
 		"all_sources.npvt.nekobox.json",
 		"all_sources_clash.yaml",
+		"all_sources_singbox_profile.json",
+		"all_sources_xray_profile.json",
 		"all_sources_base64.txt",
 		"all_sources.npvt.b64sub",
 		"all_sources.npvt",
@@ -255,6 +290,8 @@ func TestEmbeddedTablePrecedenceIsSpecificToGeneric(t *testing.T) {
 		{"all_sources_npvt_nekobox.json", "NEKOBOX"},
 		{"all_sources.npvt.clash.yaml", "CLASH"},
 		{"all_sources_clash.yaml", "CLASH"},
+		{"all_sources_singbox_profile.json", "SINGBOX"},
+		{"all_sources_xray_profile.json", "XRAY"},
 		{"all_sources.npvt.decoded.json", "JSON"},
 		{"all_sources_npvt_decoded.json", "JSON"},
 		{"all_sources.npvt.raw.txt", "TXT"},
