@@ -562,6 +562,21 @@ def build_xray_config(outbounds: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def build_xray_profile_bytes(text: str) -> bytes:
+    """Render the complete runnable Xray client profile."""
+    try:
+        outbounds = proxy_outbounds_from_uris(text.splitlines())
+    except AttributeError:
+        return b""
+    if not outbounds:
+        return b""
+    return json.dumps(
+        build_xray_config(outbounds),
+        indent=2,
+        ensure_ascii=False,
+    ).encode("utf-8")
+
+
 def build_xray_config_bytes(text: str) -> bytes:
     """Render an outbounds-only Xray JSON subscription.
 
