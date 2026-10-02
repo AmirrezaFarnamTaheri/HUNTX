@@ -164,6 +164,22 @@ def test_subscription_tagged_outputs_are_independent_node_feeds(generator) -> No
         assert "independent" in description.lower()
 
 
+def test_full_client_profiles_are_not_subscription_feeds(generator) -> None:
+    """Runnable profile downloads stay distinct from independent-node feeds."""
+    for name, expected_type in (
+        ("all_sources_singbox_profile.json", "SINGBOX"),
+        ("all_sources_xray_profile.json", "XRAY"),
+    ):
+        kind, tags, description = generator._infer_tags_and_type(
+            Path("release") / name, "release"
+        )
+        assert kind == expected_type
+        assert "client-config" in tags
+        assert "full-config" in tags
+        assert "subscription" not in tags
+        assert "complete runnable" in description.lower()
+
+
 def test_every_registered_format_has_a_serializer(generator) -> None:
     """A format the registry ships but no serializer test builds is an unenforced contract."""
     from huntx.formats.register_builtin import register_all_formats
