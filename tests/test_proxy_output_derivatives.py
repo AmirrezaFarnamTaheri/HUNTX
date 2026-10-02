@@ -42,9 +42,11 @@ def _build_results(proxy_text: bytes):
     return results, artifact_store
 
 
-def test_proxy_derivatives_empty_input_keeps_six_result_slots():
+def test_proxy_derivatives_early_returns_keep_six_result_slots():
     pipeline = BuildPipeline(Mock(), Mock(), Mock())
-    assert pipeline._proxy_derivatives(b"   \n") == (b"", b"", b"", b"", b"", b"")
+    expected = (b"", b"", b"", b"", b"", b"")
+    assert pipeline._proxy_derivatives(b"   \n") == expected
+    assert pipeline._proxy_derivatives(None) == expected  # type: ignore[arg-type]
 
 
 def test_proxy_build_emits_raw_xray_and_nekobox_derivatives():
