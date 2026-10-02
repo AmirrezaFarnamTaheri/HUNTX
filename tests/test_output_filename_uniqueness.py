@@ -85,6 +85,14 @@ def test_the_primary_feed_keeps_the_undotted_conventional_names() -> None:
     assert output_filename("all_sources", "npvt.xray.json") == "all_sources_xray.json"
     assert output_filename("all_sources", "npvt.nekobox.json") == "all_sources_nekobox.json"
     assert output_filename("all_sources", "npvt.clash.yaml") == "all_sources_clash.yaml"
+    assert (
+        output_filename("all_sources", "npvt.singbox.profile.json")
+        == "all_sources_singbox_profile.json"
+    )
+    assert (
+        output_filename("all_sources", "npvt.xray.profile.json")
+        == "all_sources_xray_profile.json"
+    )
 
 
 def test_the_secondary_feed_gets_the_sub_stem() -> None:
@@ -95,6 +103,14 @@ def test_the_secondary_feed_gets_the_sub_stem() -> None:
     assert output_filename("all_sources", "npvtsub.xray.json") == "all_sources_sub_xray.json"
     assert output_filename("all_sources", "npvtsub.nekobox.json") == "all_sources_sub_nekobox.json"
     assert output_filename("all_sources", "npvtsub.clash.yaml") == "all_sources_sub_clash.yaml"
+    assert (
+        output_filename("all_sources", "npvtsub.singbox.profile.json")
+        == "all_sources_sub_singbox_profile.json"
+    )
+    assert (
+        output_filename("all_sources", "npvtsub.xray.profile.json")
+        == "all_sources_sub_xray_profile.json"
+    )
 
 
 def test_an_empty_stem_is_a_value_not_a_missing_key() -> None:
