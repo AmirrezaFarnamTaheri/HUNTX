@@ -3812,6 +3812,10 @@ export class AppState {
       ["all_sources_clash.yaml", "Clash / Mihomo subscription", "Proxy-provider YAML containing only independent entries under proxies. Refreshing the provider updates the node list without importing a full profile.", "violet", false],
       ["all_sources_nekobox.json", "NekoBox JSON subscription", "Minimal outbounds container with no profile-level routing/DNS; current NekoBox expands each outbound independently.", "amber", false],
     ].map(([filename, label, description, color, recommended]) => ({ filename, label, description, color, recommended, file: findArtifact(filename) }));
+    const profileDownloads = [
+      ["all_sources_singbox_profile.json", "Sing-box full profile", "Complete runnable Sing-box configuration with inbound, DNS, routing and selector policy.", "sky"],
+      ["all_sources_xray_profile.json", "Xray full profile", "Complete runnable Xray configuration with local inbound and full configuration envelope.", "indigo"],
+    ].map(([filename, label, description, color]) => ({ filename, label, description, color, file: findArtifact(filename) }));
     const feedCard = ({ label, description, color, file, recommended, copyLabel }) => {
       if (!file) return "";
       const link = getArtifactLinkModel(file.path);
@@ -3828,6 +3832,24 @@ export class AppState {
         </div>
         <div class="mt-3 flex items-center justify-end gap-2">
           <button class="btn-copy-custom px-3 py-1.5 min-h-[44px] bg-${color}-500 text-${color === "indigo" ? "white" : "gray-950"} font-bold rounded-lg text-xs cursor-pointer focus-ring" data-url="${escapeHTML(link.copyValue)}" data-absolute="${link.isAbsolute}" data-copy-message="Node subscription URL copied">${escapeHTML(action)}</button>
+        </div>
+      </div>`;
+    };
+    const profileCard = ({ label, description, color, file }) => {
+      if (!file) return "";
+      const link = getArtifactLinkModel(file.path);
+      return `
+      <div class="p-3.5 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs flex flex-col justify-between">
+        <div>
+          <span class="text-gray-200 font-bold block">${escapeHTML(label)}</span>
+          <span class="text-xs text-gray-500 block mt-0.5">${escapeHTML(description)}</span>
+        </div>
+        <div class="mt-3 rounded-lg border border-gray-800 bg-black/20 px-2.5 py-2">
+          <div class="text-xs uppercase tracking-wider text-gray-500 mb-1">${escapeHTML(link.sourceLabel)}</div>
+          <div class="text-xs text-${color}-300 break-all">${escapeHTML(link.display)}</div>
+        </div>
+        <div class="mt-3 flex items-center justify-end gap-2">
+          <a class="btn-download-profile px-3 py-1.5 min-h-[44px] inline-flex items-center bg-gray-800 hover:bg-${color}-500 hover:text-gray-950 text-gray-200 font-bold rounded-lg text-xs cursor-pointer focus-ring" href="${escapeHTML(link.copyValue)}" download>Download Full Profile</a>
         </div>
       </div>`;
     };
@@ -3854,6 +3876,15 @@ export class AppState {
               <p class="text-xs text-gray-500 mb-2">Each of these expands into individual proxy entries. Use this when you want nodes listed separately.</p>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 ${subscriptionFeeds.map(feedCard).join("") || `<p class="col-span-full rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-xs text-amber-200">No compatible production profiles are in this published catalog.</p>`}
+              </div>
+            </div>
+
+            <!-- Full profiles remain separate from subscription URLs. -->
+            <div>
+              <span class="text-xs font-mono font-bold text-amber-400 uppercase tracking-wider block mb-1">2. Full runnable profiles (download only)</span>
+              <p class="text-xs text-gray-500 mb-2">Use these only when you want one complete client configuration. They are not the URLs used for independent-node subscription updates.</p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                ${profileDownloads.map(profileCard).join("") || `<p class="col-span-full rounded-xl border border-gray-800 bg-gray-950 p-3 text-xs text-gray-500">No full-profile downloads are in this published catalog.</p>`}
               </div>
             </div>
 
