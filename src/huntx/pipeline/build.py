@@ -243,10 +243,10 @@ class BuildPipeline:
         try:
             text = artifact_bytes.decode('utf-8', errors='ignore')
         except (AttributeError, UnicodeDecodeError):
-            return b'', b'', b'', b'', b'', b'', b''
+            return b'', b'', b'', b'', b'', b''
         stripped = text.strip()
         if not stripped:
-            return b'', b'', b'', b'', b''
+            return b'', b'', b'', b'', b'', b''
         return (
             self._decode_proxy_text(text),
             base64.b64encode(stripped.encode('utf-8')),
