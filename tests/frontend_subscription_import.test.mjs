@@ -101,6 +101,7 @@ test("Sing-box, Xray and Clash feeds are valid node subscriptions", () => {
   const clashOnly = pickSubscriptionArtifact([jsonFeeds[2]]);
   assert.ok(clashOnly);
   assert.equal(clashOnly.filename, "all_sources_clash.yaml");
+  assert.equal(clashOnly.label, "Clash/Mihomo provider");
 
   const withBase64 = [...jsonFeeds, { filename: "all_sources_base64.txt", path: "p/b", tags: ["release", "subscription", "base64", "multi-node"] }];
   assert.equal(pickSubscriptionArtifact(withBase64).filename, "all_sources_base64.txt");
