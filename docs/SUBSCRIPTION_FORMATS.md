@@ -72,3 +72,14 @@ threads already executing a parser cannot be forcibly killed by
 `ThreadPoolExecutor.cancel()`. Hard process-level limits would require
 a separately supervised worker process and remain outside the threaded
 runner's present guarantee.
+
+## Distribution installation safety
+
+The verifier copies candidate outputs into a fresh staging directory and
+validates those exact bytes before publication. Duplicate filenames from
+different output subdirectories, symlinked artifacts, and empty releases
+without an explicit nonempty marker fail validation. Only after all products
+and helper files are prepared does the installer rename the prior `dist`
+out of the way and publish the staged directory; a detected installation
+failure restores the previous directory. Publication is not a distributed
+transaction or a guarantee against sudden power loss during the two renames.

@@ -156,3 +156,100 @@ def test_invalid_artifact_cannot_erase_last_good_dist(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match="refusing to publish malformed"):
         verifier.main()
     assert (dist / "last-good.txt").read_text(encoding="utf-8") == "retained"
+
+
+def test_copy_error_preserves_existing_dist(tmp_path, monkeypatch):
+    verifier = _load_verify_output()
+    outputs = tmp_path / "outputs"
+    dist = tmp_path / "dist"
+    outputs.mkdir()
+    dist.mkdir()
+    (outputs / "all_sources.txt").write_text("vless://id@example.test:443#node\n", encoding="utf-8")
+    (dist / "previous.txt").write_text("safe", encoding="utf-8")
+    monkeypatch.setattr(verifier, "OUTPUT_DIR", outputs)
+    monkeypatch.setattr(verifier, "DIST_DIR", dist)
+
+    def fail_copy(*_args, **_kwargs):
+        raise OSError("simulated disk exhaustion")
+
+    monkeypatch.setattr(verifier.shutil, "copy2", fail_copy)
+    with pytest.raises(OSError, match="simulated disk exhaustion"):
+        verifier.main()
+    assert (dist / "previous.txt").read_text(encoding="utf-8") == "safe"
+
+
+def test_install_rename_error_rolls_back_previous_dist(tmp_path, monkeypatch):
+    verifier = _load_verify_output()
+    outputs = tmp_path / "outputs"
+    dist = tmp_path / "dist"
+    outputs.mkdir()
+    dist.mkdir()
+    (outputs / "all_sources.txt").write_text("vless://id@example.test:443#node\n", encoding="utf-8")
+    (dist / "previous.txt").write_text("safe", encoding="utf-8")
+    monkeypatch.setattr(verifier, "OUTPUT_DIR", outputs)
+    monkeypatch.setattr(verifier, "DIST_DIR", dist)
+    real_replace = verifier.os.replace
+
+    def rename(src, dst):
+        if Path(src).name == "prepared" and Path(dst) == dist:
+            raise OSError("simulated directory installation failure")
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(verifier.os, "replace", rename)
+    with pytest.raises(OSError, match="simulated directory installation failure"):
+        verifier.main()
+    assert (dist / "previous.txt").read_text(encoding="utf-8") == "safe"
+
+
+def test_successful_install_removes_old_dist_files(tmp_path, monkeypatch):
+    verifier = _load_verify_output()
+    outputs = tmp_path / "outputs"
+    dist = tmp_path / "dist"
+    outputs.mkdir()
+    dist.mkdir()
+    (dist / "obsolete.txt").write_text("old", encoding="utf-8")
+    payload = "vless://id@example.test:443#node\n"
+    (outputs / "all_sources.txt").write_text(payload, encoding="utf-8")
+    monkeypatch.setattr(verifier, "OUTPUT_DIR", outputs)
+    monkeypatch.setattr(verifier, "DIST_DIR", dist)
+    verifier.main()
+    assert not (dist / "obsolete.txt").exists()
+    assert (dist / "all_sources.txt").read_text(encoding="utf-8") == payload
+    assert (dist / "verify_output.py").is_file()
+
+
+def test_flattened_output_collisions_are_rejected_without_mutating_dist(tmp_path, monkeypatch):
+    verifier = _load_verify_output()
+    outputs = tmp_path / "outputs"
+    dist = tmp_path / "dist"
+    (outputs / "a").mkdir(parents=True)
+    (outputs / "b").mkdir()
+    dist.mkdir()
+    (outputs / "a" / "feed.txt").write_text("vless://id@example.test:443#one\n")
+    (outputs / "b" / "feed.txt").write_text("vless://id@example.test:443#two\n")
+    (dist / "old.txt").write_text("safe")
+    monkeypatch.setattr(verifier, "OUTPUT_DIR", outputs)
+    monkeypatch.setattr(verifier, "DIST_DIR", dist)
+    with pytest.raises(RuntimeError, match="Conflicting generated output filename"):
+        verifier.main()
+    assert (dist / "old.txt").read_text() == "safe"
+
+
+def test_symlinked_generated_artifact_is_rejected_without_mutating_dist(tmp_path, monkeypatch):
+    verifier = _load_verify_output()
+    outputs = tmp_path / "outputs"
+    dist = tmp_path / "dist"
+    outputs.mkdir()
+    dist.mkdir()
+    secret = tmp_path / "secret.txt"
+    secret.write_text("should-not-be-published")
+    try:
+        (outputs / "feed.txt").symlink_to(secret)
+    except (NotImplementedError, OSError):
+        pytest.skip("symlinks unavailable on this filesystem")
+    (dist / "old.txt").write_text("safe")
+    monkeypatch.setattr(verifier, "OUTPUT_DIR", outputs)
+    monkeypatch.setattr(verifier, "DIST_DIR", dist)
+    with pytest.raises(RuntimeError, match="Refusing symlinked generated output"):
+        verifier.main()
+    assert (dist / "old.txt").read_text() == "safe"

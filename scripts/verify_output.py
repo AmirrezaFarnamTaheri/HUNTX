@@ -2,6 +2,7 @@ import os
 import base64
 import json
 import shutil
+import tempfile
 import zipfile
 from collections import Counter
 from pathlib import Path
@@ -311,36 +312,47 @@ def validate_file(path: Path) -> Dict[str, Any]:
     return stats
 
 
-def main():
-    print("═══ HUNTX Output Verification ═══")
-    print(f"Output: {OUTPUT_DIR}")
-    print(f"Dist:   {DIST_DIR}")
+def _prepare_verified_dist(staged: Path) -> tuple[int, int, Counter]:
+    """Copy first, then validate those exact bytes before publication.
 
-    if not OUTPUT_DIR.exists():
-        print("\nOutput directory does not exist. Run the pipeline first.")
-        return
-
+    Copying only after checking source files left a race where a generated
+    file could change between validation and distribution. Flattening nested
+    output paths is historically supported, but duplicate basenames must be
+    rejected rather than silently overwriting another source's contents.
+    """
     all_outbounds: List[Dict[str, Any]] = []
-    valid_files: list[Path] = []
     invalid_files: list[str] = []
+    seen_names: set[str] = set()
     file_count = 0
     total_size = 0
     format_counts: Counter = Counter()
-
+    staged_outputs = 0
     print("\n── Validating output files ──")
 
     for item in sorted(OUTPUT_DIR.rglob("*")):
+        if item.is_symlink():
+            raise RuntimeError(f"Refusing symlinked generated output: {item}")
         if not item.is_file():
             continue
-
-        stats = validate_file(item)
+        if item.name in seen_names:
+            raise RuntimeError(f"Conflicting generated output filename: {item.name}")
+        if item.name in {"verify_output.py", "v2ray_test_config.json"}:
+            raise RuntimeError(f"Generated output conflicts with a verifier-owned name: {item.name}")
+        seen_names.add(item.name)
+        staged_file = staged / item.name
+        # The source may be modified while validation runs, so validate the
+        # immutable staged copy rather than the original input path.
+        shutil.copy2(item, staged_file)
+        stats = validate_file(staged_file)
         if stats.get("invalid"):
             invalid_files.append(item.name)
+        if staged_file.stat().st_size == 0:
+            staged_file.unlink()
         else:
-            valid_files.append(item)
+            staged_outputs += 1
         file_count += 1
-        fsize = item.stat().st_size
-        total_size += fsize
+        size = item.stat().st_size
+        total_size += size
 
         # Track format, in the same precedence order as validate_file so the
         # counts and the per-file report never disagree. The base64 test has to
@@ -380,7 +392,6 @@ def main():
         else:
             format_counts[suffix or "unknown"] += 1
 
-        # Collect outbounds from text files
         if stats.get("outbounds"):
             all_outbounds.extend(stats["outbounds"])
 
@@ -389,41 +400,56 @@ def main():
             "Output verification failed, refusing to publish malformed artifacts: "
             + ", ".join(sorted(invalid_files))
         )
-    # Only replace the previous dist after every candidate artifact has
-    # passed verification. Malformed output must not erase a known-good dist.
+    if not staged_outputs:
+        raise RuntimeError("Output verification found no nonempty release artifacts")
+    # Build helper files only after all generated products have been verified.
+    shutil.copy2(__file__, staged / "verify_output.py")
+    if all_outbounds:
+        config = generate_v2ray_config(all_outbounds)
+        (staged / "v2ray_test_config.json").write_text(
+            json.dumps(config, indent=2), encoding="utf-8"
+        )
+    return file_count, total_size, format_counts
+
+
+def _install_verified_dist(staged: Path) -> None:
+    """Replace distribution as a directory, rolling back on rename failure."""
+    previous = staged.parent / "previous"
+    moved_old = False
+    if DIST_DIR.is_symlink() or (DIST_DIR.exists() and not DIST_DIR.is_dir()):
+        raise RuntimeError(f"Refusing non-directory distribution target: {DIST_DIR}")
     if DIST_DIR.exists():
-        dist = DIST_DIR.resolve()
-        if dist.name.lower() != "dist" or len(dist.parts) < 3:
-            raise RuntimeError(f"Refusing to delete non-dist directory: {dist}")
-        shutil.rmtree(dist)
-    DIST_DIR.mkdir(parents=True, exist_ok=True)
+        os.replace(DIST_DIR, previous)
+        moved_old = True
+    try:
+        os.replace(staged, DIST_DIR)
+    except BaseException:
+        if moved_old:
+            os.replace(previous, DIST_DIR)
+        raise
 
-    for item in valid_files:
-        if item.stat().st_size > 0:
-            shutil.copy2(item, DIST_DIR / item.name)
 
+def main() -> None:
+    """Verify every output and publish the entire distribution or none of it."""
+    print("═══ HUNTX Output Verification ═══")
+    print(f"Output: {OUTPUT_DIR}")
+    print(f"Dist:   {DIST_DIR}")
+    if not OUTPUT_DIR.is_dir():
+        raise FileNotFoundError(f"Output directory does not exist: {OUTPUT_DIR}")
+    resolved_dist = DIST_DIR.resolve()
+    if DIST_DIR.is_symlink() or resolved_dist.name.lower() != "dist" or len(resolved_dist.parts) < 3:
+        raise RuntimeError(f"Refusing unsafe distribution target: {DIST_DIR}")
+    DIST_DIR.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".huntx-dist-verify-", dir=DIST_DIR.parent) as scratch:
+        staged = Path(scratch) / "prepared"
+        staged.mkdir()
+        file_count, total_size, format_counts = _prepare_verified_dist(staged)
+        _install_verified_dist(staged)
     print("\n── Summary ──")
     print(f"Files: {file_count}  Total size: {total_size / 1024:.1f} KB")
     fmts = ", ".join(f"{k}:{v}" for k, v in format_counts.most_common())
     print(f"Formats: [{fmts}]")
-
-    if file_count > 0:
-        print(f"Artifacts copied to {DIST_DIR}")
-
-        # Copy this script
-        shutil.copy2(__file__, DIST_DIR / "verify_output.py")
-
-        # Generate V2Ray test config from vmess outbounds
-        if all_outbounds:
-            config_data = generate_v2ray_config(all_outbounds)
-            config_path = DIST_DIR / "v2ray_test_config.json"
-            with open(config_path, "w") as stream:
-                json.dump(config_data, stream, indent=2)
-            print(
-                f"Generated V2Ray test config: {config_path} ({len(all_outbounds)} outbounds) - manual check recommended."
-            )
-    else:
-        print("No valid artifacts found.")
+    print(f"Verified artifacts published to {DIST_DIR}")
 
 
 if __name__ == "__main__":
