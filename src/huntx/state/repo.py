@@ -752,8 +752,11 @@ class StateRepo:
                     (intent_id, destination_id, previous_state, resulting_state,
                      operator, reason, remote_receipt, reconciled_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (intent_id, destination_id, row["state"], state,
-                       operator.strip(), reason.strip(), remote_receipt, now),
+                """,
+                (
+                    intent_id, destination_id, row["state"], state,
+                    operator.strip(), reason.strip(), remote_receipt, now,
+                ),
             )
 
     def complete_publication_intent(self, intent_id: int) -> None:
