@@ -4,7 +4,9 @@ Authority:
     RIPE Atlas Multi-Vantage Global Measurement Methodologies: https://atlas.ripe.net/docs/
     RFC 2679 (A One-Way Delay Metric for IPPM): https://datatracker.ietf.org/doc/html/rfc2679
 """
+import math
 import statistics
+from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import List, Dict
 
@@ -39,6 +41,26 @@ class VantageFleetAggregator:
 
     def aggregate(self, target_id: str, observations: List[ProbeObservation]) -> FleetConsensusVerdict:
         """Calculate multi-region reachability consensus, median latency, and geoblocking flags."""
+        # Every probe can vote at most once per target. Telemetry from a
+        # different target or a malformed measurement must never influence
+        # the target's reachability, geographic verdict, or median latency.
+        unique: Dict[str, ProbeObservation] = {}
+        for obs in observations:
+            if obs.target_id != target_id or not isinstance(obs.probe_id, str) or not obs.probe_id.strip():
+                continue
+            if obs.probe_id in unique or not isinstance(obs.region, str) or not obs.region.strip():
+                continue
+            if not isinstance(obs.is_alive, bool):
+                continue
+            if obs.is_alive and (
+                isinstance(obs.latency_ms, bool)
+                or not isinstance(obs.latency_ms, (int, float))
+                or not math.isfinite(obs.latency_ms)
+                or obs.latency_ms < 0
+            ):
+                continue
+            unique[obs.probe_id] = obs
+        observations = list(unique.values())
         if not observations:
             return FleetConsensusVerdict(
                 target_id=target_id,
@@ -50,7 +72,7 @@ class VantageFleetAggregator:
 
         alive_count = 0
         latencies: List[float] = []
-        regional_latencies: Dict[str, float] = {}
+        regional_measurements: Dict[str, List[float]] = defaultdict(list)
         blocked_regions: List[str] = []
         alive_non_domestic = False
         domestic_observations = 0
@@ -62,7 +84,7 @@ class VantageFleetAggregator:
             if obs.is_alive:
                 alive_count += 1
                 latencies.append(obs.latency_ms)
-                regional_latencies[region] = obs.latency_ms
+                regional_measurements[region].append(float(obs.latency_ms))
                 if region != self.domestic_region:
                     alive_non_domestic = True
                 else:
@@ -77,6 +99,10 @@ class VantageFleetAggregator:
         total_probes = len(observations)
         reachability_ratio = alive_count / total_probes if total_probes > 0 else 0.0
         median_lat = float(statistics.median(latencies)) if latencies else 0.0
+        regional_latencies = {
+            region: float(statistics.median(values))
+            for region, values in regional_measurements.items()
+        }
 
         # Geoblocking heuristic: Alive internationally but unreachable domestically
         is_geoblocked = alive_non_domestic and domestic_observations > 0 and dead_in_domestic == domestic_observations and alive_in_domestic == 0
@@ -87,6 +113,6 @@ class VantageFleetAggregator:
             reporting_probes_count=total_probes,
             median_latency_ms=median_lat,
             is_geoblocked=is_geoblocked,
-            blocked_regions=blocked_regions,
+            blocked_regions=sorted(set(blocked_regions)),
             regional_latencies=regional_latencies
         )

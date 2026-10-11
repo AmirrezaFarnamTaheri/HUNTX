@@ -44,6 +44,12 @@ class ProxyScoringEngine:
 
         Score = 40.0 + max(0, 25 - latency/4) + Sum(Ws) + min(15, speed_mbps * 3) + carrier_boost - penalties
         """
+        # External telemetry can contain NaN, infinity, missing and negative
+        # measurements. Normalize before both arithmetic and threshold checks.
+        latency_ms = _finite_metric(latency_ms, default=0.0, minimum=0.0)
+        speed_mbps = _finite_metric(speed_mbps, default=0.0, minimum=0.0)
+        packet_loss = _finite_metric(packet_loss, default=0.0, minimum=0.0, maximum=100.0)
+        security_type = security_type.lower() if isinstance(security_type, str) else "none"
         base_score = 40.0
 
         # 1. Latency component
@@ -59,7 +65,7 @@ class ProxyScoringEngine:
 
         # 4. Carrier alignment
         carrier_boost = 0.0
-        if carrier and target_isp and carrier.strip().lower() == target_isp.strip().lower():
+        if isinstance(carrier, str) and isinstance(target_isp, str) and carrier.strip().lower() == target_isp.strip().lower():
             carrier_boost = 5.0
 
         # 5. Penalties

@@ -35,3 +35,31 @@ def test_fleet_aggregator_detects_domestic_geoblock():
     assert verdict.consensus_reachability == pytest.approx(0.666, rel=1e-2)
     assert verdict.is_geoblocked is True
     assert "IR" in verdict.blocked_regions
+
+
+def test_fleet_consensus_uses_one_observation_per_probe_and_exact_target():
+    aggregator = VantageFleetAggregator(domestic_region="IR")
+    observations = [
+        ProbeObservation("p-us", "US", "target-1", 40.0, True),
+        ProbeObservation("p-us", "US", "target-1", 40.0, True),
+        ProbeObservation("p-other", "IR", "target-2", 0.0, False),
+        ProbeObservation("p-ir", "IR", "target-1", 0.0, False),
+        ProbeObservation("p-nan", "US", "target-1", float("nan"), True),
+    ]
+    verdict = aggregator.aggregate("target-1", observations)
+    assert verdict.reporting_probes_count == 2
+    assert verdict.consensus_reachability == 0.5
+    assert verdict.is_geoblocked is True
+    assert verdict.median_latency_ms == 40.0
+    assert verdict.regional_latencies == {"US": 40.0}
+    assert verdict.blocked_regions == ["IR"]
+
+
+def test_fleet_region_latency_is_median_not_last_writer():
+    aggregator = VantageFleetAggregator()
+    observations = [
+        ProbeObservation("first", "US", "node", 10.0, True),
+        ProbeObservation("second", "US", "node", 100.0, True),
+        ProbeObservation("third", "US", "node", 20.0, True),
+    ]
+    assert aggregator.aggregate("node", observations).regional_latencies["US"] == 20.0
