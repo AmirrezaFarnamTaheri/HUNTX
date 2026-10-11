@@ -8,7 +8,7 @@ COPY cmd/huntx-probe/ ./cmd/huntx-probe/
 COPY cmd/huntx-engine/ ./cmd/huntx-engine/
 RUN CGO_ENABLED=0 GOOS=linux go build -mod=readonly -ldflags="-s -w" -o /huntx-probe ./cmd/huntx-probe
 
-FROM alpine:3.20
+FROM alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 RUN adduser -D -u 10001 huntx
 USER 10001
 COPY --from=builder /huntx-probe /usr/local/bin/huntx-probe
