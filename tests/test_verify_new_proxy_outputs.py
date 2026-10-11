@@ -133,6 +133,7 @@ def test_node_and_profile_json_contracts_are_not_interchangeable(tmp_path):
         result = verifier.validate_file(file)
         assert bool(result.get("invalid")) is should_fail, (filename, result)
 
+
 def test_legacy_nekobox_array_keeps_import_compatibility(tmp_path):
     verifier = _load_verify_output()
     file = tmp_path / "all_sources_nekobox.json"
