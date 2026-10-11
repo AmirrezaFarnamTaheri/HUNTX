@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 import os
 import time
 import uuid
@@ -11,6 +12,8 @@ from pathlib import Path
 from typing import AsyncIterator
 
 from ..utils.atomic import atomic_write
+
+logger = logging.getLogger(__name__)
 
 
 class SessionLeaseTimeout(RuntimeError):
@@ -223,5 +226,15 @@ async def acquire_session_lease(
         try:
             await heartbeat_task
         finally:
-            # A failed heartbeat must never skip ownership-fenced release.
-            _remove_if_owned(path, lease_id)
+            # Reap-marker contention is transient. Retry ownership-fenced
+            # cleanup without ever deleting a newer worker's lease.
+            for attempt in range(20):
+                if _remove_if_owned(path, lease_id):
+                    break
+                current = _read_lease(path)
+                if current is None or current.get("lease_id") != lease_id:
+                    break
+                if attempt < 19:
+                    await asyncio.sleep(0.05)
+            else:
+                logger.error("Owned Telegram session lease could not be released: %s", path.name)

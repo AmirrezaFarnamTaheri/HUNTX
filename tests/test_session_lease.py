@@ -150,3 +150,19 @@ class TestSessionLease(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    async def test_lease_release_retries_transient_reap_marker_contention(self) -> None:
+        lock_path = session_lease_path(self.root, "reap-contention")
+        reap_path = lock_path.with_name(f"{lock_path.name}.reap")
+
+        async def release_marker() -> None:
+            await asyncio.sleep(0.12)
+            reap_path.unlink(missing_ok=True)
+
+        async with acquire_session_lease(
+            self.root, "reap-contention", heartbeat_seconds=10,
+        ):
+            reap_path.write_text("other worker finishing", encoding="utf-8")
+            released = asyncio.create_task(release_marker())
+        await released
+        self.assertFalse(lock_path.exists())
