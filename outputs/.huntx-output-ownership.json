@@ -1,21 +1,5 @@
 {
   "files": {
-    "all_sources.conf_lines": {
-      "format": "conf_lines",
-      "route": "all_sources"
-    },
-    "all_sources.dark": {
-      "format": "dark",
-      "route": "all_sources"
-    },
-    "all_sources.ehi": {
-      "format": "ehi",
-      "route": "all_sources"
-    },
-    "all_sources.hc": {
-      "format": "hc",
-      "route": "all_sources"
-    },
     "all_sources.json": {
       "format": "npvt.decoded.json",
       "route": "all_sources"
@@ -32,6 +16,14 @@
       "format": "npvt",
       "route": "all_sources"
     },
+    "all_sources.npvt.singbox.json": {
+      "format": "npvt.singbox.profile.json",
+      "route": "all_sources"
+    },
+    "all_sources.npvt.xray.json": {
+      "format": "npvt.xray.profile.json",
+      "route": "all_sources"
+    },
     "all_sources.opaque_bundle": {
       "format": "opaque_bundle",
       "route": "all_sources"
@@ -40,16 +32,16 @@
       "format": "ovpn",
       "route": "all_sources"
     },
-    "all_sources.sip": {
-      "format": "sip",
-      "route": "all_sources"
-    },
     "all_sources.txt": {
       "format": "npvt",
       "route": "all_sources"
     },
     "all_sources_base64.txt": {
       "format": "npvt.b64sub",
+      "route": "all_sources"
+    },
+    "all_sources_clash.yaml": {
+      "format": "npvt.clash.yaml",
       "route": "all_sources"
     },
     "all_sources_nekobox.json": {
@@ -73,23 +65,39 @@
       "route": "all_sources"
     },
     "all_sources_npvt_singbox.json": {
-      "format": "npvt.singbox.json",
+      "format": "npvt.singbox.profile.json",
       "route": "all_sources"
     },
     "all_sources_npvt_xray.json": {
-      "format": "npvt.xray.json",
+      "format": "npvt.xray.profile.json",
       "route": "all_sources"
     },
     "all_sources_singbox.json": {
+      "format": "npvt.singbox.profile.json",
+      "route": "all_sources"
+    },
+    "all_sources_singbox_nodes.json": {
       "format": "npvt.singbox.json",
       "route": "all_sources"
     },
+    "all_sources_singbox_profile.json": {
+      "format": "npvt.singbox.profile.json",
+      "route": "all_sources"
+    },
     "all_sources_xray.json": {
+      "format": "npvt.xray.profile.json",
+      "route": "all_sources"
+    },
+    "all_sources_xray_nodes.json": {
       "format": "npvt.xray.json",
+      "route": "all_sources"
+    },
+    "all_sources_xray_profile.json": {
+      "format": "npvt.xray.profile.json",
       "route": "all_sources"
     }
   },
-  "generated_at": "2026-10-02T12:48:22.429330+00:00",
-  "min_ingested_at": "2026-09-29T12:43:59+00:00",
+  "generated_at": "2026-10-11T19:26:42.320010+00:00",
+  "min_ingested_at": "2026-10-08T18:58:18+00:00",
   "schema_version": 1
 }
