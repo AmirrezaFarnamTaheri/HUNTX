@@ -108,3 +108,33 @@ def test_full_profiles_are_not_classified_as_decoded_dataset(tmp_path):
     path = tmp_path / "all_sources_xray_profile.json"
     path.write_text(json.dumps({"inbounds": [], "outbounds": []}), encoding="utf-8")
     assert verifier.validate_file(path)["type"] == "json"
+
+
+def test_node_and_profile_json_contracts_are_not_interchangeable(tmp_path):
+    verifier = _load_verify_output()
+    cases = (
+        ("all_sources_singbox_nodes.json", {"inbounds": [{}], "outbounds": [{"type": "trojan", "tag": "a"}]}, True),
+        ("all_sources_singbox.json", {"outbounds": [{"type": "trojan", "tag": "a"}]}, True),
+        ("all_sources_xray_nodes.json", {"outbounds": [{"protocol": "vless", "tag": "a"}], "route": {}}, True),
+        ("all_sources_xray.json", {"outbounds": [{"protocol": "vless", "tag": "a"}]}, True),
+        ("all_sources_singbox_nodes.json", {"outbounds": [{"type": "trojan", "tag": "a"}]}, False),
+        ("all_sources_xray_nodes.json", {"outbounds": [{"protocol": "vless", "tag": "a"}]}, False),
+        ("all_sources_singbox.json", {
+            "inbounds": [{"type": "mixed"}], "dns": {}, "route": {},
+            "outbounds": [{"type": "trojan", "tag": "a"}]}, False),
+        ("all_sources_xray.json", {
+            "inbounds": [{"protocol": "socks"}], "outbounds": [{"protocol": "vmess", "tag": "a"}]}, False),
+    )
+    for number, (filename, payload, should_fail) in enumerate(cases):
+        target = tmp_path / str(number)
+        target.mkdir()
+        file = target / filename
+        file.write_text(json.dumps(payload), encoding="utf-8")
+        result = verifier.validate_file(file)
+        assert bool(result.get("invalid")) is should_fail, (filename, result)
+
+def test_legacy_nekobox_array_keeps_import_compatibility(tmp_path):
+    verifier = _load_verify_output()
+    file = tmp_path / "all_sources_nekobox.json"
+    file.write_text(json.dumps([{"type": "trojan", "tag": "node"}]), encoding="utf-8")
+    assert not verifier.validate_file(file).get("invalid")

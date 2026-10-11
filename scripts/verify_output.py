@@ -136,12 +136,44 @@ def validate_zip_file(path: Path) -> Dict[str, Any]:
     return stats
 
 
-def validate_json_file(path: Path) -> Dict[str, Any]:
-    """Validate a decoded dataset or an independent-node JSON subscription."""
+def _validate_json_shape(data: Any, kind: str) -> None:
+    """Fail closed when a node feed and a runnable profile swap meanings."""
+    if kind == "nekobox_nodes" and isinstance(data, list):
+        nodes = data  # Previously published NekoBox feeds used top-level arrays.
+    else:
+        if not isinstance(data, dict):
+            raise ValueError(f"{kind} requires a JSON object")
+        if kind == "singbox_profile":
+            if not isinstance(data.get("dns"), dict) or not isinstance(data.get("route"), dict):
+                raise ValueError("Sing-box runnable profile must include DNS and route policy")
+        if kind.endswith("_profile"):
+            if not isinstance(data.get("inbounds"), list) or not data["inbounds"]:
+                raise ValueError("Runnable profile must include nonempty inbounds")
+        else:
+            if set(data) != {"outbounds"}:
+                raise ValueError("Independent-node subscription must contain only outbounds")
+        nodes = data.get("outbounds")
+    if not isinstance(nodes, list) or not nodes:
+        raise ValueError(f"{kind} requires a nonempty node list")
+    if kind.endswith("_nodes"):
+        protocol_key = "protocol" if kind == "xray_nodes" else "type"
+        if any(
+            not isinstance(node, dict)
+            or not isinstance(node.get(protocol_key), str) or not node[protocol_key].strip()
+            or not isinstance(node.get("tag"), str) or not node["tag"].strip()
+            for node in nodes
+        ):
+            raise ValueError(f"{kind} contains a node without protocol/type and tag")
+
+
+def validate_json_file(path: Path, *, artifact_kind: str | None = None) -> Dict[str, Any]:
+    """Validate JSON structure and, when declared, its client import contract."""
     stats: Dict[str, Any] = {"type": "json", "entries": 0, "protocols": Counter()}
 
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
+        if artifact_kind is not None:
+            _validate_json_shape(data, artifact_kind)
         if isinstance(data, list):
             items = data
         elif isinstance(data, dict) and isinstance(data.get("outbounds"), list):
@@ -218,28 +250,28 @@ def validate_file(path: Path) -> Dict[str, Any]:
     # never ran for the canonical "<route>.json" the rename introduced.
     if (_matches_derived_name(name, ".singbox.profile.json", "_singbox_profile.json")
             or _matches_derived_name(name, ".singbox.json", "_singbox.json")):
-        stats = validate_json_file(path)
+        stats = validate_json_file(path, artifact_kind="singbox_profile")
         print(f"    sing-box full profile: {size_kb:.1f} KB")
         return stats
 
     if (_matches_derived_name(name, ".xray.profile.json", "_xray_profile.json")
             or _matches_derived_name(name, ".xray.json", "_xray.json")):
-        stats = validate_json_file(path)
+        stats = validate_json_file(path, artifact_kind="xray_profile")
         print(f"    Xray full profile: {size_kb:.1f} KB")
         return stats
 
     if _matches_derived_name(name, ".singbox.nodes.json", "_singbox_nodes.json"):
-        stats = validate_json_file(path)
+        stats = validate_json_file(path, artifact_kind="singbox_nodes")
         print(f"    sing-box subscription: {stats['entries']} nodes  {size_kb:.1f} KB")
         return stats
 
     if _matches_derived_name(name, ".xray.nodes.json", "_xray_nodes.json"):
-        stats = validate_json_file(path)
+        stats = validate_json_file(path, artifact_kind="xray_nodes")
         print(f"    Xray subscription: {stats['entries']} nodes  {size_kb:.1f} KB")
         return stats
 
     if _matches_derived_name(name, ".nekobox.json", "_nekobox.json"):
-        stats = validate_json_file(path)
+        stats = validate_json_file(path, artifact_kind="nekobox_nodes")
         print(f"    NekoBox subscription: {stats['entries']} nodes  {size_kb:.1f} KB")
         return stats
 
