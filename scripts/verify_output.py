@@ -127,8 +127,10 @@ def validate_zip_file(path: Path) -> Dict[str, Any]:
                 stats["extensions"][ext] += 1
     except zipfile.BadZipFile:
         print("  WARNING: Not a valid ZIP file.")
+        stats["invalid"] = True
     except Exception as e:
         print(f"  ERROR: {e}")
+        stats["invalid"] = True
 
     return stats
 
@@ -162,8 +164,9 @@ def validate_json_file(path: Path) -> Dict[str, Any]:
                 continue
             proto = entry.get("protocol") or entry.get("type", "unknown")
             stats["protocols"][proto] += 1
-    except Exception as e:
+    except (OSError, ValueError, TypeError) as e:
         print(f"  ERROR: Invalid JSON: {e}")
+        stats["invalid"] = True
 
     return stats
 
@@ -186,8 +189,9 @@ def validate_clash_subscription(path: Path) -> Dict[str, Any]:
                 raise ValueError("Clash subscription contains an invalid proxy mapping")
             stats["entries"] += 1
             stats["protocols"][str(item["type"])] += 1
-    except Exception as e:
+    except (OSError, ValueError, TypeError) as e:
         print(f"  ERROR: Invalid Clash subscription: {e}")
+        stats["invalid"] = True
     return stats
 
 
@@ -293,6 +297,8 @@ def main():
     DIST_DIR.mkdir(parents=True, exist_ok=True)
 
     all_outbounds: List[Dict[str, Any]] = []
+    valid_files: list[Path] = []
+    invalid_files: list[str] = []
     file_count = 0
     total_size = 0
     format_counts: Counter = Counter()
@@ -304,6 +310,10 @@ def main():
             continue
 
         stats = validate_file(item)
+        if stats.get("invalid"):
+            invalid_files.append(item.name)
+        else:
+            valid_files.append(item)
         file_count += 1
         fsize = item.stat().st_size
         total_size += fsize
@@ -344,8 +354,13 @@ def main():
         if stats.get("outbounds"):
             all_outbounds.extend(stats["outbounds"])
 
-        # Copy to dist
-        if fsize > 0:
+    if invalid_files:
+        raise RuntimeError(
+            "Output verification failed, refusing to publish malformed artifacts: "
+            + ", ".join(sorted(invalid_files))
+        )
+    for item in valid_files:
+        if item.stat().st_size > 0:
             shutil.copy2(item, DIST_DIR / item.name)
 
     print("\n── Summary ──")
