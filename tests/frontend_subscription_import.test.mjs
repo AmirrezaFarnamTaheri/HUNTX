@@ -89,14 +89,14 @@ test("the batch converter turns a pasted subscription into a full config", () =>
 
 test("Sing-box, Xray and Clash feeds are valid node subscriptions", () => {
   const jsonFeeds = [
-    { filename: "all_sources_singbox.json", path: "p/s", tags: ["release", "subscription", "singbox", "json-nodes", "multi-node"] },
-    { filename: "all_sources_xray.json", path: "p/x", tags: ["release", "subscription", "xray", "json-nodes", "multi-node"] },
+    { filename: "all_sources_singbox_nodes.json", path: "p/s", tags: ["release", "subscription", "singbox", "json-nodes", "multi-node"] },
+    { filename: "all_sources_xray_nodes.json", path: "p/x", tags: ["release", "subscription", "xray", "json-nodes", "multi-node"] },
     { filename: "all_sources_clash.yaml", path: "p/c", tags: ["release", "subscription", "clash", "mihomo", "yaml-nodes", "multi-node"] }
   ];
 
   const jsonChoice = pickSubscriptionArtifact(jsonFeeds);
   assert.ok(jsonChoice);
-  assert.equal(jsonChoice.filename, "all_sources_singbox.json");
+  assert.equal(jsonChoice.filename, "all_sources_singbox_nodes.json");
 
   const clashOnly = pickSubscriptionArtifact([jsonFeeds[2]]);
   assert.ok(clashOnly);

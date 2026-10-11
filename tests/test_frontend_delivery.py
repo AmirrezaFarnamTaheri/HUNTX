@@ -232,7 +232,7 @@ def test_catalog_tags_reserve_subscription_for_node_feeds() -> None:
     """Only artifacts that expand into independent nodes may be subscriptions."""
     module = _load_site_generator()
     singbox_type, singbox_tags, singbox_desc = module._infer_tags_and_type(
-        Path("release/all_sources_singbox.json"), "release"
+        Path("release/all_sources_singbox_nodes.json"), "release"
     )
     assert singbox_type == "SINGBOX"
     assert "subscription" in singbox_tags
@@ -240,7 +240,7 @@ def test_catalog_tags_reserve_subscription_for_node_feeds() -> None:
     assert "multi-node" in singbox_tags
     assert "independent" in singbox_desc
     xray_type, xray_tags, _ = module._infer_tags_and_type(
-        Path("release/all_sources_xray.json"), "release"
+        Path("release/all_sources_xray_nodes.json"), "release"
     )
     assert xray_type == "XRAY"
     assert "subscription" in xray_tags
@@ -411,8 +411,8 @@ def test_frontend_uses_only_canonical_product_artifact_names() -> None:
         # The products the dashboard offers a download for. The decoded dataset
         # and the node feed have no hero anchor — they are reached through the
         # catalog, and the subscription link is resolved from it at click time.
-        "all_sources_singbox.json",
-        "all_sources_xray.json",
+        "all_sources_singbox_nodes.json",
+        "all_sources_xray_nodes.json",
         "all_sources_clash.yaml",
         "all_sources_singbox_profile.json",
         "all_sources_xray_profile.json",
@@ -436,7 +436,7 @@ def test_frontend_uses_only_canonical_product_artifact_names() -> None:
     # Sing-box/Xray/Clash are node feeds: their generators omit full-profile
     # policy specifically so subscription updates expand independent entries.
     assert "Node subscriptions (separate entries)" in application
-    assert "Every link below is a subscription that expands into independent proxy entries" in application
+    assert "These are standalone node feeds, not complete client profiles" in application
     assert "Copy Node Subscription URL" in application
     assert "Sing-box JSON subscription" in application
     assert "Xray JSON subscription" in application

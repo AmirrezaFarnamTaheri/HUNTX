@@ -232,7 +232,7 @@ test("the subscription builder exposes only independent-node subscription URLs",
   await page.evaluate(() => {
     const products = [
       "all_sources.txt", "all_sources_base64.txt", "all_sources_nekobox.json",
-      "all_sources_singbox.json", "all_sources_xray.json", "all_sources_clash.yaml",
+      "all_sources_singbox_nodes.json", "all_sources_xray_nodes.json", "all_sources_clash.yaml",
       "all_sources_singbox_profile.json", "all_sources_xray_profile.json",
       "all_sources.json"
     ];
@@ -262,7 +262,7 @@ test("the subscription builder exposes only independent-node subscription URLs",
   // Every copyable item is a node feed. Sing-box and Xray are generated
   // without the full-profile envelope, so they belong here with Base64/raw/NekoBox.
   await expect(modal).toContainText("Node subscriptions (separate entries)");
-  await expect(modal).toContainText("Every link below is a subscription that expands into independent proxy entries");
+  await expect(modal).toContainText("These are standalone node feeds, not complete client profiles");
   await expect(modal).toContainText("Sing-box JSON subscription");
   await expect(modal).toContainText("Xray JSON subscription");
   await expect(modal).toContainText("Clash / Mihomo subscription");

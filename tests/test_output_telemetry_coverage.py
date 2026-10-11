@@ -149,8 +149,8 @@ def test_published_sha256_matches_the_file_on_disk(catalog: dict) -> None:
 def test_subscription_tagged_outputs_are_independent_node_feeds(generator) -> None:
     """Client-format subscription products must classify as multi-node feeds."""
     for name, expected_type, shape_tag in (
-        ("all_sources_singbox.json", "SINGBOX", "json-nodes"),
-        ("all_sources_xray.json", "XRAY", "json-nodes"),
+        ("all_sources_singbox_nodes.json", "SINGBOX", "json-nodes"),
+        ("all_sources_xray_nodes.json", "XRAY", "json-nodes"),
         ("all_sources_nekobox.json", "NEKOBOX", "json-nodes"),
         ("all_sources_clash.yaml", "CLASH", "yaml-nodes"),
     ):
@@ -169,6 +169,10 @@ def test_full_client_profiles_are_not_subscription_feeds(generator) -> None:
     for name, expected_type in (
         ("all_sources_singbox_profile.json", "SINGBOX"),
         ("all_sources_xray_profile.json", "XRAY"),
+        ("all_sources_singbox.json", "SINGBOX"),
+        ("all_sources_xray.json", "XRAY"),
+        ("all_sources_singbox_nodes.json", "SINGBOX"),
+        ("all_sources_xray_nodes.json", "XRAY"),
     ):
         kind, tags, description = generator._infer_tags_and_type(
             Path("release") / name, "release"
@@ -282,6 +286,8 @@ def test_the_classification_table_is_the_single_source_of_truth(generator) -> No
         "all_sources_npvt_xray.json",
         "all_sources_singbox_profile.json",
         "all_sources_xray_profile.json",
+        "all_sources_singbox_nodes.json",
+        "all_sources_xray_nodes.json",
     ]
     for name in shipped:
         kind, tags, description = generator._infer_tags_and_type(Path(name), "release")

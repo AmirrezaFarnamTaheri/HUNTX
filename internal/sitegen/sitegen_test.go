@@ -127,6 +127,8 @@ func TestArtifactMetaClassifiesEveryShippedFormat(t *testing.T) {
 		"all_sources_clash.yaml",
 		"all_sources_singbox_profile.json",
 		"all_sources_xray_profile.json",
+		"all_sources_singbox_nodes.json",
+		"all_sources_xray_nodes.json",
 		// The frozen aliases published under earlier names.
 		"all_sources_npvt_b64sub.txt",
 		"all_sources_npvt_decoded.json",
@@ -164,12 +166,8 @@ func TestArtifactMetaMarksClientNodeFeedsAsSubscriptions(t *testing.T) {
 		name string
 		kind string
 	}{
-		{"all_sources_singbox.json", "SINGBOX"},
-		{"all_sources.npvt.singbox.json", "SINGBOX"},
-		{"all_sources_npvt_singbox.json", "SINGBOX"},
-		{"all_sources_xray.json", "XRAY"},
-		{"all_sources.npvt.xray.json", "XRAY"},
-		{"all_sources_npvt_xray.json", "XRAY"},
+		{"all_sources_singbox_nodes.json", "SINGBOX"},
+		{"all_sources_xray_nodes.json", "XRAY"},
 		{"all_sources_nekobox.json", "NEKOBOX"},
 		{"all_sources_clash.yaml", "CLASH"},
 	}
@@ -197,6 +195,10 @@ func TestArtifactMetaMarksFullProfilesAsClientConfigs(t *testing.T) {
 	}{
 		{"all_sources_singbox_profile.json", "SINGBOX"},
 		{"all_sources_xray_profile.json", "XRAY"},
+		{"all_sources_singbox.json", "SINGBOX"},
+		{"all_sources_xray.json", "XRAY"},
+		{"all_sources_npvt_singbox.json", "SINGBOX"},
+		{"all_sources_npvt_xray.json", "XRAY"},
 	} {
 		tags, _, kind := artifactMeta(tc.name)
 		if kind != tc.kind {

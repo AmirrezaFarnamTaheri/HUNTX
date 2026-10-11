@@ -163,17 +163,17 @@ def test_new_derivatives_have_canonical_output_filenames():
     assert output_filename("all_sources", "npvt") == "all_sources.txt"
     assert output_filename("all_sources", "npvt.b64sub") == "all_sources_base64.txt"
     assert output_filename("all_sources", "npvt.decoded.json") == "all_sources.json"
-    assert output_filename("all_sources", "npvt.singbox.json") == "all_sources_singbox.json"
-    assert output_filename("all_sources", "npvt.xray.json") == "all_sources_xray.json"
+    assert output_filename("all_sources", "npvt.singbox.json") == "all_sources_singbox_nodes.json"
+    assert output_filename("all_sources", "npvt.xray.json") == "all_sources_xray_nodes.json"
     assert output_filename("all_sources", "npvt.nekobox.json") == "all_sources_nekobox.json"
     assert output_filename("all_sources", "npvt.clash.yaml") == "all_sources_clash.yaml"
     assert (
         output_filename("all_sources", "npvt.singbox.profile.json")
-        == "all_sources_singbox_profile.json"
+        == "all_sources_singbox.json"
     )
     assert (
         output_filename("all_sources", "npvt.xray.profile.json")
-        == "all_sources_xray_profile.json"
+        == "all_sources_xray.json"
     )
     # Formats outside the proxy family keep the route.format convention.
     assert output_filename("all_sources", "ovpn") == "all_sources.ovpn"
@@ -184,7 +184,8 @@ def test_every_published_url_ever_handed_out_still_resolves():
     payloads = {
         output_filename("all_sources", fmt): (b"payload", {"route": "all_sources", "format": fmt})
         for fmt in ("npvt", "npvt.b64sub", "npvt.decoded.json", "npvt.singbox.json",
-                    "npvt.xray.json", "npvt.nekobox.json")
+                    "npvt.xray.json", "npvt.nekobox.json",
+                    "npvt.singbox.profile.json", "npvt.xray.profile.json")
     }
     frozen = _frozen_alias_payloads(payloads)
     for name in (
@@ -243,11 +244,32 @@ def test_bot_exposes_and_matches_new_derived_formats():
     assert DeliveryMixin._filename_matches_format("all_sources.txt", "raw.txt")
     assert DeliveryMixin._filename_matches_format("all_sources.npvt", "npvt")
     assert DeliveryMixin._filename_matches_format("all_sources_npvt_raw.txt", "raw.txt")
-    assert DeliveryMixin._filename_matches_format("all_sources_singbox.json", "singbox.json")
-    assert DeliveryMixin._filename_matches_format("all_sources_xray.json", "xray.json")
+    assert DeliveryMixin._filename_matches_format("all_sources_singbox_nodes.json", "singbox.json")
+    assert DeliveryMixin._filename_matches_format("all_sources_xray_nodes.json", "xray.json")
+    assert DeliveryMixin._filename_matches_format("all_sources_singbox.json", "singbox.profile.json")
+    assert DeliveryMixin._filename_matches_format("all_sources_xray.json", "xray.profile.json")
+    assert not DeliveryMixin._filename_matches_format("all_sources_singbox.json", "singbox.json")
+    assert not DeliveryMixin._filename_matches_format("all_sources_singbox_nodes.json", "decoded.json")
     assert DeliveryMixin._filename_matches_format("all_sources_nekobox.json", "nekobox.json")
     assert DeliveryMixin._filename_matches_format("all_sources_clash.yaml", "clash.yaml")
     assert DeliveryMixin._filename_matches_format("all_sources_base64.txt", "b64sub")
     assert DeliveryMixin._filename_matches_format("all_sources.json", "decoded.json")
     # ...and the names that never belonged to this route are not matched.
     assert not DeliveryMixin._filename_matches_format("all_sources.txt", "xray.json")
+
+
+def test_legacy_singbox_xray_profile_links_never_become_node_subscriptions():
+    """A working historical URL must not be repurposed to a different JSON shape."""
+    payloads = {}
+    for fmt in ("npvt.singbox.json", "npvt.xray.json", "npvt.singbox.profile.json",
+                "npvt.xray.profile.json"):
+        body = b"nodes" if fmt.endswith(("singbox.json", "xray.json")) else b"complete-profile"
+        payloads[output_filename("all_sources", fmt)] = (
+            body, {"route": "all_sources", "format": fmt},
+        )
+    aliases = _frozen_alias_payloads(payloads)
+    for name in ("all_sources_npvt_singbox.json", "all_sources_npvt_xray.json",
+                 "all_sources_singbox_profile.json", "all_sources_xray_profile.json"):
+        assert aliases[name][0] == b"complete-profile"
+    assert output_filename("all_sources", "npvt.singbox.json") == "all_sources_singbox_nodes.json"
+    assert output_filename("all_sources", "npvt.singbox.profile.json") == "all_sources_singbox.json"
