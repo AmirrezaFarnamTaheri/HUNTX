@@ -335,10 +335,10 @@ class DBConnection:
             if version < 11:
                 # Fence remote send attempts across processes, and persist all
                 # operator reconciliations of uncertain delivery outcomes.
-                columns = {
+                delivery_columns = {
                     row["name"] for row in conn.execute("PRAGMA table_info(publication_deliveries)")
                 }
-                if "attempt_token" not in columns:
+                if "attempt_token" not in delivery_columns:
                     conn.execute("ALTER TABLE publication_deliveries ADD COLUMN attempt_token TEXT")
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS publication_delivery_reconciliations (
