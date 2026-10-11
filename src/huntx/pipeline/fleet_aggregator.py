@@ -73,7 +73,8 @@ class VantageFleetAggregator:
         alive_count = 0
         latencies: List[float] = []
         regional_measurements: Dict[str, List[float]] = defaultdict(list)
-        blocked_regions: List[str] = []
+        region_counts: Dict[str, int] = defaultdict(int)
+        region_alive: Dict[str, int] = defaultdict(int)
         alive_non_domestic = False
         domestic_observations = 0
         dead_in_domestic = 0
@@ -81,7 +82,9 @@ class VantageFleetAggregator:
 
         for obs in observations:
             region = obs.region.upper()
+            region_counts[region] += 1
             if obs.is_alive:
+                region_alive[region] += 1
                 alive_count += 1
                 latencies.append(obs.latency_ms)
                 regional_measurements[region].append(float(obs.latency_ms))
@@ -91,7 +94,6 @@ class VantageFleetAggregator:
                     domestic_observations += 1
                     alive_in_domestic += 1
             else:
-                blocked_regions.append(region)
                 if region == self.domestic_region:
                     domestic_observations += 1
                     dead_in_domestic += 1
@@ -103,6 +105,12 @@ class VantageFleetAggregator:
             region: float(statistics.median(values))
             for region, values in regional_measurements.items()
         }
+        # A region is blocked only if every independent probe there failed.
+        # A single failed probe beside a successful one is not a regional block.
+        blocked_regions = sorted(
+            region for region, total in region_counts.items()
+            if total > 0 and region_alive.get(region, 0) == 0
+        )
 
         # Geoblocking heuristic: Alive internationally but unreachable domestically
         is_geoblocked = alive_non_domestic and domestic_observations > 0 and dead_in_domestic == domestic_observations and alive_in_domestic == 0
@@ -113,6 +121,6 @@ class VantageFleetAggregator:
             reporting_probes_count=total_probes,
             median_latency_ms=median_lat,
             is_geoblocked=is_geoblocked,
-            blocked_regions=sorted(set(blocked_regions)),
+            blocked_regions=blocked_regions,
             regional_latencies=regional_latencies
         )

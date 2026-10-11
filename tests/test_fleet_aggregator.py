@@ -63,3 +63,15 @@ def test_fleet_region_latency_is_median_not_last_writer():
         ProbeObservation("third", "US", "node", 20.0, True),
     ]
     assert aggregator.aggregate("node", observations).regional_latencies["US"] == 20.0
+
+
+def test_region_is_not_blocked_when_another_probe_succeeds():
+    aggregator = VantageFleetAggregator(domestic_region="IR")
+    observations = [
+        ProbeObservation("ir-failed", "IR", "target", 0.0, False),
+        ProbeObservation("ir-alive", "IR", "target", 25.0, True),
+        ProbeObservation("us-alive", "US", "target", 60.0, True),
+    ]
+    verdict = aggregator.aggregate("target", observations)
+    assert verdict.blocked_regions == []
+    assert verdict.is_geoblocked is False
