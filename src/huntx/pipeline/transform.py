@@ -277,6 +277,14 @@ class TransformPipeline:
                 selected_records = 0
                 for result in batch_results:
                     generated = int(result.get("records", 0)) if result.get("status") == "ok" else 0
+                    if generated > record_limit:
+                        # Replaying a source that can never fit the entire run
+                        # budget causes permanent starvation. Stop instead.
+                        raise RuntimeError(
+                            f"Pending observation yields {generated} records, exceeding "
+                            f"HUNTX_TRANSFORM_MAX_RECORDS={record_limit}; increase "
+                            "the total budget or reduce the per-file record count"
+                        )
                     if generated > remaining_records - selected_records:
                         deferred += 1
                         stop_reason = "max_records"

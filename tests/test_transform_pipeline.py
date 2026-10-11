@@ -179,6 +179,34 @@ class TestTransformPipeline(unittest.TestCase):
                 committed = self.state_repo.add_records_batch.call_args.args[0]
                 self.assertEqual([record[1] for record in committed], [1])
 
+    def test_oversized_observation_exceeding_total_budget_fails_fast(self):
+        """A file that can never fit the run budget cannot stay pending forever."""
+        from huntx.pipeline.optimized_transform import OptimizedTransformPipeline
+
+        rows = [{"id": 1, "raw_hash": "a", "source_id": "src1", "filename": "large"}]
+
+        def parsed(row):
+            return {
+                "status": "ok",
+                "format": "fmt1",
+                "records": 2,
+                "record_rows": [(row["raw_hash"], row["id"], "fmt1", "x", "{}")] * 2,
+                "status_update": ("processed", None, row["id"]),
+            }
+
+        for cls in (TransformPipeline, OptimizedTransformPipeline):
+            with self.subTest(pipeline=cls.__name__):
+                self.state_repo.get_pending_files.return_value = rows
+                self.state_repo.add_records_batch.reset_mock()
+                pipeline = cls(
+                    self.raw_store, self.state_repo, self.registry, self.source_configs,
+                    max_workers=2,
+                )
+                with patch.object(pipeline, "_process_single_file", side_effect=parsed):
+                    with self.assertRaisesRegex(RuntimeError, "exceeding HUNTX_TRANSFORM_MAX_RECORDS"):
+                        pipeline.process_pending(max_records=1)
+                self.state_repo.add_records_batch.assert_not_called()
+
     def test_unexpected_worker_crash_aborts_instead_of_repeating_pending_forever(self):
         self.state_repo.get_pending_files.return_value = [
             {"id": 1, "raw_hash": "a", "source_id": "src1", "filename": "first"},
