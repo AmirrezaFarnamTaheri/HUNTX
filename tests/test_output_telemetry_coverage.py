@@ -171,8 +171,6 @@ def test_full_client_profiles_are_not_subscription_feeds(generator) -> None:
         ("all_sources_xray_profile.json", "XRAY"),
         ("all_sources_singbox.json", "SINGBOX"),
         ("all_sources_xray.json", "XRAY"),
-        ("all_sources_singbox_nodes.json", "SINGBOX"),
-        ("all_sources_xray_nodes.json", "XRAY"),
     ):
         kind, tags, description = generator._infer_tags_and_type(
             Path("release") / name, "release"
@@ -182,6 +180,19 @@ def test_full_client_profiles_are_not_subscription_feeds(generator) -> None:
         assert "full-config" in tags
         assert "subscription" not in tags
         assert "complete runnable" in description.lower()
+
+
+def test_node_subscriptions_are_never_advertised_as_runnable_profiles(generator) -> None:
+    for name, expected_type in (
+        ("all_sources_singbox_nodes.json", "SINGBOX"),
+        ("all_sources_xray_nodes.json", "XRAY"),
+    ):
+        kind, tags, description = generator._infer_tags_and_type(Path("release") / name, "release")
+        assert kind == expected_type
+        assert "subscription" in tags
+        assert "json-nodes" in tags
+        assert "client-config" not in tags
+        assert "multi-node" in description.lower()
 
 
 def test_every_registered_format_has_a_serializer(generator) -> None:

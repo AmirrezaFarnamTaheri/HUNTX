@@ -49,11 +49,12 @@ def test_legacy_derivatives_are_retired_once_the_canonical_replacement_exists(tm
 
     removed = module.retire_legacy_derivatives(tmp_path)
 
-    assert "all_sources.npvt.singbox.json" in removed
-    assert "all_sources.npvt.decoded.json" in removed
-    assert "all_sources.npvtsub.singbox.json" in removed
+    assert removed == {"all_sources.npvt.decoded.json"}
     for name in CANONICAL:
         assert (tmp_path / name).exists(), f"{name} was deleted"
+    # Older profile URLs are part of the compatibility contract, not garbage.
+    for name in ("all_sources.npvt.singbox.json", "all_sources.npvtsub.singbox.json"):
+        assert (tmp_path / name).exists(), f"historical profile {name} was deleted"
     for name in removed:
         assert not (tmp_path / name).exists()
 
@@ -111,7 +112,8 @@ def test_the_assembler_resolves_canonical_names_through_the_shared_rule(tmp_path
     import sys
 
     module = _load_assembler()
-    assert module.output_filename("all_sources", "npvt.singbox.json") == "all_sources_singbox.json"
+    assert module.output_filename("all_sources", "npvt.singbox.json") == "all_sources_singbox_nodes.json"
+    assert module.output_filename("all_sources", "npvt.singbox.profile.json") == "all_sources_singbox.json"
 
     env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
     out = subprocess.run(
@@ -147,7 +149,7 @@ def test_the_retired_set_drives_the_manifest_and_catalog_prune(tmp_path):
         encoding="utf-8",
     )
     (tmp_path / "docs" / "catalog.json").write_text(
-        '{"total_files": 1, "total_size": 7, "files": [{"path": "artifacts/release/all_sources.npvt.singbox.json", "size": 7}]}',
+        '{"total_files": 1, "total_size": 7, "files": [{"path": "artifacts/release/all_sources.npvt.decoded.json", "size": 7}]}',
         encoding="utf-8",
     )
 
@@ -157,7 +159,8 @@ def test_the_retired_set_drives_the_manifest_and_catalog_prune(tmp_path):
 
     manifest = json.loads((release / "manifest.json").read_text(encoding="utf-8"))
     paths = {item["path"] for item in manifest["artifacts"]}
-    assert "all_sources.npvt.singbox.json" not in paths
+    assert "all_sources.npvt.decoded.json" not in paths
+    assert "all_sources.npvt.singbox.json" in paths
     assert "all_sources_singbox.json" in paths
     assert manifest["artifact_count"] == len(manifest["artifacts"])
 

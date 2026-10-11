@@ -28,9 +28,10 @@ from huntx.core.output_ownership import output_filename  # noqa: E402
 ManifestValue = float | int | str
 LEGACY_FIRST_SEEN = 0
 _MANIFEST_CHUNK_BYTES = 16 * 1024 * 1024
-_DERIVED_SUFFIXES = (
-    "decoded.json", "raw.txt", "singbox.json", "xray.json", "nekobox.json",
-)
+# Do not retire historical client profile and node-feed URLs. Those dotted
+# names have been published and must keep resolving to the same bytes.
+# The old dotted decoded dataset was not an exposed compatibility alias.
+_DERIVED_SUFFIXES = ("decoded.json",)
 
 
 def copy_tree(src: Path, dst: Path) -> None:
