@@ -14,8 +14,8 @@ from huntx.pipeline.build import BuildPipeline
         ("npvt.singbox.json", json.dumps({"outbounds": [{"type": "vless"}]}).encode(), 1),
         ("npvt.xray.json", json.dumps({"outbounds": [{"protocol": "vmess"}]}).encode(), 1),
         ("npvt.nekobox.json", json.dumps({"outbounds": [{"type": "trojan"}]}).encode(), 1),
-        ("npvt.clash.yaml", b'proxies:\\n  - {"name":"a","type":"trojan"}\\n', 1),
-        ("npvt.b64sub", base64.b64encode(b"vless://a\\ntrojan://b\\n"), 2),
+        ("npvt.clash.yaml", b'proxies:\n  - {"name":"a","type":"trojan"}\n', 1),
+        ("npvt.b64sub", base64.b64encode(b"vless://a\ntrojan://b\n"), 2),
         (
             "npvt.singbox.profile.json",
             json.dumps({"outbounds": [
