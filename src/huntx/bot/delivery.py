@@ -395,13 +395,15 @@ class DeliveryMixin:
         n = name.lower()
         f = fmt.lower()
         if f in ("npvt", "npvtsub"):
-            # The canonical name dropped the format segment; the earlier
-            # spellings stay matchable so a restored snapshot still resolves.
-            return (
-                n.endswith(f".{f}")
-                or n.endswith(f"_{f}.txt")
-                or (f == "npvt" and n.endswith(".txt"))
-                or (f == "npvtsub" and n.endswith("_sub.txt"))
+            # Text-derived Base64 feeds are not raw URI lists. Distinguish
+            # primary from secondary canonical names before checking .txt.
+            legacy = n.endswith((f".{f}", f"_{f}.txt", f"_{f}_raw.txt", f".{f}.raw.txt"))
+            primary_raw = (
+                n.endswith(".txt")
+                and not n.endswith(("_base64.txt", "_b64sub.txt", "_sub.txt", "_raw.txt"))
+            )
+            return legacy or (f == "npvt" and primary_raw) or (
+                f == "npvtsub" and n.endswith("_sub.txt")
             )
         if f in ("b64sub", "npvt.b64sub", "npvtsub.b64sub"):
             return ".b64sub" in n or n.endswith("_b64sub.txt") or n.endswith("_base64.txt")
@@ -414,7 +416,10 @@ class DeliveryMixin:
             return (".decoded.json" in n or n.endswith("_decoded.json")
                     or (n.endswith(".json") and not any(n.endswith("_" + x) or n.endswith("." + x) for x in reserved)))
         if f in ("raw.txt", "npvt.raw.txt", "npvtsub.raw.txt"):
-            return n.endswith(".raw.txt") or n.endswith("_raw.txt") or n.endswith(".txt")
+            # Do not accidentally deliver Base64 files as raw URI lists.
+            return n.endswith((".raw.txt", "_raw.txt")) or (
+                n.endswith(".txt") and not n.endswith(("_base64.txt", "_b64sub.txt"))
+            )
         if f in ("singbox.profile.json", "npvt.singbox.profile.json", "npvtsub.singbox.profile.json"):
             return n.endswith((".singbox.profile.json", "_singbox_profile.json",
                                "_singbox.json", ".singbox.json"))

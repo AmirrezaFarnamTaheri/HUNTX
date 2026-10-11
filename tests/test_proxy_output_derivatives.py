@@ -273,3 +273,17 @@ def test_legacy_singbox_xray_profile_links_never_become_node_subscriptions():
         assert aliases[name][0] == b"complete-profile"
     assert output_filename("all_sources", "npvt.singbox.json") == "all_sources_singbox_nodes.json"
     assert output_filename("all_sources", "npvt.singbox.profile.json") == "all_sources_singbox.json"
+
+
+def test_bot_never_confuses_primary_secondary_or_base64_text_outputs():
+    """A .txt extension alone does not make a Base64 feed a raw URI list."""
+    matches = DeliveryMixin._filename_matches_format
+    assert matches("all_sources.txt", "npvt")
+    assert matches("all_sources_sub.txt", "npvtsub")
+    assert matches("all_sources_npvt_raw.txt", "npvt")
+    assert matches("all_sources_base64.txt", "b64sub")
+    assert matches("all_sources_base64.txt", "npvt") is False
+    assert matches("all_sources_base64.txt", "raw.txt") is False
+    assert matches("all_sources_sub.txt", "npvt") is False
+    assert matches("all_sources_npvt_b64sub.txt", "npvt") is False
+    assert matches("all_sources_sub_base64.txt", "npvtsub") is False
