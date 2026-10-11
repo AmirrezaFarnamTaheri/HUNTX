@@ -134,7 +134,7 @@ def _declared_transport_is_representable(uri: str, node: ProxyNode) -> bool:
 
     if lower.startswith("vmess://"):
         try:
-            data = json.loads(b64_decode(uri[len("vmess://") :]))
+            data = json.loads(b64_decode(uri[len("vmess://") :].split("#", 1)[0]))
             alter_id = int(data.get("aid", 0) or 0)
         except (TypeError, ValueError, json.JSONDecodeError):
             return False
