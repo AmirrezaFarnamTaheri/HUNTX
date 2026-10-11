@@ -28,10 +28,10 @@ from huntx.core.output_ownership import output_filename  # noqa: E402
 ManifestValue = float | int | str
 LEGACY_FIRST_SEEN = 0
 _MANIFEST_CHUNK_BYTES = 16 * 1024 * 1024
-# Do not retire historical client profile and node-feed URLs. Those dotted
-# names have been published and must keep resolving to the same bytes.
-# The old dotted decoded dataset was not an exposed compatibility alias.
-_DERIVED_SUFFIXES = ("decoded.json",)
+# Preserve historical Sing-box/Xray full-profile URLs and frozen URI aliases.
+# Obsolete dotted decoded datasets and NekoBox artifacts are retired only once
+# their canonical replacements exist, preventing old telemetry from resurfacing.
+_DERIVED_SUFFIXES = ("decoded.json", "nekobox.json")
 
 
 def copy_tree(src: Path, dst: Path) -> None:
