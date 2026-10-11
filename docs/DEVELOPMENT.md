@@ -162,3 +162,17 @@ docker compose --env-file .env.fleet -f deploy/docker-compose.fleet.yml up --bui
 The Compose mapping publishes the daemon only on loopback. The Helm chart
 requires `daemon.controlToken`, `orchestratorUrl`, and `probeTargets`; render it before applying
 it and use a private ClusterIP service or policy for the daemon control API.
+
+## Frontend CSS build
+
+`npm run build:css` uses the official Tailwind CSS v3.4.19 standalone CLI.
+The first invocation downloads a platform-specific executable into
+`~/.cache/huntx/tailwind/v3.4.19/` and validates it against a pinned SHA256
+from the upstream release. Later builds reuse the verified binary. The source
+input is `docs/assets/css/input.css`, and the generated file
+`docs/assets/css/tailwind.css` is checked into the repository. CI rebuilds
+that file and rejects changes. Node/npm are still used for ESLint and browser
+tests, but not for compiling Tailwind CSS; this removes Tailwind's vulnerable
+`braces` dependency graph from the npm installation. The official standalone
+binary is still build tooling, never served to dashboard users; only authored
+Tailwind content globs in `tailwind.config.cjs` are passed to it.
