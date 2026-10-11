@@ -220,5 +220,8 @@ async def acquire_session_lease(
         yield path
     finally:
         stop_heartbeat.set()
-        await heartbeat_task
-        _remove_if_owned(path, lease_id)
+        try:
+            await heartbeat_task
+        finally:
+            # A failed heartbeat must never skip ownership-fenced release.
+            _remove_if_owned(path, lease_id)

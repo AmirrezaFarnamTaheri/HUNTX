@@ -134,5 +134,21 @@ class TestSessionLease(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(json.loads(lock_path.read_text(encoding="utf-8")), initial)
 
 
+    async def test_failing_heartbeat_still_releases_owned_session(self) -> None:
+        from unittest.mock import patch
+
+        lock_path = session_lease_path(self.root, "identity")
+        with patch(
+            "huntx.core.session_lease._touch_if_owned",
+            side_effect=OSError("filesystem write failed"),
+        ):
+            with self.assertRaises(OSError):
+                async with acquire_session_lease(
+                    self.root, "identity", timeout_seconds=0.2, heartbeat_seconds=0.01,
+                ):
+                    await asyncio.sleep(0.05)
+        self.assertFalse(lock_path.exists())
+
+
 if __name__ == "__main__":
     unittest.main()
