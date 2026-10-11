@@ -13,7 +13,7 @@ class TestTelegramPublisher(unittest.TestCase):
     def test_publish_success(self, mock_urlopen):
         # Mock response
         mock_response = MagicMock()
-        mock_response.read.return_value = json.dumps({"ok": True, "result": {}}).encode("utf-8")
+        mock_response.read.return_value = json.dumps({"ok": True, "result": {"message_id": 42}}).encode("utf-8")
         mock_urlopen.return_value.__enter__.return_value = mock_response
 
         res = self.publisher.publish("chat123", b"filecontent", "test.txt", "caption")
