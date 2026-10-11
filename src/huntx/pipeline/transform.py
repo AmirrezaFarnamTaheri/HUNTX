@@ -257,12 +257,17 @@ class TransformPipeline:
                     stop_reason = "deadline"
 
                 batch_results: List[Dict[str, Any]] = []
-                for future in done:
+                # Result selection must follow the observation-id submission
+                # order, not the unordered completion set. Budget limits
+                # otherwise select different records on identical reruns.
+                for future in futures:
+                    if future not in done:
+                        continue
                     try:
                         result = future.result()
                     except Exception as exc:
                         logger.error("[Transform] Worker thread failed: %s", exc)
-                        continue
+                        raise RuntimeError("Transform worker exited unexpectedly") from exc
                     batch_results.append(result)
                     if result["format"]:
                         format_counts[result["format"]] += 1

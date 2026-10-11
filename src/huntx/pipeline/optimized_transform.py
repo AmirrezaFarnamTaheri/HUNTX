@@ -93,12 +93,17 @@ class OptimizedTransformPipeline(TransformPipeline):
                     stop_reason = "deadline"
 
                 results: list[dict[str, Any]] = []
-                for future in done:
+                # Result selection must follow the observation-id submission
+                # order, not the unordered completion set. Budget limits
+                # otherwise select different records on identical reruns.
+                for future in futures:
+                    if future not in done:
+                        continue
                     try:
                         result = future.result()
                     except Exception as exc:
                         logger.error("[Transform] Worker thread failed: %s", exc)
-                        continue
+                        raise RuntimeError("Transform worker exited unexpectedly") from exc
                     results.append(result)
                     format_id = result.get("format")
                     if isinstance(format_id, str):
