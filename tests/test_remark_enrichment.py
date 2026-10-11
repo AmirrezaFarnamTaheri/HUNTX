@@ -95,6 +95,18 @@ def test_the_remark_is_deterministic():
     assert _remark(uri) == _remark(uri)
 
 
+def test_vmess_remark_rewrite_drops_stale_uri_fragment():
+    """VMess must expose one rewritten name, not preserve a conflicting fragment."""
+    handler = NpvtHandler()
+    source = _vmess("legacy-name") + "#duplicate-legacy-fragment"
+    built = handler.build(handler.parse(source.encode(), {})).decode().strip()
+
+    assert "#" not in built
+    payload = built.split("vmess://", 1)[1]
+    ps = json.loads(base64.b64decode(payload + "=" * (-len(payload) % 4)))["ps"]
+    assert ps.startswith("vmess")
+
+
 def test_a_vmess_remark_lives_in_the_payload():
     """VMess carries its name in ``ps``, not in the URI fragment."""
     handler = NpvtHandler()

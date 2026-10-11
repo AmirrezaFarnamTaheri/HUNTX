@@ -82,6 +82,7 @@ _ALL_VALID_FORMATS = SUPPORTED_FORMATS + [
     "singbox.json",
     "xray.json",
     "nekobox.json",
+    "clash.yaml",
 ]
 
 _AUTO_DELIVER_FORMATS = ("npvt", "b64sub")
@@ -92,9 +93,10 @@ _FORMAT_LABELS = {
     "b64sub": "🔗 Base64 subscription (v2rayN/v2rayNG)",
     "decoded.json": "📊 Structured JSON (all proxies decoded)",
     "raw.txt": "📝 Raw proxy URI list",
-    "singbox.json": "📦 sing-box client config (import-ready)",
-    "xray.json": "📦 Xray client config (import-ready)",
-    "nekobox.json": "📦 NekoBox sing-box outbound subscription",
+    "singbox.json": "🔗 Sing-box independent-node JSON subscription",
+    "xray.json": "🔗 Xray independent-node JSON subscription",
+    "nekobox.json": "🔗 NekoBox independent-node JSON subscription",
+    "clash.yaml": "🔗 Clash/Mihomo independent-node provider subscription",
     "conf_lines": "📝 Generic config lines",
     "ovpn": "🔐 OpenVPN",
     "npv4": "📱 NapsternetV v4",

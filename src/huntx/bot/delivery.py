@@ -362,18 +362,20 @@ class DeliveryMixin:
 
             size_kb = f.stat().st_size / 1024
             low = name.lower()
-            if name.endswith(".npvt") or name.endswith(".txt"):
-                caption = f"📋 `{name}` — proxy URI list ({size_kb:.0f} KB)"
-            elif "b64sub" in low or "base64" in low:
-                caption = f"🔗 `{name}` — base64 subscription ({size_kb:.0f} KB)"
+            if "b64sub" in low or "base64" in low:
+                caption = f"🔗 `{name}` — base64 node subscription ({size_kb:.0f} KB)"
+            elif "singbox.json" in low or low.endswith("_singbox.json"):
+                caption = f"🔗 `{name}` — sing-box node subscription ({size_kb:.0f} KB)"
+            elif "xray.json" in low or low.endswith("_xray.json"):
+                caption = f"🔗 `{name}` — Xray node subscription ({size_kb:.0f} KB)"
+            elif "nekobox.json" in low or low.endswith("_nekobox.json"):
+                caption = f"🔗 `{name}` — NekoBox node subscription ({size_kb:.0f} KB)"
+            elif "clash.yaml" in low or low.endswith("_clash.yaml"):
+                caption = f"🔗 `{name}` — Clash/Mihomo node subscription ({size_kb:.0f} KB)"
             elif "decoded.json" in low or low.endswith(".json"):
                 caption = f"📊 `{name}` — decoded JSON ({size_kb:.0f} KB)"
-            elif "singbox.json" in name:
-                caption = f"📦 `{name}` — sing-box config ({size_kb:.0f} KB)"
-            elif "xray.json" in name:
-                caption = f"📦 `{name}` — Xray client config ({size_kb:.0f} KB)"
-            elif "nekobox.json" in name:
-                caption = f"📦 `{name}` — NekoBox outbound subscription ({size_kb:.0f} KB)"
+            elif name.endswith(".npvt") or name.endswith(".txt"):
+                caption = f"📋 `{name}` — proxy URI list ({size_kb:.0f} KB)"
             elif name.endswith(
                 (".ovpn", ".ehi", ".hc", ".hat", ".sip", ".nm", ".dark", ".npv4")
             ):
@@ -409,6 +411,8 @@ class DeliveryMixin:
             return n.endswith(".xray.json") or n.endswith("_xray.json")
         if f in ("nekobox.json", "npvt.nekobox.json", "npvtsub.nekobox.json"):
             return n.endswith(".nekobox.json") or n.endswith("_nekobox.json")
+        if f in ("clash.yaml", "npvt.clash.yaml", "npvtsub.clash.yaml"):
+            return n.endswith(".clash.yaml") or n.endswith("_clash.yaml")
         return (
             n.endswith(f".{f}")
             or n.endswith(f"_{f}.txt")

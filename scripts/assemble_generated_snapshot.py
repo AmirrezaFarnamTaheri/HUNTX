@@ -111,7 +111,8 @@ def _b64_decode_safe(data: str) -> str:
 def strip_proxy_remark(uri: str) -> str:
     if uri.startswith("vmess://"):
         try:
-            raw = _b64_decode_safe(uri[8:])
+            body = uri.partition("#")[0]
+            raw = _b64_decode_safe(body[8:])
             payload = json.loads(raw)
             if not isinstance(payload, dict):
                 return uri
