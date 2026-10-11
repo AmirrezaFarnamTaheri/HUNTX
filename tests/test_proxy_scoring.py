@@ -28,3 +28,20 @@ def test_health_scoring_rejects_non_finite_and_negative_telemetry():
         assert score == baseline
         assert math.isfinite(score["score"])
         assert 0 <= score["score"] <= 100
+
+
+def test_blank_carrier_and_target_do_not_get_alignment_boost():
+    engine = ProxyScoringEngine()
+    empty = engine.calculate_health_score(
+        latency_ms=100.0, speed_mbps=2.0, packet_loss=0.0,
+        security_type="none", carrier="", target_isp="",
+    )
+    whitespace = engine.calculate_health_score(
+        latency_ms=100.0, speed_mbps=2.0, packet_loss=0.0,
+        security_type="none", carrier="  ", target_isp=" ",
+    )
+    missing = engine.calculate_health_score(
+        latency_ms=100.0, speed_mbps=2.0, packet_loss=0.0,
+        security_type="none", carrier=None, target_isp=None,
+    )
+    assert empty["score"] == missing["score"] == whitespace["score"]

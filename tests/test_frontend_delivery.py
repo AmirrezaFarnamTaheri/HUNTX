@@ -520,3 +520,13 @@ def test_publish_workflow_uses_telemetry_only_entry_point() -> None:
     step = workflow.split("Build verified dashboard data from release dist", 1)[1].split("Download structured runtime diagnostics", 1)[0]
     assert "site.main()" not in step
     assert 'cp "$DASHBOARD_ROOT/assets/js/data.js" docs/assets/js/data.js' in step
+
+
+def test_subscription_cards_use_classes_compiled_in_checked_in_css() -> None:
+    app = (ROOT / "docs/assets/js/app.js").read_text(encoding="utf-8")
+    css = (ROOT / "docs/assets/css/tailwind.css").read_text(encoding="utf-8")
+    assert 'bg-${color}-500' not in app
+    assert 'hover:bg-${color}-500' not in app
+    assert 'text-${color}-300' not in app
+    assert ".bg-cyan-500" in css
+    assert ".text-cyan-300" in css

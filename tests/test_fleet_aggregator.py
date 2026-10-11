@@ -75,3 +75,19 @@ def test_region_is_not_blocked_when_another_probe_succeeds():
     verdict = aggregator.aggregate("target", observations)
     assert verdict.blocked_regions == []
     assert verdict.is_geoblocked is False
+
+
+def test_conflicting_duplicate_probe_is_excluded_independent_of_order():
+    aggregator = VantageFleetAggregator(domestic_region=" IR ")
+    candidates = [
+        ProbeObservation(" same ", " US ", "target", 20.0, True),
+        ProbeObservation("same", " US ", "target", 0.0, False),
+        ProbeObservation("domestic", " IR ", "target", 30.0, True),
+    ]
+    first = aggregator.aggregate("target", candidates)
+    reversed_result = aggregator.aggregate("target", list(reversed(candidates)))
+    for verdict in (first, reversed_result):
+        assert verdict.reporting_probes_count == 1
+        assert verdict.consensus_reachability == 1.0
+        assert verdict.regional_latencies == {"IR": 30.0}
+        assert verdict.is_geoblocked is False

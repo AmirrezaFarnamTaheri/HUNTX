@@ -91,3 +91,20 @@ def test_committed_base64_feeds_decode_to_proxy_uris():
         assert lines, f"{path.name} decodes to no URIs"
         for line in lines:
             assert "://" in line, f"{path.name} has a non-URI line: {line[:40]}"
+
+
+def test_malformed_derived_products_are_marked_invalid(tmp_path):
+    verifier = _load_verify_output()
+    broken_json = tmp_path / "all_sources_singbox_profile.json"
+    broken_json.write_text("{", encoding="utf-8")
+    broken_yaml = tmp_path / "all_sources_clash.yaml"
+    broken_yaml.write_text("proxies:\\n  - not-json", encoding="utf-8")
+    assert verifier.validate_file(broken_json).get("invalid") is True
+    assert verifier.validate_file(broken_yaml).get("invalid") is True
+
+
+def test_full_profiles_are_not_classified_as_decoded_dataset(tmp_path):
+    verifier = _load_verify_output()
+    path = tmp_path / "all_sources_xray_profile.json"
+    path.write_text(json.dumps({"inbounds": [], "outbounds": []}), encoding="utf-8")
+    assert verifier.validate_file(path)["type"] == "json"
