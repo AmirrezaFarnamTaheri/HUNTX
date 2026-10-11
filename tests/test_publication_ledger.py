@@ -43,6 +43,16 @@ class TestPublicationLedger(unittest.TestCase):
         second = self.repo.ensure_publication_intent("route:fmt", artifact, generation="gen-2")
         self.assertNotEqual(first, second)
 
+    def test_crashed_send_remains_unconfirmed_in_durable_ledger(self):
+        artifact = hashlib.sha256(b"payload").hexdigest()
+        intent = self.repo.ensure_publication_intent(
+            "route:fmt", artifact, generation="crash-generation",
+        )
+        self.repo.mark_delivery_sending(intent, "primary")
+        # A fresh connection represents a production worker restarting.
+        self.assertEqual(self.repo.get_delivery_state(intent, "primary"), "sending")
+        self.assertFalse(self.repo.is_delivery_confirmed(intent, "primary"))
+
     def test_unknown_delivery_outcome_is_persisted(self):
         artifact = hashlib.sha256(b"payload").hexdigest()
         intent = self.repo.ensure_publication_intent(

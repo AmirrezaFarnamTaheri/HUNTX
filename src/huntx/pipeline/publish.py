@@ -179,13 +179,17 @@ class PublishPipeline:
                     stable_id,
                 )
                 continue
-            if delivery_state == "unknown_outcome":
+            if delivery_state in {"unknown_outcome", "sending"}:
+                # A previous process may have crashed after Telegram accepted
+                # the payload but before we recorded its receipt. Retrying a
+                # durable 'sending' entry would duplicate the publication.
                 failures.append(f"destination={stable_id} error=UnknownPublicationOutcome")
                 logger.error(
                     "[Publish] Refusing automatic resend to %s because the "
-                    "previous outcome is unknown; reconcile the remote receipt "
-                    "before retrying",
+                    "previous outcome is unknown (state=%s); reconcile the "
+                    "remote receipt before retrying",
                     stable_id,
+                    delivery_state,
                 )
                 continue
 
