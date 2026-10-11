@@ -3,6 +3,7 @@ import json
 from typing import Dict, Any, List, Optional, Set
 import sqlite3
 import time
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -600,73 +601,159 @@ class StateRepo:
             ).fetchone()
         return str(row["state"]) if row else None
 
-    def mark_delivery_sending(self, intent_id: int, destination_id: str) -> None:
+    def mark_delivery_sending(
+        self, intent_id: int, destination_id: str, *, attempt_token: str | None = None
+    ) -> bool:
+        """Atomically claim a pending or definitively failed delivery.
+
+        A sending, confirmed, or unknown-outcome delivery cannot be stolen.
+        The token fences completions from obsolete attempts after reconciliation.
+        """
+        attempt_token = attempt_token or uuid.uuid4().hex
         with self.db.connect() as conn:
-            conn.execute(
+            result = conn.execute(
                 """
                 INSERT INTO publication_deliveries
-                    (intent_id, destination_id, state, attempt_count, last_attempt_at)
-                VALUES (?, ?, 'sending', 1, ?)
+                    (intent_id, destination_id, state, attempt_count,
+                     last_attempt_at, attempt_token)
+                VALUES (?, ?, 'sending', 1, ?, ?)
                 ON CONFLICT(intent_id, destination_id) DO UPDATE SET
                     state='sending',
                     attempt_count=publication_deliveries.attempt_count + 1,
                     last_attempt_at=excluded.last_attempt_at,
+                    attempt_token=excluded.attempt_token,
                     error_class=NULL
-                WHERE publication_deliveries.state != 'confirmed'
+                WHERE publication_deliveries.state IN ('desired', 'failed')
                 """,
-                (intent_id, destination_id, time.time()),
+                (intent_id, destination_id, time.time(), attempt_token),
             )
+            return result.rowcount == 1
 
     def mark_delivery_confirmed(
-        self,
-        intent_id: int,
-        destination_id: str,
-        *,
-        remote_receipt: Optional[str] = None,
+        self, intent_id: int, destination_id: str, *,
+        remote_receipt: Optional[str] = None, attempt_token: Optional[str] = None,
     ) -> None:
+        """Confirm an owned attempt without letting a stale worker overwrite it."""
         now = time.time()
         with self.db.connect() as conn:
-            conn.execute(
-                """
-                INSERT INTO publication_deliveries
-                    (intent_id, destination_id, state, attempt_count,
-                     last_attempt_at, confirmed_at, remote_receipt)
-                VALUES (?, ?, 'confirmed', 1, ?, ?, ?)
-                ON CONFLICT(intent_id, destination_id) DO UPDATE SET
-                    state='confirmed',
-                    confirmed_at=excluded.confirmed_at,
-                    remote_receipt=COALESCE(
-                        excluded.remote_receipt,
-                        publication_deliveries.remote_receipt
-                    ),
-                    error_class=NULL
-                """,
-                (intent_id, destination_id, now, now, remote_receipt),
-            )
+            if attempt_token is None:
+                # Legacy seeding and explicit out-of-band confirmation callers.
+                conn.execute(
+                    """
+                    INSERT INTO publication_deliveries
+                        (intent_id, destination_id, state, attempt_count,
+                         last_attempt_at, confirmed_at, remote_receipt)
+                    VALUES (?, ?, 'confirmed', 1, ?, ?, ?)
+                    ON CONFLICT(intent_id, destination_id) DO UPDATE SET
+                        state='confirmed', confirmed_at=excluded.confirmed_at,
+                        remote_receipt=COALESCE(excluded.remote_receipt, publication_deliveries.remote_receipt),
+                        error_class=NULL
+                    """,
+                    (intent_id, destination_id, now, now, remote_receipt),
+                )
+            else:
+                updated = conn.execute(
+                    """
+                    UPDATE publication_deliveries SET
+                        state='confirmed', confirmed_at=?, remote_receipt=?, error_class=NULL
+                    WHERE intent_id=? AND destination_id=?
+                      AND state='sending' AND attempt_token=?
+                    """,
+                    (now, remote_receipt, intent_id, destination_id, attempt_token),
+                )
+                if updated.rowcount != 1:
+                    raise RuntimeError("Lost publication delivery claim before confirmation")
 
     def mark_delivery_failed(
-        self,
-        intent_id: int,
-        destination_id: str,
-        *,
-        error_class: str,
-        unknown_outcome: bool = False,
+        self, intent_id: int, destination_id: str, *,
+        error_class: str, unknown_outcome: bool = False,
+        attempt_token: Optional[str] = None,
     ) -> None:
+        """Record a definite or ambiguous failure without crossing claim owners."""
         state = "unknown_outcome" if unknown_outcome else "failed"
         with self.db.connect() as conn:
+            if attempt_token is None:
+                conn.execute(
+                    """
+                    INSERT INTO publication_deliveries
+                        (intent_id, destination_id, state, attempt_count,
+                         last_attempt_at, error_class)
+                    VALUES (?, ?, ?, 1, ?, ?)
+                    ON CONFLICT(intent_id, destination_id) DO UPDATE SET
+                        state=excluded.state, last_attempt_at=excluded.last_attempt_at,
+                        error_class=excluded.error_class
+                    WHERE publication_deliveries.state != 'confirmed'
+                    """,
+                    (intent_id, destination_id, state, time.time(), error_class),
+                )
+            else:
+                updated = conn.execute(
+                    """
+                    UPDATE publication_deliveries SET
+                        state=?, last_attempt_at=?, error_class=?
+                    WHERE intent_id=? AND destination_id=?
+                      AND state='sending' AND attempt_token=?
+                    """,
+                    (state, time.time(), error_class, intent_id, destination_id, attempt_token),
+                )
+                if updated.rowcount != 1:
+                    raise RuntimeError("Lost publication delivery claim before failure record")
+
+    def reconcile_delivery(
+        self, intent_id: int, destination_id: str, *, outcome: str,
+        operator: str, reason: str, remote_receipt: Optional[str] = None,
+        min_sending_age_seconds: float = 120.0,
+    ) -> None:
+        """Audit an operator-verified remote result; never infer it from time.
+
+        Confirmed outcomes require a remote receipt. A not-delivered outcome
+        requires independent evidence that no document was accepted.
+        """
+        if outcome not in {"confirmed", "not_delivered"}:
+            raise ValueError("outcome must be confirmed or not_delivered")
+        if not operator.strip() or not reason.strip():
+            raise ValueError("operator and supporting reason are required")
+        if outcome == "confirmed" and not (remote_receipt or "").strip():
+            raise ValueError("verified remote receipt required for confirmation")
+        if outcome == "not_delivered" and remote_receipt:
+            raise ValueError("not_delivered cannot carry a confirmed receipt")
+        with self.db.connect() as conn:
+            row = conn.execute(
+                """
+                SELECT state, last_attempt_at FROM publication_deliveries
+                WHERE intent_id=? AND destination_id=?
+                """, (intent_id, destination_id),
+            ).fetchone()
+            if row is None or row["state"] not in {"sending", "unknown_outcome"}:
+                raise ValueError("delivery is not in a reconcilable state")
+            now = time.time()
+            if row["state"] == "sending" and (
+                row["last_attempt_at"] is None
+                or now - float(row["last_attempt_at"]) < max(0.0, min_sending_age_seconds)
+            ):
+                raise ValueError("sending delivery may still have an active worker")
+            state = "confirmed" if outcome == "confirmed" else "failed"
+            changed = conn.execute(
+                """
+                UPDATE publication_deliveries SET state=?, confirmed_at=?,
+                    remote_receipt=?, error_class=?, attempt_token=NULL
+                WHERE intent_id=? AND destination_id=? AND state=?
+                """, (
+                    state, now if state == "confirmed" else None,
+                    remote_receipt, None if state == "confirmed" else "ReconciledNotDelivered",
+                    intent_id, destination_id, row["state"],
+                ),
+            )
+            if changed.rowcount != 1:
+                raise RuntimeError("delivery changed during reconciliation")
             conn.execute(
                 """
-                INSERT INTO publication_deliveries
-                    (intent_id, destination_id, state, attempt_count,
-                     last_attempt_at, error_class)
-                VALUES (?, ?, ?, 1, ?, ?)
-                ON CONFLICT(intent_id, destination_id) DO UPDATE SET
-                    state=excluded.state,
-                    last_attempt_at=excluded.last_attempt_at,
-                    error_class=excluded.error_class
-                WHERE publication_deliveries.state != 'confirmed'
-                """,
-                (intent_id, destination_id, state, time.time(), error_class),
+                INSERT INTO publication_delivery_reconciliations
+                    (intent_id, destination_id, previous_state, resulting_state,
+                     operator, reason, remote_receipt, reconciled_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (intent_id, destination_id, row["state"], state,
+                       operator.strip(), reason.strip(), remote_receipt, now),
             )
 
     def complete_publication_intent(self, intent_id: int) -> None:
