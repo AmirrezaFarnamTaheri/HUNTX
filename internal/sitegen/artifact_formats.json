@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "note": "Single source of truth for artifact classification. The Go site generator (internal/sitegen) embeds this file and the Python dashboard generator (scripts/generate_site_data.py) reads it, so both describe the same filename the same way. Rules are evaluated in order; the first match wins. Precedence is deliberate: client-format node subscriptions must match before generic JSON/YAML metadata, and the order also keeps the .json rule below the profile rules that already matched.",
+  "note": "Ordered shared release artifact format registry consumed by Go and Python. Historical Sing-box/Xray profile URLs retain runnable configuration semantics; only *_nodes.json artifacts carry node subscriptions.",
   "products": {
     "all_sources.txt": [
       "all_sources.txt",
@@ -37,6 +37,12 @@
     ],
     "all_sources_xray_profile.json": [
       "all_sources_xray_profile.json"
+    ],
+    "all_sources_singbox_nodes.json": [
+      "all_sources_singbox_nodes.json"
+    ],
+    "all_sources_xray_nodes.json": [
+      "all_sources_xray_nodes.json"
     ]
   },
   "sections": {
@@ -49,8 +55,12 @@
       "rules": [
         {
           "match": {
-            "kind": "contains",
-            "value": "singbox_profile"
+            "kind": "contains_any",
+            "value": [
+              "singbox_profile",
+              "_singbox.json",
+              ".singbox.json"
+            ]
           },
           "type": "SINGBOX",
           "tags": [
@@ -58,12 +68,12 @@
             "singbox",
             "full-config"
           ],
-          "description": "Complete runnable Sing-box client profile with inbound, DNS, routing and selector policy. Download/import as a full configuration; it is separate from the independent-node Sing-box subscription URL."
+          "description": "Complete runnable Sing-box client profile with inbound, DNS, routing and selector policy. Historical Sing-box profile URLs retain these semantics; independent nodes are at *_singbox_nodes.json."
         },
         {
           "match": {
             "kind": "contains",
-            "value": "singbox"
+            "value": "singbox_nodes"
           },
           "type": "SINGBOX",
           "tags": [
@@ -76,8 +86,12 @@
         },
         {
           "match": {
-            "kind": "contains",
-            "value": "xray_profile"
+            "kind": "contains_any",
+            "value": [
+              "xray_profile",
+              "_xray.json",
+              ".xray.json"
+            ]
           },
           "type": "XRAY",
           "tags": [
@@ -85,15 +99,12 @@
             "xray",
             "full-config"
           ],
-          "description": "Complete runnable Xray client profile with local inbound and full configuration envelope. Download/import as a full configuration; it is separate from the outbounds-only Xray subscription URL."
+          "description": "Complete runnable Xray client profile with local inbound and full configuration envelope. Historical Xray profile URLs retain these semantics; independent nodes are at *_xray_nodes.json."
         },
         {
           "match": {
-            "kind": "contains_any",
-            "value": [
-              "v2ray",
-              "xray"
-            ]
+            "kind": "contains",
+            "value": "xray_nodes"
           },
           "type": "XRAY",
           "tags": [

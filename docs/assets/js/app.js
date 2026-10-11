@@ -3812,8 +3812,8 @@ export class AppState {
     const subscriptionFeeds = [
       ["all_sources_base64.txt", "Base64 subscription", "Recommended lossless subscription: the complete one-node-per-line URI list encoded as one Base64 body. Decoding preserves the node list 1:1.", "cyan", true],
       ["all_sources.txt", "Raw URI subscription", "One node per line, unencoded. Use this when the client accepts raw share-link subscriptions.", "emerald", false],
-      ["all_sources_singbox.json", "Sing-box JSON subscription", "Outbounds-only JSON. Compatible subscription updaters expand the contained proxies into independent entries.", "sky", false],
-      ["all_sources_xray.json", "Xray JSON subscription", "Outbounds-only Xray/V2Ray JSON. Current v2rayN imports the contained outbounds as independent subscription items.", "indigo", false],
+      ["all_sources_singbox_nodes.json", "Sing-box JSON subscription", "Outbounds-only JSON. Compatible subscription updaters expand the contained proxies into independent entries.", "sky", false],
+      ["all_sources_xray_nodes.json", "Xray JSON subscription", "Outbounds-only Xray/V2Ray JSON. Current v2rayN imports the contained outbounds as independent subscription items.", "indigo", false],
       ["all_sources_clash.yaml", "Clash / Mihomo subscription", "Proxy-provider YAML containing only independent entries under proxies. Refreshing the provider updates the node list without importing a full profile.", "violet", false],
       ["all_sources_nekobox.json", "NekoBox JSON subscription", "Minimal outbounds container with no profile-level routing/DNS; current NekoBox expands each outbound independently.", "amber", false],
     ].map(([filename, label, description, color, recommended]) => ({ filename, label, description, color, recommended, file: findArtifact(filename) }));
@@ -3871,14 +3871,14 @@ export class AppState {
             </button>
           </div>
 
-          <p class="text-xs font-mono text-gray-400"><strong>Every link below is a subscription that expands into independent proxy entries.</strong> Sing-box/Xray feeds are intentionally outbounds-only, and Clash/Mihomo is proxies-only, so updating a subscription refreshes its nodes instead of creating one custom profile.</p>
+          <p class="text-xs font-mono text-gray-400"><strong>These are standalone node feeds, not complete client profiles.</strong> Sing-box/Xray feeds are intentionally outbounds-only, and Clash/Mihomo is proxies-only, so updating a subscription refreshes its nodes instead of creating one custom profile.</p>
           ${hosted || publicBase ? "" : `<div class="rounded-xl border border-amber-500/30 bg-amber-950/30 px-3.5 py-3 text-xs leading-relaxed text-amber-200"><strong>Local preview:</strong> copy actions use portable relative paths. Serve or deploy this dashboard over HTTPS, or configure <code>HUNTX_PUBLIC_BASE_URL</code> / <code>&lt;meta name="huntx-public-base-url"&gt;</code>, before importing a subscription on another device.</div>`}
 
           <div class="space-y-4">
             <!-- Node subscriptions: expand into separate proxy entries -->
             <div>
               <span class="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider block mb-1">1. Node subscriptions (separate entries)</span>
-              <p class="text-xs text-gray-500 mb-2">Each of these expands into individual proxy entries. Use this when you want nodes listed separately.</p>
+              <p class="text-xs text-gray-500 mb-2">Choose the feed your client supports. Configure Clash/Mihomo YAML as a proxy provider, not as a complete profile.</p>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 ${subscriptionFeeds.map(feedCard).join("") || `<p class="col-span-full rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-xs text-amber-200">No node subscription feeds are available in this published catalog.</p>`}
               </div>

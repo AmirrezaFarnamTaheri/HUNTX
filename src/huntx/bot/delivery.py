@@ -362,20 +362,20 @@ class DeliveryMixin:
 
             size_kb = f.stat().st_size / 1024
             low = name.lower()
-            if "singbox_profile.json" in low or "singbox.profile.json" in low:
+            if low.endswith(("singbox_profile.json", "singbox.profile.json", "_singbox.json", ".singbox.json")):
                 caption = f"🧩 `{name}` — sing-box complete profile ({size_kb:.0f} KB)"
-            elif "xray_profile.json" in low or "xray.profile.json" in low:
+            elif low.endswith(("xray_profile.json", "xray.profile.json", "_xray.json", ".xray.json")):
                 caption = f"🧩 `{name}` — Xray complete profile ({size_kb:.0f} KB)"
             elif "b64sub" in low or "base64" in low:
                 caption = f"🔗 `{name}` — base64 node subscription ({size_kb:.0f} KB)"
-            elif "singbox.json" in low or low.endswith("_singbox.json"):
+            elif low.endswith(("_singbox_nodes.json", ".singbox.nodes.json")):
                 caption = f"🔗 `{name}` — sing-box node subscription ({size_kb:.0f} KB)"
-            elif "xray.json" in low or low.endswith("_xray.json"):
+            elif low.endswith(("_xray_nodes.json", ".xray.nodes.json")):
                 caption = f"🔗 `{name}` — Xray node subscription ({size_kb:.0f} KB)"
             elif "nekobox.json" in low or low.endswith("_nekobox.json"):
                 caption = f"🔗 `{name}` — NekoBox node subscription ({size_kb:.0f} KB)"
             elif "clash.yaml" in low or low.endswith("_clash.yaml"):
-                caption = f"🔗 `{name}` — Clash/Mihomo node subscription ({size_kb:.0f} KB)"
+                caption = f"🔗 `{name}` — Clash/Mihomo proxy provider ({size_kb:.0f} KB)"
             elif "decoded.json" in low or low.endswith(".json"):
                 caption = f"📊 `{name}` — decoded JSON ({size_kb:.0f} KB)"
             elif name.endswith(".npvt") or name.endswith(".txt"):
@@ -408,19 +408,23 @@ class DeliveryMixin:
         if f in ("decoded.json", "npvt.decoded.json", "npvtsub.decoded.json"):
             reserved = ("singbox.json", "xray.json", "nekobox.json",
                         "singbox_profile.json", "xray_profile.json",
-                        "singbox.profile.json", "xray.profile.json")
+                        "singbox.profile.json", "xray.profile.json",
+                        "singbox_nodes.json", "xray_nodes.json",
+                        "singbox.nodes.json", "xray.nodes.json")
             return (".decoded.json" in n or n.endswith("_decoded.json")
                     or (n.endswith(".json") and not any(n.endswith("_" + x) or n.endswith("." + x) for x in reserved)))
         if f in ("raw.txt", "npvt.raw.txt", "npvtsub.raw.txt"):
             return n.endswith(".raw.txt") or n.endswith("_raw.txt") or n.endswith(".txt")
         if f in ("singbox.profile.json", "npvt.singbox.profile.json", "npvtsub.singbox.profile.json"):
-            return n.endswith((".singbox.profile.json", "_singbox_profile.json"))
+            return n.endswith((".singbox.profile.json", "_singbox_profile.json",
+                               "_singbox.json", ".singbox.json"))
         if f in ("xray.profile.json", "npvt.xray.profile.json", "npvtsub.xray.profile.json"):
-            return n.endswith((".xray.profile.json", "_xray_profile.json"))
+            return n.endswith((".xray.profile.json", "_xray_profile.json",
+                               "_xray.json", ".xray.json"))
         if f in ("singbox.json", "npvt.singbox.json", "npvtsub.singbox.json"):
-            return ".singbox.json" in n or n.endswith("_singbox.json")
+            return n.endswith(("_singbox_nodes.json", ".singbox.nodes.json"))
         if f in ("xray.json", "npvt.xray.json", "npvtsub.xray.json"):
-            return n.endswith(".xray.json") or n.endswith("_xray.json")
+            return n.endswith(("_xray_nodes.json", ".xray.nodes.json"))
         if f in ("nekobox.json", "npvt.nekobox.json", "npvtsub.nekobox.json"):
             return n.endswith(".nekobox.json") or n.endswith("_nekobox.json")
         if f in ("clash.yaml", "npvt.clash.yaml", "npvtsub.clash.yaml"):
