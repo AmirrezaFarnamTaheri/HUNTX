@@ -228,6 +228,9 @@ def _clash_proxy(node: ProxyNode, seen_names: set[str]) -> Optional[dict[str, An
         return proxy
 
     if node.type == "socks":
+        # SOCKS4/4a cannot be represented as a Mihomo SOCKS5 outbound.
+        if str(node.version).strip().lower() in {"4", "4a", "socks4", "socks4a"}:
+            return None
         proxy = {**common, "type": "socks5", "udp": True}
         if node.username:
             proxy["username"] = node.username

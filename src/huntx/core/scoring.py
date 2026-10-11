@@ -65,7 +65,7 @@ class ProxyScoringEngine:
 
         # 4. Carrier alignment
         carrier_boost = 0.0
-        if isinstance(carrier, str) and isinstance(target_isp, str) and carrier.strip().lower() == target_isp.strip().lower():
+        if isinstance(carrier, str) and isinstance(target_isp, str) and carrier.strip() and carrier.strip().lower() == target_isp.strip().lower():
             carrier_boost = 5.0
 
         # 5. Penalties

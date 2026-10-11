@@ -362,7 +362,11 @@ class DeliveryMixin:
 
             size_kb = f.stat().st_size / 1024
             low = name.lower()
-            if "b64sub" in low or "base64" in low:
+            if "singbox_profile.json" in low or "singbox.profile.json" in low:
+                caption = f"🧩 `{name}` — sing-box complete profile ({size_kb:.0f} KB)"
+            elif "xray_profile.json" in low or "xray.profile.json" in low:
+                caption = f"🧩 `{name}` — Xray complete profile ({size_kb:.0f} KB)"
+            elif "b64sub" in low or "base64" in low:
                 caption = f"🔗 `{name}` — base64 node subscription ({size_kb:.0f} KB)"
             elif "singbox.json" in low or low.endswith("_singbox.json"):
                 caption = f"🔗 `{name}` — sing-box node subscription ({size_kb:.0f} KB)"
@@ -402,9 +406,17 @@ class DeliveryMixin:
         if f in ("b64sub", "npvt.b64sub", "npvtsub.b64sub"):
             return ".b64sub" in n or n.endswith("_b64sub.txt") or n.endswith("_base64.txt")
         if f in ("decoded.json", "npvt.decoded.json", "npvtsub.decoded.json"):
-            return ".decoded.json" in n or n.endswith("_decoded.json") or n.endswith(".json")
+            reserved = ("singbox.json", "xray.json", "nekobox.json",
+                        "singbox_profile.json", "xray_profile.json",
+                        "singbox.profile.json", "xray.profile.json")
+            return (".decoded.json" in n or n.endswith("_decoded.json")
+                    or (n.endswith(".json") and not any(n.endswith("_" + x) or n.endswith("." + x) for x in reserved)))
         if f in ("raw.txt", "npvt.raw.txt", "npvtsub.raw.txt"):
             return n.endswith(".raw.txt") or n.endswith("_raw.txt") or n.endswith(".txt")
+        if f in ("singbox.profile.json", "npvt.singbox.profile.json", "npvtsub.singbox.profile.json"):
+            return n.endswith((".singbox.profile.json", "_singbox_profile.json"))
+        if f in ("xray.profile.json", "npvt.xray.profile.json", "npvtsub.xray.profile.json"):
+            return n.endswith((".xray.profile.json", "_xray_profile.json"))
         if f in ("singbox.json", "npvt.singbox.json", "npvtsub.singbox.json"):
             return ".singbox.json" in n or n.endswith("_singbox.json")
         if f in ("xray.json", "npvt.xray.json", "npvtsub.xray.json"):

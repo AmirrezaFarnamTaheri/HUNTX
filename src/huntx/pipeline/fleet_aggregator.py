@@ -37,7 +37,7 @@ class VantageFleetAggregator:
     """Aggregates distributed probe observations to produce consensus health scores."""
 
     def __init__(self, domestic_region: str = "IR"):
-        self.domestic_region = domestic_region.upper()
+        self.domestic_region = domestic_region.strip().upper()
 
     def aggregate(self, target_id: str, observations: List[ProbeObservation]) -> FleetConsensusVerdict:
         """Calculate multi-region reachability consensus, median latency, and geoblocking flags."""
@@ -45,10 +45,11 @@ class VantageFleetAggregator:
         # different target or a malformed measurement must never influence
         # the target's reachability, geographic verdict, or median latency.
         unique: Dict[str, ProbeObservation] = {}
+        conflicting: set[str] = set()
         for obs in observations:
             if obs.target_id != target_id or not isinstance(obs.probe_id, str) or not obs.probe_id.strip():
                 continue
-            if obs.probe_id in unique or not isinstance(obs.region, str) or not obs.region.strip():
+            if not isinstance(obs.region, str) or not obs.region.strip():
                 continue
             if not isinstance(obs.is_alive, bool):
                 continue
@@ -59,8 +60,16 @@ class VantageFleetAggregator:
                 or obs.latency_ms < 0
             ):
                 continue
-            unique[obs.probe_id] = obs
-        observations = list(unique.values())
+            probe_id = obs.probe_id.strip()
+            previous = unique.get(probe_id)
+            if previous is not None:
+                if (previous.region.strip().upper(), previous.is_alive, previous.latency_ms) != (
+                    obs.region.strip().upper(), obs.is_alive, obs.latency_ms
+                ):
+                    conflicting.add(probe_id)
+                continue
+            unique[probe_id] = obs
+        observations = [obs for probe_id, obs in unique.items() if probe_id not in conflicting]
         if not observations:
             return FleetConsensusVerdict(
                 target_id=target_id,
@@ -81,7 +90,7 @@ class VantageFleetAggregator:
         alive_in_domestic = 0
 
         for obs in observations:
-            region = obs.region.upper()
+            region = obs.region.strip().upper()
             region_counts[region] += 1
             if obs.is_alive:
                 region_alive[region] += 1

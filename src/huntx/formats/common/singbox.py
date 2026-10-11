@@ -181,7 +181,7 @@ def _apply_transport(node: ProxyNode, params: dict[str, str], transport: str) ->
 
 def _parse_vmess(uri: str) -> Optional[ProxyNode]:
     """Parse a VMess share URI into a proxy node."""
-    decoded = _safe_b64(uri[len('vmess://'):])
+    decoded = _safe_b64(uri[len('vmess://'):].split('#', 1)[0])
     if not decoded:
         return None
     try:

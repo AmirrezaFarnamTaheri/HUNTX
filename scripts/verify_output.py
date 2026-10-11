@@ -211,6 +211,16 @@ def validate_file(path: Path) -> Dict[str, Any]:
     # Specific product shapes first. A blanket ".json" test placed ahead of them
     # reported every profile as a decoded dataset, and one placed behind them
     # never ran for the canonical "<route>.json" the rename introduced.
+    if _matches_derived_name(name, ".singbox.profile.json", "_singbox_profile.json"):
+        stats = validate_json_file(path)
+        print(f"    sing-box full profile: {size_kb:.1f} KB")
+        return stats
+
+    if _matches_derived_name(name, ".xray.profile.json", "_xray_profile.json"):
+        stats = validate_json_file(path)
+        print(f"    Xray full profile: {size_kb:.1f} KB")
+        return stats
+
     if _matches_derived_name(name, ".singbox.json", "_singbox.json"):
         stats = validate_json_file(path)
         print(f"    sing-box subscription: {stats['entries']} nodes  {size_kb:.1f} KB")
@@ -305,7 +315,11 @@ def main():
         # decoded dataset is not counted at all.
         name = item.name.lower()
         suffix = item.suffix.lower()
-        if _matches_derived_name(name, ".singbox.json", "_singbox.json"):
+        if _matches_derived_name(name, ".singbox.profile.json", "_singbox_profile.json"):
+            format_counts["singbox.profile.json"] += 1
+        elif _matches_derived_name(name, ".xray.profile.json", "_xray_profile.json"):
+            format_counts["xray.profile.json"] += 1
+        elif _matches_derived_name(name, ".singbox.json", "_singbox.json"):
             format_counts["singbox.json"] += 1
         elif _matches_derived_name(name, ".xray.json", "_xray.json"):
             format_counts["xray.json"] += 1
