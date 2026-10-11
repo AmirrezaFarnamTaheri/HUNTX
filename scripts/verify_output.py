@@ -320,16 +320,6 @@ def main():
         print("\nOutput directory does not exist. Run the pipeline first.")
         return
 
-    # Clean dist
-    if DIST_DIR.exists():
-        # Safety guard: refuse to delete suspicious paths.
-        dist = DIST_DIR.resolve()
-        if dist.name.lower() != "dist":
-            raise RuntimeError(f"Refusing to delete non-dist directory: {dist}")
-        if len(dist.parts) < 3:
-            raise RuntimeError(f"Refusing to delete shallow path: {dist}")
-        shutil.rmtree(dist)
-    DIST_DIR.mkdir(parents=True, exist_ok=True)
 
     all_outbounds: List[Dict[str, Any]] = []
     valid_files: list[Path] = []
@@ -400,6 +390,15 @@ def main():
             "Output verification failed, refusing to publish malformed artifacts: "
             + ", ".join(sorted(invalid_files))
         )
+    # Only replace the previous dist after every candidate artifact has
+    # passed verification. Malformed output must not erase a known-good dist.
+    if DIST_DIR.exists():
+        dist = DIST_DIR.resolve()
+        if dist.name.lower() != "dist" or len(dist.parts) < 3:
+            raise RuntimeError(f"Refusing to delete non-dist directory: {dist}")
+        shutil.rmtree(dist)
+    DIST_DIR.mkdir(parents=True, exist_ok=True)
+
     for item in valid_files:
         if item.stat().st_size > 0:
             shutil.copy2(item, DIST_DIR / item.name)

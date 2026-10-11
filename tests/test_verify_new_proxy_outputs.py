@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 import importlib.util
 import json
 from pathlib import Path
@@ -139,3 +141,18 @@ def test_legacy_nekobox_array_keeps_import_compatibility(tmp_path):
     file = tmp_path / "all_sources_nekobox.json"
     file.write_text(json.dumps([{"type": "trojan", "tag": "node"}]), encoding="utf-8")
     assert not verifier.validate_file(file).get("invalid")
+
+
+def test_invalid_artifact_cannot_erase_last_good_dist(tmp_path, monkeypatch):
+    verifier = _load_verify_output()
+    outputs = tmp_path / "outputs"
+    dist = tmp_path / "dist"
+    outputs.mkdir()
+    dist.mkdir()
+    (dist / "last-good.txt").write_text("retained", encoding="utf-8")
+    (outputs / "all_sources_singbox_nodes.json").write_text("{", encoding="utf-8")
+    monkeypatch.setattr(verifier, "OUTPUT_DIR", outputs)
+    monkeypatch.setattr(verifier, "DIST_DIR", dist)
+    with pytest.raises(RuntimeError, match="refusing to publish malformed"):
+        verifier.main()
+    assert (dist / "last-good.txt").read_text(encoding="utf-8") == "retained"
