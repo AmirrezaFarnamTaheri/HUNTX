@@ -107,7 +107,6 @@ def test_vmess_remark_rewrite_drops_stale_uri_fragment():
     assert ps.startswith("vmess")
 
 
-
 def test_direct_vmess_remark_drops_stale_fragment():
     """VMess names come exclusively from the payload, not an old # remark."""
     rewritten = add_clean_remark(_vmess("old-name") + "#shared-stale-name", {})

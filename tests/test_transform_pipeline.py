@@ -138,7 +138,6 @@ class TestTransformPipeline(unittest.TestCase):
         self.pipeline.process_pending()
         self.state_repo.add_records_batch.assert_not_called()
 
-
     def test_budget_selects_source_order_even_when_completion_order_is_reversed(self):
         """The record budget must not select arbitrary futures from an unordered set."""
         from concurrent.futures import wait as real_wait

@@ -100,7 +100,6 @@ class TestSessionLease(unittest.IsolatedAsyncioTestCase):
             "replacement-owner",
         )
 
-
     async def test_heartbeat_recovers_after_transient_reap_marker(self) -> None:
         lock_path = session_lease_path(self.root, "identity")
         reap_path = lock_path.with_name(f"{lock_path.name}.reap")
@@ -132,7 +131,6 @@ class TestSessionLease(unittest.IsolatedAsyncioTestCase):
                 with self.assertRaises(OSError):
                     _touch_if_owned(lock_path, initial["lease_id"])
             self.assertEqual(json.loads(lock_path.read_text(encoding="utf-8")), initial)
-
 
     async def test_failing_heartbeat_still_releases_owned_session(self) -> None:
         from unittest.mock import patch
