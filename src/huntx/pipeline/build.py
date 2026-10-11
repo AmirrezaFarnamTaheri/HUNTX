@@ -99,7 +99,7 @@ class BuildPipeline:
     def _decode_vmess(line: str) -> dict[str, Any]:
         """Decode one VMess share URI into structured JSON metadata."""
         try:
-            obj = json.loads(BuildPipeline._b64_decode(line[8:]))
+            obj = json.loads(BuildPipeline._b64_decode(line[8:].split('#', 1)[0]))
             # A VMess remark lives in the payload's "ps" field, not in the URI
             # fragment, so without this the dashboard invents its own
             # "vmess-N" name and disagrees with the client.

@@ -37,7 +37,7 @@ def decode_base64_safe(data: str) -> str:
 def parse_vmess(link: str) -> Optional[Dict[str, Any]]:
     """Parse vmess://... link into dict."""
     try:
-        b64 = link.replace("vmess://", "")
+        b64 = link[len("vmess://"):].split("#", 1)[0]
         json_str = decode_base64_safe(b64)
         return json.loads(json_str)
     except Exception as e:
@@ -80,8 +80,9 @@ def validate_text_file(path: Path) -> Dict[str, Any]:
 
     try:
         text = path.read_text(encoding="utf-8", errors="ignore")
-    except Exception as e:
+    except OSError as e:
         print(f"  ERROR: Could not read: {e}")
+        stats["invalid"] = True
         return stats
 
     # Try base64 decode if it looks encoded
