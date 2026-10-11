@@ -87,13 +87,14 @@ class _FakeStateRepo:
     def get_delivery_state(self, intent_id, destination_id):
         return None
 
-    def mark_delivery_sending(self, intent_id, destination_id):
-        return None
+    def mark_delivery_sending(self, intent_id, destination_id, *, attempt_token=None):
+        return True
 
-    def mark_delivery_confirmed(self, intent_id, destination_id, *, remote_receipt=None):
+    def mark_delivery_confirmed(self, intent_id, destination_id, *, remote_receipt=None, attempt_token=None):
         self.confirmed = True
 
-    def mark_delivery_failed(self, intent_id, destination_id, *, error_class, unknown_outcome):
+    def mark_delivery_failed(self, intent_id, destination_id, *,
+                             error_class, unknown_outcome, attempt_token=None):
         raise AssertionError(f"unexpected publication failure: {error_class}")
 
     def is_delivery_confirmed(self, intent_id, destination_id):

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 import importlib.util
 import json
 from pathlib import Path
@@ -91,3 +93,163 @@ def test_committed_base64_feeds_decode_to_proxy_uris():
         assert lines, f"{path.name} decodes to no URIs"
         for line in lines:
             assert "://" in line, f"{path.name} has a non-URI line: {line[:40]}"
+
+
+def test_malformed_derived_products_are_marked_invalid(tmp_path):
+    verifier = _load_verify_output()
+    broken_json = tmp_path / "all_sources_singbox_profile.json"
+    broken_json.write_text("{", encoding="utf-8")
+    broken_yaml = tmp_path / "all_sources_clash.yaml"
+    broken_yaml.write_text("proxies:\\n  - not-json", encoding="utf-8")
+    assert verifier.validate_file(broken_json).get("invalid") is True
+    assert verifier.validate_file(broken_yaml).get("invalid") is True
+
+
+def test_full_profiles_are_not_classified_as_decoded_dataset(tmp_path):
+    verifier = _load_verify_output()
+    path = tmp_path / "all_sources_xray_profile.json"
+    path.write_text(json.dumps({"inbounds": [], "outbounds": []}), encoding="utf-8")
+    assert verifier.validate_file(path)["type"] == "json"
+
+
+def test_node_and_profile_json_contracts_are_not_interchangeable(tmp_path):
+    verifier = _load_verify_output()
+    cases = (
+        ("all_sources_singbox_nodes.json", {"inbounds": [{}], "outbounds": [{"type": "trojan", "tag": "a"}]}, True),
+        ("all_sources_singbox.json", {"outbounds": [{"type": "trojan", "tag": "a"}]}, True),
+        ("all_sources_xray_nodes.json", {"outbounds": [{"protocol": "vless", "tag": "a"}], "route": {}}, True),
+        ("all_sources_xray.json", {"outbounds": [{"protocol": "vless", "tag": "a"}]}, True),
+        ("all_sources_singbox_nodes.json", {"outbounds": [{"type": "trojan", "tag": "a"}]}, False),
+        ("all_sources_xray_nodes.json", {"outbounds": [{"protocol": "vless", "tag": "a"}]}, False),
+        ("all_sources_singbox.json", {
+            "inbounds": [{"type": "mixed"}], "dns": {}, "route": {},
+            "outbounds": [{"type": "trojan", "tag": "a"}]}, False),
+        ("all_sources_xray.json", {
+            "inbounds": [{"protocol": "socks"}], "outbounds": [{"protocol": "vmess", "tag": "a"}]}, False),
+    )
+    for number, (filename, payload, should_fail) in enumerate(cases):
+        target = tmp_path / str(number)
+        target.mkdir()
+        file = target / filename
+        file.write_text(json.dumps(payload), encoding="utf-8")
+        result = verifier.validate_file(file)
+        assert bool(result.get("invalid")) is should_fail, (filename, result)
+
+
+def test_legacy_nekobox_array_keeps_import_compatibility(tmp_path):
+    verifier = _load_verify_output()
+    file = tmp_path / "all_sources_nekobox.json"
+    file.write_text(json.dumps([{"type": "trojan", "tag": "node"}]), encoding="utf-8")
+    assert not verifier.validate_file(file).get("invalid")
+
+
+def test_invalid_artifact_cannot_erase_last_good_dist(tmp_path, monkeypatch):
+    verifier = _load_verify_output()
+    outputs = tmp_path / "outputs"
+    dist = tmp_path / "dist"
+    outputs.mkdir()
+    dist.mkdir()
+    (dist / "last-good.txt").write_text("retained", encoding="utf-8")
+    (outputs / "all_sources_singbox_nodes.json").write_text("{", encoding="utf-8")
+    monkeypatch.setattr(verifier, "OUTPUT_DIR", outputs)
+    monkeypatch.setattr(verifier, "DIST_DIR", dist)
+    with pytest.raises(RuntimeError, match="refusing to publish malformed"):
+        verifier.main()
+    assert (dist / "last-good.txt").read_text(encoding="utf-8") == "retained"
+
+
+def test_copy_error_preserves_existing_dist(tmp_path, monkeypatch):
+    verifier = _load_verify_output()
+    outputs = tmp_path / "outputs"
+    dist = tmp_path / "dist"
+    outputs.mkdir()
+    dist.mkdir()
+    (outputs / "all_sources.txt").write_text("vless://id@example.test:443#node\n", encoding="utf-8")
+    (dist / "previous.txt").write_text("safe", encoding="utf-8")
+    monkeypatch.setattr(verifier, "OUTPUT_DIR", outputs)
+    monkeypatch.setattr(verifier, "DIST_DIR", dist)
+
+    def fail_copy(*_args, **_kwargs):
+        raise OSError("simulated disk exhaustion")
+
+    monkeypatch.setattr(verifier.shutil, "copy2", fail_copy)
+    with pytest.raises(OSError, match="simulated disk exhaustion"):
+        verifier.main()
+    assert (dist / "previous.txt").read_text(encoding="utf-8") == "safe"
+
+
+def test_install_rename_error_rolls_back_previous_dist(tmp_path, monkeypatch):
+    verifier = _load_verify_output()
+    outputs = tmp_path / "outputs"
+    dist = tmp_path / "dist"
+    outputs.mkdir()
+    dist.mkdir()
+    (outputs / "all_sources.txt").write_text("vless://id@example.test:443#node\n", encoding="utf-8")
+    (dist / "previous.txt").write_text("safe", encoding="utf-8")
+    monkeypatch.setattr(verifier, "OUTPUT_DIR", outputs)
+    monkeypatch.setattr(verifier, "DIST_DIR", dist)
+    real_replace = verifier.os.replace
+
+    def rename(src, dst):
+        if Path(src).name == "prepared" and Path(dst) == dist:
+            raise OSError("simulated directory installation failure")
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(verifier.os, "replace", rename)
+    with pytest.raises(OSError, match="simulated directory installation failure"):
+        verifier.main()
+    assert (dist / "previous.txt").read_text(encoding="utf-8") == "safe"
+
+
+def test_successful_install_removes_old_dist_files(tmp_path, monkeypatch):
+    verifier = _load_verify_output()
+    outputs = tmp_path / "outputs"
+    dist = tmp_path / "dist"
+    outputs.mkdir()
+    dist.mkdir()
+    (dist / "obsolete.txt").write_text("old", encoding="utf-8")
+    payload = "vless://id@example.test:443#node\n"
+    (outputs / "all_sources.txt").write_text(payload, encoding="utf-8")
+    monkeypatch.setattr(verifier, "OUTPUT_DIR", outputs)
+    monkeypatch.setattr(verifier, "DIST_DIR", dist)
+    verifier.main()
+    assert not (dist / "obsolete.txt").exists()
+    assert (dist / "all_sources.txt").read_text(encoding="utf-8") == payload
+    assert (dist / "verify_output.py").is_file()
+
+
+def test_flattened_output_collisions_are_rejected_without_mutating_dist(tmp_path, monkeypatch):
+    verifier = _load_verify_output()
+    outputs = tmp_path / "outputs"
+    dist = tmp_path / "dist"
+    (outputs / "a").mkdir(parents=True)
+    (outputs / "b").mkdir()
+    dist.mkdir()
+    (outputs / "a" / "feed.txt").write_text("vless://id@example.test:443#one\n")
+    (outputs / "b" / "feed.txt").write_text("vless://id@example.test:443#two\n")
+    (dist / "old.txt").write_text("safe")
+    monkeypatch.setattr(verifier, "OUTPUT_DIR", outputs)
+    monkeypatch.setattr(verifier, "DIST_DIR", dist)
+    with pytest.raises(RuntimeError, match="Conflicting generated output filename"):
+        verifier.main()
+    assert (dist / "old.txt").read_text() == "safe"
+
+
+def test_symlinked_generated_artifact_is_rejected_without_mutating_dist(tmp_path, monkeypatch):
+    verifier = _load_verify_output()
+    outputs = tmp_path / "outputs"
+    dist = tmp_path / "dist"
+    outputs.mkdir()
+    dist.mkdir()
+    secret = tmp_path / "secret.txt"
+    secret.write_text("should-not-be-published")
+    try:
+        (outputs / "feed.txt").symlink_to(secret)
+    except (NotImplementedError, OSError):
+        pytest.skip("symlinks unavailable on this filesystem")
+    (dist / "old.txt").write_text("safe")
+    monkeypatch.setattr(verifier, "OUTPUT_DIR", outputs)
+    monkeypatch.setattr(verifier, "DIST_DIR", dist)
+    with pytest.raises(RuntimeError, match="Refusing symlinked generated output"):
+        verifier.main()
+    assert (dist / "old.txt").read_text() == "safe"

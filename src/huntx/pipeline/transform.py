@@ -257,12 +257,17 @@ class TransformPipeline:
                     stop_reason = "deadline"
 
                 batch_results: List[Dict[str, Any]] = []
-                for future in done:
+                # Result selection must follow the observation-id submission
+                # order, not the unordered completion set. Budget limits
+                # otherwise select different records on identical reruns.
+                for future in futures:
+                    if future not in done:
+                        continue
                     try:
                         result = future.result()
                     except Exception as exc:
                         logger.error("[Transform] Worker thread failed: %s", exc)
-                        continue
+                        raise RuntimeError("Transform worker exited unexpectedly") from exc
                     batch_results.append(result)
                     if result["format"]:
                         format_counts[result["format"]] += 1
@@ -272,6 +277,14 @@ class TransformPipeline:
                 selected_records = 0
                 for result in batch_results:
                     generated = int(result.get("records", 0)) if result.get("status") == "ok" else 0
+                    if generated > record_limit:
+                        # Replaying a source that can never fit the entire run
+                        # budget causes permanent starvation. Stop instead.
+                        raise RuntimeError(
+                            f"Pending observation yields {generated} records, exceeding "
+                            f"HUNTX_TRANSFORM_MAX_RECORDS={record_limit}; increase "
+                            "the total budget or reduce the per-file record count"
+                        )
                     if generated > remaining_records - selected_records:
                         deferred += 1
                         stop_reason = "max_records"

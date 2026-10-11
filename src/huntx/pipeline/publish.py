@@ -4,6 +4,7 @@ import logging
 import os
 import threading
 import time
+import uuid
 from typing import Any, Dict, List
 
 from ..config.schema import normalize_destination_mode
@@ -11,6 +12,7 @@ from ..core.deadline import Deadline, DeadlineExceeded
 from ..publishers.telegram.publisher import (
     TelegramPublisher,
     UnknownPublicationOutcome,
+    RejectedPublication,
 )
 from ..state.repo import StateRepo
 from ..utils.safe_names import safe_component
@@ -107,8 +109,10 @@ class PublishPipeline:
         safe_fmt = safe_component(fmt, default="fmt")
         ext = _EXT_LOOKUP.get(fmt, _DEFAULT_EXT)
         if ext == _DEFAULT_EXT:
-            if fmt.endswith(".decoded.json") or fmt.endswith(".singbox.json"):
+            if fmt.endswith((".decoded.json", ".singbox.json", ".xray.json", ".nekobox.json", ".profile.json")):
                 ext = ".json"
+            elif fmt.endswith(".clash.yaml"):
+                ext = ".yaml"
             elif fmt.endswith(".b64sub"):
                 ext = ".txt"
         filename = f"{safe_route}_{safe_fmt}_{new_hash[:8]}{ext}"
@@ -179,18 +183,31 @@ class PublishPipeline:
                     stable_id,
                 )
                 continue
-            if delivery_state == "unknown_outcome":
+            if delivery_state in {"unknown_outcome", "sending"}:
+                # A previous process may have crashed after Telegram accepted
+                # the payload but before we recorded its receipt. Retrying a
+                # durable 'sending' entry would duplicate the publication.
                 failures.append(f"destination={stable_id} error=UnknownPublicationOutcome")
                 logger.error(
                     "[Publish] Refusing automatic resend to %s because the "
-                    "previous outcome is unknown; reconcile the remote receipt "
-                    "before retrying",
+                    "previous outcome is unknown (state=%s); reconcile the "
+                    "remote receipt before retrying",
                     stable_id,
+                    delivery_state,
                 )
                 continue
 
-            publisher, publisher_lock = self._publisher_for(token)
+            attempt_token = uuid.uuid4().hex
+            if not self.state_repo.mark_delivery_sending(
+                intent_id, destination_id, attempt_token=attempt_token,
+            ):
+                if self.state_repo.get_delivery_state(intent_id, destination_id) == "confirmed":
+                    continue
+                failures.append(f"destination={stable_id} error=UnknownPublicationOutcome")
+                continue
+            dispatched = False
             try:
+                publisher, publisher_lock = self._publisher_for(token)
                 caption = template.format(
                     timestamp=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     sha12=new_hash[:12],
@@ -203,9 +220,9 @@ class PublishPipeline:
                     filename,
                     stable_id,
                 )
-                self.state_repo.mark_delivery_sending(intent_id, destination_id)
                 if deadline is None:
                     with publisher_lock:
+                        dispatched = True
                         receipt = publisher.publish(chat_id, data, filename, caption)
                 else:
                     acquired = publisher_lock.acquire(timeout=deadline.clamp_timeout(3600.0))
@@ -213,6 +230,7 @@ class PublishPipeline:
                         raise DeadlineExceeded("Global deadline exhausted waiting for publisher lock")
                     try:
                         deadline.raise_if_expired("publishing")
+                        dispatched = True
                         receipt = publisher.publish(
                             chat_id,
                             data,
@@ -226,6 +244,7 @@ class PublishPipeline:
                     intent_id,
                     destination_id,
                     remote_receipt=str(receipt) if receipt is not None else None,
+                    attempt_token=attempt_token,
                 )
                 confirmed_this_run.add(destination_id)
                 published_any = True
@@ -239,10 +258,9 @@ class PublishPipeline:
                     intent_id,
                     destination_id,
                     error_class=type(exc).__name__,
-                    unknown_outcome=isinstance(
-                        exc,
-                        UnknownPublicationOutcome,
-                    ),
+                    unknown_outcome=isinstance(exc, UnknownPublicationOutcome)
+                    or (dispatched and not isinstance(exc, RejectedPublication)),
+                    attempt_token=attempt_token,
                 )
                 if isinstance(exc, DeadlineExceeded):
                     raise

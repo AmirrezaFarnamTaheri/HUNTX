@@ -20,7 +20,7 @@ def _canonicalize_vmess_line(line: str) -> Optional[str]:
     """Return the current canonical VMess URI or ``None`` for non-VMess/invalid data."""
     if not line.startswith("vmess://"):
         return None
-    encoded = line[8:].replace("-", "+").replace("_", "/")
+    encoded = line[8:].split("#", 1)[0].replace("-", "+").replace("_", "/")
     encoded += "=" * ((4 - len(encoded) % 4) % 4)
     try:
         payload = base64.b64decode(encoded, validate=True).decode("utf-8")
@@ -331,6 +331,32 @@ class DBConnection:
                 conn.execute("PRAGMA user_version = 10")
                 version = 10
                 logger.info("Database schema migrated to version 10; canonicalised %s VMess record(s).", migrated)
+
+            if version < 11:
+                # Fence remote send attempts across processes, and persist all
+                # operator reconciliations of uncertain delivery outcomes.
+                delivery_columns = {
+                    row["name"] for row in conn.execute("PRAGMA table_info(publication_deliveries)")
+                }
+                if "attempt_token" not in delivery_columns:
+                    conn.execute("ALTER TABLE publication_deliveries ADD COLUMN attempt_token TEXT")
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS publication_delivery_reconciliations (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        intent_id INTEGER NOT NULL,
+                        destination_id TEXT NOT NULL,
+                        previous_state TEXT NOT NULL,
+                        resulting_state TEXT NOT NULL,
+                        operator TEXT NOT NULL,
+                        reason TEXT NOT NULL,
+                        remote_receipt TEXT,
+                        reconciled_at REAL NOT NULL,
+                        FOREIGN KEY (intent_id) REFERENCES publication_intents(id) ON DELETE CASCADE
+                    )
+                """)
+                conn.execute("PRAGMA user_version = 11")
+                version = 11
+                logger.info("Database schema migrated to version 11.")
         except Exception as exc:
             logger.error("Migration check failed: %s", exc)
             raise

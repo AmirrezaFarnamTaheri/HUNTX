@@ -28,9 +28,10 @@ from huntx.core.output_ownership import output_filename  # noqa: E402
 ManifestValue = float | int | str
 LEGACY_FIRST_SEEN = 0
 _MANIFEST_CHUNK_BYTES = 16 * 1024 * 1024
-_DERIVED_SUFFIXES = (
-    "decoded.json", "raw.txt", "singbox.json", "xray.json", "nekobox.json",
-)
+# Preserve historical Sing-box/Xray full-profile URLs and frozen URI aliases.
+# Obsolete dotted decoded datasets and NekoBox artifacts are retired only once
+# their canonical replacements exist, preventing old telemetry from resurfacing.
+_DERIVED_SUFFIXES = ("decoded.json", "nekobox.json")
 
 
 def copy_tree(src: Path, dst: Path) -> None:
@@ -111,7 +112,8 @@ def _b64_decode_safe(data: str) -> str:
 def strip_proxy_remark(uri: str) -> str:
     if uri.startswith("vmess://"):
         try:
-            raw = _b64_decode_safe(uri[8:])
+            body = uri.partition("#")[0]
+            raw = _b64_decode_safe(body[8:])
             payload = json.loads(raw)
             if not isinstance(payload, dict):
                 return uri
@@ -131,14 +133,14 @@ def add_clean_remark(uri: str, counter: dict[str, int]) -> str:
 
     if uri.startswith("vmess://"):
         try:
-            body, marker, fragment = uri.partition("#")
+            body = uri.partition("#")[0]
             raw = _b64_decode_safe(body[8:])
             payload = json.loads(raw)
             if not isinstance(payload, dict):
                 return uri
             payload["ps"] = tag
             encoded = json.dumps(payload, separators=(",", ":")).encode()
-            return "vmess://" + base64.b64encode(encoded).decode() + marker + fragment
+            return "vmess://" + base64.b64encode(encoded).decode()
         except (binascii.Error, UnicodeDecodeError, ValueError, json.JSONDecodeError):
             return uri
 

@@ -91,12 +91,18 @@ def get_records_for_governed_build(
              AND v.record_type = r.record_type
              AND v.policy_tier = 'secure'
         """
-        verdict_where = " AND v.syntax_status = 'pass' AND v.policy_status = 'pass'"
+        # A relaxed freshness setting allows an *unknown* probe, never a
+        # confirmed failed, expired, or malformed probe. A reported 'pass'
+        # without any expiry cannot be substantiated and is excluded.
+        verdict_where = (
+            " AND v.syntax_status = 'pass' AND v.policy_status = 'pass'"
+            " AND v.probe_status IN ('pass', 'unknown')"
+            " AND (v.probe_status <> 'pass' OR v.probe_expires_at IS NOT NULL)"
+            " AND (v.probe_expires_at IS NULL OR v.probe_expires_at > ?)"
+        )
+        args.append(float(now_epoch if now_epoch is not None else time.time()))
         if require_fresh_probe:
-            verdict_where += (
-                " AND v.probe_status = 'pass'" " AND v.probe_expires_at IS NOT NULL" " AND v.probe_expires_at > ?"
-            )
-            args.append(float(now_epoch if now_epoch is not None else time.time()))
+            verdict_where += " AND v.probe_status = 'pass'"
     # Exact observation provenance preserves the configured source trust boundary.
     query = f"""
         WITH filtered AS (

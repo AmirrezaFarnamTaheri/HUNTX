@@ -80,7 +80,7 @@ def test_v9_migration_preserves_staged_telegram_updates(tmp_path):
             for row in conn.execute("PRAGMA table_info(telegram_bot_consumers)").fetchall()
         }
 
-    assert version == 10
+    assert version == 11
     assert [row["update_id"] for row in staged] == [42]
     assert columns == {
         "token_fingerprint",

@@ -39,3 +39,22 @@ class TestDBMigrations(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_vmess_identity_migration_ignores_legacy_fragment():
+    """A legacy # name must not stop VMess re-keying or leak into its identity."""
+    import base64
+    import hashlib
+    import json
+
+    from huntx.state.db import _canonicalize_vmess_line
+
+    payload = {"port": "443", "add": "node.example.com", "ps": "legacy"}
+    source = "vmess://" + base64.b64encode(json.dumps(payload).encode()).decode()
+    canonical = _canonicalize_vmess_line(source + "#old-fragment")
+    expected_payload = {"add": "node.example.com", "port": "443"}
+    expected = "vmess://" + base64.b64encode(
+        json.dumps(expected_payload, sort_keys=True, separators=(",", ":")).encode()
+    ).decode()
+    assert canonical == expected
+    assert hashlib.sha256(canonical.encode()).hexdigest() == hashlib.sha256(expected.encode()).hexdigest()

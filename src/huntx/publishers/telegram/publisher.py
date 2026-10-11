@@ -26,6 +26,10 @@ class UnknownPublicationOutcome(RuntimeError):
     """The request may have reached Telegram, but no receipt was obtained."""
 
 
+class RejectedPublication(RuntimeError):
+    """Telegram explicitly rejected the document before accepting it."""
+
+
 def _max_retry_after_seconds() -> int:
     raw = os.getenv("HUNTX_PUBLISH_MAX_RETRY_AFTER_SECONDS")
     if raw is None:
@@ -178,8 +182,11 @@ class TelegramPublisher:
                             )
                             deadline.sleep(retry_after) if deadline is not None else time.sleep(retry_after)
                             continue
-                        raise RuntimeError(f"Telegram API error: {error_msg}")
+                        raise RejectedPublication(f"Telegram API error: {error_msg}")
 
+                    result = payload.get("result")
+                    if not isinstance(result, dict) or not isinstance(result.get("message_id"), int):
+                        raise UnknownPublicationOutcome("Telegram response has no verifiable message receipt")
                     return payload
             except urllib.error.HTTPError as e:
                 try:
@@ -199,7 +206,9 @@ class TelegramPublisher:
                         continue
 
                     logger.error(f"Telegram API HTTP error {e.code}: {error_msg}")
-                    raise RuntimeError(f"Telegram API HTTP {e.code}: {error_msg}")
+                    if e.code >= 500 or e.code in {408, 425}:
+                        raise UnknownPublicationOutcome("Telegram returned an ambiguous server error")
+                    raise RejectedPublication(f"Telegram API HTTP {e.code}: {error_msg}")
                 except RuntimeError:
                     raise
                 except Exception as ex:
@@ -207,19 +216,15 @@ class TelegramPublisher:
                     raise
             except DeadlineExceeded:
                 raise
-            except UnknownPublicationOutcome:
+            except (UnknownPublicationOutcome, RejectedPublication):
                 raise
             except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
-                if deadline is not None and deadline.expired():
-                    raise DeadlineExceeded("Global deadline exhausted during Telegram transport") from exc
+                # Deadline expiration cannot prove the server rejected the upload.
                 # Retrying an ambiguous transport failure can duplicate a
                 # document that Telegram accepted before the connection died.
                 raise UnknownPublicationOutcome(
                     "Telegram publication outcome is unknown after transport failure"
                 ) from exc
-            except Exception as e:
-                logger.error("Telegram publish failed for chat_id=%s (attempt %s/%s): %s", chat_id, attempt, max_attempts, type(e).__name__)
-                if attempt < max_attempts:
-                    deadline.sleep(2 * attempt) if deadline is not None else time.sleep(2 * attempt)
-                    continue
-                raise
+            except Exception as exc:
+                logger.error("Telegram publish response failed for chat_id=%s: %s", chat_id, type(exc).__name__)
+                raise UnknownPublicationOutcome("Telegram response handling failed after dispatch") from exc
