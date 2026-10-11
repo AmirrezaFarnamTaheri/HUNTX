@@ -3821,7 +3821,7 @@ export class AppState {
       ["all_sources_singbox_profile.json", "Sing-box full profile", "Complete runnable Sing-box configuration with inbound, DNS, routing and selector policy.", "sky"],
       ["all_sources_xray_profile.json", "Xray full profile", "Complete runnable Xray configuration with local inbound and full configuration envelope.", "indigo"],
     ].map(([filename, label, description, color]) => ({ filename, label, description, color, file: findArtifact(filename) }));
-    const feedCard = ({ label, description, color, file, recommended, copyLabel }) => {
+    const feedCard = ({ label, description, file, recommended, copyLabel }) => {
       if (!file) return "";
       const link = getArtifactLinkModel(file.path);
       const action = copyLabel || "Copy Node Subscription URL";
@@ -3833,14 +3833,14 @@ export class AppState {
         </div>
         <div class="mt-3 rounded-lg border border-gray-800 bg-black/20 px-2.5 py-2">
           <div class="text-xs uppercase tracking-wider text-gray-500 mb-1">${escapeHTML(link.sourceLabel)}</div>
-          <div class="text-xs text-${color}-300 break-all">${escapeHTML(link.display)}</div>
+          <div class="text-xs text-cyan-300 break-all">${escapeHTML(link.display)}</div>
         </div>
         <div class="mt-3 flex items-center justify-end gap-2">
-          <button class="btn-copy-custom px-3 py-1.5 min-h-[44px] bg-${color}-500 text-${color === "indigo" ? "white" : "gray-950"} font-bold rounded-lg text-xs cursor-pointer focus-ring" data-url="${escapeHTML(link.copyValue)}" data-absolute="${link.isAbsolute}" data-copy-message="Node subscription URL copied">${escapeHTML(action)}</button>
+          <button class="btn-copy-custom px-3 py-1.5 min-h-[44px] bg-cyan-500 text-gray-950 font-bold rounded-lg text-xs cursor-pointer focus-ring" data-url="${escapeHTML(link.copyValue)}" data-absolute="${link.isAbsolute}" data-copy-message="Node subscription URL copied">${escapeHTML(action)}</button>
         </div>
       </div>`;
     };
-    const profileCard = ({ label, description, color, file }) => {
+    const profileCard = ({ label, description, file }) => {
       if (!file) return "";
       const link = getArtifactLinkModel(file.path);
       return `
@@ -3851,10 +3851,10 @@ export class AppState {
         </div>
         <div class="mt-3 rounded-lg border border-gray-800 bg-black/20 px-2.5 py-2">
           <div class="text-xs uppercase tracking-wider text-gray-500 mb-1">${escapeHTML(link.sourceLabel)}</div>
-          <div class="text-xs text-${color}-300 break-all">${escapeHTML(link.display)}</div>
+          <div class="text-xs text-cyan-300 break-all">${escapeHTML(link.display)}</div>
         </div>
         <div class="mt-3 flex items-center justify-end gap-2">
-          <a class="btn-download-profile px-3 py-1.5 min-h-[44px] inline-flex items-center bg-gray-800 hover:bg-${color}-500 hover:text-gray-950 text-gray-200 font-bold rounded-lg text-xs cursor-pointer focus-ring" href="${escapeHTML(link.copyValue)}" download>Download Full Profile</a>
+          <a class="btn-download-profile px-3 py-1.5 min-h-[44px] inline-flex items-center bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 text-gray-200 font-bold rounded-lg text-xs cursor-pointer focus-ring" href="${escapeHTML(link.copyValue)}" download>Download Full Profile</a>
         </div>
       </div>`;
     };
@@ -3880,7 +3880,7 @@ export class AppState {
               <span class="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider block mb-1">1. Node subscriptions (separate entries)</span>
               <p class="text-xs text-gray-500 mb-2">Each of these expands into individual proxy entries. Use this when you want nodes listed separately.</p>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                ${subscriptionFeeds.map(feedCard).join("") || `<p class="col-span-full rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-xs text-amber-200">No compatible production profiles are in this published catalog.</p>`}
+                ${subscriptionFeeds.map(feedCard).join("") || `<p class="col-span-full rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-xs text-amber-200">No node subscription feeds are available in this published catalog.</p>`}
               </div>
             </div>
 
