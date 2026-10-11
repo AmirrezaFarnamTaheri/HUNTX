@@ -327,11 +327,15 @@ def main():
         # decoded dataset is not counted at all.
         name = item.name.lower()
         suffix = item.suffix.lower()
-        if (_matches_derived_name(name, ".singbox.profile.json", "_singbox_profile.json")
-            or _matches_derived_name(name, ".singbox.json", "_singbox.json")):
+        if (
+            _matches_derived_name(name, ".singbox.profile.json", "_singbox_profile.json")
+            or _matches_derived_name(name, ".singbox.json", "_singbox.json")
+        ):
             format_counts["singbox.profile.json"] += 1
-        elif (_matches_derived_name(name, ".xray.profile.json", "_xray_profile.json")
-            or _matches_derived_name(name, ".xray.json", "_xray.json")):
+        elif (
+            _matches_derived_name(name, ".xray.profile.json", "_xray_profile.json")
+            or _matches_derived_name(name, ".xray.json", "_xray.json")
+        ):
             format_counts["xray.profile.json"] += 1
         elif _matches_derived_name(name, ".singbox.nodes.json", "_singbox_nodes.json"):
             format_counts["singbox.json"] += 1
