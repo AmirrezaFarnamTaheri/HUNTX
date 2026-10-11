@@ -107,6 +107,17 @@ def test_vmess_remark_rewrite_drops_stale_uri_fragment():
     assert ps.startswith("vmess")
 
 
+
+def test_direct_vmess_remark_drops_stale_fragment():
+    """VMess names come exclusively from the payload, not an old # remark."""
+    rewritten = add_clean_remark(_vmess("old-name") + "#shared-stale-name", {})
+    assert rewritten.startswith("vmess://")
+    assert "#" not in rewritten
+    payload = rewritten.split("://", 1)[1]
+    data = json.loads(base64.b64decode(payload + "=" * (-len(payload) % 4)))
+    assert data["ps"].startswith("vmess-")
+
+
 def test_a_vmess_remark_lives_in_the_payload():
     """VMess carries its name in ``ps``, not in the URI fragment."""
     handler = NpvtHandler()
