@@ -82,7 +82,7 @@ class TestPublicationLedger(unittest.TestCase):
         barrier = threading.Barrier(8)
 
         def attempt(number):
-            repo = StateRepo(open_db(Path(self._tmp.name) / "state.db"))
+            repo = StateRepo(self.repo.db)
             barrier.wait(timeout=5)
             return repo.mark_delivery_sending(intent, "primary", attempt_token=f"worker-{number}")
 

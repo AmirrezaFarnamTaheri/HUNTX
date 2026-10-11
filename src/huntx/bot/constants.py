@@ -83,6 +83,8 @@ _ALL_VALID_FORMATS = SUPPORTED_FORMATS + [
     "xray.json",
     "nekobox.json",
     "clash.yaml",
+    "singbox.profile.json",
+    "xray.profile.json",
 ]
 
 _AUTO_DELIVER_FORMATS = ("npvt", "b64sub")
@@ -97,6 +99,8 @@ _FORMAT_LABELS = {
     "xray.json": "🔗 Xray independent-node JSON subscription",
     "nekobox.json": "🔗 NekoBox independent-node JSON subscription",
     "clash.yaml": "🔗 Clash/Mihomo independent-node provider subscription",
+    "singbox.profile.json": "🧩 Sing-box complete runnable profile",
+    "xray.profile.json": "🧩 Xray complete runnable profile",
     "conf_lines": "📝 Generic config lines",
     "ovpn": "🔐 OpenVPN",
     "npv4": "📱 NapsternetV v4",
