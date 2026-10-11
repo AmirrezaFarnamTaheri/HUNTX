@@ -14,7 +14,7 @@ def decode_payload(uri):
 
 @pytest.mark.parametrize("add_clean_remark", [assemble_remark, runtime_remark])
 @pytest.mark.parametrize("index", range(1, 6))
-def test_vmess_payload_remark_is_cleaned_and_fragment_preserved(index, add_clean_remark):
+def test_vmess_payload_remark_is_cleaned_and_fragment_removed(index, add_clean_remark):
     payload = {
         "add": "example.invalid",
         "port": "443",
@@ -27,7 +27,7 @@ def test_vmess_payload_remark_is_cleaned_and_fragment_preserved(index, add_clean
 
     result = add_clean_remark(uri, counter)
 
-    assert result.partition("#")[2] == f"%73ource-{index}"
+    assert "#" not in result
     assert decode_payload(result) == {**payload, "ps": f"vmess-{index}"}
     assert counter == {"vmess": index}
 

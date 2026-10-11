@@ -10,6 +10,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncIterator
 
+from ..utils.atomic import atomic_write
+
 
 class SessionLeaseTimeout(RuntimeError):
     pass
@@ -135,12 +137,9 @@ def _touch_if_owned(path: Path, lease_id: str) -> bool:
             return False
         now = time.time()
         current["heartbeat_at"] = now
-        descriptor = os.open(path, os.O_WRONLY | os.O_TRUNC)
-        try:
-            os.write(descriptor, json.dumps(current, sort_keys=True).encode("utf-8"))
-            os.fsync(descriptor)
-        finally:
-            os.close(descriptor)
+        # Atomic replacement prevents a crash or short write from leaving an
+        # unreadable lease and allowing an unrelated contender to reap it.
+        atomic_write(path, json.dumps(current, sort_keys=True).encode("utf-8"))
         os.utime(path, (now, now))
         return True
     finally:
@@ -209,7 +208,12 @@ async def acquire_session_lease(
                 return
             except asyncio.TimeoutError:
                 if not _touch_if_owned(path, lease_id):
-                    return
+                    # A competing reaper may temporarily hold the coordination
+                    # marker while this lease is still ours. Retry next tick;
+                    # only a genuinely replaced/lost lease ends heartbeats.
+                    current = _read_lease(path)
+                    if current is None or current.get("lease_id") != lease_id:
+                        return
 
     heartbeat_task = asyncio.create_task(heartbeat())
     try:

@@ -132,14 +132,14 @@ def add_clean_remark(uri: str, counter: dict[str, int]) -> str:
 
     if uri.startswith("vmess://"):
         try:
-            body, marker, fragment = uri.partition("#")
+            body = uri.partition("#")[0]
             raw = _b64_decode_safe(body[8:])
             payload = json.loads(raw)
             if not isinstance(payload, dict):
                 return uri
             payload["ps"] = tag
             encoded = json.dumps(payload, separators=(",", ":")).encode()
-            return "vmess://" + base64.b64encode(encoded).decode() + marker + fragment
+            return "vmess://" + base64.b64encode(encoded).decode()
         except (binascii.Error, UnicodeDecodeError, ValueError, json.JSONDecodeError):
             return uri
 

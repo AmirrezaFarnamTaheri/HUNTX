@@ -101,5 +101,38 @@ class TestSessionLease(unittest.IsolatedAsyncioTestCase):
         )
 
 
+    async def test_heartbeat_recovers_after_transient_reap_marker(self) -> None:
+        lock_path = session_lease_path(self.root, "identity")
+        reap_path = lock_path.with_name(f"{lock_path.name}.reap")
+        async with acquire_session_lease(
+            self.root,
+            "identity",
+            timeout_seconds=0.2,
+            stale_after_seconds=0.5,
+            heartbeat_seconds=0.02,
+        ):
+            reap_path.write_text("another reaper", encoding="utf-8")
+            await asyncio.sleep(0.07)
+            reap_path.unlink()
+            before = lock_path.stat().st_mtime_ns
+            await asyncio.sleep(0.07)
+            self.assertGreater(lock_path.stat().st_mtime_ns, before)
+
+    async def test_failed_atomic_heartbeat_never_truncates_lease(self) -> None:
+        from unittest.mock import patch
+
+        from huntx.core.session_lease import _touch_if_owned
+
+        lock_path = session_lease_path(self.root, "identity")
+        async with acquire_session_lease(
+            self.root, "identity", timeout_seconds=0.2, heartbeat_seconds=10,
+        ):
+            initial = json.loads(lock_path.read_text(encoding="utf-8"))
+            with patch("huntx.utils.atomic.os.replace", side_effect=OSError("disk failure")):
+                with self.assertRaises(OSError):
+                    _touch_if_owned(lock_path, initial["lease_id"])
+            self.assertEqual(json.loads(lock_path.read_text(encoding="utf-8")), initial)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -20,7 +20,7 @@ def _canonicalize_vmess_line(line: str) -> Optional[str]:
     """Return the current canonical VMess URI or ``None`` for non-VMess/invalid data."""
     if not line.startswith("vmess://"):
         return None
-    encoded = line[8:].replace("-", "+").replace("_", "/")
+    encoded = line[8:].split("#", 1)[0].replace("-", "+").replace("_", "/")
     encoded += "=" * ((4 - len(encoded) % 4) % 4)
     try:
         payload = base64.b64decode(encoded, validate=True).decode("utf-8")
