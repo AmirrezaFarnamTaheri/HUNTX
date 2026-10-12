@@ -23,6 +23,43 @@ _PROXY_TYPES = frozenset({
     "vless", "vmess", "trojan", "ss", "hysteria2", "hy2", "tuic",
 })
 
+# Share-link conversion is lossless only for a documented subset of options.
+# Unknown Mihomo keys may alter authentication, routing, transport or TLS,
+# so reject individual nodes rather than advertising a broken connection.
+_MIHOMO_COMMON_FIELDS = frozenset({
+    "type", "name", "server", "port", "network", "tls", "servername",
+    "sni", "skip-cert-verify", "client-fingerprint", "alpn",
+    "reality-opts", "ws-opts", "grpc-opts", "http-opts",
+    "h2-opts", "httpupgrade-opts", "udp",
+})
+_MIHOMO_PROTOCOL_FIELDS = {
+    "vless": frozenset({"uuid", "encryption", "flow"}),
+    "vmess": frozenset({"uuid", "cipher", "alterId"}),
+    "trojan": frozenset({"password"}),
+    "ss": frozenset({"cipher", "password"}),
+    "hysteria2": frozenset({"password", "ports", "obfs", "obfs-password", "up", "down"}),
+    "hy2": frozenset({"password", "ports", "obfs", "obfs-password", "up", "down"}),
+    "tuic": frozenset({"uuid", "password"}),
+}
+
+
+class _BoundedMihomoLoader(yaml.SafeLoader):
+    """Reject aliases and excessive nesting before constructing untrusted YAML."""
+
+    def compose_node(self, parent: Any, index: Any) -> Any:
+        if self.check_event(yaml.AliasEvent):
+            raise ValueError("Mihomo aliases are not accepted in remote feeds")
+        depth = getattr(self, "_feed_depth", 0)
+        if depth >= 64:
+            raise ValueError("Mihomo YAML nesting exceeds limit")
+        self._feed_depth = depth + 1
+        try:
+            return super().compose_node(parent, index)
+        finally:
+            self._feed_depth = depth
+
+
+
 
 def _scalar(value: Any) -> str:
     return str(value) if isinstance(value, (str, int)) and not isinstance(value, bool) else ""
@@ -51,6 +88,14 @@ def _mihomo_uri(node: dict[str, Any]) -> str | None:
     """Convert only Mihomo parameters that the standard share URIs represent."""
     kind = _scalar(node.get("type")).lower()
     if kind not in _PROXY_TYPES:
+        return None
+    allowed = _MIHOMO_COMMON_FIELDS | _MIHOMO_PROTOCOL_FIELDS[kind]
+    if set(node) - allowed or node.get("udp") is False:
+        return None
+    # Trojan and QUIC protocols require TLS; explicit opt-outs are not portable.
+    if kind in {"trojan", "hysteria2", "hy2", "tuic"} and node.get("tls") is False:
+        return None
+    if node.get("flow") and kind == "vless" and node.get("network", "tcp") not in ("tcp", "raw"):
         return None
     endpoint = _endpoint(node)
     if not endpoint or any(k in node for k in (
@@ -83,6 +128,8 @@ def _mihomo_uri(node: dict[str, Any]) -> str | None:
         if not isinstance(options, dict):
             return None
         if network == "ws":
+            if set(options) - {"path", "headers"}:
+                return None
             if any(k in options for k in ("max-early-data", "early-data-header-name")):
                 return None
             headers = options.get("headers") or {}
@@ -105,6 +152,8 @@ def _mihomo_uri(node: dict[str, Any]) -> str | None:
                 q["serviceName"] = _scalar(options["grpc-service-name"])
         else:
             # Multiple paths, methods and arbitrary headers are policy-dependent.
+            if set(options) - {"method", "path", "host"}:
+                return None
             if options.get("method") not in (None, "GET"):
                 return None
             paths = options.get("path") or []
@@ -274,10 +323,14 @@ def normalize_feed(payload: bytes, mode: str = "auto") -> tuple[bytes, dict[str,
             data = json.loads(text)
         except json.JSONDecodeError as exc:
             raise ValueError("malformed JSON feed") from exc
+        if isinstance(data, list) and len(data) > MAX_FEED_NODES:
+            raise ValueError("JSON feed exceeds node limit")
         if isinstance(data, list) and all(isinstance(x, str) for x in data):
             text = "\n".join(data)
             kind = "json_links"
         elif isinstance(data, dict) and isinstance(data.get("proxies"), list):
+            if len(data["proxies"]) > MAX_FEED_NODES:
+                raise ValueError("Mihomo JSON feed exceeds node limit")
             kind = "mihomo"
             converted = [_mihomo_uri(x) if isinstance(x, dict) else None for x in data["proxies"]]
             skipped = converted.count(None)
@@ -285,7 +338,12 @@ def normalize_feed(payload: bytes, mode: str = "auto") -> tuple[bytes, dict[str,
         else:
             raise ValueError("full JSON profiles are not independent share-link feeds")
     elif text.startswith("proxies:") or text.startswith("---\nproxies:"):
-        data = yaml.safe_load(text)
+        if len(payload) > 2 * 1024 * 1024:
+            raise ValueError("Mihomo YAML exceeds conservative size limit")
+        try:
+            data = yaml.load(text, Loader=_BoundedMihomoLoader)
+        except (yaml.YAMLError, RecursionError) as exc:
+            raise ValueError("invalid or deeply nested Mihomo YAML") from exc
         if not isinstance(data, dict) or not isinstance(data.get("proxies"), list):
             raise ValueError("Mihomo feed lacks a proxies array")
         if len(data["proxies"]) > MAX_FEED_NODES:
