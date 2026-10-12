@@ -374,7 +374,10 @@ def test_remark_marks_unreachable_nodes_as_failed() -> None:
     down = format_enriched_remark("vless://x@h:443", {}, {"country": "DE", "health_grade": "A+", "probe_ok": False})
     assert "⭐F" in down
     assert "⭐A+" not in down
-    up = format_enriched_remark("vless://x@h:443", {}, {"country": "DE", "health_grade": "A"})
+    up = format_enriched_remark("vless://x@h:443", {}, {
+        "country": "DE", "health_grade": "A",
+        "probe_kind": "protocol_authenticated", "probe_ok": True, "probe_age_seconds": 50,
+    })
     assert "⭐A" in up
 
 

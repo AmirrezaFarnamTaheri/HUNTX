@@ -43,6 +43,14 @@ class TestStateRepo(unittest.TestCase):
             is_active BOOLEAN DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+        CREATE TABLE proxy_lifecycle (
+            unique_hash TEXT NOT NULL,
+            record_type TEXT NOT NULL,
+            lifecycle_status TEXT NOT NULL DEFAULT 'discovered',
+            first_seen_at INTEGER NOT NULL,
+            last_seen_at INTEGER NOT NULL,
+            PRIMARY KEY(unique_hash, record_type)
+        );
         CREATE TABLE published_artifacts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             route_name TEXT NOT NULL,
