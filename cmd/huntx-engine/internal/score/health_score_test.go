@@ -76,39 +76,39 @@ func TestCalculateHealthScore_Clamping(t *testing.T) {
 }
 
 func TestHealthScoreEvidenceIsNotAnUnverifiedQualityClaim(t *testing.T) {
-    node := score.NodeMetrics{LatencyMs: 30, SpeedMbps: 12, SecurityType: score.SecurityReality}
-    baseline := score.CalculateHealthScore(node, "MCI")
-    if baseline.Recommended || baseline.VerifiedGrade != "" || baseline.Evidence != "unverified" {
-        t.Fatalf("unverified advertised proxy was graded as connected: %+v", baseline)
-    }
-    node.ProbeKind, node.ProbeOK = "tcp_connect", true
-    tcp := score.CalculateHealthScore(node, "MCI")
-    if tcp.Recommended || tcp.Evidence != "tcp_connect_only" {
-        t.Fatalf("TCP-only probe incorrectly certified proxy: %+v", tcp)
-    }
-    node.ProbeKind, node.ProbeAgeSecs = "protocol_authenticated", 60
-    valid := score.CalculateHealthScore(node, "MCI")
-    if !valid.Recommended || valid.VerifiedGrade != valid.Grade {
-        t.Fatalf("fresh protocol probe was not credited: %+v", valid)
-    }
-    node.ProbeAgeSecs = 3601
-    stale := score.CalculateHealthScore(node, "MCI")
-    if stale.Recommended || stale.VerifiedGrade != "" || stale.Evidence != "stale_authenticated_probe" {
-        t.Fatalf("expired protocol evidence was trusted: %+v", stale)
-    }
-    node.ProbeOK = false
-    failed := score.CalculateHealthScore(node, "MCI")
-    if failed.Score != 0 || failed.Recommended || failed.VerifiedGrade != score.GradeF {
-        t.Fatalf("failed authenticated probe was recommended: %+v", failed)
-    }
+	node := score.NodeMetrics{LatencyMs: 30, SpeedMbps: 12, SecurityType: score.SecurityReality}
+	baseline := score.CalculateHealthScore(node, "MCI")
+	if baseline.Recommended || baseline.VerifiedGrade != "" || baseline.Evidence != "unverified" {
+		t.Fatalf("unverified advertised proxy was graded as connected: %+v", baseline)
+	}
+	node.ProbeKind, node.ProbeOK = "tcp_connect", true
+	tcp := score.CalculateHealthScore(node, "MCI")
+	if tcp.Recommended || tcp.Evidence != "tcp_connect_only" {
+		t.Fatalf("TCP-only probe incorrectly certified proxy: %+v", tcp)
+	}
+	node.ProbeKind, node.ProbeAgeSecs = "protocol_authenticated", 60
+	valid := score.CalculateHealthScore(node, "MCI")
+	if !valid.Recommended || valid.VerifiedGrade != valid.Grade {
+		t.Fatalf("fresh protocol probe was not credited: %+v", valid)
+	}
+	node.ProbeAgeSecs = 3601
+	stale := score.CalculateHealthScore(node, "MCI")
+	if stale.Recommended || stale.VerifiedGrade != "" || stale.Evidence != "stale_authenticated_probe" {
+		t.Fatalf("expired protocol evidence was trusted: %+v", stale)
+	}
+	node.ProbeOK = false
+	failed := score.CalculateHealthScore(node, "MCI")
+	if failed.Score != 0 || failed.Recommended || failed.VerifiedGrade != score.GradeF {
+		t.Fatalf("failed authenticated probe was recommended: %+v", failed)
+	}
 }
 
 func TestHealthScoreRejectsNonFiniteAndNegativeTelemetry(t *testing.T) {
-    node := score.NodeMetrics{LatencyMs: math.NaN(), SpeedMbps: math.Inf(1), PacketLoss: -20,
-        SecurityType: score.SecurityTLS}
-    result := score.CalculateHealthScore(node, "")
-    if math.IsNaN(result.Score) || math.IsInf(result.Score, 0) ||
-       result.Score < 0 || result.Score > 100 || result.Recommended {
-        t.Fatalf("invalid telemetry bypassed bounded scoring: %+v", result)
-    }
+	node := score.NodeMetrics{LatencyMs: math.NaN(), SpeedMbps: math.Inf(1), PacketLoss: -20,
+		SecurityType: score.SecurityTLS}
+	result := score.CalculateHealthScore(node, "")
+	if math.IsNaN(result.Score) || math.IsInf(result.Score, 0) ||
+		result.Score < 0 || result.Score > 100 || result.Recommended {
+		t.Fatalf("invalid telemetry bypassed bounded scoring: %+v", result)
+	}
 }

@@ -46,9 +46,9 @@ type NodeMetrics struct {
 
 // HealthResult contains the computed health score, tier grade, and recommendation status.
 type HealthResult struct {
-	Score       float64
-	Grade       ScoreGrade
-	Recommended bool
+	Score         float64
+	Grade         ScoreGrade
+	Recommended   bool
 	VerifiedGrade ScoreGrade
 	Evidence      string
 }
