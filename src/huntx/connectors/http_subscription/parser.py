@@ -59,8 +59,6 @@ class _BoundedMihomoLoader(yaml.SafeLoader):
             self._feed_depth = depth
 
 
-
-
 def _scalar(value: Any) -> str:
     return str(value) if isinstance(value, (str, int)) and not isinstance(value, bool) else ""
 
