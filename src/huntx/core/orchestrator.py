@@ -397,6 +397,7 @@ class Orchestrator:
                     url=feed.url,
                     mode=feed.mode,
                     timeout_seconds=feed.timeout_seconds,
+                    raw_store=self.raw_store,
                 )
                 connector.deadline = deadline
                 await self.ingest_pipeline.run(

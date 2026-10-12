@@ -1,17 +1,18 @@
-"""HTTPS feed investigation integrated with HUNTX's governed ingestion.
-
-Every URL is its own source/state identity. A bad or missing upstream must not
-overwrite the last validated observation. No remote content is executed.
-"""
+"""Go-backed public HTTPS feed connector for HUNTX's governed state pipeline."""
 from __future__ import annotations
 
 import asyncio
+import base64
+import binascii
 import hashlib
+import json
 import logging
+import os
+from pathlib import Path
+import shutil
+import subprocess
 import time
-import urllib.error
 import urllib.parse
-import urllib.request
 from dataclasses import dataclass
 from typing import Any
 
@@ -28,7 +29,7 @@ ALLOWED_FEED_HOSTS = frozenset({
 
 
 def validate_public_feed_url(url: str) -> str:
-    """Enforce an explicit fixed public HTTPS upstream boundary."""
+    """Enforce one fixed HTTPS origin per public subscription source."""
     parsed = urllib.parse.urlsplit(url)
     if (parsed.scheme.lower() != "https" or
             parsed.hostname not in ALLOWED_FEED_HOSTS or
@@ -39,11 +40,24 @@ def validate_public_feed_url(url: str) -> str:
     return url
 
 
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, request, fp, code, msg, headers, newurl):
-        # Redirect chains may target local metadata endpoints or a private LAN.
-        # Never follow them without an explicit URL added to the source catalog.
-        raise ValueError("HTTP subscription redirected; review upstream URL explicitly")
+def _engine_path() -> str:
+    configured = os.environ.get("HUNTX_ENGINE_BIN", "").strip()
+    if configured:
+        resolved = Path(configured).expanduser()
+        if not resolved.is_file():
+            raise FileNotFoundError("configured Go engine binary does not exist")
+        return str(resolved)
+    binary = "huntx-engine.exe" if os.name == "nt" else "huntx-engine"
+    local = Path(__file__).resolve().parents[4] / ".bin" / binary
+    if local.is_file():
+        return str(local)
+    installed = shutil.which(binary)
+    if installed:
+        return installed
+    raise FileNotFoundError(
+        "Go feed network worker is unavailable; build: "
+        "go build -o .bin/huntx-engine ./cmd/huntx-engine"
+    )
 
 
 @dataclass(frozen=True)
@@ -54,9 +68,16 @@ class SubscriptionObservation:
 
 
 class HttpSubscriptionConnector:
-    """Fetch a bounded feed and produce two canonical, independently tracked formats."""
+    """Go fetches; Python validates node semantics and commits durable observations."""
 
-    def __init__(self, url: str, *, mode: str = "auto", timeout_seconds: int = 12):
+    def __init__(
+        self,
+        url: str,
+        *,
+        mode: str = "auto",
+        timeout_seconds: int = 12,
+        raw_store: Any = None,
+    ):
         self.url = validate_public_feed_url(url)
         if mode not in ("auto", "xray_profile_audit"):
             raise ValueError("unsupported HTTP subscription inspection mode")
@@ -64,51 +85,129 @@ class HttpSubscriptionConnector:
             raise ValueError("timeout_seconds must be between 2 and 40")
         self.mode = mode
         self.timeout_seconds = timeout_seconds
+        self.raw_store = raw_store
         self.deadline: float | None = None
         self._state: dict[str, Any] = {}
+        self._previous: dict[str, Any] = {}
+        self._fetch_headers: dict[str, str] = {}
+        self._revalidated = False
+
+    def _cached_payload(self) -> bytes | None:
+        """Use the content-addressed raw store; never persist feed credentials in state."""
+        if self.mode != "auto" or self.raw_store is None:
+            return None
+        fingerprint = self._previous.get("normalized_sha256")
+        if (not isinstance(fingerprint, str) or len(fingerprint) != 64
+                or any(c not in "0123456789abcdef" for c in fingerprint)):
+            return None
+        try:
+            cached = self.raw_store.get(fingerprint)
+        except (OSError, ValueError, KeyError):
+            return None
+        if (
+            not isinstance(cached, bytes)
+            or not cached
+            or len(cached) > MAX_FEED_BYTES
+            or hashlib.sha256(cached).hexdigest() != fingerprint
+        ):
+            return None
+        return cached
 
     def _fetch(self) -> bytes:
+        """Run a bounded Go subprocess; never echo its stdout/stderr into logs."""
+        cached = self._cached_payload()
         timeout = float(self.timeout_seconds)
         if self.deadline is not None:
             remaining = float(self.deadline) - time.time()
             if remaining <= 0:
-                raise TimeoutError("HTTP feed deadline exhausted before fetch")
-            timeout = max(0.1, min(timeout, remaining))
-        request = urllib.request.Request(
-            self.url,
-            headers={
-                "User-Agent": "HUNTX-public-feed-investigator/1.0",
-                "Accept": "text/plain, application/json, application/yaml, */*;q=0.5",
-                "Accept-Encoding": "identity",
-            },
-            method="GET",
-        )
-        opener = urllib.request.build_opener(_NoRedirect())
+                raise TimeoutError("HTTP feed deadline elapsed before fetch")
+            timeout = min(timeout, remaining)
+        cmd = [
+            _engine_path(),
+            "feed-fetch", "--url", self.url, "--timeout", f"{max(1., timeout):.2f}s",
+        ]
+        if cached is not None:
+            for name, flag in (("etag", "--etag"), ("last_modified", "--last-modified")):
+                value = self._previous.get(name)
+                if isinstance(value, str) and 0 < len(value) <= 512:
+                    cmd.extend((flag, value))
+
         try:
-            with opener.open(request, timeout=timeout) as response:
-                if response.status != 200:
-                    raise ValueError("feed response was not HTTP 200")
-                data = response.read(MAX_FEED_BYTES + 1)
-        except urllib.error.HTTPError as exc:
-            raise ValueError(f"feed HTTP status {exc.code}") from None
-        except urllib.error.URLError as exc:
-            raise OSError("feed network request failed") from exc
-        if not data or len(data) > MAX_FEED_BYTES:
-            raise ValueError("HTTP feed is empty or exceeds byte limit")
-        return data
+            result = subprocess.run(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                check=False, timeout=max(2.0, timeout + 3.0),
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise TimeoutError("Go feed fetch exceeded the permitted time budget") from exc
+        if result.returncode:
+            raise OSError("Go network fetcher rejected or failed this source")
+        if len(result.stdout) > 4 * MAX_FEED_BYTES:
+            raise ValueError("Go fetch envelope exceeds permitted bytes")
+        try:
+            response = json.loads(result.stdout)
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError("invalid Go fetch response envelope") from exc
+        if not isinstance(response, dict):
+            raise ValueError("invalid Go fetch response type")
+        self._fetch_headers = {
+            field: str(response.get(field, ""))
+            for field in ("etag", "last_modified")
+        }
+        if response.get("status") == "not_modified":
+            if cached is None:
+                raise ValueError("conditional response has no verified local cache")
+            self._revalidated = True
+            return cached
+        if response.get("status") != "ok":
+            raise ValueError("Go fetch returned unsupported result")
+        encoded = response.get("content_b64")
+        if not isinstance(encoded, str):
+            raise ValueError("Go fetch response lacks content")
+        try:
+            raw = base64.b64decode(encoded, validate=True)
+        except (ValueError, binascii.Error) as exc:
+            raise ValueError("invalid Go feed base64 envelope") from exc
+        if not raw or len(raw) > MAX_FEED_BYTES or response.get("bytes") != len(raw):
+            raise ValueError("inconsistent Go feed byte count")
+        self._revalidated = False
+        return raw
 
     def list_new(self, state: dict[str, Any] | None = None):
         return AsyncSyncIterator(self._list_new_async(state))
 
     async def _list_new_async(self, state: dict[str, Any] | None):
+        self._previous = dict(state or {})
+        self._fetch_headers = {}
+        self._revalidated = False
         raw = await asyncio.to_thread(self._fetch)
         payload, report = normalize_feed(raw, self.mode)
+        now = int(time.time())
+        raw_digest = (
+            self._previous.get("feed_sha256")
+            if self._revalidated
+            else hashlib.sha256(raw).hexdigest()
+        )
+        changed = raw_digest != self._previous.get("feed_sha256")
         self._state = {
-            "feed_sha256": hashlib.sha256(raw).hexdigest(),
-            "checked_at": int(time.time()),
+            "feed_sha256": raw_digest,
+            "normalized_sha256": hashlib.sha256(payload).hexdigest() if payload else "",
+            "checked_at": now,
+            "first_seen_at": self._previous.get("first_seen_at") or now,
+            "last_changed_at": now if changed else self._previous.get("last_changed_at", now),
+            "previous_successes": int(self._previous.get("previous_successes", 0)) + 1,
+            "last_node_count": int(report.get("nodes", 0)),
+            "node_count_delta": (
+                int(report.get("nodes", 0)) -
+                int(self._previous.get("last_node_count", 0))
+            ),
+            "etag": self._fetch_headers.get("etag") or self._previous.get("etag", ""),
+            "last_modified": (
+                self._fetch_headers.get("last_modified") or
+                self._previous.get("last_modified", "")
+            ),
+            "revalidated": self._revalidated,
             "mode": self.mode,
             "report": report,
-            "previous_successes": int((state or {}).get("previous_successes", 0)) + 1,
         }
         if self.mode == "xray_profile_audit":
             logger.info(
@@ -118,16 +217,16 @@ class HttpSubscriptionConnector:
             return
         if report.get("skipped_incompatible"):
             logger.warning(
-                "[HTTPS Feed] skipped incompatible Mihomo entries: count=%s",
+                "[HTTPS Feed] skipped lossy Mihomo entries: count=%s",
                 report["skipped_incompatible"],
             )
         hostname = urllib.parse.urlsplit(self.url).hostname or ""
-        for format_id, filename in (
+        for fmt, filename in (
             ("npvt", "public-subscription.txt"),
             ("npvtsub", "public-subscription.npvtsub"),
         ):
             yield SubscriptionObservation(
-                external_id=f"verified-feed:{format_id}",
+                external_id=f"verified-feed:{fmt}",
                 data=payload,
                 metadata={
                     "filename": filename,
@@ -135,8 +234,10 @@ class HttpSubscriptionConnector:
                     "origin_type": "http_subscription",
                     "origin_host": hostname,
                     "refresh_unchanged": True,
+                    "observation_health": "syntax_validated",
                     "parsed_nodes": report["nodes"],
                     "input_format": report["kind"],
+                    "cache_revalidated": self._revalidated,
                 },
             )
 
