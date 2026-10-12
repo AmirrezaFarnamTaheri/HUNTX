@@ -95,16 +95,16 @@ func sanitizedValidator(value string) string {
 func newClient(timeout time.Duration) *http.Client {
 	dialer := &net.Dialer{Timeout: timeout, KeepAlive: 15 * time.Second}
 	transport := &http.Transport{
-		Proxy:               nil,
-		ForceAttemptHTTP2:   true,
-		MaxIdleConns:        3,
-		MaxIdleConnsPerHost: 1,
-		IdleConnTimeout:     10 * time.Second,
-		TLSHandshakeTimeout: timeout,
-		ResponseHeaderTimeout: timeout,
+		Proxy:                  nil,
+		ForceAttemptHTTP2:      true,
+		MaxIdleConns:           3,
+		MaxIdleConnsPerHost:    1,
+		IdleConnTimeout:        10 * time.Second,
+		TLSHandshakeTimeout:    timeout,
+		ResponseHeaderTimeout:  timeout,
 		MaxResponseHeaderBytes: 32 * 1024,
-		DisableKeepAlives: true, // A short-lived worker performs exactly one fetch.
-		DisableCompression:  true,
+		DisableKeepAlives:      true, // A short-lived worker performs exactly one fetch.
+		DisableCompression:     true,
 		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
 			host, port, err := net.SplitHostPort(address)
 			if err != nil || !hostAllowlist[strings.ToLower(host)] {
