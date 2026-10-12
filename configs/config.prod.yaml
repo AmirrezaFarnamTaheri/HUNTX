@@ -1221,6 +1221,65 @@ sources:
   http_subscription:
     url: 'https://raw.githubusercontent.com/Au1rxx/free-vpn-subscriptions/refs/heads/main/output/all-verified/v2ray-base64-0001.txt'
     mode: auto
+- id: src_http_research_peasoft
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'public_repository_review_2026-10-12'
+  approval_evidence:
+    - 'Recent repository activity and nonempty mixed raw share links confirmed; connectivity not established'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/peasoft/NoMoreWalls/master/list_raw.txt'
+    mode: auto
+
+- id: src_http_research_mahdibland
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'public_repository_review_2026-10-12'
+  approval_evidence:
+    - 'Recent repository activity and nonempty curated raw share links confirmed; connectivity not established'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/mahdibland/V2RayAggregator/master/Eternity.txt'
+    mode: auto
+
+- id: src_http_research_ermaozi
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'public_repository_review_2026-10-12'
+  approval_evidence:
+    - 'Recent repository activity and nonempty mixed raw share links confirmed; connectivity not established'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/ermaozi/get_subscribe/main/subscribe/v2ray.txt'
+    mode: auto
+
+- id: src_http_research_pawdroid
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'public_repository_review_2026-10-12'
+  approval_evidence:
+    - 'Recent repository activity and nonempty base64 subscription confirmed; connectivity not established'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/Pawdroid/Free-servers/main/sub'
+    mode: auto
 publishing:
   routes:
   - name: all_sources
@@ -1340,6 +1399,10 @@ publishing:
     - src_http_research_iboxz
     - src_http_research_ebrasha
     - src_http_research_au1rxx
+    - src_http_research_peasoft
+    - src_http_research_mahdibland
+    - src_http_research_ermaozi
+    - src_http_research_pawdroid
     formats:
     - npvt
     - npvtsub

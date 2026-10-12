@@ -5,6 +5,8 @@ import sqlite3
 import time
 import uuid
 
+from .proxy_lifecycle import observe_record_identities
+
 logger = logging.getLogger(__name__)
 
 
@@ -38,6 +40,28 @@ class StateRepo:
         except Exception as e:
             logger.error(f"Failed to get source state for {source_id}: {e}")
             raise
+
+    def get_source_states_batch(self, source_ids: List[str]) -> Dict[str, Dict[str, Any]]:
+        """Read all source health cursors with one bounded SQLite connection."""
+        if not source_ids:
+            return {}
+        ids = list(dict.fromkeys(str(item) for item in source_ids))
+        collected: Dict[str, Dict[str, Any]] = {}
+        with self.db.connect() as conn:
+            for start in range(0, len(ids), 400):
+                subset = ids[start:start + 400]
+                marks = ",".join("?" for _ in subset)
+                rows = conn.execute(
+                    f"SELECT source_id, state_json FROM source_state "
+                    f"WHERE source_id IN ({marks})",
+                    subset,
+                ).fetchall()
+                for row in rows:
+                    parsed = json.loads(row["state_json"] or "{}")
+                    if not isinstance(parsed, dict):
+                        raise ValueError("stored source cursor must be an object")
+                    collected[str(row["source_id"])] = parsed
+        return collected
 
     def update_source_state(
         self,
@@ -376,6 +400,7 @@ class StateRepo:
                         json.dumps(data),
                     ),
                 )
+                observe_record_identities(c=conn, identities=[(record_type, unique_hash)])
         except Exception as e:
             logger.exception(f"Failed to add record {unique_hash}: {e}")
             raise
@@ -405,11 +430,14 @@ class StateRepo:
                      unique_hash, data_json)
                 VALUES (?, ?, ?, ?, ?)
             """
+            identities = [(row[2], row[3]) for row in normalized]
             if conn:
                 conn.executemany(sql, normalized)
+                observe_record_identities(c=conn, identities=identities)
             else:
                 with self.db.connect() as c:
                     c.executemany(sql, normalized)
+                    observe_record_identities(c=c, identities=identities)
             logger.debug(f"Batch-inserted {len(rows)} records.")
         except Exception as e:
             logger.exception(f"Failed to batch-insert {len(rows)} records: {e}")
@@ -482,6 +510,12 @@ class StateRepo:
                     WHERE r.record_type IN ({placeholders_types})
                       AND s.source_id IN ({placeholders_sources})
                       AND r.is_active = 1
+                      AND NOT EXISTS (
+                          SELECT 1 FROM proxy_lifecycle p
+                          WHERE p.unique_hash = r.unique_hash
+                            AND p.record_type = r.record_type
+                            AND p.lifecycle_status IN ('dead', 'revoked', 'archived')
+                      )
                       {where_extra}
                 ),
                 dedup AS (

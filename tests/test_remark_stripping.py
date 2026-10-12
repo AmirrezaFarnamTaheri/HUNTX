@@ -122,7 +122,12 @@ class TestAddCleanRemark(unittest.TestCase):
 
     def test_enriched_remark(self):
         counter = {}
-        meta = {"country": "DE", "operator": "CF", "latency_ms": 42, "health_grade": "A+"}
+        meta = {
+            "country": "DE", "operator": "CF", "operator_verified": True,
+            "latency_ms": 42, "health_grade": "A+",
+            "probe_kind": "protocol_authenticated", "probe_ok": True,
+            "probe_age_seconds": 10,
+        }
         result = add_clean_remark("vless://a@h:443", counter, meta)
         self.assertIn("DE-CF", result)
         self.assertIn("VLESS", result)
@@ -135,7 +140,7 @@ class TestAddCleanRemark(unittest.TestCase):
         b64 = base64.b64encode(json.dumps(obj).encode()).decode()
         uri = f"vmess://{b64}"
         counter = {}
-        meta = {"country": "IR", "latency_ms": 35}
+        meta = {"country": "IR", "operator": "MCI", "operator_verified": True, "latency_ms": 35}
         result = add_clean_remark(uri, counter, meta)
         inner_b64 = result[8:]
         padding = 4 - len(inner_b64) % 4

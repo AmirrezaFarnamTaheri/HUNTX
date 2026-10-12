@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "observed_at": "2026-10-12",
-  "total": 34,
+  "total": 38,
   "notes": "User-reported and independently discovered public subscription URLs. Validation of content is not evidence of live proxy reachability. Disabled sources remain auditable without fetch attempts.",
   "sources": [
     {
@@ -275,6 +275,38 @@
       "enabled": true,
       "source": "independently_found",
       "note": null
+    },
+    {
+      "id": "src_http_research_peasoft",
+      "url": "https://raw.githubusercontent.com/peasoft/NoMoreWalls/master/list_raw.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "independently_found",
+      "note": "Public repository feed checked 2026-10-12 (mixed raw share links); not verified proxy connectivity."
+    },
+    {
+      "id": "src_http_research_mahdibland",
+      "url": "https://raw.githubusercontent.com/mahdibland/V2RayAggregator/master/Eternity.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "independently_found",
+      "note": "Public repository feed checked 2026-10-12 (curated raw share links); not verified proxy connectivity."
+    },
+    {
+      "id": "src_http_research_ermaozi",
+      "url": "https://raw.githubusercontent.com/ermaozi/get_subscribe/main/subscribe/v2ray.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "independently_found",
+      "note": "Public repository feed checked 2026-10-12 (mixed raw share links); not verified proxy connectivity."
+    },
+    {
+      "id": "src_http_research_pawdroid",
+      "url": "https://raw.githubusercontent.com/Pawdroid/Free-servers/main/sub",
+      "mode": "auto",
+      "enabled": true,
+      "source": "independently_found",
+      "note": "Public repository feed checked 2026-10-12 (base64 subscription); not verified proxy connectivity."
     }
   ]
 }

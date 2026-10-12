@@ -386,6 +386,26 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                     item.window_end_ts,
                 )
 
+    async def _drain_direct_sources(
+        self,
+        source_queue: asyncio.Queue[Any],
+        results: dict[str, int],
+        lock: asyncio.Lock,
+        configured_timeout: float,
+    ) -> None:
+        while True:
+            try:
+                source = source_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                return
+            try:
+                if getattr(source, "type", None) != "telegram_user":
+                    await self._run_direct_source(
+                        source, results, lock, configured_timeout,
+                    )
+            finally:
+                source_queue.task_done()
+
     async def _worker_async(
         self,
         source_queue: asyncio.Queue[Any],
@@ -393,23 +413,30 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
         lock: asyncio.Lock,
     ) -> None:
         configured_timeout = self._source_timeout()
-
-        while True:
-            try:
-                source = source_queue.get_nowait()
-            except asyncio.QueueEmpty:
-                break
-            try:
-                if getattr(source, "type", None) != "telegram_user":
-                    await self._run_direct_source(
-                        source,
-                        results,
-                        lock,
-                        configured_timeout,
-                    )
-            finally:
-                source_queue.task_done()
-
+        if getattr(self, "_windows_need_reserved_worker", False):
+            # An optional HTTP feed can occupy a worker for a full timeout.
+            # Start MTProto history immediately, rather than waiting for
+            # every direct source to finish before draining Telegram windows.
+            # There are no awaits between checking and setting the claim.
+            if not getattr(self, "_window_worker_claimed", False):
+                self._window_worker_claimed = True
+                await self._run_persistent_windows(results, lock, configured_timeout)
+                return
+        if getattr(self, "_single_worker_parallel_windows", False):
+            if not getattr(self, "_window_worker_claimed", False):
+                self._window_worker_claimed = True
+                # A single worker would otherwise starve Telegram history.
+                # Run exactly one bounded direct worker and one window worker.
+                await asyncio.gather(
+                    self._drain_direct_sources(
+                        source_queue, results, lock, configured_timeout,
+                    ),
+                    self._run_persistent_windows(results, lock, configured_timeout),
+                )
+                return
+        await self._drain_direct_sources(
+            source_queue, results, lock, configured_timeout,
+        )
         await self._run_persistent_windows(results, lock, configured_timeout)
 
     async def _run_hardened(
@@ -442,7 +469,28 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                 )
 
         ingestion_sources = await self._canonical_ingestion_sources(approved_sources)
+        # Stable, source-scoped historical retrieval evidence ranks optional
+        # public feeds without ever reordering canonical Telegram windows.
+        http_ids = [
+            str(source.id) for source in ingestion_sources
+            if getattr(source, "type", None) == "http_subscription"
+        ]
+        if http_ids:
+            state_loader = getattr(self.repo, "get_source_states_batch", None)
+            if callable(state_loader):
+                from .source_reliability import prioritize_http_sources
+
+                states = state_loader(http_ids)
+                ingestion_sources = prioritize_http_sources(ingestion_sources, states)
         self._source_by_id = {str(source.id): source for source in ingestion_sources}
+        worker_count = min(self.max_workers, len(ingestion_sources))
+        has_telegram_windows = any(
+            getattr(source, "type", None) == "telegram_user"
+            for source in ingestion_sources
+        )
+        self._window_worker_claimed = False
+        self._windows_need_reserved_worker = has_telegram_windows and worker_count > 1
+        self._single_worker_parallel_windows = has_telegram_windows and worker_count == 1
         self._ingestion_budget_exhausted = False
         self._window_pages = 0
         self._window_completions = 0

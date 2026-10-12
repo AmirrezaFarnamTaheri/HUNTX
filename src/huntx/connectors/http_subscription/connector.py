@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..base import AsyncSyncIterator
+from ...core.source_reliability import append_retrieval_observation
 from .parser import MAX_FEED_BYTES, normalize_feed
 
 logger = logging.getLogger(__name__)
@@ -222,6 +223,10 @@ class HttpSubscriptionConnector:
             "revalidated": self._revalidated,
             "mode": self.mode,
             "report": report,
+            "retrieval_history": append_retrieval_observation(
+                self._previous, success=True, now=now,
+                nodes=int(report.get("nodes", 0)), cache_revalidated=self._revalidated,
+            ),
         }
         if self.mode == "xray_profile_audit":
             logger.info(

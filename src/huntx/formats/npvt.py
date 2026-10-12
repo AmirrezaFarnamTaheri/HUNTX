@@ -154,7 +154,14 @@ def format_enriched_remark(uri: str, counter: dict, metadata: dict | None = None
         if len(country) != 2 or not country.isascii() or not country.isalpha():
             country = 'ZZ'
         flag = _country_to_flag(country)
-        op = metadata.get('operator') or _detect_operator(uri)
+        # An upstream remark/secret is not operator evidence. Display only
+        # an explicitly verified operator label, never one guessed from URI text.
+        operator = metadata.get('operator')
+        op = operator.strip()[:24] if (
+            isinstance(operator, str) and metadata.get('operator_verified') is True
+            and operator.strip().isascii()
+            and operator.strip().replace('-', '').isalnum()
+        ) else ''
         op_tag = f"-{op}" if op else ""
         # Protocol tag carries the transport and security actually in use so
         # a user picking a node from a long list can tell a plain TCP VLESS
@@ -180,9 +187,19 @@ def format_enriched_remark(uri: str, counter: dict, metadata: dict | None = None
         # unreachable node advertises its failure instead of a score.
         grade = metadata.get('health_grade')
         probe_failed = metadata.get('probe_ok') is False
+        authenticated = (
+            metadata.get('probe_kind') == 'protocol_authenticated'
+            and metadata.get('probe_ok') is True
+            and isinstance(metadata.get('probe_age_seconds'), (int, float))
+            and not isinstance(metadata.get('probe_age_seconds'), bool)
+            and math.isfinite(metadata['probe_age_seconds'])
+            and 0 <= metadata['probe_age_seconds'] <= 3600
+        )
         if probe_failed:
             parts.append("⭐F")
-        elif isinstance(grade, str) and grade.strip() not in ('', '-'):
+        elif authenticated and isinstance(grade, str) and grade.strip() in {
+            'A+', 'A', 'B', 'C', 'D', 'F'
+        }:
             parts.append(f"⭐{grade.strip()}")
         parts.append(f"#{idx:03d}")
         tag = " | ".join(parts)

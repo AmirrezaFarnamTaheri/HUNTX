@@ -39,6 +39,11 @@ class ProxyScoringEngine:
         security_type: str = "none",
         carrier: Optional[str] = None,
         target_isp: Optional[str] = None,
+        *,
+        probe_kind: str = "unverified",
+        probe_ok: bool | None = None,
+        observation_age_seconds: float | None = None,
+        max_probe_age_seconds: float = 3600.0,
     ) -> Dict[str, Any]:
         """Calculates carrier-aware health score matching Master Compendium §8 formula.
 
@@ -92,10 +97,42 @@ class ProxyScoringEngine:
         else:
             grade = "F"
 
+        # TCP connection does not authenticate proxy protocol credentials.
+        # Keep a numeric estimate, but never label it as verified/recommended.
+        age = _finite_metric(observation_age_seconds, default=float("inf"), minimum=0.0)
+        threshold = _finite_metric(
+            max_probe_age_seconds, default=3600.0, minimum=1.0,
+            maximum=7 * 24 * 3600,
+        )
+        authenticated = (
+            probe_kind == "protocol_authenticated"
+            and probe_ok is True
+            and 0 <= age <= threshold
+            and latency_ms > 0
+        )
+        if probe_kind == "protocol_authenticated" and probe_ok is False:
+            return {
+                "score": 0.0, "grade": "F", "verified_grade": "F",
+                "recommended": False, "evidence": "failed_probe",
+            }
+        if probe_kind == "tcp_connect" and probe_ok is False:
+            return {
+                "score": 0.0, "grade": "F", "verified_grade": None,
+                "recommended": False, "evidence": "tcp_connect_failed",
+            }
         return {
             "score": round(clamped, 2),
             "grade": grade,
-            "recommended": clamped >= 75.0,
+            "verified_grade": grade if authenticated else None,
+            "recommended": authenticated and clamped >= 75.0,
+            "evidence": (
+                "fresh_authenticated_protocol"
+                if authenticated else
+                "tcp_connect_only" if probe_kind == "tcp_connect" and probe_ok is True
+                else "stale_authenticated_probe"
+                if probe_kind == "protocol_authenticated" and probe_ok is True
+                else "unverified"
+            ),
         }
 
     def score_proxy(self, record: Mapping[str, Any]) -> float:

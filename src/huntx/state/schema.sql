@@ -63,6 +63,45 @@ CREATE TABLE IF NOT EXISTS record_verdicts (
     PRIMARY KEY (unique_hash, record_type, policy_tier)
 );
 
+-- Lifecycle decisions survive subscription re-fetches, including after a
+-- different source republishes an already rejected configuration.
+CREATE TABLE IF NOT EXISTS proxy_lifecycle (
+    unique_hash TEXT NOT NULL,
+    record_type TEXT NOT NULL,
+    lifecycle_status TEXT NOT NULL DEFAULT 'discovered'
+        CHECK(lifecycle_status IN (
+            'discovered', 'validated', 'active', 'degraded', 'suspect',
+            'dead', 'revoked', 'archived'
+        )),
+    first_seen_at INTEGER NOT NULL,
+    last_seen_at INTEGER NOT NULL,
+    last_success_at INTEGER,
+    authenticated_successes INTEGER NOT NULL DEFAULT 0,
+    authenticated_failures INTEGER NOT NULL DEFAULT 0,
+    consecutive_failures INTEGER NOT NULL DEFAULT 0,
+    last_probe_at INTEGER,
+    last_probe_result TEXT NOT NULL DEFAULT 'unverified',
+    last_reason_code TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY(unique_hash, record_type),
+    CHECK(authenticated_successes >= 0),
+    CHECK(authenticated_failures >= 0),
+    CHECK(consecutive_failures >= 0)
+);
+
+-- Append-only, idempotent authenticated probe evidence with explicit provenance.
+CREATE TABLE IF NOT EXISTS proxy_probe_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    probe_id TEXT NOT NULL UNIQUE,
+    unique_hash TEXT NOT NULL,
+    record_type TEXT NOT NULL,
+    vantage_id TEXT NOT NULL,
+    checked_at INTEGER NOT NULL,
+    success INTEGER NOT NULL CHECK(success IN (0, 1)),
+    latency_ms REAL,
+    FOREIGN KEY(unique_hash, record_type)
+        REFERENCES proxy_lifecycle(unique_hash, record_type) ON DELETE RESTRICT
+);
+
 CREATE TABLE IF NOT EXISTS published_artifacts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     route_name TEXT NOT NULL,
@@ -184,6 +223,10 @@ CREATE TABLE IF NOT EXISTS ingestion_work_items (
     UNIQUE(source_id, window_start_ts, window_end_ts)
 );
 
+CREATE INDEX IF NOT EXISTS idx_proxy_lifecycle_status
+    ON proxy_lifecycle(record_type, lifecycle_status);
+CREATE INDEX IF NOT EXISTS idx_proxy_probe_history_key
+    ON proxy_probe_history(unique_hash, record_type, checked_at DESC);
 CREATE INDEX IF NOT EXISTS idx_records_type ON records(record_type);
 CREATE INDEX IF NOT EXISTS idx_records_unique ON records(unique_hash);
 CREATE INDEX IF NOT EXISTS idx_records_hash ON records(source_file_hash);
