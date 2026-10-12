@@ -620,11 +620,30 @@ def probe_tcp_latency(proxies: list[dict]) -> list[dict]:
     def measure(target: tuple[str, int]) -> tuple[tuple[str, int], int | None]:
         server, port = target
         started = time.monotonic()
+        # The hostname is untrusted: pin a public numeric DNS answer before
+        # connecting, rather than resolving again in socket.create_connection.
+        from huntx.core.latency_benchmarker import _public_addresses
+
         try:
-            with socket.create_connection((server, port), timeout=PROBE_TIMEOUT_SECONDS):
-                return target, round((time.monotonic() - started) * 1000)
-        except OSError:
+            answers = socket.getaddrinfo(server, port, type=socket.SOCK_STREAM)
+        except (OSError, ValueError, TypeError):
             return target, None
+        for family, address in _public_addresses(answers)[:6]:
+            remaining = PROBE_TIMEOUT_SECONDS - (time.monotonic() - started)
+            if remaining <= 0:
+                break
+            try:
+                with socket.socket(family, socket.SOCK_STREAM) as connection:
+                    connection.settimeout(remaining)
+                    target_address = (
+                        (address, port, 0, 0) if family == socket.AF_INET6
+                        else (address, port)
+                    )
+                    connection.connect(target_address)
+                return target, round((time.monotonic() - started) * 1000)
+            except (OSError, ValueError, TypeError):
+                continue
+        return target, None
 
     outcomes: dict[tuple[str, int], int | None] = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=PROBE_MAX_WORKERS) as executor:
@@ -699,37 +718,49 @@ def _latency_grade(latency_ms: int | float | None) -> str | None:
 
 
 def grade_proxy_health(proxies: list[dict]) -> list[dict]:
-    """Attach per-node health metadata derived from the measured probe.
-
-    Three signals are combined into one letter grade so the dashboard and the
-    published remarks can describe a node without inventing measurements:
-    reachability (``probe_ok``), latency band, and transport security. Nodes
-    that were never probed stay explicitly ``unmeasured`` rather than being
-    scored as slow. Set ``HUNTX_HEALTH_DISABLE=1`` to leave grades unset.
-    """
+    """Do not call a working TCP socket an authenticated working proxy."""
     if os.environ.get("HUNTX_HEALTH_DISABLE", "").strip():
         return proxies
     for proxy in proxies:
-        latency = proxy.get("latency")
-        proxy["latency_grade"] = _latency_grade(latency)
-        security_grade = str(proxy.get("security_grade") or "")
-        if proxy.get("probe_ok") is not True:
-            # An unreachable node is graded on the one signal that exists.
-            proxy["health_grade"] = "F"
-            proxy["health_status"] = "TCP unreachable at publish"
-            continue
-        if proxy["latency_grade"] is None:
-            proxy["health_grade"] = None
-            proxy["health_status"] = "Probed, latency unavailable"
-            continue
-        # Security only upgrades a reachable, fast node; it never rescues one.
-        boost = HEALTH_SECURITY_GRADES.get(security_grade, 0)
-        order = [grade for _, grade in HEALTH_LATENCY_BANDS] + ["C"]
-        position = max(0, order.index(proxy["latency_grade"]) - (1 if boost == 3 else 0))
-        proxy["health_grade"] = order[position]
-        proxy["health_status"] = "Reachable at publish"
-    return proxies
+        proxy["latency_grade"] = _latency_grade(proxy.get("latency"))
+        proxy["health_grade"] = None
+        proxy["health_evidence"] = (
+            "tcp_connect_only" if proxy.get("probe_ok") is True
+            else "tcp_failed_from_publish_vantage" if proxy.get("probe_ok") is False
+            else "unmeasured"
+        )
+        proxy["health_status"] = (
+            "TCP reachable; proxy protocol unverified"
+            if proxy.get("probe_ok") is True
+            else "TCP unreachable from publish vantage; proxy unverified"
+            if proxy.get("probe_ok") is False else "Not tested"
+        )
 
+        if proxy.get("probe_kind") != "protocol_authenticated":
+            continue
+        if proxy.get("authenticated_probe_ok") is False:
+            proxy["health_grade"] = "F"
+            proxy["health_evidence"] = "failed_authenticated_protocol"
+            proxy["health_status"] = "Authenticated proxy protocol check failed"
+            continue
+        age = proxy.get("authenticated_probe_age_seconds")
+        duration = proxy.get("authenticated_latency_ms")
+        if (
+            proxy.get("authenticated_probe_ok") is not True
+            or not isinstance(age, (int, float)) or isinstance(age, bool)
+            or not math.isfinite(age) or not 0 <= age <= 3600
+        ):
+            continue
+        grade = _latency_grade(duration)
+        if grade is None:
+            continue
+        boost = HEALTH_SECURITY_GRADES.get(str(proxy.get("security_grade") or ""), 0)
+        order = [label for _, label in HEALTH_LATENCY_BANDS] + ["C"]
+        pos = max(0, order.index(grade) - (1 if boost == 3 else 0))
+        proxy["health_grade"] = order[pos]
+        proxy["health_evidence"] = "fresh_authenticated_protocol"
+        proxy["health_status"] = "Authenticated proxy protocol verified within one hour"
+    return proxies
 
 GOVERNED_PCA_WEIGHTS = {
     "reachability": 0.40,  # a node nothing can connect to ranks last regardless of speed
@@ -796,6 +827,7 @@ def score_governed_pca(proxies: list[dict]) -> list[dict]:
             3,
         )
         proxy["pca_version"] = GOVERNED_PCA_VERSION
+        proxy["pca_evidence"] = "publisher_tcp_reachability_candidate_rank"
     return proxies
 
 
