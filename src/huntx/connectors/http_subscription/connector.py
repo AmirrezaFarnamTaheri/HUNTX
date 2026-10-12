@@ -96,6 +96,9 @@ class HttpSubscriptionConnector:
         """Use the content-addressed raw store; never persist feed credentials in state."""
         if self.mode != "auto" or self.raw_store is None:
             return None
+        url_hash = hashlib.sha256(self.url.encode("utf-8")).hexdigest()
+        if self._previous.get("url_sha256") != url_hash:
+            return None
         fingerprint = self._previous.get("normalized_sha256")
         if (not isinstance(fingerprint, str) or len(fingerprint) != 64
                 or any(c not in "0123456789abcdef" for c in fingerprint)):
@@ -124,17 +127,19 @@ class HttpSubscriptionConnector:
             timeout = min(timeout, remaining)
         cmd = [
             _engine_path(),
-            "feed-fetch", "--url", self.url, "--timeout", f"{max(1., timeout):.2f}s",
+            "feed-fetch", "--request-stdin", "--timeout", f"{max(1., timeout):.2f}s",
         ]
+        request: dict[str, str] = {"url": self.url}
         if cached is not None:
-            for name, flag in (("etag", "--etag"), ("last_modified", "--last-modified")):
+            for name in ("etag", "last_modified"):
                 value = self._previous.get(name)
                 if isinstance(value, str) and 0 < len(value) <= 512:
-                    cmd.extend((flag, value))
+                    request[name] = value
+        stdin_payload = json.dumps(request, separators=(",", ":")).encode("utf-8")
 
         try:
             result = subprocess.run(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                cmd, input=stdin_payload, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 check=False, timeout=max(2.0, timeout + 3.0),
             )
         except subprocess.TimeoutExpired as exc:
@@ -190,6 +195,7 @@ class HttpSubscriptionConnector:
         changed = raw_digest != self._previous.get("feed_sha256")
         self._state = {
             "feed_sha256": raw_digest,
+            "url_sha256": hashlib.sha256(self.url.encode("utf-8")).hexdigest(),
             "normalized_sha256": hashlib.sha256(payload).hexdigest() if payload else "",
             "checked_at": now,
             "first_seen_at": self._previous.get("first_seen_at") or now,
