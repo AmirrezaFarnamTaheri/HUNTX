@@ -190,7 +190,7 @@ def test_go_fetcher_conditionally_reuses_only_verified_content(monkeypatch):
     requests = []
 
     def fake_run(command, **kwargs):
-        requests.append(command)
+        requests.append((command, json.loads(kwargs["input"])))
         if len(requests) == 1:
             result = {
                 "status": "ok", "etag": '"version-1"',
@@ -223,8 +223,11 @@ def test_go_fetcher_conditionally_reuses_only_verified_content(monkeypatch):
     assert state["revalidated"] is True
     assert state["feed_sha256"] == initial_state["feed_sha256"]
     assert state["last_changed_at"] == initial_state["last_changed_at"]
-    assert "--etag" not in requests[0] and "--etag" in requests[1]
-    assert '"version-1"' in requests[1]
+    assert requests[0][1] == {"url": endpoint}
+    assert requests[1][1]["etag"] == '"version-1"'
+    assert "--request-stdin" in requests[0][0]
+    assert "--url" not in requests[0][0]
+    assert endpoint not in " ".join(requests[1][0])
 
 
 def test_go_fetcher_never_revalidates_missing_or_corrupt_cache(monkeypatch):
@@ -260,6 +263,44 @@ def test_go_fetcher_never_revalidates_missing_or_corrupt_cache(monkeypatch):
     }))
     assert "--etag" not in observed
     assert feed.get_state()["revalidated"] is False
+
+
+def test_cache_validators_are_bound_to_source_url(monkeypatch):
+    import hashlib
+    import subprocess
+
+    original = "https://raw.githubusercontent.com/example/repo/main/one.txt"
+    moved = "https://raw.githubusercontent.com/example/repo/main/two.txt"
+    payload = URI.encode()
+    digest = hashlib.sha256(payload).hexdigest()
+    requests = []
+
+    class Store:
+        def get(self, fingerprint):
+            return payload if fingerprint == digest else None
+
+    def fake_run(command, **kwargs):
+        requests.append(json.loads(kwargs["input"]))
+        envelope = {
+            "status": "ok", "content_b64": base64.b64encode(payload).decode(),
+            "bytes": len(payload),
+        }
+        return subprocess.CompletedProcess(command, 0, json.dumps(envelope).encode(), b"")
+
+    monkeypatch.setattr(
+        "huntx.connectors.http_subscription.connector._engine_path",
+        lambda: "/tmp/huntx-engine",
+    )
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    old_state = {
+        "url_sha256": hashlib.sha256(original.encode()).hexdigest(),
+        "normalized_sha256": digest,
+        "etag": "\"old-feed\"",
+    }
+    feed = HttpSubscriptionConnector(moved, raw_store=Store())
+    assert len(list(feed.list_new(old_state))) == 2
+    assert requests == [{"url": moved}]
+    assert feed.get_state()["url_sha256"] == hashlib.sha256(moved.encode()).hexdigest()
 
 
 def test_reordered_feed_does_not_change_node_remark_identity(monkeypatch):
