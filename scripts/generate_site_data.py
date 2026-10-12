@@ -763,6 +763,7 @@ def grade_proxy_health(proxies: list[dict]) -> list[dict]:
         proxy["health_status"] = "Authenticated proxy protocol verified within one hour"
     return proxies
 
+
 GOVERNED_PCA_WEIGHTS = {
     "reachability": 0.40,  # a node nothing can connect to ranks last regardless of speed
     "latency": 0.30,       # normalised against the fleet's own measured spread
