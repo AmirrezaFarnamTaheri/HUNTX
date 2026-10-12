@@ -323,9 +323,10 @@ def resolve_geo_and_carrier(address: str, sni: str = "", host: str = "") -> dict
     elif ".se" in addr or "stockholm" in full or "sweden" in full:
         country, carrier = "SE", "Telia Sweden"
     # 2. IP Subnet & Cloud Provider Network Routing
-    elif addr.startswith("188.114."):
-        country, carrier = "NL", "Cloudflare Amsterdam Edge"
-    elif addr.startswith(("162.159.", "172.67.", "104.18.", "104.19.", "104.21.", "104.16.", "172.64.")):
+    elif addr.startswith((
+        "188.114.", "162.159.", "172.67.", "104.18.",
+        "104.19.", "104.21.", "104.16.", "172.64.",
+    )):
         # Cloudflare IPs are anycast; provider identity is evidence, location is not.
         return {
             "country": "ZZ",
@@ -383,20 +384,20 @@ def resolve_geo_and_carrier(address: str, sni: str = "", host: str = "") -> dict
             "geo_verified": False,
         }
 
-    lat, lon, hub_name = GEO_COORDINATES[country]
+    # Hostname hints and broad IP-prefix guesses are not IP geolocation or
+    # ASN ownership evidence. Preserve the coarse country hint, but do not
+    # invent a specific operator or a city-level pin on the globe.
     country_name = COUNTRY_NAMES.get(country, "Unknown")
-    flag = _country_flag(country)
-
     return {
         "country": country,
         "country_name": country_name,
-        "flag": flag,
-        "carrier": carrier,
-        "org": carrier,
-        "city": hub_name,
-        "latitude": lat,
-        "longitude": lon,
-        "geo_source": "inferred",
+        "flag": _country_flag(country),
+        "carrier": "Unverified",
+        "org": "Unverified",
+        "city": "Unknown",
+        "latitude": None,
+        "longitude": None,
+        "geo_source": "unverified_country_hint",
         "geo_verified": False,
     }
 

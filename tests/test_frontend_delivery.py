@@ -151,6 +151,22 @@ def _proxy(**overrides):
     return proxy
 
 
+def test_unverified_hostname_and_prefix_cannot_fabricate_carrier_or_city() -> None:
+    module = _load_site_generator()
+    for value in ("vpn.example.de", "mci.example.ir", "54.74.10.20"):
+        geo = module.resolve_geo_and_carrier(value)
+        assert geo["carrier"] == "Unverified"
+        assert geo["org"] == "Unverified"
+        assert geo["city"] == "Unknown"
+        assert geo["latitude"] is None and geo["longitude"] is None
+        assert geo["geo_source"] == "unverified_country_hint"
+        assert geo["geo_verified"] is False
+    anycast = module.resolve_geo_and_carrier("188.114.96.2")
+    assert anycast["country"] == "ZZ"
+    assert anycast["carrier"] == "Cloudflare Anycast"
+    assert anycast["latitude"] is None
+
+
 def test_geoip_enrichment_falls_back_offline() -> None:
     """A GeoIP network failure must leave the offline heuristic record in place."""
     module = _load_site_generator()
