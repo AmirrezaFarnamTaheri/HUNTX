@@ -62,6 +62,7 @@ def evaluate_run_health(
     artifacts = _as_int(summary, "total_artifacts")
     ingest_ok = _as_int(summary, "ingest_ok")
     ingest_err = _as_int(summary, "ingest_err")
+    optional_ingest_err = _as_int(summary, "optional_ingest_err")
     failed_routes = _as_int(summary, "failed_routes")
     publish_attempts = _as_int(summary, "publish_attempts")
     publish_failures = _as_int(summary, "publish_failures")
@@ -127,6 +128,8 @@ def evaluate_run_health(
 
     if ingest_err:
         degraded_reasons.append("source_failures")
+    if optional_ingest_err:
+        degraded_reasons.append("optional_source_failures")
     if failed_routes:
         degraded_reasons.append("route_failures")
     if publish_failures:
@@ -176,6 +179,7 @@ def evaluate_run_health(
         "total_artifacts": artifacts,
         "ingest_ok": ingest_ok,
         "ingest_err": ingest_err,
+        "optional_ingest_err": optional_ingest_err,
         "failed_routes": failed_routes,
         "publish_attempts": publish_attempts,
         "publish_failures": publish_failures,

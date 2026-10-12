@@ -72,6 +72,16 @@ class IngestionPipeline:
             dedupe_by_content = bool(metadata.get("dedupe_by_content"))
 
             if seen_hashes.get(str(item.external_id)) == item_hash:
+                # A validated, still-present remote subscription must remain
+                # fresh even if its bytes do not change for longer than the
+                # release retention window. Never touch a failed/ignored row.
+                if metadata.get("refresh_unchanged"):
+                    conn.execute(
+                        "UPDATE seen_files SET ingested_at = CURRENT_TIMESTAMP "
+                        "WHERE source_id = ? AND external_id = ? "
+                        "AND raw_hash = ? AND status = 'processed'",
+                        (source_id, str(item.external_id), item_hash),
+                    )
                 skipped_count += 1
                 continue
 

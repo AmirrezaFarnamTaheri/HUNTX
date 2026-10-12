@@ -248,7 +248,12 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
             logger.exception("[Worker] Source %s failed", source.id)
         finally:
             async with lock:
-                results["ok" if success else "err"] += 1
+                if success:
+                    results["ok"] += 1
+                elif getattr(source, "required", True):
+                    results["err"] += 1
+                else:
+                    results["optional_err"] = results.get("optional_err", 0) + 1
 
     async def _run_persistent_windows(
         self,

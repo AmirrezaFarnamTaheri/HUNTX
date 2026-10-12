@@ -389,6 +389,20 @@ class Orchestrator:
                         self.ingest_pipeline.run(src_conf.id, user_conn, source_type=src_conf.type, deadline=deadline)
                     )
                 return True
+            elif src_conf.type == "http_subscription" and src_conf.http_subscription:
+                from ..connectors.http_subscription.connector import HttpSubscriptionConnector
+
+                feed = src_conf.http_subscription
+                connector = HttpSubscriptionConnector(
+                    url=feed.url,
+                    mode=feed.mode,
+                    timeout_seconds=feed.timeout_seconds,
+                )
+                connector.deadline = deadline
+                await self.ingest_pipeline.run(
+                    src_conf.id, connector, source_type=src_conf.type, deadline=deadline
+                )
+                return True
             elif src_conf.type == "v2ray_collector":
                 logger.info(f"[Worker] Ingesting source {src_conf.id} (Go v2ray_collector)")
                 from ..connectors.v2ray_collector.connector import V2RayCollectorConnector
@@ -422,8 +436,10 @@ class Orchestrator:
             async with lock:
                 if success:
                     results["ok"] += 1
-                else:
+                elif getattr(src_conf, "required", True):
                     results["err"] += 1
+                else:
+                    results["optional_err"] = results.get("optional_err", 0) + 1
             source_queue.task_done()
 
     # ------------------------------------------------------------------
