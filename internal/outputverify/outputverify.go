@@ -3,7 +3,6 @@ package outputverify
 import (
 	"archive/zip"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -119,8 +118,7 @@ func validate(name string, payload []byte, summary *Summary) error {
 	lower := strings.ToLower(name)
 	summary.Formats[filepath.Ext(lower)]++
 	if strings.HasSuffix(lower, ".json") {
-		var value any
-		if err := json.Unmarshal(payload, &value); err != nil {
+		if err := releasemanifest.ValidateClientJSON(name, payload); err != nil {
 			return err
 		}
 	}
