@@ -86,7 +86,7 @@ func CalculateHealthScore(node NodeMetrics, targetISP string) HealthResult {
 	// 4. Carrier Alignment Boost
 	carrierBoost := 0.0
 	if strings.TrimSpace(targetISP) != "" && strings.TrimSpace(node.Carrier) != "" &&
-        strings.EqualFold(strings.TrimSpace(node.Carrier), strings.TrimSpace(targetISP)) {
+		strings.EqualFold(strings.TrimSpace(node.Carrier), strings.TrimSpace(targetISP)) {
 		carrierBoost = 5.0
 	}
 

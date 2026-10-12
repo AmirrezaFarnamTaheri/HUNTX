@@ -114,18 +114,18 @@ func TestHealthScoreRejectsNonFiniteAndNegativeTelemetry(t *testing.T) {
 }
 
 func TestHealthScoreCarrierMatchAndSecurityCaseMatchPython(t *testing.T) {
-    node := score.NodeMetrics{
-        LatencyMs: 40, SpeedMbps: 5, PacketLoss: 0,
-        SecurityType: score.SecurityProtocol("REALITY"), Carrier: "  mci  ",
-        ProbeKind: "protocol_authenticated", ProbeOK: true, ProbeAgeSecs: 60,
-    }
-    result := score.CalculateHealthScore(node, "MCI")
-    if result.Score != 85 || result.Grade != score.GradeA || !result.Recommended {
-        t.Fatalf("case/whitespace normalization differs from Python scoring: %+v", result)
-    }
-    node.Carrier = "  "
-    result = score.CalculateHealthScore(node, " ")
-    if result.Score != 80 {
-        t.Fatalf("blank carrier/ISP gained a fake bonus: %+v", result)
-    }
+	node := score.NodeMetrics{
+		LatencyMs: 40, SpeedMbps: 5, PacketLoss: 0,
+		SecurityType: score.SecurityProtocol("REALITY"), Carrier: "  mci  ",
+		ProbeKind: "protocol_authenticated", ProbeOK: true, ProbeAgeSecs: 60,
+	}
+	result := score.CalculateHealthScore(node, "MCI")
+	if result.Score != 85 || result.Grade != score.GradeA || !result.Recommended {
+		t.Fatalf("case/whitespace normalization differs from Python scoring: %+v", result)
+	}
+	node.Carrier = "  "
+	result = score.CalculateHealthScore(node, " ")
+	if result.Score != 80 {
+		t.Fatalf("blank carrier/ISP gained a fake bonus: %+v", result)
+	}
 }
