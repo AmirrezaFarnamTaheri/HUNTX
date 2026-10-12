@@ -100,6 +100,7 @@ def test_mihomo_json_proxy_count_is_bounded_before_conversion():
     with pytest.raises(ValueError, match="node limit"):
         normalize_feed(json.dumps(too_many).encode())
 
+
 def test_mihomo_reality_converts_only_when_required_parameters_present():
     node = {
         "type": "vless", "name": "reality", "server": "1.1.1.1", "port": 443,
