@@ -25,6 +25,7 @@ from ..config.schema import AppConfig
 from ..utils.atomic import atomic_write
 from ..connectors.base import maybe_await
 from .output_ownership import output_filename
+from .source_reliability import summarize_source_reliability
 
 logger = logging.getLogger(__name__)
 
@@ -361,6 +362,7 @@ class Orchestrator:
                 "validation": "not_accepted",
                 "consecutive_failures": previous.get("consecutive_failures", 1),
                 "last_success_at": previous.get("last_success_at"),
+                "availability": summarize_source_reliability(previous),
             }
 
     async def _ingest_one_source_async(self, src_conf) -> bool:
@@ -447,6 +449,7 @@ class Orchestrator:
                         "policy_bound": int(report.get("policy_bound_endpoints", 0)),
                         "skipped_incompatible": int(report.get("skipped_incompatible", 0)),
                         "validation": "syntax_only",
+                        "availability": summarize_source_reliability(feed_state),
                     }
                 return True
             elif src_conf.type == "v2ray_collector":
