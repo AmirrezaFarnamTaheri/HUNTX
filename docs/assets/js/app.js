@@ -392,7 +392,7 @@ export const HEALTH_GRADES = Object.freeze([
   Object.freeze({ id: "C", maxLatency: Number.POSITIVE_INFINITY, score: 68, label: "Moderate", color: "text-rose-400 border-rose-800/80 bg-rose-950/60" })
 ]);
 
-/** Map a measured latency value to the canonical dashboard health grade. */
+/** Map measured TCP latency to a speed band, not authenticated proxy health. */
 export function healthForLatency(ping) {
   if (ping === null || ping === undefined || ping === "") {
     return { score: null, grade: "—", label: "Unmeasured", color: "text-gray-400 border-gray-700 bg-gray-900" };
@@ -494,8 +494,8 @@ function mergeTelemetryRecord(node, telemetry) {
   if (!telemetry) return normalizeProxyRecord(node);
   const merged = { ...node };
   for (const field of [
-    "latency", "probe_ok", "health_grade", "health_status", "latency_grade",
-    "pca_score", "pca_version", "country", "country_name", "flag", "carrier",
+    "latency", "probe_ok", "health_grade", "health_status", "health_evidence", "latency_grade",
+    "pca_score", "pca_version", "pca_evidence", "country", "country_name", "flag", "carrier",
     "org", "city", "latitude", "longitude", "geo_source", "geo_verified",
     "security_grade"
   ]) {
@@ -1012,14 +1012,23 @@ export class AppState {
   getHealthScore(nodeOrPing) {
     const node = nodeOrPing && typeof nodeOrPing === "object" ? nodeOrPing : null;
     const publishedGrade = node?.health_grade;
-    if (node && typeof publishedGrade === "string" && PUBLISHED_HEALTH_GRADE_META[publishedGrade]) {
+    const authenticated = node?.health_evidence === "fresh_authenticated_protocol"
+      || node?.health_evidence === "failed_authenticated_protocol";
+    if (node && authenticated && typeof publishedGrade === "string"
+      && PUBLISHED_HEALTH_GRADE_META[publishedGrade]) {
       const rawScore = node.pca_score === null || node.pca_score === undefined || node.pca_score === ""
         ? null
         : Number(node.pca_score);
       const score = rawScore !== null && Number.isFinite(rawScore) ? Math.round(rawScore * 100) : null;
       return { score, grade: publishedGrade, ...PUBLISHED_HEALTH_GRADE_META[publishedGrade] };
     }
-    return healthForLatency(node ? this.getLatency(node) : nodeOrPing);
+    const estimate = healthForLatency(node ? this.getLatency(node) : nodeOrPing);
+    if (node) {
+      return { ...estimate, label: estimate.score === null
+        ? "Proxy unverified; TCP unmeasured"
+        : "TCP latency estimate; proxy authentication unverified" };
+    }
+    return estimate;
   }
 
   getLatency(node) {

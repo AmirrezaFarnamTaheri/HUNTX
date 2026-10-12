@@ -251,10 +251,16 @@ test("bundled fallback normalizes raw_uri into the raw feed contract", async () 
 
 test("published health grade wins over the frontend latency approximation", () => {
   const app = Object.create(AppState.prototype);
-  const published = app.getHealthScore({ latency: 46, health_grade: "B+", pca_score: 0.6 });
+  const published = app.getHealthScore({
+    latency: 46, health_grade: "B+", health_evidence: "fresh_authenticated_protocol",
+    pca_score: 0.6
+  });
   assert.equal(published.grade, "B+");
   assert.equal(published.score, 60);
   assert.equal(app.getHealthScore({ latency: 46 }).grade, "A");
+  const unverified = app.getHealthScore({ latency: 46, health_grade: "A+" });
+  assert.equal(unverified.grade, "A");
+  assert.match(unverified.label, /proxy authentication unverified/);
 });
 
 test("unknown geography is reported separately from known regions", () => {
