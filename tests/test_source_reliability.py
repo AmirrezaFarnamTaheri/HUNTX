@@ -131,3 +131,35 @@ def test_corrupt_and_expired_history_does_not_fake_recent_reliability():
     events = append_retrieval_observation(state, success=True, now=now, nodes=2)
     assert len(events) == 2
     assert events[-1]["nodes"] == 2
+
+
+def test_http_priority_preserves_telegram_order_and_explores_oldest_source():
+    from types import SimpleNamespace
+    from huntx.core.source_reliability import prioritize_http_sources
+
+    now = 1_800_000_000
+    sources = [
+        SimpleNamespace(id="tg_a", type="telegram_user"),
+        SimpleNamespace(id="http_new", type="http_subscription"),
+        SimpleNamespace(id="http_old", type="http_subscription"),
+        SimpleNamespace(id="tg_b", type="telegram_user"),
+        SimpleNamespace(id="http_good", type="http_subscription"),
+    ]
+    states = {
+        "http_old": {
+            "checked_at": now - 9000, "previous_successes": 10,
+            "last_success_at": now - 9000,
+        },
+        "http_good": {
+            "checked_at": now - 200, "previous_successes": 100,
+            "last_success_at": now - 200, "retrieval_history": [
+                {"at": now - i, "ok": True} for i in range(20)
+            ],
+        },
+    }
+    ordered = prioritize_http_sources(sources, states, now=now)
+    assert ordered[0].id == "tg_a" and ordered[3].id == "tg_b"
+    assert ordered[1].id == "http_new"  # Never observed, priority exploration.
+    assert ordered[2].id == "http_good"
+    assert ordered[4].id == "http_old"
+    assert {source.id for source in ordered} == {source.id for source in sources}

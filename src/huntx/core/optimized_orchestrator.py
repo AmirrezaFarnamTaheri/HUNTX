@@ -469,6 +469,19 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                 )
 
         ingestion_sources = await self._canonical_ingestion_sources(approved_sources)
+        # Stable, source-scoped historical retrieval evidence ranks optional
+        # public feeds without ever reordering canonical Telegram windows.
+        http_ids = [
+            str(source.id) for source in ingestion_sources
+            if getattr(source, "type", None) == "http_subscription"
+        ]
+        if http_ids:
+            state_loader = getattr(self.repo, "get_source_states_batch", None)
+            if callable(state_loader):
+                from .source_reliability import prioritize_http_sources
+
+                states = state_loader(http_ids)
+                ingestion_sources = prioritize_http_sources(ingestion_sources, states)
         self._source_by_id = {str(source.id): source for source in ingestion_sources}
         worker_count = min(self.max_workers, len(ingestion_sources))
         has_telegram_windows = any(

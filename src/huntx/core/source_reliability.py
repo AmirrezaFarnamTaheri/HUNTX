@@ -147,3 +147,53 @@ def summarize_source_reliability(
         "freshness": freshness,
         "evidence": "feed_retrieval_not_authenticated_proxy",
     }
+
+
+def prioritize_http_sources(
+    sources: list[Any],
+    states: Mapping[str, Mapping[str, Any]],
+    *,
+    now: int | None = None,
+) -> list[Any]:
+    """Give old/untried feeds exploration opportunities without starving Telegram.
+
+    Only HTTP source slots are reordered. Every source remains present and
+    subject to the same validation and publication rules. The oldest-attempted
+    source gets one exploration slot; the rest are ranked by recent evidence.
+    A failed source is retried, not forgotten forever.
+    """
+    clock = int(time.time()) if now is None else int(now)
+    locations = [
+        i for i, source in enumerate(sources)
+        if getattr(source, "type", None) == "http_subscription"
+    ]
+    if len(locations) < 2:
+        return list(sources)
+    feeds = [sources[i] for i in locations]
+
+    def state_of(source: Any) -> Mapping[str, Any]:
+        value = states.get(str(source.id), {})
+        return value if isinstance(value, Mapping) else {}
+
+    def attempt_time(source: Any) -> int:
+        state = state_of(source)
+        attempts = [
+            _observed_timestamp(state.get(key), clock) or 0
+            for key in ("checked_at", "last_failed_at")
+        ]
+        return max(attempts)
+
+    exploration = min(feeds, key=lambda source: (attempt_time(source), str(source.id)))
+    remaining = [source for source in feeds if source is not exploration]
+    ranked = sorted(
+        remaining,
+        key=lambda source: (
+            -summarize_source_reliability(state_of(source), now=clock)["ranking_score"],
+            attempt_time(source),
+            str(source.id),
+        ),
+    )
+    result = list(sources)
+    for slot, source in zip(locations, [exploration, *ranked]):
+        result[slot] = source
+    return result

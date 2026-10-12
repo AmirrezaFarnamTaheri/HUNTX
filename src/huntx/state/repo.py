@@ -41,6 +41,28 @@ class StateRepo:
             logger.error(f"Failed to get source state for {source_id}: {e}")
             raise
 
+    def get_source_states_batch(self, source_ids: List[str]) -> Dict[str, Dict[str, Any]]:
+        """Read all source health cursors with one bounded SQLite connection."""
+        if not source_ids:
+            return {}
+        ids = list(dict.fromkeys(str(item) for item in source_ids))
+        collected: Dict[str, Dict[str, Any]] = {}
+        with self.db.connect() as conn:
+            for start in range(0, len(ids), 400):
+                subset = ids[start:start + 400]
+                marks = ",".join("?" for _ in subset)
+                rows = conn.execute(
+                    f"SELECT source_id, state_json FROM source_state "
+                    f"WHERE source_id IN ({marks})",
+                    subset,
+                ).fetchall()
+                for row in rows:
+                    parsed = json.loads(row["state_json"] or "{}")
+                    if not isinstance(parsed, dict):
+                        raise ValueError("stored source cursor must be an object")
+                    collected[str(row["source_id"])] = parsed
+        return collected
+
     def update_source_state(
         self,
         source_id: str,
