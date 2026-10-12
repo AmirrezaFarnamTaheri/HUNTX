@@ -33,7 +33,7 @@ def _endpoint(node: dict[str, Any]) -> str | None:
     port = node.get("port")
     if not host or any(char in host for char in "@/?# \t\r\n"):
         return None
-    if isinstance(port, bool):
+    if isinstance(port, bool) or not isinstance(port, (str, int)):
         return None
     try:
         number = int(port)
