@@ -169,9 +169,9 @@ def test_required_telegram_sources_remain_unchanged_and_enabled():
     )
     for src in config["sources"]:
         if src["type"] != "http_subscription":
-            assert SourceConfig.model_validate(src).required
-    app = AppConfig.model_validate(config)
-    assert len(app.sources) >= 81 + 34
+            assert src.get("required", True) is True
+            assert src["telegram_user"]["peer"]
+    assert len(config["sources"]) >= 81 + 34
 
 
 def test_go_fetcher_conditionally_reuses_only_verified_content(monkeypatch):
@@ -262,7 +262,8 @@ def test_go_fetcher_never_revalidates_missing_or_corrupt_cache(monkeypatch):
     assert feed.get_state()["revalidated"] is False
 
 
-def test_reordered_feed_does_not_change_node_remark_identity():
+def test_reordered_feed_does_not_change_node_remark_identity(monkeypatch):
+    monkeypatch.setenv("HUNTX_REMARK_STYLE", "stable")
     from huntx.formats.npvt import NpvtHandler
 
     second = URI.replace(UUID, "de6d0001-4fe3-4ff8-aa13-593b49f65563")

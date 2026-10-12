@@ -78,6 +78,11 @@ def test_production_config_loads_and_validates_strictly(prod_config, registry):
     assert prod_config.sources
     assert prod_config.routes
     for source in prod_config.sources:
+        if source.type == "http_subscription":
+            assert source.telegram_user is None
+            assert source.http_subscription is not None
+            assert source.http_subscription.url.startswith("https://")
+            continue
         assert source.telegram_user is not None
         assert type(source.telegram_user.api_id) is int
         assert source.telegram_user.api_id == 12345
@@ -219,7 +224,11 @@ def test_configured_captions_render_through_actual_publisher_kwargs(prod_config,
 def test_production_source_health_and_probe_policy(prod_config):
     for source in prod_config.sources:
         assert source.trust_state == SourceTrustState.APPROVED
-        assert source.publication_eligible
+        if source.type == "http_subscription":
+            assert source.http_subscription is not None
+            assert source.publication_eligible == source.http_subscription.enabled
+        else:
+            assert source.publication_eligible
         if source.discovered_from:
             assert source.approval_evidence
     for route in prod_config.routes:

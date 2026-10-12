@@ -103,7 +103,7 @@ class ProxyScoringEngine:
         lifecycle = str(record.get("lifecycle", record.get("status", ""))).lower()
         if (
             record.get("probe_ok") is False
-            or record.get("is_active") is False
+            or record.get("is_active") in (False, 0)
             or lifecycle in {"dead", "retired", "revoked", "quarantined", "invalid"}
         ):
             return 0.0

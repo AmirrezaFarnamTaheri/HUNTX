@@ -200,10 +200,13 @@ class HttpSubscriptionConnector:
                 int(report.get("nodes", 0)) -
                 int(self._previous.get("last_node_count", 0))
             ),
-            "etag": self._fetch_headers.get("etag") or self._previous.get("etag", ""),
+            "etag": (
+                self._previous.get("etag", "") if self._revalidated
+                else self._fetch_headers.get("etag", "")
+            ),
             "last_modified": (
-                self._fetch_headers.get("last_modified") or
-                self._previous.get("last_modified", "")
+                self._previous.get("last_modified", "") if self._revalidated
+                else self._fetch_headers.get("last_modified", "")
             ),
             "revalidated": self._revalidated,
             "mode": self.mode,
