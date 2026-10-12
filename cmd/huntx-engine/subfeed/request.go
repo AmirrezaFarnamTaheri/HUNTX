@@ -10,8 +10,8 @@ const maxRequestBytes = 16 * 1024
 
 // Request carries source URL and validators over stdin, not process arguments.
 type Request struct {
-	URL string `json:"url"`
-	ETag string `json:"etag,omitempty"`
+	URL          string `json:"url"`
+	ETag         string `json:"etag,omitempty"`
 	LastModified string `json:"last_modified,omitempty"`
 }
 
