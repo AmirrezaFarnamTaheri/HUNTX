@@ -83,6 +83,8 @@ def test_pr_validation_covers_generated_artifacts_and_dependency_configuration()
     assert gate.count('      - "outputs/**"') == 2
     assert gate.count('      - "outputs_dev/**"') == 2
 
+
+
 def test_publisher_rejects_obsolete_producer_replay_and_changed_main_code():
     workflow = _workflow()
     assert 'github.rest.repos.getBranch' in workflow
