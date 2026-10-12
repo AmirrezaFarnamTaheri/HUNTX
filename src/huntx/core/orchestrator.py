@@ -333,6 +333,36 @@ class Orchestrator:
         cutoff = start.astimezone(datetime.timezone.utc) - datetime.timedelta(days=days)
         return cutoff.strftime("%Y-%m-%d %H:%M:%S")
 
+    def _record_http_source_failure(self, source_id: str, error_type: str) -> None:
+        """Record network/parser/timeout failures without touching last-good records."""
+        summaries = getattr(self, "_http_source_reports", None)
+        try:
+            previous = self.repo.get_source_state(source_id) or {}
+            previous["total_failures"] = min(
+                1_000_000, int(previous.get("total_failures", 0)) + 1
+            )
+            previous["consecutive_failures"] = min(
+                1_000_000, int(previous.get("consecutive_failures", 0)) + 1
+            )
+            previous["last_failed_at"] = int(time.time())
+            previous["last_error_type"] = error_type
+            self.repo.update_source_state(
+                source_id, previous, source_type="http_subscription"
+            )
+        except Exception:
+            logger.exception(
+                "[HTTP Feed] could not persist failure history for source %s", source_id
+            )
+            previous = {}
+        if isinstance(summaries, dict):
+            summaries[source_id] = {
+                "status": "failed",
+                "error_type": error_type,
+                "validation": "not_accepted",
+                "consecutive_failures": previous.get("consecutive_failures", 1),
+                "last_success_at": previous.get("last_success_at"),
+            }
+
     async def _ingest_one_source_async(self, src_conf) -> bool:
         """Ingest a single source asynchronously."""
         from ..connectors.telegram.connector import TelegramConnector
@@ -437,36 +467,13 @@ class Orchestrator:
                 logger.warning(f"[Worker] Skipping {src_conf.id}: unsupported type.")
                 return False
         except Exception as e:
-            summaries = getattr(self, "_http_source_reports", None)
             if src_conf.type == "http_subscription":
-                # Track failure history without touching previous valid proxy
-                # observations; an upstream 404 must never erase last-good data.
-                try:
-                    previous = self.repo.get_source_state(src_conf.id) or {}
-                    previous["total_failures"] = min(
-                        1000000, int(previous.get("total_failures", 0)) + 1
-                    )
-                    previous["consecutive_failures"] = min(
-                        1000000, int(previous.get("consecutive_failures", 0)) + 1
-                    )
-                    previous["last_failed_at"] = int(time.time())
-                    previous["last_error_type"] = type(e).__name__
-                    self.repo.update_source_state(
-                        src_conf.id, previous, source_type="http_subscription"
-                    )
-                except Exception:
-                    logger.exception(
-                        "[HTTP Feed] could not persist failure history for %s", src_conf.id
-                    )
-                    previous = {}
-                if isinstance(summaries, dict):
-                    summaries[str(src_conf.id)] = {
-                        "status": "failed",
-                        "error_type": type(e).__name__,
-                        "validation": "not_accepted",
-                        "consecutive_failures": previous.get("consecutive_failures", 1),
-                        "last_success_at": previous.get("last_success_at"),
-                    }
+                self._record_http_source_failure(str(src_conf.id), type(e).__name__)
+                logger.error(
+                    "[HTTP Feed] failed for source %s: %s",
+                    src_conf.id, type(e).__name__,
+                )
+                return False
             logger.exception(f"[Worker] Ingest failed for {src_conf.id}: {e}")
             return False
 
