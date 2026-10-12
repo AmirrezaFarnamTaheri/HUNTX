@@ -93,11 +93,14 @@ def test_proxy_build_emits_raw_xray_and_nekobox_derivatives():
     }
 
     nekobox = json.loads(by_format["npvt.nekobox.json"]["data"].decode("utf-8"))
-    assert set(nekobox) == {"outbounds"}
-    assert [outbound["type"] for outbound in nekobox["outbounds"]] == ["vless", "trojan"]
-    assert [outbound["tag"] for outbound in nekobox["outbounds"]] == ["My Node", "Second Node"]
-    assert len(nekobox["outbounds"]) == 2
-    assert all(key not in nekobox for key in ("dns", "route", "routing", "inbounds"))
+    assert isinstance(nekobox, list)
+    assert [outbound["type"] for outbound in nekobox] == ["vless", "trojan"]
+    assert [outbound["tag"] for outbound in nekobox] == ["My Node", "Second Node"]
+    assert len(nekobox) == 2
+    assert all(
+        key not in node for node in nekobox
+        for key in ("dns", "route", "routing", "inbounds")
+    )
 
     # The node subscription must preserve the full config's REAL proxy
     # cardinality. Selector/urltest/direct helpers are not proxies and do not
@@ -109,7 +112,7 @@ def test_proxy_build_emits_raw_xray_and_nekobox_derivatives():
         for outbound in singbox["outbounds"]
         if outbound.get("type") not in helper_types
     ]
-    assert len(nekobox["outbounds"]) == len(singbox_proxy_outbounds)
+    assert len(nekobox) == len(singbox_proxy_outbounds)
 
     clash_lines = by_format["npvt.clash.yaml"]["data"].decode("utf-8").splitlines()
     assert clash_lines[0] == "proxies:"

@@ -139,8 +139,10 @@ def validate_zip_file(path: Path) -> Dict[str, Any]:
 
 def _validate_json_shape(data: Any, kind: str) -> None:
     """Fail closed when a node feed and a runnable profile swap meanings."""
-    if kind == "nekobox_nodes" and isinstance(data, list):
-        nodes = data  # Previously published NekoBox feeds used top-level arrays.
+    if kind == "nekobox_nodes":
+        if not isinstance(data, list):
+            raise ValueError("NekoBox node feed must be a JSON array")
+        nodes = data
     else:
         if not isinstance(data, dict):
             raise ValueError(f"{kind} requires a JSON object")
@@ -178,8 +180,8 @@ def validate_json_file(path: Path, *, artifact_kind: str | None = None) -> Dict[
         if isinstance(data, list):
             items = data
         elif isinstance(data, dict) and isinstance(data.get("outbounds"), list):
-            # Sing-box/Xray/NekoBox subscription artifacts intentionally carry
-            # node arrays without a full profile envelope. Count the children,
+            # Sing-box/Xray subscription artifacts carry node arrays inside
+            # outbounds-only objects. Count the children,
             # not the JSON document itself.
             items = list(data["outbounds"])
             endpoints = data.get("endpoints")

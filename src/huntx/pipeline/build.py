@@ -279,6 +279,13 @@ class BuildPipeline:
         decoded = json.loads(payload)
         if fmt.endswith(".decoded.json"):
             return len(decoded["entries"])
+        if fmt.endswith(".nekobox.json"):
+            if not isinstance(decoded, list) or not all(
+                isinstance(node, dict) and node.get("type") and node.get("tag")
+                for node in decoded
+            ):
+                raise ValueError("NekoBox node feed must be a JSON array of typed, tagged nodes")
+            return len(decoded)
         if not isinstance(decoded, dict):
             raise ValueError(f"Expected JSON object for derived format {fmt}")
         outbounds = decoded.get("outbounds")

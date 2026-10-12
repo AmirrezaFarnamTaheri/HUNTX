@@ -115,6 +115,8 @@ def test_full_profiles_are_not_classified_as_decoded_dataset(tmp_path):
 def test_node_and_profile_json_contracts_are_not_interchangeable(tmp_path):
     verifier = _load_verify_output()
     cases = (
+        ("all_sources_nekobox.json", {"outbounds": [{"type": "trojan", "tag": "node"}]}, True),
+        ("all_sources_nekobox.json", [{"type": "trojan", "tag": "node"}], False),
         ("all_sources_singbox_nodes.json", {"inbounds": [{}], "outbounds": [{"type": "trojan", "tag": "a"}]}, True),
         ("all_sources_singbox.json", {"outbounds": [{"type": "trojan", "tag": "a"}]}, True),
         ("all_sources_xray_nodes.json", {"outbounds": [{"protocol": "vless", "tag": "a"}], "route": {}}, True),
