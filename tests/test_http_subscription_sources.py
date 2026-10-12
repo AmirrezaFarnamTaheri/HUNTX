@@ -71,6 +71,35 @@ def test_mihomo_yaml_converts_valid_links_but_skips_policy_bound_nodes():
     assert payload.decode().startswith("vless://")
 
 
+def test_mihomo_rejects_unknown_transport_and_tls_properties():
+    node = {
+        "name": "needs-extra-policy", "type": "vless",
+        "server": "1.1.1.1", "port": 443, "uuid": UUID,
+        "tls": True, "servername": "example.com",
+    }
+    assert _mihomo_uri(node) is not None
+    for extra in ({"fingerprint": "sha256:abc"},
+                  {"tlsmirror-opts": {"primary-key": "opaque"}},
+                  {"network": "ws", "ws-opts": {"headers": {"Authorization": "secret"}}},
+                  {"udp": False},
+                  {"network": "grpc", "grpc-opts": {"service-name": "ignored"}}):
+        assert _mihomo_uri({**node, **extra}) is None
+
+
+def test_mihomo_remote_yaml_denies_alias_expansion_and_oversized_input():
+    repeated = "proxies: &entries\n  - name: a\n    type: direct\nshadow: *entries\n"
+    with pytest.raises(ValueError, match="aliases"):
+        normalize_feed(repeated.encode())
+    oversized = b"proxies:\n" + (b" " * (2 * 1024 * 1024))
+    with pytest.raises(ValueError, match="size limit"):
+        normalize_feed(oversized)
+
+
+def test_mihomo_json_proxy_count_is_bounded_before_conversion():
+    too_many = {"proxies": [{"type": "direct"}] * 9001}
+    with pytest.raises(ValueError, match="node limit"):
+        normalize_feed(json.dumps(too_many).encode())
+
 def test_mihomo_reality_converts_only_when_required_parameters_present():
     node = {
         "type": "vless", "name": "reality", "server": "1.1.1.1", "port": 443,
