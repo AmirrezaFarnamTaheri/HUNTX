@@ -172,3 +172,125 @@ def test_required_telegram_sources_remain_unchanged_and_enabled():
             assert SourceConfig.model_validate(src).required
     app = AppConfig.model_validate(config)
     assert len(app.sources) >= 81 + 34
+
+
+def test_go_fetcher_conditionally_reuses_only_verified_content(monkeypatch):
+    import hashlib
+    import subprocess
+
+    class Store:
+        def __init__(self):
+            self.raw = {}
+
+        def get(self, digest):
+            return self.raw.get(digest)
+
+    store = Store()
+    endpoint = "https://raw.githubusercontent.com/example/repo/main/list.txt"
+    requests = []
+
+    def fake_run(command, **kwargs):
+        requests.append(command)
+        if len(requests) == 1:
+            result = {
+                "status": "ok", "etag": '"version-1"',
+                "last_modified": "Mon, 12 Oct 2026 10:00:00 GMT",
+                "content_b64": base64.b64encode(URI.encode()).decode(),
+                "bytes": len(URI.encode()),
+            }
+        else:
+            result = {"status": "not_modified"}
+        return subprocess.CompletedProcess(command, 0, json.dumps(result).encode(), b"")
+
+    monkeypatch.setattr(
+        "huntx.connectors.http_subscription.connector._engine_path",
+        lambda: "/tmp/huntx-engine",
+    )
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    feed = HttpSubscriptionConnector(endpoint, raw_store=store)
+    first = list(feed.list_new())
+    initial_state = feed.get_state()
+    assert len(first) == 2
+    digest = hashlib.sha256(first[0].data).hexdigest()
+    assert initial_state["normalized_sha256"] == digest
+    store.raw[digest] = first[0].data
+
+    refreshed = HttpSubscriptionConnector(endpoint, raw_store=store)
+    second = list(refreshed.list_new(initial_state))
+    state = refreshed.get_state()
+    assert second[0].data == first[0].data
+    assert state["revalidated"] is True
+    assert state["feed_sha256"] == initial_state["feed_sha256"]
+    assert state["last_changed_at"] == initial_state["last_changed_at"]
+    assert "--etag" not in requests[0] and "--etag" in requests[1]
+    assert '"version-1"' in requests[1]
+
+
+def test_go_fetcher_never_revalidates_missing_or_corrupt_cache(monkeypatch):
+    import subprocess
+
+    class Store:
+        def get(self, digest):
+            return b"wrong-content"
+
+    observed = []
+
+    def fake_run(command, **kwargs):
+        observed.extend(command)
+        response = {
+            "status": "ok",
+            "content_b64": base64.b64encode(URI.encode()).decode(),
+            "bytes": len(URI.encode()),
+        }
+        return subprocess.CompletedProcess(command, 0, json.dumps(response).encode(), b"")
+
+    monkeypatch.setattr(
+        "huntx.connectors.http_subscription.connector._engine_path",
+        lambda: "/tmp/huntx-engine",
+    )
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    feed = HttpSubscriptionConnector(
+        "https://raw.githubusercontent.com/example/repo/main/list.txt",
+        raw_store=Store(),
+    )
+    list(feed.list_new({
+        "normalized_sha256": "f" * 64,
+        "etag": '"bad"',
+    }))
+    assert "--etag" not in observed
+    assert feed.get_state()["revalidated"] is False
+
+
+def test_reordered_feed_does_not_change_node_remark_identity():
+    from huntx.formats.npvt import NpvtHandler
+
+    second = URI.replace(UUID, "de6d0001-4fe3-4ff8-aa13-593b49f65563")
+    handler = NpvtHandler()
+    records = handler.parse((URI + "\n" + second).encode(), {})
+    assert len(records) == 2
+
+    def tags(output):
+        result = {}
+        for line in output.decode().splitlines():
+            part, _, tag = line.partition("#")
+            result[part] = tag
+        return result
+
+    original = tags(handler.build(records))
+    reordered = tags(handler.build(list(reversed(records))))
+    assert original == reordered
+    assert len(set(original.values())) == 2
+    assert all(len(tag.rsplit("-", 1)[-1]) == 12 for tag in original.values())
+
+
+@pytest.mark.parametrize("state", [
+    {"probe_ok": False, "latency_ms": 18.0, "historical_success_rate": 1.0},
+    {"is_active": False, "latency_ms": 18.0, "historical_success_rate": 1.0},
+    {"status": "retired", "latency_ms": 18.0, "historical_success_rate": 1.0},
+    {"lifecycle": "quarantined", "latency_ms": 18.0, "historical_success_rate": 1.0},
+])
+def test_rejected_or_dead_history_is_never_promoted_by_scoring(state):
+    from huntx.core.scoring import ProxyScoringEngine
+
+    assert ProxyScoringEngine().score_proxy(state) == 0.0
