@@ -22,9 +22,9 @@ const MaxBodyBytes = 5 * 1024 * 1024
 
 var hostAllowlist = map[string]bool{
 	"raw.githubusercontent.com": true,
-	"sub.iampedi5.live": true,
-	"sub.whitedns.one": true,
-	"key.zarazaex.xyz": true,
+	"sub.iampedi5.live":         true,
+	"sub.whitedns.one":          true,
+	"key.zarazaex.xyz":          true,
 }
 
 var unsafeNetworks = []netip.Prefix{
@@ -93,13 +93,13 @@ func sanitizedValidator(value string) string {
 func newClient(timeout time.Duration) *http.Client {
 	dialer := &net.Dialer{Timeout: timeout, KeepAlive: 15 * time.Second}
 	transport := &http.Transport{
-		Proxy: nil,
-		ForceAttemptHTTP2: true,
-		MaxIdleConns: 3,
+		Proxy:               nil,
+		ForceAttemptHTTP2:   true,
+		MaxIdleConns:        3,
 		MaxIdleConnsPerHost: 1,
-		IdleConnTimeout: 10 * time.Second,
+		IdleConnTimeout:     10 * time.Second,
 		TLSHandshakeTimeout: timeout,
-		DisableCompression: true,
+		DisableCompression:  true,
 		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
 			host, port, err := net.SplitHostPort(address)
 			if err != nil || !hostAllowlist[strings.ToLower(host)] {
@@ -131,7 +131,7 @@ func newClient(timeout time.Duration) *http.Client {
 		},
 	}
 	return &http.Client{
-		Timeout: timeout,
+		Timeout:   timeout,
 		Transport: transport,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
