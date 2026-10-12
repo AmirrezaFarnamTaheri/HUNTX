@@ -125,8 +125,7 @@ func Build(root string, files []string) (Manifest, error) {
 			if err != nil {
 				return Manifest{}, err
 			}
-			var value any
-			if err := json.Unmarshal(payload, &value); err != nil {
+			if err := ValidateClientJSON(relative, payload); err != nil {
 				return Manifest{}, err
 			}
 		}
@@ -190,8 +189,7 @@ func Verify(root string, manifest Manifest) error {
 			if err != nil {
 				return err
 			}
-			var value any
-			if err := json.Unmarshal(payload, &value); err != nil {
+			if err := ValidateClientJSON(record.Path, payload); err != nil {
 				return err
 			}
 		}

@@ -59,12 +59,13 @@ def test_xray_subscription_is_outbounds_only() -> None:
     assert "routing" not in payload
 
 
-def test_nekobox_subscription_wraps_nodes_in_outbounds_object() -> None:
+def test_nekobox_subscription_is_a_top_level_node_array() -> None:
     payload = json.loads(build_nekobox_outbounds_bytes(TROJAN).decode("utf-8"))
 
-    assert set(payload) == {"outbounds"}
-    assert len(payload["outbounds"]) == 1
-    assert payload["outbounds"][0]["type"] == "trojan"
+    assert isinstance(payload, list)
+    assert len(payload) == 1
+    assert payload[0]["type"] == "trojan"
+    assert payload[0]["tag"] == "Node"
 
 
 def _clash_items(payload: bytes) -> list[dict[str, object]]:
@@ -97,7 +98,7 @@ def test_two_nodes_remain_two_subscription_entries() -> None:
 
     assert len(singbox["outbounds"]) == 2
     assert len(xray["outbounds"]) == 2
-    assert len(nekobox["outbounds"]) == 2
+    assert len(nekobox) == 2
     assert len(clash) == 2
 
 
@@ -116,5 +117,5 @@ def test_1601_nodes_remain_1601_independent_subscription_entries() -> None:
 
     assert len(singbox["outbounds"]) == count
     assert len(xray["outbounds"]) == count
-    assert len(nekobox["outbounds"]) == count
+    assert len(nekobox) == count
     assert len(clash) == count

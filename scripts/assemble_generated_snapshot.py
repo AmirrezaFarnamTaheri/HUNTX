@@ -489,6 +489,41 @@ def _catalog_dev_trio(docs_dir: Path, dev_dir: Path) -> None:
     catalog_path.write_text(json.dumps(catalog, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def sync_dashboard_fallback_catalog(docs_dir: Path) -> None:
+    """Align the bundled fallback after cumulative dev metadata is appended."""
+    source = docs_dir / "catalog.json"
+    module = docs_dir / "assets" / "js" / "data.js"
+    if not module.is_file():
+        return
+    catalog = json.loads(source.read_text(encoding="utf-8"))
+    body = module.read_text(encoding="utf-8")
+    prefix = "export const FALLBACK_CATALOG = "
+    suffix = ";\n\nexport const SAMPLE_PROXIES = "
+    if body.count(prefix) != 1:
+        raise ValueError("dashboard fallback catalog declaration is missing or duplicated")
+    before, rest = body.split(prefix, 1)
+    if suffix not in rest:
+        raise ValueError("dashboard fallback catalog is missing its terminator")
+    _, after = rest.split(suffix, 1)
+    encoded = json.dumps(catalog, separators=(",", ":"), ensure_ascii=True)
+    updated = before + prefix + encoded + suffix + after
+    stats_prefix = "export const INGEST_STATS = "
+    if updated.count(stats_prefix) != 1:
+        raise ValueError("dashboard fallback telemetry declaration is missing or duplicated")
+    stats_before, stats_source = updated.split(stats_prefix, 1)
+    stats, consumed = json.JSONDecoder().raw_decode(stats_source)
+    if not isinstance(stats, dict):
+        raise ValueError("dashboard fallback telemetry must be a JSON object")
+    stats["total_published_files"] = catalog["total_files"]
+    stats["total_storage_bytes"] = catalog["total_size"]
+    stats["total_storage_str"] = catalog["total_size_str"]
+    encoded_stats = json.dumps(stats, separators=(",", ":"), ensure_ascii=True)
+    module.write_text(
+        stats_before + stats_prefix + encoded_stats + stats_source[consumed:],
+        encoding="utf-8",
+    )
+
+
 def write_main_sync_inventory(destination: Path) -> None:
     managed: list[str] = []
     for name in ("outputs", "outputs_dev", "docs"):
@@ -587,6 +622,7 @@ def assemble_snapshot(
                     target_file.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(source_file, target_file)
         _catalog_dev_trio(destination / "docs", destination / "docs" / "artifacts" / "dev")
+        sync_dashboard_fallback_catalog(destination / "docs")
         if shell_root is not None:
             _refresh_frontend_index(destination)
         dashboard_file_count = sum(1 for p in (destination / "docs").rglob("*") if p.is_file())

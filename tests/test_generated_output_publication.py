@@ -289,7 +289,12 @@ class TestDashboardDataWiring(unittest.TestCase):
             (shell / "assets" / "js").mkdir(parents=True)
             (shell / "index.html").write_text("<html></html>", encoding="utf-8")
             (shell / "assets" / "js" / "data.js").write_text(
-                "window.HUNTX_DATA = {};", encoding="utf-8")
+                'export const FALLBACK_CATALOG = {"files":[]};\n\n'
+                'export const SAMPLE_PROXIES = [];\n'
+                'export const INGEST_STATS = {"total_published_files":0,'
+                '"total_storage_bytes":0,"total_storage_str":"0 B"};\n',
+                encoding="utf-8",
+            )
             # Simulate a stale local checkout that still holds the retired bundle.
             (shell / "assets" / "js" / "bundle.js").write_text(
                 "// retired", encoding="utf-8")
@@ -312,6 +317,16 @@ class TestDashboardDataWiring(unittest.TestCase):
 
             self.assertTrue((destination / "docs" / "index.html").exists())
             self.assertTrue((destination / "docs" / "assets" / "js" / "data.js").exists())
+            module = (destination / "docs" / "assets" / "js" / "data.js").read_text()
+            catalog = json.loads((destination / "docs" / "catalog.json").read_text())
+            fallback = module.split("export const FALLBACK_CATALOG = ", 1)[1]
+            fallback = fallback.split(";\n\nexport const SAMPLE_PROXIES", 1)[0]
+            self.assertEqual(json.loads(fallback), catalog)
+            stats = module.split("export const INGEST_STATS = ", 1)[1]
+            stats = json.loads(stats.split(";", 1)[0])
+            self.assertEqual(stats["total_published_files"], catalog["total_files"])
+            self.assertEqual(stats["total_storage_bytes"], catalog["total_size"])
+            self.assertEqual(stats["total_storage_str"], catalog["total_size_str"])
             self.assertFalse(
                 (destination / "docs" / "assets" / "js" / "bundle.js").exists(),
                 "retired bundle.js must never be staged into the snapshot",

@@ -20,12 +20,10 @@ updates:
       day: monday
       time: "05:30"
       timezone: Europe/Helsinki
-    versioning-strategy: increase-if-necessary
+    versioning-strategy: increase
     groups:
       python-runtime:
         dependency-type: production
-      python-development:
-        dependency-type: development
     open-pull-requests-limit: 5
 
   - package-ecosystem: gomod

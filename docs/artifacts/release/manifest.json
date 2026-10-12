@@ -70,8 +70,8 @@
     },
     {
       "path": "all_sources_nekobox.json",
-      "size": 690652,
-      "sha256": "9602469574f2500fd8a41641ff2f388492fb9fd85fee04cbafe6c7179029f0ad",
+      "size": 635501,
+      "sha256": "14d3c8bdb6aed37069e402140a4d5bcf1e45d6df22a0d459dd53835b9f6611f6",
       "media_type": "application/json"
     },
     {
@@ -88,8 +88,8 @@
     },
     {
       "path": "all_sources_npvt_nekobox.json",
-      "size": 690652,
-      "sha256": "9602469574f2500fd8a41641ff2f388492fb9fd85fee04cbafe6c7179029f0ad",
+      "size": 635501,
+      "sha256": "14d3c8bdb6aed37069e402140a4d5bcf1e45d6df22a0d459dd53835b9f6611f6",
       "media_type": "application/json"
     },
     {

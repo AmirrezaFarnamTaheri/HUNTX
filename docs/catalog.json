@@ -81,15 +81,15 @@
       "type": "CLASH"
     },
     {
-      "description": "NekoBox-compatible JSON node feed: a minimal object containing standalone sing-box outbounds and no DNS, route, or inbound policy. Current NekoBox expands those outbounds into independent nodes instead of treating the document as one full custom configuration.",
+      "description": "NekoBox-compatible JSON node feed: a top-level array of standalone sing-box proxy outbounds, without DNS, routing or inbound profile policy. Each array entry represents an independent node rather than one custom configuration.",
       "ext": "NEKOBOX",
       "filename": "all_sources_nekobox.json",
       "media_type": "application/json",
       "path": "artifacts/release/all_sources_nekobox.json",
       "section": "release",
-      "sha256": "9602469574f2500fd8a41641ff2f388492fb9fd85fee04cbafe6c7179029f0ad",
-      "size": 690652,
-      "size_str": "674.5 KB",
+      "sha256": "14d3c8bdb6aed37069e402140a4d5bcf1e45d6df22a0d459dd53835b9f6611f6",
+      "size": 635501,
+      "size_str": "620.6 KB",
       "tags": [
         "release",
         "production",
@@ -221,6 +221,6 @@
   "release_manifest": "artifacts/release/manifest.json",
   "schema_version": 1,
   "total_files": 11,
-  "total_size": 6938275,
+  "total_size": 6883124,
   "total_size_str": "6.6 MB"
 }

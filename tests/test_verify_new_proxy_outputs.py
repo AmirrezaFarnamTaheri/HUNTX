@@ -21,15 +21,18 @@ def _load_verify_output() -> ModuleType:
 def test_verify_output_treats_new_client_json_as_json(tmp_path):
     verifier = _load_verify_output()
     xray = tmp_path / "all_sources_npvt_xray.json"
-    xray.write_text(json.dumps({"outbounds": [{"protocol": "vless"}]}), encoding="utf-8")
+    xray.write_text(
+        json.dumps({"inbounds": [{"protocol": "socks"}], "outbounds": [{"protocol": "vless"}]}),
+        encoding="utf-8",
+    )
     nekobox = tmp_path / "all_sources_npvt_nekobox.json"
     nekobox.write_text(
         json.dumps([{"type": "vless", "tag": "node"}]),
         encoding="utf-8",
     )
 
-    assert verifier.validate_file(xray)["type"] == "json"
-    assert verifier.validate_file(nekobox)["type"] == "json"
+    assert verifier.validate_file(xray).get("invalid") is not True
+    assert verifier.validate_file(nekobox).get("invalid") is not True
 
 
 def test_verify_output_treats_raw_derivative_as_proxy_text(tmp_path):
@@ -66,6 +69,58 @@ def test_committed_nekobox_outputs_are_node_feeds_not_client_configs():
         for node in payload:
             assert node.get("type"), f"{path.name} has an outbound without a type"
             assert node.get("tag"), f"{path.name} has an outbound without a tag"
+
+
+def test_committed_nekobox_aliases_and_published_metadata_are_consistent():
+    """Frozen subscriber URLs and dashboard metadata must match the canonical feed."""
+    import hashlib
+
+    repo = OUTPUTS_DIR.parent
+    names = ("all_sources_nekobox.json", "all_sources_npvt_nekobox.json")
+    manifest = json.loads(
+        (repo / "docs" / "artifacts" / "release" / "manifest.json").read_text(encoding="utf-8")
+    )
+    records = {item["path"]: item for item in manifest["artifacts"]}
+    catalog = json.loads((repo / "docs" / "catalog.json").read_text(encoding="utf-8"))
+    assert catalog["total_files"] == len(catalog["files"])
+    assert catalog["total_size"] == sum(item["size"] for item in catalog["files"])
+
+    canonical = (OUTPUTS_DIR / names[0]).read_bytes()
+    payload = json.loads(canonical)
+    assert isinstance(payload, list) and payload
+    tags = [node["tag"] for node in payload]
+    assert len(tags) == len(set(tags)), "duplicate NekoBox node tags cause selection collisions"
+    assert all(
+        node["type"] not in {"selector", "urltest", "direct", "block", "dns"}
+        and "domain_resolver" not in node
+        for node in payload
+    )
+    for name in names:
+        assert (OUTPUTS_DIR / name).read_bytes() == canonical, name
+        assert (repo / "docs" / "artifacts" / "release" / name).read_bytes() == canonical, name
+        assert records[name]["sha256"] == hashlib.sha256(canonical).hexdigest(), name
+        assert records[name]["size"] == len(canonical), name
+
+    listed = [
+        item for item in catalog["files"]
+        if item["path"] == "artifacts/release/all_sources_nekobox.json"
+    ]
+    assert len(listed) == 1, "the canonical NekoBox feed must appear once in the catalog"
+    assert listed[0]["sha256"] == hashlib.sha256(canonical).hexdigest()
+    assert listed[0]["size"] == len(canonical)
+
+
+def test_bundled_dashboard_catalog_tracks_committed_release_metadata():
+    repo = OUTPUTS_DIR.parent
+    live = json.loads((repo / "docs" / "catalog.json").read_text(encoding="utf-8"))
+    module = (repo / "docs" / "assets" / "js" / "data.js").read_text(encoding="utf-8")
+    start = "export const FALLBACK_CATALOG = "
+    end = ";\n\nexport const SAMPLE_PROXIES = "
+    assert module.count(start) == 1
+    catalog_string = module.split(start, 1)[1].split(end, 1)[0]
+    assert json.loads(catalog_string) == live
+    app = (repo / "docs" / "assets" / "js" / "app.js").read_text(encoding="utf-8")
+    assert "Top-level JSON array of standalone NekoBox proxy nodes" in app
 
 
 def test_committed_client_configs_are_complete_importable_profiles():
@@ -115,6 +170,8 @@ def test_full_profiles_are_not_classified_as_decoded_dataset(tmp_path):
 def test_node_and_profile_json_contracts_are_not_interchangeable(tmp_path):
     verifier = _load_verify_output()
     cases = (
+        ("all_sources_nekobox.json", {"outbounds": [{"type": "trojan", "tag": "node"}]}, True),
+        ("all_sources_nekobox.json", [{"type": "trojan", "tag": "node"}], False),
         ("all_sources_singbox_nodes.json", {"inbounds": [{}], "outbounds": [{"type": "trojan", "tag": "a"}]}, True),
         ("all_sources_singbox.json", {"outbounds": [{"type": "trojan", "tag": "a"}]}, True),
         ("all_sources_xray_nodes.json", {"outbounds": [{"protocol": "vless", "tag": "a"}], "route": {}}, True),
@@ -134,6 +191,18 @@ def test_node_and_profile_json_contracts_are_not_interchangeable(tmp_path):
         file.write_text(json.dumps(payload), encoding="utf-8")
         result = verifier.validate_file(file)
         assert bool(result.get("invalid")) is should_fail, (filename, result)
+
+
+def test_nekobox_rejects_duplicate_tags_and_non_proxy_helpers(tmp_path):
+    verifier = _load_verify_output()
+    invalid_feeds = (
+        [{"type": "trojan", "tag": "same"}, {"type": "vless", "tag": "same"}],
+        [{"type": "direct", "tag": "direct"}],
+    )
+    for payload in invalid_feeds:
+        path = tmp_path / "all_sources_nekobox.json"
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        assert verifier.validate_file(path).get("invalid") is True
 
 
 def test_legacy_nekobox_array_keeps_import_compatibility(tmp_path):

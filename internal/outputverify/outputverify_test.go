@@ -41,3 +41,33 @@ func TestVerifySkipsInternalOutputOwnershipManifest(t *testing.T) {
 		t.Fatalf("expected route.npvt in dist: %v", err)
 	}
 }
+
+func TestVerifyPreservesLastGoodDistWhenNekoboxFeedIsInvalid(t *testing.T) {
+	dataDir := t.TempDir()
+	outputDir := filepath.Join(dataDir, "outputs")
+	distDir := filepath.Join(dataDir, "dist")
+	if err := os.MkdirAll(outputDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(distDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(
+		filepath.Join(outputDir, "all_sources_nekobox.json"),
+		[]byte(`{"outbounds":[{"type":"vless","tag":"node"}]}`),
+		0o600,
+	); err != nil {
+		t.Fatal(err)
+	}
+	sentinel := filepath.Join(distDir, "last-good.txt")
+	if err := os.WriteFile(sentinel, []byte("retain"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Verify(dataDir); err == nil {
+		t.Fatal("Verify accepted a config-shaped NekoBox subscription")
+	}
+	content, err := os.ReadFile(sentinel)
+	if err != nil || string(content) != "retain" {
+		t.Fatalf("last verified distribution was lost: payload=%q err=%v", content, err)
+	}
+}

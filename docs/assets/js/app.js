@@ -3815,7 +3815,7 @@ export class AppState {
       ["all_sources_singbox_nodes.json", "Sing-box JSON subscription", "Outbounds-only JSON. Compatible subscription updaters expand the contained proxies into independent entries.", "sky", false],
       ["all_sources_xray_nodes.json", "Xray JSON subscription", "Outbounds-only Xray/V2Ray JSON. Current v2rayN imports the contained outbounds as independent subscription items.", "indigo", false],
       ["all_sources_clash.yaml", "Clash / Mihomo subscription", "Proxy-provider YAML containing only independent entries under proxies. Refreshing the provider updates the node list without importing a full profile.", "violet", false],
-      ["all_sources_nekobox.json", "NekoBox JSON subscription", "Minimal outbounds container with no profile-level routing/DNS; current NekoBox expands each outbound independently.", "amber", false],
+      ["all_sources_nekobox.json", "NekoBox JSON subscription", "Top-level JSON array of standalone NekoBox proxy nodes; each entry imports independently without full-profile routing/DNS.", "amber", false],
     ].map(([filename, label, description, color, recommended]) => ({ filename, label, description, color, recommended, file: findArtifact(filename) }));
     const profileDownloads = [
       ["all_sources_singbox_profile.json", "Sing-box full profile", "Complete runnable Sing-box configuration with inbound, DNS, routing and selector policy.", "sky"],
