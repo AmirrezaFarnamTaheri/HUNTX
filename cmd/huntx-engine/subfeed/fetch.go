@@ -38,7 +38,9 @@ var unsafeNetworks = []netip.Prefix{
 	netip.MustParsePrefix("224.0.0.0/4"),
 	netip.MustParsePrefix("240.0.0.0/4"),
 	netip.MustParsePrefix("2001:db8::/32"),
-	netip.MustParsePrefix("2001::/32"),
+	netip.MustParsePrefix("2001::/23"), // IETF special-purpose space, including ORCHIDv2
+	netip.MustParsePrefix("2002::/16"), // 6to4 can encapsulate non-public IPv4
+	netip.MustParsePrefix("3fff::/20"), // IETF IPv6 documentation addresses
 	netip.MustParsePrefix("fe80::/10"),
 }
 
@@ -99,6 +101,9 @@ func newClient(timeout time.Duration) *http.Client {
 		MaxIdleConnsPerHost: 1,
 		IdleConnTimeout:     10 * time.Second,
 		TLSHandshakeTimeout: timeout,
+		ResponseHeaderTimeout: timeout,
+		MaxResponseHeaderBytes: 32 * 1024,
+		DisableKeepAlives: true, // A short-lived worker performs exactly one fetch.
 		DisableCompression:  true,
 		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
 			host, port, err := net.SplitHostPort(address)
@@ -167,7 +172,9 @@ func Fetch(ctx context.Context, rawURL, etag, lastModified string, timeout time.
 	client := newClient(timeout)
 	res, err := client.Do(req)
 	if err != nil {
-		return Result{}, fmt.Errorf("upstream fetch failed: %w", err)
+		// net/http errors may embed a query string with subscription credentials.
+		// Do not propagate them into process logs or higher-level diagnostics.
+		return Result{}, errors.New("upstream fetch failed")
 	}
 	defer res.Body.Close()
 

@@ -1,9 +1,11 @@
 package subfeed
 
 import (
+	"net/http"
 	"net/netip"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestPublicSourceURLRestrictions(t *testing.T) {
@@ -38,6 +40,7 @@ func TestPublicAddressDoesNotConfuseUnicastAndPublic(t *testing.T) {
 		"169.254.169.254", "100.64.2.3", "192.0.2.10",
 		"198.51.100.2", "203.0.113.1", "198.19.0.1",
 		"fc00::1", "fe80::1", "2001:db8::1", "ff02::1",
+		"2002:c0a8:101::1", "2001:20::1", "3fff::1",
 	}
 	for _, address := range bad {
 		if PublicAddress(netip.MustParseAddr(address)) {
@@ -59,5 +62,18 @@ func TestCacheValidatorsStripResponseSplitting(t *testing.T) {
 		if sanitizedValidator(unsafe) != "" {
 			t.Fatalf("accepted unsafe validator")
 		}
+	}
+}
+
+func TestSingleFetchClientBoundsHeadersAndDisablesIdleConnections(t *testing.T) {
+	client := newClient(2 * time.Second)
+	tr, ok := client.Transport.(*http.Transport)
+	if !ok {
+		t.Fatal("expected native HTTPS transport")
+	}
+	if tr.Proxy != nil || !tr.DisableKeepAlives ||
+		tr.MaxResponseHeaderBytes > 32*1024 ||
+		tr.ResponseHeaderTimeout != 2*time.Second {
+		t.Fatalf("unbounded or proxy-redirectable HTTP fetch transport: %+v", tr)
 	}
 }
