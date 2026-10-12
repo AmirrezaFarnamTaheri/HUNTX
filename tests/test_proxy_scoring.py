@@ -77,3 +77,20 @@ def test_network_reachability_does_not_claim_authenticated_proxy_health():
         **kwargs, probe_kind="protocol_authenticated", probe_ok=False,
     )
     assert failed["score"] == 0 and failed["verified_grade"] == "F"
+
+
+def test_python_go_health_score_parity_examples():
+    engine = ProxyScoringEngine()
+    kwargs = dict(
+        latency_ms=40, speed_mbps=5, packet_loss=0,
+        security_type="REALITY", carrier="  mci  ", target_isp="MCI",
+        probe_kind="protocol_authenticated", probe_ok=True,
+        observation_age_seconds=60,
+    )
+    result = engine.calculate_health_score(**kwargs)
+    assert (result["score"], result["grade"], result["recommended"]) == (
+        85.0, "A", True,
+    )
+    kwargs["carrier"] = "  "
+    kwargs["target_isp"] = " "
+    assert engine.calculate_health_score(**kwargs)["score"] == 80.0

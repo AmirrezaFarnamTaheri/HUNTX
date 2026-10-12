@@ -69,7 +69,7 @@ func CalculateHealthScore(node NodeMetrics, targetISP string) HealthResult {
 
 	// 2. Security Weight (Ws)
 	securityWeight := 0.0
-	switch node.SecurityType {
+	switch SecurityProtocol(strings.ToLower(string(node.SecurityType))) {
 	case SecurityReality:
 		securityWeight = 10.0
 	case SecurityTLS, SecurityGRPC, SecurityH2:
@@ -85,7 +85,8 @@ func CalculateHealthScore(node NodeMetrics, targetISP string) HealthResult {
 
 	// 4. Carrier Alignment Boost
 	carrierBoost := 0.0
-	if targetISP != "" && strings.EqualFold(node.Carrier, targetISP) {
+	if strings.TrimSpace(targetISP) != "" && strings.TrimSpace(node.Carrier) != "" &&
+        strings.EqualFold(strings.TrimSpace(node.Carrier), strings.TrimSpace(targetISP)) {
 		carrierBoost = 5.0
 	}
 
@@ -131,7 +132,7 @@ func CalculateHealthScore(node NodeMetrics, targetISP string) HealthResult {
 	verified := node.ProbeKind == "protocol_authenticated" &&
 		node.ProbeOK && node.LatencyMs > 0 &&
 		node.ProbeAgeSecs >= 0 && node.ProbeAgeSecs <= 3600
-	result := HealthResult{Score: total, Grade: grade, Evidence: "unverified"}
+	result := HealthResult{Score: math.Round(total*100) / 100, Grade: grade, Evidence: "unverified"}
 	if verified {
 		result.VerifiedGrade = grade
 		result.Recommended = total >= 75
