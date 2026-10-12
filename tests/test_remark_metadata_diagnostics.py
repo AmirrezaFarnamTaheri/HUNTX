@@ -36,7 +36,11 @@ def test_missing_grade_is_not_displayed(grade):
 
 def test_metadata_normalization_and_sequence():
     counter = {}
-    metadata = {"country": " de ", "operator": "CF", "health_grade": "A+", "latency_ms": 42}
+    metadata = {
+        "country": " de ", "operator": "CF", "operator_verified": True,
+        "health_grade": "A+", "latency_ms": 42,
+        "probe_kind": "protocol_authenticated", "probe_ok": True, "probe_age_seconds": 20,
+    }
     first = format_enriched_remark(URI, counter, metadata)
     second = format_enriched_remark(URI.replace("vless://", "Vless://"), counter, metadata)
     assert first == "🇩🇪 DE-CF | VLESS | ⚡42ms | ⭐A+ | #001"
@@ -61,3 +65,18 @@ def test_placeholder_transport_values_are_not_displayed(junk):
     remark = format_enriched_remark(URI, {}, {"country": "DE", "transport": junk})
     assert "DE | VLESS-" not in remark
     assert "DE | VLESS |" in remark
+
+
+def test_unverified_upstream_marketing_cannot_claim_quality_or_operator():
+    remark = format_enriched_remark(URI, {}, {
+        "country": "ZZ", "operator": "MCI", "health_grade": "A+",
+        "latency_ms": 42,
+    })
+    assert "MCI" not in remark
+    assert "⭐A+" not in remark
+    assert "⚡42ms" in remark  # TCP latency alone is not an authenticated proxy.
+    failed = format_enriched_remark(URI, {}, {
+        "country": "ZZ", "probe_kind": "protocol_authenticated",
+        "probe_ok": False, "health_grade": "A+",
+    })
+    assert "⭐F" in failed and "⭐A+" not in failed
