@@ -82,3 +82,20 @@ def test_pr_validation_covers_generated_artifacts_and_dependency_configuration()
     assert gate.count('      - ".github/**"') == 2
     assert gate.count('      - "outputs/**"') == 2
     assert gate.count('      - "outputs_dev/**"') == 2
+
+def test_publisher_rejects_obsolete_producer_replay_and_changed_main_code():
+    workflow = _workflow()
+    assert 'github.rest.repos.getBranch' in workflow
+    assert 'github.rest.repos.compareCommits' in workflow
+    assert "comparison.data.status === 'ahead'" in workflow
+    assert 'files.length < 300' in workflow
+    assert "filename.startsWith('outputs/')" in workflow
+    assert "filename.startsWith('docs/artifacts/')" in workflow
+    assert "filename === 'docs/assets/js/data.js'" in workflow
+    assert "path: 'manifests/publication.json'" in workflow
+    assert "ref: 'generated-outputs'" in workflow
+    assert 'runId < priorId' in workflow
+    assert 'expectedAttempt < priorAttempt' in workflow
+    assert workflow.index('github.rest.repos.getBranch') < workflow.index("core.setOutput('ready', 'true')")
+    assert workflow.index("path: 'manifests/publication.json'") < workflow.index("core.setOutput('ready', 'true')")
+

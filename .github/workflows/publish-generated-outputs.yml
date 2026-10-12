@@ -204,6 +204,77 @@ jobs:
               return;
             }
 
+            // A successful producer is still stale if code has changed on main.
+            // Mirror-generated changes are the only permitted ancestry drift.
+            const branchResponse = await github.rest.repos.getBranch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              branch: 'main',
+            });
+            const currentMainSHA = branchResponse.data.commit.sha;
+            if (run.head_sha !== currentMainSHA) {
+              const comparison = await github.rest.repos.compareCommits({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                base: run.head_sha,
+                head: currentMainSHA,
+                per_page: 100,
+              });
+              const permittedGeneratedChange = filename =>
+                filename.startsWith('outputs/')
+                || filename.startsWith('outputs_dev/')
+                || filename.startsWith('docs/artifacts/')
+                || filename === 'docs/catalog.json'
+                || filename === 'docs/assets/js/data.js'
+                || filename === 'docs/index.html'
+                || filename === '.github/huntx-generated-files.txt';
+              const files = comparison.data.files || [];
+              const generatedOnly = comparison.data.status === 'ahead'
+                && comparison.data.ahead_by > 0
+                && comparison.data.ahead_by <= 250
+                && files.length > 0
+                && files.length < 300
+                && files.every(file => permittedGeneratedChange(file.filename)
+                  && (!file.previous_filename || permittedGeneratedChange(file.previous_filename)));
+              if (!generatedOnly) {
+                core.setOutput('ready', 'false');
+                core.notice(
+                  `Skipping producer ${runId}: main changed beyond generated artifacts since ${run.head_sha}.`,
+                );
+                return;
+              }
+            }
+
+            // Keep publication monotonic across manual dispatches and replayed
+            // workflow_run events. Idempotent retries of the same source remain valid.
+            let previousPublication = null;
+            try {
+              const prior = await github.rest.repos.getContent({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                path: 'manifests/publication.json',
+                ref: 'generated-outputs',
+              });
+              if (Array.isArray(prior.data) || prior.data.encoding !== 'base64') {
+                throw new Error('generated publication receipt is not a base64 file');
+              }
+              previousPublication = JSON.parse(Buffer.from(prior.data.content, 'base64').toString('utf8'));
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+            if (previousPublication !== null) {
+              const priorId = Number(previousPublication.source_run_id);
+              const priorAttempt = Number(previousPublication.source_run_attempt);
+              if (!Number.isSafeInteger(priorId) || priorId <= 0
+                || !Number.isSafeInteger(priorAttempt) || priorAttempt <= 0) {
+                throw new Error('prior publication receipt has invalid source coordinates');
+              }
+              if (runId < priorId || (runId === priorId && expectedAttempt < priorAttempt)) {
+                core.setOutput('ready', 'false');
+                core.notice(`Skipping replayed producer ${runId}/${expectedAttempt}; published source is ${priorId}/${priorAttempt}.`);
+                return;
+              }
+            }
             const artifacts = await publicationArtifacts(run);
             if (!artifacts.ready) {
               core.setFailed(
