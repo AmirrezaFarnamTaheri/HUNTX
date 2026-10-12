@@ -12,10 +12,15 @@ definitions are in `configs/config.prod.yaml`. Tests compare the two.
   ThomasJasperthecat, Barry-Far Sub1–5, zieng2, Masir Sefid,
   WhiteDNS/iampedi5 (including Mihomo), Anonymous, Zarazaex,
   MahsaNet MCI/MTN Sub1–4 and igareck Russian subscriptions.
-- **5 independently researched public feeds**: morpheusadam/v2ray-config
+- **9 independently researched public feeds**: morpheusadam/v2ray-config
   (mini bundle), fifthidea/sub (tiny plaintext), iboxz/free-v2ray-collector
   (mix), ebrasha/free-v2ray-public-list (main bundle), and
-  Au1rxx/free-vpn-subscriptions (bounded verified base64 chunk).
+  Au1rxx/free-vpn-subscriptions (bounded verified base64 chunk), plus
+  peasoft/NoMoreWalls, mahdibland/V2RayAggregator, ermaozi/get_subscribe,
+  and Pawdroid/Free-servers. Four additional sources were reviewed on
+  2026-10-12 and provided nonempty plausible subscriptions.
+- Public source count: **38** HTTP endpoints (29 supplied, nine independently
+  investigated); six retained but disabled owing to empty/missing feeds.
 - Sources are separated by unique `src_http_*` IDs, marked
   `required: false`, and carry explicit `discovered_from` /
   `approval_evidence`. Approval authorizes controlled inspection and
@@ -131,7 +136,11 @@ other unportable policy dependencies are skipped and counted.
   https://github.com/fifthidea/sub,
   https://github.com/iboxz/free-v2ray-collector,
   https://github.com/ebrasha/free-v2ray-public-list,
-  https://github.com/Au1rxx/free-vpn-subscriptions
+  https://github.com/Au1rxx/free-vpn-subscriptions,
+  https://github.com/peasoft/NoMoreWalls,
+  https://github.com/mahdibland/V2RayAggregator,
+  https://github.com/ermaozi/get_subscribe,
+  https://github.com/Pawdroid/Free-servers
 
 ## Acceptance checks
 
