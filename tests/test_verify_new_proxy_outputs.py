@@ -110,6 +110,19 @@ def test_committed_nekobox_aliases_and_published_metadata_are_consistent():
     assert listed[0]["size"] == len(canonical)
 
 
+def test_bundled_dashboard_catalog_tracks_committed_release_metadata():
+    repo = OUTPUTS_DIR.parent
+    live = json.loads((repo / "docs" / "catalog.json").read_text(encoding="utf-8"))
+    module = (repo / "docs" / "assets" / "js" / "data.js").read_text(encoding="utf-8")
+    start = "export const FALLBACK_CATALOG = "
+    end = ";\n\nexport const SAMPLE_PROXIES = "
+    assert module.count(start) == 1
+    catalog_string = module.split(start, 1)[1].split(end, 1)[0]
+    assert json.loads(catalog_string) == live
+    app = (repo / "docs" / "assets" / "js" / "app.js").read_text(encoding="utf-8")
+    assert "Top-level JSON array of standalone NekoBox proxy nodes" in app
+
+
 def test_committed_client_configs_are_complete_importable_profiles():
     """Sing-box and Xray JSON are profile imports: a client needs inbounds and outbounds."""
     files = _committed_outputs("*singbox.json") + _committed_outputs("*xray.json")
