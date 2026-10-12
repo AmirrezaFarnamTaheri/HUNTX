@@ -21,7 +21,10 @@ def _load_verify_output() -> ModuleType:
 def test_verify_output_treats_new_client_json_as_json(tmp_path):
     verifier = _load_verify_output()
     xray = tmp_path / "all_sources_npvt_xray.json"
-    xray.write_text(json.dumps({"inbounds": [{"protocol": "socks"}], "outbounds": [{"protocol": "vless"}]}), encoding="utf-8")
+    xray.write_text(
+        json.dumps({"inbounds": [{"protocol": "socks"}], "outbounds": [{"protocol": "vless"}]}),
+        encoding="utf-8",
+    )
     nekobox = tmp_path / "all_sources_npvt_nekobox.json"
     nekobox.write_text(
         json.dumps([{"type": "vless", "tag": "node"}]),
