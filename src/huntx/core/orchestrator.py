@@ -403,6 +403,21 @@ class Orchestrator:
                 await self.ingest_pipeline.run(
                     src_conf.id, connector, source_type=src_conf.type, deadline=deadline
                 )
+                feed_state = connector.get_state()
+                report = feed_state.get("report", {})
+                summaries = getattr(self, "_http_source_reports", None)
+                if isinstance(summaries, dict):
+                    summaries[str(src_conf.id)] = {
+                        "status": "parsed" if feed.mode == "auto" else "audited",
+                        "checked_at": feed_state.get("checked_at"),
+                        "last_changed_at": feed_state.get("last_changed_at"),
+                        "revalidated": bool(feed_state.get("revalidated", False)),
+                        "nodes": int(report.get("nodes", 0)),
+                        "profiles": int(report.get("profiles", 0)),
+                        "policy_bound": int(report.get("policy_bound_endpoints", 0)),
+                        "skipped_incompatible": int(report.get("skipped_incompatible", 0)),
+                        "validation": "syntax_only",
+                    }
                 return True
             elif src_conf.type == "v2ray_collector":
                 logger.info(f"[Worker] Ingesting source {src_conf.id} (Go v2ray_collector)")
@@ -422,6 +437,13 @@ class Orchestrator:
                 logger.warning(f"[Worker] Skipping {src_conf.id}: unsupported type.")
                 return False
         except Exception as e:
+            summaries = getattr(self, "_http_source_reports", None)
+            if src_conf.type == "http_subscription" and isinstance(summaries, dict):
+                summaries[str(src_conf.id)] = {
+                    "status": "failed",
+                    "error_type": type(e).__name__,
+                    "validation": "not_accepted",
+                }
             logger.exception(f"[Worker] Ingest failed for {src_conf.id}: {e}")
             return False
 

@@ -63,6 +63,9 @@ def evaluate_run_health(
     ingest_ok = _as_int(summary, "ingest_ok")
     ingest_err = _as_int(summary, "ingest_err")
     optional_ingest_err = _as_int(summary, "optional_ingest_err")
+    http_sources_checked = _as_int(summary, "http_sources_checked")
+    http_sources_failed = _as_int(summary, "http_sources_failed")
+    http_nodes_observed = _as_int(summary, "http_nodes_observed")
     failed_routes = _as_int(summary, "failed_routes")
     publish_attempts = _as_int(summary, "publish_attempts")
     publish_failures = _as_int(summary, "publish_failures")
@@ -180,6 +183,9 @@ def evaluate_run_health(
         "ingest_ok": ingest_ok,
         "ingest_err": ingest_err,
         "optional_ingest_err": optional_ingest_err,
+        "http_sources_checked": http_sources_checked,
+        "http_sources_failed": http_sources_failed,
+        "http_nodes_observed": http_nodes_observed,
         "failed_routes": failed_routes,
         "publish_attempts": publish_attempts,
         "publish_failures": publish_failures,

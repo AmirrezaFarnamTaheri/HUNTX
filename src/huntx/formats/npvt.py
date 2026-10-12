@@ -192,16 +192,19 @@ def format_enriched_remark(uri: str, counter: dict, metadata: dict | None = None
 def add_clean_remark(uri: str, counter: dict, metadata: dict | None = None) -> str:
     """Attach a deterministic display remark to a proxy URI.
 
-    Without metadata the remark is ``<scheme>[-<transport>][-<security>]-<n>``,
-    so nodes of the same protocol are still distinguishable in a long list.
+    Without measured metadata, the remark uses only verifiable protocol,
+    transport/security, and a stable 48-bit digest of the canonical URI. It
+    does not invent countries, health grades, or order-dependent node numbers.
     """
     if metadata:
         tag = format_enriched_remark(uri, counter, metadata)
     else:
         scheme = uri.split('://')[0].lower() if '://' in uri else 'proxy'
-        counter[scheme] = counter.get(scheme, 0) + 1
         qualifier = remark_qualifier(uri)
-        tag = f'{scheme}-{qualifier}-{counter[scheme]}' if qualifier else f'{scheme}-{counter[scheme]}'
+        # Index-based names change whenever upstream sources reorder. A stable
+        # digest avoids misleading identity churn without disclosing credentials.
+        identity = hash_string(strip_proxy_remark(uri))[:12]
+        tag = f'{scheme}-{qualifier}-{identity}' if qualifier else f'{scheme}-{identity}'
 
     if uri.startswith('vmess://'):
         try:

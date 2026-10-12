@@ -444,6 +444,7 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
         self._window_completions = 0
         self._window_failures = 0
         self._reset_investigation_metrics()
+        self._http_source_reports: dict[str, dict[str, Any]] = {}
         self._run_owner = uuid.uuid4().hex
         self._completion_buffer_seconds = self._completion_buffer(timeout)
 
@@ -501,6 +502,18 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
         summary["lifo_window_failures"] = self._window_failures
         summary["lifo_residue"] = residue
         summary.update(self._investigation_metrics())
+        source_reports = dict(sorted(self._http_source_reports.items()))
+        summary["http_source_health"] = source_reports
+        summary["http_sources_checked"] = len(source_reports)
+        summary["http_sources_failed"] = sum(
+            report.get("status") == "failed" for report in source_reports.values()
+        )
+        summary["http_nodes_observed"] = sum(
+            int(report.get("nodes", 0)) for report in source_reports.values()
+        )
+        summary["http_policy_bound_profiles"] = sum(
+            int(report.get("policy_bound", 0)) for report in source_reports.values()
+        )
         summary["ingest_skipped_due_to_budget"] = (
             remaining_residue if self._ingestion_budget_exhausted else 0
         )

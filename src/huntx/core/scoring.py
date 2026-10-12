@@ -99,7 +99,14 @@ class ProxyScoringEngine:
         }
 
     def score_proxy(self, record: Mapping[str, Any]) -> float:
-        """Backward-compatible proxy score calculation."""
+        """Rank measured nodes without accidentally reviving rejected history."""
+        lifecycle = str(record.get("lifecycle", record.get("status", ""))).lower()
+        if (
+            record.get("probe_ok") is False
+            or record.get("is_active") is False
+            or lifecycle in {"dead", "retired", "revoked", "quarantined", "invalid"}
+        ):
+            return 0.0
         latency = _finite_metric(record.get("latency_ms", 9999.0), default=9999.0, minimum=0.0)
         success_rate = _finite_metric(
             record.get("historical_success_rate", 0.5),
