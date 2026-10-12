@@ -26,7 +26,7 @@ jobs:
       - name: Regenerate complete hash-pinned runtime lock
         run: |
           set -euo pipefail
-          python -m pip install --disable-pip-version-check pip-tools==7.5.3
+          python -m pip install --disable-pip-version-check pip-tools==7.6.2
           pip-compile --generate-hashes --output-file=requirements.txt \
             --upgrade-package telethon \
             --upgrade-package pydantic \
