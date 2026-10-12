@@ -438,12 +438,35 @@ class Orchestrator:
                 return False
         except Exception as e:
             summaries = getattr(self, "_http_source_reports", None)
-            if src_conf.type == "http_subscription" and isinstance(summaries, dict):
-                summaries[str(src_conf.id)] = {
-                    "status": "failed",
-                    "error_type": type(e).__name__,
-                    "validation": "not_accepted",
-                }
+            if src_conf.type == "http_subscription":
+                # Track failure history without touching previous valid proxy
+                # observations; an upstream 404 must never erase last-good data.
+                try:
+                    previous = self.repo.get_source_state(src_conf.id) or {}
+                    previous["total_failures"] = min(
+                        1000000, int(previous.get("total_failures", 0)) + 1
+                    )
+                    previous["consecutive_failures"] = min(
+                        1000000, int(previous.get("consecutive_failures", 0)) + 1
+                    )
+                    previous["last_failed_at"] = int(time.time())
+                    previous["last_error_type"] = type(e).__name__
+                    self.repo.update_source_state(
+                        src_conf.id, previous, source_type="http_subscription"
+                    )
+                except Exception:
+                    logger.exception(
+                        "[HTTP Feed] could not persist failure history for %s", src_conf.id
+                    )
+                    previous = {}
+                if isinstance(summaries, dict):
+                    summaries[str(src_conf.id)] = {
+                        "status": "failed",
+                        "error_type": type(e).__name__,
+                        "validation": "not_accepted",
+                        "consecutive_failures": previous.get("consecutive_failures", 1),
+                        "last_success_at": previous.get("last_success_at"),
+                    }
             logger.exception(f"[Worker] Ingest failed for {src_conf.id}: {e}")
             return False
 

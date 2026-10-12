@@ -195,6 +195,11 @@ class HttpSubscriptionConnector:
             "first_seen_at": self._previous.get("first_seen_at") or now,
             "last_changed_at": now if changed else self._previous.get("last_changed_at", now),
             "previous_successes": int(self._previous.get("previous_successes", 0)) + 1,
+            "last_success_at": now,
+            "total_failures": int(self._previous.get("total_failures", 0)),
+            "consecutive_failures": 0,
+            "last_failed_at": self._previous.get("last_failed_at"),
+            "last_error_type": "",
             "last_node_count": int(report.get("nodes", 0)),
             "node_count_delta": (
                 int(report.get("nodes", 0)) -
