@@ -232,6 +232,8 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                 )
             )
         except asyncio.TimeoutError:
+            if getattr(source, "type", None) == "http_subscription":
+                self._record_http_source_failure(str(source.id), "TimeoutError")
             if remaining is not None and timeout < configured_timeout:
                 self._ingestion_budget_exhausted = True
                 logger.warning(
@@ -244,7 +246,9 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                     source.id,
                     timeout,
                 )
-        except Exception:
+        except Exception as exc:
+            if getattr(source, "type", None) == "http_subscription":
+                self._record_http_source_failure(str(source.id), type(exc).__name__)
             logger.exception("[Worker] Source %s failed", source.id)
         finally:
             async with lock:
