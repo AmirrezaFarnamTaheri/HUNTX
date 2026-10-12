@@ -4,12 +4,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from huntx.core.optimized_orchestrator import OptimizedOrchestrator
+from huntx.core.optimized_orchestrator import OptimizedHardenedOrchestrator
 
 
 @pytest.mark.asyncio
 async def test_dedicated_window_worker_starts_before_slow_direct_feed_finishes():
-    app = OptimizedOrchestrator.__new__(OptimizedOrchestrator)
+    app = OptimizedHardenedOrchestrator.__new__(OptimizedHardenedOrchestrator)
     app._windows_need_reserved_worker = True
     app._single_worker_parallel_windows = False
     app._window_worker_claimed = False
@@ -45,7 +45,7 @@ async def test_dedicated_window_worker_starts_before_slow_direct_feed_finishes()
 
 @pytest.mark.asyncio
 async def test_single_worker_allows_window_history_and_direct_feed_progress():
-    app = OptimizedOrchestrator.__new__(OptimizedOrchestrator)
+    app = OptimizedHardenedOrchestrator.__new__(OptimizedHardenedOrchestrator)
     app._windows_need_reserved_worker = False
     app._single_worker_parallel_windows = True
     app._window_worker_claimed = False
