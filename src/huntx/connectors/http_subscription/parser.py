@@ -56,6 +56,8 @@ def _mihomo_uri(node: dict[str, Any]) -> str | None:
     if not endpoint or any(k in node for k in (
         "dialer-proxy", "smux", "plugin", "ech-opts", "certificate",
         "private-key", "xhttp-opts", "kcp-opts", "shadow-tls",
+        "interface-name", "routing-mark", "mptcp", "tfo", "uot",
+        "udp-over-tcp", "packet-encoding", "obfs-plugin", "obfs-opts",
     )):
         return None
 
@@ -97,6 +99,8 @@ def _mihomo_uri(node: dict[str, Any]) -> str | None:
             if options.get("path"):
                 q["path"] = _scalar(options["path"])
         elif network == "grpc":
+            if set(options) - {"grpc-service-name"}:
+                return None
             if options.get("grpc-service-name"):
                 q["serviceName"] = _scalar(options["grpc-service-name"])
         else:
