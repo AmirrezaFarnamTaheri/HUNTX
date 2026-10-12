@@ -232,6 +232,8 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                 )
             )
         except asyncio.TimeoutError:
+            if getattr(source, "type", None) == "http_subscription":
+                self._record_http_source_failure(str(source.id), "TimeoutError")
             if remaining is not None and timeout < configured_timeout:
                 self._ingestion_budget_exhausted = True
                 logger.warning(
@@ -244,11 +246,18 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                     source.id,
                     timeout,
                 )
-        except Exception:
+        except Exception as exc:
+            if getattr(source, "type", None) == "http_subscription":
+                self._record_http_source_failure(str(source.id), type(exc).__name__)
             logger.exception("[Worker] Source %s failed", source.id)
         finally:
             async with lock:
-                results["ok" if success else "err"] += 1
+                if success:
+                    results["ok"] += 1
+                elif getattr(source, "required", True):
+                    results["err"] += 1
+                else:
+                    results["optional_err"] = results.get("optional_err", 0) + 1
 
     async def _run_persistent_windows(
         self,
@@ -439,6 +448,7 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
         self._window_completions = 0
         self._window_failures = 0
         self._reset_investigation_metrics()
+        self._http_source_reports: dict[str, dict[str, Any]] = {}
         self._run_owner = uuid.uuid4().hex
         self._completion_buffer_seconds = self._completion_buffer(timeout)
 
@@ -496,6 +506,18 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
         summary["lifo_window_failures"] = self._window_failures
         summary["lifo_residue"] = residue
         summary.update(self._investigation_metrics())
+        source_reports = dict(sorted(self._http_source_reports.items()))
+        summary["http_source_health"] = source_reports
+        summary["http_sources_checked"] = len(source_reports)
+        summary["http_sources_failed"] = sum(
+            report.get("status") == "failed" for report in source_reports.values()
+        )
+        summary["http_nodes_observed"] = sum(
+            int(report.get("nodes", 0)) for report in source_reports.values()
+        )
+        summary["http_policy_bound_profiles"] = sum(
+            int(report.get("policy_bound", 0)) for report in source_reports.values()
+        )
         summary["ingest_skipped_due_to_budget"] = (
             remaining_residue if self._ingestion_budget_exhausted else 0
         )

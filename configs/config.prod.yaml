@@ -731,6 +731,496 @@ sources:
     api_hash: ${TELEGRAM_API_HASH}
     session: ${TELEGRAM_USER_SESSION}
     peer: '@NetAccount'
+# Independently monitored HTTPS subscription sources (noncritical).
+# Credentials/URL parameters must not be logged or exposed by diagnostics.
+- id: src_http_mosi_temporary
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/Mosifree/-FREE2CONFIG/refs/heads/main/Movaghat'
+    mode: auto
+- id: src_http_mosi_fragment
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/Mosifree/-FREE2CONFIG/refs/heads/main/FRAGMENT'
+    mode: xray_profile_audit
+- id: src_http_thomas_1
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/ThomasJasperthecat/sub/main/sublist1.txt'
+    mode: auto
+- id: src_http_barry_1
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/barry-far/V2ray-config/main/Sub1.txt'
+    mode: auto
+- id: src_http_barry_2
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/barry-far/V2ray-config/main/Sub2.txt'
+    mode: auto
+- id: src_http_barry_3
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/barry-far/V2ray-config/main/Sub3.txt'
+    mode: auto
+- id: src_http_barry_4
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/barry-far/V2ray-config/main/Sub4.txt'
+    mode: auto
+- id: src_http_barry_5
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/barry-far/V2ray-config/main/Sub5.txt'
+    mode: auto
+- id: src_http_zieng_vless
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/zieng2/wl/main/vless_universal.txt'
+    mode: auto
+- id: src_http_masir_sefid
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/masir-sefid/Sub/refs/heads/main/@Masir_Sefid.txt'
+    mode: auto
+- id: src_http_whitedns_b64
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/iampedii/whitedns-sub/refs/heads/main/base64.txt'
+    mode: auto
+- id: src_http_iampedi_live
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://sub.iampedi5.live/sub/base64.txt'
+    mode: auto
+- id: src_http_whitedns_mihomo
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://sub.whitedns.one/sub/mihomo.yaml'
+    mode: auto
+- id: src_http_anonymous
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/4n0nymou3/multi-proxy-config-fetcher/refs/heads/main/configs/proxy_configs.txt'
+    mode: auto
+- id: src_http_zarazaex
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://key.zarazaex.xyz/sub'
+    mode: auto
+- id: src_http_mahsa_mci_1
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mci/sub_1.txt'
+    mode: auto
+- id: src_http_mahsa_mci_2
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mci/sub_2.txt'
+    mode: auto
+    enabled: false
+- id: src_http_mahsa_mci_3
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mci/sub_3.txt'
+    mode: auto
+    enabled: false
+- id: src_http_mahsa_mci_4
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mci/sub_4.txt'
+    mode: auto
+    enabled: false
+- id: src_http_mahsa_mtn_1
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mtn/sub_1.txt'
+    mode: auto
+- id: src_http_mahsa_mtn_2
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mtn/sub_2.txt'
+    mode: auto
+- id: src_http_mahsa_mtn_3
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mtn/sub_3.txt'
+    mode: auto
+    enabled: false
+- id: src_http_mahsa_mtn_4
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mtn/sub_4.txt'
+    mode: auto
+    enabled: false
+- id: src_http_igareck_0
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/BLACK_VLESS_RUS_mobile.txt'
+    mode: auto
+  # Unavailable (404) at initial review; keep as inactive investigation source.
+- id: src_http_igareck_1
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/Vless-Reality-White-Lists-Rus-Mobile.txt'
+    mode: auto
+  # Unavailable (404) at initial review; keep as inactive investigation source.
+- id: src_http_igareck_2
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/Vless-Reality-White-Lists-Rus-Mobile-2.txt'
+    mode: auto
+    enabled: false
+  # Unavailable (404) at initial review; keep as inactive investigation source.
+- id: src_http_igareck_3
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/WHITE-CIDR-RU-checked.txt'
+    mode: auto
+  # Unavailable (404) at initial review; keep as inactive investigation source.
+- id: src_http_igareck_4
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/BLACK_VLESS_RUS.txt'
+    mode: auto
+  # Unavailable (404) at initial review; keep as inactive investigation source.
+- id: src_http_igareck_5
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-10-12'
+  approval_evidence:
+    - 'Explicit user-supplied feed; structural validation required before ingest'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/BLACK_SS+All_RUS.txt'
+    mode: auto
+  # Unavailable (404) at initial review; keep as inactive investigation source.
+- id: src_http_research_morpheus
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'public_repository_review_2026-10-12'
+  approval_evidence:
+    - 'GitHub repository activity and feed shape checked; endpoint viability not assumed'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/morpheusadam/v2ray-config/refs/heads/main/subs/bundles/mini.txt'
+    mode: auto
+- id: src_http_research_fifthidea
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'public_repository_review_2026-10-12'
+  approval_evidence:
+    - 'GitHub repository activity and feed shape checked; endpoint viability not assumed'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/fifthidea/sub/refs/heads/main/sub/sub-tiny-plaintxt.txt'
+    mode: auto
+- id: src_http_research_iboxz
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'public_repository_review_2026-10-12'
+  approval_evidence:
+    - 'GitHub repository activity and feed shape checked; endpoint viability not assumed'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/iboxz/free-v2ray-collector/refs/heads/main/main/mix.txt'
+    mode: auto
+- id: src_http_research_ebrasha
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'public_repository_review_2026-10-12'
+  approval_evidence:
+    - 'GitHub repository activity and feed shape checked; endpoint viability not assumed'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/ebrasha/free-v2ray-public-list/refs/heads/main/V2Ray-Config-By-EbraSha.txt'
+    mode: auto
+- id: src_http_research_au1rxx
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'public_repository_review_2026-10-12'
+  approval_evidence:
+    - 'GitHub repository activity and feed shape checked; endpoint viability not assumed'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://raw.githubusercontent.com/Au1rxx/free-vpn-subscriptions/refs/heads/main/output/all-verified/v2ray-base64-0001.txt'
+    mode: auto
 publishing:
   routes:
   - name: all_sources
@@ -816,6 +1306,40 @@ publishing:
     - src_persianvpnhub
     - src_Hope_Net
     - src_NetAccount
+    - src_http_mosi_temporary
+    - src_http_mosi_fragment
+    - src_http_thomas_1
+    - src_http_barry_1
+    - src_http_barry_2
+    - src_http_barry_3
+    - src_http_barry_4
+    - src_http_barry_5
+    - src_http_zieng_vless
+    - src_http_masir_sefid
+    - src_http_whitedns_b64
+    - src_http_iampedi_live
+    - src_http_whitedns_mihomo
+    - src_http_anonymous
+    - src_http_zarazaex
+    - src_http_mahsa_mci_1
+    - src_http_mahsa_mci_2
+    - src_http_mahsa_mci_3
+    - src_http_mahsa_mci_4
+    - src_http_mahsa_mtn_1
+    - src_http_mahsa_mtn_2
+    - src_http_mahsa_mtn_3
+    - src_http_mahsa_mtn_4
+    - src_http_igareck_0
+    - src_http_igareck_1
+    - src_http_igareck_2
+    - src_http_igareck_3
+    - src_http_igareck_4
+    - src_http_igareck_5
+    - src_http_research_morpheus
+    - src_http_research_fifthidea
+    - src_http_research_iboxz
+    - src_http_research_ebrasha
+    - src_http_research_au1rxx
     formats:
     - npvt
     - npvtsub

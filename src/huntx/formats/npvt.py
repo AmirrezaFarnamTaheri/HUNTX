@@ -2,6 +2,7 @@ import base64
 import binascii
 import json
 import math
+import os
 import re
 from typing import Any, Dict, List
 
@@ -192,16 +193,25 @@ def format_enriched_remark(uri: str, counter: dict, metadata: dict | None = None
 def add_clean_remark(uri: str, counter: dict, metadata: dict | None = None) -> str:
     """Attach a deterministic display remark to a proxy URI.
 
-    Without metadata the remark is ``<scheme>[-<transport>][-<security>]-<n>``,
-    so nodes of the same protocol are still distinguishable in a long list.
+    Legacy ordinal tags remain the default for client compatibility. Enabling
+    HUNTX_REMARK_STYLE=stable replaces the ordinal with a 48-bit canonical URI
+    digest, avoiding name churn when sources reorder. Neither mode invents
+    country, speed, or health status.
     """
     if metadata:
         tag = format_enriched_remark(uri, counter, metadata)
     else:
         scheme = uri.split('://')[0].lower() if '://' in uri else 'proxy'
-        counter[scheme] = counter.get(scheme, 0) + 1
         qualifier = remark_qualifier(uri)
-        tag = f'{scheme}-{qualifier}-{counter[scheme]}' if qualifier else f'{scheme}-{counter[scheme]}'
+        # Preserve established client tags by default. Operators may opt into
+        # deterministic identities (HUNTX_REMARK_STYLE=stable) when migrating
+        # subscribers; never attach unverified geo/latency marketing labels.
+        if os.getenv("HUNTX_REMARK_STYLE", "legacy").lower() == "stable":
+            identity = hash_string(strip_proxy_remark(uri))[:12]
+        else:
+            counter[scheme] = counter.get(scheme, 0) + 1
+            identity = str(counter[scheme])
+        tag = f'{scheme}-{qualifier}-{identity}' if qualifier else f'{scheme}-{identity}'
 
     if uri.startswith('vmess://'):
         try:

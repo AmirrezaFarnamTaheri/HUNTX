@@ -16,6 +16,7 @@ import (
 	"github.com/AmirrezaFarnamTaheri/HUNTX/cmd/huntx-engine/healing"
 	"github.com/AmirrezaFarnamTaheri/HUNTX/cmd/huntx-engine/internal/parse"
 	"github.com/AmirrezaFarnamTaheri/HUNTX/cmd/huntx-engine/stream"
+	"github.com/AmirrezaFarnamTaheri/HUNTX/cmd/huntx-engine/subfeed"
 	"github.com/AmirrezaFarnamTaheri/HUNTX/cmd/huntx-engine/tlsdiag"
 )
 
@@ -65,6 +66,40 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Println(string(out))
+
+	case "feed-fetch":
+		fs := flag.NewFlagSet("feed-fetch", flag.ExitOnError)
+		sourceURL := fs.String("url", "", "Approved public HTTPS source")
+		requestStdin := fs.Bool("request-stdin", false, "Read bounded feed request from stdin")
+		etag := fs.String("etag", "", "Previously validated ETag")
+		modified := fs.String("last-modified", "", "Previously validated Last-Modified")
+		timeout := fs.Duration("timeout", 12*time.Second, "Bounded fetch timeout")
+		if err := fs.Parse(os.Args[2:]); err != nil {
+			slog.Error("invalid fetch arguments", "error_type", "flags")
+			os.Exit(1)
+		}
+		if *requestStdin {
+			if *sourceURL != "" || *etag != "" || *modified != "" {
+				slog.Error("conflicting feed fetch options")
+				os.Exit(1)
+			}
+			request, err := subfeed.DecodeRequest(os.Stdin)
+			if err != nil {
+				slog.Error("invalid stdin feed request")
+				os.Exit(1)
+			}
+			*sourceURL, *etag, *modified = request.URL, request.ETag, request.LastModified
+		}
+		result, err := subfeed.Fetch(context.Background(), *sourceURL, *etag, *modified, *timeout)
+		if err != nil {
+			// Deliberately omit URL, credentials, and raw response bytes.
+			slog.Error("public source request rejected or failed", "type", fmt.Sprintf("%T", err))
+			os.Exit(1)
+		}
+		if err := json.NewEncoder(os.Stdout).Encode(result); err != nil {
+			slog.Error("feed result encoding failed")
+			os.Exit(1)
+		}
 
 	case "benchmark":
 		fs := flag.NewFlagSet("benchmark", flag.ExitOnError)
