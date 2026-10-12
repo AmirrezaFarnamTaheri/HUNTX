@@ -289,7 +289,10 @@ class TestDashboardDataWiring(unittest.TestCase):
             (shell / "assets" / "js").mkdir(parents=True)
             (shell / "index.html").write_text("<html></html>", encoding="utf-8")
             (shell / "assets" / "js" / "data.js").write_text(
-                "window.HUNTX_DATA = {};", encoding="utf-8")
+                'export const FALLBACK_CATALOG = {"files":[]};\n\n'
+                'export const SAMPLE_PROXIES = [];\n',
+                encoding="utf-8",
+            )
             # Simulate a stale local checkout that still holds the retired bundle.
             (shell / "assets" / "js" / "bundle.js").write_text(
                 "// retired", encoding="utf-8")
@@ -312,6 +315,11 @@ class TestDashboardDataWiring(unittest.TestCase):
 
             self.assertTrue((destination / "docs" / "index.html").exists())
             self.assertTrue((destination / "docs" / "assets" / "js" / "data.js").exists())
+            module = (destination / "docs" / "assets" / "js" / "data.js").read_text()
+            catalog = json.loads((destination / "docs" / "catalog.json").read_text())
+            fallback = module.split("export const FALLBACK_CATALOG = ", 1)[1]
+            fallback = fallback.split(";\n\nexport const SAMPLE_PROXIES", 1)[0]
+            self.assertEqual(json.loads(fallback), catalog)
             self.assertFalse(
                 (destination / "docs" / "assets" / "js" / "bundle.js").exists(),
                 "retired bundle.js must never be staged into the snapshot",

@@ -489,6 +489,25 @@ def _catalog_dev_trio(docs_dir: Path, dev_dir: Path) -> None:
     catalog_path.write_text(json.dumps(catalog, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def sync_dashboard_fallback_catalog(docs_dir: Path) -> None:
+    """Align the bundled fallback after cumulative dev metadata is appended."""
+    source = docs_dir / "catalog.json"
+    module = docs_dir / "assets" / "js" / "data.js"
+    if not module.is_file():
+        return
+    catalog = json.loads(source.read_text(encoding="utf-8"))
+    body = module.read_text(encoding="utf-8")
+    prefix = "export const FALLBACK_CATALOG = "
+    suffix = ";\n\nexport const SAMPLE_PROXIES = "
+    if body.count(prefix) != 1:
+        raise ValueError("dashboard fallback catalog declaration is missing or duplicated")
+    before, rest = body.split(prefix, 1)
+    if suffix not in rest:
+        raise ValueError("dashboard fallback catalog is missing its terminator")
+    _, after = rest.split(suffix, 1)
+    encoded = json.dumps(catalog, separators=(",", ":"), ensure_ascii=True)
+    module.write_text(before + prefix + encoded + suffix + after, encoding="utf-8")
+
 def write_main_sync_inventory(destination: Path) -> None:
     managed: list[str] = []
     for name in ("outputs", "outputs_dev", "docs"):
@@ -587,6 +606,7 @@ def assemble_snapshot(
                     target_file.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(source_file, target_file)
         _catalog_dev_trio(destination / "docs", destination / "docs" / "artifacts" / "dev")
+        sync_dashboard_fallback_catalog(destination / "docs")
         if shell_root is not None:
             _refresh_frontend_index(destination)
         dashboard_file_count = sum(1 for p in (destination / "docs").rglob("*") if p.is_file())
