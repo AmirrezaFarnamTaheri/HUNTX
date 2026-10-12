@@ -73,3 +73,61 @@ def test_timeout_history_preserves_last_successful_feed_state():
     assert app.repo.state["consecutive_failures"] == 1
     assert app._http_source_reports["src_http_test"]["error_type"] == "TimeoutError"
     assert app._http_source_reports["src_http_test"]["availability"]["failures"] == 1
+
+
+def test_recent_source_history_prevents_lifetime_success_from_masking_recent_failure():
+    from huntx.core.source_reliability import append_retrieval_observation
+
+    now = 1_800_000_000
+    state = {"previous_successes": 900, "total_failures": 2, "last_success_at": now}
+    for _ in range(6):
+        state["retrieval_history"] = append_retrieval_observation(
+            state, success=False, now=now
+        )
+    result = summarize_source_reliability(state, now=now)
+    assert result["wilson_lower_bound"] > 0.9
+    assert result["rolling_samples"] == 6
+    assert result["rolling_successes"] == 0
+    assert result["rolling_wilson_lower_bound"] == 0
+    assert result["ranking_score"] == 0
+    assert result["evidence"] == "feed_retrieval_not_authenticated_proxy"
+
+
+def test_recent_source_events_are_bounded_and_cache_hits_do_not_invent_success():
+    from huntx.core.source_reliability import append_retrieval_observation
+
+    now = 1_800_000_000
+    state = {"last_success_at": now}
+    for number in range(200):
+        state["retrieval_history"] = append_retrieval_observation(
+            state, success=(number % 2 == 0), now=now,
+            nodes=10, cache_revalidated=True,
+        )
+    assert len(state["retrieval_history"]) == 64
+    report = summarize_source_reliability(state, now=now)
+    assert report["rolling_samples"] == 64
+    assert report["rolling_successes"] == 32
+    assert report["cache_revalidations"] == 32
+    assert 0 < report["rolling_wilson_lower_bound"] < 0.5
+    assert len(str(state["retrieval_history"])) < 5000
+
+
+def test_corrupt_and_expired_history_does_not_fake_recent_reliability():
+    from huntx.core.source_reliability import append_retrieval_observation
+
+    now = 1_800_000_000
+    state = {
+        "retrieval_history": [
+            {"at": now - 31 * 86400, "ok": True, "nodes": 1},
+            {"at": now + 1000, "ok": True},
+            {"at": now, "ok": "true"},
+            None,
+            {"at": now, "ok": False, "nodes": 999},
+        ],
+    }
+    summary = summarize_source_reliability(state, now=now)
+    assert summary["rolling_samples"] == 1
+    assert summary["rolling_successes"] == 0
+    events = append_retrieval_observation(state, success=True, now=now, nodes=2)
+    assert len(events) == 2
+    assert events[-1]["nodes"] == 2

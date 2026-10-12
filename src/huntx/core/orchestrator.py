@@ -25,7 +25,7 @@ from ..config.schema import AppConfig
 from ..utils.atomic import atomic_write
 from ..connectors.base import maybe_await
 from .output_ownership import output_filename
-from .source_reliability import summarize_source_reliability
+from .source_reliability import append_retrieval_observation, summarize_source_reliability
 
 logger = logging.getLogger(__name__)
 
@@ -347,6 +347,9 @@ class Orchestrator:
             )
             previous["last_failed_at"] = int(time.time())
             previous["last_error_type"] = error_type
+            previous["retrieval_history"] = append_retrieval_observation(
+                previous, success=False, now=previous["last_failed_at"]
+            )
             self.repo.update_source_state(
                 source_id, previous, source_type="http_subscription"
             )
