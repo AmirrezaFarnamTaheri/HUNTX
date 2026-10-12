@@ -53,6 +53,11 @@ SQLite transaction/state ownership, source governance, and the format
 normalizer; a whole-pipeline port is deliberately not attempted in this
 integration because it would duplicate proven ordering and lease invariants.
 
+Source URLs and conditional cache validators pass to the native Go worker in
+a bounded stdin JSON envelope rather than process arguments. Cached bodies
+are bound to the URL fingerprint as well as the normalized SHA-256 digest:
+an edited source URL cannot reuse an unrelated upstream cache or ETag.
+
 The Go network boundary enforces an exact public HTTPS host allowlist,
 rejects redirects, does **not** honor proxy environment variables, resolves
 and connects only to permitted public addresses (blocking private,
@@ -77,6 +82,18 @@ than trusting an absent or corrupt cache. Cache metadata (ETag, timestamps,
 hashes and counts), not proxy credentials, is kept in source state. The
 first/last seen time, last changed time, success total, failure streak,
 last failure type and node-count delta are tracked separately.
+
+Feed retrieval reliability is reported separately from proxy reachability.
+A 95% Wilson lower bound quantifies observed retrieval success with sample
+size awareness, and last-success age produces recent/degraded/stale states.
+One successful fetch does not imply a reliable VPN endpoint. Timeout and
+network failures preserve previously validated content and increment only
+the optional source failure counters.
+
+Mihomo parsing refuses unknown option keys, dangerous YAML aliases, excessive
+nesting and oversized structured input. Only independently representable
+proxy settings are converted into share URIs; ECH, mTLS, dialer chains and
+other unportable policy dependencies are skipped and counted.
 
 ## Reliability and historical guarantees
 
