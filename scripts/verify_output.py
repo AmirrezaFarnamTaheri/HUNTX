@@ -167,6 +167,14 @@ def _validate_json_shape(data: Any, kind: str) -> None:
             for node in nodes
         ):
             raise ValueError(f"{kind} contains a node without protocol/type and tag")
+        tags = [node["tag"] for node in nodes]
+        if len(set(tags)) != len(tags):
+            raise ValueError(f"{kind} contains duplicate node tags")
+        if protocol_key == "type" and any(
+            node["type"] in {"selector", "urltest", "direct", "block", "dns"}
+            for node in nodes
+        ):
+            raise ValueError(f"{kind} contains a non-proxy helper outbound")
 
 
 def validate_json_file(path: Path, *, artifact_kind: str | None = None) -> Dict[str, Any]:

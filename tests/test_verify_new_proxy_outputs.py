@@ -178,6 +178,19 @@ def test_node_and_profile_json_contracts_are_not_interchangeable(tmp_path):
         assert bool(result.get("invalid")) is should_fail, (filename, result)
 
 
+
+def test_nekobox_rejects_duplicate_tags_and_non_proxy_helpers(tmp_path):
+    verifier = _load_verify_output()
+    invalid_feeds = (
+        [{"type": "trojan", "tag": "same"}, {"type": "vless", "tag": "same"}],
+        [{"type": "direct", "tag": "direct"}],
+    )
+    for payload in invalid_feeds:
+        path = tmp_path / "all_sources_nekobox.json"
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        assert verifier.validate_file(path).get("invalid") is True
+
+
 def test_legacy_nekobox_array_keeps_import_compatibility(tmp_path):
     verifier = _load_verify_output()
     file = tmp_path / "all_sources_nekobox.json"
