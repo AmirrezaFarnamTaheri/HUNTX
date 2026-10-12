@@ -100,3 +100,58 @@ def test_schema_migration_retains_existing_state(tmp_path):
         ).fetchone()[0]
     assert version == 12
     assert count == 1
+
+
+def test_old_delayed_success_cannot_reactivate_newer_failed_probe(tmp_path):
+    import time
+
+    db = open_db(tmp_path / "state.db")
+    _, digest = _seed(db)
+    now = int(time.time())
+    record_authenticated_probe(
+        db, unique_hash=digest, record_type="npvt",
+        probe_id="new_failure", vantage_id="eu", success=False,
+        checked_at=now,
+    )
+    with pytest.raises(ValueError, match="out-of-order"):
+        record_authenticated_probe(
+            db, unique_hash=digest, record_type="npvt",
+            probe_id="old_success", vantage_id="eu", success=True,
+            checked_at=now - 90,
+        )
+    result = describe_proxy(db, unique_hash=digest, record_type="npvt")
+    assert result["lifecycle_status"] == "degraded"
+    assert result["authenticated_successes"] == 0
+    assert result["authenticated_failures"] == 1
+    assert result["last_probe_result"] == "fail"
+    assert not record_authenticated_probe(
+        db, unique_hash=digest, record_type="npvt",
+        probe_id="new_failure", vantage_id="eu", success=False,
+        checked_at=now,
+    )
+
+
+def test_secure_governed_build_cannot_publish_revoked_identity(tmp_path):
+    from huntx.state.verdict_store import (
+        get_records_for_governed_build, upsert_record_verdict,
+    )
+
+    db = open_db(tmp_path / "state.db")
+    _, digest = _seed(db)
+    upsert_record_verdict(
+        db,
+        unique_hash=digest, record_type="npvt",
+        syntax_status="pass", parser_version="parser-test",
+        probe_status="unknown", policy_status="pass",
+        policy_version="policy-test", policy_tier="secure",
+    )
+    arguments = dict(
+        record_types=["npvt"], allowed_source_ids=["source_a"],
+        publication_tier="secure", require_fresh_probe=False,
+    )
+    assert get_records_for_governed_build(db, **arguments)
+    terminalize_proxy(
+        db, unique_hash=digest, record_type="npvt",
+        reason_code="revoked_credentials", status="revoked",
+    )
+    assert get_records_for_governed_build(db, **arguments) == []

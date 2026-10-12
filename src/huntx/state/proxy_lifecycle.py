@@ -92,6 +92,23 @@ def record_authenticated_probe(
             raise RuntimeError("missing lifecycle identity after insertion")
         if existing["lifecycle_status"] in _TERMINAL:
             raise ValueError("terminal proxy identities cannot be revived")
+        prior = c.execute(
+            "SELECT unique_hash, record_type FROM proxy_probe_history WHERE probe_id = ?",
+            (probe_id,),
+        ).fetchone()
+        if prior is not None:
+            if prior["unique_hash"] != digest or prior["record_type"] != kind:
+                raise ValueError("probe receipt reused for a different identity")
+            return False
+        # A late result from an older probe must not override newer failures
+        # or make stale authenticated success appear current. Same-second
+        # observations remain valid; probe receipts enforce idempotence.
+        previous_probe_at = c.execute(
+            "SELECT last_probe_at FROM proxy_lifecycle WHERE unique_hash = ? "
+            "AND record_type = ?", (digest, kind),
+        ).fetchone()["last_probe_at"]
+        if previous_probe_at is not None and tick < int(previous_probe_at):
+            raise ValueError("out-of-order authenticated probe cannot overwrite newer evidence")
         inserted = c.execute(
             """
             INSERT INTO proxy_probe_history(
