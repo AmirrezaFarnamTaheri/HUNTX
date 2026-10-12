@@ -113,6 +113,12 @@ def get_records_for_governed_build(
             WHERE r.record_type IN ({type_marks})
               AND s.source_id IN ({source_marks})
               AND r.is_active = 1
+              AND NOT EXISTS (
+                  SELECT 1 FROM proxy_lifecycle p
+                  WHERE p.unique_hash = r.unique_hash
+                    AND p.record_type = r.record_type
+                    AND p.lifecycle_status IN ('dead', 'revoked', 'archived')
+              )
               {extra}
               {verdict_where}
         ), dedup AS (

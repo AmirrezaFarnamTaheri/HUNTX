@@ -5,6 +5,8 @@ import sqlite3
 import time
 import uuid
 
+from .proxy_lifecycle import observe_record_identities
+
 logger = logging.getLogger(__name__)
 
 
@@ -376,6 +378,7 @@ class StateRepo:
                         json.dumps(data),
                     ),
                 )
+                observe_record_identities(c=conn, identities=[(record_type, unique_hash)])
         except Exception as e:
             logger.exception(f"Failed to add record {unique_hash}: {e}")
             raise
@@ -405,11 +408,14 @@ class StateRepo:
                      unique_hash, data_json)
                 VALUES (?, ?, ?, ?, ?)
             """
+            identities = [(row[2], row[3]) for row in normalized]
             if conn:
                 conn.executemany(sql, normalized)
+                observe_record_identities(c=conn, identities=identities)
             else:
                 with self.db.connect() as c:
                     c.executemany(sql, normalized)
+                    observe_record_identities(c=c, identities=identities)
             logger.debug(f"Batch-inserted {len(rows)} records.")
         except Exception as e:
             logger.exception(f"Failed to batch-insert {len(rows)} records: {e}")
@@ -482,6 +488,12 @@ class StateRepo:
                     WHERE r.record_type IN ({placeholders_types})
                       AND s.source_id IN ({placeholders_sources})
                       AND r.is_active = 1
+                      AND NOT EXISTS (
+                          SELECT 1 FROM proxy_lifecycle p
+                          WHERE p.unique_hash = r.unique_hash
+                            AND p.record_type = r.record_type
+                            AND p.lifecycle_status IN ('dead', 'revoked', 'archived')
+                      )
                       {where_extra}
                 ),
                 dedup AS (
