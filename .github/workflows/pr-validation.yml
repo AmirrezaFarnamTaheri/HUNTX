@@ -4,7 +4,9 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - ".github/workflows/**"
+      - ".github/**"
+      - "outputs/**"
+      - "outputs_dev/**"
       - "configs/**"
       - "docs/**"
       - "eslint.config.mjs"
@@ -29,7 +31,9 @@ on:
       - "agent/**"
       - "codex/**"
     paths:
-      - ".github/workflows/**"
+      - ".github/**"
+      - "outputs/**"
+      - "outputs_dev/**"
       - "configs/**"
       - "docs/**"
       - "eslint.config.mjs"

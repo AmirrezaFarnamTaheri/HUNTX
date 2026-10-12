@@ -130,6 +130,13 @@ jobs:
                 ) {
                   continue;
                 }
+                // A control-plane change cannot safely republish artifacts
+                // produced by an older main commit. Await a production run
+                // on this revision rather than resurrecting retired formats.
+                if (candidate.head_sha !== context.sha) {
+                  core.info(`Skipping stale producer ${candidate.id}: ${candidate.head_sha} != ${context.sha}.`);
+                  continue;
+                }
                 const artifacts = await publicationArtifacts(candidate);
                 if (artifacts.ready) {
                   selectedRun = candidate;
@@ -325,6 +332,30 @@ jobs:
           fi
           python scripts/check_release_eligibility.py             --verify-receipt "$SOURCE_ROOT/logs/release-receipt.json"             --dist "$SOURCE_ROOT/dist"             --run-id "$SOURCE_RUN_ID" --run-attempt "$SOURCE_RUN_ATTEMPT"
           echo "ready=true" >> "$GITHUB_OUTPUT"
+
+      - name: Validate producer client artifacts against current contracts
+        if: steps.release.outputs.ready == 'true'
+        env:
+          PYTHONPATH: src
+          SOURCE_DIST: ${{ runner.temp }}/huntx-publication/dist
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from scripts.verify_output import validate_file
+
+          dist = Path(os.environ["SOURCE_DIST"])
+          failed = []
+          for candidate in sorted(dist.rglob("*.json")):
+              if candidate.name == "manifest.json":
+                  continue
+              stats = validate_file(candidate)
+              if stats.get("invalid") or stats.get("type") == "empty":
+                  failed.append(candidate.relative_to(dist).as_posix())
+          if failed:
+              raise SystemExit("Release JSON contract invalid: " + ", ".join(failed))
+          PY
 
       - name: Build verified dashboard data from release dist
         if: steps.release.outputs.ready == 'true'

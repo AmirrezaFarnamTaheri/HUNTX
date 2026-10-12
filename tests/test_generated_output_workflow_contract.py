@@ -51,6 +51,7 @@ def test_control_plane_push_republishes_latest_trusted_producer_without_recursio
     assert "candidate.conclusion !== 'success'" in workflow
     assert "candidate.path !== expectedPath" in workflow
     assert "candidate.name !== 'huntx-production'" in workflow
+    assert "candidate.head_sha !== context.sha" in workflow
     assert "Unsupported publication event" in workflow
 
 
@@ -65,3 +66,19 @@ def test_control_plane_push_requires_unexpired_publication_artifacts():
     assert "missing or expired publication artifacts" in workflow
     assert "core.setOutput('ready', 'false')" in workflow
     assert "steps.source.outputs.ready == 'true'" in workflow
+
+
+def test_stale_source_artifacts_are_validated_before_any_publication_write():
+    workflow = _workflow()
+    preflight = workflow.index("- name: Validate producer client artifacts against current contracts")
+    assert preflight < workflow.index("- name: Build verified dashboard data from release dist")
+    assert preflight < workflow.index("- name: Commit atomic generated-only snapshot")
+    assert "from scripts.verify_output import validate_file" in workflow
+    assert 'stats.get("invalid") or stats.get("type") == "empty"' in workflow
+
+
+def test_pr_validation_covers_generated_artifacts_and_dependency_configuration():
+    gate = Path(".github/workflows/pr-validation.yml").read_text()
+    assert gate.count('      - ".github/**"') == 2
+    assert gate.count('      - "outputs/**"') == 2
+    assert gate.count('      - "outputs_dev/**"') == 2

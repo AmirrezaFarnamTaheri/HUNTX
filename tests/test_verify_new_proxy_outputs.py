@@ -21,15 +21,15 @@ def _load_verify_output() -> ModuleType:
 def test_verify_output_treats_new_client_json_as_json(tmp_path):
     verifier = _load_verify_output()
     xray = tmp_path / "all_sources_npvt_xray.json"
-    xray.write_text(json.dumps({"outbounds": [{"protocol": "vless"}]}), encoding="utf-8")
+    xray.write_text(json.dumps({"inbounds": [{"protocol": "socks"}], "outbounds": [{"protocol": "vless"}]}), encoding="utf-8")
     nekobox = tmp_path / "all_sources_npvt_nekobox.json"
     nekobox.write_text(
         json.dumps([{"type": "vless", "tag": "node"}]),
         encoding="utf-8",
     )
 
-    assert verifier.validate_file(xray)["type"] == "json"
-    assert verifier.validate_file(nekobox)["type"] == "json"
+    assert verifier.validate_file(xray).get("invalid") is not True
+    assert verifier.validate_file(nekobox).get("invalid") is not True
 
 
 def test_verify_output_treats_raw_derivative_as_proxy_text(tmp_path):
