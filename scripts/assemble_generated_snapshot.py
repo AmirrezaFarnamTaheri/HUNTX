@@ -506,7 +506,22 @@ def sync_dashboard_fallback_catalog(docs_dir: Path) -> None:
         raise ValueError("dashboard fallback catalog is missing its terminator")
     _, after = rest.split(suffix, 1)
     encoded = json.dumps(catalog, separators=(",", ":"), ensure_ascii=True)
-    module.write_text(before + prefix + encoded + suffix + after, encoding="utf-8")
+    updated = before + prefix + encoded + suffix + after
+    stats_prefix = "export const INGEST_STATS = "
+    if updated.count(stats_prefix) != 1:
+        raise ValueError("dashboard fallback telemetry declaration is missing or duplicated")
+    stats_before, stats_source = updated.split(stats_prefix, 1)
+    stats, consumed = json.JSONDecoder().raw_decode(stats_source)
+    if not isinstance(stats, dict):
+        raise ValueError("dashboard fallback telemetry must be a JSON object")
+    stats["total_published_files"] = catalog["total_files"]
+    stats["total_storage_bytes"] = catalog["total_size"]
+    stats["total_storage_str"] = catalog["total_size_str"]
+    encoded_stats = json.dumps(stats, separators=(",", ":"), ensure_ascii=True)
+    module.write_text(
+        stats_before + stats_prefix + encoded_stats + stats_source[consumed:],
+        encoding="utf-8",
+    )
 
 
 def write_main_sync_inventory(destination: Path) -> None:
