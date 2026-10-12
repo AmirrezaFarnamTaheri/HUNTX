@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from huntx.config.schema import AppConfig, SourceConfig
+from huntx.config.schema import SourceConfig
 from huntx.connectors.http_subscription.connector import (
     HttpSubscriptionConnector,
     validate_public_feed_url,
