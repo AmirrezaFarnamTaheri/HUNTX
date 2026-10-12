@@ -84,7 +84,6 @@ def test_pr_validation_covers_generated_artifacts_and_dependency_configuration()
     assert gate.count('      - "outputs_dev/**"') == 2
 
 
-
 def test_publisher_rejects_obsolete_producer_replay_and_changed_main_code():
     workflow = _workflow()
     assert 'github.rest.repos.getBranch' in workflow
@@ -98,6 +97,6 @@ def test_publisher_rejects_obsolete_producer_replay_and_changed_main_code():
     assert "ref: 'generated-outputs'" in workflow
     assert 'runId < priorId' in workflow
     assert 'expectedAttempt < priorAttempt' in workflow
-    assert workflow.index('github.rest.repos.getBranch') < workflow.index("core.setOutput('ready', 'true')")
-    assert workflow.index("path: 'manifests/publication.json'") < workflow.index("core.setOutput('ready', 'true')")
-
+    authorized = workflow.index("core.setOutput('ready', 'true')")
+    assert workflow.index("github.rest.repos.getBranch") < authorized
+    assert workflow.index("path: 'manifests/publication.json'") < authorized
