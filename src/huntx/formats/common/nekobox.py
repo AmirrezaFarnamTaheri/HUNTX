@@ -6,7 +6,7 @@ import json
 
 from .singbox import config_from_uris
 
-_NEKOBOX_EXCLUDED_TYPES = {"selector", "urltest", "direct"}
+_NEKOBOX_EXCLUDED_TYPES = {"selector", "urltest", "direct", "block", "dns"}
 
 
 def _proxy_only_outbound(outbound: dict) -> dict | None:

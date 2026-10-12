@@ -68,6 +68,46 @@ def test_committed_nekobox_outputs_are_node_feeds_not_client_configs():
             assert node.get("tag"), f"{path.name} has an outbound without a tag"
 
 
+
+def test_committed_nekobox_aliases_and_published_metadata_are_consistent():
+    """Frozen subscriber URLs and dashboard metadata must match the canonical feed."""
+    import hashlib
+
+    repo = OUTPUTS_DIR.parent
+    names = ("all_sources_nekobox.json", "all_sources_npvt_nekobox.json")
+    manifest = json.loads(
+        (repo / "docs" / "artifacts" / "release" / "manifest.json").read_text(encoding="utf-8")
+    )
+    records = {item["path"]: item for item in manifest["artifacts"]}
+    catalog = json.loads((repo / "docs" / "catalog.json").read_text(encoding="utf-8"))
+    assert catalog["total_files"] == len(catalog["files"])
+    assert catalog["total_size"] == sum(item["size"] for item in catalog["files"])
+
+    canonical = (OUTPUTS_DIR / names[0]).read_bytes()
+    payload = json.loads(canonical)
+    assert isinstance(payload, list) and payload
+    tags = [node["tag"] for node in payload]
+    assert len(tags) == len(set(tags)), "duplicate NekoBox node tags cause selection collisions"
+    assert all(
+        node["type"] not in {"selector", "urltest", "direct", "block", "dns"}
+        and "domain_resolver" not in node
+        for node in payload
+    )
+    for name in names:
+        assert (OUTPUTS_DIR / name).read_bytes() == canonical, name
+        assert (repo / "docs" / "artifacts" / "release" / name).read_bytes() == canonical, name
+        assert records[name]["sha256"] == hashlib.sha256(canonical).hexdigest(), name
+        assert records[name]["size"] == len(canonical), name
+
+    listed = [
+        item for item in catalog["files"]
+        if item["path"] == "artifacts/release/all_sources_nekobox.json"
+    ]
+    assert len(listed) == 1, "the canonical NekoBox feed must appear once in the catalog"
+    assert listed[0]["sha256"] == hashlib.sha256(canonical).hexdigest()
+    assert listed[0]["size"] == len(canonical)
+
+
 def test_committed_client_configs_are_complete_importable_profiles():
     """Sing-box and Xray JSON are profile imports: a client needs inbounds and outbounds."""
     files = _committed_outputs("*singbox.json") + _committed_outputs("*xray.json")
