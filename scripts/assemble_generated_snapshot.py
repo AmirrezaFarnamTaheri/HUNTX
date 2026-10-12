@@ -508,6 +508,7 @@ def sync_dashboard_fallback_catalog(docs_dir: Path) -> None:
     encoded = json.dumps(catalog, separators=(",", ":"), ensure_ascii=True)
     module.write_text(before + prefix + encoded + suffix + after, encoding="utf-8")
 
+
 def write_main_sync_inventory(destination: Path) -> None:
     managed: list[str] = []
     for name in ("outputs", "outputs_dev", "docs"):
