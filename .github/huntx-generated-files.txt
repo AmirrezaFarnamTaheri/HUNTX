@@ -1,3 +1,4 @@
+docs/artifacts/release/all_sources.dark
 docs/artifacts/release/all_sources.json
 docs/artifacts/release/all_sources.npvt
 docs/artifacts/release/all_sources.npvt.b64sub
@@ -27,6 +28,7 @@ docs/assets/js/data.js
 docs/catalog.json
 docs/index.html
 outputs/.huntx-output-ownership.json
+outputs/all_sources.dark
 outputs/all_sources.json
 outputs/all_sources.npvt
 outputs/all_sources.npvt.b64sub
