@@ -86,6 +86,13 @@ func TestHealthScoreEvidenceIsNotAnUnverifiedQualityClaim(t *testing.T) {
 	if tcp.Recommended || tcp.Evidence != "tcp_connect_only" {
 		t.Fatalf("TCP-only probe incorrectly certified proxy: %+v", tcp)
 	}
+	node.ProbeOK = false
+	tcpFailed := score.CalculateHealthScore(node, "MCI")
+	if tcpFailed.Score != 0 || tcpFailed.Recommended ||
+		tcpFailed.VerifiedGrade != "" || tcpFailed.Evidence != "tcp_connect_failed" {
+		t.Fatalf("TCP refusal misclassified as authenticated failure: %+v", tcpFailed)
+	}
+	node.ProbeOK = true
 	node.ProbeKind, node.ProbeAgeSecs = "protocol_authenticated", 60
 	valid := score.CalculateHealthScore(node, "MCI")
 	if !valid.Recommended || valid.VerifiedGrade != valid.Grade {

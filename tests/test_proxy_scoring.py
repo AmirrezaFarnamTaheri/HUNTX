@@ -66,6 +66,12 @@ def test_network_reachability_does_not_claim_authenticated_proxy_health():
     assert not untested["recommended"] and untested["verified_grade"] is None
     assert not tcp["recommended"] and tcp["verified_grade"] is None
     assert tcp["evidence"] == "tcp_connect_only"
+    tcp_failed = engine.calculate_health_score(
+        **kwargs, probe_kind="tcp_connect", probe_ok=False,
+    )
+    assert tcp_failed["score"] == 0 and tcp_failed["grade"] == "F"
+    assert tcp_failed["verified_grade"] is None
+    assert tcp_failed["evidence"] == "tcp_connect_failed"
     assert verified["recommended"] and verified["verified_grade"] == verified["grade"]
     expired = engine.calculate_health_score(
         **kwargs, probe_kind="protocol_authenticated", probe_ok=True,

@@ -129,6 +129,9 @@ func CalculateHealthScore(node NodeMetrics, targetISP string) HealthResult {
 	if node.ProbeKind == "protocol_authenticated" && !node.ProbeOK {
 		return HealthResult{Score: 0, Grade: GradeF, VerifiedGrade: GradeF, Evidence: "failed_probe"}
 	}
+	if node.ProbeKind == "tcp_connect" && !node.ProbeOK {
+		return HealthResult{Score: 0, Grade: GradeF, Evidence: "tcp_connect_failed"}
+	}
 	verified := node.ProbeKind == "protocol_authenticated" &&
 		node.ProbeOK && node.LatencyMs > 0 &&
 		node.ProbeAgeSecs >= 0 && node.ProbeAgeSecs <= 3600

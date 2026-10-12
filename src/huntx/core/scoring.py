@@ -110,10 +110,15 @@ class ProxyScoringEngine:
             and 0 <= age <= threshold
             and latency_ms > 0
         )
-        if probe_ok is False:
+        if probe_kind == "protocol_authenticated" and probe_ok is False:
             return {
                 "score": 0.0, "grade": "F", "verified_grade": "F",
                 "recommended": False, "evidence": "failed_probe",
+            }
+        if probe_kind == "tcp_connect" and probe_ok is False:
+            return {
+                "score": 0.0, "grade": "F", "verified_grade": None,
+                "recommended": False, "evidence": "tcp_connect_failed",
             }
         return {
             "score": round(clamped, 2),
