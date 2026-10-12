@@ -71,7 +71,6 @@ def test_committed_nekobox_outputs_are_node_feeds_not_client_configs():
             assert node.get("tag"), f"{path.name} has an outbound without a tag"
 
 
-
 def test_committed_nekobox_aliases_and_published_metadata_are_consistent():
     """Frozen subscriber URLs and dashboard metadata must match the canonical feed."""
     import hashlib
@@ -179,7 +178,6 @@ def test_node_and_profile_json_contracts_are_not_interchangeable(tmp_path):
         file.write_text(json.dumps(payload), encoding="utf-8")
         result = verifier.validate_file(file)
         assert bool(result.get("invalid")) is should_fail, (filename, result)
-
 
 
 def test_nekobox_rejects_duplicate_tags_and_non_proxy_helpers(tmp_path):
