@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import socket
 from pathlib import Path
 from unittest import mock
 
@@ -213,19 +214,42 @@ def test_geoip_enrichment_sets_measured_geo_for_unknown_nodes() -> None:
 
 
 def test_tcp_probe_records_measured_latency_and_failure() -> None:
-    """TCP probes set latency in milliseconds on success and probe_ok=False on failure."""
+    """Validated public DNS resolves once and connects by numeric address."""
     module = _load_site_generator()
+    public = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("1.1.1.1", 443))]
     with mock.patch.dict(os.environ):
         os.environ.pop("HUNTX_PROBE_DISABLE", None)
-        with mock.patch.object(module.socket, "create_connection", side_effect=OSError("refused")):
-            failed = module.probe_tcp_latency([_proxy(server="198.51.100.2")])
+        with mock.patch.object(module.socket, "getaddrinfo", return_value=public):
+            with mock.patch.object(module.socket, "socket") as sock:
+                sock.return_value.__enter__.return_value.connect.side_effect = OSError("refused")
+                failed = module.probe_tcp_latency([_proxy(server="proxy.example.com")])
         assert failed[0]["probe_ok"] is False
         assert failed[0].get("latency") is None
-        with mock.patch.object(module.socket, "create_connection", return_value=mock.MagicMock()):
-            with mock.patch.object(module.time, "monotonic", side_effect=[0.0, 0.042]):
-                succeeded = module.probe_tcp_latency([_proxy(server="198.51.100.1")])
-    assert succeeded[0]["probe_ok"] is True
-    assert succeeded[0]["latency"] == 42
+        with mock.patch.object(module.socket, "getaddrinfo", return_value=public):
+            with mock.patch.object(module.socket, "socket") as sock:
+                with mock.patch.object(module.time, "monotonic", side_effect=[0.0, 0.0, 0.042]):
+                    passed = module.probe_tcp_latency([_proxy(server="proxy.example.com")])
+                sock.return_value.__enter__.return_value.connect.assert_called_once_with(
+                    ("1.1.1.1", 443)
+                )
+        assert passed[0]["probe_ok"] is True
+        assert passed[0]["latency"] == 42
+
+
+def test_publication_tcp_probe_refuses_private_or_documentation_dns_answers() -> None:
+    module = _load_site_generator()
+    unsafe = [
+        (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("169.254.169.254", 443)),
+        (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 443)),
+        (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("198.51.100.1", 443)),
+    ]
+    with mock.patch.dict(os.environ):
+        os.environ.pop("HUNTX_PROBE_DISABLE", None)
+        with mock.patch.object(module.socket, "getaddrinfo", return_value=unsafe):
+            with mock.patch.object(module.socket, "socket") as sock:
+                results = module.probe_tcp_latency([_proxy(server="proxy.example.com")])
+                sock.assert_not_called()
+    assert results[0]["probe_ok"] is False
 
 
 def test_catalog_tags_reserve_subscription_for_node_feeds() -> None:
@@ -331,21 +355,49 @@ def test_carrier_panel_reports_all_failed_probes_without_bogus_latency() -> None
     assert "c.pings.reduce((a, b) => a + b, 0) / c.pings.length) : null" in application
 
 
-def test_health_grade_combines_probe_latency_and_security() -> None:
-    """Reachability, latency band, and transport security form one letter grade."""
+def test_tcp_latency_bands_are_not_authenticated_proxy_health() -> None:
     module = _load_site_generator()
     with mock.patch.dict(os.environ):
         os.environ.pop("HUNTX_HEALTH_DISABLE", None)
-        fast = module.grade_proxy_health([_proxy(latency=20, probe_ok=True, security_grade="A+")])[0]
-        slow = module.grade_proxy_health([_proxy(latency=250, probe_ok=True, security_grade="A+")])[0]
-        down = module.grade_proxy_health([_proxy(latency=None, probe_ok=False, security_grade="A+")])[0]
-    assert fast["health_grade"] == "A+"
-    assert fast["health_status"] == "Reachable at publish"
+        fast = module.grade_proxy_health([
+            _proxy(latency=20, probe_ok=True, security_grade="A+")
+        ])[0]
+        slow = module.grade_proxy_health([
+            _proxy(latency=250, probe_ok=True, security_grade="A+")
+        ])[0]
+        down = module.grade_proxy_health([
+            _proxy(latency=None, probe_ok=False, security_grade="A+")
+        ])[0]
+    assert fast["health_grade"] is None
+    assert fast["health_evidence"] == "tcp_connect_only"
+    assert "unverified" in fast["health_status"]
     assert fast["latency_grade"] == "A+"
-    assert slow["health_grade"] == "C+"
-    assert down["health_grade"] == "F"
-    assert down["health_status"] == "TCP unreachable at publish"
+    assert slow["latency_grade"] == "C"
+    assert slow["health_grade"] is None
+    assert down["health_grade"] is None
+    assert down["health_evidence"] == "tcp_failed_from_publish_vantage"
     assert down["latency_grade"] is None
+
+
+def test_authenticated_proxy_evidence_gates_verified_health() -> None:
+    module = _load_site_generator()
+    values = _proxy(
+        latency=22, probe_ok=True, security_grade="A+",
+        probe_kind="protocol_authenticated", authenticated_probe_ok=True,
+        authenticated_probe_age_seconds=30, authenticated_latency_ms=33,
+    )
+    verified = module.grade_proxy_health([dict(values)])[0]
+    assert verified["health_grade"] == "A+"
+    assert verified["health_evidence"] == "fresh_authenticated_protocol"
+    stale = module.grade_proxy_health([
+        dict(values, authenticated_probe_age_seconds=3601)
+    ])[0]
+    assert stale["health_grade"] is None
+    failed = module.grade_proxy_health([
+        dict(values, authenticated_probe_ok=False)
+    ])[0]
+    assert failed["health_grade"] == "F"
+    assert failed["health_evidence"] == "failed_authenticated_protocol"
 
 
 def test_health_grade_can_be_disabled() -> None:
