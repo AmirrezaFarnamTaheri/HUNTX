@@ -1,0 +1,51 @@
+name: Temporary Python runtime lock refresh
+
+on:
+  push:
+    branches:
+      - fix/python-runtime-lock-sync-20261012
+    paths:
+      - ".github/workflows/lock-regenerate-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout trusted dependency update branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Configure Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Regenerate complete hash-pinned runtime lock
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check pip-tools==7.5.3
+          pip-compile --generate-hashes --output-file=requirements.txt \
+            --upgrade-package telethon \
+            --upgrade-package pydantic \
+            --upgrade-package cryptography \
+            pyproject.toml
+          python -m pip install --require-hashes -r requirements.txt
+          python -m pip install --no-deps -e .
+          python -m pip check
+
+      - name: Commit regenerated lock only
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- requirements.txt
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "::error::Expected runtime lockfile regeneration to change requirements.txt"
+            exit 1
+          fi
+          git commit -m "build(deps): regenerate hash-pinned Python runtime lock"
+          git push origin HEAD:refs/heads/fix/python-runtime-lock-sync-20261012
