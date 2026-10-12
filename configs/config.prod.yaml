@@ -971,6 +971,7 @@ sources:
   http_subscription:
     url: 'https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mci/sub_2.txt'
     mode: auto
+    enabled: false
 - id: src_http_mahsa_mci_3
   type: http_subscription
   required: false
@@ -985,6 +986,7 @@ sources:
   http_subscription:
     url: 'https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mci/sub_3.txt'
     mode: auto
+    enabled: false
 - id: src_http_mahsa_mci_4
   type: http_subscription
   required: false
@@ -999,6 +1001,7 @@ sources:
   http_subscription:
     url: 'https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mci/sub_4.txt'
     mode: auto
+    enabled: false
 - id: src_http_mahsa_mtn_1
   type: http_subscription
   required: false
@@ -1041,6 +1044,7 @@ sources:
   http_subscription:
     url: 'https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mtn/sub_3.txt'
     mode: auto
+    enabled: false
 - id: src_http_mahsa_mtn_4
   type: http_subscription
   required: false
@@ -1055,6 +1059,7 @@ sources:
   http_subscription:
     url: 'https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mtn/sub_4.txt'
     mode: auto
+    enabled: false
 - id: src_http_igareck_0
   type: http_subscription
   required: false

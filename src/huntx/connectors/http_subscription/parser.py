@@ -146,6 +146,8 @@ def _mihomo_uri(node: dict[str, Any]) -> str | None:
         return None
 
     if kind == "ss":
+        if network != "tcp" or q or sni or node.get("skip-cert-verify"):
+            return None
         method = _scalar(node.get("cipher"))
         password = _scalar(node.get("password"))
         if not method or not password or reality or node.get("tls"):

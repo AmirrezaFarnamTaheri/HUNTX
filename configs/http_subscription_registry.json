@@ -136,25 +136,25 @@
       "id": "src_http_mahsa_mci_2",
       "url": "https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mci/sub_2.txt",
       "mode": "auto",
-      "enabled": true,
+      "enabled": false,
       "source": "user_supplied",
-      "note": null
+      "note": "Upstream file was zero bytes on 2026-10-12; disabled until it carries usable data."
     },
     {
       "id": "src_http_mahsa_mci_3",
       "url": "https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mci/sub_3.txt",
       "mode": "auto",
-      "enabled": true,
+      "enabled": false,
       "source": "user_supplied",
-      "note": null
+      "note": "Upstream file was zero bytes on 2026-10-12; disabled until it carries usable data."
     },
     {
       "id": "src_http_mahsa_mci_4",
       "url": "https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mci/sub_4.txt",
       "mode": "auto",
-      "enabled": true,
+      "enabled": false,
       "source": "user_supplied",
-      "note": null
+      "note": "Upstream file was zero bytes on 2026-10-12; disabled until it carries usable data."
     },
     {
       "id": "src_http_mahsa_mtn_1",
@@ -176,17 +176,17 @@
       "id": "src_http_mahsa_mtn_3",
       "url": "https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mtn/sub_3.txt",
       "mode": "auto",
-      "enabled": true,
+      "enabled": false,
       "source": "user_supplied",
-      "note": null
+      "note": "Upstream file was zero bytes on 2026-10-12; disabled until it carries usable data."
     },
     {
       "id": "src_http_mahsa_mtn_4",
       "url": "https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mtn/sub_4.txt",
       "mode": "auto",
-      "enabled": true,
+      "enabled": false,
       "source": "user_supplied",
-      "note": null
+      "note": "Upstream file was zero bytes on 2026-10-12; disabled until it carries usable data."
     },
     {
       "id": "src_http_igareck_0",
