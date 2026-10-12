@@ -46,6 +46,7 @@ def test_blank_carrier_and_target_do_not_get_alignment_boost():
     )
     assert empty["score"] == missing["score"] == whitespace["score"]
 
+
 def test_network_reachability_does_not_claim_authenticated_proxy_health():
     engine = ProxyScoringEngine()
     kwargs = dict(
