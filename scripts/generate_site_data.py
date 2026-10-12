@@ -283,45 +283,44 @@ def resolve_geo_and_carrier(address: str, sni: str = "", host: str = "") -> dict
     full = f"{addr} {sni_lower} {host_lower}"
 
     country = None
-    carrier = None
 
     # 1. Explicit domain TLDs & contextual keywords
     if ".ir" in addr or "iran" in full or "tehran" in full or "soundfiy" in full or "zula.ir" in full:
-        country, carrier = "IR", "MCI / Irancell"
+        country = "IR"
     elif ".ua" in addr or "ukraine" in full:
-        country, carrier = "UA", "Kyivstar / Datagroup"
+        country = "UA"
     elif ".in" in addr or "india" in full:
-        country, carrier = "IN", "Jio / Bharti Airtel"
+        country = "IN"
     elif "taipei" in full or ".tw" in addr or "taiwan" in full:
-        country, carrier = "TW", "Chunghwa Telecom"
+        country = "TW"
     elif ".de" in addr or "germany" in full or "frankfurt" in full:
-        country, carrier = "DE", "Hetzner Cloud"
+        country = "DE"
     elif ".nl" in addr or "amsterdam" in full or "serverius" in full or "sellflow" in full:
-        country, carrier = "NL", "Serverius / NL"
+        country = "NL"
     elif ".fi" in addr or "helsinki" in full or "fastly" in full:
-        country, carrier = "FI", "Hetzner Online"
+        country = "FI"
     elif ".fr" in addr or "paris" in full:
-        country, carrier = "FR", "OVHcloud FR"
+        country = "FR"
     elif ".ru" in addr or "moscow" in full or "rtqa.ru" in full or "vdsina" in full:
-        country, carrier = "RU", "Rostelecom / Selectel"
+        country = "RU"
     elif ".sg" in addr or "singapore" in full or "zenlayer" in full:
-        country, carrier = "SG", "Zenlayer SG"
+        country = "SG"
     elif ".jp" in addr or "tokyo" in full or "japan" in full:
-        country, carrier = "JP", "AWS Tokyo"
+        country = "JP"
     elif ".kr" in addr or "seoul" in full or "korea" in full:
-        country, carrier = "KR", "KT Corp"
+        country = "KR"
     elif ".hk" in addr or "hongkong" in full or "aliyun" in full:
-        country, carrier = "HK", "Alibaba Cloud HK"
+        country = "HK"
     elif ".tr" in addr or "istanbul" in full or "turkey" in full or "tr1-" in full:
-        country, carrier = "TR", "Turkcell / Superonline"
+        country = "TR"
     elif ".ch" in addr or "zurich" in full or "swiss" in full or ".cloudns.ch" in addr:
-        country, carrier = "CH", "Swisscom Zurich"
+        country = "CH"
     elif ".uk" in addr or ".co.uk" in addr or ".gb" in addr or "london" in full:
-        country, carrier = "GB", "Virgin Media UK"
+        country = "GB"
     elif ".ca" in addr or "toronto" in full or "canada" in full:
-        country, carrier = "CA", "OVH Canada"
+        country = "CA"
     elif ".se" in addr or "stockholm" in full or "sweden" in full:
-        country, carrier = "SE", "Telia Sweden"
+        country = "SE"
     # 2. IP Subnet & Cloud Provider Network Routing
     elif addr.startswith((
         "188.114.", "162.159.", "172.67.", "104.18.",
@@ -341,35 +340,35 @@ def resolve_geo_and_carrier(address: str, sni: str = "", host: str = "") -> dict
             "geo_verified": False,
         }
     elif addr.startswith(("47.243.", "8.210.", "8.217.")):
-        country, carrier = "HK", "Alibaba Cloud HK"
+        country = "HK"
     elif addr.startswith("51.79."):
-        country, carrier = "SG", "OVHcloud Singapore"
+        country = "SG"
     elif addr.startswith(("57.129.", "57.131.", "54.36.")):
-        country, carrier = "FR", "OVHcloud France"
+        country = "FR"
     elif addr.startswith(("15.237.", "15.235.")):
-        country, carrier = "FR", "AWS Paris"
+        country = "FR"
     elif addr.startswith("54.74."):
-        country, carrier = "IE", "AWS Dublin"
+        country = "IE"
     elif addr.startswith(("82.38.", "2.26.")):
-        country, carrier = "GB", "Virgin Media UK"
+        country = "GB"
     elif addr.startswith(("91.132.", "140.99.", "5.175.", "82.198.")):
-        country, carrier = "DE", "Hetzner Cloud"
+        country = "DE"
     elif addr.startswith(("95.81.", "86.107.")):
-        country, carrier = "IR", "MCI / TCI Iran"
+        country = "IR"
     elif addr.startswith(("194.87.", "62.182.", "195.133.", "31.133.")):
-        country, carrier = "RU", "VDSina / Selectel"
+        country = "RU"
     elif addr.startswith("199.232."):
-        country, carrier = "FI", "Fastly Helsinki Edge"
+        country = "FI"
     elif addr.startswith("150.40."):
-        country, carrier = "JP", "AWS Tokyo"
+        country = "JP"
     elif addr.startswith(("152.53.", "103.152.", "45.207.")):
-        country, carrier = "SG", "Zenlayer Singapore"
+        country = "SG"
     elif addr.startswith(("92.42.", "195.184.", "45.131.", "45.89.")):
-        country, carrier = "NL", "Serverius Netherlands"
+        country = "NL"
     elif addr.startswith(("69.63.", "192.227.", "167.233.", "166.62.", "209.206.")):
-        country, carrier = "US", "AWS North America"
+        country = "US"
     elif addr.startswith("210.3."):
-        country, carrier = "HK", "HKBN Hong Kong"
+        country = "HK"
     else:
         return {
             "country": "ZZ",
