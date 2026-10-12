@@ -1,0 +1,280 @@
+{
+  "schema": 1,
+  "observed_at": "2026-10-12",
+  "total": 34,
+  "notes": "User-reported and independently discovered public subscription URLs. Validation of content is not evidence of live proxy reachability. Disabled sources remain auditable without fetch attempts.",
+  "sources": [
+    {
+      "id": "src_http_mosi_temporary",
+      "url": "https://raw.githubusercontent.com/Mosifree/-FREE2CONFIG/refs/heads/main/Movaghat",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": null
+    },
+    {
+      "id": "src_http_mosi_fragment",
+      "url": "https://raw.githubusercontent.com/Mosifree/-FREE2CONFIG/refs/heads/main/FRAGMENT",
+      "mode": "xray_profile_audit",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": null
+    },
+    {
+      "id": "src_http_thomas_1",
+      "url": "https://raw.githubusercontent.com/ThomasJasperthecat/sub/main/sublist1.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": null
+    },
+    {
+      "id": "src_http_barry_1",
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-config/main/Sub1.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": null
+    },
+    {
+      "id": "src_http_barry_2",
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-config/main/Sub2.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": null
+    },
+    {
+      "id": "src_http_barry_3",
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-config/main/Sub3.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": null
+    },
+    {
+      "id": "src_http_barry_4",
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-config/main/Sub4.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": null
+    },
+    {
+      "id": "src_http_barry_5",
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-config/main/Sub5.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": null
+    },
+    {
+      "id": "src_http_zieng_vless",
+      "url": "https://raw.githubusercontent.com/zieng2/wl/main/vless_universal.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": null
+    },
+    {
+      "id": "src_http_masir_sefid",
+      "url": "https://raw.githubusercontent.com/masir-sefid/Sub/refs/heads/main/@Masir_Sefid.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": null
+    },
+    {
+      "id": "src_http_whitedns_b64",
+      "url": "https://raw.githubusercontent.com/iampedii/whitedns-sub/refs/heads/main/base64.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": null
+    },
+    {
+      "id": "src_http_iampedi_live",
+      "url": "https://sub.iampedi5.live/sub/base64.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": null
+    },
+    {
+      "id": "src_http_whitedns_mihomo",
+      "url": "https://sub.whitedns.one/sub/mihomo.yaml",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": null
+    },
+    {
+      "id": "src_http_anonymous",
+      "url": "https://raw.githubusercontent.com/4n0nymou3/multi-proxy-config-fetcher/refs/heads/main/configs/proxy_configs.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": null
+    },
+    {
+      "id": "src_http_zarazaex",
+      "url": "https://key.zarazaex.xyz/sub",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": null
+    },
+    {
+      "id": "src_http_mahsa_mci_1",
+      "url": "https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mci/sub_1.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": null
+    },
+    {
+      "id": "src_http_mahsa_mci_2",
+      "url": "https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mci/sub_2.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": null
+    },
+    {
+      "id": "src_http_mahsa_mci_3",
+      "url": "https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mci/sub_3.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": null
+    },
+    {
+      "id": "src_http_mahsa_mci_4",
+      "url": "https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mci/sub_4.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": null
+    },
+    {
+      "id": "src_http_mahsa_mtn_1",
+      "url": "https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mtn/sub_1.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": null
+    },
+    {
+      "id": "src_http_mahsa_mtn_2",
+      "url": "https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mtn/sub_2.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": null
+    },
+    {
+      "id": "src_http_mahsa_mtn_3",
+      "url": "https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mtn/sub_3.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": null
+    },
+    {
+      "id": "src_http_mahsa_mtn_4",
+      "url": "https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mtn/sub_4.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": null
+    },
+    {
+      "id": "src_http_igareck_0",
+      "url": "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/BLACK_VLESS_RUS_mobile.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": "Unavailable (404) at initial review; keep as inactive investigation source."
+    },
+    {
+      "id": "src_http_igareck_1",
+      "url": "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/Vless-Reality-White-Lists-Rus-Mobile.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": "Unavailable (404) at initial review; keep as inactive investigation source."
+    },
+    {
+      "id": "src_http_igareck_2",
+      "url": "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/Vless-Reality-White-Lists-Rus-Mobile-2.txt",
+      "mode": "auto",
+      "enabled": false,
+      "source": "user_supplied",
+      "note": "Unavailable (404) at initial review; keep as inactive investigation source."
+    },
+    {
+      "id": "src_http_igareck_3",
+      "url": "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/WHITE-CIDR-RU-checked.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": "Unavailable (404) at initial review; keep as inactive investigation source."
+    },
+    {
+      "id": "src_http_igareck_4",
+      "url": "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/BLACK_VLESS_RUS.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": "Unavailable (404) at initial review; keep as inactive investigation source."
+    },
+    {
+      "id": "src_http_igareck_5",
+      "url": "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/BLACK_SS+All_RUS.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": "Unavailable (404) at initial review; keep as inactive investigation source."
+    },
+    {
+      "id": "src_http_research_morpheus",
+      "url": "https://raw.githubusercontent.com/morpheusadam/v2ray-config/refs/heads/main/subs/bundles/mini.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "independently_found",
+      "note": null
+    },
+    {
+      "id": "src_http_research_fifthidea",
+      "url": "https://raw.githubusercontent.com/fifthidea/sub/refs/heads/main/sub/sub-tiny-plaintxt.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "independently_found",
+      "note": null
+    },
+    {
+      "id": "src_http_research_iboxz",
+      "url": "https://raw.githubusercontent.com/iboxz/free-v2ray-collector/refs/heads/main/main/mix.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "independently_found",
+      "note": null
+    },
+    {
+      "id": "src_http_research_ebrasha",
+      "url": "https://raw.githubusercontent.com/ebrasha/free-v2ray-public-list/refs/heads/main/V2Ray-Config-By-EbraSha.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "independently_found",
+      "note": null
+    },
+    {
+      "id": "src_http_research_au1rxx",
+      "url": "https://raw.githubusercontent.com/Au1rxx/free-vpn-subscriptions/refs/heads/main/output/all-verified/v2ray-base64-0001.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "independently_found",
+      "note": null
+    }
+  ]
+}

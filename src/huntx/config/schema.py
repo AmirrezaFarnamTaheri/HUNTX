@@ -78,6 +78,7 @@ class TelegramUserSourceConfig(BaseModel):
 
 class HttpSubscriptionSourceConfig(BaseModel):
     url: str
+    enabled: bool = True
     mode: Literal["auto", "xray_profile_audit"] = "auto"
     timeout_seconds: int = Field(default=12, ge=2, le=40)
 
@@ -123,7 +124,10 @@ class SourceConfig(BaseModel):
 
     @property
     def publication_eligible(self) -> bool:
-        return self.trust_state == SourceTrustState.APPROVED
+        return (self.trust_state == SourceTrustState.APPROVED and
+                (self.type != "http_subscription" or bool(
+                    self.http_subscription and self.http_subscription.enabled
+                )))
 
 
 class DestinationConfig(BaseModel):
