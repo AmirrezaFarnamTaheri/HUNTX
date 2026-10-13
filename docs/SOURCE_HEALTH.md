@@ -8,7 +8,8 @@ subscription is **not** evidence that any proxy inside it works.
 
 Every production run writes `persist/data/logs/source-health.json`. GitHub
 Actions uploads it with the `huntx-logs-<run-id>-<attempt>` diagnostics artifact
-(7-day retention). The job summary shows aggregate counts. Per-source HTTP
+(7-day retention), and separately as `source-health-<run-id>-<attempt>`
+(30-day retention) for comparing source outcomes across runs. The job summary shows aggregate counts. Per-source HTTP
 retrieval history persists in the protected SQLite runtime checkpoint; Telegram
 window outcomes persist in `ingestion_work_items`.
 
