@@ -257,6 +257,7 @@ def _tls_verification_bypassed(uri: str) -> bool:
     except (ValueError, UnicodeError, binascii.Error, TypeError):
         return False
 
+
 def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
     """Create a short, stable, evidence-labeled client tag.
 
