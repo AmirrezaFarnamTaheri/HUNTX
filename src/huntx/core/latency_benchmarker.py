@@ -99,6 +99,8 @@ def _tcp_probe_target(uri: str) -> tuple[str, int] | None:
             for value in params.get(key, [])
         ):
             return None
+        host: str | None
+        port: int | None
         if scheme == "vmess" or (scheme == "ss" and not parsed.hostname):
             node = parse_proxy_uri(uri)
             if node is None:
