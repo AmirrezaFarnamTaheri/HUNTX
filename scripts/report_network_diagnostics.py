@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import math
 import os
 import time
 from collections import Counter
@@ -157,6 +158,21 @@ async def inspect_corpus(
                     ) if isinstance(data, dict) and k in data
                     and isinstance(data[k], (int, str, bool))
                 }
+                # Exact safe diagnostic dimensions only. Reject a third-party
+                # inspector's NaN, absurd or secret-bearing fields, never
+                # echoing target IPs, DNS names or raw exception messages.
+                attempts = data.get("attempts") if isinstance(data, dict) else None
+                if type(attempts) is int and 1 <= attempts <= 4:
+                    clean["attempts"] = attempts
+                family = data.get("ip_family") if isinstance(data, dict) else None
+                if family in ("ipv4", "ipv6"):
+                    clean["ip_family"] = family
+                elapsed = data.get("elapsed_ms") if isinstance(data, dict) else None
+                if (
+                    type(elapsed) in (int, float)
+                    and math.isfinite(elapsed) and 0 <= elapsed <= 5000
+                ):
+                    clean["elapsed_ms"] = round(elapsed, 2)
                 safe[name] = clean or {"status": "unknown"}
             # Do not allow an inspector to signal permanent death. Only the
             # separate explicit policy ledger can terminalize identities.
