@@ -168,7 +168,7 @@ export function resolveGeoAndCarrier(address, _sni = "", _host = "") {
   const provider = cloudflareAnycast ? "Cloudflare Anycast" : "Unverified";
   return {
     country: "ZZ", country_name: "Unknown", flag: "🌐",
-    carrier: provider, org: provider, city: "Unknown",
+    carrier: provider, org: cloudflareAnycast ? "Cloudflare" : provider, city: "Unknown",
     latitude: null, longitude: null,
     geo_source: cloudflareAnycast ? "anycast-provider" : "unknown",
     geo_verified: false
