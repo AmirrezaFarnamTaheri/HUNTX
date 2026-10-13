@@ -626,3 +626,45 @@ def test_producer_publishes_a_no_release_verdict_when_packaging_is_withheld():
     step = step.split("- name: Upload checkpoint handoff", 1)[0]
     assert "steps.package.outputs.ready != 'true'" in step
     assert "huntx-no-release-${{ github.run_id }}-${{ github.run_attempt }}" in step
+
+
+
+def test_manually_dispatched_publisher_preserves_explicit_no_release():
+    """Regression: recovery workflow_dispatch previously failed on a producer
+    with huntx-no-release-* plus a checkpoint but no huntx-output-*.
+
+    The late shared artifact gate must recognize an intentional no-release
+    before its exceptional missing-artifact branch. Source-run trust and
+    provenance checks must still execute before the no-op decision.
+    """
+    resolution = _resolution_script()
+    manual = resolution.split(
+        "} else if (context.eventName === 'workflow_dispatch')", 1
+    )[1].split("} else if (context.eventName === 'push')", 1)[0]
+    assert "inputs.source_run_id" in manual
+    assert "inputs.source_run_attempt" in manual
+
+    late_gate = resolution.split(
+        "const artifacts = await publicationArtifacts(run);", 1
+    )[1].split("core.setOutput('ready', 'true')", 1)[0]
+    assert "if (!artifacts.ready)" in late_gate
+    assert "if (artifacts.intentional)" in late_gate
+    assert "core.setOutput('ready', 'false')" in late_gate
+    assert "core.notice(" in late_gate
+    assert late_gate.index("if (artifacts.intentional)") < late_gate.index(
+        "core.setFailed("
+    )
+    assert "artifacts.missing.join(', ')" in late_gate
+
+
+def test_publisher_never_conflates_missing_artifacts_with_no_release():
+    """A missing output must remain a hard failure without the explicit
+    producer-supplied, matching-run no-release artifact."""
+    resolution = _resolution_script()
+    assert "&& available.has(noReleaseVerdictName(run))" in resolution
+    assert "!available.has(" in resolution
+    late_gate = resolution.split(
+        "const artifacts = await publicationArtifacts(run);", 1
+    )[1].split("core.setOutput('ready', 'true')", 1)[0]
+    assert "core.setFailed(" in late_gate
+    assert "missing unexpired publication artifacts" in late_gate
