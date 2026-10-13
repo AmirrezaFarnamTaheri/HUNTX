@@ -54,24 +54,25 @@ Anycast location is always unknown without vantage-specific measurement.
 
 No dataset means **unknown ASN, CDN and verified location**, not fabricated
 enrichment. Source-supplied country remarks may appear in rich tags as
-`🇫🇷? FR`: the question mark always means *unverified hint*.
+`🇫🇷?`: the question mark always means *unverified hint*.
 
 ## Client remark contract
 
 Production enables `HUNTX_REMARK_STYLE=evidence`. Example shapes:
 
 ```text
-🇩🇪 DE | VLESS-WS-TLS | edge.example.net:443 | AS64500 | DNS:OK | TCP:43ms
-🇫🇷? FR | TROJAN-WS | relay.example.net:443
-HYSTERIA2 | hy.example.net:443
-VLESS-WS-TLS | edge.example.net:443 | No.2
+🇩🇪 VLESS-WS-TLS | edge.example.net:443 | AS64500 | DNS:OK | TCP:43ms
+🇫🇷? TROJAN-WS | relay.example.net:443
+🌐 HYSTERIA2 | hy.example.net:443
+🌐 VLESS-WS-TLS | edge.example.net:443 | No.2
 ```
 
-Names identify the protocol and actual destination; missing country evidence
-is simply omitted instead of displaying `ZZ`. A country flag without `?`
-requires unexpired, attributed prefix geolocation evidence, while an explicit
-source remark is marked with `?`. SHA hashes are never shown as user-facing
-diagnostics. Only distinct configurations that would otherwise have identical
+Names identify the protocol and actual destination. A single country flag
+is enough for a known region, with no repeated ISO code; unknown geography
+uses only the `🌐` globe, never the `ZZ` placeholder. A country flag without
+`?` requires unexpired, attributed prefix geolocation evidence, while an
+explicit source remark is marked with `?`. SHA hashes are never shown as
+user-facing diagnostics. Only distinct configurations that would otherwise have identical
 human-readable names get a short numeric ordinal; passwords, UUIDs and keys
 are never displayed in tags.
 
