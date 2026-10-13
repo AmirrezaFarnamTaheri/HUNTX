@@ -45,6 +45,7 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
         self._ingestion_budget_exhausted = False
         self._completion_buffer_seconds = 0.0
         self._run_owner = ""
+        self._preflight_flood_deadlines: dict[tuple[str, str, str], float] = {}
         self._window_pages = 0
         self._window_completions = 0
         self._window_failures = 0
