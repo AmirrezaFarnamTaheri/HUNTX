@@ -149,7 +149,7 @@ jobs:
 
       - name: Upload validation diagnostics
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: production-validation-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -326,7 +326,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload state handoff
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: runtime-state-input-${{ github.run_id }}-${{ github.run_attempt }}
           path: state-input/
@@ -404,7 +404,7 @@ jobs:
           python -m pip check
 
       - name: Download restored state
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: runtime-state-input-${{ github.run_id }}-${{ github.run_attempt }}
           path: persist
@@ -652,7 +652,7 @@ jobs:
 
       - name: Publish explicit no-release verdict
         if: ${{ always() && steps.package.outputs.ready != 'true' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: huntx-no-release-${{ github.run_id }}-${{ github.run_attempt }}
           path: no-release-verdict/
@@ -662,7 +662,7 @@ jobs:
 
       - name: Upload checkpoint handoff
         if: steps.checkpoint.outputs.ready == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: runtime-checkpoint-${{ github.run_id }}-${{ github.run_attempt }}
           path: checkpoint-package/
@@ -673,7 +673,7 @@ jobs:
 
       - name: Upload distributable output
         if: steps.package.outputs.ready == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: huntx-output-${{ github.run_id }}-${{ github.run_attempt }}
           path: persist/data/dist/
@@ -683,7 +683,7 @@ jobs:
 
       - name: Upload logs and structured diagnostics
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: huntx-logs-${{ github.run_id }}-${{ github.run_attempt }}
           path: persist/data/logs/
@@ -692,7 +692,7 @@ jobs:
 
       - name: Retain sanitized per-source health history
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: source-health-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -776,7 +776,7 @@ jobs:
           go build -o .bin/huntx-tools ./cmd/huntx-tools
 
       - name: Download checkpoint handoff
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: runtime-checkpoint-${{ github.run_id }}-${{ github.run_attempt }}
           path: checkpoint-package
