@@ -129,7 +129,8 @@ class TestAddCleanRemark(unittest.TestCase):
             "probe_age_seconds": 10,
         }
         result = add_clean_remark("vless://a@h:443", counter, meta)
-        self.assertIn("DE-CF", result)
+        self.assertIn("🇩🇪 VLESS | OP:CF", result)
+        self.assertNotIn("DE-CF", result)
         self.assertIn("VLESS", result)
         self.assertIn("⚡42ms", result)
         self.assertIn("⭐A+", result)
@@ -147,7 +148,8 @@ class TestAddCleanRemark(unittest.TestCase):
         if padding != 4:
             inner_b64 += "=" * padding
         decoded = json.loads(base64.b64decode(inner_b64).decode())
-        self.assertIn("IR-MCI", decoded["ps"])
+        self.assertIn("🇮🇷 VMESS | OP:MCI", decoded["ps"])
+        self.assertNotIn("IR-MCI", decoded["ps"])
         self.assertIn("⚡35ms", decoded["ps"])
 
 
