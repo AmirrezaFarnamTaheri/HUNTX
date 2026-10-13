@@ -463,7 +463,7 @@ export function getProxyEvidence(proxy = {}) {
     return { id: "authenticated", label: "Protocol checked", detail: "Authenticated proxy-protocol evidence from this snapshot; availability can change.", terminal: false };
   }
   if (kind === "failed_authenticated_protocol") {
-    return { id: "tcp_failed", label: "Protocol check failed", detail: "Authenticated protocol check failed; investigate or retest, not permanently dead.", terminal: false };
+    return { id: "protocol_failed", label: "Protocol check failed", detail: "Authenticated protocol check failed; this does not imply a permanent failure.", terminal: false };
   }
   if (kind === "tcp_connect_only" || (proxy?.probe_ok === true && proxy?.health_evidence === undefined)) {
     return { id: "tcp", label: "TCP reachable", detail: "TCP connect does not verify proxy authentication.", terminal: false };
@@ -481,7 +481,8 @@ export function getRegionPresentation(proxy = {}) {
   if (!known) return { code: "ZZ", flag: "🌐", confidence: "unknown", label: "Unknown region", detail: "Location unavailable; no region is assumed." };
   const flag = getFlagEmoji(code);
   const confidence = proxy?.geo_verified === true
-    && !["unknown", "anycast-provider", "unverified_country_hint", "legacy-estimate"].includes(String(proxy?.geo_source || "").toLowerCase())
+    && Boolean(proxy?.geo_source)
+    && !["unknown", "anycast-provider", "unverified_country_hint", "legacy-estimate", "inferred"].includes(String(proxy?.geo_source || "").toLowerCase())
     ? "provider" : "hint";
   const label = COUNTRY_NAMES[code] || code;
   return confidence === "provider"
@@ -497,7 +498,7 @@ export function displayPublishedName(tag, protocol) {
 
 /** Counts are computed once per snapshot and shared with the evidence filter. */
 export function countProxyEvidence(proxies) {
-  const counts = { all: 0, authenticated: 0, tcp: 0, tcp_failed: 0, unmeasured: 0 };
+  const counts = { all: 0, authenticated: 0, protocol_failed: 0, tcp: 0, tcp_failed: 0, unmeasured: 0 };
   for (const proxy of (Array.isArray(proxies) ? proxies : [])) {
     const state = getProxyEvidence(proxy).id;
     counts.all += 1;
@@ -528,7 +529,7 @@ export function summarizeEvidence(proxies) {
   let unknownGeography = 0;
   for (const proxy of records) {
     if (proxy?.health_evidence === "fresh_authenticated_protocol") authenticated += 1;
-    if (!proxy?.country || String(proxy.country).toUpperCase() === "ZZ") unknownGeography += 1;
+    if (getRegionPresentation(proxy).confidence !== "provider") unknownGeography += 1;
   }
   return { total: records.length, authenticated,
     unverified: records.length - authenticated, unknownGeography };
@@ -960,7 +961,7 @@ export class AppState {
     const radarBadge = document.getElementById("radar-live-badge");
     if (radarBadge) {
       const live = this.liveDataState === "ready";
-      radarBadge.textContent = live ? "VERIFIED" : "BUNDLED";
+      radarBadge.textContent = live ? "CATALOG OK" : "BUNDLED";
       radarBadge.className = `px-1.5 py-0.5 text-xs font-bold rounded border ${
         live
           ? "bg-cyan-950/80 text-cyan-300 border-cyan-800/60"
@@ -1093,8 +1094,7 @@ export class AppState {
   getHealthScore(nodeOrPing) {
     const node = nodeOrPing && typeof nodeOrPing === "object" ? nodeOrPing : null;
     const publishedGrade = node?.health_grade;
-    const authenticated = node?.health_evidence === "fresh_authenticated_protocol"
-      || node?.health_evidence === "failed_authenticated_protocol";
+    const authenticated = getProxyEvidence(node).id === "authenticated";
     if (node && authenticated && typeof publishedGrade === "string"
       && PUBLISHED_HEALTH_GRADE_META[publishedGrade]) {
       const rawScore = node.pca_score === null || node.pca_score === undefined || node.pca_score === ""
@@ -1120,8 +1120,13 @@ export class AppState {
   }
 
   getHealthSortValue(node) {
-    const { score } = this.getHealthScore(node);
-    return score ?? Number.NEGATIVE_INFINITY;
+    const level = getProxyEvidence(node).id;
+    const score = this.getHealthScore(node).score ?? 0;
+    if (level === "authenticated") return 3000000 + score;
+    if (level === "tcp") return 2000000 + score;
+    if (level === "protocol_failed") return 1000000;
+    if (level === "tcp_failed") return 500000;
+    return 0;
   }
 
   refreshProxyWorkspace() {
@@ -1181,7 +1186,7 @@ export class AppState {
     this.renderHeader();
   }
 
-  getFilteredProxies() {
+  getFilteredProxies({ ignoreEvidence = false } = {}) {
     let result = [...this.proxies];
 
     if (this.selectedProtocol !== "ALL") {
@@ -1212,7 +1217,7 @@ export class AppState {
       });
     }
 
-    if (this.selectedEvidence && this.selectedEvidence !== "ALL") {
+    if (!ignoreEvidence && this.selectedEvidence && this.selectedEvidence !== "ALL") {
       result = result.filter(node => getProxyEvidence(node).id === this.selectedEvidence);
     }
 
@@ -1996,9 +2001,9 @@ export class AppState {
           <p class="evidence-detail">Not proven by proxy authentication</p>
         </div>
         <div class="evidence-stat">
-          <span class="evidence-label">Unknown location</span>
+          <span class="evidence-label">Unattributed location</span>
           <div class="evidence-value" data-evidence-count>${evidence.unknownGeography.toLocaleString("en-US")}</div>
-          <p class="evidence-detail">Missing reliable geography</p>
+          <p class="evidence-detail">No reliable geographical attribution</p>
         </div>
         <p class="evidence-note"><strong>Evidence boundary.</strong> Country hints, IP reachability and TLS handshakes do not validate an authenticated proxy session. Counts describe the loaded snapshot.</p>
       </div>
@@ -2200,16 +2205,19 @@ export class AppState {
       { key: "selectedCountry", label: "Region", value: this.selectedCountry },
       { key: "selectedOperator", label: "Operator", value: this.selectedOperator },
       { key: "selectedGrade", label: "Grade", value: this.selectedGrade },
+      { key: "selectedEvidence", label: "Evidence", value: this.selectedEvidence },
+      { key: "selectedPort", label: "Port", value: this.selectedPort },
       { key: "selectedSecurity", label: "Security", value: this.selectedSecurity },
       { key: "searchQuery", label: "Search", value: this.searchQuery }
     ].filter(item => item.value && item.value !== "ALL");
 
-    const evidenceCounts = countProxyEvidence(allProxies);
+    const evidenceCounts = countProxyEvidence(this.getFilteredProxies({ ignoreEvidence: true }));
     const evidenceOptions = [
       { id: "ALL", label: "All evidence", count: evidenceCounts.all },
       { id: "authenticated", label: "Protocol checked", count: evidenceCounts.authenticated },
+      { id: "protocol_failed", label: "Protocol failed", count: evidenceCounts.protocol_failed },
       { id: "tcp", label: "TCP reachable", count: evidenceCounts.tcp },
-      { id: "tcp_failed", label: "Probe failed", count: evidenceCounts.tcp_failed },
+      { id: "tcp_failed", label: "TCP failed", count: evidenceCounts.tcp_failed },
       { id: "unmeasured", label: "Not measured", count: evidenceCounts.unmeasured }
     ];
 
@@ -2440,7 +2448,7 @@ export class AppState {
         const key = btn.dataset.filterKey;
         const permitted = new Set([
           "selectedProtocol", "selectedTransport", "selectedCountry",
-          "selectedOperator", "selectedGrade", "selectedSecurity", "searchQuery"
+          "selectedOperator", "selectedGrade", "selectedEvidence", "selectedPort", "selectedSecurity", "searchQuery"
         ]);
         if (!permitted.has(key)) return;
         this[key] = key === "searchQuery" ? "" : "ALL";
@@ -2455,7 +2463,7 @@ export class AppState {
     filterContainer.querySelectorAll(".btn-evidence-filter").forEach(btn => {
       btn.addEventListener("click", () => {
         const selected = btn.dataset.evidence;
-        if (!["ALL", "authenticated", "tcp", "tcp_failed", "unmeasured"].includes(selected)) return;
+        if (!["ALL", "authenticated", "protocol_failed", "tcp", "tcp_failed", "unmeasured"].includes(selected)) return;
         this.selectedEvidence = selected;
         this.refreshProxyWorkspace();
         // The toolbar is re-rendered when filtering; restore focus to the
@@ -2742,8 +2750,8 @@ export class AppState {
                 <span class="truncate">${escapeHTML(node.name)}</span>
               </h3>
               <p class="mt-2 flex flex-wrap items-center gap-2 text-xs font-mono">
-                <span class="px-2 py-1 rounded-md border ${evidence.id === "authenticated" ? "bg-emerald-950/50 text-emerald-300 border-emerald-800/40" : evidence.id === "tcp" ? "bg-cyan-950/60 text-cyan-300 border-cyan-500/30" : evidence.id === "tcp_failed" ? "bg-amber-950/40 text-amber-300 border-amber-800/40" : "bg-gray-900 text-gray-400 border-gray-800"}">${escapeHTML(i18n.translate(evidence.label))}</span>
-                <span class="text-gray-400" title="${escapeHTML(evidence.detail)}">${escapeHTML(i18n.translate(evidence.detail))}</span>
+                <span class="px-2 py-1 rounded-md border ${evidence.id === "authenticated" ? "bg-emerald-950/50 text-emerald-300 border-emerald-800/40" : evidence.id === "protocol_failed" ? "bg-amber-950/40 text-amber-300 border-amber-800/40" : evidence.id === "tcp" ? "bg-cyan-950/60 text-cyan-300 border-cyan-500/30" : evidence.id === "tcp_failed" ? "bg-amber-950/40 text-amber-300 border-amber-800/40" : "bg-gray-900 text-gray-400 border-gray-800"}">${escapeHTML(i18n.translate(evidence.label))}</span>
+                <span class="text-gray-400" title="${escapeHTML(evidence.detail)}">${escapeHTML(evidence.id === "authenticated" ? "Snapshot protocol test" : evidence.id === "tcp" ? "TCP only — proxy unverified" : evidence.id === "unmeasured" ? "No published test" : "Not permanently failed")}</span>
               </p>
 
               <!-- Specs Grid -->
