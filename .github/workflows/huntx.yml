@@ -457,6 +457,7 @@ jobs:
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_USER_SESSION: ${{ secrets.TELEGRAM_USER_SESSION }}
           HUNTX_MAX_WORKERS: ${{ env.MAX_WORKERS }}
+          HUNTX_REMARK_STYLE: evidence
           LOG_LEVEL: INFO
         run: |
           set -euo pipefail
