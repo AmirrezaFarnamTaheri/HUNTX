@@ -87,7 +87,8 @@ def test_legacy_format_remains_unchanged_when_opt_in_is_absent(monkeypatch):
     assert remark.endswith("#vless-ws-tls-1")
 
 
-def test_unverified_marketing_hint_is_preserved_separately_from_canonical_uri():
+def test_unverified_marketing_hint_is_preserved_separately_from_canonical_uri(monkeypatch):
+    monkeypatch.setenv("HUNTX_REMARK_STYLE", "evidence")
     source = f"vless://{UUID}@1.1.1.1:443#FR%20Node"
     records = NpvtHandler().parse(source.encode(), {})
     assert len(records) == 1
