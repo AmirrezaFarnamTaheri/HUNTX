@@ -31,12 +31,16 @@ def test_real_public_dns_and_tcp_connect_are_labeled_without_auth_claim(monkeypa
     calls = []
 
     class Connection:
+
         def __enter__(self):
             return self
+
         def __exit__(self, *args):
             return None
+
         def settimeout(self, timeout):
             assert 0 < timeout <= 1.5
+
         def connect(self, destination):
             calls.append(destination)
 
@@ -61,6 +65,7 @@ def test_export_attaches_real_measurement_when_explicitly_enabled(monkeypatch):
     sample = "trojan://secret@node.example.com:443?type=ws&security=tls"
     now = time.time()
     seen = []
+
     def measured(uris):
         seen.extend(uris)
         return {sample: {
