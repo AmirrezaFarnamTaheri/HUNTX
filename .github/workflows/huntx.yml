@@ -604,6 +604,12 @@ jobs:
             --summary "$HUNTX_RUN_SUMMARY_PATH" \
             --db persist/state.db \
             --output persist/data/logs/source-health.json
+          # Rebuild metadata for previously ingested *and* current active
+          # records without touching their canonical raw URI/SQLite state.
+          python scripts/report_endpoint_inventory.py \
+            --db persist/state.db \
+            --max-records 10000 \
+            --output persist/data/logs/endpoint-inventory.json
 
       - name: Record explicit no-release verdict
         if: ${{ always() && steps.package.outputs.ready != 'true' }}
@@ -666,7 +672,9 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: source-health-${{ github.run_id }}-${{ github.run_attempt }}
-          path: persist/data/logs/source-health.json
+          path: |
+            persist/data/logs/source-health.json
+            persist/data/logs/endpoint-inventory.json
           if-no-files-found: warn
           retention-days: 30
 
