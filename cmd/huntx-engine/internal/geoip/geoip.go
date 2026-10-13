@@ -12,17 +12,17 @@ import (
 
 // GeoIPRecord holds geographic and autonomous system intelligence for an IP address.
 type GeoIPRecord struct {
-	IP          string  `json:"ip"`
-	CountryCode string  `json:"country_code"`
-	CountryName string  `json:"country_name"`
-	City        string  `json:"city"`
-	ASN         uint32  `json:"asn"`
-	ASOrg       string  `json:"as_org"`
-	IsPrivate   bool    `json:"is_private"`
-	IsAnycast   bool    `json:"is_anycast"`
-	AttributionSource string `json:"attribution_source"`
-	Latitude    float64 `json:"latitude,omitempty"`
-	Longitude   float64 `json:"longitude,omitempty"`
+	IP                string  `json:"ip"`
+	CountryCode       string  `json:"country_code"`
+	CountryName       string  `json:"country_name"`
+	City              string  `json:"city"`
+	ASN               uint32  `json:"asn"`
+	ASOrg             string  `json:"as_org"`
+	IsPrivate         bool    `json:"is_private"`
+	IsAnycast         bool    `json:"is_anycast"`
+	AttributionSource string  `json:"attribution_source"`
+	Latitude          float64 `json:"latitude,omitempty"`
+	Longitude         float64 `json:"longitude,omitempty"`
 }
 
 // Config allows customizing the GeoIPProvider behavior.
