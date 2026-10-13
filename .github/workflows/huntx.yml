@@ -611,6 +611,11 @@ jobs:
             --db persist/state.db \
             --max-records 50000 \
             --output persist/data/logs/endpoint-inventory.json
+          # Distinguish temporary verified-failure suppression from terminal
+          # credential revocation. Emit no raw proxies or secrets.
+          python scripts/report_proxy_retirements.py \
+            --db persist/state.db \
+            --output persist/data/logs/proxy-retirements.json
 
       - name: Record explicit no-release verdict
         if: ${{ always() && steps.package.outputs.ready != 'true' }}
@@ -676,6 +681,7 @@ jobs:
           path: |
             persist/data/logs/source-health.json
             persist/data/logs/endpoint-inventory.json
+            persist/data/logs/proxy-retirements.json
           if-no-files-found: warn
           retention-days: 30
 
