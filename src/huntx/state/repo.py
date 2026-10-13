@@ -6,6 +6,7 @@ import time
 import uuid
 
 from .proxy_lifecycle import observe_record_identities
+from .proxy_retirement import PROXY_UNPUBLISHABLE_SQL
 
 logger = logging.getLogger(__name__)
 
@@ -514,7 +515,7 @@ class StateRepo:
                           SELECT 1 FROM proxy_lifecycle p
                           WHERE p.unique_hash = r.unique_hash
                             AND p.record_type = r.record_type
-                            AND p.lifecycle_status IN ('dead', 'revoked', 'archived')
+                            AND {PROXY_UNPUBLISHABLE_SQL}
                       )
                       {where_extra}
                 ),
