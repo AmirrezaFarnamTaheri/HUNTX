@@ -554,6 +554,17 @@ class NpvtHandler(FormatHandler):
         seen = set()
         remark_counter: dict = {}
         rich = os.getenv("HUNTX_REMARK_STYLE", "legacy").lower() == "evidence"
+        observations: dict[str, dict] = {}
+        if rich and os.getenv("HUNTX_REMARK_TCP_PROBE", "").strip() == "1":
+            from ..core.remark_probe import probe_remark_evidence
+            candidates = [
+                item.get("data", {}).get("line") if isinstance(item.get("data"), dict)
+                else item.get("line")
+                for item in records if isinstance(item, dict)
+            ]
+            observations = probe_remark_evidence(
+                [link for link in candidates if isinstance(link, str)]
+            )
         prefix_intel = None
         if rich:
             from ..core.endpoint_intelligence import PrefixIntelligence
@@ -580,6 +591,10 @@ class NpvtHandler(FormatHandler):
             if identity not in seen:
                 seen.add(identity)
                 if rich:
+                    observed = observations.get(line)
+                    if observed and (not isinstance(evidence_metadata, dict)
+                                     or evidence_metadata.get('probe_kind') != 'protocol_authenticated'):
+                        evidence_metadata = {**(evidence_metadata or {}), **observed}
                     # Older persisted records predate the endpoint metadata
                     # contract. Enrich at read time without mutating the
                     # canonical observation or changing the raw link.
