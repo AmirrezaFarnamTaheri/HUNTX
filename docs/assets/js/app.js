@@ -455,6 +455,57 @@ export function normalizeProxyRecord(proxy) {
   };
 }
 
+/** A network probe is one layer of evidence, not proof of a working proxy. */
+export function getProxyEvidence(proxy = {}) {
+  const kind = String(proxy?.health_evidence || "").toLowerCase();
+  if (kind === "fresh_authenticated_protocol" && typeof proxy?.health_grade === "string"
+      && PUBLISHED_HEALTH_GRADE_META[proxy.health_grade]) {
+    return { id: "authenticated", label: "Protocol checked", detail: "Authenticated proxy-protocol evidence from this snapshot; availability can change.", terminal: false };
+  }
+  if (kind === "failed_authenticated_protocol") {
+    return { id: "tcp_failed", label: "Protocol check failed", detail: "Authenticated protocol check failed; investigate or retest, not permanently dead.", terminal: false };
+  }
+  if (kind === "tcp_connect_only" || (proxy?.probe_ok === true && proxy?.health_evidence === undefined)) {
+    return { id: "tcp", label: "TCP reachable", detail: "TCP connect does not verify proxy authentication.", terminal: false };
+  }
+  if (kind === "tcp_failed_from_publish_vantage" || (proxy?.probe_ok === false && proxy?.health_evidence === undefined)) {
+    return { id: "tcp_failed", label: "TCP check failed", detail: "TCP failed from one publish vantage; this does not establish permanent failure.", terminal: false };
+  }
+  return { id: "unmeasured", label: "Not measured", detail: "No trustworthy proxy-protocol or TCP test available for this snapshot.", terminal: false };
+}
+
+/** A country flag without independently attributed geography is always a hint. */
+export function getRegionPresentation(proxy = {}) {
+  const code = String(proxy?.country || "").trim().toUpperCase();
+  const known = /^[A-Z]{2}$/.test(code) && code !== "ZZ";
+  if (!known) return { code: "ZZ", flag: "🌐", confidence: "unknown", label: "Unknown region", detail: "Location unavailable; no region is assumed." };
+  const flag = getFlagEmoji(code);
+  const confidence = proxy?.geo_verified === true
+    && !["unknown", "anycast-provider", "unverified_country_hint", "legacy-estimate"].includes(String(proxy?.geo_source || "").toLowerCase())
+    ? "provider" : "hint";
+  const label = COUNTRY_NAMES[code] || code;
+  return confidence === "provider"
+    ? { code, flag, confidence, label, detail: "GeoIP provider estimate, not confirmed physical server location." }
+    : { code, flag: flag + "?", confidence, label, detail: "Unverified country hint; not a measured server location." };
+}
+
+/** Published client remarks are the canonical name; never prepend a guessed country. */
+export function displayPublishedName(tag, protocol) {
+  const name = typeof tag === "string" ? tag.trim() : "";
+  return name || `${String(protocol || "proxy").toUpperCase()} · Unnamed`;
+}
+
+/** Counts are computed once per snapshot and shared with the evidence filter. */
+export function countProxyEvidence(proxies) {
+  const counts = { all: 0, authenticated: 0, tcp: 0, tcp_failed: 0, unmeasured: 0 };
+  for (const proxy of (Array.isArray(proxies) ? proxies : [])) {
+    const state = getProxyEvidence(proxy).id;
+    counts.all += 1;
+    if (Object.hasOwn(counts, state)) counts[state] += 1;
+  }
+  return counts;
+}
+
 /** Keep unresolved geography out of the known-region count and ranking. */
 export function summarizeRegions(proxies) {
   const counts = new Map();
@@ -544,6 +595,7 @@ export class AppState {
     this.selectedCountry = "ALL";
     this.selectedOperator = "ALL";
     this.selectedGrade = "ALL";
+    this.selectedEvidence = "ALL";
     this.selectedSecurity = "ALL";
     this.selectedPort = "ALL";
     this.sortBy = "latency_asc";
@@ -775,7 +827,7 @@ export class AppState {
             const liveNode = {
               id: `px-${String(idx + 1).padStart(4, "0")}`,
               protocol: proto,
-              name: `${geo.country}-${tag}`,
+              name: displayPublishedName(tag, proto),
               server: host,
               port: port,
               uuid: entry.user || entry.password || "",
@@ -1058,6 +1110,7 @@ export class AppState {
     this.selectedCountry = "ALL";
     this.selectedOperator = "ALL";
     this.selectedGrade = "ALL";
+    this.selectedEvidence = "ALL";
     this.selectedSecurity = "ALL";
     this.selectedPort = "ALL";
     this.searchQuery = "";
@@ -1120,6 +1173,10 @@ export class AppState {
         const { grade } = this.getHealthScore(p);
         return grade === this.selectedGrade;
       });
+    }
+
+    if (this.selectedEvidence && this.selectedEvidence !== "ALL") {
+      result = result.filter(node => getProxyEvidence(node).id === this.selectedEvidence);
     }
 
     if (this.selectedSecurity !== "ALL") {
@@ -1992,7 +2049,7 @@ export class AppState {
     const transports = ["ALL", ...activeTransports];
 
     // Derive available countries
-    const activeCountries = Array.from(new Set(allProxies.map(p => p.country || "US"))).sort();
+    const activeCountries = Array.from(new Set(allProxies.map(p => p.country || "ZZ"))).sort();
     const countries = [
       { code: "ALL", label: "All Regions" },
       ...activeCountries.map(code => ({
