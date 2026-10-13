@@ -5,7 +5,7 @@ import math
 import os
 import re
 import time
-from urllib.parse import parse_qs, quote, unquote, urlsplit
+from urllib.parse import parse_qs, parse_qsl, quote, unquote, urlsplit
 from typing import Any, Dict, List
 
 from .base import FormatHandler
@@ -95,6 +95,55 @@ def strip_proxy_remark(uri: str) -> str:
     if idx > 0:
         return uri[:idx]
     return uri
+
+
+def canonical_proxy_identity(uri: str) -> str:
+    """Semantic key used ONLY for deduplication, never exported as a proxy URI.
+
+    Preserve credentials, transport, TLS, obfuscation, paths, and all unknown
+    parameters. Query *key* ordering and display remarks are not connection
+    identity. Repeated values for a key retain their original order because
+    their order may affect a client; we do not treat IP/port alone as identity.
+    """
+    bare = strip_proxy_remark(uri.strip())
+    try:
+        parsed = urlsplit(bare)
+        scheme = parsed.scheme.lower()
+        if scheme == 'vmess':
+            # VMess is a base64 JSON payload, canonicalized by strip_proxy_remark.
+            return 'vmess|' + bare.partition('://')[2]
+        if scheme == 'ss':
+            # Normalize standard and SIP002 encoded Shadowsocks credentials,
+            # which otherwise survive URI-text deduplication as two copies.
+            from .common.singbox import parse_proxy_uri
+            node = parse_proxy_uri(bare)
+            if node and node.type == 'shadowsocks' and node.server and node.port:
+                return json.dumps([
+                    'ss', node.server.lower(), node.port, node.method.lower(),
+                    node.password, node.plugin, node.plugin_opts
+                ], ensure_ascii=False, separators=(',', ':'))
+        if not parsed.hostname:
+            return bare
+        port = parsed.port  # May reject multiport URLs; keep those opaque.
+        aliases = {'hy2': 'hysteria2'}
+        scheme = aliases.get(scheme, scheme)
+        params: dict[str, list[str]] = {}
+        for key, value in parse_qsl(parsed.query, keep_blank_values=True):
+            normalized_key = key.strip()
+            if normalized_key in {'type', 'network', 'security'}:
+                value = value.lower()
+            if normalized_key in {'sni', 'peer'}:
+                value = value.lower()
+            params.setdefault(normalized_key, []).append(value)
+        query = [(key, values) for key, values in sorted(params.items())]
+        return json.dumps([
+            scheme, parsed.hostname.lower(), port,
+            unquote(parsed.username or ''), unquote(parsed.password or ''),
+            parsed.path, query
+        ], ensure_ascii=False, separators=(',', ':'))
+    except (ValueError, TypeError, UnicodeError, OverflowError):
+        # Malformed/opaque formats must not be folded into a false match.
+        return bare
 
 
 def _country_to_flag(code: str) -> str:
@@ -258,12 +307,53 @@ def _tls_verification_bypassed(uri: str) -> bool:
         return False
 
 
-def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
-    """Create a short, stable, evidence-labeled client tag.
+def _fresh_number(fields: dict, name: str, *, checked_at: str, expires_at: str) -> float | None:
+    """Accept only finite, nonnegative, unexpired, explicitly dated readings."""
+    value = fields.get(name)
+    observed = fields.get(checked_at)
+    expiry = fields.get(expires_at)
+    if any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v)
+           for v in (value, observed, expiry)):
+        return None
+    if value < 0 or observed > time.time() or expiry <= time.time():
+        return None
+    return float(value)
 
-    Flags without '?' require an unexpired authoritative prefix attribution.
-    Source-provided country fragments are hints only and carry '?'. A TCP
-    connect cannot promote an endpoint to a healthy authenticated proxy.
+
+def _safe_endpoint_label(uri: str) -> str:
+    """Use connection host and port, never userinfo, URI fragments or secrets."""
+    try:
+        if uri.lower().startswith('vmess://'):
+            fields = json.loads(_b64_decode_safe(strip_proxy_remark(uri)[8:]))
+            if not isinstance(fields, dict):
+                return ''
+            address = str(fields.get('add') or '').strip()
+            port = int(fields.get('port') or 0)
+        else:
+            from .common.singbox import parse_proxy_uri
+            node = parse_proxy_uri(uri)
+            if node is not None:
+                address, port = node.server, node.port
+            else:
+                parsed = urlsplit(uri)
+                address, port = parsed.hostname or '', parsed.port or 0
+        # A username/password never enters the label. Keep a readable domain
+        # or IP address rather than an opaque digest.
+        address = re.sub(r'[^a-zA-Z0-9.:_-]', '', str(address)).strip('.')
+        if not address or not 0 < int(port) <= 65535:
+            return ''
+        return f'{address[:44]}:{port}'
+    except (ValueError, TypeError, UnicodeError, OverflowError, binascii.Error):
+        return ''
+
+
+def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
+    """Display useful observable facts without invented geo or fake throughput.
+
+    A valid country hint is labeled tentative, unknown geography is OMITTED
+    (not prepended as ZZ), and stable canonical identity stays internal. TCP
+    and DNS are not proof of an authenticated proxy, and configured bandwidth
+    is not a speed test.
     """
     fields = metadata if isinstance(metadata, dict) else {}
     endpoint = fields.get('endpoint')
@@ -272,76 +362,84 @@ def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
     intel = intel if isinstance(intel, dict) else {}
     geo = endpoint.get('geo')
     geo = geo if isinstance(geo, dict) else {}
-    expiration = intel.get('expires_at')
-    expiry_epoch = float(expiration) if isinstance(expiration, (float, int)) and expiration is not None and not isinstance(expiration, bool) else float('-inf')
-    fresh = (
+    expiry = intel.get('expires_at')
+    intel_fresh = (
         intel.get('status') == 'matched'
-        and math.isfinite(expiry_epoch) and expiry_epoch > time.time()
+        and isinstance(expiry, (int, float)) and not isinstance(expiry, bool)
+        and math.isfinite(expiry) and expiry > time.time()
     )
     country = geo.get('country_code')
-    proven = (
-        fresh and geo.get('status') == 'prefix_dataset_estimate'
+    trustworthy_location = (
+        intel_fresh and geo.get('status') == 'prefix_dataset_estimate'
         and isinstance(country, str) and country in _HINT_COUNTRIES
     )
-    if proven:
-        location = f'{_country_to_flag(str(country))} {country}'
-    else:
-        hint = fields.get('country_hint')
-        if (
-            isinstance(hint, str) and hint in _HINT_COUNTRIES
-            and fields.get('country_hint_source') == 'source_remark'
-        ):
-            location = f'{_country_to_flag(hint)}? {hint}'
-        else:
-            location = '🌐 ZZ'
+    location = ''
+    if trustworthy_location:
+        location = f'{_country_to_flag(country)} {country}'
+    elif (fields.get('country_hint_source') == 'source_remark'
+          and isinstance(fields.get('country_hint'), str)
+          and fields['country_hint'] in _HINT_COUNTRIES):
+        hint = fields['country_hint']
+        location = f'{_country_to_flag(hint)}? {hint}'
 
     scheme = uri.split('://', 1)[0].upper() if '://' in uri else 'PROXY'
-    label = re.sub(r'[^A-Z0-9+_-]', '', scheme)[:18] or 'PROXY'
+    protocol = re.sub(r'[^A-Z0-9+_-]', '', scheme)[:18] or 'PROXY'
     qualifier = remark_qualifier(uri).upper()
-    if qualifier:
-        label += '-' + qualifier[:24]
-
+    label = protocol + (('-' + qualifier[:24]) if qualifier else '')
+    target = _safe_endpoint_label(uri)
     details: list[str] = []
+
     if _tls_verification_bypassed(uri):
         details.append('UNSAFE-TLS')
     asn = endpoint.get('asn')
-    if fresh and type(asn) is int and 0 < asn <= 4294967295:
+    if intel_fresh and type(asn) is int and 0 < asn <= 4294967295:
         details.append(f'AS{asn}')
-        cdn = endpoint.get('cdn_provider')
-        if isinstance(cdn, str):
-            cleaned = re.sub(r'[^a-zA-Z0-9 -]', '', cdn).strip()[:15]
-            if cleaned:
-                details.append('CDN:' + cleaned.replace(' ', '-'))
 
-    now = time.time()
-    elapsed = fields.get('latency_ms')
-    observed = fields.get('probe_checked_at')
-    expires = fields.get('probe_expires_at')
-    measured_latency = float(elapsed) if isinstance(elapsed, (float, int)) and elapsed is not None and not isinstance(elapsed, bool) else float('nan')
-    measured_at = float(observed) if isinstance(observed, (float, int)) and observed is not None and not isinstance(observed, bool) else float('nan')
-    valid_until = float(expires) if isinstance(expires, (float, int)) and expires is not None and not isinstance(expires, bool) else float('nan')
-    fresh_probe = (
-        math.isfinite(measured_latency) and 0 <= measured_latency <= 60000
-        and math.isfinite(measured_at) and math.isfinite(valid_until)
-        and measured_at <= now < valid_until
-    )
-    if fresh_probe:
+    # DNS observations need their own freshness and provenance, independent
+    # of a TCP connect or a prefix dataset attribution.
+    dns = fields.get('dns_status')
+    dns_obs = fields.get('dns_checked_at')
+    dns_exp = fields.get('dns_expires_at')
+    if (dns in {'resolved', 'failed'}
+        and all(isinstance(v, (int, float)) and not isinstance(v, bool)
+                and math.isfinite(v) for v in (dns_obs, dns_exp))
+        and dns_obs <= time.time() < dns_exp):
+        details.append('DNS:OK' if dns == 'resolved' else 'DNS:FAIL')
+
+    latency = _fresh_number(fields, 'latency_ms',
+                            checked_at='probe_checked_at', expires_at='probe_expires_at')
+    if latency is not None and latency <= 60000:
         if fields.get('probe_kind') == 'tcp_connect':
-            details.append(f'TCP:{round(measured_latency)}ms')
-        elif (
-            fields.get('probe_kind') == 'protocol_authenticated'
-            and fields.get('probe_authenticated') is True
-        ):
-            details.append(f'AUTH:{round(measured_latency)}ms')
+            details.append(f'TCP:{round(latency)}ms')
+        elif (fields.get('probe_kind') == 'protocol_authenticated'
+              and fields.get('probe_authenticated') is True):
+            details.append(f'AUTH:{round(latency)}ms')
 
-    # Stable within credential identity, independent of sorting and source order.
-    identifier = hash_string(strip_proxy_remark(uri))[:10]
-    # Allocate space for the stable identifier first. Never truncate it when
-    # optional CDN/latency labels grow; import clients use it for disambiguation.
-    suffix = ' | ' + identifier
-    headline = ' | '.join([location, label, *details])
-    max_headline = 110 - len(suffix)
-    return headline[:max_headline].rstrip(' |') + suffix
+    # Speeds are shown ONLY after an actual authenticated end-to-end speed
+    # measurement, never from a Hysteria2 uplink/downlink CONFIG setting.
+    if (fields.get('speed_kind') == 'authenticated_throughput'
+            and fields.get('speed_authenticated') is True):
+        for key, display in [('download_mbps', 'DL'), ('upload_mbps', 'UL')]:
+            value = _fresh_number(fields, key, checked_at='speed_checked_at',
+                                  expires_at='speed_expires_at')
+            if value is not None and value <= 100000:
+                details.append(f'{display}:{value:.1f}Mb/s')
+
+    components = ([location] if location else []) + [label]
+    if target:
+        components.append(target)
+    # No fabricated ping/speed. An unmeasured proxy still has protocol and
+    # destination, which are useful discriminators in a client dropdown.
+    components.extend(details)
+    index = fields.get('_remark_ordinal')
+    if type(index) is int and index > 1:
+        components.append(f'No.{index}')
+    value = ' | '.join(components[:2])
+    for detail in components[2:]:
+        if len(value) + len(detail) + 3 > 110:
+            continue
+        value += ' | ' + detail
+    return value[:110]
 
 
 def add_clean_remark(uri: str, counter: dict, metadata: dict | None = None) -> str:
@@ -407,7 +505,7 @@ class NpvtHandler(FormatHandler):
         stripped = strip_proxy_remark(uri)
         if not validate_proxy_uri(stripped):
             return
-        digest = hash_string(stripped)
+        digest = hash_string(canonical_proxy_identity(stripped))
         if digest in seen_hashes:
             return
         seen_hashes.add(digest)
@@ -478,8 +576,9 @@ class NpvtHandler(FormatHandler):
             if not isinstance(line, str) or not validate_proxy_uri(line):
                 continue
             stripped = strip_proxy_remark(line)
-            if stripped not in seen:
-                seen.add(stripped)
+            identity = canonical_proxy_identity(stripped)
+            if identity not in seen:
+                seen.add(identity)
                 if rich:
                     # Older persisted records predate the endpoint metadata
                     # contract. Enrich at read time without mutating the
@@ -496,5 +595,14 @@ class NpvtHandler(FormatHandler):
                         discovered = describe_proxy_endpoint(stripped, intelligence=prefix_intel)
                         if discovered is not None:
                             evidence_metadata = {**stored, "endpoint": discovered}
+                if rich:
+                    # A collision is two distinct credential/config identities
+                    # sharing one human-readable endpoint description. Disclose
+                    # no UUID/hash: only add a small ordinal for display.
+                    stored = evidence_metadata if isinstance(evidence_metadata, dict) else {}
+                    preview = format_evidence_remark(stripped, stored)
+                    ordinal = remark_counter.get(preview, 0) + 1
+                    remark_counter[preview] = ordinal
+                    evidence_metadata = {**stored, '_remark_ordinal': ordinal}
                 lines.append(add_clean_remark(stripped, remark_counter, evidence_metadata))
         return '\n'.join(lines).encode('utf-8')
