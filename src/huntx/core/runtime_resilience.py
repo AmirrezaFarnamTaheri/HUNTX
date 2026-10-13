@@ -325,7 +325,7 @@ async def _run_hardened(
     self._reset_investigation_metrics()
     # The resilient override must initialize the ledger used by both direct
     # HTTP success and failure paths; without it reports silently disappear.
-    self._http_source_reports: dict[str, dict[str, Any]] = {}
+    self._http_source_reports = {}
     self._run_owner = uuid.uuid4().hex
     self._completion_buffer_seconds = self._completion_buffer(timeout)
 
