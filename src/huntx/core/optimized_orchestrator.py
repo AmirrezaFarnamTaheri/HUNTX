@@ -9,6 +9,7 @@ import uuid
 from typing import Any, Optional
 
 from .hardened_orchestrator import HardenedOrchestrator
+from .source_reliability import summarize_http_source_reports
 from ..connectors.telegram_user.failure_policy import is_permanent_telegram_peer_error
 from ..connectors.telegram_user.windowed import WindowedTelegramUserConnector
 from ..pipeline.optimized_transform import OptimizedTransformPipeline
@@ -554,22 +555,7 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
         summary["lifo_window_failures"] = self._window_failures
         summary["lifo_residue"] = residue
         summary.update(self._investigation_metrics())
-        source_reports = dict(sorted(self._http_source_reports.items()))
-        summary["http_source_health"] = source_reports
-        summary["http_sources_checked"] = len(source_reports)
-        summary["http_sources_failed"] = sum(
-            report.get("status") == "failed" for report in source_reports.values()
-        )
-        summary["http_sources_infrastructure_errors"] = sum(
-            report.get("status") == "infrastructure_error"
-            for report in source_reports.values()
-        )
-        summary["http_nodes_observed"] = sum(
-            int(report.get("nodes", 0)) for report in source_reports.values()
-        )
-        summary["http_policy_bound_profiles"] = sum(
-            int(report.get("policy_bound", 0)) for report in source_reports.values()
-        )
+        summary.update(summarize_http_source_reports(self._http_source_reports))
         summary["ingest_skipped_due_to_budget"] = (
             remaining_residue if self._ingestion_budget_exhausted else 0
         )

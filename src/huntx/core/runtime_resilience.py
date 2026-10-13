@@ -12,6 +12,7 @@ from . import optimized_orchestrator as optimized_module
 from .dev_manifest_contract import install_dev_manifest_contract
 from .hardened_orchestrator import HardenedOrchestrator
 from .optimized_orchestrator import OptimizedHardenedOrchestrator
+from .source_reliability import summarize_http_source_reports
 from .orchestrator import Orchestrator
 from .transform_contract import install_transform_contract
 from ..connectors.base import maybe_await
@@ -322,6 +323,9 @@ async def _run_hardened(
     self._window_completions = 0
     self._window_failures = 0
     self._reset_investigation_metrics()
+    # The resilient override must initialize the ledger used by both direct
+    # HTTP success and failure paths; without it reports silently disappear.
+    self._http_source_reports = {}
     self._run_owner = uuid.uuid4().hex
     self._completion_buffer_seconds = self._completion_buffer(timeout)
 
@@ -401,6 +405,7 @@ async def _run_hardened(
     summary["lifo_window_failures"] = self._window_failures
     summary["lifo_residue"] = residue
     summary.update(self._investigation_metrics())
+    summary.update(summarize_http_source_reports(self._http_source_reports))
     summary["ingest_skipped_due_to_budget"] = (
         remaining_residue if self._ingestion_budget_exhausted else 0
     )
