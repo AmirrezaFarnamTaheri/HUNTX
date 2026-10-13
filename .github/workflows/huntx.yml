@@ -617,6 +617,23 @@ jobs:
             --db persist/state.db \
             --output persist/data/logs/proxy-retirements.json
 
+      - name: Probe bounded public endpoint sample
+        if: always()
+        timeout-minutes: 6
+        run: |
+          set -euo pipefail
+          # Layered observations: DNS, TCP, standard verified TLS only.
+          # QUIC/REALITY/WebSocket/gRPC and proxy auth remain unverified.
+          # Numeric pinned public IPs prevent DNS rebinding to local services.
+          python scripts/report_network_diagnostics.py \
+            --db persist/state.db \
+            --max-records 50000 \
+            --max-endpoints 24 \
+            --concurrency 4 \
+            --timeout 3.0 \
+            --enable-network \
+            --output persist/data/logs/network-diagnostics.json
+
       - name: Record explicit no-release verdict
         if: ${{ always() && steps.package.outputs.ready != 'true' }}
         run: |
@@ -682,6 +699,7 @@ jobs:
             persist/data/logs/source-health.json
             persist/data/logs/endpoint-inventory.json
             persist/data/logs/proxy-retirements.json
+            persist/data/logs/network-diagnostics.json
           if-no-files-found: warn
           retention-days: 30
 
