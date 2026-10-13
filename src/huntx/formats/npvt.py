@@ -314,8 +314,19 @@ def _fresh_number(fields: dict, name: str, *, checked_at: str, expires_at: str) 
     value = fields.get(name)
     observed = fields.get(checked_at)
     expiry = fields.get(expires_at)
-    if any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v)
-           for v in (value, observed, expiry)):
+    if not all(
+        isinstance(item, (int, float)) and not isinstance(item, bool)
+        and math.isfinite(item)
+        for item in (value, observed, expiry)
+    ):
+        return None
+    # Explicit guards let static type checking enforce the same runtime
+    # freshness boundary as the feed validator.
+    if not isinstance(value, (int, float)):
+        return None
+    if not isinstance(observed, (int, float)):
+        return None
+    if not isinstance(expiry, (int, float)):
         return None
     if value < 0 or observed > time.time() or expiry <= time.time():
         return None
@@ -376,7 +387,7 @@ def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
         and isinstance(country, str) and country in _HINT_COUNTRIES
     )
     location = ''
-    if trustworthy_location:
+    if trustworthy_location and isinstance(country, str):
         location = f'{_country_to_flag(country)} {country}'
     elif (fields.get('country_hint_source') == 'source_remark'
           and isinstance(fields.get('country_hint'), str)
@@ -406,6 +417,8 @@ def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
         dns in {'resolved', 'failed'}
         and all(isinstance(v, (int, float)) and not isinstance(v, bool)
                 and math.isfinite(v) for v in (dns_obs, dns_exp))
+        and isinstance(dns_obs, (float, int))
+        and isinstance(dns_exp, (float, int))
         and dns_obs <= time.time() < dns_exp
     ):
         details.append('DNS:OK' if dns == 'resolved' else 'DNS:FAIL')
@@ -436,17 +449,17 @@ def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
     # destination, which are useful discriminators in a client dropdown.
     components.extend(details)
     index = fields.get('_remark_ordinal')
-    value = ' | '.join(components[:2])
+    display_name = ' | '.join(components[:2])
     for detail in components[2:]:
-        if len(value) + len(detail) + 3 > 110:
+        if len(display_name) + len(detail) + 3 > 110:
             continue
-        value += ' | ' + detail
+        display_name += ' | ' + detail
     if type(index) is int and index > 1:
         # A numeric collision marker is last and reserved; unlike a cut-off
         # SHA digest it is not presented as diagnostic information.
         suffix = f' | No.{index}'
-        value = value[:110 - len(suffix)].rstrip(' |') + suffix
-    return value[:110]
+        display_name = display_name[:110 - len(suffix)].rstrip(' |') + suffix
+    return display_name[:110]
 
 
 def add_clean_remark(uri: str, counter: dict, metadata: dict | None = None) -> str:
