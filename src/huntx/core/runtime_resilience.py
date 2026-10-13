@@ -17,7 +17,11 @@ from .orchestrator import Orchestrator
 from .transform_contract import install_transform_contract
 from ..connectors.base import maybe_await
 from ..connectors.telegram_user.connector import TelegramUserConnector
-from ..connectors.telegram_user.failure_policy import is_permanent_telegram_peer_error
+from ..connectors.telegram_user.failure_policy import (
+    is_permanent_telegram_peer_error,
+    telegram_account_key,
+    telegram_flood_wait_seconds,
+)
 from ..connectors.telegram_user.windowed import WindowedTelegramUserConnector
 
 logger = logging.getLogger(__name__)
@@ -106,6 +110,33 @@ async def _canonical_ingestion_sources(
     canonical_owner: dict[int, str] = {}
     connector: Optional[WindowedTelegramUserConnector] = None
     connector_key: Optional[tuple[int, str, str]] = None
+    flood_accounts: set[tuple[str, str, str]] = set()
+    self._preflight_flood_deadlines = {}
+
+    def defer_flood_wait(source: Any, exc: BaseException) -> bool:
+        seconds = telegram_flood_wait_seconds(exc)
+        if seconds is None:
+            return False
+        account = telegram_account_key(source)
+        related = [
+            str(candidate.id) for candidate in sources
+            if account is not None and telegram_account_key(candidate) == account
+        ] if account is not None else [str(source.id)]
+        if account is not None:
+            flood_accounts.add(account)
+            self._preflight_flood_deadlines[account] = time.time() + seconds + 5
+        postponed = self._work_queue.defer_sources(
+            related,
+            retry_delay=seconds + 5,
+            reason="Telegram shared FloodWait cooldown",
+        )
+        logger.warning(
+            "[LIFO] MTProto canonical preflight rate-limited for %ds; "
+            "postponed %d already queued window(s), skipped further "
+            "lookups for %d source(s) on the same account",
+            seconds + 5, postponed, len(related),
+        )
+        return True
 
     try:
         for source in sources:
@@ -119,6 +150,10 @@ async def _canonical_ingestion_sources(
                     str(source.id),
                     "source is no longer configured as telegram_user",
                 )
+                continue
+
+            if telegram_account_key(source) in flood_accounts:
+                accepted.append(source)
                 continue
 
             configured_channel_id = _numeric_channel_id(config.peer)
@@ -181,11 +216,12 @@ async def _canonical_ingestion_sources(
                     connector_key = None
                     accepted.append(source)
                     continue
-                except Exception:
-                    logger.exception(
-                        "[LIFO] Failed acquiring Telegram session for %s; preserving source",
-                        source.id,
-                    )
+                except Exception as exc:
+                    if not defer_flood_wait(source, exc):
+                        logger.exception(
+                            "[LIFO] Failed acquiring Telegram session for %s; preserving source",
+                            source.id,
+                        )
                     connector = None
                     connector_key = None
                     accepted.append(source)
@@ -214,6 +250,12 @@ async def _canonical_ingestion_sources(
                 accepted.append(source)
                 continue
             except Exception as exc:
+                if defer_flood_wait(source, exc):
+                    await _close_canonical_connector(self, connector)
+                    connector = None
+                    connector_key = None
+                    accepted.append(source)
+                    continue
                 if is_permanent_telegram_peer_error(exc):
                     reason = (
                         "permanent Telegram peer failure during canonical preflight: "
@@ -355,6 +397,19 @@ async def _run_hardened(
             lookback_seconds=self._lookback_seconds(),
             window_seconds=self._window_seconds(),
         )
+        # The flood may have happened before this run inserted new windows.
+        # Apply its persisted deadline to those new rows as well.
+        for account, deadline in getattr(self, "_preflight_flood_deadlines", {}).items():
+            related = [
+                str(source.id) for source in ingestion_sources
+                if telegram_account_key(source) == account
+            ]
+            if related:
+                self._work_queue.defer_sources(
+                    related,
+                    retry_delay=max(1, math.ceil(deadline - time.time())),
+                    reason="Telegram shared FloodWait cooldown",
+                )
         preflight_seconds = time.monotonic() - run_started
         remaining_total = None if timeout is None else max(0.0, timeout - preflight_seconds)
         logger.info(
