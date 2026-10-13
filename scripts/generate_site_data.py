@@ -23,7 +23,6 @@ from huntx.formats.npvt import canonical_proxy_identity  # noqa: E402
 from huntx.formats.proxy_uri_validator import validate_proxy_uri  # noqa: E402
 
 
-
 def _generated_at() -> str:
     """Return the reproducible generation timestamp when configured, otherwise UTC now."""
     override = os.environ.get("HUNTX_GENERATED_AT", "").strip()
