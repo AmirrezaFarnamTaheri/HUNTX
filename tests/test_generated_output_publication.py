@@ -627,6 +627,7 @@ def test_producer_publishes_a_no_release_verdict_when_packaging_is_withheld():
     assert "steps.package.outputs.ready != 'true'" in step
     assert "huntx-no-release-${{ github.run_id }}-${{ github.run_attempt }}" in step
 
+
 def test_manually_dispatched_publisher_preserves_explicit_no_release():
     """Regression: recovery workflow_dispatch previously failed on a producer
     with huntx-no-release-* plus a checkpoint but no huntx-output-*.
