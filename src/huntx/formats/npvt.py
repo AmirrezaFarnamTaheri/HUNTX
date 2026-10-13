@@ -245,10 +245,10 @@ def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
     geo = endpoint.get('geo')
     geo = geo if isinstance(geo, dict) else {}
     expiration = intel.get('expires_at')
+    expiry_epoch = float(expiration) if type(expiration) in (int, float) else float('-inf')
     fresh = (
         intel.get('status') == 'matched'
-        and type(expiration) in (float, int)
-        and math.isfinite(expiration) and expiration > time.time()
+        and math.isfinite(expiry_epoch) and expiry_epoch > time.time()
     )
     country = geo.get('country_code')
     proven = (
@@ -256,7 +256,7 @@ def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
         and isinstance(country, str) and country in _HINT_COUNTRIES
     )
     if proven:
-        location = f'{_country_to_flag(country)} {country}'
+        location = f'{_country_to_flag(str(country))} {country}'
     else:
         hint = fields.get('country_hint')
         if (
@@ -287,21 +287,22 @@ def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
     elapsed = fields.get('latency_ms')
     observed = fields.get('probe_checked_at')
     expires = fields.get('probe_expires_at')
+    measured_latency = float(elapsed) if type(elapsed) in (int, float) else float('nan')
+    measured_at = float(observed) if type(observed) in (int, float) else float('nan')
+    valid_until = float(expires) if type(expires) in (int, float) else float('nan')
     fresh_probe = (
-        type(elapsed) in (int, float) and math.isfinite(elapsed)
-        and 0 <= elapsed <= 60000
-        and type(observed) in (int, float) and math.isfinite(observed)
-        and type(expires) in (int, float) and math.isfinite(expires)
-        and observed <= now < expires
+        math.isfinite(measured_latency) and 0 <= measured_latency <= 60000
+        and math.isfinite(measured_at) and math.isfinite(valid_until)
+        and measured_at <= now < valid_until
     )
     if fresh_probe:
         if fields.get('probe_kind') == 'tcp_connect':
-            details.append(f'TCP:{round(elapsed)}ms')
+            details.append(f'TCP:{round(measured_latency)}ms')
         elif (
             fields.get('probe_kind') == 'protocol_authenticated'
             and fields.get('probe_authenticated') is True
         ):
-            details.append(f'AUTH:{round(elapsed)}ms')
+            details.append(f'AUTH:{round(measured_latency)}ms')
 
     # Stable within credential identity, independent of sorting and source order.
     identifier = hash_string(strip_proxy_remark(uri))[:10]
@@ -455,8 +456,8 @@ class NpvtHandler(FormatHandler):
                     endpoint = stored.get("endpoint")
                     intel = endpoint.get("intelligence") if isinstance(endpoint, dict) else None
                     expiry = intel.get("expires_at") if isinstance(intel, dict) else None
-                    expires = isinstance(expiry, (int, float)) and not isinstance(expiry, bool)
-                    stale = expires and expiry <= time.time()
+                    expires_at = float(expiry) if type(expiry) in (int, float) else float('inf')
+                    stale = math.isfinite(expires_at) and expires_at <= time.time()
                     if not isinstance(endpoint, dict) or stale or prefix_intel is not None:
                         discovered = describe_proxy_endpoint(stripped, intelligence=prefix_intel)
                         if discovered is not None:
