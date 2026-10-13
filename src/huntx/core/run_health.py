@@ -65,6 +65,9 @@ def evaluate_run_health(
     optional_ingest_err = _as_int(summary, "optional_ingest_err")
     http_sources_checked = _as_int(summary, "http_sources_checked")
     http_sources_failed = _as_int(summary, "http_sources_failed")
+    http_sources_infrastructure_errors = _as_int(
+        summary, "http_sources_infrastructure_errors"
+    )
     http_nodes_observed = _as_int(summary, "http_nodes_observed")
     failed_routes = _as_int(summary, "failed_routes")
     publish_attempts = _as_int(summary, "publish_attempts")
@@ -133,6 +136,8 @@ def evaluate_run_health(
         degraded_reasons.append("source_failures")
     if optional_ingest_err:
         degraded_reasons.append("optional_source_failures")
+    if http_sources_infrastructure_errors:
+        degraded_reasons.append("http_feed_worker_unavailable")
     if failed_routes:
         degraded_reasons.append("route_failures")
     if publish_failures:
@@ -185,6 +190,7 @@ def evaluate_run_health(
         "optional_ingest_err": optional_ingest_err,
         "http_sources_checked": http_sources_checked,
         "http_sources_failed": http_sources_failed,
+        "http_sources_infrastructure_errors": http_sources_infrastructure_errors,
         "http_nodes_observed": http_nodes_observed,
         "failed_routes": failed_routes,
         "publish_attempts": publish_attempts,
