@@ -83,3 +83,5 @@ def test_production_builds_worker_in_actual_ingestion_job_and_tracks_sources():
     assert "python scripts/report_source_health.py" in diagnostics
     assert "--output persist/data/logs/source-health.json" in diagnostics
     assert "Upload logs and structured diagnostics" in diagnostics
+    assert "Retain sanitized per-source health history" in diagnostics
+    assert "retention-days: 30" in diagnostics
