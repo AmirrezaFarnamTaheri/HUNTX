@@ -96,3 +96,45 @@ def test_nonpublic_endpoints_cannot_enter_the_network_sampling_list():
     ])
     assert targets == []
     assert counts["non_public_endpoints"] == 3
+
+
+@pytest.mark.asyncio
+async def test_inspector_outputs_are_allowlisted_even_if_a_plugin_returns_secrets():
+    inspector = AsyncMock(return_value={
+        "endpoint_id": "a" * 24, "protocol": "vless",
+        "host": "secret.example.org", "password": "very-secret",
+        "dns": {"status": "resolved_public", "resolved_ip": "1.1.1.1"},
+        "tcp": {"status": "connected", "raw_error": "very-secret"},
+        "tls": {"status": "verified_handshake", "certificate_pem": "very-secret"},
+        "transport_protocol": {"status": "unverified"},
+        "proxy_protocol": {"status": "unverified"},
+        "disposition": "recoverable", "terminal": True,
+    })
+    report = await inspect_corpus(
+        [{"endpoint_id": "a" * 24, "protocol": "vless"}],
+        inspector=inspector, limit=1, seed="private",
+    )
+    assert report["counts"]["terminal"] == 0
+    content = json.dumps(report)
+    for token in ("very-secret", "secret.example.org", "1.1.1.1", "certificate_pem"):
+        assert token not in content
+
+
+def test_production_network_diagnostics_are_bounded_and_retained():
+    from pathlib import Path
+
+    workflow = (
+        Path(__file__).resolve().parents[1] / ".github" / "workflows" / "huntx.yml"
+    ).read_text(encoding="utf-8")
+    job = workflow.split("  run:\n    name: ingest-build-package", 1)[1].split(
+        "\n  persist:", 1
+    )[0]
+    step = job.split("      - name: Probe bounded public endpoint sample", 1)[1].split(
+        "      - name: Record explicit no-release verdict", 1
+    )[0]
+    assert "--enable-network" in step
+    assert "--max-endpoints 24" in step
+    assert "--concurrency 4" in step
+    assert "--timeout 3.0" in step
+    assert "network-diagnostics.json" in job
+    assert "Retain sanitized per-source health history" in job
