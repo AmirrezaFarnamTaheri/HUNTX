@@ -139,3 +139,40 @@ def test_report_rejects_duplicate_source_ids():
             [{"id": "a", "type": "telegram"}, {"id": "a", "type": "telegram"}],
             {}, {}, observed_at=1800000000,
         )
+
+
+def test_cli_writes_sanitized_json_and_uses_frozen_campaign(tmp_path: Path):
+    import subprocess
+    import sys
+
+    import yaml
+
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(yaml.safe_dump({"sources": sample_config()}), encoding="utf-8")
+    health_path = tmp_path / "run-summary.json"
+    health_path.write_text(json.dumps(report()), encoding="utf-8")
+    db_path = tmp_path / "state.db"
+    with sqlite3.connect(db_path) as db:
+        db.execute(
+            "CREATE TABLE ingestion_work_items (campaign_id INTEGER, source_id TEXT, "
+            "status TEXT, items_ingested INTEGER, updated_at INTEGER)"
+        )
+        db.execute(
+            "INSERT INTO ingestion_work_items VALUES "
+            "(4, 'telegram_good', 'completed', 12, 1800000000)"
+        )
+    output = tmp_path / "source-health.json"
+    root = Path(__file__).resolve().parents[1]
+    completed = subprocess.run(
+        [
+            sys.executable, str(root / "scripts" / "report_source_health.py"),
+            "--config", str(config_path), "--summary", str(health_path),
+            "--db", str(db_path), "--output", str(output),
+        ], check=True, capture_output=True, text=True,
+    )
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["queue_campaign_id"] == 4
+    assert payload["counts"]["telegram_observed"] == 1
+    assert payload["counts"]["http_infrastructure_errors"] == 1
+    assert "source-health:" in completed.stdout
+    assert "HIDDEN" not in output.read_text(encoding="utf-8")
