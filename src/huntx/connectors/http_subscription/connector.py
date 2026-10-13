@@ -29,6 +29,10 @@ ALLOWED_FEED_HOSTS = frozenset({
 })
 
 
+class GoFeedWorkerUnavailable(FileNotFoundError):
+    """A local execution dependency failed; this is not an upstream feed failure."""
+
+
 def validate_public_feed_url(url: str) -> str:
     """Enforce one fixed HTTPS origin per public subscription source."""
     parsed = urllib.parse.urlsplit(url)
@@ -46,7 +50,7 @@ def _engine_path() -> str:
     if configured:
         resolved = Path(configured).expanduser()
         if not resolved.is_file():
-            raise FileNotFoundError("configured Go engine binary does not exist")
+            raise GoFeedWorkerUnavailable("configured Go engine binary does not exist")
         return str(resolved)
     binary = "huntx-engine.exe" if os.name == "nt" else "huntx-engine"
     local = Path(__file__).resolve().parents[4] / ".bin" / binary
@@ -55,7 +59,7 @@ def _engine_path() -> str:
     installed = shutil.which(binary)
     if installed:
         return installed
-    raise FileNotFoundError(
+    raise GoFeedWorkerUnavailable(
         "Go feed network worker is unavailable; build: "
         "go build -o .bin/huntx-engine ./cmd/huntx-engine"
     )

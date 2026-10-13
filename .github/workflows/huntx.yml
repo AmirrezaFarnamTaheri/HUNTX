@@ -383,6 +383,9 @@ jobs:
           set -euo pipefail
           mkdir -p .bin
           go build -o .bin/huntx-tools ./cmd/huntx-tools
+          # This job runs HTTP feeds; validation ran on a different runner.
+          go build -o .bin/huntx-engine ./cmd/huntx-engine
+          test -x .bin/huntx-engine
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -594,6 +597,13 @@ jobs:
             --checkpoint-ready "${{ steps.checkpoint.outputs.ready || 'false' }}" \
             --package-ready "${{ steps.package.outputs.ready || 'false' }}" \
             --package-source "${{ steps.package.outputs.source || 'none' }}"
+          # Record per-source feed and campaign health without URLs or secrets.
+          # The logs artifact also captures source-health.json on every run.
+          python scripts/report_source_health.py \
+            --config configs/config.prod.yaml \
+            --summary "$HUNTX_RUN_SUMMARY_PATH" \
+            --db persist/state.db \
+            --output persist/data/logs/source-health.json
 
       - name: Record explicit no-release verdict
         if: ${{ always() && steps.package.outputs.ready != 'true' }}
@@ -650,6 +660,15 @@ jobs:
           path: persist/data/logs/
           if-no-files-found: warn
           retention-days: 7
+
+      - name: Retain sanitized per-source health history
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: source-health-${{ github.run_id }}-${{ github.run_attempt }}
+          path: persist/data/logs/source-health.json
+          if-no-files-found: warn
+          retention-days: 30
 
       - name: Upload Pages artifact
         if: steps.package.outputs.ready == 'true'

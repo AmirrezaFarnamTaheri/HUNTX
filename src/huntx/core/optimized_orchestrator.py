@@ -560,6 +560,10 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
         summary["http_sources_failed"] = sum(
             report.get("status") == "failed" for report in source_reports.values()
         )
+        summary["http_sources_infrastructure_errors"] = sum(
+            report.get("status") == "infrastructure_error"
+            for report in source_reports.values()
+        )
         summary["http_nodes_observed"] = sum(
             int(report.get("nodes", 0)) for report in source_reports.values()
         )
