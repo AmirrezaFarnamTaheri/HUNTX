@@ -209,7 +209,6 @@ def format_enriched_remark(uri: str, counter: dict, metadata: dict | None = None
     return tag
 
 
-
 # ISO hints are deliberately separate from independently sourced IP evidence.
 _HINT_COUNTRIES = frozenset({
     'US', 'DE', 'FR', 'GB', 'NL', 'SG', 'JP', 'CA', 'AU', 'IR', 'KR', 'CN',
