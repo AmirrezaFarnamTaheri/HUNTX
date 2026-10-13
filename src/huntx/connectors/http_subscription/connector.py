@@ -28,10 +28,9 @@ ALLOWED_FEED_HOSTS = frozenset({
     "key.zarazaex.xyz",
 })
 
+
 class GoFeedWorkerUnavailable(FileNotFoundError):
     """A local execution dependency failed; this is not an upstream feed failure."""
-
-
 
 
 def validate_public_feed_url(url: str) -> str:
