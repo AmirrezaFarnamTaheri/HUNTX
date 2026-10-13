@@ -2481,7 +2481,7 @@ export class AppState {
                   <th class="p-3.5">Endpoint (Host:Port)</th>
                   <th class="p-3.5">Transport &amp; TLS</th>
                   <th class="p-3.5">Carrier</th>
-                  <th class="p-3.5">Health</th>
+                  <th class="p-3.5">Probe evidence</th>
                   <th class="p-3.5 text-right">Actions</th>
                 </tr>
               </thead>
@@ -2534,10 +2534,14 @@ export class AppState {
   // One node's compact card. Extracted so the initial window and the
   // progressive appends render nodes through exactly one code path.
     nodeCardHTML(node) {
-        const flag = this.getCountryFlag(node.country);
+        const region = getRegionPresentation(node);
+        const flag = region.flag;
+        const evidence = getProxyEvidence(node);
         const op = node.carrier || node.org || this.detectOperator(node.server, node.sni, node.name);
         const latency = this.getLatency(node);
-        const { score, grade, label: healthLabel, color: gradeColor } = this.getHealthScore(node);
+        const { grade, label: healthLabel, color: gradeColor } = this.getHealthScore(node);
+        const gradeDisplay = evidence.id === "authenticated" ? `Protocol ${grade}`
+          : evidence.id === "tcp" && latency !== null ? `TCP band ${grade}` : "No grade";
         const isUnmasked = this.unmaskedNodes.has(node.id);
         const isQRVisible = this.activeQRNodes.has(node.id);
 
@@ -2566,16 +2570,17 @@ export class AppState {
         // node's URI on each render was the hottest call in this path. An
         // undecodable node still renders from its normalized fields and
         // only the credential preview falls back to the placeholder.
-        const uuid = node.uuid || node.password || "8f7b3c2a-9e1d-4a5b";
-        const displayUUID = isUnmasked ? uuid : `${uuid.slice(0, 4)}••••-••••-••••-${uuid.slice(-4)}`;
+        const uuid = node.uuid || node.password || "";
+        const displayUUID = !uuid ? "Not available" : isUnmasked ? uuid
+          : `${uuid.slice(0, 4)}••••${uuid.slice(-4)}`;
 
         return `
-          <div class="proxy-card p-4 flex flex-col justify-between group relative">
+          <article class="proxy-card p-4 flex flex-col justify-between group relative" data-evidence-kind="${evidence.id}">
             <div>
               <!-- Header Row: Flags, Protocol, Operator, Health Grade -->
               <div class="proxy-card-header flex items-center justify-between mb-2.5">
                 <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-base" title="${escapeHTML(node.countryName)}">${flag}</span>
+                  <span class="text-base" title="${escapeHTML(region.label)} — ${escapeHTML(region.detail)}" aria-label="${escapeHTML(region.detail)}">${escapeHTML(flag)}</span>
                   <span class="px-2 py-0.5 text-xs font-mono font-bold uppercase rounded border ${protoColor}">
                     ${escapeHTML(node.protocol)}
                   </span>
@@ -2587,8 +2592,8 @@ export class AppState {
                   </span>
                 </div>
                 <div class="flex items-center gap-1.5">
-                  <span class="px-2 py-0.5 text-xs font-mono font-bold rounded border ${gradeColor}" title="${score === null ? healthLabel : `Quality Score: ${score}/100 (${healthLabel})`}">
-                    <span class="text-cyan-400 font-bold mr-0.5">Grade</span> ${grade}
+                  <span class="px-2 py-0.5 text-xs font-mono font-bold rounded border ${gradeColor}" title="${escapeHTML(healthLabel)} — ${escapeHTML(evidence.detail)}">
+                    ${escapeHTML(gradeDisplay)}
                   </span>
                   <div class="flex items-center gap-1 text-xs font-mono font-semibold ${latency === null ? 'text-gray-500' : latency < 60 ? 'text-emerald-400' : latency < 120 ? 'text-amber-400' : 'text-rose-400'}">
                     <span class="w-1.5 h-1.5 rounded-full ${latency === null ? 'bg-gray-600' : latency < 60 ? 'bg-emerald-400' : latency < 120 ? 'bg-amber-400' : 'bg-rose-400'}"></span>
@@ -2601,6 +2606,10 @@ export class AppState {
               <h3 class="text-sm font-mono font-semibold text-gray-100 truncate group-hover:text-cyan-300 transition-colors flex items-center justify-between" title="${escapeHTML(node.name)}">
                 <span class="truncate">${escapeHTML(node.name)}</span>
               </h3>
+              <p class="mt-2 flex flex-wrap items-center gap-2 text-xs font-mono">
+                <span class="px-2 py-1 rounded-md border ${evidence.id === "authenticated" ? "bg-emerald-950/50 text-emerald-300 border-emerald-800/40" : evidence.id === "tcp" ? "bg-cyan-950/60 text-cyan-300 border-cyan-500/30" : evidence.id === "tcp_failed" ? "bg-amber-950/40 text-amber-300 border-amber-800/40" : "bg-gray-900 text-gray-400 border-gray-800"}">${escapeHTML(i18n.translate(evidence.label))}</span>
+                <span class="text-gray-400" title="${escapeHTML(evidence.detail)}">${escapeHTML(i18n.translate(evidence.detail))}</span>
+              </p>
 
               <!-- Specs Grid -->
               <div class="proxy-specs mt-2.5 space-y-1.5 text-xs font-mono">
@@ -2624,7 +2633,8 @@ export class AppState {
                       class="btn-toggle-mask text-gray-400 hover:text-cyan-400 cursor-pointer p-2 min-h-[44px] min-w-[44px] flex items-center justify-center focus-ring rounded-lg transition-colors"
                       data-node-id="${node.id}"
                       title="${isUnmasked ? 'Mask Credential' : 'Reveal Credential'}"
-                      aria-label="Toggle credential masking"
+                      aria-label="${isUnmasked ? 'Mask credential' : 'Reveal credential'}"
+                      aria-pressed="${isUnmasked}"
                     >
                       ${isUnmasked
                         ? `<svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>`
@@ -2636,7 +2646,7 @@ export class AppState {
 
                 <div class="flex items-center justify-between text-xs pt-1 border-t border-gray-800/40">
                   <span class="text-gray-400">Geo &amp; Carrier:</span>
-                  <span class="text-gray-300 font-semibold">${flag} ${escapeHTML(node.countryName || node.country_name || "Unknown")} • ${escapeHTML(op)} <span class="text-xs text-gray-500">(${node.geo_verified ? "verified" : node.geo_source === "unknown" ? "unknown" : "estimated"})</span></span>
+                  <span class="text-gray-300 font-semibold">${escapeHTML(region.flag)} ${escapeHTML(region.label)} • ${escapeHTML(op)} <span class="text-xs text-gray-500" title="${escapeHTML(region.detail)}">(${region.confidence === "provider" ? "GeoIP estimate" : region.confidence === "hint" ? "unverified hint" : "unknown"})</span></span>
                 </div>
               </div>
 
@@ -2684,19 +2694,21 @@ export class AppState {
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
               </button>
             </div>
-          </div>
+          </article>
         `;
     }
 
   // One node's table row, sharing the reveal window with the card view.
     nodeRowHTML(node) {
-                  const flag = this.getCountryFlag(node.country);
+                  const region = getRegionPresentation(node);
+                  const evidence = getProxyEvidence(node);
+                  const flag = region.flag;
                   const op = node.carrier || node.org || this.detectOperator(node.server, node.sni, node.name);
                   const latency = this.getLatency(node);
                   const { grade } = this.getHealthScore(node);
                   return `
                     <tr class="hover:bg-gray-900/50 transition-colors">
-                      <td class="p-3.5 font-bold text-sm">${flag} <span class="text-xs text-gray-500">${escapeHTML(node.country)}</span></td>
+                      <td class="p-3.5 font-bold text-sm" title="${escapeHTML(region.detail)}">${escapeHTML(flag)} <span class="text-xs text-gray-400">${escapeHTML(region.code)}</span></td>
                       <td class="p-3.5"><span class="px-2 py-0.5 rounded text-xs uppercase font-bold bg-cyan-950 text-cyan-300 border border-cyan-800">${escapeHTML(node.protocol)}</span></td>
                       <td class="p-3.5 font-semibold text-gray-200 truncate max-w-[200px]" title="${escapeHTML(node.name)}">${escapeHTML(node.name)}</td>
                       <td class="p-3.5 text-cyan-300 select-all">${escapeHTML(node.server)}:${node.port}</td>
@@ -2704,7 +2716,7 @@ export class AppState {
                       <td class="p-3.5"><span class="px-2 py-0.5 bg-gray-900 rounded border border-gray-800 text-gray-300 text-xs">${escapeHTML(op)}</span></td>
                       <td class="p-3.5">
                         <span class="font-bold ${latency === null ? 'text-gray-500' : latency < 60 ? 'text-emerald-400' : 'text-amber-400'}">${latency === null ? 'Unmeasured' : `${Math.round(latency)}ms`}</span>
-                        <span class="text-xs text-gray-500 ml-1">Grade ${grade}</span>
+                        <span class="block text-xs text-gray-400 mt-1" title="${escapeHTML(evidence.detail)}">${escapeHTML(i18n.translate(evidence.label))} · ${evidence.id === "authenticated" ? "Protocol " + grade : evidence.id === "tcp" ? "TCP band " + grade : "Unverified"}</span>
                       </td>
                       <td class="p-3.5 text-right space-x-1 whitespace-nowrap">
                         <button class="btn-copy-node px-3 py-2 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 text-cyan-300 rounded-xl text-xs font-mono font-medium focus-ring cursor-pointer transition-all" data-raw="${encodeURIComponent(node.raw)}">Copy</button>
