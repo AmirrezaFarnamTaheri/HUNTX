@@ -2194,6 +2194,16 @@ export class AppState {
 
     const filtered = precomputed || this.getFilteredProxies();
 
+    const activeFilters = [
+      { key: "selectedProtocol", label: "Protocol", value: this.selectedProtocol },
+      { key: "selectedTransport", label: "Transport", value: this.selectedTransport },
+      { key: "selectedCountry", label: "Region", value: this.selectedCountry },
+      { key: "selectedOperator", label: "Operator", value: this.selectedOperator },
+      { key: "selectedGrade", label: "Grade", value: this.selectedGrade },
+      { key: "selectedSecurity", label: "Security", value: this.selectedSecurity },
+      { key: "searchQuery", label: "Search", value: this.searchQuery }
+    ].filter(item => item.value && item.value !== "ALL");
+
     const evidenceCounts = countProxyEvidence(allProxies);
     const evidenceOptions = [
       { id: "ALL", label: "All evidence", count: evidenceCounts.all },
@@ -2205,6 +2215,10 @@ export class AppState {
 
     filterContainer.innerHTML = `
       <div class="space-y-4 py-6">
+        <div class="workspace-intro">
+          <div><span class="section-eyebrow">Node explorer</span><h2>Published proxy catalog</h2><p>Filter by transport, geography and observed evidence. Saved endpoints are not guaranteed to authenticate.</p></div>
+          <span class="workspace-total">${allProxies.length.toLocaleString("en-US")} nodes in snapshot</span>
+        </div>
         <section id="evidence-overview" class="rounded-2xl border border-gray-800 bg-gray-950/80 p-4 sm:p-5" aria-label="Proxy measurement evidence">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="max-w-2xl">
@@ -2408,8 +2422,35 @@ export class AppState {
             </button>
           </div>
         </div>
+        <div id="active-filter-chips" aria-label="Active filters">
+          ${activeFilters.map(item => `
+            <button type="button" class="filter-chip focus-ring"
+              data-filter-key="${item.key}"
+              aria-label="Remove ${item.label.toLowerCase()} filter">
+              <span>${escapeHTML(item.label)}: ${escapeHTML(item.value)}</span>
+              <span aria-hidden="true">×</span>
+            </button>
+          `).join("")}
+        </div>
       </div>
     `;
+
+    filterContainer.querySelectorAll(".filter-chip").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset.filterKey;
+        const permitted = new Set([
+          "selectedProtocol", "selectedTransport", "selectedCountry",
+          "selectedOperator", "selectedGrade", "selectedSecurity", "searchQuery"
+        ]);
+        if (!permitted.has(key)) return;
+        this[key] = key === "searchQuery" ? "" : "ALL";
+        if (key === "searchQuery") {
+          const global = document.getElementById("global-search-input");
+          if (global) global.value = "";
+        }
+        this.refreshProxyWorkspace();
+      });
+    });
 
     filterContainer.querySelectorAll(".btn-evidence-filter").forEach(btn => {
       btn.addEventListener("click", () => {
