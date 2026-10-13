@@ -49,6 +49,10 @@ class TestStateRepo(unittest.TestCase):
             lifecycle_status TEXT NOT NULL DEFAULT 'discovered',
             first_seen_at INTEGER NOT NULL,
             last_seen_at INTEGER NOT NULL,
+            last_success_at INTEGER,
+            last_probe_at INTEGER,
+            last_probe_result TEXT NOT NULL DEFAULT 'unverified',
+            consecutive_failures INTEGER NOT NULL DEFAULT 0,
             PRIMARY KEY(unique_hash, record_type)
         );
         CREATE TABLE proxy_probe_history (
