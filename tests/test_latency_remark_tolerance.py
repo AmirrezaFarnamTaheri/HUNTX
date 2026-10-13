@@ -27,7 +27,8 @@ def test_non_numeric_latency_is_skipped_not_crashing(latency):
         {"country": "DE", "latency_ms": latency},
     )
     assert "⚡" not in remark
-    assert "DE" in remark
+    assert remark.startswith("🇩🇪 TROJAN |")
+    assert " DE " not in remark
 
 
 @pytest.mark.parametrize("latency", [-1, float("inf"), float("nan")])
@@ -54,4 +55,5 @@ def test_metadata_without_latency_key_is_skipped():
         {"country": "FR"},
     )
     assert "⚡" not in remark
-    assert "FR" in remark
+    assert remark.startswith("🇫🇷 TROJAN |")
+    assert " FR " not in remark
