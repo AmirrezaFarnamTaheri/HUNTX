@@ -20,7 +20,7 @@ from typing import Any
 from huntx.core.endpoint_intelligence import describe_proxy_endpoint
 from huntx.core.network_diagnostics import inspect_target, select_diagnostic_targets
 from huntx.formats.common.singbox import parse_proxy_uri
-from scripts.report_endpoint_inventory import load_active_observations
+from huntx.core.corpus_reader import load_active_observations
 
 _MAX_SCAN = 50_000
 _MAX_TESTED = 64
