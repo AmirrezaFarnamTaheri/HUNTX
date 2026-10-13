@@ -97,3 +97,24 @@ def test_scan_limit_provides_explicit_truncation(tmp_path):
     report = build_inventory(rows, observed_at=1800000000, limit=2, truncated=truncated)
     assert report["status"] == "truncated"
     assert report["counts"]["records_scanned"] == 2
+
+
+def test_inventory_exposes_protocol_transport_tls_ip_family_and_evidence_coverage(tmp_path):
+    db = _db(tmp_path)
+    rows, truncated = load_active_observations(db, limit=100)
+    snapshot = build_inventory(rows, observed_at=1800000000, limit=100, truncated=truncated)
+    dimensions = snapshot["distributions"]
+    assert dimensions["protocol"] == {"trojan": 1, "vless": 1}
+    assert dimensions["host_kind"] == {"dns_name": 1, "public_ip_literal": 1}
+    assert dimensions["tls_mode"]["none"] >= 1
+    assert dimensions["transport_kind"]["tcp"] == 2
+    assert snapshot["counts"]["duplicate_endpoint_observations"] == 1
+    assert snapshot["counts"]["dns_endpoints"] == 1
+    assert snapshot["counts"]["network_endpoints"] == 2
+
+
+def test_inventory_rejects_unreasonably_big_payload_without_logging_secrets():
+    huge = '{"line":"vless://secret@x.example.com:443","extra":"' + 'X' * 50000 + '"}'
+    report = build_inventory([("src", huge)], observed_at=1800000000, limit=1)
+    assert report["counts"]["invalid_records"] == 1
+    assert "secret" not in json.dumps(report)
