@@ -5,7 +5,7 @@ import math
 import os
 import re
 import time
-from urllib.parse import quote, unquote
+from urllib.parse import parse_qs, quote, unquote, urlsplit
 from typing import Any, Dict, List
 
 from .base import FormatHandler
@@ -230,6 +230,33 @@ def _remark_country_hint(uri: str) -> str | None:
     return None
 
 
+def _tls_verification_bypassed(uri: str) -> bool:
+    """Detect explicit certificate-validation bypasses without exposing secrets."""
+    insecure_keys = frozenset({
+        'allowinsecure', 'insecure', 'skipcertverify',
+        'skip-cert-verify', 'allow_insecure', 'tlsinsecure',
+    })
+    true_values = frozenset({'true', '1', 'yes', 'on'})
+    try:
+        if uri.lower().startswith('vmess://'):
+            encoded = uri.partition('#')[0][8:]
+            fields = json.loads(_b64_decode_safe(encoded))
+            if isinstance(fields, dict):
+                return any(
+                    str(value).strip().lower() in true_values
+                    for key, value in fields.items()
+                    if str(key).lower() in insecure_keys
+                )
+            return False
+        params = parse_qs(urlsplit(uri).query, keep_blank_values=True)
+        return any(
+            str(value).strip().lower() in true_values
+            for key, values in params.items()
+            if key.lower() in insecure_keys for value in values
+        )
+    except (ValueError, UnicodeError, binascii.Error, TypeError):
+        return False
+
 def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
     """Create a short, stable, evidence-labeled client tag.
 
@@ -274,6 +301,8 @@ def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
         label += '-' + qualifier[:24]
 
     details: list[str] = []
+    if _tls_verification_bypassed(uri):
+        details.append('UNSAFE-TLS')
     asn = endpoint.get('asn')
     if fresh and type(asn) is int and 0 < asn <= 4294967295:
         details.append(f'AS{asn}')
@@ -306,8 +335,12 @@ def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
 
     # Stable within credential identity, independent of sorting and source order.
     identifier = hash_string(strip_proxy_remark(uri))[:10]
-    parts = [location, label, *details, identifier]
-    return ' | '.join(parts)[:110]
+    # Allocate space for the stable identifier first. Never truncate it when
+    # optional CDN/latency labels grow; import clients use it for disambiguation.
+    suffix = ' | ' + identifier
+    headline = ' | '.join([location, label, *details])
+    max_headline = 110 - len(suffix)
+    return headline[:max_headline].rstrip(' |') + suffix
 
 
 def add_clean_remark(uri: str, counter: dict, metadata: dict | None = None) -> str:
