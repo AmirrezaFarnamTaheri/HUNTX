@@ -61,8 +61,7 @@ def _engine_path() -> str:
     if installed:
         return installed
     raise GoFeedWorkerUnavailable(
-        "Go feed network worker is unavailable; build: 
-        "go build -o .bin/huntx-engine ./cmd/huntx-engine"
+        "Go feed network worker is unavailable; build: "\n        "go build -o .bin/huntx-engine ./cmd/huntx-engine"
     )
 
 
