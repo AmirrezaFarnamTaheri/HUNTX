@@ -152,6 +152,7 @@ def test_static_dashboard_collapses_same_released_connection_in_multiple_inputs(
     raw = BASE + "?type=ws&security=tls#first"
     alias = BASE + "?security=tls&type=ws#same"
     different = BASE.replace(ID, "44444444-2222-4333-8444-555555555555") + "?type=ws&security=tls#another"
+
     def entry(uri: str, tag: str) -> dict:
         return {
             "protocol": "vless", "address": "edge.example.com", "port": 443,
