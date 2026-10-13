@@ -22,6 +22,21 @@ _PERMANENT_VALUE_ERROR_MARKERS = (
 )
 
 
+def telegram_account_key(source: object) -> tuple[str, str, str] | None:
+    """Identify a Telegram login without exposing the session or API hash."""
+    account = getattr(source, "telegram_user", None)
+    if account is None:
+        return None
+    fields = (
+        getattr(account, "api_id", None),
+        getattr(account, "api_hash", None),
+        getattr(account, "session", None),
+    )
+    if any(value is None or value == "" for value in fields):
+        return None
+    return tuple(str(value) for value in fields)  # type: ignore[return-value]
+
+
 def telegram_flood_wait_seconds(exc: BaseException) -> int | None:
     """Extract Telegram's explicit Retry-After without parsing arbitrary error strings.
 
