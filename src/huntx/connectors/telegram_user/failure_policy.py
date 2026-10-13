@@ -34,7 +34,7 @@ def telegram_account_key(source: object) -> tuple[str, str, str] | None:
     )
     if any(value is None or value == "" for value in fields):
         return None
-    return tuple(str(value) for value in fields)  # type: ignore[return-value]
+    return (str(fields[0]), str(fields[1]), str(fields[2]))
 
 
 def telegram_flood_wait_seconds(exc: BaseException) -> int | None:
