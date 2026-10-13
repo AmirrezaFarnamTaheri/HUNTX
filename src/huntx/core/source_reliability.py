@@ -197,3 +197,38 @@ def prioritize_http_sources(
     for slot, source in zip(locations, [exploration, *ranked]):
         result[slot] = source
     return result
+
+
+def summarize_http_source_reports(
+    reports: Mapping[str, Mapping[str, Any]] | None,
+) -> dict[str, Any]:
+    """Aggregate one run's HTTP-feed evidence, not authenticated proxy health.
+
+    The optimized and resilient orchestrator paths must share this exact
+    contract. A source not attempted in the run is absent from the ledger and
+    is labelled not_observed later by the source-health reporter. The returned
+    fields deliberately preserve each feed's existing sanitized provenance.
+    """
+    safe: dict[str, dict[str, Any]] = {}
+    if isinstance(reports, Mapping):
+        for source_id, evidence in sorted(reports.items()):
+            if isinstance(source_id, str) and isinstance(evidence, Mapping):
+                safe[source_id] = dict(evidence)
+    return {
+        "http_source_health": safe,
+        "http_sources_checked": len(safe),
+        "http_sources_failed": sum(
+            report.get("status") == "failed" for report in safe.values()
+        ),
+        "http_sources_infrastructure_errors": sum(
+            report.get("status") == "infrastructure_error"
+            for report in safe.values()
+        ),
+        "http_nodes_observed": sum(
+            _bounded_count(report.get("nodes", 0)) for report in safe.values()
+        ),
+        "http_policy_bound_profiles": sum(
+            _bounded_count(report.get("policy_bound", 0))
+            for report in safe.values()
+        ),
+    }
