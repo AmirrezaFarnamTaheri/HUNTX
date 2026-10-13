@@ -2586,7 +2586,7 @@ export class AppState {
                   </span>
                 </div>
                 <div class="flex items-center gap-1.5">
-                  <span class="px-2 py-0.5 text-xs font-mono font-bold rounded border ${gradeColor}" title="${escapeHTML(healthLabel)} — ${escapeHTML(evidence.detail)}">
+                  <span class="proxy-grade-badge px-2 py-0.5 text-xs font-mono font-bold rounded border ${gradeColor}" data-evidence-kind="${evidence.id}" title="${escapeHTML(healthLabel)} — ${escapeHTML(evidence.detail)}">
                     ${escapeHTML(gradeDisplay)}
                   </span>
                   <div class="flex items-center gap-1 text-xs font-mono font-semibold ${latency === null ? 'text-gray-500' : latency < 60 ? 'text-emerald-400' : latency < 120 ? 'text-amber-400' : 'text-rose-400'}">
