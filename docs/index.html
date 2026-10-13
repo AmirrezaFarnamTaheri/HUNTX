@@ -870,9 +870,9 @@
 </head>
 <body class="bg-cyber-mesh min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-black">
   <a class="skip-link" href="#dashboard-main">Skip to dashboard</a>
-  <div id="data-status-pill" role="status" aria-live="polite" class="data-status data-status-loading">Bundled snapshot</div>
+
   <style>
-    .data-status{position:fixed;left:12px;bottom:12px;z-index:80;font:500 12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.02em;padding:6px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.35);background:rgba(7,10,15,.85);color:#94a3b8}
+    .data-status{position:relative;display:block;width:fit-content;max-width:calc(100% - 32px);margin:12px auto 20px;z-index:1;font:500 12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.02em;padding:6px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.35);background:rgba(7,10,15,.85);color:#94a3b8}
     .data-status-ready{color:#34d399;border-color:rgba(52,211,153,.45)}
     .data-status-stale{color:#fbbf24;border-color:rgba(251,191,36,.5)}
     @media (prefers-reduced-motion: reduce){.data-status{transition:none}}
@@ -1108,6 +1108,8 @@
       <section id="artifact-section"></section>
     </div>
   </main>
+
+  <div id="data-status-pill" role="status" aria-live="polite" class="data-status data-status-loading">Bundled snapshot</div>
 
   <!-- Cyber Footer -->
   <footer id="main-footer" class="bg-[#070a0f]/90 border-t border-[#1d2638]"></footer>
