@@ -45,7 +45,7 @@ def build_both(db, repo):
 
 def record_failures(db, *, distinct=True, spread=True, count=6, first=None):
     now = int(time.time())
-    start = first if first is not None else now - (3 * 86400 if spread else 100)
+    start = first if first is not None else now - (5 * 86400 if spread else 100)
     for index in range(count):
         record_authenticated_probe(
             db, unique_hash=DIGEST, record_type="npvt",
