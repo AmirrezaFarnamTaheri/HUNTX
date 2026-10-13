@@ -7,7 +7,9 @@ import math
 import socket
 import time
 from typing import Any, Dict, List, Optional
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlsplit
+
+from ..formats.common.singbox import parse_proxy_uri
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +31,11 @@ def _public_addresses(address_info: list[tuple[Any, ...]]) -> list[tuple[int, st
         try:
             address = ipaddress.ip_address(raw_address)
         except ValueError:
+            continue
+        if (family == socket.AF_INET and address.version != 4 or
+                family == socket.AF_INET6 and address.version != 6):
+            continue
+        if family not in (socket.AF_INET, socket.AF_INET6):
             continue
         if not address.is_global:
             logger.warning(
@@ -69,6 +76,46 @@ def _bounded_concurrency(value: Any) -> int:
     return parsed
 
 
+def _tcp_probe_target(uri: str) -> tuple[str, int] | None:
+    """Only select an actual TCP-compatible network endpoint.
+
+    VMess and some Shadowsocks share links encode their host:port in base64.
+    Guessing from their URI authority or splitting at '@' probes unrelated
+    domains; UDP-only protocols must never be reported as failed TCP probes.
+    """
+    try:
+        parsed = urlsplit(uri)
+        scheme = parsed.scheme.lower()
+        if scheme not in {
+            "vless", "vmess", "trojan", "ss", "socks", "socks4",
+            "socks4a", "socks5", "http", "https", "ssh",
+            "shadowtls", "anytls", "naive", "naive+https",
+        }:
+            return None
+        params = parse_qs(parsed.query)
+        if any(
+            value.lower() in {"quic", "kcp", "udp"}
+            for key in ("type", "network", "transport")
+            for value in params.get(key, [])
+        ):
+            return None
+        if scheme == "vmess" or (scheme == "ss" and not parsed.hostname):
+            node = parse_proxy_uri(uri)
+            if node is None:
+                return None
+            host, port = node.server, node.port
+        else:
+            host, port = parsed.hostname, parsed.port
+        if (
+            not isinstance(host, str) or not host
+            or type(port) is not int or not 1 <= port <= 65535
+        ):
+            return None
+        return host, port
+    except (TypeError, ValueError, UnicodeError, OverflowError):
+        return None
+
+
 async def check_proxy_latency(proxy_url: str, timeout: float = 3.0) -> Optional[float]:
     """Measure TCP latency without allowing probes into private address space.
 
@@ -84,24 +131,10 @@ async def check_proxy_latency(proxy_url: str, timeout: float = 3.0) -> Optional[
         return None
 
     try:
-        parsed = urlparse(proxy_url)
-        host = parsed.hostname
-        try:
-            port = parsed.port
-        except ValueError:
+        target = _tcp_probe_target(proxy_url)
+        if target is None:
             return None
-
-        if not host:
-            parts = proxy_url.replace("//", "").split("@")[-1].split(":")
-            if len(parts) >= 2:
-                host = parts[0]
-                try:
-                    port = int(parts[1].split("/")[0].split("?")[0].split("#")[0])
-                except ValueError:
-                    port = None
-
-        if not host or not port or not 1 <= int(port) <= 65535:
-            return None
+        host, port = target
 
         loop = asyncio.get_running_loop()
         deadline = time.monotonic() + timeout_seconds
@@ -194,14 +227,27 @@ async def filter_proxies_by_latency(
             record = proxies[index]
             line = _extract_proxy_uri(record)
             latency = await check_proxy_latency(line, timeout=timeout_seconds)
-            if latency is None or latency > threshold:
+            if (
+                latency is None or isinstance(latency, bool)
+                or not isinstance(latency, (int, float))
+                or not math.isfinite(latency) or latency < 0
+                or latency > threshold
+            ):
                 continue
+            observed_at = int(time.time())
+            evidence = {
+                "latency_ms": round(latency, 2),
+                "probe_kind": "tcp_connect",
+                "probe_authenticated": False,
+                "probe_checked_at": observed_at,
+                "probe_expires_at": observed_at + 3600,
+            }
             result = dict(record)
             if isinstance(result.get("data"), dict):
                 result["data"] = dict(result["data"])
-                result["data"]["latency_ms"] = round(latency, 2)
+                result["data"].update(evidence)
             else:
-                result["latency_ms"] = round(latency, 2)
+                result.update(evidence)
             accepted[index] = result
 
     await asyncio.gather(*(_worker() for _ in range(worker_count)))
