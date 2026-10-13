@@ -13,6 +13,16 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Script entrypoints run without an installed package when invoked directly.
+import sys
+
+_SRC = Path(__file__).resolve().parents[1] / "src"
+if str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
+from huntx.formats.npvt import canonical_proxy_identity  # noqa: E402
+from huntx.formats.proxy_uri_validator import validate_proxy_uri  # noqa: E402
+
+
 
 def _generated_at() -> str:
     """Return the reproducible generation timestamp when configured, otherwise UTC now."""
@@ -918,7 +928,23 @@ def parse_production_proxies() -> list[dict]:
             pass
 
     proxies = []
+    seen_connections: set[str] = set()
     for i, entry in enumerate(raw_nodes):
+        # The same valid configuration can appear in the release's decoded
+        # feed, an auxiliary testing profile, and cumulative legacy history.
+        # Prefer the canonical release record and never count its aliases as
+        # additional nodes. Preserve distinct credentials, paths and TLS data.
+        raw_uri = entry.get("raw")
+        if isinstance(raw_uri, str) and validate_proxy_uri(raw_uri):
+            connection_key = canonical_proxy_identity(raw_uri)
+        else:
+            connection_key = json.dumps([
+                entry.get("protocol"), entry.get("address"), entry.get("port"),
+                entry.get("user"), entry.get("password"), entry.get("params"),
+            ], sort_keys=True, default=str, ensure_ascii=False)
+        if connection_key in seen_connections:
+            continue
+        seen_connections.add(connection_key)
         idx = i + 1
         protocol = (entry.get("protocol") or "vless").lower()
         address = entry.get("address") or ""
