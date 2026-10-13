@@ -2100,8 +2100,39 @@ export class AppState {
 
     const filtered = precomputed || this.getFilteredProxies();
 
+    const evidenceCounts = countProxyEvidence(allProxies);
+    const evidenceOptions = [
+      { id: "ALL", label: "All evidence", count: evidenceCounts.all },
+      { id: "authenticated", label: "Protocol checked", count: evidenceCounts.authenticated },
+      { id: "tcp", label: "TCP reachable", count: evidenceCounts.tcp },
+      { id: "tcp_failed", label: "Probe failed", count: evidenceCounts.tcp_failed },
+      { id: "unmeasured", label: "Not measured", count: evidenceCounts.unmeasured }
+    ];
+
     filterContainer.innerHTML = `
       <div class="space-y-4 py-6">
+        <section id="evidence-overview" class="rounded-2xl border border-gray-800 bg-gray-950/80 p-4 sm:p-5" aria-label="Proxy measurement evidence">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="max-w-2xl">
+              <span class="font-mono text-xs font-semibold uppercase tracking-wider text-cyan-300">${i18n.translate("EVIDENCE EXPLORER")}</span>
+              <h2 class="text-base sm:text-lg font-semibold text-gray-100 mt-1">${i18n.translate("Explore nodes by what was actually tested")}</h2>
+              <p class="text-xs sm:text-sm leading-relaxed text-gray-400 mt-1">${i18n.translate("TCP connect does not verify proxy authentication")}. ${i18n.translate("A failed check from one vantage is not permanent proxy death")}.</p>
+            </div>
+            <a href="ENDPOINT_EVIDENCE.md" target="_blank" rel="noopener noreferrer" class="min-h-[44px] px-3.5 py-2.5 inline-flex items-center justify-center rounded-xl border border-gray-700 bg-gray-900 text-cyan-300 text-xs font-semibold focus-ring hover:border-cyan-500 transition-colors">${i18n.translate("Evidence guide")} ↗</a>
+          </div>
+          <div class="flex flex-wrap gap-2 mt-4" role="group" aria-label="Filter by measurement evidence">
+            ${evidenceOptions.map(option => `
+              <button
+                type="button"
+                class="btn-evidence-filter min-h-[44px] px-3.5 py-2 rounded-xl border text-xs font-mono font-semibold focus-ring transition-all ${this.selectedEvidence === option.id ? "bg-cyan-950/60 text-cyan-300 border-cyan-500/60" : "bg-gray-900 text-gray-300 border-gray-800 hover:border-cyan-500/50"}"
+                data-evidence="${option.id}"
+                aria-pressed="${this.selectedEvidence === option.id}"
+              >
+                ${escapeHTML(i18n.translate(option.label))}
+                <span class="ml-1.5 tabular-nums opacity-75">${option.count.toLocaleString()}</span>
+              </button>`).join("")}
+          </div>
+        </section>
         <!-- Top Toolbar: Protocol Pills + View Mode Switcher + Search -->
         <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <!-- Protocol Tabs -->
@@ -2219,7 +2250,7 @@ export class AppState {
 
           <!-- Health Grade Dropdown -->
           <div class="relative">
-            <label class="block text-xs font-mono text-gray-400 mb-1">Health Grade</label>
+            <label class="block text-xs font-mono text-gray-400 mb-1">Published grade / TCP band</label>
             <select
               id="select-grade"
               class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
@@ -2249,8 +2280,8 @@ export class AppState {
               class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
               aria-label="Sort Order"
             >
-              <option value="latency_asc" ${this.sortBy === "latency_asc" ? "selected" : ""}>Fastest Latency</option>
-              <option value="score_desc" ${this.sortBy === "score_desc" ? "selected" : ""}>Top Health Score</option>
+              <option value="latency_asc" ${this.sortBy === "latency_asc" ? "selected" : ""}>Lowest observed TCP latency</option>
+              <option value="score_desc" ${this.sortBy === "score_desc" ? "selected" : ""}>Published grade / TCP estimate</option>
               <option value="name_asc" ${this.sortBy === "name_asc" ? "selected" : ""}>Name (A-Z)</option>
               <option value="country_asc" ${this.sortBy === "country_asc" ? "selected" : ""}>Country (A-Z)</option>
               <option value="port_asc" ${this.sortBy === "port_asc" ? "selected" : ""}>Port (Low-High)</option>
@@ -2262,7 +2293,7 @@ export class AppState {
         <div class="flex flex-wrap items-center justify-between gap-3 p-3 bg-gray-950/80 border border-gray-800/80 rounded-2xl text-xs font-mono">
           <div class="flex items-center gap-2 text-gray-300">
             <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-            <span>Displaying <strong class="text-cyan-400">${filtered.length}</strong> of ${allProxies.length} nodes · loaded snapshot</span>
+            <span id="filter-result-count" role="status" aria-live="polite">${i18n.translate("Showing")} <strong class="text-cyan-400 tabular-nums">${filtered.length.toLocaleString()}</strong> / ${allProxies.length.toLocaleString()} ${i18n.translate("nodes")}</span>
             ${this.selectedCountry !== "ALL" ? `<span class="px-2 py-0.5 bg-gray-900 border border-gray-800 rounded text-xs text-cyan-300">${this.selectedCountry}</span>` : ''}
             ${this.selectedOperator !== "ALL" ? `<span class="px-2 py-0.5 bg-gray-900 border border-gray-800 rounded text-xs text-blue-300">${this.selectedOperator}</span>` : ''}
           </div>
@@ -2285,6 +2316,18 @@ export class AppState {
         </div>
       </div>
     `;
+
+    filterContainer.querySelectorAll(".btn-evidence-filter").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const selected = btn.dataset.evidence;
+        if (!["ALL", "authenticated", "tcp", "tcp_failed", "unmeasured"].includes(selected)) return;
+        this.selectedEvidence = selected;
+        this.refreshProxyWorkspace();
+        // The toolbar is re-rendered when filtering; restore focus to the
+        // corresponding control for keyboard and switch-access users.
+        document.querySelector(`.btn-evidence-filter[data-evidence="${selected}"]`)?.focus({ preventScroll: true });
+      });
+    });
 
     filterContainer.querySelectorAll(".btn-proto-tab").forEach(btn => {
       btn.addEventListener("click", (e) => {
