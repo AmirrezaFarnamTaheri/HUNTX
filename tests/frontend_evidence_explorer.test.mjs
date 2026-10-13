@@ -25,6 +25,26 @@ test("observation badges distinguish authenticated, TCP-only, failed TCP and unm
   assert.equal(getProxyEvidence({ ...tcp, health_evidence: "", probe_ok: null, health_grade: "A+" }).id, "unmeasured");
 });
 
+test("authenticated protocol failures cannot masquerade as failed TCP connects", () => {
+  const protocolFailure = { ...authenticated, health_evidence: "failed_authenticated_protocol",
+    health_grade: "F", probe_ok: true, latency: 1 };
+  assert.equal(getProxyEvidence(protocolFailure).id, "protocol_failed");
+  assert.equal(getProxyEvidence(protocolFailure).terminal, false);
+  assert.deepEqual(countProxyEvidence([protocolFailure, tcp]), {
+    all: 2, authenticated: 0, protocol_failed: 1, tcp: 1, tcp_failed: 0, unmeasured: 0
+  });
+  const app = Object.create(AppState.prototype);
+  assert.notEqual(app.getHealthScore(protocolFailure).grade, "F");
+  assert.ok(app.getHealthSortValue(tcp) > app.getHealthSortValue(protocolFailure));
+  assert.ok(app.getHealthSortValue(authenticated) > app.getHealthSortValue(tcp));
+});
+
+test("hostnames and SNI hints must not fabricate Finland geography", () => {
+  const source = { ...tcp, country: "FI", geo_source: "inferred", geo_verified: true };
+  assert.equal(getRegionPresentation(source).confidence, "hint");
+  assert.equal(getRegionPresentation({ ...tcp, country: "ZZ" }).label, "Unknown region");
+});
+
 test("country flags are marked as hints unless accompanied by genuine geo evidence", () => {
   const hint = getRegionPresentation(tcp);
   assert.equal(hint.code, "DE");
