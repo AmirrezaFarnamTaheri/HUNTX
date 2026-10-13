@@ -116,6 +116,9 @@ class PersistentIngestionQueue:
                     inserted += conn.total_changes - before
                     start += window_seconds
 
+        # A new rolling window for a rate-limited session must not bypass
+        # the durable account cooldown left by its older windows.
+        self.apply_active_flood_cooldowns(now=created_at)
         return {
             "campaign_id": campaign_id,
             "anchor_ts": anchor,
@@ -335,6 +338,41 @@ class PersistentIngestionQueue:
                 )
                 postponed += int(cursor.rowcount)
         return postponed
+
+    def apply_active_flood_cooldowns(self, *, now: Optional[int] = None) -> int:
+        """Apply still-active FloodWait deferrals to newly seeded windows.
+
+        This is not a generic retry delay: transient per-window failures must
+        never block unrelated ready windows. Only the explicit shared Telegram
+        cooldown marker is inherited across runs.
+        """
+        current = int(time.time()) if now is None else int(now)
+        adjusted = 0
+        with self.db.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT source_id, MAX(next_retry_at) AS cooldown_until
+                FROM ingestion_work_items
+                WHERE status = 'retry_wait'
+                  AND last_error = 'Telegram shared FloodWait cooldown'
+                  AND next_retry_at > ?
+                GROUP BY source_id
+                """,
+                (current,),
+            ).fetchall()
+            for row in rows:
+                cursor = conn.execute(
+                    """
+                    UPDATE ingestion_work_items
+                    SET status = 'retry_wait', next_retry_at = ?,
+                        last_error = 'Telegram shared FloodWait cooldown',
+                        updated_at = ?
+                    WHERE source_id = ? AND status IN ('pending', 'partial')
+                    """,
+                    (int(row["cooldown_until"]), current, str(row["source_id"])),
+                )
+                adjusted += int(cursor.rowcount)
+        return adjusted
 
     def mark_terminal(
         self,
