@@ -334,22 +334,34 @@ class Orchestrator:
         cutoff = start.astimezone(datetime.timezone.utc) - datetime.timedelta(days=days)
         return cutoff.strftime("%Y-%m-%d %H:%M:%S")
 
-    def _record_http_source_failure(self, source_id: str, error_type: str) -> None:
-        """Record network/parser/timeout failures without touching last-good records."""
+    def _record_http_source_failure(
+        self, source_id: str, error_type: str, *, infrastructure: bool = False
+    ) -> None:
+        """Keep local worker failures out of upstream feed reliability history.
+
+        Infrastructure failures do not prove the feed is down; they must never
+        inflate the feed's failure streak or contaminate its Wilson estimate.
+        """
         summaries = getattr(self, "_http_source_reports", None)
+        previous: dict[str, Any] = {}
         try:
             previous = self.repo.get_source_state(source_id) or {}
-            previous["total_failures"] = min(
-                1_000_000, int(previous.get("total_failures", 0)) + 1
-            )
-            previous["consecutive_failures"] = min(
-                1_000_000, int(previous.get("consecutive_failures", 0)) + 1
-            )
-            previous["last_failed_at"] = int(time.time())
-            previous["last_error_type"] = error_type
-            previous["retrieval_history"] = append_retrieval_observation(
-                previous, success=False, now=previous["last_failed_at"]
-            )
+            now = int(time.time())
+            if infrastructure:
+                previous["last_infrastructure_failure_at"] = now
+                previous["last_infrastructure_error_type"] = error_type
+            else:
+                previous["total_failures"] = min(
+                    1_000_000, int(previous.get("total_failures", 0)) + 1
+                )
+                previous["consecutive_failures"] = min(
+                    1_000_000, int(previous.get("consecutive_failures", 0)) + 1
+                )
+                previous["last_failed_at"] = now
+                previous["last_error_type"] = error_type
+                previous["retrieval_history"] = append_retrieval_observation(
+                    previous, success=False, now=now
+                )
             self.repo.update_source_state(
                 source_id, previous, source_type="http_subscription"
             )
@@ -357,13 +369,12 @@ class Orchestrator:
             logger.exception(
                 "[HTTP Feed] could not persist failure history for source %s", source_id
             )
-            previous = {}
         if isinstance(summaries, dict):
             summaries[source_id] = {
-                "status": "failed",
+                "status": "infrastructure_error" if infrastructure else "failed",
                 "error_type": error_type,
                 "validation": "not_accepted",
-                "consecutive_failures": previous.get("consecutive_failures", 1),
+                "consecutive_failures": previous.get("consecutive_failures", 0),
                 "last_success_at": previous.get("last_success_at"),
                 "availability": summarize_source_reliability(previous),
             }
@@ -474,9 +485,15 @@ class Orchestrator:
                 return False
         except Exception as e:
             if src_conf.type == "http_subscription":
-                self._record_http_source_failure(str(src_conf.id), type(e).__name__)
+                from ..connectors.http_subscription.connector import GoFeedWorkerUnavailable
+
+                infrastructure = isinstance(e, GoFeedWorkerUnavailable)
+                self._record_http_source_failure(
+                    str(src_conf.id), type(e).__name__, infrastructure=infrastructure
+                )
                 logger.error(
-                    "[HTTP Feed] failed for source %s: %s",
+                    "[HTTP Feed] %s source=%s error_type=%s",
+                    "worker unavailable" if infrastructure else "retrieval failed",
                     src_conf.id, type(e).__name__,
                 )
                 return False
