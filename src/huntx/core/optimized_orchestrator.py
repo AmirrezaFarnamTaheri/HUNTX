@@ -10,7 +10,11 @@ from typing import Any, Optional
 
 from .hardened_orchestrator import HardenedOrchestrator
 from .source_reliability import summarize_http_source_reports
-from ..connectors.telegram_user.failure_policy import is_permanent_telegram_peer_error
+from ..connectors.telegram_user.failure_policy import (
+    is_permanent_telegram_peer_error,
+    telegram_account_key,
+    telegram_flood_wait_seconds,
+)
 from ..connectors.telegram_user.windowed import WindowedTelegramUserConnector
 from ..pipeline.optimized_transform import OptimizedTransformPipeline
 from ..pipeline.windowed_ingest import WindowedIngestionPipeline
@@ -41,6 +45,7 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
         self._ingestion_budget_exhausted = False
         self._completion_buffer_seconds = 0.0
         self._run_owner = ""
+        self._preflight_flood_deadlines: dict[tuple[str, str, str], float] = {}
         self._window_pages = 0
         self._window_completions = 0
         self._window_failures = 0
@@ -350,6 +355,42 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                     results["err"] += 1
             except Exception as exc:
                 self._window_failures += 1
+                flood_wait = telegram_flood_wait_seconds(exc)
+                if flood_wait is not None:
+                    # MTProto FloodWait is an account-level Retry-After, not
+                    # hundreds of independent broken source windows. Preserve
+                    # all cursors and postpone only peers using this session.
+                    retry_delay = flood_wait + 5
+                    account_key = telegram_account_key(source)
+                    session_sources = (
+                        [
+                            source_id for source_id, candidate in self._source_by_id.items()
+                            if telegram_account_key(candidate) == account_key
+                        ]
+                        if account_key is not None else [item.source_id]
+                    )
+                    self._work_queue.fail(
+                        item.id,
+                        self._run_owner,
+                        "Telegram shared FloodWait cooldown",
+                        lease_token=item.lease_token,
+                        retry_delay=retry_delay,
+                    )
+                    postponed = self._work_queue.defer_sources(
+                        session_sources,
+                        retry_delay=retry_delay,
+                        reason="Telegram shared FloodWait cooldown",
+                    )
+                    async with lock:
+                        results["err"] += 1
+                    logger.warning(
+                        "[LIFO] Telegram account rate-limited for %ds; deferred "
+                        "%d queued window(s) for %d source(s), preserving cursors",
+                        retry_delay,
+                        postponed,
+                        len(session_sources),
+                    )
+                    continue
                 if is_permanent_telegram_peer_error(exc):
                     reason = (
                         "permanent Telegram peer failure: "
