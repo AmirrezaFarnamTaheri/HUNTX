@@ -136,14 +136,14 @@ func (p *GeoIPProvider) LookupIP(ipStr string) (GeoIPRecord, error) {
 	// 2. Check RFC1918 / Private / Loopback
 	if nonPublicIP(parsedIP) {
 		rec := GeoIPRecord{
-			IP                ipStr,
-			CountryCode       "LAN",
-			CountryName       "Local Network",
-			City              "Private Subnet",
-			ASN               0,
-			ASOrg             "Private Network",
-			IsPrivate         true,
-			AttributionSource "non_public_address",
+			IP:                ipStr,
+			CountryCode:       "LAN",
+			CountryName:       "Local Network",
+			City:              "Private Subnet",
+			ASN:               0,
+			ASOrg:             "Private Network",
+			IsPrivate:         true,
+			AttributionSource: "non_public_address",
 		}
 		p.cache.Store(ipStr, rec)
 		return rec, nil
@@ -161,13 +161,13 @@ func (p *GeoIPProvider) LookupIP(ipStr string) (GeoIPRecord, error) {
 
 	// 4. Default Unknown
 	rec := GeoIPRecord{
-		IP                ipStr,
-		CountryCode       "XX",
-		CountryName       "Unknown",
-		ASN               0,
-		ASOrg             "Unknown Provider",
-		IsPrivate         false,
-		AttributionSource "unobserved",
+		IP:                ipStr,
+		CountryCode:       "XX",
+		CountryName:       "Unknown",
+		ASN:               0,
+		ASOrg:             "Unknown Provider",
+		IsPrivate:         false,
+		AttributionSource: "unobserved",
 	}
 	p.cache.Store(ipStr, rec)
 	return rec, nil
