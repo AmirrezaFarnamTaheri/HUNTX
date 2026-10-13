@@ -421,6 +421,16 @@ class NpvtHandler(FormatHandler):
         lines = []
         seen = set()
         remark_counter: dict = {}
+        rich = os.getenv("HUNTX_REMARK_STYLE", "legacy").lower() == "evidence"
+        prefix_intel = None
+        if rich:
+            from ..core.endpoint_intelligence import PrefixIntelligence
+            intel_path = os.getenv("HUNTX_NETWORK_INTELLIGENCE_PATH", "").strip()
+            if intel_path:
+                try:
+                    prefix_intel = PrefixIntelligence.from_file(intel_path)
+                except (OSError, ValueError):
+                    prefix_intel = None
         for record in records:
             line = None
             evidence_metadata = None
@@ -436,5 +446,21 @@ class NpvtHandler(FormatHandler):
             stripped = strip_proxy_remark(line)
             if stripped not in seen:
                 seen.add(stripped)
+                if rich:
+                    # Older persisted records predate the endpoint metadata
+                    # contract. Enrich at read time without mutating the
+                    # canonical observation or changing the raw link.
+                    from ..core.endpoint_intelligence import describe_proxy_endpoint
+
+                    stored = evidence_metadata if isinstance(evidence_metadata, dict) else {}
+                    endpoint = stored.get("endpoint")
+                    intel = endpoint.get("intelligence") if isinstance(endpoint, dict) else None
+                    expiry = intel.get("expires_at") if isinstance(intel, dict) else None
+                    expires = isinstance(expiry, (int, float)) and not isinstance(expiry, bool)
+                    stale = expires and expiry <= time.time()
+                    if not isinstance(endpoint, dict) or stale or prefix_intel is not None:
+                        discovered = describe_proxy_endpoint(stripped, intelligence=prefix_intel)
+                        if discovered is not None:
+                            evidence_metadata = {**stored, "endpoint": discovered}
                 lines.append(add_clean_remark(stripped, remark_counter, evidence_metadata))
         return '\n'.join(lines).encode('utf-8')
