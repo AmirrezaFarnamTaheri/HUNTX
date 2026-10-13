@@ -407,6 +407,11 @@ def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
     asn = endpoint.get('asn')
     if intel_fresh and type(asn) is int and 0 < asn <= 4294967295:
         details.append(f'AS{asn}')
+        cdn = endpoint.get('cdn_provider')
+        if isinstance(cdn, str):
+            cleaned = re.sub(r'[^a-zA-Z0-9 -]', '', cdn).strip()[:15]
+            if cleaned:
+                details.append('CDN:' + cleaned.replace(' ', '-'))
 
     # DNS observations need their own freshness and provenance, independent
     # of a TCP connect or a prefix dataset attribution.
