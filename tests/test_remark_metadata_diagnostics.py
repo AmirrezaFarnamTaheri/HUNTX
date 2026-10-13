@@ -21,11 +21,11 @@ def test_nonnegative_finite_latency_is_displayed(latency):
 @pytest.mark.parametrize("country", [None, "", "ZZ", "USA", 42, "éé"])
 def test_unknown_country_is_not_invented(country):
     remark = format_enriched_remark(URI, {}, {"country": country})
-    assert remark.startswith("🌐 ZZ | VLESS")
+    assert remark.startswith("🌐 VLESS |")
 
 
 def test_missing_country_does_not_default_to_germany():
-    assert format_enriched_remark(URI, {}, {"latency_ms": 42}).startswith("🌐 ZZ")
+    assert format_enriched_remark(URI, {}, {"latency_ms": 42}).startswith("🌐 VLESS |")
 
 
 @pytest.mark.parametrize("grade", [None, "", "-", "  ", 42, True])
@@ -43,7 +43,7 @@ def test_metadata_normalization_and_sequence():
     }
     first = format_enriched_remark(URI, counter, metadata)
     second = format_enriched_remark(URI.replace("vless://", "Vless://"), counter, metadata)
-    assert first == "🇩🇪 DE-CF | VLESS | ⚡42ms | ⭐A+ | #001"
+    assert first == "🇩🇪 VLESS | OP:CF | ⚡42ms | ⭐A+ | #001"
     assert second.endswith("#002")
     assert metadata["country"] == " de "
 
@@ -57,14 +57,14 @@ def test_metadata_normalization_and_sequence():
 def test_transport_and_security_are_shown_in_the_protocol_tag(transport, security, expected):
     """Transport and security belong in the remark so nodes differ at a glance."""
     remark = format_enriched_remark(URI, {}, {"country": "DE", "transport": transport, "security": security})
-    assert f"DE | {expected} |" in remark
+    assert f"🇩🇪 {expected} |" in remark
 
 
 @pytest.mark.parametrize("junk", ["none", "auto", "unknown", "NONE"])
 def test_placeholder_transport_values_are_not_displayed(junk):
     remark = format_enriched_remark(URI, {}, {"country": "DE", "transport": junk})
-    assert "DE | VLESS-" not in remark
-    assert "DE | VLESS |" in remark
+    assert "🇩🇪 VLESS-" not in remark
+    assert "🇩🇪 VLESS |" in remark
 
 
 def test_unverified_upstream_marketing_cannot_claim_quality_or_operator():

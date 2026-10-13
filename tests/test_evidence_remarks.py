@@ -30,7 +30,8 @@ def evidence(country="DE", *, expires=4_000_000_000):
 def test_rich_remark_has_verified_country_flag_provenance_transport_asn_and_stable_id(monkeypatch):
     monkeypatch.setenv("HUNTX_REMARK_STYLE", "evidence")
     tag = unquote(urlsplit(add_clean_remark(URI, {}, evidence())).fragment)
-    assert "🇩🇪 DE" in tag
+    assert tag.startswith("🇩🇪 VLESS-WS-TLS | 1.1.1.1:443")
+    assert "🇩🇪 DE" not in tag
     assert "VLESS" in tag and "WS" in tag and "TLS" in tag
     assert "AS13335" in tag
     assert "CDN" in tag
@@ -46,7 +47,7 @@ def test_absent_or_stale_evidence_does_not_make_up_country_asn_or_cdn(monkeypatc
     no_evidence = unquote(urlsplit(add_clean_remark(URI, {})).fragment)
     stale = unquote(urlsplit(add_clean_remark(URI, {}, evidence(expires=1))).fragment)
     for remark in (no_evidence, stale):
-        assert remark.startswith("VLESS-WS-TLS")
+        assert remark.startswith("🌐 VLESS-WS-TLS | 1.1.1.1:443")
         assert "ZZ" not in remark
         assert "1.1.1.1:443" in remark
         assert "🇩🇪" not in remark and "AS13335" not in remark
@@ -58,8 +59,8 @@ def test_unverified_source_country_hint_is_conspicuously_marked(monkeypatch):
     monkeypatch.setenv("HUNTX_REMARK_STYLE", "evidence")
     metadata = {"country_hint": "FR", "country_hint_source": "source_remark"}
     remark = unquote(urlsplit(add_clean_remark(URI, {}, metadata)).fragment)
-    assert "🇫🇷?" in remark
-    assert "FR" in remark
+    assert remark.startswith("🇫🇷? VLESS-WS-TLS | 1.1.1.1:443")
+    assert "🇫🇷? FR" not in remark
     assert "AS" not in remark
     assert "⭐" not in remark
 
@@ -114,7 +115,8 @@ def test_legacy_records_receive_fresh_offline_evidence_during_build(monkeypatch,
     monkeypatch.setenv("HUNTX_NETWORK_INTELLIGENCE_PATH", str(intel))
     stored_legacy = [{"data": {"line": URI.split("#")[0]}}]
     tag = unquote(urlsplit(NpvtHandler().build(stored_legacy).decode()).fragment)
-    assert "🇩🇪 DE" in tag
+    assert tag.startswith("🇩🇪 VLESS-WS-TLS | 1.1.1.1:443")
+    assert "🇩🇪 DE" not in tag
     assert "AS13335" in tag
     assert "VLESS-WS-TLS" in tag
     assert "⭐" not in tag

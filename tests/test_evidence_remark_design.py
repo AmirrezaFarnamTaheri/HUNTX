@@ -25,7 +25,8 @@ def test_terminal_identity_survives_extremely_long_metadata(monkeypatch):
         "probe_expires_at": 1800002000, "latency_ms": 12.25,
     }
     tag = format_evidence_remark(URI, metadata)
-    assert tag.startswith("🇩🇪 DE | VLESS-WS-TLS")
+    assert tag.startswith("🇩🇪 VLESS-WS-TLS | edge.example.com:443")
+    assert "🇩🇪 DE" not in tag
     assert "AS13335" in tag and "TCP:12ms" in tag
     assert len(tag) <= 110
     assert "| edge.example.com:443" in tag
