@@ -84,29 +84,12 @@ jobs:
 
       - name: Verify the regenerated data carries telemetry
         run: |
-          python - <<'PY'
-          import json, pathlib, re
-          scratch = pathlib.Path(pathlib.Path("scratch-root.txt").read_text(encoding="utf-8"))
-          data_file = scratch / "assets" / "js" / "data.js"
-          assert data_file.is_file(), f"no data.js was produced at {data_file}"
-          raw = data_file.read_text(encoding="utf-8")
-          proxies = json.loads(
-              re.search(r"SAMPLE_PROXIES\s*=\s*(\[.*?\]);\s*\n", raw, re.S).group(1)
-          )
-          assert proxies, "regeneration produced zero proxies"
-          measured = [p for p in proxies if p.get("probe_ok") is not None]
-          print(f"proxies={len(proxies)} measured={len(measured)}")
-          # The probe stage must run for every node, even the unreachable ones:
-          # probe_ok=False is a measurement, probe_ok=None is a skipped one.
-          assert len(measured) == len(proxies), (
-              f"{len(proxies) - len(measured)} nodes skipped measurement entirely"
-          )
-          graded = [p for p in proxies if p.get("health_grade")]
-          scored = [p for p in proxies if p.get("pca_score") is not None]
-          print(f"graded={len(graded)} scored={len(scored)}")
-          assert len(graded) == len(proxies), "health grading did not cover the fleet"
-          assert len(scored) == len(proxies), "governed scoring did not cover the fleet"
-          PY
+          set -euo pipefail
+          # A TCP handshake is evidence of reachability, not authenticated
+          # proxy health. Use exactly the same contract as the release gate.
+          scratch="$(cat scratch-root.txt)"
+          test -s "$scratch/assets/js/data.js"
+          python scripts/verify_dashboard_telemetry.py "$scratch/assets/js/data.js"
 
       - name: Run the one-time output parity gate
         run: |
@@ -115,6 +98,7 @@ jobs:
           # between releases is an expected xfail, not a red suite.
           python -m pytest -q -p no:cacheprovider \
             tests/test_output_telemetry_coverage.py \
+            tests/test_dashboard_telemetry_contract.py \
             tests/test_frontend_delivery.py \
             tests/test_formats_coverage.py \
             tests/test_verify_new_proxy_outputs.py

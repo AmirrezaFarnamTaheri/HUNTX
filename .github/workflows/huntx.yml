@@ -511,6 +511,13 @@ jobs:
             HUNTX_GENERATED_AT="$generated_at" PYTHONPATH=src python -c 'from pathlib import Path; from scripts import generate_site_data as site; site.generate_dashboard_data(Path("persist/data/outputs"), Path("persist/data/outputs_dev"), Path("'"$candidate_dir"'/catalog.json"), Path("'"$candidate_dir"'/assets/js/data.js"))' || return 1
             test -f "$candidate_dir/index.html" || return 1
             test -s "$candidate_dir/assets/js/data.js" || return 1
+            # The release receipt is the only authority for a legitimate
+            # empty release. Nonempty dashboards must carry evidence-backed
+            # telemetry; TCP-only nodes must never be graded as verified.
+            is_empty="$(python -c 'import json; print(json.load(open("persist/data/logs/release-receipt.json"))["empty_release"])')" || return 1
+            if [[ "$is_empty" != "True" ]]; then
+              python scripts/verify_dashboard_telemetry.py "$candidate_dir/assets/js/data.js" || return 1
+            fi
             test -f "$candidate_dir/assets/js/app.js" || return 1
             test -f "$candidate_dir/assets/css/tailwind.css" || return 1
             test -f "$candidate_dir/sw.js" || return 1
