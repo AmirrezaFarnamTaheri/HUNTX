@@ -238,20 +238,22 @@ def test_sample_proxies_carry_telemetry_or_an_explicit_gap() -> None:
 
 
 def test_health_and_pca_cover_the_whole_measured_fleet() -> None:
-    """A measured node must carry both health and a governed score."""
+    """Every measured node has a scored, evidence-aware health classification.
+
+    Bare TCP reachability is not an authenticated proxy success and must not
+    manufacture a health grade merely to satisfy a publishing test.
+    """
+    from scripts.verify_dashboard_telemetry import (
+        load_dashboard_proxies,
+        validate_proxy_telemetry,
+    )
+
     data_path = ROOT / "docs" / "assets" / "js" / "data.js"
     if not data_path.is_file():
         pytest.skip("data.js is generated at publish time and is absent locally")
-    raw = data_path.read_text(encoding="utf-8")
-    match = __import__("re").search(r"SAMPLE_PROXIES\s*=\s*(\[.*?\]);\s*\n", raw, __import__("re").S)
-    assert match
-    proxies = json.loads(match.group(1))
-
-    measured = [p for p in proxies if p.get("probe_ok") is True]
-    ungraded = [p.get("id") for p in measured if not p.get("health_grade")]
-    unscored = [p.get("id") for p in measured if not p.get("pca_score")]
-    assert not ungraded, f"measured nodes without a health grade: {ungraded[:5]}"
-    assert not unscored, f"measured nodes without a governed score: {unscored[:5]}"
+    proxies = load_dashboard_proxies(data_path)
+    totals = validate_proxy_telemetry(proxies)
+    assert totals["scored"] == totals["proxies"]
 
 
 def test_the_classification_table_is_the_single_source_of_truth(generator) -> None:
