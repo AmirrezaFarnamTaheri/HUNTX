@@ -177,6 +177,7 @@ async def inspect_target(
             _safe_method_outcome(record, "structurally_invalid_configuration")
             return record
         lookup = resolver or asyncio.get_running_loop().getaddrinfo
+        dns_started = time.monotonic()
         try:
             infos = await asyncio.wait_for(
                 lookup(host, port, type=socket.SOCK_STREAM), timeout=timeout
@@ -216,6 +217,9 @@ async def inspect_target(
             _safe_method_outcome(record, "dns_no_public_addresses")
             return record
         record["dns"]["status"] = "resolved_public"
+        record["dns"]["elapsed_ms"] = round(
+            min(timeout * 1000, max(0.0, (time.monotonic() - dns_started) * 1000)), 2
+        )
 
     record["dns"]["ipv4_count"] = sum(f == socket.AF_INET for _, f in selected)
     record["dns"]["ipv6_count"] = sum(f == socket.AF_INET6 for _, f in selected)
@@ -257,33 +261,65 @@ async def inspect_target(
         return record
 
     dial = connector or asyncio.open_connection
-    dest, family = selected[0]
-    try:
+    # A multihomed hostname may have one broken A/AAAA route and another
+    # viable address. Do not interpret the first failed route as dead.
+    # Total connection time is bounded and never retries private IPs.
+    attempt_limit = min(4, len(selected))
+    deadline = time.monotonic() + timeout
+    writer: Any | None = None
+    failure_code = "tcp_timeout"
+    failure_tcp_status = "timeout"
+    failure_tls_status: str | None = None
+    attempts = 0
+    for dest, family in selected[:attempt_limit]:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        attempts += 1
+        remaining_slots = attempt_limit - attempts + 1
+        per_attempt = min(remaining, max(0.1, remaining / remaining_slots))
         options: dict[str, Any] = {"family": family}
         if ssl_context is not None:
             options.update(ssl=ssl_context, server_hostname=sni)
-        _reader, writer = await asyncio.wait_for(
-            dial(dest, port, **options), timeout=timeout
-        )
-    except ssl.SSLCertVerificationError:
-        record["tcp"]["status"] = "indeterminate_tls_connect"
-        record["tls"]["status"] = "certificate_verification_failed"
-        _safe_method_outcome(record, "tls_certificate_verification_failed")
+        started = time.monotonic()
+        try:
+            _reader, writer = await asyncio.wait_for(
+                dial(dest, port, **options), timeout=per_attempt
+            )
+        except ssl.SSLCertVerificationError:
+            failure_code = "tls_certificate_verification_failed"
+            failure_tcp_status = "indeterminate_tls_connect"
+            failure_tls_status = "certificate_verification_failed"
+            continue
+        except ssl.SSLError:
+            failure_code = "tls_handshake_error"
+            failure_tcp_status = "indeterminate_tls_connect"
+            failure_tls_status = "handshake_failed"
+            continue
+        except (TimeoutError, asyncio.TimeoutError):
+            failure_code = "tcp_timeout"
+            failure_tcp_status = "timeout"
+            continue
+        except (OSError, ConnectionError):
+            failure_code = "tcp_refused"
+            failure_tcp_status = "connect_failed"
+            continue
+        record["tcp"] = {
+            "status": "connected",
+            "attempts": attempts,
+            "ip_family": "ipv4" if family == socket.AF_INET else "ipv6",
+            "elapsed_ms": round(
+                min(timeout * 1000, max(0.0, (time.monotonic() - started) * 1000)),
+                2,
+            ),
+        }
+        break
+    if writer is None:
+        record["tcp"].update(status=failure_tcp_status, attempts=attempts)
+        if failure_tls_status is not None:
+            record["tls"]["status"] = failure_tls_status
+        _safe_method_outcome(record, failure_code)
         return record
-    except ssl.SSLError:
-        record["tcp"]["status"] = "indeterminate_tls_connect"
-        record["tls"]["status"] = "handshake_failed"
-        _safe_method_outcome(record, "tls_handshake_error")
-        return record
-    except (TimeoutError, asyncio.TimeoutError):
-        record["tcp"]["status"] = "timeout"
-        _safe_method_outcome(record, "tcp_timeout")
-        return record
-    except (OSError, ConnectionError):
-        record["tcp"]["status"] = "connect_failed"
-        _safe_method_outcome(record, "tcp_refused")
-        return record
-    record["tcp"]["status"] = "connected"
     try:
         if ssl_context is not None:
             tls = writer.get_extra_info("ssl_object")
