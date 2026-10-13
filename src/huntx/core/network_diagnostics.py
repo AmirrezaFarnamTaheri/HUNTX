@@ -262,16 +262,26 @@ async def inspect_target(
 
     dial = connector or asyncio.open_connection
     # A multihomed hostname may have one broken A/AAAA route and another
-    # viable address. Do not interpret the first failed route as dead.
-    # Total connection time is bounded and never retries private IPs.
-    attempt_limit = min(4, len(selected))
+    # viable address. Interleave address families BEFORE applying the cap,
+    # so four or more A records cannot starve otherwise reachable AAAA routes.
+    # Address order remains deterministic within each family, and only
+    # prevalidated public numerical destinations are ever dialed.
+    v4 = [item for item in selected if item[1] == socket.AF_INET]
+    v6 = [item for item in selected if item[1] == socket.AF_INET6]
+    ordered: list[tuple[str, int]] = []
+    for index in range(max(len(v4), len(v6))):
+        if index < len(v4):
+            ordered.append(v4[index])
+        if index < len(v6):
+            ordered.append(v6[index])
+    attempt_limit = min(4, len(ordered))
     deadline = time.monotonic() + timeout
     writer: Any | None = None
     failure_code = "tcp_timeout"
     failure_tcp_status = "timeout"
     failure_tls_status: str | None = None
     attempts = 0
-    for dest, family in selected[:attempt_limit]:
+    for dest, family in ordered[:attempt_limit]:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             break
