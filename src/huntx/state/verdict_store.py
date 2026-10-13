@@ -4,6 +4,8 @@ import json
 import time
 from typing import Any, Iterable, Optional
 
+from .proxy_retirement import PROXY_UNPUBLISHABLE_SQL
+
 
 def upsert_record_verdict(
     db: Any,
@@ -117,7 +119,7 @@ def get_records_for_governed_build(
                   SELECT 1 FROM proxy_lifecycle p
                   WHERE p.unique_hash = r.unique_hash
                     AND p.record_type = r.record_type
-                    AND p.lifecycle_status IN ('dead', 'revoked', 'archived')
+                    AND {PROXY_UNPUBLISHABLE_SQL}
               )
               {extra}
               {verdict_where}
