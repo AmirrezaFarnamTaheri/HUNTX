@@ -70,3 +70,36 @@ def get_retirement_audit(db: Any) -> dict[str, int]:
             "suppressed_candidates", "insufficient_evidence",
         )
     }
+
+
+def get_suppression_candidates(db: Any, *, limit: int = 100) -> list[dict[str, Any]]:
+    """Identify temporarily suppressed identities without revealing credentials.
+
+    These are *retesting* candidates, not proof of permanent death. Fingerprints
+    are shortened to avoid publishing source payloads or link credentials.
+    """
+    if type(limit) is not int or not 1 <= limit <= 1000:
+        raise ValueError("candidate limit must be an integer from 1 to 1000")
+    with db.connect() as connection:
+        rows = connection.execute(
+            f"""
+            SELECT p.unique_hash, p.record_type,
+                   p.consecutive_failures, p.last_probe_at
+            FROM proxy_lifecycle AS p
+            WHERE ({_SUSPECT_CONDITION})
+            ORDER BY p.last_probe_at DESC, p.unique_hash
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    return [
+        {
+            "identity_fingerprint": str(row["unique_hash"])[:20],
+            "record_type": row["record_type"],
+            "authenticated_failure_streak": int(row["consecutive_failures"]),
+            "last_authenticated_failure_at": int(row["last_probe_at"]),
+            "status": "temporarily_suppressed",
+            "next_action": "authenticated_retest_from_independent_vantages",
+        }
+        for row in rows
+    ]
