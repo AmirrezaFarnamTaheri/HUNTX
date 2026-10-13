@@ -1073,12 +1073,20 @@ export class AppState {
   }
 
   refreshProxyWorkspace() {
-    // The filter bar counts and the node grid derive from one filtered set;
-    // computing it once here keeps a ~1k-node filter+sort from running twice
-    // on every keystroke and select change.
+    // Filtering replaces the toolbar. Preserve keyboard focus and the caret,
+    // otherwise typing into the quick search drops focus after one character.
+    const focus = typeof document === "undefined" ? null : document.activeElement;
+    const preserve = focus?.id === "node-quick-search";
+    const start = preserve ? focus.selectionStart : null;
+    const end = preserve ? focus.selectionEnd : null;
     const filtered = this.getFilteredProxies();
     this.renderFilterBar(filtered);
     this.renderNodes(filtered);
+    if (preserve) {
+      const next = document.getElementById("node-quick-search");
+      next?.focus({ preventScroll: true });
+      if (next && start !== null && end !== null) next.setSelectionRange(start, end);
+    }
   }
 
   resetProxyFilters({ focusSearch = false } = {}) {
@@ -2128,9 +2136,22 @@ export class AppState {
     ];
 
     const filtered = precomputed || this.getFilteredProxies();
+    const activeFilters = [
+      { key: "selectedProtocol", label: "Protocol", value: this.selectedProtocol },
+      { key: "selectedTransport", label: "Transport", value: this.selectedTransport },
+      { key: "selectedCountry", label: "Region", value: this.selectedCountry },
+      { key: "selectedOperator", label: "Operator", value: this.selectedOperator },
+      { key: "selectedGrade", label: "Grade", value: this.selectedGrade },
+      { key: "selectedSecurity", label: "Security", value: this.selectedSecurity },
+      { key: "searchQuery", label: "Search", value: this.searchQuery }
+    ].filter(item => item.value && item.value !== "ALL");
 
     filterContainer.innerHTML = `
       <div class="space-y-4 py-6">
+        <div class="workspace-intro">
+          <div><span class="section-eyebrow">Node explorer</span><h2>Published proxy catalog</h2><p>Filter by transport, geography and observed evidence. Saved endpoints are not guaranteed to authenticate.</p></div>
+          <span class="workspace-total">${allProxies.length.toLocaleString("en-US")} nodes in snapshot</span>
+        </div>
         <!-- Top Toolbar: Protocol Pills + View Mode Switcher + Search -->
         <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <!-- Protocol Tabs -->
@@ -2312,9 +2333,35 @@ export class AppState {
             </button>
           </div>
         </div>
+        <div id="active-filter-chips" aria-label="Active filters">
+          ${activeFilters.map(item => `
+            <button type="button" class="filter-chip focus-ring"
+              data-filter-key="${item.key}"
+              aria-label="Remove ${item.label.toLowerCase()} filter">
+              <span>${escapeHTML(item.label)}: ${escapeHTML(item.value)}</span>
+              <span aria-hidden="true">×</span>
+            </button>
+          `).join("")}
+        </div>
       </div>
     `;
 
+    filterContainer.querySelectorAll(".filter-chip").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset.filterKey;
+        const permitted = new Set([
+          "selectedProtocol", "selectedTransport", "selectedCountry",
+          "selectedOperator", "selectedGrade", "selectedSecurity", "searchQuery"
+        ]);
+        if (!permitted.has(key)) return;
+        this[key] = key === "searchQuery" ? "" : "ALL";
+        if (key === "searchQuery") {
+          const global = document.getElementById("global-search-input");
+          if (global) global.value = "";
+        }
+        this.refreshProxyWorkspace();
+      });
+    });
     filterContainer.querySelectorAll(".btn-proto-tab").forEach(btn => {
       btn.addEventListener("click", (e) => {
         this.selectedProtocol = e.currentTarget.dataset.protocol;
