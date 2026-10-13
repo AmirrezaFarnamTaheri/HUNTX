@@ -38,7 +38,10 @@ def test_different_credential_transport_path_and_tls_remain_independent(monkeypa
     first = BASE + "?type=ws&security=tls&path=%2Fone"
     different_password = first.replace(ID, "99999999-2222-4333-8444-555555555555")
     different_path = first.replace("%2Fone", "%2Ftwo")
-    different_security = first.replace("security=tls", "security=reality&pbk=key")
+    different_security = first.replace(
+        "security=tls",
+        "security=reality&pbk=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&sid=ab12",
+    )
     lines = [first, different_password, different_path, different_security]
     keys = [canonical_proxy_identity(link) for link in lines]
     assert len(set(keys)) == 4
