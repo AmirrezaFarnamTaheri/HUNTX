@@ -167,3 +167,27 @@ def test_network_dataset_can_be_loaded_without_external_requests(tmp_path):
     )
     assert info is not None and info["asn"] == 13335
     assert re.fullmatch(r"[0-9a-f]{24}", info["endpoint_id"])
+
+
+def test_transport_and_tls_diagnostics_are_configuration_not_network_proof():
+    item = describe_proxy_endpoint(
+        f"vless://{UUID}@edge.example.com:443?security=tls&"
+        "type=grpc&serviceName=live&allowInsecure=1&alpn=http/1.1"
+    )
+    assert item is not None
+    assert item["tls_configuration"]["verification_disabled_in_link"] is True
+    assert item["tls_configuration"]["alpn_profile"] == "http1"
+    assert item["transport_configuration"]["grpc_service_present"] is True
+    assert "tls_verification_disabled" in item["diagnostic_findings"]
+    assert "grpc_alpn_h2_not_declared" in item["diagnostic_findings"]
+    assert item["dns_observation"] == "not_measured"
+    assert "live" not in json.dumps(item)
+    assert "allowInsecure" not in json.dumps(item)
+
+
+def test_udp_transport_is_not_claimed_to_be_tcp_healthy():
+    result = describe_proxy_endpoint("hysteria2://secret@8.8.8.8:443")
+    assert result is not None
+    assert "udp_requires_native_protocol_probe" in result["diagnostic_findings"]
+    assert result["dns_observation"] == "not_applicable_literal"
+    assert result["transport_kind"] == "udp"
