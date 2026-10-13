@@ -202,7 +202,11 @@ def compact_semantic_manifest(manifest: dict[str, ManifestValue]) -> dict[str, M
         prior = selected.get(fingerprint)
         if prior is None:
             selected[fingerprint] = (uri, first_seen)
-        elif _earlier(first_seen, prior[1]):
+        elif str(prior[1]) in {"0", "0.0"} and str(first_seen) not in {"0", "0.0"}:
+            # The historic 0 is "first seen unknown", NOT epoch zero.
+            # A known source timestamp always outranks that sentinel.
+            selected[fingerprint] = (prior[0], first_seen)
+        elif str(first_seen) not in {"0", "0.0"} and _earlier(first_seen, prior[1]):
             selected[fingerprint] = (prior[0], first_seen)
     return {uri: first_seen for uri, first_seen in selected.values()}
 
