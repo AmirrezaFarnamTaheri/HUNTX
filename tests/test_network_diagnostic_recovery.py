@@ -130,6 +130,7 @@ async def test_many_ipv4_routes_cannot_starve_reachable_ipv6_with_four_attempt_c
         (socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("2606:4700:4700::1111", 443, 0, 0)),
     ]
     writer = Mock(close=Mock(), wait_closed=AsyncMock())
+
     async def dial(address, port, **options):
         if options["family"] == socket.AF_INET:
             raise OSError("IPv4 route unavailable")
