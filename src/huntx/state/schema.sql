@@ -102,6 +102,10 @@ CREATE TABLE IF NOT EXISTS proxy_probe_history (
         REFERENCES proxy_lifecycle(unique_hash, record_type) ON DELETE RESTRICT
 );
 
+-- Index repeated authenticated failures by canonical identity.
+CREATE INDEX IF NOT EXISTS idx_proxy_probe_identity_time
+    ON proxy_probe_history(unique_hash, record_type, checked_at DESC);
+
 CREATE TABLE IF NOT EXISTS published_artifacts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     route_name TEXT NOT NULL,

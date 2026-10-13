@@ -17,8 +17,8 @@ func TestGeoIP_KnownPublicIPs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("lookup 1.1.1.1 failed: %v", err)
 	}
-	if res1.CountryCode != "US" && res1.CountryCode != "AU" {
-		t.Errorf("expected US or AU for 1.1.1.1, got %s", res1.CountryCode)
+	if res1.CountryCode != "XX" || !res1.IsAnycast {
+		t.Errorf("expected unknown country for anycast 1.1.1.1, got %+v", res1)
 	}
 	if res1.ASN == 0 {
 		t.Errorf("expected non-zero ASN for 1.1.1.1, got %d", res1.ASN)
@@ -29,8 +29,8 @@ func TestGeoIP_KnownPublicIPs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("lookup 8.8.8.8 failed: %v", err)
 	}
-	if res2.CountryCode != "US" {
-		t.Errorf("expected US for 8.8.8.8, got %s", res2.CountryCode)
+	if res2.CountryCode != "XX" || !res2.IsAnycast {
+		t.Errorf("expected unknown country for anycast 8.8.8.8, got %+v", res2)
 	}
 	if res2.ASN != 15169 {
 		t.Errorf("expected AS15169 for 8.8.8.8, got %d", res2.ASN)
@@ -66,7 +66,7 @@ func TestGeoIP_InferCountryFromDomain(t *testing.T) {
 		{"node1.ams.nl", "NL"},
 		{"proxy.tokyo.jp", "JP"},
 		{"gw.tehran.ir", "IR"},
-		{"london.uk.co", "GB"},
+		{"london.uk.co", "XX"},
 		{"unknown-server.com", "XX"},
 	}
 

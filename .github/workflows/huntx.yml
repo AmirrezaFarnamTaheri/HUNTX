@@ -457,6 +457,7 @@ jobs:
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_USER_SESSION: ${{ secrets.TELEGRAM_USER_SESSION }}
           HUNTX_MAX_WORKERS: ${{ env.MAX_WORKERS }}
+          HUNTX_REMARK_STYLE: evidence
           LOG_LEVEL: INFO
         run: |
           set -euo pipefail
@@ -604,6 +605,34 @@ jobs:
             --summary "$HUNTX_RUN_SUMMARY_PATH" \
             --db persist/state.db \
             --output persist/data/logs/source-health.json
+          # Rebuild metadata for previously ingested *and* current active
+          # records without touching their canonical raw URI/SQLite state.
+          python scripts/report_endpoint_inventory.py \
+            --db persist/state.db \
+            --max-records 50000 \
+            --output persist/data/logs/endpoint-inventory.json
+          # Distinguish temporary verified-failure suppression from terminal
+          # credential revocation. Emit no raw proxies or secrets.
+          python scripts/report_proxy_retirements.py \
+            --db persist/state.db \
+            --output persist/data/logs/proxy-retirements.json
+
+      - name: Probe bounded public endpoint sample
+        if: always()
+        timeout-minutes: 6
+        run: |
+          set -euo pipefail
+          # Layered observations: DNS, TCP, standard verified TLS only.
+          # QUIC/REALITY/WebSocket/gRPC and proxy auth remain unverified.
+          # Numeric pinned public IPs prevent DNS rebinding to local services.
+          python scripts/report_network_diagnostics.py \
+            --db persist/state.db \
+            --max-records 50000 \
+            --max-endpoints 24 \
+            --concurrency 4 \
+            --timeout 3.0 \
+            --enable-network \
+            --output persist/data/logs/network-diagnostics.json
 
       - name: Record explicit no-release verdict
         if: ${{ always() && steps.package.outputs.ready != 'true' }}
@@ -666,7 +695,11 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: source-health-${{ github.run_id }}-${{ github.run_attempt }}
-          path: persist/data/logs/source-health.json
+          path: |
+            persist/data/logs/source-health.json
+            persist/data/logs/endpoint-inventory.json
+            persist/data/logs/proxy-retirements.json
+            persist/data/logs/network-diagnostics.json
           if-no-files-found: warn
           retention-days: 30
 

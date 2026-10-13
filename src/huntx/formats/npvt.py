@@ -4,6 +4,8 @@ import json
 import math
 import os
 import re
+import time
+from urllib.parse import quote, unquote
 from typing import Any, Dict, List
 
 from .base import FormatHandler
@@ -207,6 +209,107 @@ def format_enriched_remark(uri: str, counter: dict, metadata: dict | None = None
     return tag
 
 
+# ISO hints are deliberately separate from independently sourced IP evidence.
+_HINT_COUNTRIES = frozenset({
+    'US', 'DE', 'FR', 'GB', 'NL', 'SG', 'JP', 'CA', 'AU', 'IR', 'KR', 'CN',
+    'RU', 'HK', 'TW', 'SE', 'FI', 'CH', 'IT', 'ES', 'TR', 'IN', 'BR', 'PL',
+    'RO', 'UA', 'AE', 'ZA', 'NO', 'DK', 'BE', 'AT', 'CZ', 'GR', 'PT', 'IE',
+})
+
+
+def _remark_country_hint(uri: str) -> str | None:
+    """Only consume an explicitly tagged country from the untrusted fragment."""
+    fragment = uri.split('#', 1)[1] if '#' in uri else ''
+    if not fragment or len(fragment) > 256:
+        return None
+    readable = unquote(fragment).upper()
+    for match in re.finditer(r'(?<![A-Z])([A-Z]{2})(?![A-Z])', readable):
+        code = match.group(1)
+        if code in _HINT_COUNTRIES:
+            return code
+    return None
+
+
+def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
+    """Create a short, stable, evidence-labeled client tag.
+
+    Flags without '?' require an unexpired authoritative prefix attribution.
+    Source-provided country fragments are hints only and carry '?'. A TCP
+    connect cannot promote an endpoint to a healthy authenticated proxy.
+    """
+    fields = metadata if isinstance(metadata, dict) else {}
+    endpoint = fields.get('endpoint')
+    endpoint = endpoint if isinstance(endpoint, dict) else {}
+    intel = endpoint.get('intelligence')
+    intel = intel if isinstance(intel, dict) else {}
+    geo = endpoint.get('geo')
+    geo = geo if isinstance(geo, dict) else {}
+    expiration = intel.get('expires_at')
+    expiry_epoch = float(expiration) if isinstance(expiration, (float, int)) and expiration is not None and not isinstance(expiration, bool) else float('-inf')
+    fresh = (
+        intel.get('status') == 'matched'
+        and math.isfinite(expiry_epoch) and expiry_epoch > time.time()
+    )
+    country = geo.get('country_code')
+    proven = (
+        fresh and geo.get('status') == 'prefix_dataset_estimate'
+        and isinstance(country, str) and country in _HINT_COUNTRIES
+    )
+    if proven:
+        location = f'{_country_to_flag(str(country))} {country}'
+    else:
+        hint = fields.get('country_hint')
+        if (
+            isinstance(hint, str) and hint in _HINT_COUNTRIES
+            and fields.get('country_hint_source') == 'source_remark'
+        ):
+            location = f'{_country_to_flag(hint)}? {hint}'
+        else:
+            location = '🌐 ZZ'
+
+    scheme = uri.split('://', 1)[0].upper() if '://' in uri else 'PROXY'
+    label = re.sub(r'[^A-Z0-9+_-]', '', scheme)[:18] or 'PROXY'
+    qualifier = remark_qualifier(uri).upper()
+    if qualifier:
+        label += '-' + qualifier[:24]
+
+    details: list[str] = []
+    asn = endpoint.get('asn')
+    if fresh and type(asn) is int and 0 < asn <= 4294967295:
+        details.append(f'AS{asn}')
+        cdn = endpoint.get('cdn_provider')
+        if isinstance(cdn, str):
+            cleaned = re.sub(r'[^a-zA-Z0-9 -]', '', cdn).strip()[:15]
+            if cleaned:
+                details.append('CDN:' + cleaned.replace(' ', '-'))
+
+    now = time.time()
+    elapsed = fields.get('latency_ms')
+    observed = fields.get('probe_checked_at')
+    expires = fields.get('probe_expires_at')
+    measured_latency = float(elapsed) if isinstance(elapsed, (float, int)) and elapsed is not None and not isinstance(elapsed, bool) else float('nan')
+    measured_at = float(observed) if isinstance(observed, (float, int)) and observed is not None and not isinstance(observed, bool) else float('nan')
+    valid_until = float(expires) if isinstance(expires, (float, int)) and expires is not None and not isinstance(expires, bool) else float('nan')
+    fresh_probe = (
+        math.isfinite(measured_latency) and 0 <= measured_latency <= 60000
+        and math.isfinite(measured_at) and math.isfinite(valid_until)
+        and measured_at <= now < valid_until
+    )
+    if fresh_probe:
+        if fields.get('probe_kind') == 'tcp_connect':
+            details.append(f'TCP:{round(measured_latency)}ms')
+        elif (
+            fields.get('probe_kind') == 'protocol_authenticated'
+            and fields.get('probe_authenticated') is True
+        ):
+            details.append(f'AUTH:{round(measured_latency)}ms')
+
+    # Stable within credential identity, independent of sorting and source order.
+    identifier = hash_string(strip_proxy_remark(uri))[:10]
+    parts = [location, label, *details, identifier]
+    return ' | '.join(parts)[:110]
+
+
 def add_clean_remark(uri: str, counter: dict, metadata: dict | None = None) -> str:
     """Attach a deterministic display remark to a proxy URI.
 
@@ -215,7 +318,10 @@ def add_clean_remark(uri: str, counter: dict, metadata: dict | None = None) -> s
     digest, avoiding name churn when sources reorder. Neither mode invents
     country, speed, or health status.
     """
-    if metadata:
+    evidence_style = os.getenv("HUNTX_REMARK_STYLE", "legacy").lower() == "evidence"
+    if evidence_style:
+        tag = format_evidence_remark(uri, metadata)
+    elif metadata:
         tag = format_enriched_remark(uri, counter, metadata)
     else:
         scheme = uri.split('://')[0].lower() if '://' in uri else 'proxy'
@@ -243,7 +349,7 @@ def add_clean_remark(uri: str, counter: dict, metadata: dict | None = None) -> s
             return uri
     idx = uri.rfind('#')
     base = uri[:idx] if idx > 0 else uri
-    return f'{base}#{tag}'
+    return f'{base}#{quote(tag, safe="-._~") if evidence_style else tag}'
 
 
 class NpvtHandler(FormatHandler):
@@ -271,7 +377,13 @@ class NpvtHandler(FormatHandler):
         if digest in seen_hashes:
             return
         seen_hashes.add(digest)
-        records.append({'unique_hash': digest, 'data': {'line': stripped}})
+        payload = {'line': stripped}
+        if os.getenv("HUNTX_REMARK_STYLE", "legacy").lower() == "evidence":
+            hint = _remark_country_hint(uri)
+            if hint:
+                payload['country_hint'] = hint
+                payload['country_hint_source'] = 'source_remark'
+        records.append({'unique_hash': digest, 'data': payload})
 
     def parse(
         self,
@@ -309,11 +421,24 @@ class NpvtHandler(FormatHandler):
         lines = []
         seen = set()
         remark_counter: dict = {}
+        rich = os.getenv("HUNTX_REMARK_STYLE", "legacy").lower() == "evidence"
+        prefix_intel = None
+        if rich:
+            from ..core.endpoint_intelligence import PrefixIntelligence
+            intel_path = os.getenv("HUNTX_NETWORK_INTELLIGENCE_PATH", "").strip()
+            if intel_path:
+                try:
+                    prefix_intel = PrefixIntelligence.from_file(intel_path)
+                except (OSError, ValueError):
+                    prefix_intel = None
         for record in records:
             line = None
+            evidence_metadata = None
             if isinstance(record, dict):
                 if 'data' in record and isinstance(record['data'], dict):
                     line = record['data'].get('line')
+                    if os.getenv("HUNTX_REMARK_STYLE", "legacy").lower() == "evidence":
+                        evidence_metadata = record['data']
                 elif 'line' in record:
                     line = record['line']
             if not isinstance(line, str) or not validate_proxy_uri(line):
@@ -321,5 +446,21 @@ class NpvtHandler(FormatHandler):
             stripped = strip_proxy_remark(line)
             if stripped not in seen:
                 seen.add(stripped)
-                lines.append(add_clean_remark(stripped, remark_counter))
+                if rich:
+                    # Older persisted records predate the endpoint metadata
+                    # contract. Enrich at read time without mutating the
+                    # canonical observation or changing the raw link.
+                    from ..core.endpoint_intelligence import describe_proxy_endpoint
+
+                    stored = evidence_metadata if isinstance(evidence_metadata, dict) else {}
+                    endpoint = stored.get("endpoint")
+                    intel = endpoint.get("intelligence") if isinstance(endpoint, dict) else None
+                    expiry = intel.get("expires_at") if isinstance(intel, dict) else None
+                    expires_at = float(expiry) if isinstance(expiry, (float, int)) and expiry is not None and not isinstance(expiry, bool) else float('inf')
+                    stale = math.isfinite(expires_at) and expires_at <= time.time()
+                    if not isinstance(endpoint, dict) or stale or prefix_intel is not None:
+                        discovered = describe_proxy_endpoint(stripped, intelligence=prefix_intel)
+                        if discovered is not None:
+                            evidence_metadata = {**stored, "endpoint": discovered}
+                lines.append(add_clean_remark(stripped, remark_counter, evidence_metadata))
         return '\n'.join(lines).encode('utf-8')
