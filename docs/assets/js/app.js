@@ -164,7 +164,7 @@ export function resolveGeoAndCarrier(address, _sni = "", _host = "") {
   // server location or carrier. Preserve the destination as unknown until
   // an independently attributed telemetry record is merged.
   const host = String(address || "").trim().toLowerCase();
-  const cloudflareAnycast = /^(188\\.114\\.|162\\.159\\.|172\\.6[47]\\.|104\\.(?:1[6-9]|2[01])\\.)/.test(host);
+  const cloudflareAnycast = /^(188\.114\.|162\.159\.|172\.6[47]\.|104\.(?:1[6-9]|2[01])\.)/.test(host);
   const provider = cloudflareAnycast ? "Cloudflare Anycast" : "Unverified";
   return {
     country: "ZZ", country_name: "Unknown", flag: "🌐",
