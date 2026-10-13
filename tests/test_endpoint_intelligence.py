@@ -83,7 +83,7 @@ def test_literal_anycast_has_no_fabricated_country_but_has_attributed_asn():
 def test_longest_prefix_wins_and_geo_carries_provider_provenance():
     index = PrefixIntelligence.from_document(snapshot(), now=1_800_000_100)
     info = describe_proxy_endpoint(
-        f"trojan://p@1.1.1.200:443#IR", intelligence=index
+        "trojan://p@1.1.1.200:443#IR", intelligence=index
     )
     assert info is not None
     assert info["asn"] == 65001
@@ -153,7 +153,7 @@ def test_prefix_index_rejects_invalid_untrusted_observations(payload):
 def test_ineligible_link_does_not_leak_credentials_or_make_up_metadata():
     assert describe_proxy_endpoint("garbage-password-secret") is None
     assert describe_proxy_endpoint("vmess://this-is-not-valid-base64") is None
-    url = f"vless://password-secret@bad host:443#US"
+    url = "vless://password-secret@bad host:443#US"
     value = describe_proxy_endpoint(url)
     assert value is None or "password-secret" not in json.dumps(value)
 
