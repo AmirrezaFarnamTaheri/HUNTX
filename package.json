@@ -4,7 +4,7 @@
   "scripts": {
     "build:css": "node scripts/build_tailwind_css.mjs",
     "lint": "eslint .",
-    "test:unit": "node --experimental-default-type=module --test tests/frontend_runtime.test.mjs tests/frontend_config_injection.test.mjs",
+    "test:unit": "node --experimental-default-type=module --test tests/frontend_runtime.test.mjs tests/frontend_config_injection.test.mjs tests/frontend_evidence_explorer.test.mjs",
     "test:e2e": "playwright test",
     "check:frontend": "npm run lint && npm run test:unit && python scripts/update_frontend.py --check"
   },

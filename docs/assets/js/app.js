@@ -159,164 +159,18 @@ export function getArtifactLinkModel(path, locationRef = typeof window === "unde
 }
 
 /** Infer coarse provider/region metadata without fabricating unknown or anycast locations. */
-export function resolveGeoAndCarrier(address, sni = "", host = "") {
-  const addr = (address || "").toLowerCase().trim();
-  const sniLower = (sni || "").toLowerCase().trim();
-  const hostLower = (host || "").toLowerCase().trim();
-  const full = `${addr} ${sniLower} ${hostLower}`;
-
-  let country;
-  let carrier;
-
-  // 1. Explicit domain TLDs & contextual keywords
-  if (addr.includes(".ir") || full.includes("iran") || full.includes("tehran") || full.includes("soundfiy") || full.includes("zula.ir")) {
-    country = "IR";
-    carrier = "MCI / Irancell";
-  } else if (addr.includes(".ua") || full.includes("ukraine")) {
-    country = "UA";
-    carrier = "Kyivstar / Datagroup";
-  } else if (addr.includes(".in") || full.includes("india")) {
-    country = "IN";
-    carrier = "Jio / Bharti Airtel";
-  } else if (full.includes("taipei") || addr.includes(".tw") || full.includes("taiwan")) {
-    country = "TW";
-    carrier = "Chunghwa Telecom";
-  } else if (addr.endsWith(".de") || full.includes("germany") || full.includes("frankfurt")) {
-    country = "DE";
-    carrier = "Hetzner Cloud";
-  } else if (addr.endsWith(".nl") || full.includes("amsterdam") || full.includes("serverius") || full.includes("sellflow")) {
-    country = "NL";
-    carrier = "Serverius / NL";
-  } else if (addr.endsWith(".fi") || full.includes("helsinki") || full.includes("fastly")) {
-    country = "FI";
-    carrier = "Hetzner Online";
-  } else if (addr.endsWith(".fr") || full.includes("paris")) {
-    country = "FR";
-    carrier = "OVHcloud FR";
-  } else if (addr.endsWith(".ru") || full.includes("moscow") || full.includes("rtqa.ru") || full.includes("vdsina")) {
-    country = "RU";
-    carrier = "Rostelecom / Selectel";
-  } else if (addr.endsWith(".sg") || full.includes("singapore") || full.includes("zenlayer")) {
-    country = "SG";
-    carrier = "Zenlayer SG";
-  } else if (addr.endsWith(".jp") || full.includes("tokyo") || full.includes("japan")) {
-    country = "JP";
-    carrier = "AWS Tokyo";
-  } else if (addr.endsWith(".kr") || full.includes("seoul") || full.includes("korea")) {
-    country = "KR";
-    carrier = "KT Corp";
-  } else if (addr.endsWith(".hk") || full.includes("hongkong") || full.includes("aliyun")) {
-    country = "HK";
-    carrier = "Alibaba Cloud HK";
-  } else if (addr.endsWith(".tr") || full.includes("istanbul") || full.includes("turkey") || full.includes("tr1-")) {
-    country = "TR";
-    carrier = "Turkcell / Superonline";
-  } else if (addr.endsWith(".ch") || full.includes("zurich") || full.includes("swiss") || addr.includes(".cloudns.ch")) {
-    country = "CH";
-    carrier = "Swisscom Zurich";
-  } else if (addr.endsWith(".uk") || addr.endsWith(".co.uk") || addr.endsWith(".gb") || full.includes("london")) {
-    country = "GB";
-    carrier = "Virgin Media UK";
-  } else if (addr.endsWith(".ca") || full.includes("toronto") || full.includes("canada")) {
-    country = "CA";
-    carrier = "OVH Canada";
-  } else if (addr.endsWith(".se") || full.includes("stockholm") || full.includes("sweden")) {
-    country = "SE";
-    carrier = "Telia Sweden";
-  }
-  // 2. IP Subnet & Cloud Provider Network Routing
-  else if (addr.startsWith("188.114.")) {
-    country = "NL";
-    carrier = "Cloudflare Amsterdam Edge";
-  } else if (addr.startsWith("162.159.") || addr.startsWith("172.67.") || addr.startsWith("104.18.") || addr.startsWith("104.19.") || addr.startsWith("104.21.") || addr.startsWith("104.16.") || addr.startsWith("172.64.")) {
-    // Cloudflare addresses are anycast. The address alone cannot truthfully
-    // identify a country or city, so retain provider evidence without inventing geography.
-    return {
-      country: "ZZ",
-      country_name: "Unknown",
-      flag: "🌐",
-      carrier: "Cloudflare Anycast",
-      org: "Cloudflare",
-      city: "Unknown",
-      latitude: null,
-      longitude: null,
-      geo_source: "anycast-provider",
-      geo_verified: false
-    };
-  } else if (addr.startsWith("47.243.") || addr.startsWith("8.210.") || addr.startsWith("8.217.")) {
-    country = "HK";
-    carrier = "Alibaba Cloud HK";
-  } else if (addr.startsWith("51.79.")) {
-    country = "SG";
-    carrier = "OVHcloud Singapore";
-  } else if (addr.startsWith("57.129.") || addr.startsWith("57.131.") || addr.startsWith("54.36.")) {
-    country = "FR";
-    carrier = "OVHcloud France";
-  } else if (addr.startsWith("15.237.") || addr.startsWith("15.235.")) {
-    country = "FR";
-    carrier = "AWS Paris";
-  } else if (addr.startsWith("54.74.")) {
-    country = "IE";
-    carrier = "AWS Dublin";
-  } else if (addr.startsWith("82.38.") || addr.startsWith("2.26.")) {
-    country = "GB";
-    carrier = "Virgin Media UK";
-  } else if (addr.startsWith("91.132.") || addr.startsWith("140.99.") || addr.startsWith("5.175.") || addr.startsWith("82.198.")) {
-    country = "DE";
-    carrier = "Hetzner Cloud";
-  } else if (addr.startsWith("95.81.") || addr.startsWith("86.107.")) {
-    country = "IR";
-    carrier = "MCI / TCI Iran";
-  } else if (addr.startsWith("194.87.") || addr.startsWith("62.182.") || addr.startsWith("195.133.") || addr.startsWith("31.133.")) {
-    country = "RU";
-    carrier = "VDSina / Selectel";
-  } else if (addr.startsWith("199.232.")) {
-    country = "FI";
-    carrier = "Fastly Helsinki Edge";
-  } else if (addr.startsWith("150.40.")) {
-    country = "JP";
-    carrier = "AWS Tokyo";
-  } else if (addr.startsWith("152.53.") || addr.startsWith("103.152.") || addr.startsWith("45.207.")) {
-    country = "SG";
-    carrier = "Zenlayer Singapore";
-  } else if (addr.startsWith("92.42.") || addr.startsWith("195.184.") || addr.startsWith("45.131.") || addr.startsWith("45.89.")) {
-    country = "NL";
-    carrier = "Serverius Netherlands";
-  } else if (addr.startsWith("69.63.") || addr.startsWith("192.227.") || addr.startsWith("167.233.") || addr.startsWith("166.62.") || addr.startsWith("209.206.")) {
-    country = "US";
-    carrier = "AWS North America";
-  } else if (addr.startsWith("210.3.")) {
-    country = "HK";
-    carrier = "HKBN Hong Kong";
-  } else {
-    return {
-      country: "ZZ",
-      country_name: "Unknown",
-      flag: "🌐",
-      carrier: "Unverified",
-      org: "Unverified",
-      city: "Unknown",
-      latitude: null,
-      longitude: null,
-      geo_source: "unknown",
-      geo_verified: false
-    };
-  }
-
-  const geoInfo = GEO_COORDINATES[country];
-  const countryName = COUNTRY_NAMES[country] || "Unknown";
-  const flag = getFlagEmoji(country);
-
+export function resolveGeoAndCarrier(address, _sni = "", _host = "") {
+  // Hostnames, URI remarks and IP prefix guesses do not prove physical
+  // server location or carrier. Preserve the destination as unknown until
+  // an independently attributed telemetry record is merged.
+  const host = String(address || "").trim().toLowerCase();
+  const cloudflareAnycast = /^(188\.114\.|162\.159\.|172\.6[47]\.|104\.(?:1[6-9]|2[01])\.)/.test(host);
+  const provider = cloudflareAnycast ? "Cloudflare Anycast" : "Unverified";
   return {
-    country,
-    country_name: countryName,
-    flag,
-    carrier,
-    org: carrier,
-    city: geoInfo.city,
-    latitude: geoInfo.lat,
-    longitude: geoInfo.lon,
-    geo_source: "inferred",
+    country: "ZZ", country_name: "Unknown", flag: "🌐",
+    carrier: provider, org: cloudflareAnycast ? "Cloudflare" : provider, city: "Unknown",
+    latitude: null, longitude: null,
+    geo_source: cloudflareAnycast ? "anycast-provider" : "unknown",
     geo_verified: false
   };
 }
@@ -463,7 +317,7 @@ export function getProxyEvidence(proxy = {}) {
     return { id: "authenticated", label: "Protocol checked", detail: "Authenticated proxy-protocol evidence from this snapshot; availability can change.", terminal: false };
   }
   if (kind === "failed_authenticated_protocol") {
-    return { id: "tcp_failed", label: "Protocol check failed", detail: "Authenticated protocol check failed; investigate or retest, not permanently dead.", terminal: false };
+    return { id: "protocol_failed", label: "Protocol check failed", detail: "Authenticated protocol check failed; this does not imply a permanent failure.", terminal: false };
   }
   if (kind === "tcp_connect_only" || (proxy?.probe_ok === true && proxy?.health_evidence === undefined)) {
     return { id: "tcp", label: "TCP reachable", detail: "TCP connect does not verify proxy authentication.", terminal: false };
@@ -481,7 +335,8 @@ export function getRegionPresentation(proxy = {}) {
   if (!known) return { code: "ZZ", flag: "🌐", confidence: "unknown", label: "Unknown region", detail: "Location unavailable; no region is assumed." };
   const flag = getFlagEmoji(code);
   const confidence = proxy?.geo_verified === true
-    && !["unknown", "anycast-provider", "unverified_country_hint", "legacy-estimate"].includes(String(proxy?.geo_source || "").toLowerCase())
+    && Boolean(proxy?.geo_source)
+    && !["unknown", "anycast-provider", "unverified_country_hint", "legacy-estimate", "inferred"].includes(String(proxy?.geo_source || "").toLowerCase())
     ? "provider" : "hint";
   const label = COUNTRY_NAMES[code] || code;
   return confidence === "provider"
@@ -497,7 +352,7 @@ export function displayPublishedName(tag, protocol) {
 
 /** Counts are computed once per snapshot and shared with the evidence filter. */
 export function countProxyEvidence(proxies) {
-  const counts = { all: 0, authenticated: 0, tcp: 0, tcp_failed: 0, unmeasured: 0 };
+  const counts = { all: 0, authenticated: 0, protocol_failed: 0, tcp: 0, tcp_failed: 0, unmeasured: 0 };
   for (const proxy of (Array.isArray(proxies) ? proxies : [])) {
     const state = getProxyEvidence(proxy).id;
     counts.all += 1;
@@ -528,7 +383,7 @@ export function summarizeEvidence(proxies) {
   let unknownGeography = 0;
   for (const proxy of records) {
     if (proxy?.health_evidence === "fresh_authenticated_protocol") authenticated += 1;
-    if (!proxy?.country || String(proxy.country).toUpperCase() === "ZZ") unknownGeography += 1;
+    if (getRegionPresentation(proxy).confidence !== "provider") unknownGeography += 1;
   }
   return { total: records.length, authenticated,
     unverified: records.length - authenticated, unknownGeography };
@@ -960,7 +815,7 @@ export class AppState {
     const radarBadge = document.getElementById("radar-live-badge");
     if (radarBadge) {
       const live = this.liveDataState === "ready";
-      radarBadge.textContent = live ? "VERIFIED" : "BUNDLED";
+      radarBadge.textContent = live ? "CATALOG OK" : "BUNDLED";
       radarBadge.className = `px-1.5 py-0.5 text-xs font-bold rounded border ${
         live
           ? "bg-cyan-950/80 text-cyan-300 border-cyan-800/60"
@@ -1093,8 +948,7 @@ export class AppState {
   getHealthScore(nodeOrPing) {
     const node = nodeOrPing && typeof nodeOrPing === "object" ? nodeOrPing : null;
     const publishedGrade = node?.health_grade;
-    const authenticated = node?.health_evidence === "fresh_authenticated_protocol"
-      || node?.health_evidence === "failed_authenticated_protocol";
+    const authenticated = getProxyEvidence(node).id === "authenticated";
     if (node && authenticated && typeof publishedGrade === "string"
       && PUBLISHED_HEALTH_GRADE_META[publishedGrade]) {
       const rawScore = node.pca_score === null || node.pca_score === undefined || node.pca_score === ""
@@ -1120,8 +974,13 @@ export class AppState {
   }
 
   getHealthSortValue(node) {
-    const { score } = this.getHealthScore(node);
-    return score ?? Number.NEGATIVE_INFINITY;
+    const level = getProxyEvidence(node).id;
+    const score = this.getHealthScore(node).score ?? 0;
+    if (level === "authenticated") return 3000000 + score;
+    if (level === "tcp") return 2000000 + score;
+    if (level === "protocol_failed") return 1000000;
+    if (level === "tcp_failed") return 500000;
+    return 0;
   }
 
   refreshProxyWorkspace() {
@@ -1181,7 +1040,7 @@ export class AppState {
     this.renderHeader();
   }
 
-  getFilteredProxies() {
+  getFilteredProxies({ ignoreEvidence = false } = {}) {
     let result = [...this.proxies];
 
     if (this.selectedProtocol !== "ALL") {
@@ -1206,13 +1065,15 @@ export class AppState {
 
     if (this.selectedGrade !== "ALL") {
       result = result.filter(p => {
-        if (this.selectedGrade === "UNMEASURED") return this.getLatency(p) === null;
-        const { grade } = this.getHealthScore(p);
-        return grade === this.selectedGrade;
+        const kind = getProxyEvidence(p).id;
+        if (this.selectedGrade === "UNMEASURED") return !["authenticated", "tcp"].includes(kind);
+        if (this.selectedGrade.startsWith("AUTH:")) return kind === "authenticated" && p.health_grade === this.selectedGrade.slice(5);
+        if (this.selectedGrade.startsWith("TCP:")) return kind === "tcp" && healthForLatency(this.getLatency(p)).grade === this.selectedGrade.slice(4);
+        return false;
       });
     }
 
-    if (this.selectedEvidence && this.selectedEvidence !== "ALL") {
+    if (!ignoreEvidence && this.selectedEvidence && this.selectedEvidence !== "ALL") {
       result = result.filter(node => getProxyEvidence(node).id === this.selectedEvidence);
     }
 
@@ -1996,9 +1857,9 @@ export class AppState {
           <p class="evidence-detail">Not proven by proxy authentication</p>
         </div>
         <div class="evidence-stat">
-          <span class="evidence-label">Unknown location</span>
+          <span class="evidence-label">Unattributed location</span>
           <div class="evidence-value" data-evidence-count>${evidence.unknownGeography.toLocaleString("en-US")}</div>
-          <p class="evidence-detail">Missing reliable geography</p>
+          <p class="evidence-detail">No reliable geographical attribution</p>
         </div>
         <p class="evidence-note"><strong>Evidence boundary.</strong> Country hints, IP reachability and TLS handshakes do not validate an authenticated proxy session. Counts describe the loaded snapshot.</p>
       </div>
@@ -2162,28 +2023,20 @@ export class AppState {
       }))
     ];
 
-    const hasMeasuredLatency = allProxies.some((proxy) => this.getLatency(proxy) !== null);
-    const hasUnmeasuredLatency = allProxies.some((proxy) => this.getLatency(proxy) === null);
-    const publishedGrades = new Set(allProxies.map((proxy) => proxy.health_grade).filter(Boolean));
-    const gradeOptions = publishedGrades.size
-      ? [...publishedGrades].map((id) => ({
-          id,
-          label: id === "F" ? "Unreachable at publish" : `Published grade ${id}`
-        }))
-      : HEALTH_GRADES.map((grade) => ({
-          id: grade.id,
-          label: Number.isFinite(grade.maxLatency)
-            ? `Grade ${grade.id} (≤${grade.maxLatency}ms)`
-            : `Grade ${grade.id} (>${HEALTH_GRADES[HEALTH_GRADES.length - 2].maxLatency}ms)`
-        }));
+    const publishedGrades = [...new Set(allProxies.filter(p => getProxyEvidence(p).id === "authenticated")
+      .map(p => p.health_grade))].sort();
+    const tcpBands = [...new Set(allProxies.filter(p => getProxyEvidence(p).id === "tcp")
+      .map(p => healthForLatency(this.getLatency(p)).grade))].filter(v => v !== "—").sort();
+    const gradeOptions = [
+      ...publishedGrades.map(id => ({ id: `AUTH:${id}`, label: `Protocol grade ${id}` })),
+      ...tcpBands.map(id => ({ id: `TCP:${id}`, label: `TCP band ${id} (not proxy health)` }))
+    ];
     this.selectedGrade = reconcileGradeSelection(this.selectedGrade, gradeOptions);
-    const grades = hasMeasuredLatency || publishedGrades.size
-      ? [
-          { id: "ALL", label: "All Latency Grades" },
-          ...gradeOptions,
-          ...(hasUnmeasuredLatency ? [{ id: "UNMEASURED", label: "Unmeasured / unreachable" }] : [])
-        ]
-      : [{ id: "ALL", label: "Latency unmeasured" }];
+    const grades = [
+      { id: "ALL", label: "All measurement bands" },
+      ...gradeOptions,
+      { id: "UNMEASURED", label: "No successful test" }
+    ];
 
     const securities = [
       { id: "ALL", label: "All Security Types" },
@@ -2200,16 +2053,19 @@ export class AppState {
       { key: "selectedCountry", label: "Region", value: this.selectedCountry },
       { key: "selectedOperator", label: "Operator", value: this.selectedOperator },
       { key: "selectedGrade", label: "Grade", value: this.selectedGrade },
+      { key: "selectedEvidence", label: "Evidence", value: this.selectedEvidence },
+      { key: "selectedPort", label: "Port", value: this.selectedPort },
       { key: "selectedSecurity", label: "Security", value: this.selectedSecurity },
       { key: "searchQuery", label: "Search", value: this.searchQuery }
     ].filter(item => item.value && item.value !== "ALL");
 
-    const evidenceCounts = countProxyEvidence(allProxies);
+    const evidenceCounts = countProxyEvidence(this.getFilteredProxies({ ignoreEvidence: true }));
     const evidenceOptions = [
       { id: "ALL", label: "All evidence", count: evidenceCounts.all },
       { id: "authenticated", label: "Protocol checked", count: evidenceCounts.authenticated },
+      { id: "protocol_failed", label: "Protocol failed", count: evidenceCounts.protocol_failed },
       { id: "tcp", label: "TCP reachable", count: evidenceCounts.tcp },
-      { id: "tcp_failed", label: "Probe failed", count: evidenceCounts.tcp_failed },
+      { id: "tcp_failed", label: "TCP failed", count: evidenceCounts.tcp_failed },
       { id: "unmeasured", label: "Not measured", count: evidenceCounts.unmeasured }
     ];
 
@@ -2224,11 +2080,12 @@ export class AppState {
             <div class="max-w-2xl">
               <span class="font-mono text-xs font-semibold uppercase tracking-wider text-cyan-300">${i18n.translate("EVIDENCE EXPLORER")}</span>
               <h2 class="text-base sm:text-lg font-semibold text-gray-100 mt-1">${i18n.translate("Explore nodes by what was actually tested")}</h2>
-              <p class="text-xs sm:text-sm leading-relaxed text-gray-400 mt-1">${i18n.translate("TCP connect does not verify proxy authentication")}. ${i18n.translate("A failed check from one vantage is not permanent proxy death")}.</p>
+              <p class="text-xs sm:text-sm leading-relaxed text-gray-400 mt-1">TCP connectivity does not prove that a proxy authenticates. Results reflect the published snapshot.</p>
             </div>
             <a href="ENDPOINT_EVIDENCE.md" target="_blank" rel="noopener noreferrer" class="min-h-[44px] px-3.5 py-2.5 inline-flex items-center justify-center rounded-xl border border-gray-700 bg-gray-900 text-cyan-300 text-xs font-semibold focus-ring hover:border-cyan-500 transition-colors">${i18n.translate("Evidence guide")} ↗</a>
           </div>
-          <div class="flex flex-wrap gap-2 mt-4" role="group" aria-label="Filter by measurement evidence">
+          <p class="text-xs text-gray-400 mt-2">Counts reflect other active filters. Measurements are from the publisher's vantage, not your device.</p>
+          <div class="flex flex-wrap gap-2 mt-3" role="group" aria-label="Filter by measurement evidence">
             ${evidenceOptions.map(option => `
               <button
                 type="button"
@@ -2358,7 +2215,7 @@ export class AppState {
 
           <!-- Health Grade Dropdown -->
           <div class="relative">
-            <label class="block text-xs font-mono text-gray-400 mb-1">Published grade / TCP band</label>
+            <label class="block text-xs font-mono text-gray-400 mb-1">Measurement type / band</label>
             <select
               id="select-grade"
               class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
@@ -2389,7 +2246,7 @@ export class AppState {
               aria-label="Sort Order"
             >
               <option value="latency_asc" ${this.sortBy === "latency_asc" ? "selected" : ""}>Lowest observed TCP latency</option>
-              <option value="score_desc" ${this.sortBy === "score_desc" ? "selected" : ""}>Published grade / TCP estimate</option>
+              <option value="score_desc" ${this.sortBy === "score_desc" ? "selected" : ""}>Authenticated grade, then TCP band</option>
               <option value="name_asc" ${this.sortBy === "name_asc" ? "selected" : ""}>Name (A-Z)</option>
               <option value="country_asc" ${this.sortBy === "country_asc" ? "selected" : ""}>Country (A-Z)</option>
               <option value="port_asc" ${this.sortBy === "port_asc" ? "selected" : ""}>Port (Low-High)</option>
@@ -2440,7 +2297,7 @@ export class AppState {
         const key = btn.dataset.filterKey;
         const permitted = new Set([
           "selectedProtocol", "selectedTransport", "selectedCountry",
-          "selectedOperator", "selectedGrade", "selectedSecurity", "searchQuery"
+          "selectedOperator", "selectedGrade", "selectedEvidence", "selectedPort", "selectedSecurity", "searchQuery"
         ]);
         if (!permitted.has(key)) return;
         this[key] = key === "searchQuery" ? "" : "ALL";
@@ -2455,7 +2312,7 @@ export class AppState {
     filterContainer.querySelectorAll(".btn-evidence-filter").forEach(btn => {
       btn.addEventListener("click", () => {
         const selected = btn.dataset.evidence;
-        if (!["ALL", "authenticated", "tcp", "tcp_failed", "unmeasured"].includes(selected)) return;
+        if (!["ALL", "authenticated", "protocol_failed", "tcp", "tcp_failed", "unmeasured"].includes(selected)) return;
         this.selectedEvidence = selected;
         this.refreshProxyWorkspace();
         // The toolbar is re-rendered when filtering; restore focus to the
@@ -2674,9 +2531,11 @@ export class AppState {
         const evidence = getProxyEvidence(node);
         const op = node.carrier || node.org || this.detectOperator(node.server, node.sni, node.name);
         const latency = this.getLatency(node);
-        const { grade, label: healthLabel, color: gradeColor } = this.getHealthScore(node);
-        const gradeDisplay = evidence.id === "authenticated" ? `Protocol ${grade}`
-          : evidence.id === "tcp" && latency !== null ? `TCP band ${grade}` : "No grade";
+        const { grade, label: healthLabel, color: healthColor } = this.getHealthScore(node);
+        const gradeColor = evidence.id === "authenticated" ? healthColor
+          : "text-sky-300 border-sky-800/70 bg-sky-950/40";
+        const gradeDisplay = evidence.id === "authenticated" ? `Protocol grade ${grade}`
+          : evidence.id === "tcp" ? "TCP only" : "No grade";
         const isUnmasked = this.unmaskedNodes.has(node.id);
         const isQRVisible = this.activeQRNodes.has(node.id);
 
@@ -2727,7 +2586,7 @@ export class AppState {
                   </span>
                 </div>
                 <div class="flex items-center gap-1.5">
-                  <span class="px-2 py-0.5 text-xs font-mono font-bold rounded border ${gradeColor}" title="${escapeHTML(healthLabel)} — ${escapeHTML(evidence.detail)}">
+                  <span class="proxy-grade-badge px-2 py-0.5 text-xs font-mono font-bold rounded border ${gradeColor}" data-evidence-kind="${evidence.id}" title="${escapeHTML(healthLabel)} — ${escapeHTML(evidence.detail)}">
                     ${escapeHTML(gradeDisplay)}
                   </span>
                   <div class="flex items-center gap-1 text-xs font-mono font-semibold ${latency === null ? 'text-gray-500' : latency < 60 ? 'text-emerald-400' : latency < 120 ? 'text-amber-400' : 'text-rose-400'}">
@@ -2742,8 +2601,8 @@ export class AppState {
                 <span class="truncate">${escapeHTML(node.name)}</span>
               </h3>
               <p class="mt-2 flex flex-wrap items-center gap-2 text-xs font-mono">
-                <span class="px-2 py-1 rounded-md border ${evidence.id === "authenticated" ? "bg-emerald-950/50 text-emerald-300 border-emerald-800/40" : evidence.id === "tcp" ? "bg-cyan-950/60 text-cyan-300 border-cyan-500/30" : evidence.id === "tcp_failed" ? "bg-amber-950/40 text-amber-300 border-amber-800/40" : "bg-gray-900 text-gray-400 border-gray-800"}">${escapeHTML(i18n.translate(evidence.label))}</span>
-                <span class="text-gray-400" title="${escapeHTML(evidence.detail)}">${escapeHTML(i18n.translate(evidence.detail))}</span>
+                <span class="px-2 py-1 rounded-md border ${evidence.id === "authenticated" ? "bg-emerald-950/50 text-emerald-300 border-emerald-800/40" : evidence.id === "protocol_failed" ? "bg-amber-950/40 text-amber-300 border-amber-800/40" : evidence.id === "tcp" ? "bg-cyan-950/60 text-cyan-300 border-cyan-500/30" : evidence.id === "tcp_failed" ? "bg-amber-950/40 text-amber-300 border-amber-800/40" : "bg-gray-900 text-gray-400 border-gray-800"}">${escapeHTML(i18n.translate(evidence.label))}</span>
+                <span class="text-gray-400" title="${escapeHTML(evidence.detail)}">${escapeHTML(evidence.id === "authenticated" ? "Snapshot protocol test" : evidence.id === "tcp" ? "TCP only — proxy unverified" : evidence.id === "unmeasured" ? "No published test" : "Not permanently failed")}</span>
               </p>
 
               <!-- Specs Grid -->
@@ -2851,7 +2710,7 @@ export class AppState {
                       <td class="p-3.5"><span class="px-2 py-0.5 bg-gray-900 rounded border border-gray-800 text-gray-300 text-xs">${escapeHTML(op)}</span></td>
                       <td class="p-3.5">
                         <span class="font-bold ${latency === null ? 'text-gray-500' : latency < 60 ? 'text-emerald-400' : 'text-amber-400'}">${latency === null ? 'Unmeasured' : `${Math.round(latency)}ms`}</span>
-                        <span class="block text-xs text-gray-400 mt-1" title="${escapeHTML(evidence.detail)}">${escapeHTML(i18n.translate(evidence.label))} · ${evidence.id === "authenticated" ? "Protocol " + grade : evidence.id === "tcp" ? "TCP band " + grade : "Unverified"}</span>
+                        <span class="block text-xs text-gray-400 mt-1" title="${escapeHTML(evidence.detail)}">${escapeHTML(i18n.translate(evidence.label))} · ${evidence.id === "authenticated" ? "Protocol grade " + grade : evidence.id === "tcp" ? "TCP only" : "Unverified"}</span>
                       </td>
                       <td class="p-3.5 text-right space-x-1 whitespace-nowrap">
                         <button class="btn-copy-node px-3 py-2 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 text-cyan-300 rounded-xl text-xs font-mono font-medium focus-ring cursor-pointer transition-all" data-raw="${encodeURIComponent(node.raw)}">Copy</button>

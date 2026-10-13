@@ -18,11 +18,31 @@ test("observation badges distinguish authenticated, TCP-only, failed TCP and unm
   assert.equal(getProxyEvidence(authenticated).id, "authenticated");
   assert.equal(getProxyEvidence(tcp).id, "tcp");
   assert.equal(getProxyEvidence(tcp).label, "TCP reachable");
-  assert.match(getProxyEvidence(tcp).detail, /proxy protocol unverified/i);
+  assert.match(getProxyEvidence(tcp).detail, /does not verify proxy authentication/i);
   assert.equal(getProxyEvidence(failed).id, "tcp_failed");
   assert.equal(getProxyEvidence(failed).terminal, false);
   assert.equal(getProxyEvidence(unknown).id, "unmeasured");
   assert.equal(getProxyEvidence({ ...tcp, health_evidence: "", probe_ok: null, health_grade: "A+" }).id, "unmeasured");
+});
+
+test("authenticated protocol failures cannot masquerade as failed TCP connects", () => {
+  const protocolFailure = { ...authenticated, health_evidence: "failed_authenticated_protocol",
+    health_grade: "F", probe_ok: true, latency: 1 };
+  assert.equal(getProxyEvidence(protocolFailure).id, "protocol_failed");
+  assert.equal(getProxyEvidence(protocolFailure).terminal, false);
+  assert.deepEqual(countProxyEvidence([protocolFailure, tcp]), {
+    all: 2, authenticated: 0, protocol_failed: 1, tcp: 1, tcp_failed: 0, unmeasured: 0
+  });
+  const app = Object.create(AppState.prototype);
+  assert.notEqual(app.getHealthScore(protocolFailure).grade, "F");
+  assert.ok(app.getHealthSortValue(tcp) > app.getHealthSortValue(protocolFailure));
+  assert.ok(app.getHealthSortValue(authenticated) > app.getHealthSortValue(tcp));
+});
+
+test("hostnames and SNI hints must not fabricate Finland geography", () => {
+  const source = { ...tcp, country: "FI", geo_source: "inferred", geo_verified: true };
+  assert.equal(getRegionPresentation(source).confidence, "hint");
+  assert.equal(getRegionPresentation({ ...tcp, country: "ZZ" }).label, "Unknown region");
 });
 
 test("country flags are marked as hints unless accompanied by genuine geo evidence", () => {
@@ -52,7 +72,7 @@ test("identity-safe published names preserve existing flag remarks without count
 
 test("evidence filters remain independent of grade and country facet", () => {
   const items = [tcp, failed, authenticated, unknown];
-  assert.deepEqual(countProxyEvidence(items), { all: 4, authenticated: 1, tcp: 1, tcp_failed: 1, unmeasured: 1 });
+  assert.deepEqual(countProxyEvidence(items), { all: 4, authenticated: 1, protocol_failed: 0, tcp: 1, tcp_failed: 1, unmeasured: 1 });
   const app = Object.create(AppState.prototype);
   Object.assign(app, {
     proxies: items, searchQuery: "", selectedProtocol: "ALL", selectedTransport: "ALL", selectedCountry: "ALL",
