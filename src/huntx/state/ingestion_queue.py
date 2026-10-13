@@ -297,6 +297,45 @@ class PersistentIngestionQueue:
             if cursor.rowcount != 1:
                 raise RuntimeError(f"work item {item_id} lease was lost before failure checkpoint")
 
+    def defer_sources(
+        self,
+        source_ids: Iterable[str],
+        *,
+        retry_delay: int,
+        reason: str = "Telegram shared FloodWait cooldown",
+        now: Optional[int] = None,
+    ) -> int:
+        """Durably postpone all unleased windows for the affected MTProto account.
+
+        A server-side FloodWait is scoped to the session, not an individual
+        historical window. Honoring it must survive workflow restarts while
+        preserving cursors, independent accounts, existing later deadlines and
+        all leased-page checkpoint invariants.
+        """
+        ids = sorted({str(source_id) for source_id in source_ids if str(source_id)})
+        if not ids:
+            return 0
+        current = int(time.time()) if now is None else int(now)
+        deadline = current + max(1, int(retry_delay))
+        postponed = 0
+        with self.db.connect() as conn:
+            for start in range(0, len(ids), 400):
+                batch = ids[start:start + 400]
+                placeholders = ", ".join("?" for _ in batch)
+                cursor = conn.execute(
+                    f"""
+                    UPDATE ingestion_work_items
+                    SET status = 'retry_wait',
+                        next_retry_at = MAX(COALESCE(next_retry_at, 0), ?),
+                        last_error = ?, updated_at = ?
+                    WHERE source_id IN ({placeholders})
+                      AND status IN ('pending', 'partial', 'retry_wait')
+                    """,
+                    (deadline, str(reason)[:1000], current, *batch),
+                )
+                postponed += int(cursor.rowcount)
+        return postponed
+
     def mark_terminal(
         self,
         item_id: int,
