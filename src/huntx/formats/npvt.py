@@ -86,6 +86,8 @@ def strip_proxy_remark(uri: str) -> str:
             b64 = body[8:]
             raw = _b64_decode_safe(b64)
             obj = json.loads(raw)
+            if not isinstance(obj, dict):
+                return uri
             obj.pop('ps', None)
             canonical = json.dumps(obj, sort_keys=True, separators=(',', ':'))
             return 'vmess://' + base64.b64encode(canonical.encode()).decode()
@@ -432,13 +434,16 @@ def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
     # destination, which are useful discriminators in a client dropdown.
     components.extend(details)
     index = fields.get('_remark_ordinal')
-    if type(index) is int and index > 1:
-        components.append(f'No.{index}')
     value = ' | '.join(components[:2])
     for detail in components[2:]:
         if len(value) + len(detail) + 3 > 110:
             continue
         value += ' | ' + detail
+    if type(index) is int and index > 1:
+        # A numeric collision marker is last and reserved; unlike a cut-off
+        # SHA digest it is not presented as diagnostic information.
+        suffix = f' | No.{index}'
+        value = value[:110 - len(suffix)].rstrip(' |') + suffix
     return value[:110]
 
 
