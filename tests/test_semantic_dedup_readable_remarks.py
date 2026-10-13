@@ -64,11 +64,30 @@ def test_hy2_alias_and_shadowsocks_encoding_use_one_semantic_identity():
 def test_names_show_useful_safe_endpoint_details_instead_of_zz_hash():
     uri = BASE + "?security=tls&type=ws#anything"
     label = format_evidence_remark(uri)
-    assert label.startswith("VLESS-WS-TLS | edge.example.com:443")
+    assert label.startswith("🌐 VLESS-WS-TLS | edge.example.com:443")
     assert "ZZ" not in label and "UNVERIFIED" not in label.upper()
     assert ID not in label
     assert len(label) <= 110
     assert format_evidence_remark(uri) == label
+
+
+def test_unknown_trojan_has_globe_immediately_before_protocol(monkeypatch):
+    monkeypatch.setenv("HUNTX_REMARK_STYLE", "evidence")
+    monkeypatch.delenv("HUNTX_REMARK_TCP_PROBE", raising=False)
+    uri = "trojan://private-password@relay.example.net:443?type=ws&security=tls"
+    expected = "🌐 TROJAN-WS | relay.example.net:443"
+    assert format_evidence_remark(uri) == expected
+    rendered = NpvtHandler().build([{"data": {"line": uri}}]).decode()
+    assert remark(rendered) == expected
+    assert "private-password" not in remark(rendered)
+    assert "ZZ" not in remark(rendered)
+
+
+def test_source_hint_flag_alone_is_visibly_tentative():
+    uri = BASE + "?security=tls&type=ws"
+    assert format_evidence_remark(uri, {
+        "country_hint": "NL", "country_hint_source": "source_remark"
+    }) == "🇳🇱? VLESS-WS-TLS | edge.example.com:443"
 
 
 def test_dns_latency_and_speed_are_visible_only_when_measured_fresh_and_proven(monkeypatch):
