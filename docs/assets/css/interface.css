@@ -336,6 +336,13 @@ html .proxy-card:hover { transform: translateY(-2px); border-color: var(--ux-out
 .proxy-card .proxy-specs > div { min-height: 1.2rem; }
 .proxy-card .proxy-specs span:first-child { color: var(--ux-muted); }
 .proxy-card .proxy-card-header { min-height: 2.5rem; }
+/* Explicit light-mode contrast for compact, 12px evidence badges (WCAG AA). */
+html.light .proxy-grade-badge:not([data-evidence-kind="authenticated"]) {
+  color: #0f172a !important;
+  background: #e2e8f0 !important;
+  border-color: #94a3b8 !important;
+}
+
 .proxy-card .proxy-evidence-chip {
   display: inline-flex;
   align-items: center;
