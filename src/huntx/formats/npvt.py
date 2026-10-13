@@ -402,10 +402,12 @@ def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
     dns = fields.get('dns_status')
     dns_obs = fields.get('dns_checked_at')
     dns_exp = fields.get('dns_expires_at')
-    if (dns in {'resolved', 'failed'}
+    if (
+        dns in {'resolved', 'failed'}
         and all(isinstance(v, (int, float)) and not isinstance(v, bool)
                 and math.isfinite(v) for v in (dns_obs, dns_exp))
-        and dns_obs <= time.time() < dns_exp):
+        and dns_obs <= time.time() < dns_exp
+    ):
         details.append('DNS:OK' if dns == 'resolved' else 'DNS:FAIL')
 
     latency = _fresh_number(fields, 'latency_ms',
