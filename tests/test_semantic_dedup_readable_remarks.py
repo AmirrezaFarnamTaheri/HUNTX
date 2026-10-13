@@ -8,7 +8,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 from huntx.formats.npvt import (
-    NpvtHandler, canonical_proxy_identity, format_evidence_remark, strip_proxy_remark,
+    NpvtHandler, canonical_proxy_identity, format_evidence_remark,
 )
 
 
@@ -107,6 +107,7 @@ def test_vmesses_with_different_user_visible_names_are_one_proxy(monkeypatch):
         "v": "2", "add": "vm.example.org", "port": "443", "id": ID,
         "net": "ws", "tls": "tls",
     }
+
     def make(tag: str) -> str:
         return "vmess://" + base64.b64encode(
             json.dumps({**shared, "ps": tag}).encode()
