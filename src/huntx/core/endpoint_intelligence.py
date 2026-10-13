@@ -255,6 +255,37 @@ def describe_proxy_endpoint(
         "anycast": None,
         "geo": {"status": status, "country_code": None},
         "intelligence": {"status": intelligence_status},
+        "dns_observation": (
+            "not_applicable_literal" if address is not None else "not_measured"
+        ),
+        "tls_configuration": {
+            "verification_disabled_in_link": bool(node.tls_insecure),
+            "sni_present": bool(node.tls_server_name),
+            "alpn_profile": (
+                "unset" if not node.tls_alpn else
+                "http2" if "h2" in node.tls_alpn else
+                "http1" if "http/1.1" in node.tls_alpn else "other"
+            ),
+            "utls_fingerprint_present": bool(node.tls_utls_fingerprint),
+            "reality_public_key_present": bool(node.tls_reality_public_key),
+            "reality_short_id_present": bool(node.tls_reality_short_id),
+        },
+        "transport_configuration": {
+            "path_present": bool(node.transport_path),
+            "http_host_override_present": bool(node.transport_host),
+            "grpc_service_present": bool(node.transport_service_name),
+            "obfuscation_present": bool(node.obfs_type),
+        },
+        "diagnostic_findings": sorted(
+            (["tls_verification_disabled"] if node.tls_insecure else [])
+            + (["grpc_alpn_h2_not_declared"]
+               if node.transport_type == "grpc" and node.tls_alpn
+               and "h2" not in node.tls_alpn else [])
+            + (["udp_requires_native_protocol_probe"]
+               if protocol in _UDP_PROTOCOLS or bool(node.naive_quic) else [])
+            + (["reality_requires_native_protocol_probe"]
+               if node.tls_reality_enabled else [])
+        ),
     }
     if intelligence is not None:
         result["intelligence"] = {
