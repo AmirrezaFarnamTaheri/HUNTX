@@ -28,7 +28,8 @@ def test_terminal_identity_survives_extremely_long_metadata(monkeypatch):
     assert tag.startswith("🇩🇪 DE | VLESS-WS-TLS")
     assert "AS13335" in tag and "TCP:12ms" in tag
     assert len(tag) <= 110
-    assert re.search(r" [|] [0-9a-f]{10}$", tag)
+    assert "| edge.example.com:443" in tag
+    assert not re.search(r" [|] [0-9a-f]{10}$", tag)
     assert tag == format_evidence_remark(URI, metadata)
 
 
@@ -60,4 +61,5 @@ def test_vmess_decoding_still_preserves_credentials_and_config(monkeypatch):
     assert decoded["id"] == obj["id"]
     assert decoded["add"] == obj["add"]
     assert "VMESS" in decoded["ps"]
-    assert re.search(r"[0-9a-f]{10}$", decoded["ps"])
+    assert "edge.example.com:443" in decoded["ps"]
+    assert not re.search(r"[0-9a-f]{10}$", decoded["ps"])

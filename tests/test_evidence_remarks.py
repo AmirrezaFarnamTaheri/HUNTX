@@ -46,7 +46,9 @@ def test_absent_or_stale_evidence_does_not_make_up_country_asn_or_cdn(monkeypatc
     no_evidence = unquote(urlsplit(add_clean_remark(URI, {})).fragment)
     stale = unquote(urlsplit(add_clean_remark(URI, {}, evidence(expires=1))).fragment)
     for remark in (no_evidence, stale):
-        assert remark.startswith("🌐")
+        assert remark.startswith("VLESS-WS-TLS")
+        assert "ZZ" not in remark
+        assert "1.1.1.1:443" in remark
         assert "🇩🇪" not in remark and "AS13335" not in remark
         assert "CDN" not in remark
     assert "VLESS" in no_evidence

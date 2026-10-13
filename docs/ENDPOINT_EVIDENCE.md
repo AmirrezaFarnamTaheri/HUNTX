@@ -61,17 +61,40 @@ enrichment. Source-supplied country remarks may appear in rich tags as
 Production enables `HUNTX_REMARK_STYLE=evidence`. Example shapes:
 
 ```text
-🇩🇪 DE | VLESS-WS-TLS | AS64500 | d4e6b3ca10
-🇫🇷? FR | TROJAN | 9afac3a901
-🌐 ZZ | HYSTERIA2 | 2fbb7d0922
+🇩🇪 DE | VLESS-WS-TLS | edge.example.net:443 | AS64500 | DNS:OK | TCP:43ms
+🇫🇷? FR | TROJAN-WS | relay.example.net:443
+HYSTERIA2 | hy.example.net:443
+VLESS-WS-TLS | edge.example.net:443 | No.2
 ```
 
-A flag without a question mark requires unexpired prefix geolocation
-evidence from the configured snapshot; if only source text is available it
-is a question-marked hint. TLS, transport and ASN are parsed/attributed,
-and stable digest suffixes disambiguate independent proxy credentials.
-Never add fake health stars, made-up speeds or provider/operator labels
-from arbitrary upstream text.
+Names identify the protocol and actual destination; missing country evidence
+is simply omitted instead of displaying `ZZ`. A country flag without `?`
+requires unexpired, attributed prefix geolocation evidence, while an explicit
+source remark is marked with `?`. SHA hashes are never shown as user-facing
+diagnostics. Only distinct configurations that would otherwise have identical
+human-readable names get a short numeric ordinal; passwords, UUIDs and keys
+are never displayed in tags.
+
+**Deduplication is semantic but conservative.** Source remarks, query-parameter
+ordering and equivalent supported share-link encodings do not create new
+identities; different credentials, paths, TLS security, or other potentially
+meaningful parameters always remain separate. The canonical identity remains
+internal. Raw URI, Base64 subscription, Sing-box, Xray, Clash and NekoBox
+variants derive from that same deduplicated feed.
+
+`HUNTX_REMARK_TCP_PROBE=1` enables up to 2,500 short DNS/TCP observations
+per production build, at most 24 concurrent workers and 1.5 seconds per
+connection. The resolver must return a publicly routable address, which is
+pinned for the connect; no proxy credentials are sent. These are observations
+from the *publisher's vantage at publication*, not ICMP pings, successful
+proxy-protocol authentication, or permanent availability claims. UDP-only
+links do not get TCP success labels. When DNS/TCP measurement is missing, it
+is not invented.
+
+`DL:` and `UL:` labels require fresh **authenticated end-to-end throughput
+measurement**. Hysteria2-configured up/down Mbps limits and guessed proxy
+speeds must never masquerade as measured bandwidth. Without such evidence,
+download and upload metrics are omitted rather than fabricated.
 
 VMess uses its `ps` field. URI-based schemes percent-encode the fragment
 for broad client compatibility. The decoded publisher dashboard uses the

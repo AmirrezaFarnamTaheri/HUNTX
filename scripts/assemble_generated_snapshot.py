@@ -24,6 +24,9 @@ if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from huntx.core.output_ownership import output_filename  # noqa: E402
+from huntx.formats.npvt import (  # noqa: E402
+    strip_proxy_remark, canonical_proxy_identity, add_clean_remark,
+)
 
 ManifestValue = float | int | str
 LEGACY_FIRST_SEEN = 0
@@ -109,46 +112,6 @@ def _b64_decode_safe(data: str) -> str:
     return decoded.decode("utf-8")
 
 
-def strip_proxy_remark(uri: str) -> str:
-    if uri.startswith("vmess://"):
-        try:
-            body = uri.partition("#")[0]
-            raw = _b64_decode_safe(body[8:])
-            payload = json.loads(raw)
-            if not isinstance(payload, dict):
-                return uri
-            payload.pop("ps", None)
-            canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-            return "vmess://" + base64.b64encode(canonical.encode()).decode()
-        except (binascii.Error, UnicodeDecodeError, ValueError, json.JSONDecodeError):
-            return uri
-    marker = uri.rfind("#")
-    return uri[:marker] if marker > 0 else uri
-
-
-def add_clean_remark(uri: str, counter: dict[str, int]) -> str:
-    scheme = uri.split("://", 1)[0].lower() if "://" in uri else "proxy"
-    counter[scheme] = counter.get(scheme, 0) + 1
-    tag = f"{scheme}-{counter[scheme]}"
-
-    if uri.startswith("vmess://"):
-        try:
-            body = uri.partition("#")[0]
-            raw = _b64_decode_safe(body[8:])
-            payload = json.loads(raw)
-            if not isinstance(payload, dict):
-                return uri
-            payload["ps"] = tag
-            encoded = json.dumps(payload, separators=(",", ":")).encode()
-            return "vmess://" + base64.b64encode(encoded).decode()
-        except (binascii.Error, UnicodeDecodeError, ValueError, json.JSONDecodeError):
-            return uri
-
-    marker = uri.rfind("#")
-    base = uri[:marker] if marker > 0 else uri
-    return f"{base}#{tag}"
-
-
 def _normalise_manifest_value(value: Any) -> ManifestValue:
     if isinstance(value, (int, float, str)) and not isinstance(value, bool):
         return value
@@ -225,6 +188,29 @@ def write_compressed_dev_manifest(dev_dir: Path, manifest: dict[str, ManifestVal
     )
 
 
+def compact_semantic_manifest(manifest: dict[str, ManifestValue]) -> dict[str, ManifestValue]:
+    """Merge equivalent URI spellings without discarding distinct credentials.
+
+    Retain the earliest known timestamp and one valid original URI; the key
+    itself is a normalized *identity* and is never exported as a rewritten URI.
+    Repeated keys preserve their original order, TLS/password/path differences
+    remain independent, and a stable lexical tie-break makes publish idempotent.
+    """
+    selected: dict[str, tuple[str, ManifestValue]] = {}
+    for uri, first_seen in sorted(manifest.items()):
+        fingerprint = canonical_proxy_identity(uri)
+        prior = selected.get(fingerprint)
+        if prior is None:
+            selected[fingerprint] = (uri, first_seen)
+        elif str(prior[1]) in {"0", "0.0"} and str(first_seen) not in {"0", "0.0"}:
+            # The historic 0 is "first seen unknown", NOT epoch zero.
+            # A known source timestamp always outranks that sentinel.
+            selected[fingerprint] = (prior[0], first_seen)
+        elif str(first_seen) not in {"0", "0.0"} and _earlier(first_seen, prior[1]):
+            selected[fingerprint] = (prior[0], first_seen)
+    return {uri: first_seen for uri, first_seen in selected.values()}
+
+
 def merge_dev_manifests(
     previous: dict[str, ManifestValue],
     current: dict[str, ManifestValue],
@@ -234,7 +220,7 @@ def merge_dev_manifests(
         existing = merged.get(uri)
         if existing is None or _earlier(first_seen, existing):
             merged[uri] = first_seen
-    return merged
+    return compact_semantic_manifest(merged)
 
 
 def seed_missing_identities(
@@ -244,7 +230,7 @@ def seed_missing_identities(
     seeded = dict(manifest)
     for uri, first_seen in identity_seed.items():
         seeded.setdefault(uri, first_seen)
-    return seeded
+    return compact_semantic_manifest(seeded)
 
 
 def _add_legacy_identity(
@@ -370,6 +356,7 @@ def write_dev_outputs(
     source_created_at: str,
 ) -> None:
     dev_dir.mkdir(parents=True, exist_ok=True)
+    manifest = compact_semantic_manifest(manifest)
     manifest_path = dev_dir / "_manifest.json"
     manifest_path.write_text(
         json.dumps(manifest, ensure_ascii=False, sort_keys=True) + "\n",

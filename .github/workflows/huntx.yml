@@ -458,6 +458,8 @@ jobs:
           TELEGRAM_USER_SESSION: ${{ secrets.TELEGRAM_USER_SESSION }}
           HUNTX_MAX_WORKERS: ${{ env.MAX_WORKERS }}
           HUNTX_REMARK_STYLE: evidence
+          # Time-bounded, public-IP-only DNS/TCP measurements; not speed or auth verification.
+          HUNTX_REMARK_TCP_PROBE: '1'
           LOG_LEVEL: INFO
         run: |
           set -euo pipefail
