@@ -2514,7 +2514,7 @@ export class AppState {
                   <th class="p-3.5">Endpoint (Host:Port)</th>
                   <th class="p-3.5">Transport &amp; TLS</th>
                   <th class="p-3.5">Carrier</th>
-                  <th class="p-3.5">Health</th>
+                  <th class="p-3.5">Evidence &amp; latency</th>
                   <th class="p-3.5 text-right">Actions</th>
                 </tr>
               </thead>
@@ -2571,6 +2571,7 @@ export class AppState {
         const op = node.carrier || node.org || this.detectOperator(node.server, node.sni, node.name);
         const latency = this.getLatency(node);
         const { score, grade, label: healthLabel, color: gradeColor } = this.getHealthScore(node);
+        const evidence = proxyEvidencePresentation(node);
         const isUnmasked = this.unmaskedNodes.has(node.id);
         const isQRVisible = this.activeQRNodes.has(node.id);
 
@@ -2620,8 +2621,9 @@ export class AppState {
                   </span>
                 </div>
                 <div class="flex items-center gap-1.5">
-                  <span class="px-2 py-0.5 text-xs font-mono font-bold rounded border ${gradeColor}" title="${score === null ? healthLabel : `Quality Score: ${score}/100 (${healthLabel})`}">
-                    <span class="text-cyan-400 font-bold mr-0.5">Grade</span> ${grade}
+                  <span class="proxy-evidence-chip" data-level="${evidence.level}" title="${evidence.description}">${evidence.label}</span>
+                  <span class="px-2 py-0.5 text-xs font-mono font-bold rounded border ${gradeColor}" title="${evidence.level === "authenticated" ? healthLabel : "Snapshot estimate; proxy authentication not verified"}">
+                    <span class="text-cyan-400 font-bold mr-0.5">${evidence.level === "authenticated" ? "Grade" : "Estimate"}</span> ${grade}
                   </span>
                   <div class="flex items-center gap-1 text-xs font-mono font-semibold ${latency === null ? 'text-gray-500' : latency < 60 ? 'text-emerald-400' : latency < 120 ? 'text-amber-400' : 'text-rose-400'}">
                     <span class="w-1.5 h-1.5 rounded-full ${latency === null ? 'bg-gray-600' : latency < 60 ? 'bg-emerald-400' : latency < 120 ? 'bg-amber-400' : 'bg-rose-400'}"></span>
@@ -2727,6 +2729,7 @@ export class AppState {
                   const op = node.carrier || node.org || this.detectOperator(node.server, node.sni, node.name);
                   const latency = this.getLatency(node);
                   const { grade } = this.getHealthScore(node);
+                  const evidence = proxyEvidencePresentation(node);
                   return `
                     <tr class="hover:bg-gray-900/50 transition-colors">
                       <td class="p-3.5 font-bold text-sm">${flag} <span class="text-xs text-gray-500">${escapeHTML(node.country)}</span></td>
@@ -2737,7 +2740,8 @@ export class AppState {
                       <td class="p-3.5"><span class="px-2 py-0.5 bg-gray-900 rounded border border-gray-800 text-gray-300 text-xs">${escapeHTML(op)}</span></td>
                       <td class="p-3.5">
                         <span class="font-bold ${latency === null ? 'text-gray-500' : latency < 60 ? 'text-emerald-400' : 'text-amber-400'}">${latency === null ? 'Unmeasured' : `${Math.round(latency)}ms`}</span>
-                        <span class="text-xs text-gray-500 ml-1">Grade ${grade}</span>
+                        <span class="proxy-evidence-chip ml-1" data-level="${evidence.level}" title="${evidence.description}">${evidence.label}</span>
+                        <span class="text-xs text-gray-500 ml-1">${evidence.level === "authenticated" ? "Grade" : "Estimate"} ${grade}</span>
                       </td>
                       <td class="p-3.5 text-right space-x-1 whitespace-nowrap">
                         <button class="btn-copy-node px-3 py-2 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 text-cyan-300 rounded-xl text-xs font-mono font-medium focus-ring cursor-pointer transition-all" data-raw="${encodeURIComponent(node.raw)}">Copy</button>
