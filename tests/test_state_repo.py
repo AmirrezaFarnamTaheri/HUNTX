@@ -51,6 +51,16 @@ class TestStateRepo(unittest.TestCase):
             last_seen_at INTEGER NOT NULL,
             PRIMARY KEY(unique_hash, record_type)
         );
+        CREATE TABLE proxy_probe_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            probe_id TEXT NOT NULL UNIQUE,
+            unique_hash TEXT NOT NULL,
+            record_type TEXT NOT NULL,
+            vantage_id TEXT NOT NULL,
+            checked_at INTEGER NOT NULL,
+            success INTEGER NOT NULL CHECK (success IN (0,1)),
+            latency_ms REAL
+        );
         CREATE TABLE published_artifacts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             route_name TEXT NOT NULL,
