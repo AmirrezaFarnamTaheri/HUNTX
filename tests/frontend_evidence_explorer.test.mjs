@@ -18,7 +18,7 @@ test("observation badges distinguish authenticated, TCP-only, failed TCP and unm
   assert.equal(getProxyEvidence(authenticated).id, "authenticated");
   assert.equal(getProxyEvidence(tcp).id, "tcp");
   assert.equal(getProxyEvidence(tcp).label, "TCP reachable");
-  assert.match(getProxyEvidence(tcp).detail, /proxy protocol unverified/i);
+  assert.match(getProxyEvidence(tcp).detail, /does not verify proxy authentication/i);
   assert.equal(getProxyEvidence(failed).id, "tcp_failed");
   assert.equal(getProxyEvidence(failed).terminal, false);
   assert.equal(getProxyEvidence(unknown).id, "unmeasured");
@@ -52,7 +52,7 @@ test("identity-safe published names preserve existing flag remarks without count
 
 test("evidence filters remain independent of grade and country facet", () => {
   const items = [tcp, failed, authenticated, unknown];
-  assert.deepEqual(countProxyEvidence(items), { all: 4, authenticated: 1, tcp: 1, tcp_failed: 1, unmeasured: 1 });
+  assert.deepEqual(countProxyEvidence(items), { all: 4, authenticated: 1, protocol_failed: 0, tcp: 1, tcp_failed: 1, unmeasured: 1 });
   const app = Object.create(AppState.prototype);
   Object.assign(app, {
     proxies: items, searchQuery: "", selectedProtocol: "ALL", selectedTransport: "ALL", selectedCountry: "ALL",
