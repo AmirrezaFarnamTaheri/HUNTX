@@ -1065,9 +1065,11 @@ export class AppState {
 
     if (this.selectedGrade !== "ALL") {
       result = result.filter(p => {
-        if (this.selectedGrade === "UNMEASURED") return this.getLatency(p) === null;
-        const { grade } = this.getHealthScore(p);
-        return grade === this.selectedGrade;
+        const kind = getProxyEvidence(p).id;
+        if (this.selectedGrade === "UNMEASURED") return !["authenticated", "tcp"].includes(kind);
+        if (this.selectedGrade.startsWith("AUTH:")) return kind === "authenticated" && p.health_grade === this.selectedGrade.slice(5);
+        if (this.selectedGrade.startsWith("TCP:")) return kind === "tcp" && healthForLatency(this.getLatency(p)).grade === this.selectedGrade.slice(4);
+        return false;
       });
     }
 
@@ -2021,28 +2023,20 @@ export class AppState {
       }))
     ];
 
-    const hasMeasuredLatency = allProxies.some((proxy) => this.getLatency(proxy) !== null);
-    const hasUnmeasuredLatency = allProxies.some((proxy) => this.getLatency(proxy) === null);
-    const publishedGrades = new Set(allProxies.map((proxy) => proxy.health_grade).filter(Boolean));
-    const gradeOptions = publishedGrades.size
-      ? [...publishedGrades].map((id) => ({
-          id,
-          label: id === "F" ? "Unreachable at publish" : `Published grade ${id}`
-        }))
-      : HEALTH_GRADES.map((grade) => ({
-          id: grade.id,
-          label: Number.isFinite(grade.maxLatency)
-            ? `Grade ${grade.id} (≤${grade.maxLatency}ms)`
-            : `Grade ${grade.id} (>${HEALTH_GRADES[HEALTH_GRADES.length - 2].maxLatency}ms)`
-        }));
+    const publishedGrades = [...new Set(allProxies.filter(p => getProxyEvidence(p).id === "authenticated")
+      .map(p => p.health_grade))].sort();
+    const tcpBands = [...new Set(allProxies.filter(p => getProxyEvidence(p).id === "tcp")
+      .map(p => healthForLatency(this.getLatency(p)).grade))].filter(v => v !== "—").sort();
+    const gradeOptions = [
+      ...publishedGrades.map(id => ({ id: `AUTH:${id}`, label: `Protocol grade ${id}` })),
+      ...tcpBands.map(id => ({ id: `TCP:${id}`, label: `TCP band ${id} (not proxy health)` }))
+    ];
     this.selectedGrade = reconcileGradeSelection(this.selectedGrade, gradeOptions);
-    const grades = hasMeasuredLatency || publishedGrades.size
-      ? [
-          { id: "ALL", label: "All Latency Grades" },
-          ...gradeOptions,
-          ...(hasUnmeasuredLatency ? [{ id: "UNMEASURED", label: "Unmeasured / unreachable" }] : [])
-        ]
-      : [{ id: "ALL", label: "Latency unmeasured" }];
+    const grades = [
+      { id: "ALL", label: "All measurement bands" },
+      ...gradeOptions,
+      { id: "UNMEASURED", label: "No successful test" }
+    ];
 
     const securities = [
       { id: "ALL", label: "All Security Types" },
@@ -2220,7 +2214,7 @@ export class AppState {
 
           <!-- Health Grade Dropdown -->
           <div class="relative">
-            <label class="block text-xs font-mono text-gray-400 mb-1">Published grade / TCP band</label>
+            <label class="block text-xs font-mono text-gray-400 mb-1">Measurement type / band</label>
             <select
               id="select-grade"
               class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
@@ -2251,7 +2245,7 @@ export class AppState {
               aria-label="Sort Order"
             >
               <option value="latency_asc" ${this.sortBy === "latency_asc" ? "selected" : ""}>Lowest observed TCP latency</option>
-              <option value="score_desc" ${this.sortBy === "score_desc" ? "selected" : ""}>Published grade / TCP estimate</option>
+              <option value="score_desc" ${this.sortBy === "score_desc" ? "selected" : ""}>Authenticated grade, then TCP band</option>
               <option value="name_asc" ${this.sortBy === "name_asc" ? "selected" : ""}>Name (A-Z)</option>
               <option value="country_asc" ${this.sortBy === "country_asc" ? "selected" : ""}>Country (A-Z)</option>
               <option value="port_asc" ${this.sortBy === "port_asc" ? "selected" : ""}>Port (Low-High)</option>
