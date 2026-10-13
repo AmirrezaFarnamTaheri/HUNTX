@@ -12,7 +12,7 @@ from huntx.state.proxy_lifecycle import (
     record_authenticated_probe, terminalize_proxy, describe_proxy,
 )
 from huntx.state.verdict_store import get_records_for_governed_build, upsert_record_verdict
-from huntx.state.proxy_retirement import get_retirement_audit
+from huntx.state.proxy_retirement import get_retirement_audit, get_suppression_candidates
 
 
 DIGEST = "a" * 64
@@ -121,3 +121,14 @@ def test_tcp_only_evidence_cannot_count_towards_quarantine(tmp_path):
             success=False, evidence_kind="tcp_connect",
         )
     assert build_both(db, repo) == (1, 1)
+
+
+def test_audit_can_identify_exactly_which_identity_needs_independent_retesting(tmp_path):
+    db, _ = setup_proxy(tmp_path)
+    record_failures(db)
+    candidates = get_suppression_candidates(db, limit=20)
+    assert len(candidates) == 1
+    assert candidates[0]["identity_fingerprint"] == DIGEST[:20]
+    assert candidates[0]["authenticated_failure_streak"] == 6
+    assert candidates[0]["status"] == "temporarily_suppressed"
+    assert "raw_uri" not in candidates[0]
