@@ -223,7 +223,7 @@ def format_enriched_remark(uri: str, counter: dict, metadata: dict | None = None
             and operator.strip().isascii()
             and operator.strip().replace('-', '').isalnum()
         ) else ''
-        op_tag = f"-{op}" if op else ""
+        operator_tag = f"OP:{op}" if op else ""
         # Protocol tag carries the transport and security actually in use so
         # a user picking a node from a long list can tell a plain TCP VLESS
         # from a REALITY-over-gRPC one at a glance.
@@ -234,7 +234,10 @@ def format_enriched_remark(uri: str, counter: dict, metadata: dict | None = None
             if isinstance(detail, str) and detail.strip().lower() not in ('', 'none', 'auto', 'unknown'):
                 proto_tag += '-' + detail.strip().upper()
 
-        parts = [f"{flag} {country}{op_tag}", proto_tag]
+        # The flag alone communicates a country. Never repeat DE, NL or ZZ.
+        parts = [f"{flag} {proto_tag}"]
+        if operator_tag:
+            parts.append(operator_tag)
 
         latency = metadata.get('latency_ms')
         if (
@@ -371,10 +374,10 @@ def _safe_endpoint_label(uri: str) -> str:
 def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
     """Display useful observable facts without invented geo or fake throughput.
 
-    A valid country hint is labeled tentative, unknown geography is OMITTED
-    (not prepended as ZZ), and stable canonical identity stays internal. TCP
-    and DNS are not proof of an authenticated proxy, and configured bandwidth
-    is not a speed test.
+    Country is represented by a single flag, or a globe for unknown country;
+    a tentative source hint retains its question mark. Internal canonical
+    identity never appears in user-facing names. TCP/DNS are not authenticated
+    proxy evidence, and configured bandwidth is not a speed test.
     """
     fields = metadata if isinstance(metadata, dict) else {}
     endpoint = fields.get('endpoint')
@@ -394,14 +397,14 @@ def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
         intel_fresh and geo.get('status') == 'prefix_dataset_estimate'
         and isinstance(country, str) and country in _HINT_COUNTRIES
     )
-    location = ''
+    location = '🌐'
     if trustworthy_location and isinstance(country, str):
-        location = f'{_country_to_flag(country)} {country}'
+        location = _country_to_flag(country)
     elif (fields.get('country_hint_source') == 'source_remark'
           and isinstance(fields.get('country_hint'), str)
           and fields['country_hint'] in _HINT_COUNTRIES):
         hint = fields['country_hint']
-        location = f'{_country_to_flag(hint)}? {hint}'
+        location = f'{_country_to_flag(hint)}?'
 
     scheme = uri.split('://', 1)[0].upper() if '://' in uri else 'PROXY'
     protocol = re.sub(r'[^A-Z0-9+_-]', '', scheme)[:18] or 'PROXY'
@@ -455,15 +458,16 @@ def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
             if value is not None and value <= 100000:
                 details.append(f'{display}:{value:.1f}Mb/s')
 
-    components = ([location] if location else []) + [label]
+    # Join the icon and protocol as one visual unit: 🌐 TROJAN-WS.
+    components = [f'{location} {label}']
     if target:
         components.append(target)
     # No fabricated ping/speed. An unmeasured proxy still has protocol and
     # destination, which are useful discriminators in a client dropdown.
     components.extend(details)
     index = fields.get('_remark_ordinal')
-    display_name = ' | '.join(components[:2])
-    for detail in components[2:]:
+    display_name = components[0]
+    for detail in components[1:]:
         if len(display_name) + len(detail) + 3 > 110:
             continue
         display_name += ' | ' + detail
