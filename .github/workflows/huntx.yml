@@ -609,7 +609,7 @@ jobs:
           # records without touching their canonical raw URI/SQLite state.
           python scripts/report_endpoint_inventory.py \
             --db persist/state.db \
-            --max-records 10000 \
+            --max-records 50000 \
             --output persist/data/logs/endpoint-inventory.json
 
       - name: Record explicit no-release verdict
