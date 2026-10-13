@@ -136,6 +136,9 @@ def test_cumulative_merger_keeps_earliest_timestamp_and_distinct_profiles():
     assert len(merged) == 2
     assert min(merged.values()) == 120
     assert 500 in merged.values()
+    # A legacy bootstrap sentinel is unknown time, not older evidence.
+    seeded = module.seed_missing_identities({a: 300}, {b: 0})
+    assert len(seeded) == 1 and list(seeded.values()) == [300]
     assert {canonical_proxy_identity(v) for v in merged} == {
         canonical_proxy_identity(a), canonical_proxy_identity(other)
     }
