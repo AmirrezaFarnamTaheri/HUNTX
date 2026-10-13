@@ -120,9 +120,17 @@ def canonical_proxy_identity(uri: str) -> str:
             from .common.singbox import parse_proxy_uri
             node = parse_proxy_uri(bare)
             if node and node.type == 'shadowsocks' and node.server and node.port:
+                # Other SIP002 query options may alter the connection but
+                # are not modeled by this parser; keep them in the identity
+                # rather than silently merging different unknown options.
+                unknown: dict[str, list[str]] = {}
+                for key, value in parse_qsl(parsed.query, keep_blank_values=True):
+                    if key not in {'plugin', 'plugin-opts', 'plugin_opts'}:
+                        unknown.setdefault(key, []).append(value)
                 return json.dumps([
                     'ss', node.server.lower(), node.port, node.method.lower(),
-                    node.password, node.plugin, node.plugin_opts
+                    node.password, node.plugin, node.plugin_opts,
+                    sorted(unknown.items()),
                 ], ensure_ascii=False, separators=(',', ':'))
         if not parsed.hostname:
             return bare
