@@ -84,6 +84,10 @@ def build_inventory(
                 "anycast": description["anycast"],
                 "geo": dict(description["geo"]),
                 "attribution_status": description["intelligence"]["status"],
+                "dns_observation": description["dns_observation"],
+                "tls_configuration": description["tls_configuration"],
+                "transport_configuration": description["transport_configuration"],
+                "diagnostic_findings": description["diagnostic_findings"],
                 "observation_count": 0,
             }
             distinct[key] = safe
@@ -97,6 +101,17 @@ def build_inventory(
         counts["unattributed_asn"] += data["asn"] is None
         counts["anycast_endpoints"] += data["anycast"] is True
         counts["attributed_cdn_endpoints"] += data["cdn_provider"] is not None
+    counts["tls_verification_disabled"] = sum(
+        item["tls_configuration"]["verification_disabled_in_link"]
+        for item in distinct.values()
+    )
+    counts["transport_needs_native_probe"] = sum(
+        item["transport_kind"] == "udp" or item["tls_mode"] == "reality"
+        for item in distinct.values()
+    )
+    counts["configuration_findings"] = sum(
+        len(item["diagnostic_findings"]) for item in distinct.values()
+    )
     counts["distinct_endpoint_ids"] = len(distinct)
     counts["network_endpoints"] = len(distinct)
     counts["dns_endpoints"] = sum(
@@ -115,6 +130,16 @@ def build_inventory(
             label = str(row.get(field) or "unknown")
             histogram[label] = histogram.get(label, 0) + 1
         distributions[field] = dict(sorted(histogram.items()))
+    risks: dict[str, int] = {}
+    for item in distinct.values():
+        for code in item["diagnostic_findings"]:
+            risks[code] = risks.get(code, 0) + 1
+    distributions["configuration_findings"] = dict(sorted(risks.items()))
+    distribution_tls: dict[str, int] = {}
+    for item in distinct.values():
+        policy = item["tls_configuration"]["alpn_profile"]
+        distribution_tls[policy] = distribution_tls.get(policy, 0) + 1
+    distributions["alpn_profile"] = dict(sorted(distribution_tls.items()))
     output = sorted(distinct.values(), key=lambda e: (-e["observation_count"], e["endpoint_id"]))
     return {
         "schema_version": 1,
