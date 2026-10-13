@@ -124,3 +124,46 @@ HUNTX does not currently collect authenticated multi-vantage sessions for
 every published proxy. Consequently **no specific proxy may be labelled
 permanently dead solely from the available production TCP tests**. Reported
 metadata are observations, not a guarantee of availability.
+
+## DNS, TLS, transport, and protocol diagnostics
+
+Production samples up to **24 distinct public endpoints per run**, rotating
+deterministically by GitHub run ID and protocol so one highly replicated
+source does not monopolize tests. Concurrency is capped at four and each
+DNS/TCP/TLS operation is time-bounded. Results appear in
+`network-diagnostics.json` beside source-health, endpoint-inventory and
+proxy-retirement reports.
+
+The layers have intentionally different meanings:
+
+| Observation | What it proves | What it does not prove |
+|---|---|---|
+| DNS resolves public A/AAAA | A resolver supplied a currently usable public address | DNSSEC, authoritativeness, TTL, or healthy proxy |
+| TCP connect | The pinned public TCP destination accepted a connection | TLS, UDP, credentials, routing, anonymity |
+| Standard TLS verified handshake | CA/hostname-validated TLS handshake succeeded | REALITY, QUIC, WebSocket/gRPC upgrade, proxy authentication |
+| REALITY / QUIC / UDP | Native protocol verification required | A TCP timeout is never a UDP protocol failure |
+| Authenticated proxy session | Requires a separate actual proxy-protocol receipt | TLS/TCP alone never substitutes |
+| Egress / traffic quality | Requires authenticated end-to-end routing evidence | Unsupported in the public endpoint sample |
+
+Public destinations are pinned to their validated numeric addresses after
+DNS resolution, blocking trivial rebinding to loopback, link-local, private,
+documentation or cloud metadata addresses. Hostnames, raw IPs, source
+credentials, SNI, raw TLS certificates and provider error strings are omitted
+from the report. DNS results do not claim authoritative NXDOMAIN: the
+standard resolver may not distinguish NXDOMAIN from NODATA.
+
+TLS verification is **never silently disabled** for an insecure source link.
+Certificates are checked against the declared SNI or the endpoint host.
+A TLS or DNS failure remains recoverable, with a suggested next check;
+REALITY/QUIC/WS/gRPC are marked unverified until protocol-aware, credential-
+authenticated checks exist. The sample cannot establish global uptime,
+jitter, packet loss, throughput, or 'dead forever'.
+
+Other dimensions requiring real protocol-level instrumentation include
+multi-vantage availability, resolver disagreements, DNSSEC, DNS TTLs and
+CNAME history, IPv6 reachability by vantage, protocol auth outcomes,
+QUIC ALPN, gRPC streams, WebSocket handshake status, TLS version/cipher
+and certificate renewal trends, endpoint rotations, CDN edge drift, network
+loss/jitter, throughput and sustainable egress. Track these as **unknown**
+until a compatible test records timestamped evidence, never infer them from
+remarks, ports or server banners.
