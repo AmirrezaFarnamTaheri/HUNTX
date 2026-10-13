@@ -2080,11 +2080,12 @@ export class AppState {
             <div class="max-w-2xl">
               <span class="font-mono text-xs font-semibold uppercase tracking-wider text-cyan-300">${i18n.translate("EVIDENCE EXPLORER")}</span>
               <h2 class="text-base sm:text-lg font-semibold text-gray-100 mt-1">${i18n.translate("Explore nodes by what was actually tested")}</h2>
-              <p class="text-xs sm:text-sm leading-relaxed text-gray-400 mt-1">${i18n.translate("TCP connect does not verify proxy authentication")}. ${i18n.translate("A failed check from one vantage is not permanent proxy death")}.</p>
+              <p class="text-xs sm:text-sm leading-relaxed text-gray-400 mt-1">TCP connectivity does not prove that a proxy authenticates. Results reflect the published snapshot.</p>
             </div>
             <a href="ENDPOINT_EVIDENCE.md" target="_blank" rel="noopener noreferrer" class="min-h-[44px] px-3.5 py-2.5 inline-flex items-center justify-center rounded-xl border border-gray-700 bg-gray-900 text-cyan-300 text-xs font-semibold focus-ring hover:border-cyan-500 transition-colors">${i18n.translate("Evidence guide")} ↗</a>
           </div>
-          <div class="flex flex-wrap gap-2 mt-4" role="group" aria-label="Filter by measurement evidence">
+          <p class="text-xs text-gray-400 mt-2">Counts reflect other active filters. Measurements are from the publisher's vantage, not your device.</p>
+          <div class="flex flex-wrap gap-2 mt-3" role="group" aria-label="Filter by measurement evidence">
             ${evidenceOptions.map(option => `
               <button
                 type="button"
@@ -2530,9 +2531,11 @@ export class AppState {
         const evidence = getProxyEvidence(node);
         const op = node.carrier || node.org || this.detectOperator(node.server, node.sni, node.name);
         const latency = this.getLatency(node);
-        const { grade, label: healthLabel, color: gradeColor } = this.getHealthScore(node);
-        const gradeDisplay = evidence.id === "authenticated" ? `Protocol ${grade}`
-          : evidence.id === "tcp" && latency !== null ? `TCP band ${grade}` : "No grade";
+        const { grade, label: healthLabel, color: healthColor } = this.getHealthScore(node);
+        const gradeColor = evidence.id === "authenticated" ? healthColor
+          : "text-sky-300 border-sky-800/70 bg-sky-950/40";
+        const gradeDisplay = evidence.id === "authenticated" ? `Protocol grade ${grade}`
+          : evidence.id === "tcp" ? "TCP only" : "No grade";
         const isUnmasked = this.unmaskedNodes.has(node.id);
         const isQRVisible = this.activeQRNodes.has(node.id);
 
@@ -2707,7 +2710,7 @@ export class AppState {
                       <td class="p-3.5"><span class="px-2 py-0.5 bg-gray-900 rounded border border-gray-800 text-gray-300 text-xs">${escapeHTML(op)}</span></td>
                       <td class="p-3.5">
                         <span class="font-bold ${latency === null ? 'text-gray-500' : latency < 60 ? 'text-emerald-400' : 'text-amber-400'}">${latency === null ? 'Unmeasured' : `${Math.round(latency)}ms`}</span>
-                        <span class="block text-xs text-gray-400 mt-1" title="${escapeHTML(evidence.detail)}">${escapeHTML(i18n.translate(evidence.label))} · ${evidence.id === "authenticated" ? "Protocol " + grade : evidence.id === "tcp" ? "TCP band " + grade : "Unverified"}</span>
+                        <span class="block text-xs text-gray-400 mt-1" title="${escapeHTML(evidence.detail)}">${escapeHTML(i18n.translate(evidence.label))} · ${evidence.id === "authenticated" ? "Protocol grade " + grade : evidence.id === "tcp" ? "TCP only" : "Unverified"}</span>
                       </td>
                       <td class="p-3.5 text-right space-x-1 whitespace-nowrap">
                         <button class="btn-copy-node px-3 py-2 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 text-cyan-300 rounded-xl text-xs font-mono font-medium focus-ring cursor-pointer transition-all" data-raw="${encodeURIComponent(node.raw)}">Copy</button>
