@@ -455,6 +455,57 @@ export function normalizeProxyRecord(proxy) {
   };
 }
 
+/** A network probe is one layer of evidence, not proof of a working proxy. */
+export function getProxyEvidence(proxy = {}) {
+  const kind = String(proxy?.health_evidence || "").toLowerCase();
+  if (kind === "fresh_authenticated_protocol" && typeof proxy?.health_grade === "string"
+      && PUBLISHED_HEALTH_GRADE_META[proxy.health_grade]) {
+    return { id: "authenticated", label: "Protocol checked", detail: "Authenticated proxy-protocol evidence from this snapshot; availability can change.", terminal: false };
+  }
+  if (kind === "failed_authenticated_protocol") {
+    return { id: "tcp_failed", label: "Protocol check failed", detail: "Authenticated protocol check failed; investigate or retest, not permanently dead.", terminal: false };
+  }
+  if (kind === "tcp_connect_only" || (proxy?.probe_ok === true && proxy?.health_evidence === undefined)) {
+    return { id: "tcp", label: "TCP reachable", detail: "TCP connect does not verify proxy authentication.", terminal: false };
+  }
+  if (kind === "tcp_failed_from_publish_vantage" || (proxy?.probe_ok === false && proxy?.health_evidence === undefined)) {
+    return { id: "tcp_failed", label: "TCP check failed", detail: "TCP failed from one publish vantage; this does not establish permanent failure.", terminal: false };
+  }
+  return { id: "unmeasured", label: "Not measured", detail: "No trustworthy proxy-protocol or TCP test available for this snapshot.", terminal: false };
+}
+
+/** A country flag without independently attributed geography is always a hint. */
+export function getRegionPresentation(proxy = {}) {
+  const code = String(proxy?.country || "").trim().toUpperCase();
+  const known = /^[A-Z]{2}$/.test(code) && code !== "ZZ";
+  if (!known) return { code: "ZZ", flag: "🌐", confidence: "unknown", label: "Unknown region", detail: "Location unavailable; no region is assumed." };
+  const flag = getFlagEmoji(code);
+  const confidence = proxy?.geo_verified === true
+    && !["unknown", "anycast-provider", "unverified_country_hint", "legacy-estimate"].includes(String(proxy?.geo_source || "").toLowerCase())
+    ? "provider" : "hint";
+  const label = COUNTRY_NAMES[code] || code;
+  return confidence === "provider"
+    ? { code, flag, confidence, label, detail: "GeoIP provider estimate, not confirmed physical server location." }
+    : { code, flag: flag + "?", confidence, label, detail: "Unverified country hint; not a measured server location." };
+}
+
+/** Published client remarks are the canonical name; never prepend a guessed country. */
+export function displayPublishedName(tag, protocol) {
+  const name = typeof tag === "string" ? tag.trim() : "";
+  return name || `${String(protocol || "proxy").toUpperCase()} · Unnamed`;
+}
+
+/** Counts are computed once per snapshot and shared with the evidence filter. */
+export function countProxyEvidence(proxies) {
+  const counts = { all: 0, authenticated: 0, tcp: 0, tcp_failed: 0, unmeasured: 0 };
+  for (const proxy of (Array.isArray(proxies) ? proxies : [])) {
+    const state = getProxyEvidence(proxy).id;
+    counts.all += 1;
+    if (Object.hasOwn(counts, state)) counts[state] += 1;
+  }
+  return counts;
+}
+
 /** Keep unresolved geography out of the known-region count and ranking. */
 export function summarizeRegions(proxies) {
   const counts = new Map();
@@ -469,6 +520,35 @@ export function summarizeRegions(proxies) {
   }
   const countries = [...counts.entries()].sort((a, b) => b[1] - a[1]);
   return { regionCount: countries.length, unknownCount, countries };
+}
+
+export function summarizeEvidence(proxies) {
+  const records = Array.isArray(proxies) ? proxies : [];
+  let authenticated = 0;
+  let unknownGeography = 0;
+  for (const proxy of records) {
+    if (proxy?.health_evidence === "fresh_authenticated_protocol") authenticated += 1;
+    if (!proxy?.country || String(proxy.country).toUpperCase() === "ZZ") unknownGeography += 1;
+  }
+  return { total: records.length, authenticated,
+    unverified: records.length - authenticated, unknownGeography };
+}
+
+export function proxyEvidencePresentation(node) {
+  switch (node?.health_evidence) {
+    case "fresh_authenticated_protocol":
+      return { level: "authenticated", label: "Auth verified", description: "Fresh authenticated proxy-protocol evidence" };
+    case "failed_authenticated_protocol":
+      return { level: "failed", label: "Auth failed", description: "Authenticated proxy-protocol test failed" };
+    default: {
+      const measured = node?.latency ?? node?.ping;
+      if (measured !== null && measured !== undefined && measured !== "" &&
+          Number.isFinite(Number(measured)) && Number(measured) >= 0) {
+        return { level: "tcp", label: "TCP sampled", description: "TCP or snapshot measurement; proxy authentication unverified" };
+      }
+      return { level: "unverified", label: "Not tested", description: "No authenticated proxy-protocol evidence" };
+    }
+  }
 }
 
 function telemetryKey(node) {
@@ -544,6 +624,7 @@ export class AppState {
     this.selectedCountry = "ALL";
     this.selectedOperator = "ALL";
     this.selectedGrade = "ALL";
+    this.selectedEvidence = "ALL";
     this.selectedSecurity = "ALL";
     this.selectedPort = "ALL";
     this.sortBy = "latency_asc";
@@ -775,7 +856,7 @@ export class AppState {
             const liveNode = {
               id: `px-${String(idx + 1).padStart(4, "0")}`,
               protocol: proto,
-              name: `${geo.country}-${tag}`,
+              name: displayPublishedName(tag, proto),
               server: host,
               port: port,
               uuid: entry.user || entry.password || "",
@@ -1044,12 +1125,20 @@ export class AppState {
   }
 
   refreshProxyWorkspace() {
-    // The filter bar counts and the node grid derive from one filtered set;
-    // computing it once here keeps a ~1k-node filter+sort from running twice
-    // on every keystroke and select change.
+    // Filtering replaces the toolbar. Preserve keyboard focus and the caret,
+    // otherwise typing into the quick search drops focus after one character.
+    const focus = typeof document === "undefined" ? null : document.activeElement;
+    const preserve = focus?.id === "node-quick-search";
+    const start = preserve ? focus.selectionStart : null;
+    const end = preserve ? focus.selectionEnd : null;
     const filtered = this.getFilteredProxies();
     this.renderFilterBar(filtered);
     this.renderNodes(filtered);
+    if (preserve) {
+      const next = document.getElementById("node-quick-search");
+      next?.focus({ preventScroll: true });
+      if (next && start !== null && end !== null) next.setSelectionRange(start, end);
+    }
   }
 
   resetProxyFilters({ focusSearch = false } = {}) {
@@ -1058,6 +1147,7 @@ export class AppState {
     this.selectedCountry = "ALL";
     this.selectedOperator = "ALL";
     this.selectedGrade = "ALL";
+    this.selectedEvidence = "ALL";
     this.selectedSecurity = "ALL";
     this.selectedPort = "ALL";
     this.searchQuery = "";
@@ -1120,6 +1210,10 @@ export class AppState {
         const { grade } = this.getHealthScore(p);
         return grade === this.selectedGrade;
       });
+    }
+
+    if (this.selectedEvidence && this.selectedEvidence !== "ALL") {
+      result = result.filter(node => getProxyEvidence(node).id === this.selectedEvidence);
     }
 
     if (this.selectedSecurity !== "ALL") {
@@ -1362,7 +1456,7 @@ export class AppState {
           </div>
         </a>
 
-        <div class="flex-1 max-w-md hidden md:block">
+        <div class="header-global-search flex-1 max-w-md hidden md:block">
           <div class="relative group">
             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500 group-focus-within:text-cyan-400">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
@@ -1435,6 +1529,16 @@ export class AppState {
           </button>
 
           <button
+            id="btn-open-mobile-search"
+            type="button"
+            class="header-mobile-search min-h-[44px] min-w-[44px] items-center justify-center bg-gray-900 border border-gray-800 text-cyan-300 rounded-xl focus-ring"
+            title="Search published proxies"
+            aria-label="Search published proxies"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+          </button>
+
+          <button
             id="btn-toggle-theme"
             class="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-cyan-500/40 text-gray-400 hover:text-cyan-300 rounded-xl transition-all focus-ring cursor-pointer"
             title="Toggle Light / Dark Theme"
@@ -1489,6 +1593,8 @@ export class AppState {
           >
             <button id="menu-open-scanner" role="menuitem" class="w-full min-h-[44px] px-3 py-2 text-left text-xs font-mono text-emerald-300 hover:bg-gray-900 rounded-xl focus-ring">${i18n.translate("IP Scanner")}</button>
             <button id="menu-open-builder" role="menuitem" class="w-full min-h-[44px] px-3 py-2 text-left text-xs font-mono text-cyan-300 hover:bg-gray-900 rounded-xl focus-ring">${i18n.translate("Sub Builder")}</button>
+            <button id="menu-open-search" role="menuitem" class="w-full min-h-[44px] px-3 py-2 text-left text-xs font-mono text-cyan-300 hover:bg-gray-900 rounded-xl focus-ring">Search proxies</button>
+            <button id="menu-toggle-theme" role="menuitem" class="w-full min-h-[44px] px-3 py-2 text-left text-xs font-mono text-gray-200 hover:bg-gray-900 rounded-xl focus-ring">Toggle appearance</button>
             <button id="menu-open-decoder" role="menuitem" class="w-full min-h-[44px] px-3 py-2 text-left text-xs font-mono text-gray-200 hover:bg-gray-900 rounded-xl focus-ring">${i18n.translate("Decoder")}</button>
             <a href="architecture.html" target="_blank" role="menuitem" class="flex items-center min-h-[44px] px-3 py-2 text-xs font-mono text-indigo-300 hover:bg-gray-900 rounded-xl focus-ring">${i18n.translate("Architecture")}</a>
             <a href="https://github.com/AmirrezaFarnamTaheri/HUNTX" target="_blank" rel="noopener noreferrer" role="menuitem" class="flex items-center min-h-[44px] px-3 py-2 text-xs font-mono text-gray-300 hover:bg-gray-900 rounded-xl focus-ring">GitHub</a>
@@ -1505,6 +1611,12 @@ export class AppState {
     document.getElementById("global-search-input")?.addEventListener("input", (e) => {
       debouncedSearch(e.target.value);
     });
+
+    const openProxySearch = () => {
+      this.switchPageTab("proxies", true);
+      document.getElementById("node-quick-search")?.focus();
+    };
+    document.getElementById("btn-open-mobile-search")?.addEventListener("click", openProxySearch);
 
     document.getElementById("btn-open-scanner")?.addEventListener("click", (e) => {
       this.lastFocusedElement = e.currentTarget;
@@ -1545,6 +1657,14 @@ export class AppState {
       this.lastFocusedElement = toolsButton;
       setToolsOpen(false);
       this.openCleanIPScannerModal();
+    });
+    document.getElementById("menu-open-search")?.addEventListener("click", () => {
+      setToolsOpen(false);
+      openProxySearch();
+    });
+    document.getElementById("menu-toggle-theme")?.addEventListener("click", () => {
+      setToolsOpen(false);
+      this.toggleTheme();
     });
     document.getElementById("menu-open-builder")?.addEventListener("click", () => {
       this.lastFocusedElement = toolsButton;
@@ -1592,13 +1712,14 @@ export class AppState {
     hero.innerHTML = `
       <div class="radar-overview">
         <div class="radar-summary">
-          <h1>Proxy telemetry <span>&amp; node diagnostics</span></h1>
+          <span class="section-eyebrow">HUNTX / Observatory</span>
+          <h1>Proxy telemetry <span>&amp; network intelligence</span></h1>
           <p class="radar-description">Browse the loaded snapshot, compare recorded measurements, and inspect configurations. Artifact checksums do not verify connectivity.</p>
           <dl class="radar-metrics">
-            <div><dt>Loaded nodes</dt><dd>${activeCount}</dd><span>${regionCount} regions${regionSummary.unknownCount ? ` · ${regionSummary.unknownCount} unresolved` : ""}</span></div>
-            <div><dt>Ingest sources</dt><dd>${sourcesCount}</dd><span>Channels</span></div>
-            <div><dt>Catalog files</dt><dd>${totalFiles}</dd><span>${escapeHTML(totalSize)}</span></div>
-            <div><dt>Avg latency</dt><dd>${avgLatencyNum === null ? "—" : `${avgLatencyNum}ms`}</dd><span>${minLatencyNum === null ? "Unmeasured" : `Min: ${minLatencyNum}ms`}</span></div>
+            <div><dt>Published nodes</dt><dd>${activeCount.toLocaleString("en-US")}</dd><span>${regionCount} reported regions${regionSummary.unknownCount ? ` · ${regionSummary.unknownCount} unresolved` : ""}</span></div>
+            <div><dt>Source inventory</dt><dd>${sourcesCount}</dd><span>Configured upstreams</span></div>
+            <div><dt>Available artifacts</dt><dd>${totalFiles}</dd><span>${escapeHTML(totalSize)}</span></div>
+            <div><dt>Recorded latency</dt><dd>${avgLatencyNum === null ? "—" : `${avgLatencyNum}ms`}</dd><span>${minLatencyNum === null ? "Not measured" : `Lowest: ${minLatencyNum}ms · not auth proof`}</span></div>
           </dl>
 
           <div class="hero-actions flex flex-wrap gap-2.5 pt-2">
@@ -1841,8 +1962,8 @@ export class AppState {
     const operators = sortedCarriers.slice(0, 8).map(c => {
       const hasProbe = c.pings.length > 0;
       const avgPing = hasProbe ? Math.round(c.pings.reduce((a, b) => a + b, 0) / c.pings.length) : null;
-      const grade = !hasProbe ? "—" : (avgPing <= 35 ? "A+" : (avgPing <= 55 ? "A" : "B+"));
-      const status = !hasProbe ? "No probe data" : (avgPing <= 28 ? "Ultra" : (avgPing <= 45 ? "Optimal" : "Stable"));
+      const grade = hasProbe ? "TCP" : "—";
+      const status = hasProbe ? "Not proxy-auth proof" : "No probe data";
       return {
         name: c.name,
         tag: c.name,
@@ -1859,24 +1980,44 @@ export class AppState {
     const sortedCountries = regionSummary.countries.slice(0, 8);
 
     const maxCount = sortedCountries.length > 0 ? sortedCountries[0][1] : 1;
+    const evidence = summarizeEvidence(this.proxies);
 
     container.innerHTML = `
+      <div class="section-eyebrow">Evidence at a glance</div>
+      <div id="evidence-strip" aria-label="Snapshot evidence summary">
+        <div class="evidence-stat" data-tone="good">
+          <span class="evidence-label">Authenticated</span>
+          <div class="evidence-value" data-evidence-count>${evidence.authenticated.toLocaleString("en-US")}</div>
+          <p class="evidence-detail">Fresh proxy-protocol evidence</p>
+        </div>
+        <div class="evidence-stat" data-tone="caution">
+          <span class="evidence-label">Unverified</span>
+          <div class="evidence-value" data-evidence-count>${evidence.unverified.toLocaleString("en-US")}</div>
+          <p class="evidence-detail">Not proven by proxy authentication</p>
+        </div>
+        <div class="evidence-stat">
+          <span class="evidence-label">Unknown location</span>
+          <div class="evidence-value" data-evidence-count>${evidence.unknownGeography.toLocaleString("en-US")}</div>
+          <p class="evidence-detail">Missing reliable geography</p>
+        </div>
+        <p class="evidence-note"><strong>Evidence boundary.</strong> Country hints, IP reachability and TLS handshakes do not validate an authenticated proxy session. Counts describe the loaded snapshot.</p>
+      </div>
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 my-8">
         <!-- Carrier Matrix Card -->
         <div class="lg:col-span-7 cyber-card p-6 bg-gray-900/60 border border-gray-800/80 hover:border-cyan-500/40 rounded-3xl backdrop-blur-md">
           <div class="flex items-center justify-between pb-4 border-b border-gray-800 mb-4">
             <div>
               <h2 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
-                Carrier measurements
+                Network operators
                 <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">${this.telemetryState === "same-generation" ? "SNAPSHOT TELEMETRY" : "NO SNAPSHOT TELEMETRY"}</span>
-              </h3>
-              <p class="text-xs text-gray-400 font-sans mt-0.5">Snapshot operator latency and routing distribution (${this.proxies.length} nodes analyzed)</p>
+              </h2>
+              <p class="text-xs text-gray-400 font-sans mt-0.5">Reported operator mix and recorded endpoint latency (${this.proxies.length} nodes analyzed)</p>
             </div>
           </div>
 
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
             ${operators.map(op => `
-              <div class="operator-card p-3 rounded-2xl bg-gray-950/80 border border-gray-800/80 hover:border-cyan-500/50 cursor-pointer transition-all flex flex-col justify-between group" data-operator="${escapeHTML(op.tag)}" title="Click to filter live proxies by ${escapeHTML(op.name)}">
+              <div class="operator-card p-3 rounded-2xl bg-gray-950/80 border border-gray-800/80 hover:border-cyan-500/50 cursor-pointer transition-all flex flex-col justify-between group" data-operator="${escapeHTML(op.tag)}" role="button" tabindex="0" aria-label="Filter by operator ${escapeHTML(op.name)}" title="Filter snapshot by ${escapeHTML(op.name)}">
                 <div class="flex items-center justify-between">
                   <span class="text-xs font-mono font-bold text-gray-200 group-hover:text-cyan-300 transition-colors truncate max-w-[90px]">${escapeHTML(op.name)}</span>
                   <span class="text-xs font-mono font-extrabold text-cyan-400 bg-cyan-950/80 border border-cyan-500/30 px-1.5 py-0.5 rounded-md">${op.grade}</span>
@@ -1901,8 +2042,8 @@ export class AppState {
               <h2 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
                 Node distribution
                 <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">${sortedCountries.length} REGIONS</span>
-              </h3>
-              <p class="text-xs text-gray-400 font-sans mt-0.5">Node density across active edge regions and data centers</p>
+              </h2>
+              <p class="text-xs text-gray-400 font-sans mt-0.5">Reported geography from the loaded snapshot; unknown locations are excluded</p>
             </div>
           </div>
 
@@ -1911,7 +2052,7 @@ export class AppState {
               const pct = Math.round((count / (this.proxies.length || 1)) * 100);
               const name = COUNTRY_NAMES[code] || code;
               return `
-                <div class="geo-density-row cursor-pointer group" data-country="${code}" title="Click to filter live proxies by ${name}">
+                <div class="geo-density-row cursor-pointer group" data-country="${code}" role="button" tabindex="0" aria-label="Filter by reported region ${escapeHTML(name)}" title="Filter snapshot by ${escapeHTML(name)}">
                   <div class="flex items-center justify-between text-xs font-mono mb-1">
                     <span class="font-bold text-gray-200 group-hover:text-cyan-300 transition-colors flex items-center gap-1.5">
                       <span>${this.getCountryFlag(code)}</span> ${name} (${code})
@@ -1938,7 +2079,7 @@ export class AppState {
         <div class="space-y-1">
           <h2 class="text-base font-mono font-bold text-white flex items-center gap-2">
             Loaded snapshot
-          </h4>
+          </h2>
           <p class="text-xs font-sans text-gray-300">
             ${this.proxies.length} loaded endpoints. Inspect configurations before importing; connectivity is not verified here.
           </p>
@@ -1949,7 +2090,16 @@ export class AppState {
       </div>
     `;
 
+    const enableKeyboardDrilldown = (element) => {
+      element.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          element.click();
+        }
+      });
+    };
     container.querySelectorAll(".operator-card").forEach((card) => {
+      enableKeyboardDrilldown(card);
       card.addEventListener("click", () => {
         const op = card.dataset.operator;
         this.selectedOperator = op;
@@ -1961,6 +2111,7 @@ export class AppState {
     });
 
     container.querySelectorAll(".geo-density-row").forEach((row) => {
+      enableKeyboardDrilldown(row);
       row.addEventListener("click", () => {
         const c = row.dataset.country;
         this.selectedCountry = c;
@@ -1992,7 +2143,7 @@ export class AppState {
     const transports = ["ALL", ...activeTransports];
 
     // Derive available countries
-    const activeCountries = Array.from(new Set(allProxies.map(p => p.country || "US"))).sort();
+    const activeCountries = Array.from(new Set(allProxies.map(p => p.country || "ZZ"))).sort();
     const countries = [
       { code: "ALL", label: "All Regions" },
       ...activeCountries.map(code => ({
@@ -2043,8 +2194,53 @@ export class AppState {
 
     const filtered = precomputed || this.getFilteredProxies();
 
+    const activeFilters = [
+      { key: "selectedProtocol", label: "Protocol", value: this.selectedProtocol },
+      { key: "selectedTransport", label: "Transport", value: this.selectedTransport },
+      { key: "selectedCountry", label: "Region", value: this.selectedCountry },
+      { key: "selectedOperator", label: "Operator", value: this.selectedOperator },
+      { key: "selectedGrade", label: "Grade", value: this.selectedGrade },
+      { key: "selectedSecurity", label: "Security", value: this.selectedSecurity },
+      { key: "searchQuery", label: "Search", value: this.searchQuery }
+    ].filter(item => item.value && item.value !== "ALL");
+
+    const evidenceCounts = countProxyEvidence(allProxies);
+    const evidenceOptions = [
+      { id: "ALL", label: "All evidence", count: evidenceCounts.all },
+      { id: "authenticated", label: "Protocol checked", count: evidenceCounts.authenticated },
+      { id: "tcp", label: "TCP reachable", count: evidenceCounts.tcp },
+      { id: "tcp_failed", label: "Probe failed", count: evidenceCounts.tcp_failed },
+      { id: "unmeasured", label: "Not measured", count: evidenceCounts.unmeasured }
+    ];
+
     filterContainer.innerHTML = `
       <div class="space-y-4 py-6">
+        <div class="workspace-intro">
+          <div><span class="section-eyebrow">Node explorer</span><h2>Published proxy catalog</h2><p>Filter by transport, geography and observed evidence. Saved endpoints are not guaranteed to authenticate.</p></div>
+          <span class="workspace-total">${allProxies.length.toLocaleString("en-US")} nodes in snapshot</span>
+        </div>
+        <section id="evidence-overview" class="rounded-2xl border border-gray-800 bg-gray-950/80 p-4 sm:p-5" aria-label="Proxy measurement evidence">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="max-w-2xl">
+              <span class="font-mono text-xs font-semibold uppercase tracking-wider text-cyan-300">${i18n.translate("EVIDENCE EXPLORER")}</span>
+              <h2 class="text-base sm:text-lg font-semibold text-gray-100 mt-1">${i18n.translate("Explore nodes by what was actually tested")}</h2>
+              <p class="text-xs sm:text-sm leading-relaxed text-gray-400 mt-1">${i18n.translate("TCP connect does not verify proxy authentication")}. ${i18n.translate("A failed check from one vantage is not permanent proxy death")}.</p>
+            </div>
+            <a href="ENDPOINT_EVIDENCE.md" target="_blank" rel="noopener noreferrer" class="min-h-[44px] px-3.5 py-2.5 inline-flex items-center justify-center rounded-xl border border-gray-700 bg-gray-900 text-cyan-300 text-xs font-semibold focus-ring hover:border-cyan-500 transition-colors">${i18n.translate("Evidence guide")} ↗</a>
+          </div>
+          <div class="flex flex-wrap gap-2 mt-4" role="group" aria-label="Filter by measurement evidence">
+            ${evidenceOptions.map(option => `
+              <button
+                type="button"
+                class="btn-evidence-filter min-h-[44px] px-3.5 py-2 rounded-xl border text-xs font-mono font-semibold focus-ring transition-all ${this.selectedEvidence === option.id ? "bg-cyan-950/60 text-cyan-300 border-cyan-500/60" : "bg-gray-900 text-gray-300 border-gray-800 hover:border-cyan-500/50"}"
+                data-evidence="${option.id}"
+                aria-pressed="${this.selectedEvidence === option.id}"
+              >
+                ${escapeHTML(i18n.translate(option.label))}
+                <span class="ml-1.5 tabular-nums opacity-75">${option.count.toLocaleString()}</span>
+              </button>`).join("")}
+          </div>
+        </section>
         <!-- Top Toolbar: Protocol Pills + View Mode Switcher + Search -->
         <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <!-- Protocol Tabs -->
@@ -2162,7 +2358,7 @@ export class AppState {
 
           <!-- Health Grade Dropdown -->
           <div class="relative">
-            <label class="block text-xs font-mono text-gray-400 mb-1">Health Grade</label>
+            <label class="block text-xs font-mono text-gray-400 mb-1">Published grade / TCP band</label>
             <select
               id="select-grade"
               class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
@@ -2192,8 +2388,8 @@ export class AppState {
               class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
               aria-label="Sort Order"
             >
-              <option value="latency_asc" ${this.sortBy === "latency_asc" ? "selected" : ""}>Fastest Latency</option>
-              <option value="score_desc" ${this.sortBy === "score_desc" ? "selected" : ""}>Top Health Score</option>
+              <option value="latency_asc" ${this.sortBy === "latency_asc" ? "selected" : ""}>Lowest observed TCP latency</option>
+              <option value="score_desc" ${this.sortBy === "score_desc" ? "selected" : ""}>Published grade / TCP estimate</option>
               <option value="name_asc" ${this.sortBy === "name_asc" ? "selected" : ""}>Name (A-Z)</option>
               <option value="country_asc" ${this.sortBy === "country_asc" ? "selected" : ""}>Country (A-Z)</option>
               <option value="port_asc" ${this.sortBy === "port_asc" ? "selected" : ""}>Port (Low-High)</option>
@@ -2205,7 +2401,7 @@ export class AppState {
         <div class="flex flex-wrap items-center justify-between gap-3 p-3 bg-gray-950/80 border border-gray-800/80 rounded-2xl text-xs font-mono">
           <div class="flex items-center gap-2 text-gray-300">
             <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-            <span>Displaying <strong class="text-cyan-400">${filtered.length}</strong> of ${allProxies.length} nodes · loaded snapshot</span>
+            <span id="filter-result-count" role="status" aria-live="polite">${i18n.translate("Showing")} <strong class="text-cyan-400 tabular-nums">${filtered.length.toLocaleString()}</strong> / ${allProxies.length.toLocaleString()} ${i18n.translate("nodes")}</span>
             ${this.selectedCountry !== "ALL" ? `<span class="px-2 py-0.5 bg-gray-900 border border-gray-800 rounded text-xs text-cyan-300">${this.selectedCountry}</span>` : ''}
             ${this.selectedOperator !== "ALL" ? `<span class="px-2 py-0.5 bg-gray-900 border border-gray-800 rounded text-xs text-blue-300">${this.selectedOperator}</span>` : ''}
           </div>
@@ -2226,8 +2422,47 @@ export class AppState {
             </button>
           </div>
         </div>
+        <div id="active-filter-chips" aria-label="Active filters">
+          ${activeFilters.map(item => `
+            <button type="button" class="filter-chip focus-ring"
+              data-filter-key="${item.key}"
+              aria-label="Remove ${item.label.toLowerCase()} filter">
+              <span>${escapeHTML(item.label)}: ${escapeHTML(item.value)}</span>
+              <span aria-hidden="true">×</span>
+            </button>
+          `).join("")}
+        </div>
       </div>
     `;
+
+    filterContainer.querySelectorAll(".filter-chip").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset.filterKey;
+        const permitted = new Set([
+          "selectedProtocol", "selectedTransport", "selectedCountry",
+          "selectedOperator", "selectedGrade", "selectedSecurity", "searchQuery"
+        ]);
+        if (!permitted.has(key)) return;
+        this[key] = key === "searchQuery" ? "" : "ALL";
+        if (key === "searchQuery") {
+          const global = document.getElementById("global-search-input");
+          if (global) global.value = "";
+        }
+        this.refreshProxyWorkspace();
+      });
+    });
+
+    filterContainer.querySelectorAll(".btn-evidence-filter").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const selected = btn.dataset.evidence;
+        if (!["ALL", "authenticated", "tcp", "tcp_failed", "unmeasured"].includes(selected)) return;
+        this.selectedEvidence = selected;
+        this.refreshProxyWorkspace();
+        // The toolbar is re-rendered when filtering; restore focus to the
+        // corresponding control for keyboard and switch-access users.
+        document.querySelector(`.btn-evidence-filter[data-evidence="${selected}"]`)?.focus({ preventScroll: true });
+      });
+    });
 
     filterContainer.querySelectorAll(".btn-proto-tab").forEach(btn => {
       btn.addEventListener("click", (e) => {
@@ -2381,7 +2616,7 @@ export class AppState {
                   <th class="p-3.5">Endpoint (Host:Port)</th>
                   <th class="p-3.5">Transport &amp; TLS</th>
                   <th class="p-3.5">Carrier</th>
-                  <th class="p-3.5">Health</th>
+                  <th class="p-3.5">Probe evidence</th>
                   <th class="p-3.5 text-right">Actions</th>
                 </tr>
               </thead>
@@ -2434,10 +2669,14 @@ export class AppState {
   // One node's compact card. Extracted so the initial window and the
   // progressive appends render nodes through exactly one code path.
     nodeCardHTML(node) {
-        const flag = this.getCountryFlag(node.country);
+        const region = getRegionPresentation(node);
+        const flag = region.flag;
+        const evidence = getProxyEvidence(node);
         const op = node.carrier || node.org || this.detectOperator(node.server, node.sni, node.name);
         const latency = this.getLatency(node);
-        const { score, grade, label: healthLabel, color: gradeColor } = this.getHealthScore(node);
+        const { grade, label: healthLabel, color: gradeColor } = this.getHealthScore(node);
+        const gradeDisplay = evidence.id === "authenticated" ? `Protocol ${grade}`
+          : evidence.id === "tcp" && latency !== null ? `TCP band ${grade}` : "No grade";
         const isUnmasked = this.unmaskedNodes.has(node.id);
         const isQRVisible = this.activeQRNodes.has(node.id);
 
@@ -2466,16 +2705,17 @@ export class AppState {
         // node's URI on each render was the hottest call in this path. An
         // undecodable node still renders from its normalized fields and
         // only the credential preview falls back to the placeholder.
-        const uuid = node.uuid || node.password || "8f7b3c2a-9e1d-4a5b";
-        const displayUUID = isUnmasked ? uuid : `${uuid.slice(0, 4)}••••-••••-••••-${uuid.slice(-4)}`;
+        const uuid = node.uuid || node.password || "";
+        const displayUUID = !uuid ? "Not available" : isUnmasked ? uuid
+          : `${uuid.slice(0, 4)}••••${uuid.slice(-4)}`;
 
         return `
-          <div class="proxy-card p-4 flex flex-col justify-between group relative">
+          <article class="proxy-card p-4 flex flex-col justify-between group relative" data-evidence-kind="${evidence.id}">
             <div>
               <!-- Header Row: Flags, Protocol, Operator, Health Grade -->
               <div class="proxy-card-header flex items-center justify-between mb-2.5">
                 <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-base" title="${escapeHTML(node.countryName)}">${flag}</span>
+                  <span class="text-base" title="${escapeHTML(region.label)} — ${escapeHTML(region.detail)}" aria-label="${escapeHTML(region.detail)}">${escapeHTML(flag)}</span>
                   <span class="px-2 py-0.5 text-xs font-mono font-bold uppercase rounded border ${protoColor}">
                     ${escapeHTML(node.protocol)}
                   </span>
@@ -2487,8 +2727,8 @@ export class AppState {
                   </span>
                 </div>
                 <div class="flex items-center gap-1.5">
-                  <span class="px-2 py-0.5 text-xs font-mono font-bold rounded border ${gradeColor}" title="${score === null ? healthLabel : `Quality Score: ${score}/100 (${healthLabel})`}">
-                    <span class="text-cyan-400 font-bold mr-0.5">Grade</span> ${grade}
+                  <span class="px-2 py-0.5 text-xs font-mono font-bold rounded border ${gradeColor}" title="${escapeHTML(healthLabel)} — ${escapeHTML(evidence.detail)}">
+                    ${escapeHTML(gradeDisplay)}
                   </span>
                   <div class="flex items-center gap-1 text-xs font-mono font-semibold ${latency === null ? 'text-gray-500' : latency < 60 ? 'text-emerald-400' : latency < 120 ? 'text-amber-400' : 'text-rose-400'}">
                     <span class="w-1.5 h-1.5 rounded-full ${latency === null ? 'bg-gray-600' : latency < 60 ? 'bg-emerald-400' : latency < 120 ? 'bg-amber-400' : 'bg-rose-400'}"></span>
@@ -2501,6 +2741,10 @@ export class AppState {
               <h3 class="text-sm font-mono font-semibold text-gray-100 truncate group-hover:text-cyan-300 transition-colors flex items-center justify-between" title="${escapeHTML(node.name)}">
                 <span class="truncate">${escapeHTML(node.name)}</span>
               </h3>
+              <p class="mt-2 flex flex-wrap items-center gap-2 text-xs font-mono">
+                <span class="px-2 py-1 rounded-md border ${evidence.id === "authenticated" ? "bg-emerald-950/50 text-emerald-300 border-emerald-800/40" : evidence.id === "tcp" ? "bg-cyan-950/60 text-cyan-300 border-cyan-500/30" : evidence.id === "tcp_failed" ? "bg-amber-950/40 text-amber-300 border-amber-800/40" : "bg-gray-900 text-gray-400 border-gray-800"}">${escapeHTML(i18n.translate(evidence.label))}</span>
+                <span class="text-gray-400" title="${escapeHTML(evidence.detail)}">${escapeHTML(i18n.translate(evidence.detail))}</span>
+              </p>
 
               <!-- Specs Grid -->
               <div class="proxy-specs mt-2.5 space-y-1.5 text-xs font-mono">
@@ -2524,7 +2768,8 @@ export class AppState {
                       class="btn-toggle-mask text-gray-400 hover:text-cyan-400 cursor-pointer p-2 min-h-[44px] min-w-[44px] flex items-center justify-center focus-ring rounded-lg transition-colors"
                       data-node-id="${node.id}"
                       title="${isUnmasked ? 'Mask Credential' : 'Reveal Credential'}"
-                      aria-label="Toggle credential masking"
+                      aria-label="${isUnmasked ? 'Mask credential' : 'Reveal credential'}"
+                      aria-pressed="${isUnmasked}"
                     >
                       ${isUnmasked
                         ? `<svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>`
@@ -2536,7 +2781,7 @@ export class AppState {
 
                 <div class="flex items-center justify-between text-xs pt-1 border-t border-gray-800/40">
                   <span class="text-gray-400">Geo &amp; Carrier:</span>
-                  <span class="text-gray-300 font-semibold">${flag} ${escapeHTML(node.countryName || node.country_name || "Unknown")} • ${escapeHTML(op)} <span class="text-xs text-gray-500">(${node.geo_verified ? "verified" : node.geo_source === "unknown" ? "unknown" : "estimated"})</span></span>
+                  <span class="text-gray-300 font-semibold">${escapeHTML(region.flag)} ${escapeHTML(region.label)} • ${escapeHTML(op)} <span class="text-xs text-gray-500" title="${escapeHTML(region.detail)}">(${region.confidence === "provider" ? "GeoIP estimate" : region.confidence === "hint" ? "unverified hint" : "unknown"})</span></span>
                 </div>
               </div>
 
@@ -2584,19 +2829,21 @@ export class AppState {
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
               </button>
             </div>
-          </div>
+          </article>
         `;
     }
 
   // One node's table row, sharing the reveal window with the card view.
     nodeRowHTML(node) {
-                  const flag = this.getCountryFlag(node.country);
+                  const region = getRegionPresentation(node);
+                  const evidence = getProxyEvidence(node);
+                  const flag = region.flag;
                   const op = node.carrier || node.org || this.detectOperator(node.server, node.sni, node.name);
                   const latency = this.getLatency(node);
                   const { grade } = this.getHealthScore(node);
                   return `
                     <tr class="hover:bg-gray-900/50 transition-colors">
-                      <td class="p-3.5 font-bold text-sm">${flag} <span class="text-xs text-gray-500">${escapeHTML(node.country)}</span></td>
+                      <td class="p-3.5 font-bold text-sm" title="${escapeHTML(region.detail)}">${escapeHTML(flag)} <span class="text-xs text-gray-400">${escapeHTML(region.code)}</span></td>
                       <td class="p-3.5"><span class="px-2 py-0.5 rounded text-xs uppercase font-bold bg-cyan-950 text-cyan-300 border border-cyan-800">${escapeHTML(node.protocol)}</span></td>
                       <td class="p-3.5 font-semibold text-gray-200 truncate max-w-[200px]" title="${escapeHTML(node.name)}">${escapeHTML(node.name)}</td>
                       <td class="p-3.5 text-cyan-300 select-all">${escapeHTML(node.server)}:${node.port}</td>
@@ -2604,7 +2851,7 @@ export class AppState {
                       <td class="p-3.5"><span class="px-2 py-0.5 bg-gray-900 rounded border border-gray-800 text-gray-300 text-xs">${escapeHTML(op)}</span></td>
                       <td class="p-3.5">
                         <span class="font-bold ${latency === null ? 'text-gray-500' : latency < 60 ? 'text-emerald-400' : 'text-amber-400'}">${latency === null ? 'Unmeasured' : `${Math.round(latency)}ms`}</span>
-                        <span class="text-xs text-gray-500 ml-1">Grade ${grade}</span>
+                        <span class="block text-xs text-gray-400 mt-1" title="${escapeHTML(evidence.detail)}">${escapeHTML(i18n.translate(evidence.label))} · ${evidence.id === "authenticated" ? "Protocol " + grade : evidence.id === "tcp" ? "TCP band " + grade : "Unverified"}</span>
                       </td>
                       <td class="p-3.5 text-right space-x-1 whitespace-nowrap">
                         <button class="btn-copy-node px-3 py-2 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 text-cyan-300 rounded-xl text-xs font-mono font-medium focus-ring cursor-pointer transition-all" data-raw="${encodeURIComponent(node.raw)}">Copy</button>
