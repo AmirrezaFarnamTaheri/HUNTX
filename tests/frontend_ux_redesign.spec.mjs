@@ -17,7 +17,7 @@ test("observability landing makes evidence and snapshot limitations clear", asyn
   await expect(page.locator("#evidence-strip")).toBeVisible();
   await expect(page.locator("#evidence-strip")).toContainText("Authenticated");
   await expect(page.locator("#evidence-strip")).toContainText("Unverified");
-  await expect(page.locator("#evidence-strip")).toContainText("Unknown location");
+  await expect(page.locator("#evidence-strip")).toContainText("Unattributed location");
   await expect(page.locator(".radar-description")).toContainText("Artifact checksums do not verify connectivity");
   const cards = page.locator("#evidence-strip .evidence-stat");
   await expect(cards).toHaveCount(3);
