@@ -94,3 +94,21 @@ def test_unverified_marketing_hint_is_preserved_separately_from_canonical_uri():
     assert records[0]["data"]["line"] == source.split("#")[0]
     assert records[0]["data"]["country_hint"] == "FR"
     assert records[0]["data"]["country_hint_source"] == "source_remark"
+
+
+def test_legacy_records_receive_fresh_offline_evidence_during_build(monkeypatch, tmp_path):
+    monkeypatch.setenv("HUNTX_REMARK_STYLE", "evidence")
+    intel = tmp_path / "current-prefixes.json"
+    intel.write_text(json.dumps({
+        "schema_version": 1, "provider": "offline-fixture",
+        "observed_at": 1800000000, "expires_at": 4000000000,
+        "prefixes": [{"cidr": "1.1.1.0/24", "asn": 13335,
+                      "country_code": "DE", "anycast": False}],
+    }), encoding="utf-8")
+    monkeypatch.setenv("HUNTX_NETWORK_INTELLIGENCE_PATH", str(intel))
+    stored_legacy = [{"data": {"line": URI.split("#")[0]}}]
+    tag = unquote(urlsplit(NpvtHandler().build(stored_legacy).decode()).fragment)
+    assert "🇩🇪 DE" in tag
+    assert "AS13335" in tag
+    assert "VLESS-WS-TLS" in tag
+    assert "⭐" not in tag
