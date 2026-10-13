@@ -11,47 +11,17 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sqlite3
 import time
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
 from huntx.core.endpoint_intelligence import PrefixIntelligence, describe_proxy_endpoint
+from huntx.core.corpus_reader import load_active_observations
 
 _MAX_SCAN = 50_000
 _MAX_JSON_BYTES = 32_768
 _MAX_OUTPUT_ENDPOINTS = 1500
-
-
-def load_active_observations(
-    db_path: Path,
-    *,
-    limit: int,
-) -> tuple[list[tuple[str, str]], bool] | None:
-    """Read a bounded population of current, provenanced, processed records."""
-    if not db_path.is_file() or type(limit) is not int or not 1 <= limit <= _MAX_SCAN:
-        return None
-    try:
-        connection = sqlite3.connect(
-            "file:" + db_path.resolve().as_posix() + "?mode=ro",
-            uri=True, timeout=8,
-        )
-        try:
-            rows = connection.execute(
-                "SELECT s.source_id, r.data_json "
-                "FROM records r "
-                "JOIN seen_files s ON s.id = r.source_observation_id "
-                "WHERE r.is_active = 1 AND r.record_type = 'npvt' "
-                "AND s.status = 'processed' "
-                "ORDER BY r.id DESC LIMIT ?",
-                (limit + 1,),
-            ).fetchall()
-        finally:
-            connection.close()
-    except (sqlite3.Error, OSError):
-        return None
-    return [(str(source_id), str(data)) for source_id, data in rows[:limit]], len(rows) > limit
 
 
 def build_inventory(
