@@ -245,7 +245,7 @@ def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
     geo = endpoint.get('geo')
     geo = geo if isinstance(geo, dict) else {}
     expiration = intel.get('expires_at')
-    expiry_epoch = float(expiration) if type(expiration) in (int, float) else float('-inf')
+    expiry_epoch = float(expiration) if isinstance(expiration, (float, int)) and expiration is not None and not isinstance(expiration, bool) else float('-inf')
     fresh = (
         intel.get('status') == 'matched'
         and math.isfinite(expiry_epoch) and expiry_epoch > time.time()
@@ -287,9 +287,9 @@ def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
     elapsed = fields.get('latency_ms')
     observed = fields.get('probe_checked_at')
     expires = fields.get('probe_expires_at')
-    measured_latency = float(elapsed) if type(elapsed) in (int, float) else float('nan')
-    measured_at = float(observed) if type(observed) in (int, float) else float('nan')
-    valid_until = float(expires) if type(expires) in (int, float) else float('nan')
+    measured_latency = float(elapsed) if isinstance(elapsed, (float, int)) and elapsed is not None and not isinstance(elapsed, bool) else float('nan')
+    measured_at = float(observed) if isinstance(observed, (float, int)) and observed is not None and not isinstance(observed, bool) else float('nan')
+    valid_until = float(expires) if isinstance(expires, (float, int)) and expires is not None and not isinstance(expires, bool) else float('nan')
     fresh_probe = (
         math.isfinite(measured_latency) and 0 <= measured_latency <= 60000
         and math.isfinite(measured_at) and math.isfinite(valid_until)
@@ -456,7 +456,7 @@ class NpvtHandler(FormatHandler):
                     endpoint = stored.get("endpoint")
                     intel = endpoint.get("intelligence") if isinstance(endpoint, dict) else None
                     expiry = intel.get("expires_at") if isinstance(intel, dict) else None
-                    expires_at = float(expiry) if type(expiry) in (int, float) else float('inf')
+                    expires_at = float(expiry) if isinstance(expiry, (float, int)) and expiry is not None and not isinstance(expiry, bool) else float('inf')
                     stale = math.isfinite(expires_at) and expires_at <= time.time()
                     if not isinstance(endpoint, dict) or stale or prefix_intel is not None:
                         discovered = describe_proxy_endpoint(stripped, intelligence=prefix_intel)
