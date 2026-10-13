@@ -95,8 +95,10 @@ html.dark #page-tabs-nav .nav-tab-btn.active,
 html.light #page-tabs-nav .nav-tab-btn.active {
   background: var(--ux-card-high) !important;
   color: var(--ux-ink) !important;
-  border-color: var(--ux-outline) !important;
-  box-shadow: inset 0 -2px 0 var(--ux-accent) !important;
+  border-color: var(--ux-accent) !important;
+  /* Selection is communicated by the tinted fill and border. Keep the
+     keyboard-focus outline unobscured rather than stacking inset shadows. */
+  box-shadow: none !important;
 }
 #page-tabs-nav .nav-tab-btn.active svg { color: var(--ux-accent); }
 #page-tabs-nav .nav-tab-btn [id$="-badge"] {

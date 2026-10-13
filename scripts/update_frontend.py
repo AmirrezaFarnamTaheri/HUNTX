@@ -17,6 +17,7 @@ INDEX_HTML = """<!DOCTYPE html>
   <!-- Typography & Preconnect -->
 
   <link rel="stylesheet" href="assets/css/tailwind.css">
+  <link rel="stylesheet" href="assets/css/interface.css">
 
   <!-- Production-Grade Standalone Design Tokens & Cyber Styling -->
   <style>

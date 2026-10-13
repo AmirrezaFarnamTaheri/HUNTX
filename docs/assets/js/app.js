@@ -522,6 +522,35 @@ export function summarizeRegions(proxies) {
   return { regionCount: countries.length, unknownCount, countries };
 }
 
+export function summarizeEvidence(proxies) {
+  const records = Array.isArray(proxies) ? proxies : [];
+  let authenticated = 0;
+  let unknownGeography = 0;
+  for (const proxy of records) {
+    if (proxy?.health_evidence === "fresh_authenticated_protocol") authenticated += 1;
+    if (!proxy?.country || String(proxy.country).toUpperCase() === "ZZ") unknownGeography += 1;
+  }
+  return { total: records.length, authenticated,
+    unverified: records.length - authenticated, unknownGeography };
+}
+
+export function proxyEvidencePresentation(node) {
+  switch (node?.health_evidence) {
+    case "fresh_authenticated_protocol":
+      return { level: "authenticated", label: "Auth verified", description: "Fresh authenticated proxy-protocol evidence" };
+    case "failed_authenticated_protocol":
+      return { level: "failed", label: "Auth failed", description: "Authenticated proxy-protocol test failed" };
+    default: {
+      const measured = node?.latency ?? node?.ping;
+      if (measured !== null && measured !== undefined && measured !== "" &&
+          Number.isFinite(Number(measured)) && Number(measured) >= 0) {
+        return { level: "tcp", label: "TCP sampled", description: "TCP or snapshot measurement; proxy authentication unverified" };
+      }
+      return { level: "unverified", label: "Not tested", description: "No authenticated proxy-protocol evidence" };
+    }
+  }
+}
+
 function telemetryKey(node) {
   const raw = node?.raw ?? node?.raw_uri ?? "";
   if (raw) return `raw:${raw}`;
@@ -1096,12 +1125,20 @@ export class AppState {
   }
 
   refreshProxyWorkspace() {
-    // The filter bar counts and the node grid derive from one filtered set;
-    // computing it once here keeps a ~1k-node filter+sort from running twice
-    // on every keystroke and select change.
+    // Filtering replaces the toolbar. Preserve keyboard focus and the caret,
+    // otherwise typing into the quick search drops focus after one character.
+    const focus = typeof document === "undefined" ? null : document.activeElement;
+    const preserve = focus?.id === "node-quick-search";
+    const start = preserve ? focus.selectionStart : null;
+    const end = preserve ? focus.selectionEnd : null;
     const filtered = this.getFilteredProxies();
     this.renderFilterBar(filtered);
     this.renderNodes(filtered);
+    if (preserve) {
+      const next = document.getElementById("node-quick-search");
+      next?.focus({ preventScroll: true });
+      if (next && start !== null && end !== null) next.setSelectionRange(start, end);
+    }
   }
 
   resetProxyFilters({ focusSearch = false } = {}) {
@@ -1419,7 +1456,7 @@ export class AppState {
           </div>
         </a>
 
-        <div class="flex-1 max-w-md hidden md:block">
+        <div class="header-global-search flex-1 max-w-md hidden md:block">
           <div class="relative group">
             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500 group-focus-within:text-cyan-400">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
@@ -1492,6 +1529,16 @@ export class AppState {
           </button>
 
           <button
+            id="btn-open-mobile-search"
+            type="button"
+            class="header-mobile-search min-h-[44px] min-w-[44px] items-center justify-center bg-gray-900 border border-gray-800 text-cyan-300 rounded-xl focus-ring"
+            title="Search published proxies"
+            aria-label="Search published proxies"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+          </button>
+
+          <button
             id="btn-toggle-theme"
             class="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-cyan-500/40 text-gray-400 hover:text-cyan-300 rounded-xl transition-all focus-ring cursor-pointer"
             title="Toggle Light / Dark Theme"
@@ -1546,6 +1593,8 @@ export class AppState {
           >
             <button id="menu-open-scanner" role="menuitem" class="w-full min-h-[44px] px-3 py-2 text-left text-xs font-mono text-emerald-300 hover:bg-gray-900 rounded-xl focus-ring">${i18n.translate("IP Scanner")}</button>
             <button id="menu-open-builder" role="menuitem" class="w-full min-h-[44px] px-3 py-2 text-left text-xs font-mono text-cyan-300 hover:bg-gray-900 rounded-xl focus-ring">${i18n.translate("Sub Builder")}</button>
+            <button id="menu-open-search" role="menuitem" class="w-full min-h-[44px] px-3 py-2 text-left text-xs font-mono text-cyan-300 hover:bg-gray-900 rounded-xl focus-ring">Search proxies</button>
+            <button id="menu-toggle-theme" role="menuitem" class="w-full min-h-[44px] px-3 py-2 text-left text-xs font-mono text-gray-200 hover:bg-gray-900 rounded-xl focus-ring">Toggle appearance</button>
             <button id="menu-open-decoder" role="menuitem" class="w-full min-h-[44px] px-3 py-2 text-left text-xs font-mono text-gray-200 hover:bg-gray-900 rounded-xl focus-ring">${i18n.translate("Decoder")}</button>
             <a href="architecture.html" target="_blank" role="menuitem" class="flex items-center min-h-[44px] px-3 py-2 text-xs font-mono text-indigo-300 hover:bg-gray-900 rounded-xl focus-ring">${i18n.translate("Architecture")}</a>
             <a href="https://github.com/AmirrezaFarnamTaheri/HUNTX" target="_blank" rel="noopener noreferrer" role="menuitem" class="flex items-center min-h-[44px] px-3 py-2 text-xs font-mono text-gray-300 hover:bg-gray-900 rounded-xl focus-ring">GitHub</a>
@@ -1562,6 +1611,12 @@ export class AppState {
     document.getElementById("global-search-input")?.addEventListener("input", (e) => {
       debouncedSearch(e.target.value);
     });
+
+    const openProxySearch = () => {
+      this.switchPageTab("proxies", true);
+      document.getElementById("node-quick-search")?.focus();
+    };
+    document.getElementById("btn-open-mobile-search")?.addEventListener("click", openProxySearch);
 
     document.getElementById("btn-open-scanner")?.addEventListener("click", (e) => {
       this.lastFocusedElement = e.currentTarget;
@@ -1602,6 +1657,14 @@ export class AppState {
       this.lastFocusedElement = toolsButton;
       setToolsOpen(false);
       this.openCleanIPScannerModal();
+    });
+    document.getElementById("menu-open-search")?.addEventListener("click", () => {
+      setToolsOpen(false);
+      openProxySearch();
+    });
+    document.getElementById("menu-toggle-theme")?.addEventListener("click", () => {
+      setToolsOpen(false);
+      this.toggleTheme();
     });
     document.getElementById("menu-open-builder")?.addEventListener("click", () => {
       this.lastFocusedElement = toolsButton;
@@ -1649,13 +1712,14 @@ export class AppState {
     hero.innerHTML = `
       <div class="radar-overview">
         <div class="radar-summary">
-          <h1>Proxy telemetry <span>&amp; node diagnostics</span></h1>
+          <span class="section-eyebrow">HUNTX / Observatory</span>
+          <h1>Proxy telemetry <span>&amp; network intelligence</span></h1>
           <p class="radar-description">Browse the loaded snapshot, compare recorded measurements, and inspect configurations. Artifact checksums do not verify connectivity.</p>
           <dl class="radar-metrics">
-            <div><dt>Loaded nodes</dt><dd>${activeCount}</dd><span>${regionCount} regions${regionSummary.unknownCount ? ` · ${regionSummary.unknownCount} unresolved` : ""}</span></div>
-            <div><dt>Ingest sources</dt><dd>${sourcesCount}</dd><span>Channels</span></div>
-            <div><dt>Catalog files</dt><dd>${totalFiles}</dd><span>${escapeHTML(totalSize)}</span></div>
-            <div><dt>Avg latency</dt><dd>${avgLatencyNum === null ? "—" : `${avgLatencyNum}ms`}</dd><span>${minLatencyNum === null ? "Unmeasured" : `Min: ${minLatencyNum}ms`}</span></div>
+            <div><dt>Published nodes</dt><dd>${activeCount.toLocaleString("en-US")}</dd><span>${regionCount} reported regions${regionSummary.unknownCount ? ` · ${regionSummary.unknownCount} unresolved` : ""}</span></div>
+            <div><dt>Source inventory</dt><dd>${sourcesCount}</dd><span>Configured upstreams</span></div>
+            <div><dt>Available artifacts</dt><dd>${totalFiles}</dd><span>${escapeHTML(totalSize)}</span></div>
+            <div><dt>Recorded latency</dt><dd>${avgLatencyNum === null ? "—" : `${avgLatencyNum}ms`}</dd><span>${minLatencyNum === null ? "Not measured" : `Lowest: ${minLatencyNum}ms · not auth proof`}</span></div>
           </dl>
 
           <div class="hero-actions flex flex-wrap gap-2.5 pt-2">
@@ -1898,8 +1962,8 @@ export class AppState {
     const operators = sortedCarriers.slice(0, 8).map(c => {
       const hasProbe = c.pings.length > 0;
       const avgPing = hasProbe ? Math.round(c.pings.reduce((a, b) => a + b, 0) / c.pings.length) : null;
-      const grade = !hasProbe ? "—" : (avgPing <= 35 ? "A+" : (avgPing <= 55 ? "A" : "B+"));
-      const status = !hasProbe ? "No probe data" : (avgPing <= 28 ? "Ultra" : (avgPing <= 45 ? "Optimal" : "Stable"));
+      const grade = hasProbe ? "TCP" : "—";
+      const status = hasProbe ? "Not proxy-auth proof" : "No probe data";
       return {
         name: c.name,
         tag: c.name,
@@ -1916,24 +1980,44 @@ export class AppState {
     const sortedCountries = regionSummary.countries.slice(0, 8);
 
     const maxCount = sortedCountries.length > 0 ? sortedCountries[0][1] : 1;
+    const evidence = summarizeEvidence(this.proxies);
 
     container.innerHTML = `
+      <div class="section-eyebrow">Evidence at a glance</div>
+      <div id="evidence-strip" aria-label="Snapshot evidence summary">
+        <div class="evidence-stat" data-tone="good">
+          <span class="evidence-label">Authenticated</span>
+          <div class="evidence-value" data-evidence-count>${evidence.authenticated.toLocaleString("en-US")}</div>
+          <p class="evidence-detail">Fresh proxy-protocol evidence</p>
+        </div>
+        <div class="evidence-stat" data-tone="caution">
+          <span class="evidence-label">Unverified</span>
+          <div class="evidence-value" data-evidence-count>${evidence.unverified.toLocaleString("en-US")}</div>
+          <p class="evidence-detail">Not proven by proxy authentication</p>
+        </div>
+        <div class="evidence-stat">
+          <span class="evidence-label">Unknown location</span>
+          <div class="evidence-value" data-evidence-count>${evidence.unknownGeography.toLocaleString("en-US")}</div>
+          <p class="evidence-detail">Missing reliable geography</p>
+        </div>
+        <p class="evidence-note"><strong>Evidence boundary.</strong> Country hints, IP reachability and TLS handshakes do not validate an authenticated proxy session. Counts describe the loaded snapshot.</p>
+      </div>
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 my-8">
         <!-- Carrier Matrix Card -->
         <div class="lg:col-span-7 cyber-card p-6 bg-gray-900/60 border border-gray-800/80 hover:border-cyan-500/40 rounded-3xl backdrop-blur-md">
           <div class="flex items-center justify-between pb-4 border-b border-gray-800 mb-4">
             <div>
               <h2 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
-                Carrier measurements
+                Network operators
                 <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">${this.telemetryState === "same-generation" ? "SNAPSHOT TELEMETRY" : "NO SNAPSHOT TELEMETRY"}</span>
-              </h3>
-              <p class="text-xs text-gray-400 font-sans mt-0.5">Snapshot operator latency and routing distribution (${this.proxies.length} nodes analyzed)</p>
+              </h2>
+              <p class="text-xs text-gray-400 font-sans mt-0.5">Reported operator mix and recorded endpoint latency (${this.proxies.length} nodes analyzed)</p>
             </div>
           </div>
 
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
             ${operators.map(op => `
-              <div class="operator-card p-3 rounded-2xl bg-gray-950/80 border border-gray-800/80 hover:border-cyan-500/50 cursor-pointer transition-all flex flex-col justify-between group" data-operator="${escapeHTML(op.tag)}" title="Click to filter live proxies by ${escapeHTML(op.name)}">
+              <div class="operator-card p-3 rounded-2xl bg-gray-950/80 border border-gray-800/80 hover:border-cyan-500/50 cursor-pointer transition-all flex flex-col justify-between group" data-operator="${escapeHTML(op.tag)}" role="button" tabindex="0" aria-label="Filter by operator ${escapeHTML(op.name)}" title="Filter snapshot by ${escapeHTML(op.name)}">
                 <div class="flex items-center justify-between">
                   <span class="text-xs font-mono font-bold text-gray-200 group-hover:text-cyan-300 transition-colors truncate max-w-[90px]">${escapeHTML(op.name)}</span>
                   <span class="text-xs font-mono font-extrabold text-cyan-400 bg-cyan-950/80 border border-cyan-500/30 px-1.5 py-0.5 rounded-md">${op.grade}</span>
@@ -1958,8 +2042,8 @@ export class AppState {
               <h2 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
                 Node distribution
                 <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">${sortedCountries.length} REGIONS</span>
-              </h3>
-              <p class="text-xs text-gray-400 font-sans mt-0.5">Node density across active edge regions and data centers</p>
+              </h2>
+              <p class="text-xs text-gray-400 font-sans mt-0.5">Reported geography from the loaded snapshot; unknown locations are excluded</p>
             </div>
           </div>
 
@@ -1968,7 +2052,7 @@ export class AppState {
               const pct = Math.round((count / (this.proxies.length || 1)) * 100);
               const name = COUNTRY_NAMES[code] || code;
               return `
-                <div class="geo-density-row cursor-pointer group" data-country="${code}" title="Click to filter live proxies by ${name}">
+                <div class="geo-density-row cursor-pointer group" data-country="${code}" role="button" tabindex="0" aria-label="Filter by reported region ${escapeHTML(name)}" title="Filter snapshot by ${escapeHTML(name)}">
                   <div class="flex items-center justify-between text-xs font-mono mb-1">
                     <span class="font-bold text-gray-200 group-hover:text-cyan-300 transition-colors flex items-center gap-1.5">
                       <span>${this.getCountryFlag(code)}</span> ${name} (${code})
@@ -1995,7 +2079,7 @@ export class AppState {
         <div class="space-y-1">
           <h2 class="text-base font-mono font-bold text-white flex items-center gap-2">
             Loaded snapshot
-          </h4>
+          </h2>
           <p class="text-xs font-sans text-gray-300">
             ${this.proxies.length} loaded endpoints. Inspect configurations before importing; connectivity is not verified here.
           </p>
@@ -2006,7 +2090,16 @@ export class AppState {
       </div>
     `;
 
+    const enableKeyboardDrilldown = (element) => {
+      element.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          element.click();
+        }
+      });
+    };
     container.querySelectorAll(".operator-card").forEach((card) => {
+      enableKeyboardDrilldown(card);
       card.addEventListener("click", () => {
         const op = card.dataset.operator;
         this.selectedOperator = op;
@@ -2018,6 +2111,7 @@ export class AppState {
     });
 
     container.querySelectorAll(".geo-density-row").forEach((row) => {
+      enableKeyboardDrilldown(row);
       row.addEventListener("click", () => {
         const c = row.dataset.country;
         this.selectedCountry = c;
@@ -2100,6 +2194,16 @@ export class AppState {
 
     const filtered = precomputed || this.getFilteredProxies();
 
+    const activeFilters = [
+      { key: "selectedProtocol", label: "Protocol", value: this.selectedProtocol },
+      { key: "selectedTransport", label: "Transport", value: this.selectedTransport },
+      { key: "selectedCountry", label: "Region", value: this.selectedCountry },
+      { key: "selectedOperator", label: "Operator", value: this.selectedOperator },
+      { key: "selectedGrade", label: "Grade", value: this.selectedGrade },
+      { key: "selectedSecurity", label: "Security", value: this.selectedSecurity },
+      { key: "searchQuery", label: "Search", value: this.searchQuery }
+    ].filter(item => item.value && item.value !== "ALL");
+
     const evidenceCounts = countProxyEvidence(allProxies);
     const evidenceOptions = [
       { id: "ALL", label: "All evidence", count: evidenceCounts.all },
@@ -2111,6 +2215,10 @@ export class AppState {
 
     filterContainer.innerHTML = `
       <div class="space-y-4 py-6">
+        <div class="workspace-intro">
+          <div><span class="section-eyebrow">Node explorer</span><h2>Published proxy catalog</h2><p>Filter by transport, geography and observed evidence. Saved endpoints are not guaranteed to authenticate.</p></div>
+          <span class="workspace-total">${allProxies.length.toLocaleString("en-US")} nodes in snapshot</span>
+        </div>
         <section id="evidence-overview" class="rounded-2xl border border-gray-800 bg-gray-950/80 p-4 sm:p-5" aria-label="Proxy measurement evidence">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="max-w-2xl">
@@ -2314,8 +2422,35 @@ export class AppState {
             </button>
           </div>
         </div>
+        <div id="active-filter-chips" aria-label="Active filters">
+          ${activeFilters.map(item => `
+            <button type="button" class="filter-chip focus-ring"
+              data-filter-key="${item.key}"
+              aria-label="Remove ${item.label.toLowerCase()} filter">
+              <span>${escapeHTML(item.label)}: ${escapeHTML(item.value)}</span>
+              <span aria-hidden="true">×</span>
+            </button>
+          `).join("")}
+        </div>
       </div>
     `;
+
+    filterContainer.querySelectorAll(".filter-chip").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset.filterKey;
+        const permitted = new Set([
+          "selectedProtocol", "selectedTransport", "selectedCountry",
+          "selectedOperator", "selectedGrade", "selectedSecurity", "searchQuery"
+        ]);
+        if (!permitted.has(key)) return;
+        this[key] = key === "searchQuery" ? "" : "ALL";
+        if (key === "searchQuery") {
+          const global = document.getElementById("global-search-input");
+          if (global) global.value = "";
+        }
+        this.refreshProxyWorkspace();
+      });
+    });
 
     filterContainer.querySelectorAll(".btn-evidence-filter").forEach(btn => {
       btn.addEventListener("click", () => {
