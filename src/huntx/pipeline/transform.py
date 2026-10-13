@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from ..config.schema import SourceConfig
 from ..core.router import decide_format
+from ..core.endpoint_intelligence import PrefixIntelligence, describe_proxy_endpoint
 from ..formats.registry import FormatRegistry
 from ..state.repo import StateRepo
 from ..store.raw_store import RawStore
@@ -47,6 +48,23 @@ class TransformPipeline:
         self.registry = registry
         self.source_configs = source_configs or {}
         self.max_workers = max(1, int(max_workers))
+        # Optional, explicitly versioned IP-prefix evidence. No remote lookups
+        # are made while parsing feeds, and invalid/expired snapshots never
+        # turn into geographical or ASN guesses.
+        self._network_intelligence: PrefixIntelligence | None = None
+        self._intelligence_status = "not_configured"
+        intelligence_path = os.environ.get("HUNTX_NETWORK_INTELLIGENCE_PATH", "").strip()
+        if intelligence_path:
+            try:
+                self._network_intelligence = PrefixIntelligence.from_file(
+                    intelligence_path
+                )
+                self._intelligence_status = "loaded"
+            except (OSError, ValueError):
+                logger.warning(
+                    "[Transform] Ignoring unavailable/invalid network intelligence snapshot"
+                )
+                self._intelligence_status = "unavailable"
         self.max_records_per_file = _positive_limit(
             "HUNTX_TRANSFORM_MAX_RECORDS_PER_FILE",
             None,
@@ -138,13 +156,27 @@ class TransformPipeline:
                         self.max_records_per_file,
                     )
                     return result
+                payload = record["data"]
+                # Only enrich standard URI observations. The normalized
+                # subscription line remains byte-for-byte unchanged; endpoint
+                # evidence lives in a separate, non-published mapping.
+                if fmt_id == "npvt" and isinstance(payload, dict):
+                    line = payload.get("line")
+                    if isinstance(line, str):
+                        endpoint = describe_proxy_endpoint(
+                            line,
+                            intelligence=self._network_intelligence,
+                            intelligence_status=self._intelligence_status,
+                        )
+                        if endpoint is not None:
+                            payload = {**payload, "endpoint": endpoint}
                 record_rows.append(
                     (
                         raw_hash,
                         observation_id,
                         fmt_id,
                         record["unique_hash"],
-                        json.dumps(record["data"], default=str),
+                        json.dumps(payload, default=str),
                     )
                 )
 
