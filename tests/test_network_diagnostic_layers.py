@@ -1,7 +1,6 @@
 """Layered DNS/TCP/TLS observations are not proxy-authentication evidence."""
 from __future__ import annotations
 
-import asyncio
 import socket
 import ssl
 from unittest.mock import AsyncMock, Mock
