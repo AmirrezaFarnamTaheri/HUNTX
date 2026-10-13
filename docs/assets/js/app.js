@@ -159,164 +159,18 @@ export function getArtifactLinkModel(path, locationRef = typeof window === "unde
 }
 
 /** Infer coarse provider/region metadata without fabricating unknown or anycast locations. */
-export function resolveGeoAndCarrier(address, sni = "", host = "") {
-  const addr = (address || "").toLowerCase().trim();
-  const sniLower = (sni || "").toLowerCase().trim();
-  const hostLower = (host || "").toLowerCase().trim();
-  const full = `${addr} ${sniLower} ${hostLower}`;
-
-  let country;
-  let carrier;
-
-  // 1. Explicit domain TLDs & contextual keywords
-  if (addr.includes(".ir") || full.includes("iran") || full.includes("tehran") || full.includes("soundfiy") || full.includes("zula.ir")) {
-    country = "IR";
-    carrier = "MCI / Irancell";
-  } else if (addr.includes(".ua") || full.includes("ukraine")) {
-    country = "UA";
-    carrier = "Kyivstar / Datagroup";
-  } else if (addr.includes(".in") || full.includes("india")) {
-    country = "IN";
-    carrier = "Jio / Bharti Airtel";
-  } else if (full.includes("taipei") || addr.includes(".tw") || full.includes("taiwan")) {
-    country = "TW";
-    carrier = "Chunghwa Telecom";
-  } else if (addr.endsWith(".de") || full.includes("germany") || full.includes("frankfurt")) {
-    country = "DE";
-    carrier = "Hetzner Cloud";
-  } else if (addr.endsWith(".nl") || full.includes("amsterdam") || full.includes("serverius") || full.includes("sellflow")) {
-    country = "NL";
-    carrier = "Serverius / NL";
-  } else if (addr.endsWith(".fi") || full.includes("helsinki") || full.includes("fastly")) {
-    country = "FI";
-    carrier = "Hetzner Online";
-  } else if (addr.endsWith(".fr") || full.includes("paris")) {
-    country = "FR";
-    carrier = "OVHcloud FR";
-  } else if (addr.endsWith(".ru") || full.includes("moscow") || full.includes("rtqa.ru") || full.includes("vdsina")) {
-    country = "RU";
-    carrier = "Rostelecom / Selectel";
-  } else if (addr.endsWith(".sg") || full.includes("singapore") || full.includes("zenlayer")) {
-    country = "SG";
-    carrier = "Zenlayer SG";
-  } else if (addr.endsWith(".jp") || full.includes("tokyo") || full.includes("japan")) {
-    country = "JP";
-    carrier = "AWS Tokyo";
-  } else if (addr.endsWith(".kr") || full.includes("seoul") || full.includes("korea")) {
-    country = "KR";
-    carrier = "KT Corp";
-  } else if (addr.endsWith(".hk") || full.includes("hongkong") || full.includes("aliyun")) {
-    country = "HK";
-    carrier = "Alibaba Cloud HK";
-  } else if (addr.endsWith(".tr") || full.includes("istanbul") || full.includes("turkey") || full.includes("tr1-")) {
-    country = "TR";
-    carrier = "Turkcell / Superonline";
-  } else if (addr.endsWith(".ch") || full.includes("zurich") || full.includes("swiss") || addr.includes(".cloudns.ch")) {
-    country = "CH";
-    carrier = "Swisscom Zurich";
-  } else if (addr.endsWith(".uk") || addr.endsWith(".co.uk") || addr.endsWith(".gb") || full.includes("london")) {
-    country = "GB";
-    carrier = "Virgin Media UK";
-  } else if (addr.endsWith(".ca") || full.includes("toronto") || full.includes("canada")) {
-    country = "CA";
-    carrier = "OVH Canada";
-  } else if (addr.endsWith(".se") || full.includes("stockholm") || full.includes("sweden")) {
-    country = "SE";
-    carrier = "Telia Sweden";
-  }
-  // 2. IP Subnet & Cloud Provider Network Routing
-  else if (addr.startsWith("188.114.")) {
-    country = "NL";
-    carrier = "Cloudflare Amsterdam Edge";
-  } else if (addr.startsWith("162.159.") || addr.startsWith("172.67.") || addr.startsWith("104.18.") || addr.startsWith("104.19.") || addr.startsWith("104.21.") || addr.startsWith("104.16.") || addr.startsWith("172.64.")) {
-    // Cloudflare addresses are anycast. The address alone cannot truthfully
-    // identify a country or city, so retain provider evidence without inventing geography.
-    return {
-      country: "ZZ",
-      country_name: "Unknown",
-      flag: "🌐",
-      carrier: "Cloudflare Anycast",
-      org: "Cloudflare",
-      city: "Unknown",
-      latitude: null,
-      longitude: null,
-      geo_source: "anycast-provider",
-      geo_verified: false
-    };
-  } else if (addr.startsWith("47.243.") || addr.startsWith("8.210.") || addr.startsWith("8.217.")) {
-    country = "HK";
-    carrier = "Alibaba Cloud HK";
-  } else if (addr.startsWith("51.79.")) {
-    country = "SG";
-    carrier = "OVHcloud Singapore";
-  } else if (addr.startsWith("57.129.") || addr.startsWith("57.131.") || addr.startsWith("54.36.")) {
-    country = "FR";
-    carrier = "OVHcloud France";
-  } else if (addr.startsWith("15.237.") || addr.startsWith("15.235.")) {
-    country = "FR";
-    carrier = "AWS Paris";
-  } else if (addr.startsWith("54.74.")) {
-    country = "IE";
-    carrier = "AWS Dublin";
-  } else if (addr.startsWith("82.38.") || addr.startsWith("2.26.")) {
-    country = "GB";
-    carrier = "Virgin Media UK";
-  } else if (addr.startsWith("91.132.") || addr.startsWith("140.99.") || addr.startsWith("5.175.") || addr.startsWith("82.198.")) {
-    country = "DE";
-    carrier = "Hetzner Cloud";
-  } else if (addr.startsWith("95.81.") || addr.startsWith("86.107.")) {
-    country = "IR";
-    carrier = "MCI / TCI Iran";
-  } else if (addr.startsWith("194.87.") || addr.startsWith("62.182.") || addr.startsWith("195.133.") || addr.startsWith("31.133.")) {
-    country = "RU";
-    carrier = "VDSina / Selectel";
-  } else if (addr.startsWith("199.232.")) {
-    country = "FI";
-    carrier = "Fastly Helsinki Edge";
-  } else if (addr.startsWith("150.40.")) {
-    country = "JP";
-    carrier = "AWS Tokyo";
-  } else if (addr.startsWith("152.53.") || addr.startsWith("103.152.") || addr.startsWith("45.207.")) {
-    country = "SG";
-    carrier = "Zenlayer Singapore";
-  } else if (addr.startsWith("92.42.") || addr.startsWith("195.184.") || addr.startsWith("45.131.") || addr.startsWith("45.89.")) {
-    country = "NL";
-    carrier = "Serverius Netherlands";
-  } else if (addr.startsWith("69.63.") || addr.startsWith("192.227.") || addr.startsWith("167.233.") || addr.startsWith("166.62.") || addr.startsWith("209.206.")) {
-    country = "US";
-    carrier = "AWS North America";
-  } else if (addr.startsWith("210.3.")) {
-    country = "HK";
-    carrier = "HKBN Hong Kong";
-  } else {
-    return {
-      country: "ZZ",
-      country_name: "Unknown",
-      flag: "🌐",
-      carrier: "Unverified",
-      org: "Unverified",
-      city: "Unknown",
-      latitude: null,
-      longitude: null,
-      geo_source: "unknown",
-      geo_verified: false
-    };
-  }
-
-  const geoInfo = GEO_COORDINATES[country];
-  const countryName = COUNTRY_NAMES[country] || "Unknown";
-  const flag = getFlagEmoji(country);
-
+export function resolveGeoAndCarrier(address, _sni = "", _host = "") {
+  // Hostnames, URI remarks and IP prefix guesses do not prove physical
+  // server location or carrier. Preserve the destination as unknown until
+  // an independently attributed telemetry record is merged.
+  const host = String(address || "").trim().toLowerCase();
+  const cloudflareAnycast = /^(188\\.114\\.|162\\.159\\.|172\\.6[47]\\.|104\\.(?:1[6-9]|2[01])\\.)/.test(host);
+  const provider = cloudflareAnycast ? "Cloudflare Anycast" : "Unverified";
   return {
-    country,
-    country_name: countryName,
-    flag,
-    carrier,
-    org: carrier,
-    city: geoInfo.city,
-    latitude: geoInfo.lat,
-    longitude: geoInfo.lon,
-    geo_source: "inferred",
+    country: "ZZ", country_name: "Unknown", flag: "🌐",
+    carrier: provider, org: provider, city: "Unknown",
+    latitude: null, longitude: null,
+    geo_source: cloudflareAnycast ? "anycast-provider" : "unknown",
     geo_verified: false
   };
 }
