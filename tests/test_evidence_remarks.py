@@ -100,9 +100,12 @@ def test_unverified_marketing_hint_is_preserved_separately_from_canonical_uri(mo
 def test_legacy_records_receive_fresh_offline_evidence_during_build(monkeypatch, tmp_path):
     monkeypatch.setenv("HUNTX_REMARK_STYLE", "evidence")
     intel = tmp_path / "current-prefixes.json"
+    import time
+
+    now = int(time.time())
     intel.write_text(json.dumps({
         "schema_version": 1, "provider": "offline-fixture",
-        "observed_at": 1800000000, "expires_at": 4000000000,
+        "observed_at": now - 120, "expires_at": now + 3600,
         "prefixes": [{"cidr": "1.1.1.0/24", "asn": 13335,
                       "country_code": "DE", "anycast": False}],
     }), encoding="utf-8")
