@@ -277,6 +277,16 @@ jobs:
             }
             const artifacts = await publicationArtifacts(run);
             if (!artifacts.ready) {
+              if (artifacts.intentional) {
+                // Recovery manually dispatches the publisher after production.
+                // Respect the same explicit no-release verdict as workflow_run:
+                // no distributable was approved, so keep the last release.
+                core.setOutput('ready', 'false');
+                core.notice(
+                  `Producer run ${runId} explicitly withheld its release; preserving the current deployment.`,
+                );
+                return;
+              }
               core.setFailed(
                 `Run ${runId} is missing unexpired publication artifacts: ${artifacts.missing.join(', ')}`,
               );
