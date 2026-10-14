@@ -67,7 +67,7 @@ self.addEventListener('fetch', (event) => {
 /** Copy only what the service worker precaches, not the 150 MB of artifacts. */
 function copyShell(dest) {
   fs.mkdirSync(dest, { recursive: true });
-  for (const file of ["index.html", "architecture.html", "catalog.json", "manifest.json", "sw.js"]) {
+  for (const file of ["index.html", "network-doctor.html", "architecture.html", "catalog.json", "manifest.json", "sw.js"]) {
     fs.copyFileSync(path.join(REPO_DOCS, file), path.join(dest, file));
   }
   fs.cpSync(path.join(REPO_DOCS, "assets"), path.join(dest, "assets"), { recursive: true });
