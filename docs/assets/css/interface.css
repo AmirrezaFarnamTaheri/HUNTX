@@ -132,7 +132,7 @@ html.light #page-tabs-nav .nav-tab-btn.active {
   padding: 0 0 1rem;
 }
 .radar-summary { min-width: 0; }
-.radar-summary h1 {
+.radar-summary h2 {
   max-width: 17ch;
   font-size: clamp(1.75rem, 2.55vw, 2.5rem);
   font-weight: 730;
@@ -140,7 +140,7 @@ html.light #page-tabs-nav .nav-tab-btn.active {
   letter-spacing: -.045em;
   text-wrap: balance;
 }
-.radar-summary h1 span { color: var(--ux-muted); }
+.radar-summary h2 span { color: var(--ux-muted); }
 .radar-description {
   max-width: 64ch;
   color: var(--ux-muted);
@@ -401,7 +401,7 @@ html #data-status-pill {
   #evidence-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; }
   #evidence-strip .evidence-stat:last-of-type { grid-column: 1 / -1; }
   .radar-overview { gap: .8rem; }
-  .radar-summary h1 { max-width: 26ch; }
+  .radar-summary h2 { max-width: 26ch; }
   #radar-diagnostics > .grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 375px) {
@@ -409,7 +409,7 @@ html #data-status-pill {
   #evidence-strip .evidence-stat:last-of-type { grid-column: auto; }
   .radar-metrics { gap: .4rem; }
   .radar-metrics > div { padding: .65rem .7rem; }
-  .radar-summary h1 { font-size: 1.7rem; }
+  .radar-summary h2 { font-size: 1.7rem; }
   .hero-actions > :is(a, button) { width: 100%; justify-content: center; }
 }
 
