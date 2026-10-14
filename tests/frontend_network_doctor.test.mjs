@@ -148,3 +148,8 @@ test("dashboard navigation and generated template both link to Network Doctor", 
   assert.match(worker, /\.\/network-doctor\.html/);
   assert.match(worker, /\.\/assets\/js\/network-doctor\.js/);
 });
+
+test("Playwright includes Network Doctor browser coverage in its configured testMatch", async () => {
+  const config = await readFile(new URL("../playwright.config.mjs", import.meta.url), "utf8");
+  assert.match(config, /frontend_network_doctor\\.spec\\.mjs/);
+});
