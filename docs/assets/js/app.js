@@ -3233,33 +3233,25 @@ export class AppState {
     ];
 
     container.innerHTML = `
-      <section class="mt-8 mb-6">
-        <div class="studio-workspace glass-card bg-gray-900/60 border border-gray-800/80 hover:border-cyan-500/40 rounded-3xl p-6 sm:p-8 backdrop-blur-xl transition-all shadow-xl shadow-cyan-950/20">
-          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-gray-800">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
-              </div>
-              <div>
-                <h3 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
-                  Routing examples (not included in feeds)
-                  <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-slate-800 text-slate-300 border border-slate-700">EXAMPLE</span>
-                </h3>
-                <p class="text-xs text-gray-400 font-sans mt-0.5">Illustrative routing order only. The Sing-box/Xray links below are node subscriptions and intentionally omit this profile-level routing policy.</p>
-              </div>
-            </div>
-            <div class="flex items-center gap-2 flex-wrap">
-              <a data-artifact="all_sources_singbox.json" href="artifacts/release/all_sources_singbox.json" download class="px-3.5 py-2 min-h-[44px] bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-xs font-mono font-bold rounded-xl transition-all focus-ring flex items-center gap-1.5 cursor-pointer">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                Sing-box Subscription JSON
-              </a>
-              <a data-artifact="all_sources_xray.json" href="artifacts/release/all_sources_xray.json" download class="px-3.5 py-2 min-h-[44px] bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 text-xs font-mono font-bold rounded-xl transition-all focus-ring flex items-center gap-1.5 cursor-pointer">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                Xray Subscription JSON
-              </a>
-            </div>
+      <section class="studio-section">
+        <div id="studio-feed-start" class="studio-feed-start" role="region" aria-labelledby="studio-feeds-heading">
+          <span class="section-eyebrow">Published node feeds</span>
+          <h2 id="studio-feeds-heading">Download node subscriptions</h2>
+          <p>Choose the published node-list format supported by your client. These are endpoint subscriptions, not complete routing or DNS profiles.</p>
+          <div class="studio-feed-actions">
+            <a data-artifact="all_sources_singbox.json" href="artifacts/release/all_sources_singbox.json" download class="focus-ring">
+              <span>Sing-box JSON</span><span class="studio-format-hint">Download ↗</span>
+            </a>
+            <a data-artifact="all_sources_xray.json" href="artifacts/release/all_sources_xray.json" download class="focus-ring">
+              <span>Xray JSON</span><span class="studio-format-hint">Download ↗</span>
+            </a>
+            <button type="button" id="studio-customize-proxies" data-workspace-target="proxies" class="focus-ring">Filter and export a selected proxy set <span aria-hidden="true">→</span></button>
           </div>
-
+          <p>Need other formats? Use Published Feeds. To compare candidate nodes or export a filtered Sing-box/Clash profile, open Published Proxies. No published node is guaranteed to connect from your network.</p>
+        </div>
+        <details id="routing-examples" class="studio-examples">
+          <summary><span>Inspect optional routing examples</span><span class="studio-example-label">6 illustrative rules · not included in feeds</span></summary>
+          <div class="studio-routing-example">
           <div class="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div class="lg:col-span-7 space-y-2.5">
               ${rules.map((rule, idx) => `
@@ -3303,6 +3295,7 @@ export class AppState {
             </div>
           </div>
         </div>
+        </details>
       </section>
     `;
   }
