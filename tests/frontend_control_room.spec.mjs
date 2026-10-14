@@ -148,6 +148,7 @@ test("inspector workspace tabs support roving keyboard navigation", async ({ pag
 test("proxy filters and view controls retain focus after workspace rerenders", async ({ page }) => {
   await localOnly(page);
   await page.goto("/#proxies");
+  await page.locator("#proxy-advanced > summary").click();
   const transport = page.locator("#select-transport");
   await expect(transport).toBeVisible();
   await transport.focus();
