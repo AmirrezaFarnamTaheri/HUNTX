@@ -159,3 +159,12 @@ test("proxy filters and view controls retain focus after workspace rerenders", a
   await grid.click();
   await expect(page.locator("#btn-view-grid")).toBeFocused();
 });
+
+test("artifact category controls remain keyboard-focused after selecting a filter", async ({ page }) => {
+  await localOnly(page);
+  await page.goto("/#artifacts");
+  const category = page.locator('.btn-artifact-tab[data-filter="ALL"]');
+  await category.click();
+  await expect(page.locator('.btn-artifact-tab[data-filter="ALL"]')).toBeFocused();
+  await expect(page.locator('.btn-artifact-tab[data-filter="ALL"]')).toHaveAttribute("aria-pressed", "true");
+});
