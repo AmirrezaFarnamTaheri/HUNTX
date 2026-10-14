@@ -2078,38 +2078,19 @@ export class AppState {
     ];
 
     filterContainer.innerHTML = `
-      <div class="proxy-workspace space-y-4 py-6">
+      <div class="proxy-workspace">
         <div class="workspace-intro">
-          <div><span class="section-eyebrow">Node explorer</span><h2>Published proxy catalog</h2><p>Filter by transport, geography and observed evidence. Saved endpoints are not guaranteed to authenticate.</p></div>
-          <span class="workspace-total">${allProxies.length.toLocaleString("en-US")} nodes in snapshot</span>
+          <div>
+            <span class="section-eyebrow">Published endpoints</span>
+            <h2 class="sr-only">Published proxy catalog</h2>
+            <p>Explore the published snapshot. Test shortlisted nodes through your client before relying on them.</p>
+          </div>
+          <span class="workspace-total">${allProxies.length.toLocaleString("en-US")} nodes · publisher snapshot</span>
         </div>
-        <section id="evidence-overview" class="rounded-2xl border border-gray-800 bg-gray-950/80 p-4 sm:p-5" aria-label="Proxy measurement evidence">
-          <div class="flex flex-wrap items-start justify-between gap-3">
-            <div class="max-w-2xl">
-              <span class="font-mono text-xs font-semibold uppercase tracking-wider text-cyan-300">${i18n.translate("EVIDENCE EXPLORER")}</span>
-              <h2 class="text-base sm:text-lg font-semibold text-gray-100 mt-1">${i18n.translate("Explore nodes by what was actually tested")}</h2>
-              <p class="text-xs sm:text-sm leading-relaxed text-gray-400 mt-1">TCP connectivity does not prove that a proxy authenticates. Results reflect the published snapshot.</p>
-            </div>
-            <a href="ENDPOINT_EVIDENCE.md" target="_blank" rel="noopener noreferrer" class="min-h-[44px] px-3.5 py-2.5 inline-flex items-center justify-center rounded-xl border border-gray-700 bg-gray-900 text-cyan-300 text-xs font-semibold focus-ring hover:border-cyan-500 transition-colors">${i18n.translate("Evidence guide")} ↗</a>
-          </div>
-          <p class="text-xs text-gray-400 mt-2">Counts reflect other active filters. Measurements are from the publisher's vantage, not your device.</p>
-          <div class="flex flex-wrap gap-2 mt-3" role="group" aria-label="Filter by measurement evidence">
-            ${evidenceOptions.map(option => `
-              <button
-                type="button"
-                class="btn-evidence-filter min-h-[44px] px-3.5 py-2 rounded-xl border text-xs font-mono font-semibold focus-ring transition-all ${this.selectedEvidence === option.id ? "bg-cyan-950/60 text-cyan-300 border-cyan-500/60" : "bg-gray-900 text-gray-300 border-gray-800 hover:border-cyan-500/50"}"
-                data-evidence="${option.id}"
-                aria-pressed="${this.selectedEvidence === option.id}"
-              >
-                ${escapeHTML(i18n.translate(option.label))}
-                <span class="ml-1.5 tabular-nums opacity-75">${option.count.toLocaleString()}</span>
-              </button>`).join("")}
-          </div>
-        </section>
         <!-- Top Toolbar: Protocol Pills + View Mode Switcher + Search -->
-        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+        <div id="proxy-primary-toolbar" class="proxy-primary-toolbar">
           <!-- Protocol Tabs -->
-          <div class="flex flex-wrap gap-1.5 items-center" role="toolbar" aria-label="Protocol Filter">
+          <div class="protocol-pills flex flex-wrap gap-1.5 items-center" role="toolbar" aria-label="Protocol Filter">
             <span class="text-xs font-mono font-bold text-gray-400 uppercase tracking-wider mr-1.5 flex items-center gap-1">
               <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
               Protocol:
@@ -2137,7 +2118,7 @@ export class AppState {
           </div>
 
           <!-- View Mode Switcher & Quick Search -->
-          <div class="flex items-center gap-2.5 w-full lg:w-auto">
+          <div class="view-search-controls flex items-center gap-2.5 w-full lg:w-auto">
             <!-- View Mode Switcher -->
             <div class="flex items-center bg-gray-900 border border-gray-800 p-0.5 rounded-xl">
               <button
@@ -2183,8 +2164,35 @@ export class AppState {
           </div>
         </div>
 
+        <section id="evidence-overview" aria-label="Proxy measurement evidence">
+          <div class="evidence-head">
+            <div><strong>Measurement evidence</strong><p>Publisher observations · TCP reachability is not proxy authentication.</p></div>
+            <details class="evidence-explainer">
+              <summary>What counts as evidence</summary>
+              <div class="evidence-explainer-body">
+                <p>Counts reflect your other selected filters. A protocol-tested node has stronger evidence than TCP alone; neither guarantees access from your network.</p>
+                <a href="ENDPOINT_EVIDENCE.md" target="_blank" rel="noopener noreferrer">Read the evidence guide ↗</a>
+              </div>
+            </details>
+          </div>
+          <div class="evidence-filter-row" role="group" aria-label="Filter by measurement evidence">
+            ${evidenceOptions.map(option => `
+              <button
+                type="button"
+                class="btn-evidence-filter min-h-[44px] px-3.5 py-2 rounded-xl border text-xs font-mono font-semibold focus-ring transition-all ${this.selectedEvidence === option.id ? "bg-cyan-950/60 text-cyan-300 border-cyan-500/60" : "bg-gray-900 text-gray-300 border-gray-800 hover:border-cyan-500/50"}"
+                data-evidence="${option.id}"
+                aria-pressed="${this.selectedEvidence === option.id}"
+              >
+                ${escapeHTML(i18n.translate(option.label))}
+                <span class="ml-1.5 tabular-nums opacity-75">${option.count.toLocaleString()}</span>
+              </button>`).join("")}
+          </div>
+        </section>
+
         <!-- Dimensional Cyber Select Menus -->
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 items-center">
+        <details id="proxy-advanced" ${this.advancedFiltersOpen ? "open" : ""}>
+          <summary>Advanced filters <span class="filter-advanced-count">Operator · transport · region · security · sorting</span></summary>
+          <div class="proxy-advanced-fields grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 items-center">
           <!-- Operator Dropdown -->
           <div class="relative">
             <label class="block text-xs font-mono text-gray-400 mb-1">Operator / Carrier</label>
@@ -2260,7 +2268,8 @@ export class AppState {
               <option value="port_asc" ${this.sortBy === "port_asc" ? "selected" : ""}>Port (Low-High)</option>
             </select>
           </div>
-        </div>
+          </div>
+        </details>
 
         <!-- Filter Summary & Batch Actions Bar -->
         <div class="flex flex-wrap items-center justify-between gap-3 p-3 bg-gray-950/80 border border-gray-800/80 rounded-2xl text-xs font-mono">
@@ -2299,6 +2308,10 @@ export class AppState {
         </div>
       </div>
     `;
+
+    filterContainer.querySelector("#proxy-advanced")?.addEventListener("toggle", (event) => {
+      this.advancedFiltersOpen = event.currentTarget.open;
+    });
 
     filterContainer.querySelectorAll(".filter-chip").forEach(btn => {
       btn.addEventListener("click", () => {
