@@ -11,7 +11,12 @@ async function capture(page, route, file, width, height = 900) {
     return ["127.0.0.1", "localhost"].includes(host) ? request.continue() : request.abort();
   });
   await page.goto(route);
-  await page.locator(route.startsWith("/network-doctor") ? "#doctor-title" : "#workspace-title").waitFor();
+  if (route.startsWith("/network-doctor")) {
+    await page.locator("#doctor-title").waitFor();
+  } else {
+    await page.locator("#filter-bar .workspace-intro").waitFor({ state: "attached" });
+    await page.locator(route.includes("#proxies") ? "#tab-panel-proxies" : "#hero-section .radar-overview").waitFor({ state: "visible" });
+  }
   await page.evaluate(() => document.fonts?.ready);
   await mkdir(output, { recursive: true });
   await page.screenshot({ path: path.join(output, file), fullPage: true, animations: "disabled" });
