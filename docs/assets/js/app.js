@@ -1605,7 +1605,7 @@ export class AppState {
               aria-label="Copy Multi-Node Subscription URL"
             >
               <svg class="w-4 h-4 text-gray-950" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-              Copy Node Subscription URL
+              Copy subscription URL
             </button>
 
             <a
@@ -1632,6 +1632,9 @@ export class AppState {
               Xray Subscription
             </a>
 
+            <details class="hero-more">
+              <summary class="hero-more-trigger">More tools</summary>
+              <div class="hero-more-menu">
             <button
               id="hero-open-scanner"
               class="px-3.5 py-2.5 min-h-[44px] bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/30 hover:border-emerald-400 text-emerald-300 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-1.5"
@@ -1652,6 +1655,8 @@ export class AppState {
               <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
               Cumulative JSON
             </a>
+              </div>
+            </details>
           </div>
         </div>
 
