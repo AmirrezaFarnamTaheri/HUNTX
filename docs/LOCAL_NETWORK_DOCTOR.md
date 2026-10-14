@@ -28,3 +28,7 @@ This is an **advanced, opt-in local diagnostic**, separate from the browser-only
 `go test ./internal/localprobe ./cmd/huntx-tools`
 
 The tests include a real local HTTP CONNECT tunnel to an HTTPS test server, a failed proxy with no direct fallback, a rejected untrusted TLS certificate, invalid loopback/credential inputs, and bounded privacy-safe summaries.
+
+## Named-node checks with Mihomo
+
+For an optional authenticated check of a **specific Mihomo leaf node** (instead of only the generic local client path), see [Mihomo node diagnostics](MIHOMO_NODE_DIAGNOSTICS.md). This remains controller-attested evidence, not independent TLS validation or proof of recovering the original server.
