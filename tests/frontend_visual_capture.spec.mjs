@@ -63,5 +63,14 @@ test("capture Network Doctor dark, light, guidance and reported-result states", 
   await page.screenshot({ path: path.join(output, "doctor-mobile-guidance-light.png"), fullPage: true, animations: "disabled" });
   await page.locator("#doctor-original").selectOption("yes");
   await page.getByRole("button", { name: "Summarize my result" }).click();
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: path.join(output, "doctor-mobile-reported-light.png"), fullPage: true, animations: "disabled" });
+  await page.getByRole("button", { name: "Remember this manual result" }).click();
+  await expect(page.locator("#doctor-recall")).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: path.join(output, "doctor-mobile-remembered-light.png"), fullPage: true, animations: "disabled" });
+  await page.reload();
+  await expect(page.locator("#doctor-recall")).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: path.join(output, "doctor-mobile-recalled-light.png"), fullPage: true, animations: "disabled" });
 });
