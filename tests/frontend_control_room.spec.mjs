@@ -268,3 +268,19 @@ test("operator with no recorded latency displays no synthetic zero or packet-los
   await expect(card).not.toContainText("0ms");
   await expect(card).not.toContainText("Loss:");
 });
+
+test("compact globe actually paints geography instead of an empty canvas", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await localOnly(page);
+  await page.goto("/");
+  await expect(page.locator("#telemetry-globe-canvas")).toBeVisible();
+  await page.waitForFunction(() => {
+    const canvas = document.getElementById("telemetry-globe-canvas");
+    if (!canvas?.width || !canvas?.height) return false;
+    const pixels = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
+    for (let i = 3; i < pixels.length; i += 64) {
+      if (pixels[i] > 0) return true;
+    }
+    return false;
+  });
+});
