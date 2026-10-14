@@ -131,9 +131,13 @@ test("a delayed catalog response cannot overwrite a reset diagnosis", async ({ p
   await page.getByRole("button", { name: "Show recovery steps" }).click();
   await page.getByRole("button", { name: "Check published catalog" }).click();
   await expect(page.locator("#doctor-catalog-check")).toBeDisabled();
+  await expect.poll(() => typeof release).toBe("function");
   await page.getByRole("button", { name: "Start over" }).click();
   await page.getByRole("button", { name: "Show recovery steps" }).click();
+  const response = page.waitForResponse((item) => item.url().endsWith("/catalog.json"));
   release();
+  await response;
+  await page.waitForTimeout(50);
   await expect(page.locator("#doctor-catalog-status")).toContainText("Not checked");
   await expect(page.locator("#doctor-catalog-check")).toBeEnabled();
 });
