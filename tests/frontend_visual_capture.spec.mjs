@@ -18,6 +18,19 @@ async function capture(page, route, file, width, height = 900) {
     await page.locator(route.includes("#proxies") ? "#tab-panel-proxies" : "#hero-section .radar-overview").waitFor({ state: "visible" });
   }
   await page.evaluate(() => document.fonts?.ready);
+  if (!route.startsWith("/network-doctor") && !route.includes("#proxies")) {
+    // The globe mounts after the dashboard hydrates. Capture real pixels,
+    // not a blank canvas that happened to be scheduled one frame later.
+    await page.waitForFunction(() => {
+      const canvas = document.getElementById("telemetry-globe-canvas");
+      if (!canvas?.width || !canvas?.height) return false;
+      const pixels = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
+      for (let i = 3; i < pixels.length; i += 64) {
+        if (pixels[i] > 0) return true;
+      }
+      return false;
+    });
+  }
   await mkdir(output, { recursive: true });
   await page.screenshot({ path: path.join(output, file), fullPage: true, animations: "disabled" });
 }
