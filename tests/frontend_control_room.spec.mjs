@@ -235,3 +235,18 @@ test("phone recovery form appears in the first viewport with legible inputs and 
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
   await expect(page.locator("#doctor-principles-content")).toBeVisible();
 });
+
+test("phone dashboard keeps both primary routes side by side without horizontal overflow", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await localOnly(page);
+  await page.goto("/");
+  const action = await page.locator("#workspace-action").boundingBox();
+  const doctor = await page.locator('.workspace-actions a[href="network-doctor.html"]').boundingBox();
+  expect(action).toBeTruthy();
+  expect(doctor).toBeTruthy();
+  expect(Math.abs(action.y - doctor.y)).toBeLessThan(2);
+  expect(action.height).toBeGreaterThanOrEqual(44);
+  expect(doctor.height).toBeGreaterThanOrEqual(44);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(375);
+});
