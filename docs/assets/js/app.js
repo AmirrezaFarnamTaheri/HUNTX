@@ -1574,7 +1574,7 @@ export class AppState {
       <div class="radar-overview">
         <div class="radar-summary">
           <span class="section-eyebrow">HUNTX / Observatory</span>
-          <h1>Proxy telemetry <span>&amp; network intelligence</span></h1>
+          <h2>Published network snapshot <span>and its evidence gaps</span></h2>
           <p class="radar-description">Browse the loaded snapshot, compare recorded measurements, and inspect configurations. Artifact checksums do not verify connectivity.</p>
           <dl class="radar-metrics">
             <div><dt>Published nodes</dt><dd>${activeCount.toLocaleString("en-US")}</dd><span>${regionCount} reported regions${regionSummary.unknownCount ? ` · ${regionSummary.unknownCount} unresolved` : ""}</span></div>
@@ -2070,7 +2070,7 @@ export class AppState {
     ];
 
     filterContainer.innerHTML = `
-      <div class="space-y-4 py-6">
+      <div class="proxy-workspace space-y-4 py-6">
         <div class="workspace-intro">
           <div><span class="section-eyebrow">Node explorer</span><h2>Published proxy catalog</h2><p>Filter by transport, geography and observed evidence. Saved endpoints are not guaranteed to authenticate.</p></div>
           <span class="workspace-total">${allProxies.length.toLocaleString("en-US")} nodes in snapshot</span>
@@ -2430,8 +2430,8 @@ export class AppState {
       nodesContainer.innerHTML = `
         <div class="py-14 text-center bg-gray-900/40 border border-gray-800 rounded-3xl p-8 backdrop-blur-md">
           <svg class="w-12 h-12 text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-          <span class="font-mono text-sm text-gray-300 font-bold block">No proxy endpoints match current dimensional filters</span>
-          <p class="font-mono text-xs text-gray-500 mt-1">Try resetting protocol, region, or carrier filters</p>
+          <span class="font-mono text-sm text-gray-300 font-bold block">No proxy endpoints match these filters</span>
+          <p class="font-mono text-xs text-gray-500 mt-1">Try clearing the search, protocol, region or carrier filters</p>
           <button id="btn-reset-filters-empty" class="mt-4 px-5 py-2.5 min-h-[44px] bg-cyan-500 text-gray-950 text-xs font-mono font-bold rounded-xl focus-ring cursor-pointer transition-all shadow-md shadow-cyan-500/20">Reset All Filters</button>
         </div>
       `;
@@ -2450,7 +2450,7 @@ export class AppState {
 
     // 1. Grid Cards View
     if (this.viewMode === "grid") {
-      nodesContainer.className = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4";
+      nodesContainer.className = "proxy-node-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4";
       nodesContainer.innerHTML = this.visibleNodes(filtered)
         .map((node) => this.nodeCardHTML(node)).join("")
         + this.nodesSentinelHTML(filtered.length - this.nodeRenderLimit);
@@ -2898,12 +2898,12 @@ export class AppState {
     ].filter((category) => category.id === "ALL" || !category.label.endsWith("(0)"));
 
     artifactSection.innerHTML = `
-      <div class="py-12 border-t border-gray-800/80">
+      <div class="artifacts-workspace py-8">
         <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
           <div>
             <h2 class="text-xl sm:text-2xl font-bold font-mono text-white flex items-center gap-2">
               <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-              Pipeline Output &amp; Artifacts Repository
+              Subscriptions &amp; published files
             </h2>
             <p class="text-xs font-mono text-gray-400 mt-1">Direct access to all ${allFiles.length} generated releases, cumulative datasets, split chunks, and client profiles</p>
             <p class="text-xs font-mono text-gray-500 mt-2">
@@ -2970,7 +2970,7 @@ export class AppState {
             }[file.ext || file.type] || "bg-gray-800 text-gray-300 border-gray-700";
 
             return `
-              <div class="bg-gray-900/60 hover:bg-gray-900 border border-gray-800 hover:border-cyan-500/40 rounded-2xl p-4 transition-all duration-200 flex flex-col justify-between group shadow-lg shadow-black/30">
+              <div class="artifact-card bg-gray-900/60 hover:bg-gray-900 border border-gray-800 hover:border-cyan-500/40 rounded-2xl p-4 transition-all duration-200 flex flex-col justify-between group shadow-lg shadow-black/30">
                 <div>
                   <div class="flex items-center justify-between mb-2">
                     <span class="px-2 py-0.5 text-xs font-mono font-bold uppercase rounded border ${badgeColor}">
@@ -3200,7 +3200,7 @@ export class AppState {
 
     container.innerHTML = `
       <section class="mt-8 mb-6">
-        <div class="glass-card bg-gray-900/60 border border-gray-800/80 hover:border-cyan-500/40 rounded-3xl p-6 sm:p-8 backdrop-blur-xl transition-all shadow-xl shadow-cyan-950/20">
+        <div class="studio-workspace glass-card bg-gray-900/60 border border-gray-800/80 hover:border-cyan-500/40 rounded-3xl p-6 sm:p-8 backdrop-blur-xl transition-all shadow-xl shadow-cyan-950/20">
           <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-gray-800">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
@@ -3208,7 +3208,7 @@ export class AppState {
               </div>
               <div>
                 <h3 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
-                  Routing / Subscription Reference
+                  Routing examples (not included in feeds)
                   <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-slate-800 text-slate-300 border border-slate-700">EXAMPLE</span>
                 </h3>
                 <p class="text-xs text-gray-400 font-sans mt-0.5">Illustrative routing order only. The Sing-box/Xray links below are node subscriptions and intentionally omit this profile-level routing policy.</p>
@@ -3281,14 +3281,14 @@ export class AppState {
     const currentTab = this.converterTab || "inspector";
 
     decoderSection.innerHTML = `
-      <div class="my-10 p-6 sm:p-8 bg-gray-900/80 border border-cyan-500/20 rounded-3xl backdrop-blur-md shadow-xl">
+      <div class="inspector-workspace my-10 p-6 sm:p-8 bg-gray-900/80 border border-cyan-500/20 rounded-3xl backdrop-blur-md shadow-xl">
         <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-800">
           <div>
             <h3 class="text-lg font-mono font-bold text-white flex items-center gap-2">
               <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
               Protocol Converter &amp; Inspection Studio
             </h3>
-            <p class="text-xs font-mono text-gray-400 mt-0.5">High-performance client-side converter for Sing-box 1.10+, Clash Meta / Mihomo, Xray JSON, Base64 &amp; QR Codes</p>
+            <p class="text-xs font-mono text-gray-400 mt-0.5">Local inspection and conversion for Sing-box, Mihomo, Xray JSON, Base64 and QR codes</p>
           </div>
 
           <!-- Studio Tabs Header -->
@@ -3354,7 +3354,7 @@ export class AppState {
     const currentTab = this.converterTab || "inspector";
 
     if (currentTab === "inspector") {
-      const defaultUri = (this.proxies[0] && this.proxies[0].raw) || "vless://8f7b3c2a-9e1d-4a5b-b2c3-d4e5f6a7b8c9@104.21.45.88:443?security=reality&sni=speed.cloudflare.com&fp=chrome&pbk=abc123def456&sid=0123456789abcdef&type=grpc&serviceName=vless-grpc#%F0%9F%87%A9%F0%9F%87%AA%20DE-CF%20%7C%20VLESS-REALITY";
+      const defaultUri = ""; // Never prefill a real credential or an invented demonstration endpoint.
       container.innerHTML = `
         <div class="space-y-4">
           <div class="flex flex-col sm:flex-row gap-2">
