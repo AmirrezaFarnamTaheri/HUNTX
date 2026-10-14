@@ -35,3 +35,12 @@ toggle?.addEventListener("click", () => {
   applyTheme(next);
   try { localStorage.setItem(STORAGE_KEY, next); } catch { /* optional preference */ }
 });
+
+const principlesToggle = document.getElementById("doctor-principles-toggle");
+const principles = document.querySelector(".doctor-principles");
+principlesToggle?.addEventListener("click", () => {
+  const expanded = principlesToggle.getAttribute("aria-expanded") !== "true";
+  principlesToggle.setAttribute("aria-expanded", String(expanded));
+  principlesToggle.textContent = expanded ? "Hide details" : "Show details";
+  principles?.classList.toggle("is-expanded", expanded);
+});
