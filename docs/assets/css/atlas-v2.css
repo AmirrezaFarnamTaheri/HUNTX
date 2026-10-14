@@ -723,3 +723,32 @@ html.light #filter-bar .btn-proto-tab:not([aria-pressed="true"]) > span { color:
   html #filter-bar .btn-evidence-filter[aria-pressed="true"],
   html #filter-bar .btn-proto-tab[aria-pressed="true"] { outline: 2px solid Highlight !important; }
 }
+
+/* Neutralize legacy Tailwind space-y gutters inside the new dense grid. */
+html #filter-bar > .proxy-workspace > * {
+  margin-block-start: 0 !important;
+  margin-block-end: 0 !important;
+}
+html #filter-bar .filter-more .filter-advanced-summary {
+  font-weight: 450;
+  color: var(--room-subtle);
+  font-size: 11px;
+}
+html #filter-bar .filter-more[open] .filter-advanced-summary {
+  color: var(--room-muted);
+}
+html #filter-bar .filter-more :is(input, select):focus-visible,
+html #filter-bar .filter-more > summary:focus-visible,
+.studio-routing-reference > summary:focus-visible {
+  outline: 3px solid var(--room-action) !important;
+  outline-offset: 3px;
+}
+html #tab-panel-studio #rule-studio-section {
+  min-width: 0;
+  margin-block-start: 0 !important;
+}
+html .studio-launch .studio-empty-feeds {
+  color: var(--room-muted);
+  font-size: 13px;
+  grid-column: 1 / -1;
+}
