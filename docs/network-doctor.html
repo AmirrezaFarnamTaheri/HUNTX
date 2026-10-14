@@ -36,8 +36,11 @@
         </div>
       </div>
       <aside class="doctor-principles" aria-label="How Network Doctor works">
-        <h2>What this tool does</h2>
-        <ul>
+        <div class="doctor-principles-heading">
+          <h2>What this tool does</h2>
+          <button type="button" id="doctor-principles-toggle" aria-controls="doctor-principles-content" aria-expanded="false">Show details</button>
+        </div>
+        <ul id="doctor-principles-content">
           <li><strong>Guides, not guesses</strong>Steps are selected from your device, network and symptom.</li>
           <li><strong>Private by default</strong>Selections remain in this browser. No proxy URI or credentials are requested.</li>
           <li><strong>Evidence stays honest</strong>Only your proxy client can confirm whether a connection works end to end.</li>
@@ -100,12 +103,13 @@
         </section>
         <section class="doctor-card hidden" id="doctor-outcome-form" aria-labelledby="outcome-heading">
           <h2 id="outcome-heading"><span>03</span> What worked?</h2>
+          <p class="doctor-verification-guide">Test a neutral HTTPS page <strong>through the selected proxy in your client</strong>, with certificate verification enabled. A browser loading directly, a ping, or an imported subscription does not confirm recovery.</p>
           <div class="doctor-form-grid">
             <div>
               <label for="doctor-original">Does the original proxy now work?</label>
               <select id="doctor-original">
                 <option value="unknown">Not sure / not tested</option>
-                <option value="yes">Yes, I tested it through my client</option>
+                <option value="yes">Yes, HTTPS worked through this original node</option>
                 <option value="no">No</option>
               </select>
             </div>
@@ -113,7 +117,7 @@
               <label for="doctor-alternative">Does another proxy work?</label>
               <select id="doctor-alternative">
                 <option value="unknown">Not sure / not tested</option>
-                <option value="yes">Yes, through my client</option>
+                <option value="yes">Yes, HTTPS worked through a different node</option>
                 <option value="no">No</option>
               </select>
             </div>
@@ -127,7 +131,7 @@
             <button type="button" id="doctor-reset">Start over</button>
           </div>
           <div id="doctor-result" class="doctor-result hidden" role="status" aria-live="polite">
-            <p id="doctor-result-title" class="doctor-result-title"></p>
+            <p id="doctor-result-title" class="doctor-result-title" tabindex="-1"></p>
             <p id="doctor-result-detail" class="doctor-muted"></p>
             <label for="doctor-report">Privacy-safe support summary</label>
             <textarea id="doctor-report" readonly aria-label="Privacy-safe support summary"></textarea>
