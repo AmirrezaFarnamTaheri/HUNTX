@@ -250,3 +250,21 @@ test("phone dashboard keeps both primary routes side by side without horizontal 
   expect(await page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(375);
 });
+
+test("operator with no recorded latency displays no synthetic zero or packet-loss data", async ({ page }) => {
+  await localOnly(page);
+  await page.goto("/");
+  await expect(page.locator("#hero-section .radar-overview")).toBeVisible();
+  await page.evaluate(() => {
+    const app = window.huntxApp;
+    const baseline = app.proxies[0];
+    app.proxies = [{ ...baseline, carrier: "Unmeasured example", latency: null, country: "ZZ" }];
+    app.renderRadarDiagnostics();
+  });
+  const card = page.locator(".operator-card");
+  await expect(card).toHaveCount(1);
+  await expect(card).toContainText("Not measured");
+  await expect(card).toContainText("0 samples");
+  await expect(card).not.toContainText("0ms");
+  await expect(card).not.toContainText("Loss:");
+});
