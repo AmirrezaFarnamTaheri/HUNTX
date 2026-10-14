@@ -161,7 +161,7 @@ test("manual results are remembered only by explicit opt-in and recalled as past
   await expect(page.locator("#doctor-recall")).toBeVisible();
   await expect(page.locator("#doctor-recall-status")).toContainText("past manual note");
   await expect(page.locator("#doctor-recall-status")).toContainText("original");
-  await expect(page.locator("#doctor-recall-status")).not.toContainText("verified");
+  await expect(page.locator("#doctor-recall-status")).toContainText("not a current connectivity test or a verified result");
 });
 
 test("remembered Wi-Fi and mobile reports remain isolated and can be forgotten separately", async ({ page }) => {
