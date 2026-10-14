@@ -246,7 +246,9 @@ func TestRejectOversizedChunkedJSONEvenWhenPayloadIsInitiallyValid(t *testing.T)
 	}))
 	defer server.Close()
 	c, err := New(server.URL, testToken)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	outcome := c.Probe(context.Background(), "Test", time.Second, 1)
 	if outcome.NativeTestPassed || outcome.ErrorClass != "invalid-response" {
 		t.Fatalf("oversized chunked JSON must be rejected: %+v", outcome)
