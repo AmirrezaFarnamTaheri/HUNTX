@@ -34,9 +34,16 @@ test("capture proxy explorer and RTL control room", async ({ page }) => {
   await page.screenshot({ path: path.join(output, "proxies-desktop-rtl.png"), fullPage: true, animations: "disabled" });
 });
 
-test("capture Network Doctor dark, light and mobile", async ({ page }) => {
+test("capture Network Doctor dark, light, guidance and reported-result states", async ({ page }) => {
   await capture(page, "/network-doctor.html", "doctor-desktop-dark.png", 1440);
+  await page.getByRole("button", { name: "Show recovery steps" }).click();
+  await page.screenshot({ path: path.join(output, "doctor-desktop-guidance-dark.png"), fullPage: true, animations: "disabled" });
   await page.locator("#doctor-theme-toggle").click();
   await page.screenshot({ path: path.join(output, "doctor-desktop-light.png"), fullPage: true, animations: "disabled" });
   await capture(page, "/network-doctor.html", "doctor-mobile-light.png", 375, 812);
+  await page.getByRole("button", { name: "Show recovery steps" }).click();
+  await page.screenshot({ path: path.join(output, "doctor-mobile-guidance-light.png"), fullPage: true, animations: "disabled" });
+  await page.locator("#doctor-original").selectOption("yes");
+  await page.getByRole("button", { name: "Summarize my result" }).click();
+  await page.screenshot({ path: path.join(output, "doctor-mobile-reported-light.png"), fullPage: true, animations: "disabled" });
 });
