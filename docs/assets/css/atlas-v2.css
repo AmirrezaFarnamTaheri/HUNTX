@@ -752,3 +752,19 @@ html .studio-launch .studio-empty-feeds {
   font-size: 13px;
   grid-column: 1 / -1;
 }
+
+/* Give quick search enough space to be usable in the desktop first row. */
+@media (min-width: 1041px) {
+  html #filter-bar .filter-primary-controls {
+    flex: 0 1 490px;
+    min-width: min(100%, 490px);
+  }
+  html #filter-bar .filter-search {
+    flex: 1 1 215px;
+    min-width: 185px;
+  }
+}
+@media (max-width: 520px) {
+  html #filter-bar .filter-more .filter-advanced-summary { display: none; }
+  html #evidence-overview.measurement-bar { padding: 12px !important; }
+}
