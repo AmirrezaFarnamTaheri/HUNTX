@@ -286,3 +286,50 @@ body.doctor-body::before {
   .doctor-steps { padding-bottom: 12px; margin-bottom: 14px; }
   .doctor-card :is(select, textarea) { font-size: 16px; }
 }
+
+/* Optional local-only memory: visibly separate past self-reports from live tests. */
+.doctor-recall {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--nd-line);
+  border-inline-start: 3px solid var(--nd-warning);
+  border-radius: 10px;
+  background: var(--nd-raised);
+}
+.doctor-recall strong,
+.doctor-memory strong { color: var(--nd-ink); font-size: 13px; }
+.doctor-recall p { margin: 5px 0 0; }
+.doctor-recall button,
+.doctor-memory button {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--nd-line);
+  border-radius: 9px;
+  background: var(--nd-panel);
+  color: var(--nd-ink);
+  font: 700 13px/1.5 ui-sans-serif, system-ui, sans-serif;
+  cursor: pointer;
+}
+.doctor-recall button:hover,
+.doctor-memory button:not(:disabled):hover { border-color: var(--nd-action); }
+.doctor-memory {
+  margin-top: 20px;
+  padding: 15px 16px;
+  border: 1px solid var(--nd-line);
+  border-radius: 10px;
+  background: var(--nd-info);
+}
+.doctor-memory p { margin: 7px 0 12px; }
+.doctor-memory button:disabled { opacity: .6; cursor: not-allowed; }
+#doctor-memory-status:empty,
+#doctor-recall-feedback:empty { display: none; }
+#doctor-recall-feedback { margin: 9px 0 0; }
+@media (max-width: 480px) {
+  .doctor-recall { flex-direction: column; align-items: stretch; }
+  .doctor-recall button, .doctor-memory button { width: 100%; }
+}
