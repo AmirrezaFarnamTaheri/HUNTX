@@ -314,7 +314,8 @@ test("additional proxy filters are accessible without hiding the evidence or res
   await expect(page.locator("#node-quick-search")).toBeVisible();
   await advanced.locator("summary").click();
   await expect(advanced).toHaveAttribute("open", "");
-  await page.locator("#select-transport").selectOption("ALL");
+  await page.locator("#select-transport").focus();
+  await page.locator("#select-transport").dispatchEvent("change");
   await expect(page.locator("#advanced-filters")).toHaveAttribute("open", "");
   await expect(page.locator("#select-transport")).toBeFocused();
   await page.locator("#advanced-filters summary").click();
