@@ -116,3 +116,15 @@ test("Network Doctor header and steps remain within a narrow phone viewport", as
   expect(geometry.header).toBeLessThanOrEqual(geometry.viewport + 1);
   await expect(page.getByRole("heading", { name: /Fix your connection/i })).toBeVisible();
 });
+
+test("artifact search retains keyboard focus and input value after filtered rerender", async ({ page }) => {
+  await localOnly(page);
+  await page.goto("/#artifacts");
+  const search = page.locator("#artifact-search-input");
+  await expect(search).toBeVisible();
+  await search.fill("clash");
+  await page.waitForFunction(() => window.huntxApp?.artifactSearchQuery === "clash");
+  await expect(page.locator("#artifact-search-input")).toBeFocused();
+  await expect(page.locator("#artifact-search-input")).toHaveValue("clash");
+  await expect(page.getByRole("group", { name: "Artifact categories" })).toBeVisible();
+});
