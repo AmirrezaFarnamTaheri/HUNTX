@@ -182,12 +182,13 @@ func (c *Controller) request(ctx context.Context, endpoint string, limit time.Du
 	if resp.ContentLength > responseLimit {
 		return "invalid-response"
 	}
-	dec := json.NewDecoder(io.LimitReader(resp.Body, responseLimit+1))
-	if err := dec.Decode(out); err != nil {
+	// Limit the *entire* response, including trailing whitespace on chunked
+	// transfer bodies. A streaming decoder alone can accept oversized data.
+	body, err := io.ReadAll(io.LimitReader(resp.Body, responseLimit+1))
+	if err != nil || len(body) > responseLimit {
 		return "invalid-response"
 	}
-	var extra any
-	if err := dec.Decode(&extra); err != io.EOF {
+	if err := json.Unmarshal(body, out); err != nil {
 		return "invalid-response"
 	}
 	return ""
