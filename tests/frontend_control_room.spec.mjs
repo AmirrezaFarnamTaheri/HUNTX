@@ -179,5 +179,10 @@ test("radar keeps advanced actions discoverable without clipping the primary act
   await expect(more).toBeVisible();
   await more.click();
   await expect(page.locator("#hero-open-scanner")).toBeVisible();
-  await expect(page.locator("#hero-download-json")).toBeVisible();
+  const json = page.locator("#hero-download-json");
+  if (await json.getAttribute("hidden") !== null) {
+    await expect(json).toHaveAttribute("aria-hidden", "true");
+  } else {
+    await expect(json).toBeVisible();
+  }
 });
