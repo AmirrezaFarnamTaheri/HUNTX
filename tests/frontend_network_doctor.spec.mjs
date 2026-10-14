@@ -80,3 +80,39 @@ test("small screens keep controls reachable without horizontal page overflow", a
   expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.width + 1);
   await expect(page.locator("#doctor-outcome-form")).toBeVisible();
 });
+
+test("changing the diagnosis clears a previously reported recovery", async ({ page }) => {
+  await localOnly(page);
+  await page.goto("/network-doctor.html");
+  await page.getByRole("button", { name: "Show recovery steps" }).click();
+  await page.locator("#doctor-original").selectOption("yes");
+  await page.getByRole("button", { name: "Summarize my result" }).click();
+  await expect(page.locator("#doctor-result")).toBeVisible();
+  await page.locator("#doctor-symptom").selectOption("tls");
+  await page.getByRole("button", { name: "Show recovery steps" }).click();
+  await expect(page.locator("#doctor-original")).toHaveValue("unknown");
+  await expect(page.locator("#doctor-alternative")).toHaveValue("unknown");
+  await expect(page.locator("#doctor-result")).toBeHidden();
+  await page.locator("#doctor-original").selectOption("yes");
+  await page.getByRole("button", { name: "Summarize my result" }).click();
+  await page.locator("#doctor-original").selectOption("no");
+  await expect(page.locator("#doctor-result")).toBeHidden();
+});
+
+test("catalog check warns about stale metadata without calling the proxy healthy", async ({ page }) => {
+  await localOnly(page);
+  await page.route("**/catalog.json", (route) => route.fulfill({
+    status: 200, contentType: "application/json",
+    body: JSON.stringify({
+      generated_at: "2020-01-01T00:00:00Z",
+      files: [{ tags: ["subscription"] }]
+    })
+  }));
+  await page.goto("/network-doctor.html");
+  await page.getByRole("button", { name: "Show recovery steps" }).click();
+  await page.getByRole("button", { name: "Check published catalog" }).click();
+  const status = page.locator("#doctor-catalog-status");
+  await expect(status).toContainText(/stale|outdated/i);
+  await expect(status).toContainText(/does not verify proxy connectivity/i);
+  await expect(status).toHaveAttribute("data-freshness", "stale");
+});
