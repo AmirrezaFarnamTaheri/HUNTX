@@ -101,7 +101,10 @@ body.doctor-body::before {
   min-height: 44px;
   border: 1px solid transparent;
   border-radius: 9px;
-  font: 650 13px/1.5 inherit;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.5;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
