@@ -142,7 +142,7 @@ Every interactive component is engineered across its complete state matrix:
 [Default]       -> Solid/Ghost border, clear hierarchy, min-height 44px (WCAG touch compliant).
 [Hover]         -> Surface elevation + accent glow border + color shift (150ms ease-out).
 [Active]        -> Tactile depression (scale: 0.98), instant feedback.
-[Focus-Visible] -> 2px cyan focus ring with 4px offset (accessible keyboard navigation).
+[Focus-Visible] -> 3px cyan focus ring with 3px offset (accessible keyboard navigation).
 [Disabled]      -> Opacity 0.4, cursor not-allowed, pointer-events none.
 [Loading]       -> Pulse opacity animation with preserved layout dimensions (no layout shift).
 [Success/Copied]-> Green flash badge + checkmark icon with 1800ms auto-reset.
