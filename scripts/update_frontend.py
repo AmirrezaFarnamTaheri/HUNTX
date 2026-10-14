@@ -871,6 +871,7 @@ INDEX_HTML = """<!DOCTYPE html>
     }
 
   </style>
+  <link rel="stylesheet" href="assets/css/control-room.css">
 
 </head>
 <body class="bg-cyber-mesh min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-black">
@@ -988,6 +989,7 @@ INDEX_HTML = """<!DOCTYPE html>
   <!-- Sticky Page Navigation Tab Bar -->
   <nav id="page-tabs-nav" class="sticky top-16 z-40 bg-[#070a0f]/90 backdrop-blur-md border-b border-[#1d2638] py-2 px-4 sm:px-6 lg:px-8">
     <div class="max-w-7xl mx-auto flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
+      <div class="rail-intro"><strong>Workspaces</strong><p>Connection data and tools, together.</p></div>
       <a href="network-doctor.html" class="px-3.5 py-2 rounded-xl text-xs font-mono font-semibold border border-cyan-700 text-cyan-300 hover:text-white focus-ring" style="white-space:nowrap">Fix connection ↗</a>
       <div class="flex items-center gap-1.5 sm:gap-2" role="tablist" aria-label="HUNTX Dashboard Tabs">
         <!-- Tab 1: Radar -->
@@ -1081,6 +1083,17 @@ INDEX_HTML = """<!DOCTYPE html>
 
   <!-- Main Telemetry Tabbed Workspace -->
   <main id="dashboard-main" tabindex="-1" class="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-16">
+    <div id="workspace-masthead" class="workspace-masthead">
+      <div class="workspace-context">
+        <p id="workspace-path" class="workspace-path">HUNTX / Workspace</p>
+        <h1 id="workspace-title" class="workspace-title">Network overview</h1>
+        <p id="workspace-description" class="workspace-description">Understand what was published, what was actually measured, and where evidence is still missing.</p>
+      </div>
+      <div class="workspace-actions">
+        <button type="button" id="workspace-action" class="workspace-primary" data-workspace-target="proxies">Browse proxies</button>
+        <a href="network-doctor.html" aria-label="Open Network Doctor">Network Doctor</a>
+      </div>
+    </div>
     <!-- TAB 1 PANEL: Telemetry Radar & 3D Globe -->
     <div id="tab-panel-radar" class="tab-panel animate-fade-in space-y-8" role="tabpanel" aria-labelledby="tab-btn-radar" style="display: block;">
       <section id="hero-section"></section>
@@ -1130,6 +1143,7 @@ INDEX_HTML = """<!DOCTYPE html>
   <!-- Recovers a visit whose cached modules predate the deployed entry script. Must precede the module. -->
   <script src="assets/js/boot-guard.js"></script>
   <script type="module" src="assets/js/app.js"></script>
+  <script type="module" src="assets/js/control-room.js"></script>
 
   <!-- Progressive Web App (PWA) Offline ServiceWorker Registration -->
   <script>
