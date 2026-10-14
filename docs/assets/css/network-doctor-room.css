@@ -224,3 +224,65 @@ body.doctor-body::before {
   .doctor-card, .doctor-help section, .doctor-steps li[aria-current="step"] { border-color: CanvasText; }
   .doctor-buttons button.primary { border: 2px solid ButtonText; }
 }
+
+/* Evidence-first recovery: a real client HTTPS test, never a metadata success. */
+.doctor-verification-guide {
+  margin: 0 0 20px;
+  padding: 13px 16px;
+  border-inline-start: 3px solid var(--nd-action);
+  background: var(--nd-info);
+  border-radius: 0 9px 9px 0;
+  color: var(--nd-muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.doctor-verification-guide strong { color: var(--nd-ink); }
+.doctor-principles-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.doctor-principles-toggle { display: none; }
+#doctor-catalog-status[data-freshness="stale"],
+#doctor-catalog-status[data-freshness="clock-skew"] { color: var(--nd-warning); }
+.doctor-buttons button:disabled { cursor: progress; opacity: .65; }
+@media (max-width: 720px) {
+  .doctor-hero { gap: 14px; padding-bottom: 16px; }
+  .doctor-hero h1 { margin-bottom: 12px; }
+  .doctor-lead { line-height: 1.5; }
+  .doctor-hero-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 16px;
+  }
+  .doctor-hero-actions a {
+    display: grid;
+    place-items: center;
+    min-width: 0;
+    padding: 10px 8px;
+    font-size: 13px;
+    text-align: center;
+  }
+  .doctor-principles {
+    padding: 10px 13px;
+    border: 1px solid var(--nd-line);
+    border-inline-start: 3px solid var(--nd-action);
+    border-radius: 10px;
+    background: var(--nd-panel);
+  }
+  .doctor-principles-heading h2 { margin: 0; }
+  .doctor-principles-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 8px 10px;
+    border: 1px solid var(--nd-line);
+    border-radius: 8px;
+    color: var(--nd-action);
+    background: var(--nd-raised);
+    font: 700 12px/1.5 ui-sans-serif, system-ui, sans-serif;
+    cursor: pointer;
+  }
+  .doctor-principles ul { display: none; }
+  .doctor-principles.is-expanded ul { display: grid; margin-top: 12px; }
+  .doctor-steps { padding-bottom: 12px; margin-bottom: 14px; }
+  .doctor-card :is(select, textarea) { font-size: 16px; }
+}
