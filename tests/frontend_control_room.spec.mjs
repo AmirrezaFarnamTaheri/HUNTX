@@ -73,3 +73,46 @@ test("reduced motion removes control-room entrance animation", async ({ page }) 
   await expect(page.locator("#tab-panel-radar")).toBeVisible();
   await expect(page.locator("#tab-panel-radar")).toHaveCSS("animation-name", "none");
 });
+
+test("Network Doctor gives clear progress and keyboard focus after generating steps", async ({ page }) => {
+  await localOnly(page);
+  await page.goto("/network-doctor.html");
+  await expect(page.locator(".doctor-steps [data-step='1']")).toHaveAttribute("aria-current", "step");
+  await page.getByRole("button", { name: "Show recovery steps" }).click();
+  await expect(page.locator(".doctor-steps [data-step='2']")).toHaveAttribute("aria-current", "step");
+  await expect(page.locator("#plan-heading")).toBeFocused();
+  await page.getByRole("button", { name: "Summarize my result" }).click();
+  await expect(page.locator(".doctor-steps [data-step='3']")).toHaveAttribute("aria-current", "step");
+  await page.getByRole("button", { name: "Start over" }).click();
+  await expect(page.locator(".doctor-steps [data-step='1']")).toHaveAttribute("aria-current", "step");
+  await expect(page.locator("#doctor-platform")).toBeFocused();
+});
+
+test("Network Doctor appearance toggle persists without saving recovery inputs", async ({ page }) => {
+  await localOnly(page);
+  await page.goto("/network-doctor.html");
+  await page.locator("#doctor-symptom").selectOption("tls");
+  const toggle = page.locator("#doctor-theme-toggle");
+  await toggle.click();
+  await expect(page.locator("html")).toHaveClass(/light/);
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  const stored = await page.evaluate(() => Object.keys(localStorage));
+  expect(stored).not.toContain("doctor-symptom");
+  await page.reload();
+  await expect(page.locator("html")).toHaveClass(/light/);
+  await expect(page.locator("#doctor-symptom")).toHaveValue("timeout");
+});
+
+test("Network Doctor header and steps remain within a narrow phone viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  await localOnly(page);
+  await page.goto("/network-doctor.html");
+  const geometry = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    document: document.documentElement.scrollWidth,
+    header: document.querySelector(".doctor-header").scrollWidth
+  }));
+  expect(geometry.document).toBeLessThanOrEqual(geometry.viewport + 1);
+  expect(geometry.header).toBeLessThanOrEqual(geometry.viewport + 1);
+  await expect(page.getByRole("heading", { name: /Fix your connection/i })).toBeVisible();
+});
