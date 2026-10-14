@@ -872,6 +872,7 @@ INDEX_HTML = """<!DOCTYPE html>
 
   </style>
   <link rel="stylesheet" href="assets/css/control-room.css">
+  <link rel="stylesheet" href="assets/css/atlas-v2.css">
 
 </head>
 <body class="bg-cyber-mesh min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-black">
