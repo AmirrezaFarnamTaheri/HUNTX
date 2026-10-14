@@ -207,6 +207,7 @@ body.doctor-body::before {
   .doctor-main { padding: 22px 14px 55px; }
   .doctor-header-inner { padding-inline: 14px; }
   .doctor-header-nav { gap: 0; }
+  .doctor-header-nav a:first-child { display: none; }
   .doctor-header-nav :is(a, button) { font-size: 12px; padding-inline: 9px; }
   .doctor-brand-name { font-size: 15px; }
   .doctor-hero h1 { font-size: 36px; }
