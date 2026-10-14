@@ -116,3 +116,24 @@ test("catalog check warns about stale metadata without calling the proxy healthy
   await expect(status).toContainText(/does not verify proxy connectivity/i);
   await expect(status).toHaveAttribute("data-freshness", "stale");
 });
+
+test("a delayed catalog response cannot overwrite a reset diagnosis", async ({ page }) => {
+  await localOnly(page);
+  let release;
+  await page.route("**/catalog.json", async (route) => {
+    await new Promise((resolve) => { release = resolve; });
+    await route.fulfill({
+      status: 200, contentType: "application/json",
+      body: JSON.stringify({ generated_at: "2026-10-14T01:25:09Z", files: [{ tags: ["subscription"] }] })
+    });
+  });
+  await page.goto("/network-doctor.html");
+  await page.getByRole("button", { name: "Show recovery steps" }).click();
+  await page.getByRole("button", { name: "Check published catalog" }).click();
+  await expect(page.locator("#doctor-catalog-check")).toBeDisabled();
+  await page.getByRole("button", { name: "Start over" }).click();
+  await page.getByRole("button", { name: "Show recovery steps" }).click();
+  release();
+  await expect(page.locator("#doctor-catalog-status")).toContainText("Not checked");
+  await expect(page.locator("#doctor-catalog-check")).toBeEnabled();
+});
