@@ -2917,7 +2917,7 @@ export class AppState {
 
         <div class="space-y-4 mb-6">
           <div class="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
-            <div class="flex flex-wrap gap-1.5" role="tablist">
+            <div class="flex flex-wrap gap-1.5" role="group" aria-label="Artifact categories">
               ${categories.map(c => `
                 <button
                   class="btn-artifact-tab px-3.5 py-2.5 min-h-[44px] rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${
@@ -2926,8 +2926,7 @@ export class AppState {
                       : "bg-gray-900 text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-gray-800"
                   }"
                   data-filter="${c.id}"
-                  role="tab"
-                  aria-selected="${this.artifactFilter === c.id}"
+                  aria-pressed="${this.artifactFilter === c.id}"
                 >
                   ${c.label}
                 </button>
@@ -2981,7 +2980,7 @@ export class AppState {
 
                   <h3 class="text-sm font-mono font-bold text-gray-100 truncate group-hover:text-cyan-300 transition-colors" title="${escapeHTML(file.filename)}">
                     ${escapeHTML(file.filename)}
-                  </h4>
+                  </h3>
 
                   <p class="text-xs font-sans text-gray-400 mt-1 line-clamp-2 leading-relaxed">
                     ${escapeHTML(file.description || file.filename)}
@@ -3053,7 +3052,18 @@ export class AppState {
 
     const debouncedArtifactSearch = debounce((val) => {
       this.artifactSearchQuery = val;
+      const previous = document.getElementById("artifact-search-input");
+      const focused = document.activeElement === previous;
+      const start = previous?.selectionStart;
+      const end = previous?.selectionEnd;
       this.renderArtifacts();
+      if (focused) {
+        const next = document.getElementById("artifact-search-input");
+        next?.focus({ preventScroll: true });
+        if (next && Number.isInteger(start) && Number.isInteger(end)) {
+          next.setSelectionRange(start, end);
+        }
+      }
     }, 120);
 
     const searchInput = document.getElementById("artifact-search-input");
