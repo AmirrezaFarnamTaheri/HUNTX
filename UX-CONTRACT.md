@@ -59,3 +59,9 @@ The following must pass before merge:
 - Browser captures for desktop, phone, Persian RTL, dark and light states; inspect actual captures and repair any visible defects.
 
 Review source and generated markup together whenever changing the dashboard. The browser suite is the executable contract; changes to an existing interaction require updating its tests, not silently deleting coverage.
+
+### Opt-in device-local recovery memory
+
+Network Doctor offers an optional **Remember this manual result** action only after the user reports that the original node or a replacement worked, without disabling TLS verification. It is never automatic and is never described as protocol-native verification. Stored records are limited to device category, manually selected Wi-Fi/mobile category, symptom, reported-original/reported-alternative outcome and timestamp. No proxy identity, URI, credentials, SSID, IP address, browsing target, or actual network fingerprint is stored or transmitted.
+
+The user can review and forget each category separately. Notes expire after 30 days and are purged when the browser next visits Network Doctor. Corrupt, forged or oversized storage entries are ignored, and blocked/private storage does not break the wizard. A note about a previous network category is historical context, not proof that a connection still works.
