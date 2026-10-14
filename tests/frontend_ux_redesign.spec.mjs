@@ -13,7 +13,7 @@ async function localOnly(page) {
 test("observability landing makes evidence and snapshot limitations clear", async ({ page }) => {
   await localOnly(page);
   await page.goto("/");
-  await expect(page.locator(".radar-summary h1")).toBeVisible();
+  await expect(page.locator(".radar-summary h2")).toBeVisible();
   await expect(page.locator("#evidence-strip")).toBeVisible();
   await expect(page.locator("#evidence-strip")).toContainText("Authenticated");
   await expect(page.locator("#evidence-strip")).toContainText("Unverified");
