@@ -1311,9 +1311,8 @@ export class AppState {
           <div>
             <div class="flex items-center gap-2">
               <span class="font-mono text-base font-bold tracking-tight text-white">HUNT<span class="text-cyan-400">X</span></span>
-              <span class="hidden sm:inline px-1.5 py-0.5 text-xs font-mono font-bold bg-cyan-950/80 text-cyan-400 border border-cyan-800/60 rounded">v2.5</span>
             </div>
-            <span class="text-xs text-gray-400 font-mono tracking-wider hidden sm:block">NODE TELEMETRY</span>
+            <span class="text-xs text-gray-400 font-mono tracking-wider hidden sm:block">NETWORK CONTROL ROOM</span>
           </div>
         </a>
 
