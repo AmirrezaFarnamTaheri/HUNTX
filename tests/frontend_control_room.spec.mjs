@@ -169,3 +169,15 @@ test("artifact category controls remain keyboard-focused after selecting a filte
   await expect(page.locator('.btn-artifact-tab[data-filter="ALL"]')).toBeFocused();
   await expect(page.locator('.btn-artifact-tab[data-filter="ALL"]')).toHaveAttribute("aria-pressed", "true");
 });
+
+test("radar keeps advanced actions discoverable without clipping the primary actions", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await localOnly(page);
+  await page.goto("/");
+  await expect(page.locator("#hero-section .radar-overview")).toBeVisible();
+  const more = page.locator(".hero-more summary");
+  await expect(more).toBeVisible();
+  await more.click();
+  await expect(page.locator("#hero-open-scanner")).toBeVisible();
+  await expect(page.locator("#hero-download-json")).toBeVisible();
+});
