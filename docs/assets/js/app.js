@@ -3302,12 +3302,15 @@ export class AppState {
           </div>
 
           <!-- Studio Tabs Header -->
-          <div class="flex flex-wrap gap-2" role="tablist">
+          <div class="flex flex-wrap gap-2" role="tablist" aria-label="Protocol tools">
             <button
               class="btn-studio-tab px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${currentTab === 'inspector' ? 'bg-cyan-500 text-gray-950 font-bold shadow-md shadow-cyan-500/30' : 'bg-gray-950 text-gray-400 hover:text-gray-200 border border-gray-800'}"
               data-tab="inspector"
+              id="studio-tab-inspector"
               role="tab"
+              aria-controls="studio-tab-content"
               aria-selected="${currentTab === 'inspector'}"
+              tabindex="${currentTab === 'inspector' ? '0' : '-1'}"
             >
               <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
               <span>Protocol Inspector</span>
@@ -3315,8 +3318,11 @@ export class AppState {
             <button
               class="btn-studio-tab px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${currentTab === 'converter' ? 'bg-cyan-500 text-gray-950 font-bold shadow-md shadow-cyan-500/30' : 'bg-gray-950 text-gray-400 hover:text-gray-200 border border-gray-800'}"
               data-tab="converter"
+              id="studio-tab-converter"
               role="tab"
+              aria-controls="studio-tab-content"
               aria-selected="${currentTab === 'converter'}"
+              tabindex="${currentTab === 'converter' ? '0' : '-1'}"
             >
               <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
               <span>Universal Converter</span>
@@ -3324,8 +3330,11 @@ export class AppState {
             <button
               class="btn-studio-tab px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${currentTab === 'dedup' ? 'bg-cyan-500 text-gray-950 font-bold shadow-md shadow-cyan-500/30' : 'bg-gray-950 text-gray-400 hover:text-gray-200 border border-gray-800'}"
               data-tab="dedup"
+              id="studio-tab-dedup"
               role="tab"
+              aria-controls="studio-tab-content"
               aria-selected="${currentTab === 'dedup'}"
+              tabindex="${currentTab === 'dedup' ? '0' : '-1'}"
             >
               <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
               <span>Bulk Deduplicator</span>
@@ -3333,8 +3342,11 @@ export class AppState {
             <button
               class="btn-studio-tab px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${currentTab === 'qr_studio' ? 'bg-cyan-500 text-gray-950 font-bold shadow-md shadow-cyan-500/30' : 'bg-gray-950 text-gray-400 hover:text-gray-200 border border-gray-800'}"
               data-tab="qr_studio"
+              id="studio-tab-qr_studio"
               role="tab"
+              aria-controls="studio-tab-content"
               aria-selected="${currentTab === 'qr_studio'}"
+              tabindex="${currentTab === 'qr_studio' ? '0' : '-1'}"
             >
               <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
               <span>QR Code Studio</span>
@@ -3343,17 +3355,34 @@ export class AppState {
         </div>
 
         <!-- Tab Content Container -->
-        <div id="studio-tab-content">
+        <div id="studio-tab-content" role="tabpanel" aria-labelledby="studio-tab-${currentTab}" tabindex="0">
         </div>
       </div>
     `;
 
     this.renderStudioTabContent();
 
+    const activateStudioTab = (tab, focus = false) => {
+      this.converterTab = tab;
+      this.renderDecoderSection();
+      if (focus) decoderSection.querySelector(`.btn-studio-tab[data-tab="${tab}"]`)?.focus({ preventScroll: true });
+    };
     decoderSection.querySelectorAll(".btn-studio-tab").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        this.converterTab = e.currentTarget.dataset.tab;
-        this.renderDecoderSection();
+      btn.addEventListener("click", (event) => {
+        activateStudioTab(event.currentTarget.dataset.tab);
+      });
+      btn.addEventListener("keydown", (event) => {
+        const tabs = Array.from(decoderSection.querySelectorAll(".btn-studio-tab"));
+        const index = tabs.indexOf(event.currentTarget);
+        const rtl = document.documentElement.dir === "rtl";
+        let nextIndex = -1;
+        if (event.key === (rtl ? "ArrowLeft" : "ArrowRight")) nextIndex = (index + 1) % tabs.length;
+        if (event.key === (rtl ? "ArrowRight" : "ArrowLeft")) nextIndex = (index - 1 + tabs.length) % tabs.length;
+        if (event.key === "Home") nextIndex = 0;
+        if (event.key === "End") nextIndex = tabs.length - 1;
+        if (nextIndex < 0) return;
+        event.preventDefault();
+        activateStudioTab(tabs[nextIndex].dataset.tab, true);
       });
     });
   }
