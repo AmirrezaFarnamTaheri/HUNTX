@@ -77,11 +77,24 @@ export function rememberManualResult(storage, result, { now = Date.now() } = {})
 export function recallManualResult(storage, scope, { now = Date.now() } = {}) {
   validateScope(scope);
   validNow(now);
-  const entry = readEntries(storage).find((item) =>
+  const entries = readEntries(storage);
+  const fresh = entries.filter((entry) =>
+    entry.savedAt <= now + CLOCK_SKEW_MS && now - entry.savedAt <= MAX_AGE_MS
+  );
+  // Expiry is enforced when the user next opens the page; no background tracking.
+  if (fresh.length !== entries.length) {
+    try {
+      if (fresh.length) {
+        storage?.setItem(LOCAL_RECOVERY_STORAGE_KEY, JSON.stringify({ version: VERSION, entries: fresh }));
+      } else {
+        storage?.removeItem(LOCAL_RECOVERY_STORAGE_KEY);
+      }
+    } catch { /* storage may be disabled; still do not surface expired notes */ }
+  }
+  const entry = fresh.find((item) =>
     item.platform === scope.platform && item.network === scope.network
   );
-  if (!entry || entry.savedAt > now + CLOCK_SKEW_MS || now - entry.savedAt > MAX_AGE_MS) return null;
-  return { ...entry, verified: false, evidence: 'self-reported' };
+  return entry ? { ...entry, verified: false, evidence: 'self-reported' } : null;
 }
 
 /** Remove only the selected local category; no network identifiers are used. */
