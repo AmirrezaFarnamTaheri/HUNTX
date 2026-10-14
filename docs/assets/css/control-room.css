@@ -665,3 +665,28 @@ html .hero-more-menu > :is(a, button):hover { border-color: var(--room-action) !
   .workspace-masthead { padding-bottom: 15px; margin-bottom: 15px; }
   html .hero-actions { overflow: visible; }
 }
+
+/* Native interactive radar filters retain keyboard semantics and visual fit. */
+html .operator-card {
+  width: 100%;
+  min-width: 0;
+  min-height: 82px;
+  text-align: start;
+  font: inherit;
+  color: inherit;
+}
+html .geo-density-row {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+}
+html :is(.operator-card, .geo-density-row):focus-visible {
+  outline: 3px solid var(--room-action);
+  outline-offset: 3px;
+}
