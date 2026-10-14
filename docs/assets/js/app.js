@@ -984,19 +984,35 @@ export class AppState {
   }
 
   refreshProxyWorkspace() {
-    // Filtering replaces the toolbar. Preserve keyboard focus and the caret,
-    // otherwise typing into the quick search drops focus after one character.
-    const focus = typeof document === "undefined" ? null : document.activeElement;
-    const preserve = focus?.id === "node-quick-search";
-    const start = preserve ? focus.selectionStart : null;
-    const end = preserve ? focus.selectionEnd : null;
+    // The toolbar is rebuilt after each filter change. Preserve the exact
+    // control and input selection rather than only preserving quick search:
+    // otherwise keyboard and switch users lose their place on every select
+    // or grid/table toggle.
+    const toolbar = typeof document === "undefined" ? null : document.getElementById("filter-bar");
+    const focused = typeof document === "undefined" ? null : document.activeElement;
+    const preserve = Boolean(toolbar?.contains(focused));
+    const id = preserve ? focused.id : "";
+    const keys = [
+      ["btn-proto-tab", "protocol"],
+      ["btn-evidence-filter", "evidence"]
+    ];
+    const matched = preserve ? keys.find(([className]) => focused.classList.contains(className)) : null;
+    const dataValue = matched ? focused.dataset[matched[1]] : null;
+    const start = preserve && typeof focused.selectionStart === "number" ? focused.selectionStart : null;
+    const end = preserve && typeof focused.selectionEnd === "number" ? focused.selectionEnd : null;
     const filtered = this.getFilteredProxies();
     this.renderFilterBar(filtered);
     this.renderNodes(filtered);
     if (preserve) {
-      const next = document.getElementById("node-quick-search");
-      next?.focus({ preventScroll: true });
-      if (next && start !== null && end !== null) next.setSelectionRange(start, end);
+      const next = id ? document.getElementById(id) : matched
+        ? Array.from(toolbar.querySelectorAll(`.${matched[0]}`))
+          .find((button) => button.dataset[matched[1]] === dataValue)
+        : null;
+      const target = next || (focused.closest?.("#active-filter-chips") ? document.getElementById("node-quick-search") : null);
+      target?.focus({ preventScroll: true });
+      if (target && start !== null && end !== null && typeof target.setSelectionRange === "function") {
+        target.setSelectionRange(start, end);
+      }
     }
   }
 
