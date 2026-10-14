@@ -142,7 +142,7 @@ test("dashboard navigation and generated template both link to Network Doctor", 
   assert.match(html, /href="network-doctor\.html"/);
   assert.match(generator, /href="network-doctor\.html"/);
   assert.match(page, /id="network-doctor-form"/);
-  assert.match(page, /assets\/js\/network-doctor\.js/);
+  assert.match(page, /assets\/js\/network-doctor-ui\.js/);
   assert.match(worker, /\.\/network-doctor\.html/);
   assert.match(worker, /\.\/assets\/js\/network-doctor\.js/);
 });
