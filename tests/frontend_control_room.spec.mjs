@@ -128,3 +128,18 @@ test("artifact search retains keyboard focus and input value after filtered rere
   await expect(page.locator("#artifact-search-input")).toHaveValue("clash");
   await expect(page.getByRole("group", { name: "Artifact categories" })).toBeVisible();
 });
+
+test("inspector workspace tabs support roving keyboard navigation", async ({ page }) => {
+  await localOnly(page);
+  await page.goto("/#decoder");
+  const inspector = page.locator('.btn-studio-tab[data-tab="inspector"]');
+  await expect(inspector).toHaveAttribute("aria-selected", "true");
+  await inspector.focus();
+  await page.keyboard.press("ArrowRight");
+  const converter = page.locator('.btn-studio-tab[data-tab="converter"]');
+  await expect(converter).toHaveAttribute("aria-selected", "true");
+  await expect(converter).toBeFocused();
+  await expect(page.locator("#studio-tab-content")).toHaveAttribute("role", "tabpanel");
+  await page.keyboard.press("Home");
+  await expect(page.locator('.btn-studio-tab[data-tab="inspector"]')).toBeFocused();
+});
