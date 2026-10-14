@@ -1828,31 +1828,33 @@ export class AppState {
     if (!container) return;
 
     // 1. Dynamic Carrier Probes computed directly from loaded proxies
-    const carrierMap = {};
+    // Operator strings originate in published data, not trusted code. A Map
+    // avoids special keys such as "__proto__" colliding with Object.prototype.
+    const carrierMap = new Map();
     for (const p of this.proxies) {
-      const cName = p.carrier || p.org || this.detectOperator(p.server, p.sni, p.name);
-      if (!carrierMap[cName]) {
-        carrierMap[cName] = { name: cName, count: 0, pings: [] };
+      const cName = String(p.carrier || p.org || this.detectOperator(p.server, p.sni, p.name) || "Unattributed");
+      if (!carrierMap.has(cName)) {
+        carrierMap.set(cName, { name: cName, count: 0, pings: [] });
       }
-      carrierMap[cName].count += 1;
-      const measured = Number(p.latency) === p.latency && p.latency !== null && p.latency > 0 ? p.latency : null;
-      if (measured !== null) carrierMap[cName].pings.push(measured);
+      const carrier = carrierMap.get(cName);
+      carrier.count += 1;
+      const measured = typeof p.latency === "number" && Number.isFinite(p.latency) && p.latency > 0 ? p.latency : null;
+      if (measured !== null) carrier.pings.push(measured);
     }
 
-    const sortedCarriers = Object.values(carrierMap).sort((a, b) => b.count - a.count);
-    const operators = sortedCarriers.slice(0, 8).map(c => {
-      const hasProbe = c.pings.length > 0;
-      const avgPing = hasProbe ? Math.round(c.pings.reduce((a, b) => a + b, 0) / c.pings.length) : null;
-      const grade = hasProbe ? "TCP" : "—";
-      const status = hasProbe ? "Not proxy-auth proof" : "No probe data";
+    const sortedCarriers = [...carrierMap.values()].sort((a, b) => b.count - a.count);
+    const operators = sortedCarriers.slice(0, 8).map(carrier => {
+      const samples = carrier.pings.slice().sort((a, b) => a - b);
+      const mid = Math.floor(samples.length / 2);
+      const median = samples.length
+        ? Math.round(samples.length % 2 ? samples[mid] : (samples[mid - 1] + samples[mid]) / 2)
+        : null;
       return {
-        name: c.name,
-        tag: c.name,
-        ping: hasProbe ? `${avgPing}ms` : "—",
-        status: status,
-        loss: "—",
-        grade: grade,
-        count: c.count
+        name: carrier.name,
+        tag: carrier.name,
+        median: median === null ? null : `${median}ms`,
+        samples: samples.length,
+        count: carrier.count
       };
     });
 
@@ -1892,26 +1894,22 @@ export class AppState {
                 Network operators
                 <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">${this.telemetryState === "same-generation" ? "SNAPSHOT TELEMETRY" : "NO SNAPSHOT TELEMETRY"}</span>
               </h2>
-              <p class="text-xs text-gray-400 font-sans mt-0.5">Reported operator mix and recorded endpoint latency (${this.proxies.length} nodes analyzed)</p>
+              <p class="text-xs text-gray-400 font-sans mt-0.5">Reported operators and median recorded endpoint latency (${this.proxies.length} nodes in snapshot; not a proxy-auth test)</p>
             </div>
           </div>
 
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
             ${operators.map(op => `
-              <div class="operator-card p-3 rounded-2xl bg-gray-950/80 border border-gray-800/80 hover:border-cyan-500/50 cursor-pointer transition-all flex flex-col justify-between group" data-operator="${escapeHTML(op.tag)}" role="button" tabindex="0" aria-label="Filter by operator ${escapeHTML(op.name)}" title="Filter snapshot by ${escapeHTML(op.name)}">
-                <div class="flex items-center justify-between">
-                  <span class="text-xs font-mono font-bold text-gray-200 group-hover:text-cyan-300 transition-colors truncate max-w-[90px]">${escapeHTML(op.name)}</span>
-                  <span class="text-xs font-mono font-extrabold text-cyan-400 bg-cyan-950/80 border border-cyan-500/30 px-1.5 py-0.5 rounded-md">${op.grade}</span>
+              <button type="button" class="operator-card p-3 rounded-2xl bg-gray-950/80 border border-gray-800/80 hover:border-cyan-500/50 cursor-pointer transition-all flex flex-col justify-between group" data-operator="${escapeHTML(op.tag)}" aria-label="Filter by operator ${escapeHTML(op.name)}" title="Filter snapshot by ${escapeHTML(op.name)}">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-xs font-mono font-bold text-gray-200 group-hover:text-cyan-300 transition-colors truncate">${escapeHTML(op.name)}</span>
+                  <span class="text-xs font-mono text-gray-400 shrink-0">${op.samples} samples</span>
                 </div>
-                <div class="flex items-baseline justify-between mt-2">
-                  <span class="font-mono text-base font-extrabold text-emerald-400">⚡ ${op.ping}</span>
-                  <span class="text-xs font-mono text-gray-500">${op.count} nodes</span>
+                <div class="flex items-baseline justify-between gap-2 mt-2">
+                  <span class="font-mono text-base font-extrabold text-emerald-400">${op.median === null ? "Not measured" : `p50 ${op.median}`}</span>
+                  <span class="text-xs font-mono text-gray-400">${op.count} nodes</span>
                 </div>
-                <div class="flex items-center justify-between mt-1 text-xs font-mono text-gray-400 pt-1 border-t border-gray-800/40">
-                  <span>Loss: ${op.loss}</span>
-                  <span class="text-cyan-400 font-semibold">${op.status}</span>
-                </div>
-              </div>
+              </button>
             `).join("")}
           </div>
         </div>
@@ -1933,17 +1931,17 @@ export class AppState {
               const pct = Math.round((count / (this.proxies.length || 1)) * 100);
               const name = COUNTRY_NAMES[code] || code;
               return `
-                <div class="geo-density-row cursor-pointer group" data-country="${code}" role="button" tabindex="0" aria-label="Filter by reported region ${escapeHTML(name)}" title="Filter snapshot by ${escapeHTML(name)}">
+                <button type="button" class="geo-density-row cursor-pointer group" data-country="${escapeHTML(code)}" aria-label="Filter by reported region ${escapeHTML(name)}" title="Filter snapshot by ${escapeHTML(name)}">
                   <div class="flex items-center justify-between text-xs font-mono mb-1">
                     <span class="font-bold text-gray-200 group-hover:text-cyan-300 transition-colors flex items-center gap-1.5">
-                      <span>${this.getCountryFlag(code)}</span> ${name} (${code})
+                      <span>${escapeHTML(this.getCountryFlag(code))}</span> ${escapeHTML(name)} (${escapeHTML(code)})
                     </span>
                     <span class="text-cyan-400 font-bold">${count} nodes <span class="text-gray-500 font-normal">(${pct}%)</span></span>
                   </div>
                   <div class="h-2 w-full bg-gray-950 rounded-full overflow-hidden border border-gray-800">
                     <div class="h-full bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-full transition-all duration-300 group-hover:from-cyan-400 group-hover:to-indigo-400" style="width:${Math.min(100, Math.round((count / maxCount) * 100))}%"></div>
                   </div>
-                </div>
+                </button>
               `;
             }).join("")}
             ${regionSummary.unknownCount ? `
@@ -1971,16 +1969,7 @@ export class AppState {
       </div>
     `;
 
-    const enableKeyboardDrilldown = (element) => {
-      element.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          element.click();
-        }
-      });
-    };
     container.querySelectorAll(".operator-card").forEach((card) => {
-      enableKeyboardDrilldown(card);
       card.addEventListener("click", () => {
         const op = card.dataset.operator;
         this.selectedOperator = op;
@@ -1992,7 +1981,6 @@ export class AppState {
     });
 
     container.querySelectorAll(".geo-density-row").forEach((row) => {
-      enableKeyboardDrilldown(row);
       row.addEventListener("click", () => {
         const c = row.dataset.country;
         this.selectedCountry = c;
