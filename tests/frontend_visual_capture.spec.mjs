@@ -19,8 +19,10 @@ async function capture(page, route, file, width, height = 900) {
   }
   await page.evaluate(() => document.fonts?.ready);
   if (!route.startsWith("/network-doctor") && !route.includes("#proxies")) {
-    // The globe mounts after the dashboard hydrates. Capture real pixels,
-    // not a blank canvas that happened to be scheduled one frame later.
+    // The globe intentionally stops drawing while off-screen. On mobile,
+    // bring it into the viewport to obtain a real rendered frame, then
+    // return to the page origin for a deterministic full-page capture.
+    await page.locator("#telemetry-globe-canvas").scrollIntoViewIfNeeded();
     await page.waitForFunction(() => {
       const canvas = document.getElementById("telemetry-globe-canvas");
       if (!canvas?.width || !canvas?.height) return false;
@@ -30,6 +32,7 @@ async function capture(page, route, file, width, height = 900) {
       }
       return false;
     });
+    await page.evaluate(() => window.scrollTo(0, 0));
   }
   await mkdir(output, { recursive: true });
   await page.screenshot({ path: path.join(output, file), fullPage: true, animations: "disabled" });
