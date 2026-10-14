@@ -78,14 +78,21 @@ function invalidateCatalogCheck() {
     "Not checked. This verifies published metadata only, not proxy connectivity.";
 }
 
+function hideReportedOutcome() {
+  resultPanel.classList.add("hidden");
+  byId("doctor-result-title").textContent = "";
+  byId("doctor-result-detail").textContent = "";
+  byId("doctor-report").value = "";
+  byId("doctor-copy").textContent = "Copy summary";
+  rememberButton.disabled = true;
+  memoryStatus.textContent = "";
+}
+
 function clearReportedOutcome() {
   byId("doctor-original").value = "unknown";
   byId("doctor-alternative").value = "unknown";
   byId("doctor-tls-disabled").checked = false;
-  resultPanel.classList.add("hidden");
-  byId("doctor-copy").textContent = "Copy summary";
-  rememberButton.disabled = true;
-  memoryStatus.textContent = "";
+  hideReportedOutcome();
 }
 
 form.addEventListener("change", () => {
@@ -150,11 +157,8 @@ catalogButton.addEventListener("click", async () => {
 });
 
 outcomePanel.addEventListener("change", () => {
-  // Never leave a visible result after its underlying self-report changed.
-  resultPanel.classList.add("hidden");
-  byId("doctor-copy").textContent = "Copy summary";
-  rememberButton.disabled = true;
-  memoryStatus.textContent = "";
+  // Clear the stale title, report and memory action when a safety answer changes.
+  hideReportedOutcome();
   setRecoveryStep(2);
 });
 
