@@ -690,3 +690,41 @@ html :is(.operator-card, .geo-density-row):focus-visible {
   outline: 3px solid var(--room-action);
   outline-offset: 3px;
 }
+
+/* Compact phone navigation: surface the action before decorative telemetry. */
+@media (max-width: 480px) {
+  html .workspace-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+  }
+  html .workspace-actions :is(button, a) {
+    min-width: 0;
+    width: 100%;
+    min-height: 44px;
+    padding: 9px 8px;
+    font-size: 12px;
+    text-align: center;
+    white-space: normal;
+  }
+  html .radar-overview { gap: 14px; margin-block-end: 12px; }
+  html .radar-metrics { gap: 8px; margin-block: 13px 11px; }
+  html .radar-metrics > div { padding: 12px; }
+  html .hero-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  html .hero-actions > #hero-copy-sub { grid-column: 1 / -1; }
+  html .hero-actions > a {
+    min-width: 0;
+    padding: 9px 6px;
+    font-size: 11px;
+    text-align: center;
+    white-space: normal;
+    justify-content: center;
+  }
+  html .hero-more { grid-column: 1 / -1; }
+  html .hero-more-trigger { width: 100%; }
+}
