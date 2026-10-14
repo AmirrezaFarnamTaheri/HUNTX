@@ -45,6 +45,15 @@ export function wcagAuditInPage() {
     return parts.join("") + (text ? " [" + text + "]" : "");
   };
   const isVisible = (el) => {
+    // Descendants of a closed native <details> are not rendered or keyboard
+    // focusable even when getComputedStyle() reports their own display as
+    // non-none. Its summary remains visible and must still be audited.
+    for (let ancestor = el.parentElement; ancestor; ancestor = ancestor.parentElement) {
+      if (ancestor.tagName === "DETAILS" && !ancestor.open) {
+        const summary = ancestor.querySelector(":scope > summary");
+        if (!summary?.contains(el)) return false;
+      }
+    }
     const cs = getComputedStyle(el);
     if (cs.display === "none" || cs.visibility === "hidden" || cs.opacity === "0") return false;
     const r = el.getBoundingClientRect();
