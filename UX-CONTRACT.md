@@ -20,15 +20,15 @@ The canonical generated dashboard markup is `scripts/update_frontend.py`; `docs/
 
 - **Published** means a configuration or feed artifact exists. It does **not** imply end-to-end reachability.
 - **Artifact integrity** means a checksum or publication contract passed. It does **not** prove the proxy works.
-- **Measured** means an explicitly attributed probe or client test ran. Report test source, time and scope where available.
+- **Measured** means an explicitly attributed probe or client test ran. Operator cards report the median of available recorded latency samples (p50), sample count, and node count; they do not invent packet-loss figures. Report test source, time and scope where available.
 - **Unverified** and **unknown geography** remain visible. Do not replace missing evidence with green badges, fabricated latency, inferred country flags or a claim of live connectivity.
 - **Recovered original** and **working alternative** are distinct outcomes. The browser wizard never claims it ran a protocol-native test.
 
 ## Network Doctor
 
-Network Doctor asks only for platform, network category and symptom. It provides a manual checklist, a metadata-only catalog check, and a self-reported outcome classification. It does not request a proxy URI, server secret, SSID, IP, device identifier or browsing history.
+Network Doctor asks only for platform, network category and symptom. It provides a manual checklist, a metadata-only catalog check, and a self-reported outcome classification. The catalog check reports its publication timestamp and a 48-hour freshness warning, not live proxy health. Contradictory or invalid catalog metadata is treated as unavailable. It does not request a proxy URI, server secret, SSID, IP, device identifier or browsing history.
 
-The recovery sequence has three stages: describe, try reversible changes, verify in a real client. The current stage is exposed using `aria-current="step"`. After submitting the first form, focus moves to the recovery heading; after reset, focus returns to the first device control. The original configuration is preserved. No hidden network changes, credential guessing, TLS verification bypass, or silent direct-connection fallback.
+The recovery sequence has three stages: describe, try reversible changes, verify in a real client. The current stage is exposed using `aria-current="step"`. After submitting the first form, focus moves to the recovery heading; after reset, focus returns to the first device control. Editing the setup invalidates the previous plan and outcome; editing a reported result hides the stale summary. Catalog checks are bounded and cannot overwrite a later reset or diagnosis. On phones, the explanatory principles can be expanded on demand so the recovery form remains visible in the first viewport. The original configuration is preserved. No hidden network changes, credential guessing, TLS verification bypass, or silent direct-connection fallback.
 
 The theme toggle stores only the existing `huntx_theme` preference. Recovery choices, generated plans and support summaries remain in memory unless the user explicitly copies the report. No analytics endpoint is added by this redesign.
 
