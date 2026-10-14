@@ -309,7 +309,7 @@ test("radar keeps diagnostics in the first desktop viewport and active tabs visi
     const tab = page.locator("#tab-btn-radar");
     await tab.focus();
     await expect(tab).toHaveCSS("outline-style", "solid");
-    await expect(tab).toHaveCSS("outline-width", "2px");
+    await expect(tab).toHaveCSS("outline-width", "3px");
     await expect(tab).toHaveCSS("box-shadow", "none");
   }
 });
