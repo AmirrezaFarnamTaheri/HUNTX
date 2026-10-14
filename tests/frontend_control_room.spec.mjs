@@ -27,6 +27,7 @@ test("desktop dashboard uses a stable operation rail with separate work surface"
 test("workspace navigation updates context and primary action without losing tab behavior", async ({ page }) => {
   await localOnly(page);
   await page.goto("/");
+  await expect(page.locator("#hero-section .radar-overview")).toBeVisible();
   await page.locator("#tab-btn-proxies").click();
   await expect(page.locator("#workspace-title")).toHaveText("Find a working proxy");
   await expect(page.locator("#tab-panel-proxies")).toBeVisible();
