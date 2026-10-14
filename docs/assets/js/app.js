@@ -2054,6 +2054,10 @@ export class AppState {
     ];
 
     const filtered = precomputed || this.getFilteredProxies();
+    // Keep advanced filters expanded across toolbar rerenders, including
+    // changes made by a focused select inside the disclosure.
+    const oldAdvanced = filterContainer.querySelector("#advanced-filters");
+    if (oldAdvanced) this.advancedFiltersOpen = oldAdvanced.open;
 
     const activeFilters = [
       { key: "selectedProtocol", label: "Protocol", value: this.selectedProtocol },
@@ -2080,20 +2084,15 @@ export class AppState {
     filterContainer.innerHTML = `
       <div class="proxy-workspace space-y-4 py-6">
         <div class="workspace-intro">
-          <div><span class="section-eyebrow">Node explorer</span><h2>Published proxy catalog</h2><p>Filter by transport, geography and observed evidence. Saved endpoints are not guaranteed to authenticate.</p></div>
-          <span class="workspace-total">${allProxies.length.toLocaleString("en-US")} nodes in snapshot</span>
+          <span class="catalog-kicker">Published endpoints · candidate inventory, not live local health</span>
+          <span class="workspace-total">${allProxies.length.toLocaleString("en-US")} entries</span>
         </div>
-        <section id="evidence-overview" class="rounded-2xl border border-gray-800 bg-gray-950/80 p-4 sm:p-5" aria-label="Proxy measurement evidence">
-          <div class="flex flex-wrap items-start justify-between gap-3">
-            <div class="max-w-2xl">
-              <span class="font-mono text-xs font-semibold uppercase tracking-wider text-cyan-300">${i18n.translate("EVIDENCE EXPLORER")}</span>
-              <h2 class="text-base sm:text-lg font-semibold text-gray-100 mt-1">${i18n.translate("Explore nodes by what was actually tested")}</h2>
-              <p class="text-xs sm:text-sm leading-relaxed text-gray-400 mt-1">TCP connectivity does not prove that a proxy authenticates. Results reflect the published snapshot.</p>
-            </div>
-            <a href="ENDPOINT_EVIDENCE.md" target="_blank" rel="noopener noreferrer" class="min-h-[44px] px-3.5 py-2.5 inline-flex items-center justify-center rounded-xl border border-gray-700 bg-gray-900 text-cyan-300 text-xs font-semibold focus-ring hover:border-cyan-500 transition-colors">${i18n.translate("Evidence guide")} ↗</a>
+        <section id="evidence-overview" class="measurement-bar" aria-label="Proxy measurement evidence">
+          <div class="measurement-head">
+            <div class="measurement-heading"><strong>Evidence quality</strong><span class="measurement-context">Publisher measurements · TCP is not proxy authentication</span></div>
+            <a href="ENDPOINT_EVIDENCE.md" target="_blank" rel="noopener noreferrer" class="focus-ring">${i18n.translate("Evidence guide")} ↗</a>
           </div>
-          <p class="text-xs text-gray-400 mt-2">Counts reflect other active filters. Measurements are from the publisher's vantage, not your device.</p>
-          <div class="flex flex-wrap gap-2 mt-3" role="group" aria-label="Filter by measurement evidence">
+          <div class="measurement-pills" role="group" aria-label="Filter by measurement evidence">
             ${evidenceOptions.map(option => `
               <button
                 type="button"
@@ -2102,15 +2101,15 @@ export class AppState {
                 aria-pressed="${this.selectedEvidence === option.id}"
               >
                 ${escapeHTML(i18n.translate(option.label))}
-                <span class="ml-1.5 tabular-nums opacity-75">${option.count.toLocaleString()}</span>
+                <span class="evidence-count">${option.count.toLocaleString()}</span>
               </button>`).join("")}
           </div>
         </section>
         <!-- Top Toolbar: Protocol Pills + View Mode Switcher + Search -->
-        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+        <div class="protocol-toolbar">
           <!-- Protocol Tabs -->
-          <div class="flex flex-wrap gap-1.5 items-center" role="toolbar" aria-label="Protocol Filter">
-            <span class="text-xs font-mono font-bold text-gray-400 uppercase tracking-wider mr-1.5 flex items-center gap-1">
+          <div class="protocol-pills" role="group" aria-label="Protocol Filter">
+            <span class="protocol-pills-label text-xs font-mono font-bold text-gray-400 uppercase tracking-wider mr-1.5 flex items-center gap-1">
               <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
               Protocol:
             </span>
@@ -2137,11 +2136,12 @@ export class AppState {
           </div>
 
           <!-- View Mode Switcher & Quick Search -->
-          <div class="flex items-center gap-2.5 w-full lg:w-auto">
+          <div class="filter-primary-controls">
             <!-- View Mode Switcher -->
-            <div class="flex items-center bg-gray-900 border border-gray-800 p-0.5 rounded-xl">
+            <div class="filter-view-toggle" role="group" aria-label="Proxy result view">
               <button
                 id="btn-view-grid"
+                aria-pressed="${this.viewMode === 'grid'}"
                 class="px-3 py-2 min-h-[44px] rounded-lg text-xs font-mono font-semibold transition-all flex items-center gap-1 cursor-pointer focus-ring ${this.viewMode === 'grid' ? 'bg-cyan-500 text-gray-950 font-bold' : 'text-gray-400 hover:text-gray-200'}"
                 title="Grid Cards View (Press V)"
                 aria-label="Grid Cards View"
@@ -2151,6 +2151,7 @@ export class AppState {
               </button>
               <button
                 id="btn-view-table"
+                aria-pressed="${this.viewMode === 'table'}"
                 class="px-3 py-2 min-h-[44px] rounded-lg text-xs font-mono font-semibold transition-all flex items-center gap-1 cursor-pointer focus-ring ${this.viewMode === 'table' ? 'bg-cyan-500 text-gray-950 font-bold' : 'text-gray-400 hover:text-gray-200'}"
                 title="Dense Data Table View (Press V)"
                 aria-label="Dense Table View"
@@ -2160,6 +2161,7 @@ export class AppState {
               </button>
               <button
                 id="btn-view-feed"
+                aria-pressed="${this.viewMode === 'feed'}"
                 class="px-3 py-2 min-h-[44px] rounded-lg text-xs font-mono font-semibold transition-all flex items-center gap-1 cursor-pointer focus-ring ${this.viewMode === 'feed' ? 'bg-cyan-500 text-gray-950 font-bold' : 'text-gray-400 hover:text-gray-200'}"
                 title="Raw Text / Feed View"
                 aria-label="Raw Text Feed View"
@@ -2170,7 +2172,7 @@ export class AppState {
             </div>
 
             <!-- Quick Search Input -->
-            <div class="relative flex-1 sm:w-60">
+            <div class="filter-search">
               <input
                 id="node-quick-search"
                 type="text"
@@ -2183,8 +2185,11 @@ export class AppState {
           </div>
         </div>
 
-        <!-- Dimensional Cyber Select Menus -->
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 items-center">
+        <!-- Secondary dimensions are available without occupying the first viewport. -->
+        <details id="advanced-filters" class="filter-more" ${this.advancedFiltersOpen ? "open" : ""}>
+          <summary>Advanced filters <span class="filter-advanced-summary">Region, operator, transport, security, measurements &amp; sort</span></summary>
+          <div class="filter-advanced-inner">
+          <div class="filter-select-grid">
           <!-- Operator Dropdown -->
           <div class="relative">
             <label class="block text-xs font-mono text-gray-400 mb-1">Operator / Carrier</label>
@@ -2260,10 +2265,11 @@ export class AppState {
               <option value="port_asc" ${this.sortBy === "port_asc" ? "selected" : ""}>Port (Low-High)</option>
             </select>
           </div>
-        </div>
+          </div>
+        </details>
 
         <!-- Filter Summary & Batch Actions Bar -->
-        <div class="flex flex-wrap items-center justify-between gap-3 p-3 bg-gray-950/80 border border-gray-800/80 rounded-2xl text-xs font-mono">
+        <div class="catalog-results-bar">
           <div class="flex items-center gap-2 text-gray-300">
             <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
             <span id="filter-result-count" role="status" aria-live="polite">${i18n.translate("Showing")} <strong class="text-cyan-400 tabular-nums">${filtered.length.toLocaleString()}</strong> / ${allProxies.length.toLocaleString()} ${i18n.translate("nodes")}</span>
@@ -2271,7 +2277,7 @@ export class AppState {
             ${this.selectedOperator !== "ALL" ? `<span class="px-2 py-0.5 bg-gray-900 border border-gray-800 rounded text-xs text-blue-300">${this.selectedOperator}</span>` : ''}
           </div>
 
-          <div class="flex items-center gap-2 flex-wrap">
+          <div class="catalog-results-actions">
             <button id="btn-batch-copy-filtered" class="px-3.5 py-2 min-h-[44px] bg-cyan-950 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-300 rounded-xl text-xs font-semibold cursor-pointer focus-ring transition-all flex items-center gap-1.5">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
               Copy Filtered (${filtered.length})
@@ -2299,6 +2305,10 @@ export class AppState {
         </div>
       </div>
     `;
+
+    filterContainer.querySelector("#advanced-filters")?.addEventListener("toggle", (event) => {
+      this.advancedFiltersOpen = event.currentTarget.open;
+    });
 
     filterContainer.querySelectorAll(".filter-chip").forEach(btn => {
       btn.addEventListener("click", () => {
