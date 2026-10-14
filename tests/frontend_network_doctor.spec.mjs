@@ -197,3 +197,22 @@ test("unsafe or unresolved outcomes cannot be stored as a successful recovery", 
   await expect(page.locator("#doctor-remember")).toBeDisabled();
   expect(await page.evaluate(() => localStorage.getItem("huntx.network-doctor.manual-notes.v1"))).toBeNull();
 });
+
+test("remembered notes and forget controls fit a 320px phone without overflow", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 720 });
+  await localOnly(page);
+  await page.goto("/network-doctor.html");
+  await page.getByRole("button", { name: "Show recovery steps" }).click();
+  await page.locator("#doctor-original").selectOption("yes");
+  await page.getByRole("button", { name: "Summarize my result" }).click();
+  await page.getByRole("button", { name: "Remember this manual result" }).click();
+  await expect(page.locator("#doctor-recall")).toBeVisible();
+  const metrics = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    scroll: document.documentElement.scrollWidth
+  }));
+  expect(metrics.scroll).toBeLessThanOrEqual(metrics.viewport + 1);
+  const forget = await page.locator("#doctor-forget").boundingBox();
+  expect(forget).toBeTruthy();
+  expect(forget.height).toBeGreaterThanOrEqual(44);
+});
