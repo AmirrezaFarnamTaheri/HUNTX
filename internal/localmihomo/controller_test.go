@@ -232,3 +232,23 @@ func TestChangingNodeMetadataRejectsCompletedProbe(t *testing.T) {
 		t.Fatalf("changed node passed %+v", out)
 	}
 }
+
+
+func TestRejectOversizedChunkedJSONEvenWhenPayloadIsInitiallyValid(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/proxies/Test" {
+			_, _ = w.Write([]byte(`{"name":"Test","type":"VLESS"}`))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.(http.Flusher).Flush() // Force chunked framing (unknown ContentLength).
+		_, _ = w.Write([]byte(`{"delay":40}` + strings.Repeat(" ", 70000)))
+	}))
+	defer server.Close()
+	c, err := New(server.URL, testToken)
+	if err != nil { t.Fatal(err) }
+	outcome := c.Probe(context.Background(), "Test", time.Second, 1)
+	if outcome.NativeTestPassed || outcome.ErrorClass != "invalid-response" {
+		t.Fatalf("oversized chunked JSON must be rejected: %+v", outcome)
+	}
+}
