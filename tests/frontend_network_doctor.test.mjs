@@ -153,3 +153,22 @@ test("Playwright includes Network Doctor browser coverage in its configured test
   const config = await readFile(new URL("../playwright.config.mjs", import.meta.url), "utf8");
   assert.ok(config.includes("frontend_network_doctor.spec.mjs"));
 });
+
+test("catalog age is explicit and never upgrades metadata into proxy-health evidence", () => {
+  const catalog = {
+    generated_at: "2026-10-14T01:25:09Z",
+    files: [{ filename: "nodes.txt", tags: ["subscription"] }]
+  };
+  const recent = summarizeCatalog(catalog, { now: Date.parse("2026-10-14T04:00:00Z") });
+  assert.equal(recent.freshness, "recent");
+  assert.equal(recent.state, "available");
+  const stale = summarizeCatalog(catalog, { now: Date.parse("2026-10-17T04:00:00Z") });
+  assert.equal(stale.freshness, "stale");
+  assert.match(stale.message, /stale|outdated/i);
+  assert.match(stale.message, /not verify.*connectivity/i);
+  const future = summarizeCatalog(catalog, { now: Date.parse("2026-10-13T00:00:00Z") });
+  assert.equal(future.freshness, "clock-skew");
+  assert.match(future.message, /clock|future/i);
+  assert.throws(() => summarizeCatalog({ ...catalog, generated_at: "not-a-date" }), TypeError);
+  assert.throws(() => summarizeCatalog({ ...catalog, intentional_empty: true }), TypeError);
+});

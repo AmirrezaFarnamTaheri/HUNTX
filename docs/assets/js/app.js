@@ -984,19 +984,35 @@ export class AppState {
   }
 
   refreshProxyWorkspace() {
-    // Filtering replaces the toolbar. Preserve keyboard focus and the caret,
-    // otherwise typing into the quick search drops focus after one character.
-    const focus = typeof document === "undefined" ? null : document.activeElement;
-    const preserve = focus?.id === "node-quick-search";
-    const start = preserve ? focus.selectionStart : null;
-    const end = preserve ? focus.selectionEnd : null;
+    // The toolbar is rebuilt after each filter change. Preserve the exact
+    // control and input selection rather than only preserving quick search:
+    // otherwise keyboard and switch users lose their place on every select
+    // or grid/table toggle.
+    const toolbar = typeof document === "undefined" ? null : document.getElementById("filter-bar");
+    const focused = typeof document === "undefined" ? null : document.activeElement;
+    const preserve = Boolean(toolbar?.contains(focused));
+    const id = preserve ? focused.id : "";
+    const keys = [
+      ["btn-proto-tab", "protocol"],
+      ["btn-evidence-filter", "evidence"]
+    ];
+    const matched = preserve ? keys.find(([className]) => focused.classList.contains(className)) : null;
+    const dataValue = matched ? focused.dataset[matched[1]] : null;
+    const start = preserve && typeof focused.selectionStart === "number" ? focused.selectionStart : null;
+    const end = preserve && typeof focused.selectionEnd === "number" ? focused.selectionEnd : null;
     const filtered = this.getFilteredProxies();
     this.renderFilterBar(filtered);
     this.renderNodes(filtered);
     if (preserve) {
-      const next = document.getElementById("node-quick-search");
-      next?.focus({ preventScroll: true });
-      if (next && start !== null && end !== null) next.setSelectionRange(start, end);
+      const next = id ? document.getElementById(id) : matched
+        ? Array.from(toolbar.querySelectorAll(`.${matched[0]}`))
+          .find((button) => button.dataset[matched[1]] === dataValue)
+        : null;
+      const target = next || (focused.closest?.("#active-filter-chips") ? document.getElementById("node-quick-search") : null);
+      target?.focus({ preventScroll: true });
+      if (target && start !== null && end !== null && typeof target.setSelectionRange === "function") {
+        target.setSelectionRange(start, end);
+      }
     }
   }
 
@@ -1311,9 +1327,8 @@ export class AppState {
           <div>
             <div class="flex items-center gap-2">
               <span class="font-mono text-base font-bold tracking-tight text-white">HUNT<span class="text-cyan-400">X</span></span>
-              <span class="hidden sm:inline px-1.5 py-0.5 text-xs font-mono font-bold bg-cyan-950/80 text-cyan-400 border border-cyan-800/60 rounded">v2.5</span>
             </div>
-            <span class="text-xs text-gray-400 font-mono tracking-wider hidden sm:block">NODE TELEMETRY</span>
+            <span class="text-xs text-gray-400 font-mono tracking-wider hidden sm:block">NETWORK CONTROL ROOM</span>
           </div>
         </a>
 
@@ -1574,7 +1589,7 @@ export class AppState {
       <div class="radar-overview">
         <div class="radar-summary">
           <span class="section-eyebrow">HUNTX / Observatory</span>
-          <h1>Proxy telemetry <span>&amp; network intelligence</span></h1>
+          <h2>Published network snapshot <span>and its evidence gaps</span></h2>
           <p class="radar-description">Browse the loaded snapshot, compare recorded measurements, and inspect configurations. Artifact checksums do not verify connectivity.</p>
           <dl class="radar-metrics">
             <div><dt>Published nodes</dt><dd>${activeCount.toLocaleString("en-US")}</dd><span>${regionCount} reported regions${regionSummary.unknownCount ? ` · ${regionSummary.unknownCount} unresolved` : ""}</span></div>
@@ -1590,7 +1605,7 @@ export class AppState {
               aria-label="Copy Multi-Node Subscription URL"
             >
               <svg class="w-4 h-4 text-gray-950" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-              Copy Node Subscription URL
+              Copy subscription URL
             </button>
 
             <a
@@ -1617,6 +1632,9 @@ export class AppState {
               Xray Subscription
             </a>
 
+            <details class="hero-more">
+              <summary class="hero-more-trigger">More tools</summary>
+              <div class="hero-more-menu">
             <button
               id="hero-open-scanner"
               class="px-3.5 py-2.5 min-h-[44px] bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/30 hover:border-emerald-400 text-emerald-300 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-1.5"
@@ -1637,6 +1655,8 @@ export class AppState {
               <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
               Cumulative JSON
             </a>
+              </div>
+            </details>
           </div>
         </div>
 
@@ -1808,31 +1828,33 @@ export class AppState {
     if (!container) return;
 
     // 1. Dynamic Carrier Probes computed directly from loaded proxies
-    const carrierMap = {};
+    // Operator strings originate in published data, not trusted code. A Map
+    // avoids special keys such as "__proto__" colliding with Object.prototype.
+    const carrierMap = new Map();
     for (const p of this.proxies) {
-      const cName = p.carrier || p.org || this.detectOperator(p.server, p.sni, p.name);
-      if (!carrierMap[cName]) {
-        carrierMap[cName] = { name: cName, count: 0, pings: [] };
+      const cName = String(p.carrier || p.org || this.detectOperator(p.server, p.sni, p.name) || "Unattributed");
+      if (!carrierMap.has(cName)) {
+        carrierMap.set(cName, { name: cName, count: 0, pings: [] });
       }
-      carrierMap[cName].count += 1;
-      const measured = Number(p.latency) === p.latency && p.latency !== null && p.latency > 0 ? p.latency : null;
-      if (measured !== null) carrierMap[cName].pings.push(measured);
+      const carrier = carrierMap.get(cName);
+      carrier.count += 1;
+      const measured = typeof p.latency === "number" && Number.isFinite(p.latency) && p.latency > 0 ? p.latency : null;
+      if (measured !== null) carrier.pings.push(measured);
     }
 
-    const sortedCarriers = Object.values(carrierMap).sort((a, b) => b.count - a.count);
-    const operators = sortedCarriers.slice(0, 8).map(c => {
-      const hasProbe = c.pings.length > 0;
-      const avgPing = hasProbe ? Math.round(c.pings.reduce((a, b) => a + b, 0) / c.pings.length) : null;
-      const grade = hasProbe ? "TCP" : "—";
-      const status = hasProbe ? "Not proxy-auth proof" : "No probe data";
+    const sortedCarriers = [...carrierMap.values()].sort((a, b) => b.count - a.count);
+    const operators = sortedCarriers.slice(0, 8).map(carrier => {
+      const samples = carrier.pings.slice().sort((a, b) => a - b);
+      const mid = Math.floor(samples.length / 2);
+      const median = samples.length
+        ? Math.round(samples.length % 2 ? samples[mid] : (samples[mid - 1] + samples[mid]) / 2)
+        : null;
       return {
-        name: c.name,
-        tag: c.name,
-        ping: hasProbe ? `${avgPing}ms` : "—",
-        status: status,
-        loss: "—",
-        grade: grade,
-        count: c.count
+        name: carrier.name,
+        tag: carrier.name,
+        median: median === null ? null : `${median}ms`,
+        samples: samples.length,
+        count: carrier.count
       };
     });
 
@@ -1872,26 +1894,22 @@ export class AppState {
                 Network operators
                 <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">${this.telemetryState === "same-generation" ? "SNAPSHOT TELEMETRY" : "NO SNAPSHOT TELEMETRY"}</span>
               </h2>
-              <p class="text-xs text-gray-400 font-sans mt-0.5">Reported operator mix and recorded endpoint latency (${this.proxies.length} nodes analyzed)</p>
+              <p class="text-xs text-gray-400 font-sans mt-0.5">Reported operators and median recorded endpoint latency (${this.proxies.length} nodes in snapshot; not a proxy-auth test)</p>
             </div>
           </div>
 
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
             ${operators.map(op => `
-              <div class="operator-card p-3 rounded-2xl bg-gray-950/80 border border-gray-800/80 hover:border-cyan-500/50 cursor-pointer transition-all flex flex-col justify-between group" data-operator="${escapeHTML(op.tag)}" role="button" tabindex="0" aria-label="Filter by operator ${escapeHTML(op.name)}" title="Filter snapshot by ${escapeHTML(op.name)}">
-                <div class="flex items-center justify-between">
-                  <span class="text-xs font-mono font-bold text-gray-200 group-hover:text-cyan-300 transition-colors truncate max-w-[90px]">${escapeHTML(op.name)}</span>
-                  <span class="text-xs font-mono font-extrabold text-cyan-400 bg-cyan-950/80 border border-cyan-500/30 px-1.5 py-0.5 rounded-md">${op.grade}</span>
+              <button type="button" class="operator-card p-3 rounded-2xl bg-gray-950/80 border border-gray-800/80 hover:border-cyan-500/50 cursor-pointer transition-all flex flex-col justify-between group" data-operator="${escapeHTML(op.tag)}" aria-label="Filter by operator ${escapeHTML(op.name)}" title="Filter snapshot by ${escapeHTML(op.name)}">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-xs font-mono font-bold text-gray-200 group-hover:text-cyan-300 transition-colors truncate">${escapeHTML(op.name)}</span>
+                  <span class="text-xs font-mono text-gray-400 shrink-0">${op.samples} samples</span>
                 </div>
-                <div class="flex items-baseline justify-between mt-2">
-                  <span class="font-mono text-base font-extrabold text-emerald-400">⚡ ${op.ping}</span>
-                  <span class="text-xs font-mono text-gray-500">${op.count} nodes</span>
+                <div class="flex items-baseline justify-between gap-2 mt-2">
+                  <span class="font-mono text-base font-extrabold text-emerald-400">${op.median === null ? "Not measured" : `p50 ${op.median}`}</span>
+                  <span class="text-xs font-mono text-gray-400">${op.count} nodes</span>
                 </div>
-                <div class="flex items-center justify-between mt-1 text-xs font-mono text-gray-400 pt-1 border-t border-gray-800/40">
-                  <span>Loss: ${op.loss}</span>
-                  <span class="text-cyan-400 font-semibold">${op.status}</span>
-                </div>
-              </div>
+              </button>
             `).join("")}
           </div>
         </div>
@@ -1913,17 +1931,17 @@ export class AppState {
               const pct = Math.round((count / (this.proxies.length || 1)) * 100);
               const name = COUNTRY_NAMES[code] || code;
               return `
-                <div class="geo-density-row cursor-pointer group" data-country="${code}" role="button" tabindex="0" aria-label="Filter by reported region ${escapeHTML(name)}" title="Filter snapshot by ${escapeHTML(name)}">
+                <button type="button" class="geo-density-row cursor-pointer group" data-country="${escapeHTML(code)}" aria-label="Filter by reported region ${escapeHTML(name)}" title="Filter snapshot by ${escapeHTML(name)}">
                   <div class="flex items-center justify-between text-xs font-mono mb-1">
                     <span class="font-bold text-gray-200 group-hover:text-cyan-300 transition-colors flex items-center gap-1.5">
-                      <span>${this.getCountryFlag(code)}</span> ${name} (${code})
+                      <span>${escapeHTML(this.getCountryFlag(code))}</span> ${escapeHTML(name)} (${escapeHTML(code)})
                     </span>
                     <span class="text-cyan-400 font-bold">${count} nodes <span class="text-gray-500 font-normal">(${pct}%)</span></span>
                   </div>
                   <div class="h-2 w-full bg-gray-950 rounded-full overflow-hidden border border-gray-800">
                     <div class="h-full bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-full transition-all duration-300 group-hover:from-cyan-400 group-hover:to-indigo-400" style="width:${Math.min(100, Math.round((count / maxCount) * 100))}%"></div>
                   </div>
-                </div>
+                </button>
               `;
             }).join("")}
             ${regionSummary.unknownCount ? `
@@ -1951,16 +1969,7 @@ export class AppState {
       </div>
     `;
 
-    const enableKeyboardDrilldown = (element) => {
-      element.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          element.click();
-        }
-      });
-    };
     container.querySelectorAll(".operator-card").forEach((card) => {
-      enableKeyboardDrilldown(card);
       card.addEventListener("click", () => {
         const op = card.dataset.operator;
         this.selectedOperator = op;
@@ -1972,7 +1981,6 @@ export class AppState {
     });
 
     container.querySelectorAll(".geo-density-row").forEach((row) => {
-      enableKeyboardDrilldown(row);
       row.addEventListener("click", () => {
         const c = row.dataset.country;
         this.selectedCountry = c;
@@ -2070,7 +2078,7 @@ export class AppState {
     ];
 
     filterContainer.innerHTML = `
-      <div class="space-y-4 py-6">
+      <div class="proxy-workspace space-y-4 py-6">
         <div class="workspace-intro">
           <div><span class="section-eyebrow">Node explorer</span><h2>Published proxy catalog</h2><p>Filter by transport, geography and observed evidence. Saved endpoints are not guaranteed to authenticate.</p></div>
           <span class="workspace-total">${allProxies.length.toLocaleString("en-US")} nodes in snapshot</span>
@@ -2430,8 +2438,8 @@ export class AppState {
       nodesContainer.innerHTML = `
         <div class="py-14 text-center bg-gray-900/40 border border-gray-800 rounded-3xl p-8 backdrop-blur-md">
           <svg class="w-12 h-12 text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-          <span class="font-mono text-sm text-gray-300 font-bold block">No proxy endpoints match current dimensional filters</span>
-          <p class="font-mono text-xs text-gray-500 mt-1">Try resetting protocol, region, or carrier filters</p>
+          <span class="font-mono text-sm text-gray-300 font-bold block">No proxy endpoints match these filters</span>
+          <p class="font-mono text-xs text-gray-500 mt-1">Try clearing the search, protocol, region or carrier filters</p>
           <button id="btn-reset-filters-empty" class="mt-4 px-5 py-2.5 min-h-[44px] bg-cyan-500 text-gray-950 text-xs font-mono font-bold rounded-xl focus-ring cursor-pointer transition-all shadow-md shadow-cyan-500/20">Reset All Filters</button>
         </div>
       `;
@@ -2450,7 +2458,7 @@ export class AppState {
 
     // 1. Grid Cards View
     if (this.viewMode === "grid") {
-      nodesContainer.className = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4";
+      nodesContainer.className = "proxy-node-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4";
       nodesContainer.innerHTML = this.visibleNodes(filtered)
         .map((node) => this.nodeCardHTML(node)).join("")
         + this.nodesSentinelHTML(filtered.length - this.nodeRenderLimit);
@@ -2898,12 +2906,12 @@ export class AppState {
     ].filter((category) => category.id === "ALL" || !category.label.endsWith("(0)"));
 
     artifactSection.innerHTML = `
-      <div class="py-12 border-t border-gray-800/80">
+      <div class="artifacts-workspace py-8">
         <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
           <div>
             <h2 class="text-xl sm:text-2xl font-bold font-mono text-white flex items-center gap-2">
               <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-              Pipeline Output &amp; Artifacts Repository
+              Subscriptions &amp; published files
             </h2>
             <p class="text-xs font-mono text-gray-400 mt-1">Direct access to all ${allFiles.length} generated releases, cumulative datasets, split chunks, and client profiles</p>
             <p class="text-xs font-mono text-gray-500 mt-2">
@@ -2917,7 +2925,7 @@ export class AppState {
 
         <div class="space-y-4 mb-6">
           <div class="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
-            <div class="flex flex-wrap gap-1.5" role="tablist">
+            <div class="flex flex-wrap gap-1.5" role="group" aria-label="Artifact categories">
               ${categories.map(c => `
                 <button
                   class="btn-artifact-tab px-3.5 py-2.5 min-h-[44px] rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${
@@ -2926,8 +2934,7 @@ export class AppState {
                       : "bg-gray-900 text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-gray-800"
                   }"
                   data-filter="${c.id}"
-                  role="tab"
-                  aria-selected="${this.artifactFilter === c.id}"
+                  aria-pressed="${this.artifactFilter === c.id}"
                 >
                   ${c.label}
                 </button>
@@ -2970,7 +2977,7 @@ export class AppState {
             }[file.ext || file.type] || "bg-gray-800 text-gray-300 border-gray-700";
 
             return `
-              <div class="bg-gray-900/60 hover:bg-gray-900 border border-gray-800 hover:border-cyan-500/40 rounded-2xl p-4 transition-all duration-200 flex flex-col justify-between group shadow-lg shadow-black/30">
+              <div class="artifact-card bg-gray-900/60 hover:bg-gray-900 border border-gray-800 hover:border-cyan-500/40 rounded-2xl p-4 transition-all duration-200 flex flex-col justify-between group shadow-lg shadow-black/30">
                 <div>
                   <div class="flex items-center justify-between mb-2">
                     <span class="px-2 py-0.5 text-xs font-mono font-bold uppercase rounded border ${badgeColor}">
@@ -2981,7 +2988,7 @@ export class AppState {
 
                   <h3 class="text-sm font-mono font-bold text-gray-100 truncate group-hover:text-cyan-300 transition-colors" title="${escapeHTML(file.filename)}">
                     ${escapeHTML(file.filename)}
-                  </h4>
+                  </h3>
 
                   <p class="text-xs font-sans text-gray-400 mt-1 line-clamp-2 leading-relaxed">
                     ${escapeHTML(file.description || file.filename)}
@@ -3045,15 +3052,29 @@ export class AppState {
     `;
 
     artifactSection.querySelectorAll(".btn-artifact-tab").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        this.artifactFilter = e.currentTarget.dataset.filter;
+      btn.addEventListener("click", (event) => {
+        const selected = event.currentTarget.dataset.filter;
+        this.artifactFilter = selected;
         this.renderArtifacts();
+        Array.from(artifactSection.querySelectorAll(".btn-artifact-tab"))
+          .find((button) => button.dataset.filter === selected)?.focus({ preventScroll: true });
       });
     });
 
     const debouncedArtifactSearch = debounce((val) => {
       this.artifactSearchQuery = val;
+      const previous = document.getElementById("artifact-search-input");
+      const focused = document.activeElement === previous;
+      const start = previous?.selectionStart;
+      const end = previous?.selectionEnd;
       this.renderArtifacts();
+      if (focused) {
+        const next = document.getElementById("artifact-search-input");
+        next?.focus({ preventScroll: true });
+        if (next && Number.isInteger(start) && Number.isInteger(end)) {
+          next.setSelectionRange(start, end);
+        }
+      }
     }, 120);
 
     const searchInput = document.getElementById("artifact-search-input");
@@ -3200,7 +3221,7 @@ export class AppState {
 
     container.innerHTML = `
       <section class="mt-8 mb-6">
-        <div class="glass-card bg-gray-900/60 border border-gray-800/80 hover:border-cyan-500/40 rounded-3xl p-6 sm:p-8 backdrop-blur-xl transition-all shadow-xl shadow-cyan-950/20">
+        <div class="studio-workspace glass-card bg-gray-900/60 border border-gray-800/80 hover:border-cyan-500/40 rounded-3xl p-6 sm:p-8 backdrop-blur-xl transition-all shadow-xl shadow-cyan-950/20">
           <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-gray-800">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
@@ -3208,7 +3229,7 @@ export class AppState {
               </div>
               <div>
                 <h3 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
-                  Routing / Subscription Reference
+                  Routing examples (not included in feeds)
                   <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-slate-800 text-slate-300 border border-slate-700">EXAMPLE</span>
                 </h3>
                 <p class="text-xs text-gray-400 font-sans mt-0.5">Illustrative routing order only. The Sing-box/Xray links below are node subscriptions and intentionally omit this profile-level routing policy.</p>
@@ -3281,23 +3302,26 @@ export class AppState {
     const currentTab = this.converterTab || "inspector";
 
     decoderSection.innerHTML = `
-      <div class="my-10 p-6 sm:p-8 bg-gray-900/80 border border-cyan-500/20 rounded-3xl backdrop-blur-md shadow-xl">
+      <div class="inspector-workspace my-10 p-6 sm:p-8 bg-gray-900/80 border border-cyan-500/20 rounded-3xl backdrop-blur-md shadow-xl">
         <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-800">
           <div>
             <h3 class="text-lg font-mono font-bold text-white flex items-center gap-2">
               <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
               Protocol Converter &amp; Inspection Studio
             </h3>
-            <p class="text-xs font-mono text-gray-400 mt-0.5">High-performance client-side converter for Sing-box 1.10+, Clash Meta / Mihomo, Xray JSON, Base64 &amp; QR Codes</p>
+            <p class="text-xs font-mono text-gray-400 mt-0.5">Local inspection and conversion for Sing-box, Mihomo, Xray JSON, Base64 and QR codes</p>
           </div>
 
           <!-- Studio Tabs Header -->
-          <div class="flex flex-wrap gap-2" role="tablist">
+          <div class="flex flex-wrap gap-2" role="tablist" aria-label="Protocol tools">
             <button
               class="btn-studio-tab px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${currentTab === 'inspector' ? 'bg-cyan-500 text-gray-950 font-bold shadow-md shadow-cyan-500/30' : 'bg-gray-950 text-gray-400 hover:text-gray-200 border border-gray-800'}"
               data-tab="inspector"
+              id="studio-tab-inspector"
               role="tab"
+              aria-controls="studio-tab-content"
               aria-selected="${currentTab === 'inspector'}"
+              tabindex="${currentTab === 'inspector' ? '0' : '-1'}"
             >
               <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
               <span>Protocol Inspector</span>
@@ -3305,8 +3329,11 @@ export class AppState {
             <button
               class="btn-studio-tab px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${currentTab === 'converter' ? 'bg-cyan-500 text-gray-950 font-bold shadow-md shadow-cyan-500/30' : 'bg-gray-950 text-gray-400 hover:text-gray-200 border border-gray-800'}"
               data-tab="converter"
+              id="studio-tab-converter"
               role="tab"
+              aria-controls="studio-tab-content"
               aria-selected="${currentTab === 'converter'}"
+              tabindex="${currentTab === 'converter' ? '0' : '-1'}"
             >
               <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
               <span>Universal Converter</span>
@@ -3314,8 +3341,11 @@ export class AppState {
             <button
               class="btn-studio-tab px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${currentTab === 'dedup' ? 'bg-cyan-500 text-gray-950 font-bold shadow-md shadow-cyan-500/30' : 'bg-gray-950 text-gray-400 hover:text-gray-200 border border-gray-800'}"
               data-tab="dedup"
+              id="studio-tab-dedup"
               role="tab"
+              aria-controls="studio-tab-content"
               aria-selected="${currentTab === 'dedup'}"
+              tabindex="${currentTab === 'dedup' ? '0' : '-1'}"
             >
               <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
               <span>Bulk Deduplicator</span>
@@ -3323,8 +3353,11 @@ export class AppState {
             <button
               class="btn-studio-tab px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${currentTab === 'qr_studio' ? 'bg-cyan-500 text-gray-950 font-bold shadow-md shadow-cyan-500/30' : 'bg-gray-950 text-gray-400 hover:text-gray-200 border border-gray-800'}"
               data-tab="qr_studio"
+              id="studio-tab-qr_studio"
               role="tab"
+              aria-controls="studio-tab-content"
               aria-selected="${currentTab === 'qr_studio'}"
+              tabindex="${currentTab === 'qr_studio' ? '0' : '-1'}"
             >
               <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
               <span>QR Code Studio</span>
@@ -3333,17 +3366,34 @@ export class AppState {
         </div>
 
         <!-- Tab Content Container -->
-        <div id="studio-tab-content">
+        <div id="studio-tab-content" role="tabpanel" aria-labelledby="studio-tab-${currentTab}" tabindex="0">
         </div>
       </div>
     `;
 
     this.renderStudioTabContent();
 
+    const activateStudioTab = (tab, focus = false) => {
+      this.converterTab = tab;
+      this.renderDecoderSection();
+      if (focus) decoderSection.querySelector(`.btn-studio-tab[data-tab="${tab}"]`)?.focus({ preventScroll: true });
+    };
     decoderSection.querySelectorAll(".btn-studio-tab").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        this.converterTab = e.currentTarget.dataset.tab;
-        this.renderDecoderSection();
+      btn.addEventListener("click", (event) => {
+        activateStudioTab(event.currentTarget.dataset.tab, true);
+      });
+      btn.addEventListener("keydown", (event) => {
+        const tabs = Array.from(decoderSection.querySelectorAll(".btn-studio-tab"));
+        const index = tabs.indexOf(event.currentTarget);
+        const rtl = document.documentElement.dir === "rtl";
+        let nextIndex = -1;
+        if (event.key === (rtl ? "ArrowLeft" : "ArrowRight")) nextIndex = (index + 1) % tabs.length;
+        if (event.key === (rtl ? "ArrowRight" : "ArrowLeft")) nextIndex = (index - 1 + tabs.length) % tabs.length;
+        if (event.key === "Home") nextIndex = 0;
+        if (event.key === "End") nextIndex = tabs.length - 1;
+        if (nextIndex < 0) return;
+        event.preventDefault();
+        activateStudioTab(tabs[nextIndex].dataset.tab, true);
       });
     });
   }
@@ -3354,7 +3404,7 @@ export class AppState {
     const currentTab = this.converterTab || "inspector";
 
     if (currentTab === "inspector") {
-      const defaultUri = (this.proxies[0] && this.proxies[0].raw) || "vless://8f7b3c2a-9e1d-4a5b-b2c3-d4e5f6a7b8c9@104.21.45.88:443?security=reality&sni=speed.cloudflare.com&fp=chrome&pbk=abc123def456&sid=0123456789abcdef&type=grpc&serviceName=vless-grpc#%F0%9F%87%A9%F0%9F%87%AA%20DE-CF%20%7C%20VLESS-REALITY";
+      const defaultUri = ""; // Never prefill a real credential or an invented demonstration endpoint.
       container.innerHTML = `
         <div class="space-y-4">
           <div class="flex flex-col sm:flex-row gap-2">

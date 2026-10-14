@@ -1,7 +1,7 @@
 # HUNTX / GatherX Master Design System & Architectural Specification (DESIGN.md)
 
 > **Status:** Authoritative Design System Source of Truth | **Compliance:** UI/UX Pro Max, Elite Frontend Architecture, WCAG 2.2 AA, ECC API Design  
-> **Last Updated:** 2026-09-01 | **Version:** 2.5.0  
+> **Last Updated:** 2026-10-14 | **Version:** 3.0.0  
 > **Target Surfaces:** Dashboard UI (`docs/index.html`), Telemetry Canvas (`docs/assets/js/globe.js`), Decoder & Studio (`docs/assets/js/decoder.js`), Rule Studio (`docs/assets/js/rule-studio.js`), Interactive Architecture (`docs/architecture.html`), PWA Radar (`docs/sw.js`), API & Feeds (`outputs/`, `docs/catalog.json`)
 
 ---
@@ -142,7 +142,7 @@ Every interactive component is engineered across its complete state matrix:
 [Default]       -> Solid/Ghost border, clear hierarchy, min-height 44px (WCAG touch compliant).
 [Hover]         -> Surface elevation + accent glow border + color shift (150ms ease-out).
 [Active]        -> Tactile depression (scale: 0.98), instant feedback.
-[Focus-Visible] -> 2px cyan focus ring with 4px offset (accessible keyboard navigation).
+[Focus-Visible] -> 3px cyan focus ring with 3px offset (accessible keyboard navigation).
 [Disabled]      -> Opacity 0.4, cursor not-allowed, pointer-events none.
 [Loading]       -> Pulse opacity animation with preserved layout dimensions (no layout shift).
 [Success/Copied]-> Green flash badge + checkmark icon with 1800ms auto-reset.
@@ -275,16 +275,16 @@ publishes alongside under an `_sub` stem (`all_sources_sub.txt`,
 
 ---
 
-## 8. Multi-Tab Cyber Architecture (5 Discrete Workspaces)
+## 8. Control Room Application Shell (Five Workspaces)
 
 The main dashboard is partitioned into 5 focused workspaces, providing clean mental separation while maintaining high information density:
 
 ```
-[Tab 1: 🛰️ Telemetry Radar]  -> 3D WebGL Globe, Ingress Matrix, Carrier Latency, Regional Geo-Clusters
-[Tab 2: ⚡ Live Proxies]       -> 6D Filter Bar, Streaming Card Grid, Table View, Raw Stream, Instant QR
-[Tab 3: 🎛️ Protocol Studio]    -> Visual Routing Topology, Simulated Egress Pipeline, Universal Converter
-[Tab 4: 🔍 Protocol Inspector] -> In-Browser Protocol Inspector, Single-URI Decoders, Client Profile Export
-[Tab 5: 📦 Artifacts & Feeds]   -> 27 Generated Subscriptions, Split Feed Chunks, Metadata Manifest Registry
+[Tab 1: Network Overview]  -> 3D WebGL Globe, Ingress Matrix, Carrier Latency, Regional Geo-Clusters
+[Tab 2: Proxy Explorer]       -> 6D Filter Bar, Streaming Card Grid, Table View, Raw Stream, Instant QR
+[Tab 3: Subscription Studio]    -> Visual Routing Topology, Simulated Egress Pipeline, Universal Converter
+[Tab 4: Protocol Inspector] -> In-Browser Protocol Inspector, Single-URI Decoders, Client Profile Export
+[Tab 5: Published Feeds]   -> 27 Generated Subscriptions, Split Feed Chunks, Metadata Manifest Registry
 ```
 
 ### 8.1 State Synchronization & Keyboard Navigation
@@ -318,3 +318,44 @@ The main dashboard is partitioned into 5 focused workspaces, providing clean men
 ---
 *Signed and Certified by HUNTX Frontend & Design System Architecture Team.*
 
+
+---
+
+## 10. Control Room Redesign — Operate-First UI (2026-10-14)
+
+The application has an evidence-first **Operate** mode: the user should be able to inspect published data, compare endpoint candidates, prepare a configuration, and troubleshoot a failure without reading a marketing hero or navigating decorative effects. The incumbent cybernetic identity is retained through restrained cyan accents, compact monospaced data and the existing globe, but not through indiscriminate glow, animation or equal-weight card stacks.
+
+### 10.1 Layout and information hierarchy
+
+- At desktop widths >=1120 CSS px, the five dashboard workspaces live in a 252px persistent left/right logical rail. The work surface occupies the remaining width. RTL places the rail on the right without changing the technical direction of URIs and addresses.
+- Below 1120 CSS px, workspaces become a horizontally scrollable navigation bar with visible focus and touch targets. The header keeps search and tool controls available through the established responsive behavior.
+- Each workspace has a consistent masthead: current context, a concise task description, one primary cross-workspace action, and a separate Network Doctor link.
+- Telemetry evidence and node counts are subordinate to their provenance. The globe is a supporting visualization, not a substitute for actionable tables and filters.
+- Network Doctor is a separate focused route with a three-stage recovery sequence and a supporting safety/reference column.
+
+### 10.2 Visual tokens and materials
+
+The original token contract in §2 remains supported for existing renderer components. The control-room layer adds semantic `--room-*` variables in `docs/assets/css/control-room.css`, with corresponding light/dark pairs. Network Doctor uses `--nd-*` in `docs/assets/css/network-doctor-room.css` to avoid inheriting dashboard-only CSS. The palettes share a blue-black canvas, slate/teal surfaces, high-contrast text and a single cyan action accent.
+
+Use borders to indicate grouping, surface elevation to indicate hierarchy, and strong accent fills only for a primary action or an actual state. Do not infer proxy health from color. Avoid adding remote fonts or image dependencies; the application must remain self-contained for restricted networks.
+
+### 10.3 Motion and state
+
+- Workspace transitions use a brief opacity/translate entry for orientation only; `prefers-reduced-motion` removes them.
+- Hover and focus indicate interactivity without layout jumps or continuous decorative animation.
+- Loading, empty, stale, unverified and error states must not collapse into a generic green success badge.
+- Recovery is always reversible. Outcome reports are self-reported, and the UI distinguishes restoring the original endpoint from finding an alternative.
+
+### 10.4 Implementation ownership
+
+- `scripts/update_frontend.py` owns the generated dashboard HTML. `docs/index.html` is a checked-in output.
+- `docs/assets/js/app.js` continues to own telemetry, filters, tab switching and client actions.
+- `docs/assets/js/control-room.js` owns localized workspace context and primary navigation actions only.
+- `docs/assets/js/network-doctor.js` owns recovery recommendations and classification.
+- `docs/assets/js/network-doctor-ui.js` owns recovery form behavior and focus; `network-doctor-room.js` owns appearance.
+- `docs/sw.js` owns offline shell asset precaching and network-first code freshness.
+- `UX-CONTRACT.md` specifies user-visible invariants and regression gates.
+
+### 10.5 Verification
+
+Use the repository's unit, lint, frontend generation, Playwright and PWA gates. Visual QA captures at desktop and phone widths, Persian RTL, and dark/light themes are part of the PR review. Claims of full WCAG 2.2 AA compliance require browser and assistive-technology evidence rather than a design-system declaration.

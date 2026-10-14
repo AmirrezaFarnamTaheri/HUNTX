@@ -300,7 +300,7 @@ test("radar keeps diagnostics in the first desktop viewport and active tabs visi
   await isolateLocalPage(page);
   await page.route("**/catalog.json", route => route.fulfill({ json: { files: [] } }));
   await page.goto("/");
-  await expect(page.locator(".radar-summary h1")).toBeVisible();
+  await expect(page.locator(".radar-summary h2")).toBeVisible();
   await expect(page.locator(".radar-description")).toContainText("Artifact checksums do not verify connectivity");
   const diagnostics = await page.locator("#radar-diagnostics").boundingBox();
   expect(diagnostics.y).toBeLessThan(600);
@@ -309,7 +309,7 @@ test("radar keeps diagnostics in the first desktop viewport and active tabs visi
     const tab = page.locator("#tab-btn-radar");
     await tab.focus();
     await expect(tab).toHaveCSS("outline-style", "solid");
-    await expect(tab).toHaveCSS("outline-width", "2px");
+    await expect(tab).toHaveCSS("outline-width", "3px");
     await expect(tab).toHaveCSS("box-shadow", "none");
   }
 });
@@ -318,7 +318,7 @@ test("radar keeps diagnostics in the first desktop viewport and active tabs visi
 test("keyboard users can skip navigation and dismiss feeds back to their trigger", async ({ page }) => {
   await isolateLocalPage(page);
   await page.goto("/");
-  await expect(page.locator(".radar-summary h1")).toBeVisible();
+  await expect(page.locator(".radar-summary h2")).toBeVisible();
   const skip = page.getByRole("link", { name: "Skip to dashboard" });
   await skip.focus();
   await expect(skip).toBeVisible();
@@ -336,7 +336,7 @@ test("subscription dialog metadata remains readable and fits narrow screens", as
   await page.setViewportSize({ width: 320, height: 900 });
   await isolateLocalPage(page);
   await page.goto("/");
-  await expect(page.locator(".radar-summary h1")).toBeVisible();
+  await expect(page.locator(".radar-summary h2")).toBeVisible();
   await page.locator("#tab-btn-radar").focus();
   await page.keyboard.press("b");
   const dialog = page.getByRole("dialog");
@@ -356,7 +356,7 @@ test("artifact QR closure does not hide subsequent dialogs", async ({ page }) =>
   await isolateLocalPage(page);
   await page.route("**/catalog.json", route => route.fulfill({ json: { files: [] } }));
   await page.goto("/");
-  await expect(page.locator(".radar-summary h1")).toBeVisible();
+  await expect(page.locator(".radar-summary h2")).toBeVisible();
   await page.locator("#tab-btn-radar").focus();
   await page.evaluate(() => window.huntxApp.openArtifactQRModal({
     filename: "sample.txt", path: "artifacts/release/sample.txt", description: "Local test fixture"
@@ -423,7 +423,7 @@ test("dashboard keeps WCAG 2.2 AA contrast and control semantics on every tab", 
   await isolateLocalPage(page);
   await page.route("**/catalog.json", (route) => route.fulfill({ json: { files: [] } }));
   await page.goto("/");
-  await expect(page.locator(".radar-summary h1")).toBeVisible();
+  await expect(page.locator(".radar-summary h2")).toBeVisible();
   const findings = [];
   let checked = 0;
   for (const pass of [{ theme: "dark", width: 1280 }, { theme: "light", width: 1280 }, { theme: "dark", width: 320 }]) {

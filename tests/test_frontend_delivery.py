@@ -363,12 +363,14 @@ def test_hostname_geo_resolution_feed_unknown_hosts_to_geoip() -> None:
 
 
 def test_carrier_panel_reports_all_failed_probes_without_bogus_latency() -> None:
-    """A carrier whose every probe failed must not synthesize a 0ms average."""
+    """Missing samples must render as unmeasured, not 0ms or fabricated loss."""
     application = (ROOT / "docs" / "assets" / "js" / "app.js").read_text(encoding="utf-8")
-    # The average is computed only from successful probes; an empty ping
-    # list yields no latency at all rather than a synthesized 0ms average.
-    assert "const hasProbe = c.pings.length > 0" in application
-    assert "c.pings.reduce((a, b) => a + b, 0) / c.pings.length) : null" in application
+    # The median is computed only for nonempty samples; the browser suite
+    # exercises the rendered empty and adversarial-operator cases.
+    assert "const median = samples.length" in application
+    assert "median: median === null ? null" in application
+    assert 'op.median === null ? "Not measured"' in application
+    assert "Loss: ${op.loss}" not in application
 
 
 def test_tcp_latency_bands_are_not_authenticated_proxy_health() -> None:

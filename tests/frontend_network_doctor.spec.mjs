@@ -81,6 +81,142 @@ test("small screens keep controls reachable without horizontal page overflow", a
   await expect(page.locator("#doctor-outcome-form")).toBeVisible();
 });
 
+test("changing the diagnosis clears a previously reported recovery", async ({ page }) => {
+  await localOnly(page);
+  await page.goto("/network-doctor.html");
+  await page.getByRole("button", { name: "Show recovery steps" }).click();
+  await page.locator("#doctor-original").selectOption("yes");
+  await page.getByRole("button", { name: "Summarize my result" }).click();
+  await expect(page.locator("#doctor-result")).toBeVisible();
+  await page.locator("#doctor-symptom").selectOption("tls");
+  await page.getByRole("button", { name: "Show recovery steps" }).click();
+  await expect(page.locator("#doctor-original")).toHaveValue("unknown");
+  await expect(page.locator("#doctor-alternative")).toHaveValue("unknown");
+  await expect(page.locator("#doctor-result")).toBeHidden();
+  await page.locator("#doctor-original").selectOption("yes");
+  await page.getByRole("button", { name: "Summarize my result" }).click();
+  await page.locator("#doctor-original").selectOption("no");
+  await expect(page.locator("#doctor-result")).toBeHidden();
+});
+
+test("catalog check warns about stale metadata without calling the proxy healthy", async ({ page }) => {
+  await localOnly(page);
+  await page.route("**/catalog.json", (route) => route.fulfill({
+    status: 200, contentType: "application/json",
+    body: JSON.stringify({
+      generated_at: "2020-01-01T00:00:00Z",
+      files: [{ tags: ["subscription"] }]
+    })
+  }));
+  await page.goto("/network-doctor.html");
+  await page.getByRole("button", { name: "Show recovery steps" }).click();
+  await page.getByRole("button", { name: "Check published catalog" }).click();
+  const status = page.locator("#doctor-catalog-status");
+  await expect(status).toContainText(/stale|outdated/i);
+  await expect(status).toContainText(/does not verify proxy connectivity/i);
+  await expect(status).toHaveAttribute("data-freshness", "stale");
+});
+
+test("a delayed catalog response cannot overwrite a reset diagnosis", async ({ page }) => {
+  await localOnly(page);
+  let release;
+  await page.route("**/catalog.json", async (route) => {
+    await new Promise((resolve) => { release = resolve; });
+    await route.fulfill({
+      status: 200, contentType: "application/json",
+      body: JSON.stringify({ generated_at: "2026-10-14T01:25:09Z", files: [{ tags: ["subscription"] }] })
+    });
+  });
+  await page.goto("/network-doctor.html");
+  await page.getByRole("button", { name: "Show recovery steps" }).click();
+  await page.getByRole("button", { name: "Check published catalog" }).click();
+  await expect(page.locator("#doctor-catalog-check")).toBeDisabled();
+  await expect.poll(() => typeof release).toBe("function");
+  await page.getByRole("button", { name: "Start over" }).click();
+  await page.getByRole("button", { name: "Show recovery steps" }).click();
+  const response = page.waitForResponse((item) => item.url().endsWith("/catalog.json"));
+  release();
+  await response;
+  await page.waitForTimeout(50);
+  await expect(page.locator("#doctor-catalog-status")).toContainText("Not checked");
+  await expect(page.locator("#doctor-catalog-check")).toBeEnabled();
+});
+
+test("manual results are remembered only by explicit opt-in and recalled as past reports", async ({ page }) => {
+  await localOnly(page);
+  await page.goto("/network-doctor.html");
+  await page.locator("#doctor-platform").selectOption("ios");
+  await page.locator("#doctor-network").selectOption("wifi");
+  await page.getByRole("button", { name: "Show recovery steps" }).click();
+  await page.locator("#doctor-original").selectOption("yes");
+  await page.getByRole("button", { name: "Summarize my result" }).click();
+  expect(await page.evaluate(() => localStorage.getItem("huntx.network-doctor.manual-notes.v1"))).toBeNull();
+  await page.getByRole("button", { name: "Remember this manual result" }).click();
+  await expect(page.locator("#doctor-memory-status")).toContainText("Saved on this device");
+  const raw = await page.evaluate(() => localStorage.getItem("huntx.network-doctor.manual-notes.v1"));
+  expect(raw).toContain("reported-original");
+  expect(raw).not.toMatch(/trojan:|ssid|credential|endpoint|verified/i);
+  await page.reload();
+  await page.locator("#doctor-platform").selectOption("ios");
+  await expect(page.locator("#doctor-recall")).toBeVisible();
+  await expect(page.locator("#doctor-recall-status")).toContainText("past manual note");
+  await expect(page.locator("#doctor-recall-status")).toContainText("original");
+  await expect(page.locator("#doctor-recall-status")).toContainText("not a current connectivity test or a verified result");
+});
+
+test("remembered Wi-Fi and mobile reports remain isolated and can be forgotten separately", async ({ page }) => {
+  await localOnly(page);
+  await page.goto("/network-doctor.html");
+  await page.getByRole("button", { name: "Show recovery steps" }).click();
+  await page.locator("#doctor-original").selectOption("yes");
+  await page.getByRole("button", { name: "Summarize my result" }).click();
+  await page.getByRole("button", { name: "Remember this manual result" }).click();
+  await page.locator("#doctor-network").selectOption("mobile");
+  await expect(page.locator("#doctor-recall")).toBeHidden();
+  await page.getByRole("button", { name: "Show recovery steps" }).click();
+  await page.locator("#doctor-alternative").selectOption("yes");
+  await page.getByRole("button", { name: "Summarize my result" }).click();
+  await page.getByRole("button", { name: "Remember this manual result" }).click();
+  await page.locator("#doctor-network").selectOption("wifi");
+  await expect(page.locator("#doctor-recall-status")).toContainText("original");
+  await page.getByRole("button", { name: "Forget this note" }).click();
+  await expect(page.locator("#doctor-recall")).toBeHidden();
+  await page.locator("#doctor-network").selectOption("mobile");
+  await expect(page.locator("#doctor-recall-status")).toContainText("alternative");
+});
+
+test("unsafe or unresolved outcomes cannot be stored as a successful recovery", async ({ page }) => {
+  await localOnly(page);
+  await page.goto("/network-doctor.html");
+  await page.getByRole("button", { name: "Show recovery steps" }).click();
+  await page.getByRole("button", { name: "Summarize my result" }).click();
+  await expect(page.locator("#doctor-remember")).toBeDisabled();
+  await page.locator("#doctor-original").selectOption("yes");
+  await page.locator("#doctor-tls-disabled").check();
+  await page.getByRole("button", { name: "Summarize my result" }).click();
+  await expect(page.locator("#doctor-remember")).toBeDisabled();
+  expect(await page.evaluate(() => localStorage.getItem("huntx.network-doctor.manual-notes.v1"))).toBeNull();
+});
+
+test("remembered notes and forget controls fit a 320px phone without overflow", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 720 });
+  await localOnly(page);
+  await page.goto("/network-doctor.html");
+  await page.getByRole("button", { name: "Show recovery steps" }).click();
+  await page.locator("#doctor-original").selectOption("yes");
+  await page.getByRole("button", { name: "Summarize my result" }).click();
+  await page.getByRole("button", { name: "Remember this manual result" }).click();
+  await expect(page.locator("#doctor-recall")).toBeVisible();
+  const metrics = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    scroll: document.documentElement.scrollWidth
+  }));
+  expect(metrics.scroll).toBeLessThanOrEqual(metrics.viewport + 1);
+  const forget = await page.locator("#doctor-forget").boundingBox();
+  expect(forget).toBeTruthy();
+  expect(forget.height).toBeGreaterThanOrEqual(44);
+});
+
 test("changing a diagnosis invalidates stale guidance and the old recovery report", async ({ page }) => {
   await localOnly(page);
   await page.goto("/network-doctor.html");
@@ -92,6 +228,7 @@ test("changing a diagnosis invalidates stale guidance and the old recovery repor
   await expect(page.locator("#doctor-plan")).toBeHidden();
   await expect(page.locator("#doctor-outcome-form")).toBeHidden();
   await expect(page.locator("#doctor-result")).toBeHidden();
+  await expect(page.locator("#doctor-report")).toHaveValue("");
   await page.getByRole("button", { name: "Show recovery steps" }).click();
   await expect(page.locator("#doctor-original")).toHaveValue("unknown");
   await expect(page.locator("#doctor-result")).toBeHidden();
@@ -106,6 +243,7 @@ test("unsafe TLS selection hides a previously successful and copyable result", a
   await expect(page.locator("#doctor-result-title")).toContainText("restored");
   await page.locator("#doctor-tls-disabled").check();
   await expect(page.locator("#doctor-result")).toBeHidden();
+  await expect(page.locator("#doctor-report")).toHaveValue("");
   await page.getByRole("button", { name: "Summarize my result" }).click();
   await expect(page.locator("#doctor-result-title")).toContainText("Unsafe");
   await expect(page.locator("#doctor-report")).toHaveValue(/unsafe/);

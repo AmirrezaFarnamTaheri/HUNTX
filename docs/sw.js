@@ -1,5 +1,5 @@
 // HUNTX ServiceWorker — offline fallback with deployment-aware freshness.
-const CACHE_NAME = 'huntx-cache-v5.2';
+const CACHE_NAME = 'huntx-cache-v5.8';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -8,9 +8,14 @@ const ASSETS_TO_CACHE = [
   './catalog.json',
   './assets/css/tailwind.css',
   './assets/css/interface.css',
+  './assets/css/control-room.css',
+  './assets/css/network-doctor-room.css',
   './assets/js/boot-guard.js',
   './assets/js/app.js',
+  './assets/js/control-room.js',
+  './assets/js/network-doctor-room.js',
   './assets/js/network-doctor.js',
+  './assets/js/network-doctor-memory.js',
   './assets/js/network-doctor-ui.js',
   './assets/js/globe.js',
   './assets/js/i18n.js',

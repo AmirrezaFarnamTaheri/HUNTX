@@ -195,6 +195,15 @@ jobs:
           npx playwright install --with-deps chromium
           npx playwright test
 
+      - name: Upload UI review captures
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2 (Node 24)
+        with:
+          name: huntx-control-room-visual-review
+          path: test-results/ui-review/
+          if-no-files-found: ignore
+          retention-days: 7
+
   python:
     name: python
     runs-on: ubuntu-24.04
