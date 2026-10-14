@@ -89,6 +89,13 @@
               <button class="primary" type="submit">Show recovery steps</button>
             </div>
           </form>
+          <aside class="doctor-recall hidden" id="doctor-recall" aria-label="Previous manual result">
+            <div>
+              <strong>Remembered on this device</strong>
+              <p id="doctor-recall-status" class="doctor-muted" role="status" aria-live="polite"></p>
+            </div>
+            <button type="button" id="doctor-forget">Forget this note</button>
+          </aside>
         </section>
         <section class="doctor-card hidden" id="doctor-plan" aria-labelledby="plan-heading">
           <h2 id="plan-heading" tabindex="-1"><span>02</span> Try these steps</h2>
@@ -136,6 +143,12 @@
             <label for="doctor-report">Privacy-safe support summary</label>
             <textarea id="doctor-report" readonly aria-label="Privacy-safe support summary"></textarea>
             <div class="doctor-buttons"><button type="button" id="doctor-copy">Copy summary</button></div>
+            <div class="doctor-memory">
+              <strong>Remember what helped</strong>
+              <p class="doctor-muted">Optional: save this self-reported result for your selected device and Wi-Fi/mobile category. Notes expire after 30 days and are deleted when you next visit. No specific proxy, network name, IP, or credentials are saved.</p>
+              <button type="button" id="doctor-remember" disabled>Remember this manual result</button>
+              <p id="doctor-memory-status" role="status" aria-live="polite" class="doctor-muted"></p>
+            </div>
             <small>Only the selected device category, network type, symptom and outcome are included. No proxy URI, credentials, SSID, IP or browsing history are collected.</small>
           </div>
         </section>
