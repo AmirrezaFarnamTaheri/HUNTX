@@ -63,13 +63,13 @@ test("filter summaries expose removable, keyboard-operable active filters", asyn
 test("radar operator and geo drilldowns work from the keyboard", async ({ page }) => {
   await localOnly(page);
   await page.goto("/");
-  const operator = page.locator(".operator-card[role=button]").first();
+  const operator = page.locator("button.operator-card").first();
   await expect(operator).toBeVisible();
   await operator.focus();
   await page.keyboard.press("Enter");
   await expect(page.locator("#tab-btn-proxies")).toHaveAttribute("aria-selected", "true");
   await page.locator("#tab-btn-radar").click();
-  const country = page.locator(".geo-density-row[role=button]").first();
+  const country = page.locator("button.geo-density-row").first();
   if (await country.count()) {
     await country.focus();
     await page.keyboard.press("Space");
