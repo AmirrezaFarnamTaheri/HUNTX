@@ -988,6 +988,7 @@ INDEX_HTML = """<!DOCTYPE html>
   <!-- Sticky Page Navigation Tab Bar -->
   <nav id="page-tabs-nav" class="sticky top-16 z-40 bg-[#070a0f]/90 backdrop-blur-md border-b border-[#1d2638] py-2 px-4 sm:px-6 lg:px-8">
     <div class="max-w-7xl mx-auto flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
+      <a href="network-doctor.html" class="px-3.5 py-2 rounded-xl text-xs font-mono font-semibold border border-cyan-700 text-cyan-300 hover:text-white focus-ring" style="white-space:nowrap">Fix connection ↗</a>
       <div class="flex items-center gap-1.5 sm:gap-2" role="tablist" aria-label="HUNTX Dashboard Tabs">
         <!-- Tab 1: Radar -->
         <button
