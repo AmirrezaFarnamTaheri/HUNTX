@@ -29,7 +29,7 @@ test("workspace navigation updates context and primary action without losing tab
   await page.goto("/");
   await expect(page.locator("#hero-section .radar-overview")).toBeVisible();
   await page.locator("#tab-btn-proxies").click();
-  await expect(page.locator("#workspace-title")).toHaveText("Find a working proxy");
+  await expect(page.locator("#workspace-title")).toHaveText("Explore published proxies");
   await expect(page.locator("#tab-panel-proxies")).toBeVisible();
   await page.locator("#workspace-action").click();
   await expect(page.locator("#tab-btn-artifacts")).toHaveAttribute("aria-selected", "true");
