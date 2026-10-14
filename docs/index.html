@@ -1090,7 +1090,14 @@
     </div>
     <!-- TAB 1 PANEL: Telemetry Radar & 3D Globe -->
     <div id="tab-panel-radar" class="tab-panel animate-fade-in space-y-8" role="tabpanel" aria-labelledby="tab-btn-radar" style="display: block;">
-      <section id="hero-section"></section>
+      <section id="hero-section">
+        <div class="snapshot-loading" role="status" aria-live="polite">
+          <span class="section-eyebrow">Published evidence</span>
+          <h2>Loading the latest snapshot</h2>
+          <p>Checking the published catalog and its recorded measurements. A published endpoint is not proof of connectivity on your network.</p>
+          <a href="network-doctor.html">Connection failing? Open Network Doctor</a>
+        </div>
+      </section>
       <section id="radar-diagnostics" class="space-y-6"></section>
     </div>
 
