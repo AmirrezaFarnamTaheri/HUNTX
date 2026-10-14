@@ -1,6 +1,8 @@
 /**
  * Network Doctor appearance. The only persisted value is the theme preference;
- * recovery selections and connection parameters are never stored or transmitted.
+ * recovery selections are not saved automatically. The separate opt-in memory
+ * stores only allowlisted device/network categories and self-reported outcomes,
+ * never proxy parameters or network identifiers; no data is transmitted.
  */
 const root = document.documentElement;
 const toggle = document.getElementById("doctor-theme-toggle");
