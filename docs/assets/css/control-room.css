@@ -403,3 +403,145 @@ html .tab-panel:not(.hidden) { animation: room-enter .22s cubic-bezier(.16,1,.3,
   #page-tabs-nav [role="tablist"] { flex: 0 0 auto; }
   #page-tabs-nav .nav-tab-btn:focus-visible { scroll-margin-block: 18px; }
 }
+
+/* The five workspaces share the same hierarchy, not the same density. */
+.proxy-workspace { padding-block: 0 18px; }
+.proxy-workspace .workspace-intro {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 0 0 13px;
+}
+.proxy-workspace .workspace-intro h2,
+.artifacts-workspace > div > div:first-child h2 {
+  color: var(--room-ink) !important;
+  font-size: clamp(18px, 1.7vw, 22px);
+  font-weight: 750;
+  letter-spacing: -.025em;
+  line-height: 1.3;
+}
+.proxy-workspace .workspace-intro p { color: var(--room-muted); max-width: 70ch; font-size: 13px; }
+.proxy-workspace .workspace-total { color: var(--room-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+html #evidence-overview {
+  border: 1px solid var(--room-line) !important;
+  background: var(--room-panel) !important;
+  border-radius: 13px;
+  box-shadow: none;
+}
+html #evidence-overview h2 { color: var(--room-ink) !important; }
+html #evidence-overview p { color: var(--room-muted) !important; }
+html #evidence-overview .btn-evidence-filter {
+  border-color: var(--room-line) !important;
+  background: var(--room-panel-raised) !important;
+  color: var(--room-ink) !important;
+  border-radius: 9px;
+  box-shadow: none;
+}
+html #evidence-overview .btn-evidence-filter[aria-pressed="true"] {
+  border-color: var(--room-action) !important;
+  background: var(--room-soft) !important;
+  box-shadow: inset 0 0 0 1px var(--room-action);
+}
+html .proxy-node-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 1fr)) !important;
+  gap: 13px;
+}
+html .proxy-card {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+html .proxy-card :is(code, pre, .technical-ltr) { overflow-wrap: anywhere; }
+html .proxy-card .proxy-card-header { gap: 10px; }
+html .proxy-card button { border-radius: 9px; }
+html .artifacts-workspace { padding-top: 0; }
+html .artifacts-workspace > div:first-child { border: 0; }
+html .artifacts-workspace .btn-artifact-tab {
+  min-height: 44px;
+  border: 1px solid var(--room-line);
+  background: var(--room-panel);
+  color: var(--room-muted);
+  box-shadow: none;
+  transition: background-color .16s ease, border-color .16s ease;
+}
+html .artifacts-workspace .btn-artifact-tab:hover { border-color: var(--room-action); color: var(--room-ink); }
+html .artifacts-workspace .btn-artifact-tab[aria-pressed="true"] {
+  border-color: var(--room-action);
+  background: var(--room-soft);
+  color: var(--room-ink);
+}
+html .artifact-card {
+  border: 1px solid var(--room-line) !important;
+  border-radius: 12px;
+  background: var(--room-panel) !important;
+  box-shadow: none !important;
+  transition: background-color .16s ease, border-color .16s ease, transform .16s ease;
+}
+html .artifact-card:hover {
+  background: var(--room-panel-raised) !important;
+  border-color: var(--room-action) !important;
+  transform: translateY(-2px);
+}
+html .artifact-card h3 { color: var(--room-ink) !important; overflow-wrap: anywhere; }
+html .artifact-card p,
+html .artifact-card div[title] { color: var(--room-muted) !important; }
+html .artifact-card a[download] {
+  border-color: var(--room-line);
+  background: var(--room-panel-raised);
+  color: var(--room-ink);
+  border-radius: 9px;
+}
+html .artifact-card :is(.btn-artifact-qr, .btn-copy-artifact-link) {
+  border-color: var(--room-line);
+  background: var(--room-panel-raised);
+  color: var(--room-action);
+  border-radius: 9px;
+}
+html .artifact-card :is(a[download], button):hover { border-color: var(--room-action); }
+html .studio-workspace,
+html .inspector-workspace {
+  background: var(--room-panel) !important;
+  border: 1px solid var(--room-line) !important;
+  border-radius: 14px;
+  box-shadow: none !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+html .studio-workspace h3,
+html .inspector-workspace h3 { color: var(--room-ink) !important; }
+html .studio-workspace p,
+html .inspector-workspace > div > div p { color: var(--room-muted) !important; }
+html .inspector-workspace .btn-studio-tab {
+  border: 1px solid var(--room-line);
+  border-radius: 9px;
+  background: var(--room-panel-raised);
+  color: var(--room-ink);
+  box-shadow: none;
+}
+html .inspector-workspace .btn-studio-tab[aria-selected="true"] {
+  border-color: var(--room-action);
+  background: var(--room-action);
+  color: var(--room-action-ink);
+}
+html .inspector-workspace :is(input, textarea) {
+  background: var(--room-panel-raised);
+  color: var(--room-ink);
+  border-color: var(--room-line);
+}
+html.light :is(.proxy-card, .studio-workspace, .inspector-workspace, #evidence-overview, #radar-diagnostics .cyber-card)
+:is(.text-white, .text-gray-100, .text-gray-200, .text-gray-300) { color: var(--room-ink) !important; }
+html.light :is(.proxy-card, .studio-workspace, .inspector-workspace, #evidence-overview, #radar-diagnostics .cyber-card)
+:is(.text-gray-400, .text-gray-500, .text-slate-300) { color: var(--room-muted) !important; }
+html.light :is(.proxy-card, .studio-workspace, .inspector-workspace, #evidence-overview, #radar-diagnostics .cyber-card)
+:is(.text-cyan-300, .text-cyan-400, .text-cyan-200) { color: var(--room-action) !important; }
+html.light .artifacts-workspace > div > div:first-child :is(p, span) { color: var(--room-muted); }
+html.light .artifacts-workspace .artifact-card .text-gray-400,
+html.light .artifacts-workspace .artifact-card .text-gray-500 { color: var(--room-muted) !important; }
+@media (prefers-reduced-motion: reduce) {
+  html .artifact-card, html .proxy-card, html .inspector-workspace .btn-studio-tab {
+    transform: none !important;
+    transition: none !important;
+  }
+}
