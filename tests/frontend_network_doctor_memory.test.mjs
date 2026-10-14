@@ -89,3 +89,10 @@ test('private browsing and blocked storage do not break the recovery flow', () =
   assert.equal(recallManualResult(blocked, { platform: 'android', network: 'wifi' }, { now: at }), null);
   assert.equal(forgetManualResult(blocked, { platform: 'android', network: 'wifi' }), false);
 });
+
+test('expired notes are purged from device storage when revisited', () => {
+  const storage = fakeStorage();
+  rememberManualResult(storage, base, { now: at });
+  assert.equal(recallManualResult(storage, { platform: 'android', network: 'wifi' }, { now: at + 31 * 86400000 }), null);
+  assert.equal(storage.getItem(LOCAL_RECOVERY_STORAGE_KEY), null);
+});
