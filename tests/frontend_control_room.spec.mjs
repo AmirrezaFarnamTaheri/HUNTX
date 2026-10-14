@@ -143,3 +143,19 @@ test("inspector workspace tabs support roving keyboard navigation", async ({ pag
   await page.keyboard.press("Home");
   await expect(page.locator('.btn-studio-tab[data-tab="inspector"]')).toBeFocused();
 });
+
+test("proxy filters and view controls retain focus after workspace rerenders", async ({ page }) => {
+  await localOnly(page);
+  await page.goto("/#proxies");
+  const transport = page.locator("#select-transport");
+  await expect(transport).toBeVisible();
+  await transport.focus();
+  await transport.selectOption("ALL");
+  await expect(page.locator("#select-transport")).toBeFocused();
+  const table = page.locator("#btn-view-table");
+  await table.click();
+  await expect(page.locator("#btn-view-table")).toBeFocused();
+  const grid = page.locator("#btn-view-grid");
+  await grid.click();
+  await expect(page.locator("#btn-view-grid")).toBeFocused();
+});
