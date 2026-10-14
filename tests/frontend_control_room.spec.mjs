@@ -186,3 +186,52 @@ test("radar keeps advanced actions discoverable without clipping the primary act
     await expect(json).toBeVisible();
   }
 });
+
+test("untrusted operator names cannot poison the operator map or inject markup", async ({ page }) => {
+  await localOnly(page);
+  await page.goto("/");
+  await expect(page.locator("#hero-section .radar-overview")).toBeVisible();
+  const result = await page.evaluate(() => {
+    const app = window.huntxApp;
+    const original = app.proxies;
+    const sample = original[0];
+    try {
+      app.proxies = [
+        { ...sample, carrier: "__proto__", latency: 37, country: "ZZ" },
+        { ...sample, carrier: '<img src=x onerror="window.__huntxInjected=1">', latency: 41, country: "ZZ" }
+      ];
+      app.renderRadarDiagnostics();
+      const cards = [...document.querySelectorAll(".operator-card")];
+      return {
+        count: cards.length,
+        nativeButtons: cards.every((card) => card.tagName === "BUTTON"),
+        injectedImages: document.querySelectorAll(".operator-card img").length,
+        fabricatedLoss: document.getElementById("radar-diagnostics").textContent.includes("Loss: —")
+      };
+    } finally {
+      app.proxies = original;
+      delete Object.prototype.count;
+    }
+  });
+  expect(result.count).toBe(2);
+  expect(result.nativeButtons).toBe(true);
+  expect(result.injectedImages).toBe(0);
+  expect(result.fabricatedLoss).toBe(false);
+  expect(await page.evaluate(() => window.__huntxInjected)).toBeUndefined();
+});
+
+test("phone recovery form appears in the first viewport with legible inputs and optional details", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await localOnly(page);
+  await page.goto("/network-doctor.html");
+  const formHeading = await page.locator("#setup-heading").boundingBox();
+  expect(formHeading.y).toBeLessThan(812);
+  const fontSize = await page.locator("#doctor-platform").evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+  expect(fontSize).toBeGreaterThanOrEqual(16);
+  const toggle = page.locator("#doctor-principles-toggle");
+  await expect(toggle).toBeVisible();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator("#doctor-principles-content")).toBeVisible();
+});
