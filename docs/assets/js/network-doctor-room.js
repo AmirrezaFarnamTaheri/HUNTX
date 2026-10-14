@@ -1,5 +1,5 @@
 /**
- * Network Doctor appearance. The only persisted value is the theme preference;
+ * Network Doctor appearance. Theme is persisted as a user preference;
  * recovery selections are not saved automatically. The separate opt-in memory
  * stores only allowlisted device/network categories and self-reported outcomes,
  * never proxy parameters or network identifiers; no data is transmitted.
