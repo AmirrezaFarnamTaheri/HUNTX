@@ -3059,9 +3059,12 @@ export class AppState {
     `;
 
     artifactSection.querySelectorAll(".btn-artifact-tab").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        this.artifactFilter = e.currentTarget.dataset.filter;
+      btn.addEventListener("click", (event) => {
+        const selected = event.currentTarget.dataset.filter;
+        this.artifactFilter = selected;
         this.renderArtifacts();
+        Array.from(artifactSection.querySelectorAll(".btn-artifact-tab"))
+          .find((button) => button.dataset.filter === selected)?.focus({ preventScroll: true });
       });
     });
 
@@ -3384,7 +3387,7 @@ export class AppState {
     };
     decoderSection.querySelectorAll(".btn-studio-tab").forEach(btn => {
       btn.addEventListener("click", (event) => {
-        activateStudioTab(event.currentTarget.dataset.tab);
+        activateStudioTab(event.currentTarget.dataset.tab, true);
       });
       btn.addEventListener("keydown", (event) => {
         const tabs = Array.from(decoderSection.querySelectorAll(".btn-studio-tab"));
