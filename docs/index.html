@@ -12,6 +12,7 @@
   <!-- Typography & Preconnect -->
 
   <link rel="stylesheet" href="assets/css/tailwind.css">
+  <link rel="stylesheet" href="assets/css/interface.css">
 
   <!-- Production-Grade Standalone Design Tokens & Cyber Styling -->
   <style>
@@ -810,14 +811,68 @@
     html.light .bg-cyan-500\/20 { background-color: #e0f2fe !important; }
     html.light .bg-emerald-500\/20 { background-color: #dcfce7 !important; }
     html.light .bg-indigo-500\/20 { background-color: #e0e7ff !important; }
+    /* Evidence-first workbench: one visually coherent guide and fast facets. */
+    #evidence-overview {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(125deg, rgba(8, 51, 68, 0.28), transparent 64%), var(--bg-surface);
+      border-color: var(--border-active);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
+    }
+    #evidence-overview::before {
+      content: "";
+      position: absolute;
+      inset-block-start: 0;
+      inset-inline: 1.2rem;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent-cyan), transparent 72%);
+      pointer-events: none;
+    }
+    #evidence-overview .btn-evidence-filter {
+      background: var(--bg-elevated);
+      border-color: var(--border-subtle);
+      color: var(--text-main);
+      border-radius: 0.75rem;
+      font-variant-numeric: tabular-nums;
+    }
+    #evidence-overview .btn-evidence-filter:hover {
+      border-color: var(--accent-cyan);
+    }
+    html.dark #evidence-overview .btn-evidence-filter[aria-pressed="true"] {
+      background: #083344;
+      color: #a5f3fc;
+      border-color: #22d3ee;
+    }
+    html.light #evidence-overview {
+      background: linear-gradient(125deg, rgba(2, 132, 199, 0.09), transparent 68%), var(--bg-surface);
+      border-color: #cbd5e1;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.045);
+    }
+    html.light #evidence-overview .btn-evidence-filter[aria-pressed="true"] {
+      background: #e0f2fe;
+      border-color: #0284c7;
+      color: #075985;
+    }
+    .proxy-card[data-evidence-kind="authenticated"] { border-inline-start: 3px solid #10b981; }
+    .proxy-card[data-evidence-kind="tcp_failed"] { border-inline-start: 3px solid #f59e0b; }
+    .proxy-card[data-evidence-kind="tcp"] { border-inline-start: 3px solid var(--border-active); }
+    .proxy-card:focus-within { border-color: var(--accent-cyan); }
+    #filter-result-count { font-variant-numeric: tabular-nums; }
+    @media (max-width: 639px) {
+      #evidence-overview { padding: 1rem; }
+      #evidence-overview .btn-evidence-filter { flex: 1 1 auto; }
+      .proxy-card-header { align-items: flex-start; }
+    }
+
   </style>
 
 </head>
 <body class="bg-cyber-mesh min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-black">
   <a class="skip-link" href="#dashboard-main">Skip to dashboard</a>
-  <div id="data-status-pill" role="status" aria-live="polite" class="data-status data-status-loading">Bundled snapshot</div>
+
   <style>
-    .data-status{position:fixed;left:12px;bottom:12px;z-index:80;font:500 12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.02em;padding:6px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.35);background:rgba(7,10,15,.85);color:#94a3b8}
+    .data-status{position:relative;display:block;width:fit-content;max-width:calc(100% - 32px);margin:12px auto 20px;z-index:1;font:500 12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.02em;padding:6px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.35);background:rgba(7,10,15,.85);color:#94a3b8}
     .data-status-ready{color:#34d399;border-color:rgba(52,211,153,.45)}
     .data-status-stale{color:#fbbf24;border-color:rgba(251,191,36,.5)}
     @media (prefers-reduced-motion: reduce){.data-status{transition:none}}
@@ -960,7 +1015,7 @@
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
           </svg>
           <span>Published Proxies</span>
-          <span id="tab-proxies-count-badge" class="px-1.5 py-0.5 text-xs font-bold rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/60">5641</span>
+          <span id="tab-proxies-count-badge" class="px-1.5 py-0.5 text-xs font-bold rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/60">5738</span>
         </button>
 
         <!-- Tab 3: Protocol Studio -->
@@ -1053,6 +1108,8 @@
       <section id="artifact-section"></section>
     </div>
   </main>
+
+  <div id="data-status-pill" role="status" aria-live="polite" class="data-status data-status-loading">Bundled snapshot</div>
 
   <!-- Cyber Footer -->
   <footer id="main-footer" class="bg-[#070a0f]/90 border-t border-[#1d2638]"></footer>
