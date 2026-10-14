@@ -80,3 +80,33 @@ test("small screens keep controls reachable without horizontal page overflow", a
   expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.width + 1);
   await expect(page.locator("#doctor-outcome-form")).toBeVisible();
 });
+
+test("changing a diagnosis invalidates stale guidance and the old recovery report", async ({ page }) => {
+  await localOnly(page);
+  await page.goto("/network-doctor.html");
+  await page.getByRole("button", { name: "Show recovery steps" }).click();
+  await page.locator("#doctor-original").selectOption("yes");
+  await page.getByRole("button", { name: "Summarize my result" }).click();
+  await expect(page.locator("#doctor-result")).toBeVisible();
+  await page.locator("#doctor-symptom").selectOption("tls");
+  await expect(page.locator("#doctor-plan")).toBeHidden();
+  await expect(page.locator("#doctor-outcome-form")).toBeHidden();
+  await expect(page.locator("#doctor-result")).toBeHidden();
+  await page.getByRole("button", { name: "Show recovery steps" }).click();
+  await expect(page.locator("#doctor-original")).toHaveValue("unknown");
+  await expect(page.locator("#doctor-result")).toBeHidden();
+});
+
+test("unsafe TLS selection hides a previously successful and copyable result", async ({ page }) => {
+  await localOnly(page);
+  await page.goto("/network-doctor.html");
+  await page.getByRole("button", { name: "Show recovery steps" }).click();
+  await page.locator("#doctor-original").selectOption("yes");
+  await page.getByRole("button", { name: "Summarize my result" }).click();
+  await expect(page.locator("#doctor-result-title")).toContainText("restored");
+  await page.locator("#doctor-tls-disabled").check();
+  await expect(page.locator("#doctor-result")).toBeHidden();
+  await page.getByRole("button", { name: "Summarize my result" }).click();
+  await expect(page.locator("#doctor-result-title")).toContainText("Unsafe");
+  await expect(page.locator("#doctor-report")).toHaveValue(/unsafe/);
+});
