@@ -204,7 +204,7 @@ html .radar-overview {
   align-items: center;
   margin-block-end: 24px;
 }
-html .radar-summary h1 {
+html .radar-summary h2 {
   max-width: 24ch;
   font-size: clamp(26px, 2.6vw, 39px);
   line-height: 1.16;
@@ -373,7 +373,7 @@ html .tab-panel:not(.hidden) { animation: room-enter .22s cubic-bezier(.16,1,.3,
   .workspace-actions { width: 100%; }
   .workspace-actions :is(button, a) { flex: 1; padding-inline: 10px; }
   html .radar-overview { grid-template-columns: 1fr; }
-  html .radar-summary h1 { font-size: 27px; }
+  html .radar-summary h2 { font-size: 27px; }
   html .radar-globe-frame { max-width: 260px; }
   html #evidence-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   html #radar-diagnostics > .grid { grid-template-columns: 1fr; }
@@ -383,7 +383,7 @@ html .tab-panel:not(.hidden) { animation: room-enter .22s cubic-bezier(.16,1,.3,
   html #evidence-strip .evidence-stat:last-of-type { grid-column: auto; }
   .workspace-actions { flex-wrap: wrap; }
   .workspace-actions :is(button, a) { min-width: 100%; }
-  html .radar-summary h1 { font-size: 25px; }
+  html .radar-summary h2 { font-size: 25px; }
 }
 @media (prefers-reduced-motion: reduce) {
   html .tab-panel:not(.hidden), html .proxy-card { animation: none !important; transform: none !important; transition: none !important; }
