@@ -73,6 +73,23 @@ function copyShell(dest) {
   fs.cpSync(path.join(REPO_DOCS, "assets"), path.join(dest, "assets"), { recursive: true });
 }
 
+test("simulated deployments contain all current service-worker precache resources", () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "huntx-shell-"));
+  try {
+    copyShell(temp);
+    const worker = fs.readFileSync(path.join(temp, "sw.js"), "utf8");
+    const assetList = worker.match(/const ASSETS_TO_CACHE = \[([\s\S]*?)\];/);
+    expect(assetList, "Service worker precache list must remain inspectable").not.toBeNull();
+    const assets = [...assetList[1].matchAll(/['"]\.\/([^'"]+)['"]/g)].map((match) => match[1]);
+    expect(assets.length).toBeGreaterThan(0);
+    for (const asset of assets) {
+      expect(fs.existsSync(path.join(temp, asset)), "Missing precache asset: " + asset).toBe(true);
+    }
+  } finally {
+    fs.rmSync(temp, { recursive: true, force: true });
+  }
+});
+
 /** Simulate a new deployment: the entry script now imports a new decoder export. */
 function applyDeploy(dest, { exportExists }) {
   const decoder = path.join(dest, "assets/js/decoder.js");
