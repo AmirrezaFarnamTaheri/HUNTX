@@ -97,6 +97,8 @@ test("capture Atlas v2 proxy explorer with first-viewport results and advanced f
   await page.locator("#advanced-filters summary").click();
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: path.join(output, "atlas-proxies-filters-dark.png"), fullPage: true, animations: "disabled" });
+  await page.locator("#advanced-filters summary").click();
+  await expect(page.locator("#advanced-filters")).not.toHaveAttribute("open");
   await capture(page, "/#proxies", "atlas-proxies-phone-dark.png", 375, 812);
 });
 
