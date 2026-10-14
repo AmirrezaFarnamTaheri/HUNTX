@@ -728,3 +728,15 @@ html :is(.operator-card, .geo-density-row):focus-visible {
   html .hero-more { grid-column: 1 / -1; }
   html .hero-more-trigger { width: 100%; }
 }
+
+/* Operator summaries are real filter buttons, not undifferentiated text. */
+html #radar-diagnostics .operator-card {
+  padding: 12px;
+  background: var(--room-panel-raised) !important;
+  border: 1px solid var(--room-line) !important;
+  border-radius: 10px;
+}
+html #radar-diagnostics .operator-card:hover {
+  background: var(--room-soft) !important;
+  border-color: var(--room-action) !important;
+}
