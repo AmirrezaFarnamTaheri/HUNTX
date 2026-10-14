@@ -4,6 +4,12 @@ import {
   formatSupportSummary,
   checkPublishedCatalog
 } from "./network-doctor.js";
+import {
+  LOCAL_RECOVERY_STORAGE_KEY,
+  rememberManualResult,
+  recallManualResult,
+  forgetManualResult
+} from "./network-doctor-memory.js";
 
 const byId = (id) => document.getElementById(id);
 const form = byId("network-doctor-form");
@@ -12,6 +18,10 @@ const outcomePanel = byId("doctor-outcome-form");
 const resultPanel = byId("doctor-result");
 const catalogButton = byId("doctor-catalog-check");
 const catalogStatus = byId("doctor-catalog-status");
+const rememberButton = byId("doctor-remember");
+const memoryStatus = byId("doctor-memory-status");
+const recallPanel = byId("doctor-recall");
+const recallStatus = byId("doctor-recall-status");
 let catalogRequestVersion = 0;
 
 function setRecoveryStep(step) {
@@ -29,6 +39,36 @@ function choices() {
   };
 }
 
+function optionalStorage() {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function refreshRecall() {
+  const note = recallManualResult(optionalStorage(), choices());
+  if (!note) {
+    recallPanel.classList.add("hidden");
+    recallStatus.textContent = "";
+    return;
+  }
+  const devices = { android: "Android", ios: "iPhone/iPad", desktop: "computer" };
+  const network = note.network === "wifi" ? "Wi-Fi" : "mobile data";
+  const whatWorked = note.outcomeCode === "reported-original"
+    ? "the original proxy appeared to work"
+    : "an alternative proxy appeared to work";
+  const when = new Date(note.savedAt).toLocaleDateString(undefined, {
+    year: "numeric", month: "short", day: "numeric"
+  });
+  recallStatus.textContent =
+    "A past manual note for " + devices[note.platform] + " on " + network +
+    ": you reported " + whatWorked + " (" + when +
+    "). This is not a current connectivity test or a verified result.";
+  recallPanel.classList.remove("hidden");
+}
+
 function invalidateCatalogCheck() {
   catalogRequestVersion += 1;
   catalogButton.disabled = false;
@@ -44,9 +84,13 @@ function clearReportedOutcome() {
   byId("doctor-tls-disabled").checked = false;
   resultPanel.classList.add("hidden");
   byId("doctor-copy").textContent = "Copy summary";
+  rememberButton.disabled = true;
+  memoryStatus.textContent = "";
 }
 
 form.addEventListener("change", () => {
+  refreshRecall();
+  byId("doctor-recall-feedback").textContent = "";
   // A changed setup invalidates the old plan and any claimed result.
   if (planPanel.classList.contains("hidden")) return;
   planPanel.classList.add("hidden");
@@ -109,6 +153,8 @@ outcomePanel.addEventListener("change", () => {
   // Never leave a visible result after its underlying self-report changed.
   resultPanel.classList.add("hidden");
   byId("doctor-copy").textContent = "Copy summary";
+  rememberButton.disabled = true;
+  memoryStatus.textContent = "";
   setRecoveryStep(2);
 });
 
@@ -131,6 +177,10 @@ byId("doctor-summarize").addEventListener("click", () => {
     result.message + " No independent protocol-native test has been run by this page.";
   byId("doctor-report").value = formatSupportSummary(selections);
   byId("doctor-copy").textContent = "Copy summary";
+  rememberButton.disabled = !["reported-original", "reported-alternative"].includes(result.code);
+  memoryStatus.textContent = rememberButton.disabled
+    ? "Unsafe or unresolved results cannot be remembered as working."
+    : "This is a manual report only. Saving is optional and stays in this browser.";
   resultPanel.classList.remove("hidden");
   setRecoveryStep(3);
   byId("doctor-result-title")?.focus({ preventScroll: true });
@@ -148,13 +198,47 @@ byId("doctor-copy").addEventListener("click", async () => {
   }
 });
 
+rememberButton.addEventListener("click", () => {
+  if (resultPanel.classList.contains("hidden") || rememberButton.disabled) return;
+  const outcome = classifyManualOutcome({
+    originalWorks: byId("doctor-original").value,
+    alternativeWorks: byId("doctor-alternative").value,
+    tlsVerificationDisabled: byId("doctor-tls-disabled").checked
+  });
+  const saved = rememberManualResult(optionalStorage(), {
+    ...choices(),
+    outcomeCode: outcome.code,
+    tlsVerificationDisabled: byId("doctor-tls-disabled").checked
+  });
+  memoryStatus.textContent = saved
+    ? "Saved on this device for this Wi-Fi/mobile category. It is a past manual note, not live health evidence."
+    : "Could not save the note. Your browser may have local storage disabled.";
+  if (saved) refreshRecall();
+});
+
+byId("doctor-forget").addEventListener("click", () => {
+  const removed = forgetManualResult(optionalStorage(), choices());
+  refreshRecall();
+  byId("doctor-recall-feedback").textContent = removed
+    ? "Saved note removed for the selected device and network category."
+    : "No saved note could be removed.";
+});
+
+window.addEventListener("storage", (event) => {
+  if (event.key === LOCAL_RECOVERY_STORAGE_KEY) refreshRecall();
+});
+
 byId("doctor-reset").addEventListener("click", () => {
   form.reset();
   clearReportedOutcome();
   invalidateCatalogCheck();
+  refreshRecall();
+  byId("doctor-recall-feedback").textContent = "";
   planPanel.classList.add("hidden");
   outcomePanel.classList.add("hidden");
   setRecoveryStep(1);
   form.scrollIntoView({ behavior: "instant", block: "start" });
   byId("doctor-platform")?.focus({ preventScroll: true });
 });
+
+refreshRecall();
