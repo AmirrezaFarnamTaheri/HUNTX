@@ -273,7 +273,11 @@ test("compact globe actually paints geography instead of an empty canvas", async
   await page.setViewportSize({ width: 375, height: 812 });
   await localOnly(page);
   await page.goto("/");
-  await expect(page.locator("#telemetry-globe-canvas")).toBeVisible();
+  const canvas = page.locator("#telemetry-globe-canvas");
+  await expect(canvas).toBeVisible();
+  // IntersectionObserver intentionally suspends offscreen animation.
+  // Scroll into view to request a frame before asserting painted pixels.
+  await canvas.scrollIntoViewIfNeeded();
   await page.waitForFunction(() => {
     const canvas = document.getElementById("telemetry-globe-canvas");
     if (!canvas?.width || !canvas?.height) return false;
