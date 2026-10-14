@@ -115,6 +115,8 @@ test("untrusted catalog structures are rejected", () => {
   assert.throws(() => summarizeCatalog(null), TypeError);
   assert.throws(() => summarizeCatalog({ files: "not-an-array" }), TypeError);
   assert.throws(() => summarizeCatalog({ files: [] }), TypeError);
+  assert.throws(() => summarizeCatalog({ files: [], generated_at: "" }), TypeError);
+  assert.throws(() => summarizeCatalog({ files: [], generated_at: 1730000000 }), TypeError);
 });
 
 test("catalog fetch is same-origin, uncached and returns an inconclusive state on failure", async () => {
@@ -122,7 +124,7 @@ test("catalog fetch is same-origin, uncached and returns an inconclusive state o
   const success = await checkPublishedCatalog({
     fetcher: async (url, options) => {
       calls.push([url, options]);
-      return { ok: true, json: async () => ({ files: [{ tags: ["subscription"] }] }) };
+      return { ok: true, json: async () => ({ files: [{ tags: ["subscription"] }], generated_at: "2026-10-14T01:25:09Z" }) };
     }
   });
   assert.equal(calls.length, 1);
