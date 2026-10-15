@@ -1,4 +1,6 @@
 docs/artifacts/release/all_sources.dark
+docs/artifacts/release/all_sources.ehi
+docs/artifacts/release/all_sources.hc
 docs/artifacts/release/all_sources.json
 docs/artifacts/release/all_sources.npvt
 docs/artifacts/release/all_sources.npvt.b64sub
@@ -9,6 +11,7 @@ docs/artifacts/release/all_sources.npvtsub.singbox.json
 docs/artifacts/release/all_sources.npvtsub.xray.json
 docs/artifacts/release/all_sources.opaque_bundle
 docs/artifacts/release/all_sources.ovpn
+docs/artifacts/release/all_sources.sip
 docs/artifacts/release/all_sources.txt
 docs/artifacts/release/all_sources_base64.txt
 docs/artifacts/release/all_sources_clash.yaml
@@ -47,6 +50,8 @@ docs/catalog.json
 docs/index.html
 outputs/.huntx-output-ownership.json
 outputs/all_sources.dark
+outputs/all_sources.ehi
+outputs/all_sources.hc
 outputs/all_sources.json
 outputs/all_sources.npvt
 outputs/all_sources.npvt.b64sub
@@ -57,6 +62,7 @@ outputs/all_sources.npvtsub.singbox.json
 outputs/all_sources.npvtsub.xray.json
 outputs/all_sources.opaque_bundle
 outputs/all_sources.ovpn
+outputs/all_sources.sip
 outputs/all_sources.txt
 outputs/all_sources_base64.txt
 outputs/all_sources_clash.yaml
