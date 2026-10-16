@@ -1,4 +1,5 @@
 outputs/.huntx-output-ownership.json
+outputs/all_sources.conf_lines
 outputs/all_sources.dark
 outputs/all_sources.ehi
 outputs/all_sources.hc
@@ -48,6 +49,7 @@ outputs/all_sources_xray_profile.json
 outputs_dev/_manifest.json.gz.index.json
 outputs_dev/_manifest.json.gz.part0001
 outputs_dev/_manifest.json.gz.part0002
+docs/artifacts/release/all_sources.conf_lines
 docs/artifacts/release/all_sources.dark
 docs/artifacts/release/all_sources.ehi
 docs/artifacts/release/all_sources.hc
