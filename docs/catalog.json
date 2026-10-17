@@ -7,8 +7,8 @@
       "media_type": "application/json",
       "path": "artifacts/release/all_sources.json",
       "section": "release",
-      "sha256": "10ef6642edd8267568fd0ee32a3731a905a47e77c88c4c27ec584ac52a8b7f19",
-      "size": 5406539,
+      "sha256": "74ea09d1d251041b1e2eccf259f77a681b170aa5ec4b7b215eddc5d8aa8397f6",
+      "size": 5444077,
       "size_str": "5.2 MB",
       "tags": [
         "release",
@@ -26,8 +26,8 @@
       "media_type": "text/plain",
       "path": "artifacts/release/all_sources.txt",
       "section": "release",
-      "sha256": "956673813a60e08206f6dc2792cd3c4d48d3ca99bce1744732106e78c6bb248a",
-      "size": 2002043,
+      "sha256": "f3493b816e2ba403ea1543f46889d2f14d00e65930746b84f73332c7758bc492",
+      "size": 2021905,
       "size_str": "1.9 MB",
       "tags": [
         "release",
@@ -46,9 +46,9 @@
       "media_type": "text/plain",
       "path": "artifacts/release/all_sources_base64.txt",
       "section": "release",
-      "sha256": "0e804275833f6f8746af0b588a93e4d694d8ea241b5566fbdaa69278bbe37d36",
-      "size": 2669392,
-      "size_str": "2.5 MB",
+      "sha256": "fc8603776a6b6279143497e97cdfdd7383eeac31b2aa131274e656afe23526b4",
+      "size": 2695876,
+      "size_str": "2.6 MB",
       "tags": [
         "release",
         "production",
@@ -66,8 +66,8 @@
       "media_type": "application/yaml",
       "path": "artifacts/release/all_sources_clash.yaml",
       "section": "release",
-      "sha256": "667ac53b7fcf6f718ef28222484c807dff2e0a78d9801d2e539e686a661ae1a9",
-      "size": 2144893,
+      "sha256": "ec208d332cffbf9e8fff0e10a34734ad41ecd45606a90e1586285c256985f553",
+      "size": 2141860,
       "size_str": "2.0 MB",
       "tags": [
         "release",
@@ -87,8 +87,8 @@
       "media_type": "application/json",
       "path": "artifacts/release/all_sources_nekobox.json",
       "section": "release",
-      "sha256": "7470a34aec3832520f6dd7f78100043f13adb1815c7f87f6983d22c00c90f768",
-      "size": 3049014,
+      "sha256": "35dc1fa085230669fdc179f256fdc333da22d85ffd0ebbdcf5e835d28f36707d",
+      "size": 3048325,
       "size_str": "2.9 MB",
       "tags": [
         "release",
@@ -106,8 +106,8 @@
       "media_type": "application/json",
       "path": "artifacts/release/all_sources_singbox.json",
       "section": "release",
-      "sha256": "34eef5734eb7681bcaa3fa3e52af5ae9405c9b9b8bb302b04a26ba3a6f0bc626",
-      "size": 4235282,
+      "sha256": "92faa0da67d64bb87e6062039ec29599f95d13b9d06de0d4d6ad883a24c906d3",
+      "size": 4237043,
       "size_str": "4.0 MB",
       "tags": [
         "release",
@@ -125,8 +125,8 @@
       "media_type": "application/json",
       "path": "artifacts/release/all_sources_singbox_nodes.json",
       "section": "release",
-      "sha256": "edc8a2009a11d71c9db064851f5d1f13aea5ef50177a46f83ce9f3c9d1322083",
-      "size": 3287173,
+      "sha256": "1ad749ca220bf3d9d910a3ee9834b4bf73825480d36246b86cf4ff34cbc0c587",
+      "size": 3286470,
       "size_str": "3.1 MB",
       "tags": [
         "release",
@@ -145,8 +145,8 @@
       "media_type": "application/json",
       "path": "artifacts/release/all_sources_singbox_profile.json",
       "section": "release",
-      "sha256": "34eef5734eb7681bcaa3fa3e52af5ae9405c9b9b8bb302b04a26ba3a6f0bc626",
-      "size": 4235282,
+      "sha256": "92faa0da67d64bb87e6062039ec29599f95d13b9d06de0d4d6ad883a24c906d3",
+      "size": 4237043,
       "size_str": "4.0 MB",
       "tags": [
         "release",
@@ -164,8 +164,8 @@
       "media_type": "application/json",
       "path": "artifacts/release/all_sources_xray.json",
       "section": "release",
-      "sha256": "84eca6fcb66031209b5455f6e30c0326db6356b9cf6556e4d992072457703d66",
-      "size": 2538291,
+      "sha256": "fb9aa111b21300b29789e69ce0658c7957e599ce813779b270ddb30dead5a36f",
+      "size": 2543034,
       "size_str": "2.4 MB",
       "tags": [
         "release",
@@ -183,8 +183,8 @@
       "media_type": "application/json",
       "path": "artifacts/release/all_sources_xray_nodes.json",
       "section": "release",
-      "sha256": "c03c6b94d32ddb2c7d536f1b64dad7097da313e4f16d6be975afd48e08e317b3",
-      "size": 2537954,
+      "sha256": "fbca4de7f30a575419a58f2be5791820e516f0fad549f8242a947144dc13ab9b",
+      "size": 2542697,
       "size_str": "2.4 MB",
       "tags": [
         "release",
@@ -204,8 +204,8 @@
       "media_type": "application/json",
       "path": "artifacts/release/all_sources_xray_profile.json",
       "section": "release",
-      "sha256": "84eca6fcb66031209b5455f6e30c0326db6356b9cf6556e4d992072457703d66",
-      "size": 2538291,
+      "sha256": "fb9aa111b21300b29789e69ce0658c7957e599ce813779b270ddb30dead5a36f",
+      "size": 2543034,
       "size_str": "2.4 MB",
       "tags": [
         "release",
@@ -217,10 +217,10 @@
       "type": "XRAY"
     }
   ],
-  "generated_at": "2026-10-17T07:18:18.057191Z",
+  "generated_at": "2026-10-17T11:25:47.387084Z",
   "release_manifest": "artifacts/release/manifest.json",
   "schema_version": 1,
   "total_files": 11,
-  "total_size": 34644154,
-  "total_size_str": "33.0 MB"
+  "total_size": 34741364,
+  "total_size_str": "33.1 MB"
 }
