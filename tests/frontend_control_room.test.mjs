@@ -62,3 +62,10 @@ test("Atlas v2 design layer is generated, offline-cached and exposes real studio
   assert.match(application, /id="studio-start-builder"/);
   assert.match(application, /this\.openSubscriptionBuilderModal\(\)/);
 });
+
+test("Atlas v2 highlights keyboard focus on primary controls and studio links", async () => {
+  const stylesheet = await read("../docs/assets/css/atlas-v2.css");
+  assert.match(stylesheet, /html #filter-bar :is\(\.btn-proto-tab, \.btn-evidence-filter, #node-quick-search/);
+  assert.match(stylesheet, /:is\(\.studio-action-bar button, \.studio-action-bar a, \.studio-feed-card\):focus-visible/);
+  assert.match(stylesheet, /outline-offset:\s*3px/);
+});
