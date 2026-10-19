@@ -39,3 +39,33 @@ test("generated frontend uses the same offline-safe control room shell as the te
   assert.match(css, /forced-colors: active/);
   assert.doesNotMatch(css, /@import|url\(https?:\/\//i);
 });
+
+test("Atlas v2 design layer is generated, offline-cached and exposes real studio actions", async () => {
+  const [generated, template, stylesheet, worker, application] = await Promise.all([
+    read("../docs/index.html"),
+    read("../scripts/update_frontend.py"),
+    read("../docs/assets/css/atlas-v2.css"),
+    read("../docs/sw.js"),
+    read("../docs/assets/js/app.js")
+  ]);
+  for (const source of [generated, template]) {
+    assert.match(source, /assets\/css\/atlas-v2\.css/);
+    assert.match(source, /<span>Subscription Studio<\/span>/);
+  }
+  assert.match(worker, /assets\/css\/atlas-v2\.css/);
+  assert.match(stylesheet, /\.measurement-bar/);
+  assert.match(stylesheet, /\.studio-feed-grid/);
+  assert.match(stylesheet, /prefers-reduced-motion: reduce/);
+  assert.match(stylesheet, /forced-colors: active/);
+  assert.doesNotMatch(stylesheet, /@import|url\(https?:\/\//i);
+  assert.match(application, /id="advanced-filters"/);
+  assert.match(application, /id="studio-start-builder"/);
+  assert.match(application, /this\.openSubscriptionBuilderModal\(\)/);
+});
+
+test("Atlas v2 highlights keyboard focus on primary controls and studio links", async () => {
+  const stylesheet = await read("../docs/assets/css/atlas-v2.css");
+  assert.match(stylesheet, /html #filter-bar :is\(\.btn-proto-tab, \.btn-evidence-filter, #node-quick-search/);
+  assert.match(stylesheet, /:is\(\.studio-action-bar button, \.studio-action-bar a, \.studio-feed-card\):focus-visible/);
+  assert.match(stylesheet, /outline-offset:\s*3px/);
+});

@@ -2054,6 +2054,10 @@ export class AppState {
     ];
 
     const filtered = precomputed || this.getFilteredProxies();
+    // Keep advanced filters expanded across toolbar rerenders, including
+    // changes made by a focused select inside the disclosure.
+    const oldAdvanced = filterContainer.querySelector("#advanced-filters");
+    if (oldAdvanced) this.advancedFiltersOpen = oldAdvanced.open;
 
     const activeFilters = [
       { key: "selectedProtocol", label: "Protocol", value: this.selectedProtocol },
@@ -2080,20 +2084,15 @@ export class AppState {
     filterContainer.innerHTML = `
       <div class="proxy-workspace space-y-4 py-6">
         <div class="workspace-intro">
-          <div><span class="section-eyebrow">Node explorer</span><h2>Published proxy catalog</h2><p>Filter by transport, geography and observed evidence. Saved endpoints are not guaranteed to authenticate.</p></div>
-          <span class="workspace-total">${allProxies.length.toLocaleString("en-US")} nodes in snapshot</span>
+          <span class="catalog-kicker">Published endpoints · candidate inventory, not live local health</span>
+          <span class="workspace-total">${allProxies.length.toLocaleString("en-US")} entries</span>
         </div>
-        <section id="evidence-overview" class="rounded-2xl border border-gray-800 bg-gray-950/80 p-4 sm:p-5" aria-label="Proxy measurement evidence">
-          <div class="flex flex-wrap items-start justify-between gap-3">
-            <div class="max-w-2xl">
-              <span class="font-mono text-xs font-semibold uppercase tracking-wider text-cyan-300">${i18n.translate("EVIDENCE EXPLORER")}</span>
-              <h2 class="text-base sm:text-lg font-semibold text-gray-100 mt-1">${i18n.translate("Explore nodes by what was actually tested")}</h2>
-              <p class="text-xs sm:text-sm leading-relaxed text-gray-400 mt-1">TCP connectivity does not prove that a proxy authenticates. Results reflect the published snapshot.</p>
-            </div>
-            <a href="ENDPOINT_EVIDENCE.md" target="_blank" rel="noopener noreferrer" class="min-h-[44px] px-3.5 py-2.5 inline-flex items-center justify-center rounded-xl border border-gray-700 bg-gray-900 text-cyan-300 text-xs font-semibold focus-ring hover:border-cyan-500 transition-colors">${i18n.translate("Evidence guide")} ↗</a>
+        <section id="evidence-overview" class="measurement-bar" aria-label="Proxy measurement evidence">
+          <div class="measurement-head">
+            <div class="measurement-heading"><strong>Evidence quality</strong><span class="measurement-context">Publisher measurements · TCP is not proxy authentication</span></div>
+            <a href="ENDPOINT_EVIDENCE.md" target="_blank" rel="noopener noreferrer" class="focus-ring">${i18n.translate("Evidence guide")} ↗</a>
           </div>
-          <p class="text-xs text-gray-400 mt-2">Counts reflect other active filters. Measurements are from the publisher's vantage, not your device.</p>
-          <div class="flex flex-wrap gap-2 mt-3" role="group" aria-label="Filter by measurement evidence">
+          <div class="measurement-pills" role="group" aria-label="Filter by measurement evidence">
             ${evidenceOptions.map(option => `
               <button
                 type="button"
@@ -2102,15 +2101,15 @@ export class AppState {
                 aria-pressed="${this.selectedEvidence === option.id}"
               >
                 ${escapeHTML(i18n.translate(option.label))}
-                <span class="ml-1.5 tabular-nums opacity-75">${option.count.toLocaleString()}</span>
+                <span class="evidence-count">${option.count.toLocaleString()}</span>
               </button>`).join("")}
           </div>
         </section>
         <!-- Top Toolbar: Protocol Pills + View Mode Switcher + Search -->
-        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+        <div class="protocol-toolbar">
           <!-- Protocol Tabs -->
-          <div class="flex flex-wrap gap-1.5 items-center" role="toolbar" aria-label="Protocol Filter">
-            <span class="text-xs font-mono font-bold text-gray-400 uppercase tracking-wider mr-1.5 flex items-center gap-1">
+          <div class="protocol-pills" role="group" aria-label="Protocol Filter">
+            <span class="protocol-pills-label text-xs font-mono font-bold text-gray-400 uppercase tracking-wider mr-1.5 flex items-center gap-1">
               <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
               Protocol:
             </span>
@@ -2137,11 +2136,12 @@ export class AppState {
           </div>
 
           <!-- View Mode Switcher & Quick Search -->
-          <div class="flex items-center gap-2.5 w-full lg:w-auto">
+          <div class="filter-primary-controls">
             <!-- View Mode Switcher -->
-            <div class="flex items-center bg-gray-900 border border-gray-800 p-0.5 rounded-xl">
+            <div class="filter-view-toggle" role="group" aria-label="Proxy result view">
               <button
                 id="btn-view-grid"
+                aria-pressed="${this.viewMode === 'grid'}"
                 class="px-3 py-2 min-h-[44px] rounded-lg text-xs font-mono font-semibold transition-all flex items-center gap-1 cursor-pointer focus-ring ${this.viewMode === 'grid' ? 'bg-cyan-500 text-gray-950 font-bold' : 'text-gray-400 hover:text-gray-200'}"
                 title="Grid Cards View (Press V)"
                 aria-label="Grid Cards View"
@@ -2151,6 +2151,7 @@ export class AppState {
               </button>
               <button
                 id="btn-view-table"
+                aria-pressed="${this.viewMode === 'table'}"
                 class="px-3 py-2 min-h-[44px] rounded-lg text-xs font-mono font-semibold transition-all flex items-center gap-1 cursor-pointer focus-ring ${this.viewMode === 'table' ? 'bg-cyan-500 text-gray-950 font-bold' : 'text-gray-400 hover:text-gray-200'}"
                 title="Dense Data Table View (Press V)"
                 aria-label="Dense Table View"
@@ -2160,6 +2161,7 @@ export class AppState {
               </button>
               <button
                 id="btn-view-feed"
+                aria-pressed="${this.viewMode === 'feed'}"
                 class="px-3 py-2 min-h-[44px] rounded-lg text-xs font-mono font-semibold transition-all flex items-center gap-1 cursor-pointer focus-ring ${this.viewMode === 'feed' ? 'bg-cyan-500 text-gray-950 font-bold' : 'text-gray-400 hover:text-gray-200'}"
                 title="Raw Text / Feed View"
                 aria-label="Raw Text Feed View"
@@ -2170,7 +2172,7 @@ export class AppState {
             </div>
 
             <!-- Quick Search Input -->
-            <div class="relative flex-1 sm:w-60">
+            <div class="filter-search">
               <input
                 id="node-quick-search"
                 type="text"
@@ -2183,8 +2185,11 @@ export class AppState {
           </div>
         </div>
 
-        <!-- Dimensional Cyber Select Menus -->
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 items-center">
+        <!-- Secondary dimensions are available without occupying the first viewport. -->
+        <details id="advanced-filters" class="filter-more" ${this.advancedFiltersOpen ? "open" : ""}>
+          <summary>Advanced filters <span class="filter-advanced-summary">Region, operator, transport, security, measurements &amp; sort</span></summary>
+          <div class="filter-advanced-inner">
+          <div class="filter-select-grid">
           <!-- Operator Dropdown -->
           <div class="relative">
             <label class="block text-xs font-mono text-gray-400 mb-1">Operator / Carrier</label>
@@ -2260,10 +2265,11 @@ export class AppState {
               <option value="port_asc" ${this.sortBy === "port_asc" ? "selected" : ""}>Port (Low-High)</option>
             </select>
           </div>
-        </div>
+          </div>
+        </details>
 
         <!-- Filter Summary & Batch Actions Bar -->
-        <div class="flex flex-wrap items-center justify-between gap-3 p-3 bg-gray-950/80 border border-gray-800/80 rounded-2xl text-xs font-mono">
+        <div class="catalog-results-bar">
           <div class="flex items-center gap-2 text-gray-300">
             <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
             <span id="filter-result-count" role="status" aria-live="polite">${i18n.translate("Showing")} <strong class="text-cyan-400 tabular-nums">${filtered.length.toLocaleString()}</strong> / ${allProxies.length.toLocaleString()} ${i18n.translate("nodes")}</span>
@@ -2271,7 +2277,7 @@ export class AppState {
             ${this.selectedOperator !== "ALL" ? `<span class="px-2 py-0.5 bg-gray-900 border border-gray-800 rounded text-xs text-blue-300">${this.selectedOperator}</span>` : ''}
           </div>
 
-          <div class="flex items-center gap-2 flex-wrap">
+          <div class="catalog-results-actions">
             <button id="btn-batch-copy-filtered" class="px-3.5 py-2 min-h-[44px] bg-cyan-950 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-300 rounded-xl text-xs font-semibold cursor-pointer focus-ring transition-all flex items-center gap-1.5">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
               Copy Filtered (${filtered.length})
@@ -2299,6 +2305,10 @@ export class AppState {
         </div>
       </div>
     `;
+
+    filterContainer.querySelector("#advanced-filters")?.addEventListener("toggle", (event) => {
+      this.advancedFiltersOpen = event.currentTarget.open;
+    });
 
     filterContainer.querySelectorAll(".filter-chip").forEach(btn => {
       btn.addEventListener("click", () => {
@@ -3205,93 +3215,120 @@ export class AppState {
     }
   }
 
+
   renderRuleStudio() {
     if (typeof document === "undefined") return;
     const container = document.getElementById("rule-studio-section");
     if (!container) return;
+    const previous = container.querySelector("#studio-routing-reference");
+    if (previous) this.studioReferenceOpen = previous.open;
+
+    // The studio uses the actual publication catalog rather than pretending
+    // example routing rules are a generated, downloadable client profile.
+    const files = Array.isArray(this.catalog?.files) ? this.catalog.files : [];
+    const feeds = [
+      { filename: "all_sources_base64.txt", label: "Universal subscription", format: "BASE64", description: "A compact, client-friendly subscription that expands to individual proxies.", note: "Recommended starting point" },
+      { filename: "all_sources_clash.yaml", label: "Clash / Mihomo", format: "YAML", description: "Proxy entries for Clash-compatible clients. Import and refresh as a subscription.", note: "Node feed · no routing policy" },
+      { filename: "all_sources_singbox_nodes.json", label: "Sing-box nodes", format: "JSON", description: "Outbounds-only node list for subscription-capable Sing-box clients.", note: "Nodes only · no inbound / DNS" },
+      { filename: "all_sources_xray_nodes.json", label: "Xray nodes", format: "JSON", description: "Independent outbounds for compatible Xray/V2Ray subscription importers.", note: "Nodes only · no inbound / DNS" },
+      { filename: "all_sources.txt", label: "Raw proxy links", format: "URI", description: "One complete share link per line for clients supporting raw subscriptions.", note: "Raw source" },
+      { filename: "all_sources_singbox_profile.json", label: "Sing-box runnable profile", format: "PROFILE", description: "A separate complete example with inbounds, DNS and routing included.", note: "Full profile · not a node feed" }
+    ];
+    const feedMarkup = feeds.map((item) => {
+      const file = files.find(f => (f.filename || f.name) === item.filename);
+      if (!file || typeof file.path !== "string") return "";
+      const link = getArtifactLinkModel(file.path);
+      return `
+        <a class="studio-feed-card focus-ring" data-artifact="${escapeHTML(item.filename)}"
+           href="${escapeHTML(link.copyValue)}" ${item.format === "PROFILE" ? "download" : `data-copy-url="${escapeHTML(link.copyValue)}"`}>
+          <span class="studio-feed-top">
+            <span class="studio-feed-type">${escapeHTML(item.format)}</span>
+            <span class="studio-feed-arrow" aria-hidden="true">${item.format === "PROFILE" ? "↓" : "⧉"}</span>
+          </span>
+          <strong>${escapeHTML(item.label)}</strong>
+          <p>${escapeHTML(item.description)}</p>
+          <span class="studio-feed-note">${escapeHTML(item.note)}</span>
+        </a>
+      `;
+    }).filter(Boolean).join("");
 
     const rules = [
-      { id: "r1", target: "geosite:category-ads-all", action: "BLOCK", type: "geosite" },
-      { id: "r2", target: "geosite:cn", action: "DIRECT", type: "geosite" },
-      { id: "r3", target: "geoip:cn", action: "DIRECT", type: "geoip" },
-      { id: "r4", target: "openai.com", action: "PROXY-US", type: "domain" },
-      { id: "r5", target: "github.com", action: "AUTO-BEST", type: "domain" },
-      { id: "r6", target: "MATCH (Final)", action: "PROXY-AUTO", type: "match" }
+      { target: "geosite:category-ads-all", action: "BLOCK" },
+      { target: "geosite:cn", action: "DIRECT" },
+      { target: "geoip:cn", action: "DIRECT" },
+      { target: "openai.com", action: "PROXY-US" },
+      { target: "github.com", action: "AUTO-BEST" },
+      { target: "MATCH (Final)", action: "PROXY-AUTO" }
     ];
+    const ruleMarkup = rules.map((rule, index) => `
+      <div class="studio-reference-rule">
+        <code>${index + 1}. ${escapeHTML(rule.target)}</code>
+        <span>${escapeHTML(rule.action)}</span>
+      </div>
+    `).join("");
 
     container.innerHTML = `
-      <section class="mt-8 mb-6">
-        <div class="studio-workspace glass-card bg-gray-900/60 border border-gray-800/80 hover:border-cyan-500/40 rounded-3xl p-6 sm:p-8 backdrop-blur-xl transition-all shadow-xl shadow-cyan-950/20">
-          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-gray-800">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
-              </div>
-              <div>
-                <h3 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
-                  Routing examples (not included in feeds)
-                  <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-slate-800 text-slate-300 border border-slate-700">EXAMPLE</span>
-                </h3>
-                <p class="text-xs text-gray-400 font-sans mt-0.5">Illustrative routing order only. The Sing-box/Xray links below are node subscriptions and intentionally omit this profile-level routing policy.</p>
-              </div>
-            </div>
-            <div class="flex items-center gap-2 flex-wrap">
-              <a data-artifact="all_sources_singbox.json" href="artifacts/release/all_sources_singbox.json" download class="px-3.5 py-2 min-h-[44px] bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-xs font-mono font-bold rounded-xl transition-all focus-ring flex items-center gap-1.5 cursor-pointer">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                Sing-box Subscription JSON
-              </a>
-              <a data-artifact="all_sources_xray.json" href="artifacts/release/all_sources_xray.json" download class="px-3.5 py-2 min-h-[44px] bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 text-xs font-mono font-bold rounded-xl transition-all focus-ring flex items-center gap-1.5 cursor-pointer">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                Xray Subscription JSON
-              </a>
-            </div>
+      <section class="studio-launch" aria-labelledby="studio-launch-title">
+        <div class="studio-launch-head">
+          <div>
+            <span class="studio-overline">Subscription workspace / Start here</span>
+            <h2 id="studio-launch-title">Choose a format. Keep the nodes independent.</h2>
+            <p>Get a published feed or open the subscription chooser. These are publication artifacts — not proof of a working proxy on your network.</p>
           </div>
+          <div class="studio-action-bar">
+            <button id="studio-start-builder" type="button" class="studio-primary focus-ring">Choose subscription format <span aria-hidden="true">↗</span></button>
+            <button id="studio-open-converter" type="button" class="focus-ring">Convert local input</button>
+          </div>
+        </div>
+        <div id="studio-feed-options" class="studio-feed-grid" aria-label="Available subscription formats">
+          ${feedMarkup || '<p class="studio-empty-feeds">No published subscriptions in this snapshot. Check the artifacts workspace for publication status.</p>'}
+        </div>
+        <div class="studio-help-line">
+          <span aria-hidden="true">ⓘ</span>
+          <span><strong>Subscription versus profile:</strong> Node feeds import independent proxies; a full profile also contains routing, DNS and inbound settings. Use the format your client expects.</span>
+        </div>
+      </section>
 
-          <div class="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div class="lg:col-span-7 space-y-2.5">
-              ${rules.map((rule, idx) => `
-                <div class="flex items-center justify-between p-3.5 rounded-2xl bg-gray-950/80 border border-gray-800 text-xs font-mono group hover:border-cyan-500/40 transition-all">
-                  <div class="flex items-center gap-3">
-                    <span class="text-gray-500 font-bold w-4">${idx + 1}.</span>
-                    <span class="px-2 py-0.5 rounded text-xs uppercase font-bold tracking-wider ${rule.type === 'geosite' ? 'bg-indigo-950 text-indigo-300 border border-indigo-800' : rule.type === 'geoip' ? 'bg-amber-950 text-amber-300 border border-amber-800' : 'bg-slate-800 text-gray-300 border border-slate-700'}">${rule.type}</span>
-                    <span class="text-cyan-200 font-semibold">${escapeHTML(rule.target)}</span>
-                  </div>
-                  <div class="flex items-center gap-2">
-                    <span class="px-2.5 py-1 rounded-lg text-xs font-bold ${rule.action === 'BLOCK' ? 'bg-rose-950 text-rose-300 border border-rose-800' : rule.action === 'DIRECT' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-cyan-950 text-cyan-300 border border-cyan-800'}">${rule.action}</span>
-                  </div>
-                </div>
-              `).join("")}
-            </div>
-
-            <div class="lg:col-span-5 flex flex-col justify-between p-5 rounded-2xl bg-gray-950 border border-gray-800">
-              <div>
-                <span class="text-xs font-mono uppercase tracking-wider text-gray-400 block mb-3 font-bold">Routing Pipeline Flow</span>
-                <div class="space-y-2 text-xs font-mono">
-                  <div class="p-3 rounded-xl bg-cyan-950/30 border border-cyan-800/40 text-cyan-300 flex items-center justify-between">
-                    <span>1. Inbound (Mixed 7890 / TUN)</span>
-                    <span class="text-xs text-cyan-400 font-bold">LISTEN</span>
-                  </div>
-                  <div class="text-center text-gray-600 text-sm">↓</div>
-                  <div class="p-3 rounded-xl bg-indigo-950/30 border border-indigo-800/40 text-indigo-300 flex items-center justify-between">
-                    <span>2. DNS &amp; Geo-Classifier</span>
-                    <span class="text-xs text-indigo-400 font-bold">RESOLVE</span>
-                  </div>
-                  <div class="text-center text-gray-600 text-sm">↓</div>
-                  <div class="p-3 rounded-xl bg-emerald-950/30 border border-emerald-800/40 text-emerald-300 flex items-center justify-between">
-                    <span>3. Multi-Hop Outbounds</span>
-                    <span class="text-xs text-emerald-400 font-bold">EGRESS</span>
-                  </div>
-                </div>
-              </div>
-              <div class="mt-4 pt-3 border-t border-gray-800/80 flex items-center justify-between text-xs font-mono text-gray-400">
-                <span>Example rules: ${rules.length}</span>
-                <span>Latency impact: not measured</span>
-              </div>
+      <details id="studio-routing-reference" class="studio-routing-reference" ${this.studioReferenceOpen ? "open" : ""}>
+        <summary>Routing reference <span class="routing-description">Examples only · not included in node subscriptions</span></summary>
+        <div class="studio-reference-inner">
+          <p>Examples only. These rules are not applied to any published feed. Client routing is configured separately and may require geosite/geoip databases.</p>
+          <div class="studio-reference-grid">
+            <div class="studio-reference-rules">${ruleMarkup}</div>
+            <div class="studio-reference-path">
+              <strong>Illustrative evaluation order</strong>
+              <ol>
+                <li>Inbound request reaches the local client</li>
+                <li>DNS and rule evaluation select a matching action</li>
+                <li>The client chooses DIRECT, BLOCK, or a configured proxy outbound</li>
+              </ol>
             </div>
           </div>
         </div>
-      </section>
+      </details>
     `;
+
+    container.querySelectorAll(".studio-feed-card[data-copy-url]").forEach(card => {
+      card.addEventListener("click", event => {
+        event.preventDefault();
+        this.copyText(event.currentTarget.dataset.copyUrl,
+          isHostedDashboard() ? "Subscription URL copied to clipboard" : "Portable artifact path copied — serve over HTTPS before importing",
+          event.currentTarget);
+      });
+    });
+    container.querySelector("#studio-routing-reference")?.addEventListener("toggle", event => {
+      this.studioReferenceOpen = event.currentTarget.open;
+    });
+    container.querySelector("#studio-start-builder")?.addEventListener("click", event => {
+      this.lastFocusedElement = event.currentTarget;
+      this.openSubscriptionBuilderModal();
+    });
+    container.querySelector("#studio-open-converter")?.addEventListener("click", () => {
+      this.converterTab = "converter";
+      this.switchPageTab("decoder", true);
+      this.renderDecoderSection();
+      document.getElementById("converter-input-text")?.focus({ preventScroll: true });
+    });
   }
 
   renderDecoderSection() {

@@ -15,10 +15,17 @@ async function capture(page, route, file, width, height = 900) {
     await page.locator("#doctor-title").waitFor();
   } else {
     await page.locator("#filter-bar .workspace-intro").waitFor({ state: "attached" });
-    await page.locator(route.includes("#proxies") ? "#tab-panel-proxies" : "#hero-section .radar-overview").waitFor({ state: "visible" });
+    const markers = {
+      proxies: "#tab-panel-proxies #node-quick-search",
+      studio: "#tab-panel-studio .studio-launch",
+      decoder: "#tab-panel-decoder .inspector-workspace",
+      artifacts: "#tab-panel-artifacts .artifacts-workspace"
+    };
+    const hash = route.split("#")[1] || "radar";
+    await page.locator(markers[hash] || "#hero-section .radar-overview").waitFor({ state: "visible" });
   }
   await page.evaluate(() => document.fonts?.ready);
-  if (!route.startsWith("/network-doctor") && !route.includes("#proxies")) {
+  if (!route.startsWith("/network-doctor") && (!route.includes("#") || route.endsWith("#radar"))) {
     // The globe intentionally stops drawing while off-screen. On mobile,
     // bring it into the viewport to obtain a real rendered frame, then
     // return to the page origin for a deterministic full-page capture.
@@ -73,4 +80,30 @@ test("capture Network Doctor dark, light, guidance and reported-result states", 
   await expect(page.locator("#doctor-recall")).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: path.join(output, "doctor-mobile-recalled-light.png"), fullPage: true, animations: "disabled" });
+});
+
+test("capture Atlas v2 subscription studio across desktop, light and phone layouts", async ({ page }) => {
+  await capture(page, "/#studio", "atlas-studio-desktop-dark.png", 1440);
+  await page.locator("#btn-toggle-theme").click();
+  await page.screenshot({ path: path.join(output, "atlas-studio-desktop-light.png"), fullPage: true, animations: "disabled" });
+  await capture(page, "/#studio", "atlas-studio-phone-light.png", 375, 812);
+  await page.locator("#studio-routing-reference summary").click();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: path.join(output, "atlas-studio-reference-light.png"), fullPage: true, animations: "disabled" });
+});
+
+test("capture Atlas v2 proxy explorer with first-viewport results and advanced filters", async ({ page }) => {
+  await capture(page, "/#proxies", "atlas-proxies-desktop-dark.png", 1440);
+  await page.locator("#advanced-filters summary").click();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: path.join(output, "atlas-proxies-filters-dark.png"), fullPage: true, animations: "disabled" });
+  await page.locator("#advanced-filters summary").click();
+  await expect(page.locator("#advanced-filters")).not.toHaveAttribute("open");
+  await capture(page, "/#proxies", "atlas-proxies-phone-dark.png", 375, 812);
+});
+
+test("capture Atlas v2 inspector and artifacts library", async ({ page }) => {
+  await capture(page, "/#decoder", "atlas-inspector-desktop-dark.png", 1440);
+  await capture(page, "/#artifacts", "atlas-artifacts-desktop-dark.png", 1440);
+  await capture(page, "/#artifacts", "atlas-artifacts-phone-dark.png", 375, 812);
 });

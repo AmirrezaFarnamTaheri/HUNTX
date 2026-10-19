@@ -148,6 +148,7 @@ test("inspector workspace tabs support roving keyboard navigation", async ({ pag
 test("proxy filters and view controls retain focus after workspace rerenders", async ({ page }) => {
   await localOnly(page);
   await page.goto("/#proxies");
+  await page.locator("#advanced-filters summary").click();
   const transport = page.locator("#select-transport");
   await expect(transport).toBeVisible();
   await transport.focus();
@@ -287,4 +288,108 @@ test("compact globe actually paints geography instead of an empty canvas", async
     }
     return false;
   });
+});
+
+test("published proxy explorer puts actual results into the first desktop viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await localOnly(page);
+  await page.goto("/#proxies");
+  const first = page.locator("#nodes-grid .proxy-card").first();
+  await expect(first).toBeVisible();
+  const bounds = await first.boundingBox();
+  expect(bounds).toBeTruthy();
+  expect(bounds.y).toBeLessThan(900);
+  await expect(page.locator("#filter-bar .workspace-intro h2")).toHaveCount(0);
+  await expect(page.locator("#evidence-overview")).toBeVisible();
+  await expect(page.locator("#node-quick-search")).toBeVisible();
+});
+
+test("additional proxy filters are accessible without hiding the evidence or result controls", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await localOnly(page);
+  await page.goto("/#proxies");
+  const advanced = page.locator("#advanced-filters");
+  await expect(advanced).toBeVisible();
+  await expect(advanced).not.toHaveAttribute("open");
+  await expect(page.locator("#node-quick-search")).toBeVisible();
+  await advanced.locator("summary").click();
+  await expect(advanced).toHaveAttribute("open", "");
+  await page.locator("#select-transport").focus();
+  await page.locator("#select-transport").dispatchEvent("change");
+  await expect(page.locator("#advanced-filters")).toHaveAttribute("open", "");
+  await expect(page.locator("#select-transport")).toBeFocused();
+  await page.locator("#advanced-filters summary").click();
+  await expect(page.locator("#advanced-filters")).not.toHaveAttribute("open");
+});
+
+test("subscription studio starts with working actions and moves samples into optional reference", async ({ page }) => {
+  await localOnly(page);
+  await page.goto("/#studio");
+  await expect(page.locator("#workspace-title")).toHaveText("Subscription studio");
+  await expect(page.locator("#studio-start-builder")).toBeVisible();
+  await expect(page.locator("#studio-open-converter")).toBeVisible();
+  const reference = page.locator("#studio-routing-reference");
+  await expect(reference).not.toHaveAttribute("open");
+  await page.locator("#studio-start-builder").click();
+  await expect(page.locator("#modal-sub-title")).toBeVisible();
+  await expect(page.locator("#modal-sub-title")).toContainText("Subscription");
+  await page.getByRole("button", { name: "Close Subscription Builder Modal" }).click();
+  await page.locator("#studio-open-converter").click();
+  await expect(page.locator("#tab-btn-decoder")).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator('.btn-studio-tab[data-tab="converter"]')).toHaveAttribute("aria-selected", "true");
+});
+
+test("studio samples remain accurately labeled and published subscriptions are not presented as full profiles", async ({ page }) => {
+  await localOnly(page);
+  await page.goto("/#studio");
+  await expect(page.locator("#studio-feed-options")).toBeVisible();
+  await expect(page.locator("#studio-feed-options")).toContainText("subscription");
+  const reference = page.locator("#studio-routing-reference");
+  await reference.locator("summary").click();
+  await expect(reference).toContainText("geosite:category-ads-all");
+  await expect(reference).toContainText("Examples only");
+});
+
+test("studio node feeds copy import URLs while complete profiles remain downloads", async ({ page }) => {
+  await localOnly(page);
+  await page.goto("/#studio");
+  await page.waitForFunction(() => Boolean(window.huntxApp));
+  await page.evaluate(() => {
+    const app = window.huntxApp;
+    app.catalog = {
+      files: [
+        { filename: "all_sources_base64.txt", path: "subscriptions/all_sources_base64.txt" },
+        { filename: "all_sources_singbox_profile.json", path: "subscriptions/all_sources_singbox_profile.json" }
+      ]
+    };
+    window.__studioCopiedUrl = null;
+    app.copyText = (value) => { window.__studioCopiedUrl = value; };
+    app.renderRuleStudio();
+  });
+
+  const feed = page.locator('#studio-feed-options .studio-feed-card[data-artifact="all_sources_base64.txt"]');
+  const profile = page.locator('#studio-feed-options .studio-feed-card[data-artifact="all_sources_singbox_profile.json"]');
+  await expect(feed).toBeVisible();
+  await expect(feed).toHaveAttribute("data-copy-url", /all_sources_base64\.txt/);
+  await expect(feed).not.toHaveAttribute("download", "");
+  await feed.click();
+  await expect.poll(() => page.evaluate(() => window.__studioCopiedUrl))
+    .toContain("all_sources_base64.txt");
+  await expect(page).toHaveURL(/#studio$/);
+  await expect(profile).toHaveAttribute("download", "");
+  await expect(profile).not.toHaveAttribute("data-copy-url", /./);
+});
+
+test("new design preserves viewport fit on narrow and RTL screens", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 });
+  await localOnly(page);
+  await page.goto("/#proxies");
+  await expect(page.locator("#node-quick-search")).toBeVisible();
+  await expect(page.locator("#advanced-filters")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(321);
+  await page.locator("#language-selector").selectOption("fa");
+  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(321);
 });
