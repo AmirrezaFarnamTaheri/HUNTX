@@ -510,6 +510,14 @@ def _resolve_hostnames(addresses: list[str]) -> list[str]:
             return clean
         except ValueError:
             pass
+        # Keep the established A-record resolver semantics, including for
+        # older source records. Fall back to getaddrinfo for IPv6-only hosts.
+        try:
+            ipv4 = socket.gethostbyname(clean)
+            if ipv4:
+                return ipv4
+        except (OSError, UnicodeError):
+            pass
         try:
             answers = socket.getaddrinfo(clean, None, type=socket.SOCK_STREAM)
         except (OSError, UnicodeError):
