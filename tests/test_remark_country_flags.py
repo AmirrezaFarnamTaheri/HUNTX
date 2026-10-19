@@ -59,9 +59,9 @@ def test_offline_ip_country_works_and_anycast_stays_unknown(tmp_path, monkeypatc
     from huntx.core.remark_geoip import estimate_country, _load_ranges
     dataset = tmp_path / "country.csv"
     dataset.write_text(
-        "5.5.5.0,5.5.5.255,DE\\n"
-        "8.8.8.0,8.8.8.255,US\\n"
-        "2001:db8::,2001:db8::ffff,DE\\n",
+        "5.5.5.0,5.5.5.255,DE\n"
+        "8.8.8.0,8.8.8.255,US\n"
+        "2001:db8::,2001:db8::ffff,DE\n",
         encoding="utf-8",
     )
     _load_ranges.cache_clear()
@@ -75,7 +75,7 @@ def test_offline_ip_country_works_and_anycast_stays_unknown(tmp_path, monkeypatc
 def test_country_database_reaches_published_remark(tmp_path, monkeypatch):
     from huntx.core.remark_geoip import _load_ranges
     dataset = tmp_path / "country.csv"
-    dataset.write_text("5.5.5.0,5.5.5.255,DE\\n", encoding="utf-8")
+    dataset.write_text("5.5.5.0,5.5.5.255,DE\n", encoding="utf-8")
     _load_ranges.cache_clear()
     monkeypatch.setenv("HUNTX_GEOIP_IPV4_CSV", str(dataset))
     monkeypatch.setenv("HUNTX_REMARK_STYLE", "evidence")
