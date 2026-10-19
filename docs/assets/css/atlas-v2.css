@@ -739,6 +739,8 @@ html #filter-bar .filter-more[open] .filter-advanced-summary {
 }
 html #filter-bar .filter-more :is(input, select):focus-visible,
 html #filter-bar .filter-more > summary:focus-visible,
+html #filter-bar :is(.btn-proto-tab, .btn-evidence-filter, #node-quick-search, #btn-view-grid, #btn-view-table, #btn-view-feed, .catalog-results-actions button):focus-visible,
+:is(.studio-action-bar button, .studio-action-bar a, .studio-feed-card):focus-visible,
 .studio-routing-reference > summary:focus-visible {
   outline: 3px solid var(--room-action) !important;
   outline-offset: 3px;
