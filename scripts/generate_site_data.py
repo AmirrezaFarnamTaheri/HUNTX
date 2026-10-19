@@ -1,5 +1,6 @@
 import concurrent.futures
 import hashlib
+import ipaddress
 import json
 import math
 import mimetypes
@@ -21,6 +22,7 @@ if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 from huntx.formats.npvt import canonical_proxy_identity  # noqa: E402
 from huntx.formats.proxy_uri_validator import validate_proxy_uri  # noqa: E402
+from huntx.core.remark_geoip import estimate_country, estimate_as_organization, is_anycast_address  # noqa: E402
 
 
 def _generated_at() -> str:
@@ -494,65 +496,122 @@ def _geoip_batch_lookup(addresses: list[str]) -> tuple[dict[str, dict], dict[str
 
 
 def _resolve_hostnames(addresses: list[str]) -> list[str]:
-    """Translate hostname servers to IPs so GeoIP can locate them.
+    """Resolve server hostnames, preferring routable A then AAAA records.
 
-    ip-api.com resolves literal addresses only, so a hostname like
-    ``de-1.example.com`` would otherwise stay unknown. Bare IPs and any
-    host that does not resolve pass through unchanged; a lookup miss
-    never removes a node from the batch.
+    Network probes and lookups must use the actual server address, never the
+    SNI or a remark. A resolution failure keeps the original input unchanged.
     """
     def _one(address: str) -> str:
-        if not address:
-            return address
+        clean = str(address or "").strip().strip("[]")
+        if not clean:
+            return clean
         try:
-            socket.inet_aton(address)
-            return address  # already a literal IPv4 address
-        except OSError:
+            ipaddress.ip_address(clean)
+            return clean
+        except ValueError:
             pass
         try:
-            return socket.gethostbyname(address) or address
-        except OSError:
-            return address
+            answers = socket.getaddrinfo(clean, None, type=socket.SOCK_STREAM)
+        except (OSError, UnicodeError):
+            return clean
+        public = []
+        for answer in answers:
+            candidate = answer[4][0]
+            try:
+                ip = ipaddress.ip_address(candidate)
+            except ValueError:
+                continue
+            if ip.is_global and candidate not in public:
+                public.append(candidate)
+        return next((ip for ip in public if ":" not in ip), public[0] if public else clean)
 
-    # Hostnames resolve in parallel: the sequential path spent most of the
-    # publish window waiting on one DNS query at a time.
     with concurrent.futures.ThreadPoolExecutor(max_workers=PROBE_MAX_WORKERS) as executor:
         return list(executor.map(_one, addresses))
 
 
 def enrich_proxies_with_geoip(proxies: list[dict]) -> list[dict]:
-    """Enrich explicitly-unknown geography with measured GeoIP where reachable.
+    """Apply IP-backed country and AS attribution without guessing a server's location.
 
-    Only nodes whose geography is still unknown are looked up: anycast
-    prefixes stay deliberately unknown (a registered PoP location is not the
-    node's location), and a network failure leaves the heuristic record in
-    place instead of failing generation. Set ``HUNTX_GEOIP_DISABLE=1`` to skip
-    the lookups entirely.
+    The publisher supplies verified HTTPS-downloaded PDDL country/ASN range
+    tables. Offline lookup takes precedence over source-name guesses and does
+    not expose node hostnames to external GeoIP APIs. When tables are absent,
+    the existing best-effort online provider remains a development fallback.
+    Public anycast addresses never gain a physical country from allocations.
     """
     if os.environ.get("HUNTX_GEOIP_DISABLE", "").strip():
         return proxies
-    unresolved_addresses: list[str] = []
+
+    eligible = {"unknown", "unverified_country_hint", "legacy-estimate", "inferred", "anycast-provider"}
+    addresses: list[str] = []
     seen: set[str] = set()
     for proxy in proxies:
-        if proxy.get("geo_source") != "unknown":
+        source = str(proxy.get("geo_source") or "unknown").lower()
+        if proxy.get("geo_verified") is True or source not in eligible:
             continue
-        address = str(proxy.get("server") or "").strip()
-        if not address or address in seen:
-            continue
-        seen.add(address)
-        unresolved_addresses.append(address)
-    if not unresolved_addresses:
-        return proxies
-    queried_addresses = _resolve_hostnames(unresolved_addresses)
-    resolved, translation = _geoip_batch_lookup(queried_addresses)
-    if not resolved:
-        return proxies
-    for proxy in proxies:
         server = str(proxy.get("server") or "").strip()
-        # ip-api answers with the literal it was asked about. A hostname node
-        # was queried as its resolved IP, so match through that translation.
-        record = resolved.get(translation.get(server, server))
-        if record is not None:
+        if server and server not in seen:
+            seen.add(server)
+            addresses.append(server)
+
+    if not addresses:
+        return proxies
+
+    translated = dict(zip(addresses, _resolve_hostnames(addresses)))
+    offline = any(os.environ.get(name, "").strip() for name in (
+        "HUNTX_GEOIP_IPV4_CSV", "HUNTX_GEOIP_IPV6_CSV",
+        "HUNTX_ASN_IPV4_CSV", "HUNTX_ASN_IPV6_CSV",
+    ))
+    if offline:
+        for proxy in proxies:
+            source = str(proxy.get("geo_source") or "unknown").lower()
+            if proxy.get("geo_verified") is True or source not in eligible:
+                continue
+            server = str(proxy.get("server") or "").strip()
+            if not server:
+                continue
+            ip = translated.get(server, server)
+            if is_anycast_address(ip):
+                # An anycast exit IP may route through different countries.
+                # A country-looking SNI or original remark is not evidence.
+                proxy.update({
+                    "country": "ZZ", "country_name": "Unknown", "flag": "🌐",
+                    "city": "Unknown", "latitude": None, "longitude": None,
+                    "geo_source": "anycast-provider", "geo_verified": False,
+                })
+            else:
+                country = estimate_country(ip)
+                if country:
+                    proxy.update({
+                        "country": country,
+                        "country_name": COUNTRY_NAMES.get(country, country),
+                        "flag": _country_flag(country),
+                        "city": "Unknown",
+                        "latitude": None, "longitude": None,
+                        "geo_source": "server-country-pddl",
+                        # Dataset-backed allocation estimate, not a physical
+                        # or proxy-protocol location measurement.
+                        "geo_verified": True,
+                    })
+            network = estimate_as_organization(ip)
+            if network:
+                proxy["org"] = network
+                proxy["carrier"] = network
+        return proxies
+
+    # Local developer fallback when the official publication datasets are not
+    # provided. It may fail without breaking frontend generation, but never
+    # overrides an anycast or already evidence-backed location.
+    looked_up, _ = _geoip_batch_lookup(list(translated.values()))
+    for proxy in proxies:
+        source = str(proxy.get("geo_source") or "unknown").lower()
+        if proxy.get("geo_verified") is True or source not in eligible:
+            continue
+        server = str(proxy.get("server") or "").strip()
+        ip = translated.get(server, server)
+        if is_anycast_address(ip):
+            continue
+        record = looked_up.get(ip)
+        if record:
             proxy.update(record)
     return proxies
 
