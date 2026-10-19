@@ -60,6 +60,9 @@ def _measure(target: tuple[str, int]) -> tuple[tuple[str, int], dict]:
         {'dns_status': 'resolved', 'dns_checked_at': now,
          'dns_expires_at': now + _OBSERVATION_TTL} if is_dns else {}
     )
+    # A DNS answer is a location input, not proof of proxy connectivity.
+    # Use only already filtered public addresses and retain it inside the build.
+    evidence['geoip_address'] = public[0][1]
     started = time.monotonic()
     for family, address in public[:2]:
         remaining = _TCP_TIMEOUT - (time.monotonic() - started)
