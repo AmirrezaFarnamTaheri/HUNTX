@@ -14,6 +14,7 @@ from .common.hashing import hash_string
 from .common.normalize_text import normalize_text
 from .proxy_uri_validator import validate_proxy_uri
 from ..core.router import _AUTH_HTTP_PROXY_RE, _PROXY_SCHEMES
+from ..core.remark_geoip import estimate_country
 
 _REPORT_PROXY_SCHEMES = _PROXY_SCHEMES + ('http://', 'https://')
 _PROXY_URI_RE = re.compile(
@@ -272,22 +273,31 @@ def format_enriched_remark(uri: str, counter: dict, metadata: dict | None = None
 
 
 # ISO hints are deliberately separate from independently sourced IP evidence.
-_HINT_COUNTRIES = frozenset({
-    'US', 'DE', 'FR', 'GB', 'NL', 'SG', 'JP', 'CA', 'AU', 'IR', 'KR', 'CN',
-    'RU', 'HK', 'TW', 'SE', 'FI', 'CH', 'IT', 'ES', 'TR', 'IN', 'BR', 'PL',
-    'RO', 'UA', 'AE', 'ZA', 'NO', 'DK', 'BE', 'AT', 'CZ', 'GR', 'PT', 'IE',
-})
+_HINT_COUNTRIES = frozenset(("AD AE AF AG AI AL AM AO AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BM BN BO BR BS BT BW BY BZ CA CD CF CG CH CI CK CL CM CN CO CR CU CV CY CZ DE DJ DK DM DO DZ EC EE EG ER ES ET FI FJ FM FO FR GA GB GD GE GF GH GI GM GN GQ GR GT GU GW GY HK HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW").split())
+_COUNTRY_NAMES = {"GERMANY": "DE", "FRANCE": "FR", "NETHERLANDS": "NL", "UNITED STATES": "US", "UNITED KINGDOM": "GB", "CANADA": "CA", "SWEDEN": "SE", "SINGAPORE": "SG", "JAPAN": "JP", "IRAN": "IR", "RUSSIA": "RU", "AUSTRALIA": "AU", "EGYPT": "EG"}
 
 
 def _remark_country_hint(uri: str) -> str | None:
-    """Only consume an explicitly tagged country from the untrusted fragment."""
+    """Recognize explicitly labeled source country, never infer it from secrets."""
     fragment = uri.split('#', 1)[1] if '#' in uri else ''
-    if not fragment or len(fragment) > 256:
+    if uri.lower().startswith('vmess://'):
+        try:
+            decoded = json.loads(_b64_decode_safe(uri.partition('#')[0][8:]))
+            fragment = decoded.get('ps', '') if isinstance(decoded, dict) else ''
+        except (ValueError, UnicodeError, binascii.Error, TypeError):
+            fragment = ''
+    if not isinstance(fragment, str) or not fragment or len(fragment) > 256:
         return None
     readable = unquote(fragment).upper()
-    for match in re.finditer(r'(?<![A-Z])([A-Z]{2})(?![A-Z])', readable):
-        code = match.group(1)
+    for match in re.finditer(r'[\\U0001F1E6-\\U0001F1FF]{2}', readable):
+        code = ''.join(chr(ord(symbol) - 127397) for symbol in match.group())
         if code in _HINT_COUNTRIES:
+            return code
+    for match in re.finditer(r'(?<![A-Z])([A-Z]{2})(?![A-Z])', readable):
+        if match.group(1) in _HINT_COUNTRIES:
+            return match.group(1)
+    for name, code in _COUNTRY_NAMES.items():
+        if re.search(r'(?<![A-Z])' + re.escape(name) + r'(?![A-Z])', readable):
             return code
     return None
 
@@ -397,6 +407,10 @@ def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
         intel_fresh and geo.get('status') == 'prefix_dataset_estimate'
         and isinstance(country, str) and country in _HINT_COUNTRIES
     )
+    estimated = fields.get('country_estimate')
+    if not trustworthy_location and isinstance(estimated, str) and estimated in _HINT_COUNTRIES:
+        country = estimated
+        trustworthy_location = True
     location = '🌐'
     if trustworthy_location and isinstance(country, str):
         location = _country_to_flag(country)
@@ -647,6 +661,17 @@ class NpvtHandler(FormatHandler):
                         discovered = describe_proxy_endpoint(stripped, intelligence=prefix_intel)
                         if discovered is not None:
                             evidence_metadata = {**stored, "endpoint": discovered}
+                if rich:
+                    stored = evidence_metadata if isinstance(evidence_metadata, dict) else {}
+                    endpoint = stored.get("endpoint")
+                    host = endpoint.get("ip") if isinstance(endpoint, dict) else None
+                    if not host:
+                        host = stored.get("geoip_address")
+                    if not host and isinstance(endpoint, dict):
+                        host = endpoint.get("host")
+                    country_estimate = estimate_country(host) if isinstance(host, str) else None
+                    if country_estimate:
+                        evidence_metadata = {**stored, "country_estimate": country_estimate}
                 if rich:
                     # A collision is two distinct credential/config identities
                     # sharing one human-readable endpoint description. Disclose
