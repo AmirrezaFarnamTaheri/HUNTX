@@ -438,6 +438,17 @@ jobs:
               raise SystemExit("Release JSON contract invalid: " + ", ".join(failed))
           PY
 
+      - name: Prepare attributed country and network operator data
+        if: steps.release.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          # Public-domain PDDL server-country and origin-AS range tables,
+          # independently checksummed. These populate the dashboard sidecar
+          # from the real endpoint IP instead of guessing from the SNI.
+          python scripts/prepare_geoip_data.py \
+            --output-dir "$RUNNER_TEMP/huntx-geoip" \
+            --github-env "$GITHUB_ENV"
+
       - name: Build verified dashboard data from release dist
         if: steps.release.outputs.ready == 'true'
         env:
