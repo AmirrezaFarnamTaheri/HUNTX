@@ -403,6 +403,21 @@ jobs:
           python -m pip install --no-deps -e .
           python -m pip check
 
+      - name: Prepare offline country database for proxy flags
+        run: |
+          set -euo pipefail
+          mkdir -p .geoip
+          # These are IP allocation estimates, not anycast POP locations.
+          # Source: sapics/ip-location-db (GeoFeed/Whois/ASN, CC0).
+          for family in ipv4 ipv6; do
+            url="https://cdn.jsdelivr.net/npm/@ip-location-db/geo-whois-asn-country/geo-whois-asn-country-${family}.csv"
+            if ! curl --fail --location --silent --show-error --retry 2 --connect-timeout 10 --max-time 75 \
+              "$url" -o ".geoip/${family}.csv"; then
+              echo "::warning::Country data unavailable for ${family}; retaining unknown fallback"
+              rm -f ".geoip/${family}.csv"
+            fi
+          done
+
       - name: Download restored state
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -458,6 +473,8 @@ jobs:
           TELEGRAM_USER_SESSION: ${{ secrets.TELEGRAM_USER_SESSION }}
           HUNTX_MAX_WORKERS: ${{ env.MAX_WORKERS }}
           HUNTX_REMARK_STYLE: evidence
+          HUNTX_GEOIP_IPV4_CSV: .geoip/ipv4.csv
+          HUNTX_GEOIP_IPV6_CSV: .geoip/ipv6.csv
           # Time-bounded, public-IP-only DNS/TCP measurements; not speed or auth verification.
           HUNTX_REMARK_TCP_PROBE: '1'
           LOG_LEVEL: INFO
