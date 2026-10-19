@@ -79,3 +79,52 @@ def estimate_country(host: str) -> str | None:
     if index < 0 or int(ip) > ends[index]:
         return None
     return countries[index]
+
+
+@lru_cache(maxsize=4)
+def _load_asn_ranges(filename: str):
+    """Read the PDDL origin-AS range table once for each configured file."""
+    path = Path(filename)
+    if not path.is_file() or path.stat().st_size > 96 * 1024 * 1024:
+        return (), (), ()
+    rows = []
+    with path.open(newline="", encoding="utf-8") as stream:
+        for row in csv.reader(stream):
+            if len(row) != 4:
+                continue
+            try:
+                start = ipaddress.ip_address(row[0])
+                end = ipaddress.ip_address(row[1])
+                number = int(row[2])
+            except (TypeError, ValueError):
+                continue
+            organization = row[3].strip()
+            if (start.version != end.version or int(start) > int(end)
+                    or number <= 0 or not organization or len(organization) > 160):
+                continue
+            rows.append((int(start), int(end), organization))
+    rows.sort()
+    return tuple(row[0] for row in rows), tuple(row[1] for row in rows), tuple(row[2] for row in rows)
+
+
+def estimate_as_organization(host: str) -> str | None:
+    """Estimate the network's origin-AS operator from a public IP.
+
+    The returned AS organization is not necessarily a consumer mobile carrier
+    or an accurate physical server location. No DNS or network I/O occurs.
+    """
+    ip = _public_address(host)
+    if ip is None:
+        return None
+    key = "HUNTX_ASN_IPV4_CSV" if ip.version == 4 else "HUNTX_ASN_IPV6_CSV"
+    filename = os.environ.get(key, "").strip()
+    if not filename:
+        return None
+    try:
+        starts, ends, organizations = _load_asn_ranges(filename)
+    except (OSError, UnicodeError, csv.Error):
+        return None
+    index = bisect_right(starts, int(ip)) - 1
+    if index < 0 or int(ip) > ends[index]:
+        return None
+    return organizations[index]
