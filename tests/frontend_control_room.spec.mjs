@@ -350,6 +350,36 @@ test("studio samples remain accurately labeled and published subscriptions are n
   await expect(reference).toContainText("Examples only");
 });
 
+test("studio node feeds copy import URLs while complete profiles remain downloads", async ({ page }) => {
+  await localOnly(page);
+  await page.goto("/#studio");
+  await page.waitForFunction(() => Boolean(window.huntxApp));
+  await page.evaluate(() => {
+    const app = window.huntxApp;
+    app.catalog = {
+      files: [
+        { filename: "all_sources_base64.txt", path: "subscriptions/all_sources_base64.txt" },
+        { filename: "all_sources_singbox_profile.json", path: "subscriptions/all_sources_singbox_profile.json" }
+      ]
+    };
+    window.__studioCopiedUrl = null;
+    app.copyText = (value) => { window.__studioCopiedUrl = value; };
+    app.renderRuleStudio();
+  });
+
+  const feed = page.locator('#studio-feed-options .studio-feed-card[data-artifact="all_sources_base64.txt"]');
+  const profile = page.locator('#studio-feed-options .studio-feed-card[data-artifact="all_sources_singbox_profile.json"]');
+  await expect(feed).toBeVisible();
+  await expect(feed).toHaveAttribute("data-copy-url", /all_sources_base64\.txt/);
+  await expect(feed).not.toHaveAttribute("download", "");
+  await feed.click();
+  await expect.poll(() => page.evaluate(() => window.__studioCopiedUrl))
+    .toContain("all_sources_base64.txt");
+  await expect(page).toHaveURL(/#studio$/);
+  await expect(profile).toHaveAttribute("download", "");
+  await expect(profile).not.toHaveAttribute("data-copy-url", /./);
+});
+
 test("new design preserves viewport fit on narrow and RTL screens", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 });
   await localOnly(page);
@@ -359,6 +389,7 @@ test("new design preserves viewport fit on narrow and RTL screens", async ({ pag
   expect(await page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(321);
   await page.locator("#language-selector").selectOption("fa");
+  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   expect(await page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(321);
 });
