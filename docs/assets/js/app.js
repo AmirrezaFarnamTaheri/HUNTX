@@ -3240,10 +3240,10 @@ export class AppState {
       const link = getArtifactLinkModel(file.path);
       return `
         <a class="studio-feed-card focus-ring" data-artifact="${escapeHTML(item.filename)}"
-           href="${escapeHTML(link.copyValue)}" download>
+           href="${escapeHTML(link.copyValue)}" ${item.format === "PROFILE" ? "download" : `data-copy-url="${escapeHTML(link.copyValue)}"`}>
           <span class="studio-feed-top">
             <span class="studio-feed-type">${escapeHTML(item.format)}</span>
-            <span class="studio-feed-arrow" aria-hidden="true">↗</span>
+            <span class="studio-feed-arrow" aria-hidden="true">${item.format === "PROFILE" ? "↓" : "⧉"}</span>
           </span>
           <strong>${escapeHTML(item.label)}</strong>
           <p>${escapeHTML(item.description)}</p>
@@ -3308,6 +3308,14 @@ export class AppState {
       </details>
     `;
 
+    container.querySelectorAll(".studio-feed-card[data-copy-url]").forEach(card => {
+      card.addEventListener("click", event => {
+        event.preventDefault();
+        this.copyText(event.currentTarget.dataset.copyUrl,
+          isHostedDashboard() ? "Subscription URL copied to clipboard" : "Portable artifact path copied — serve over HTTPS before importing",
+          event.currentTarget);
+      });
+    });
     container.querySelector("#studio-routing-reference")?.addEventListener("toggle", event => {
       this.studioReferenceOpen = event.currentTarget.open;
     });
