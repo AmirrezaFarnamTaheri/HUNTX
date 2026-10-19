@@ -107,6 +107,12 @@ def _load_asn_ranges(filename: str):
     return tuple(row[0] for row in rows), tuple(row[1] for row in rows), tuple(row[2] for row in rows)
 
 
+def is_anycast_address(host: str) -> bool:
+    """Whether a public IP is within a known globally anycast prefix."""
+    ip = _public_address(host)
+    return ip is not None and _anycast(ip)
+
+
 def estimate_as_organization(host: str) -> str | None:
     """Estimate the network's origin-AS operator from a public IP.
 
