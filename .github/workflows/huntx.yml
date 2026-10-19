@@ -403,20 +403,16 @@ jobs:
           python -m pip install --no-deps -e .
           python -m pip check
 
-      - name: Prepare offline country database for proxy flags
+      - name: Prepare checksum-verified offline country data for proxy flags
         run: |
           set -euo pipefail
-          mkdir -p .geoip
-          # These are IP allocation estimates, not anycast POP locations.
-          # Source: sapics/ip-location-db (GeoFeed/Whois/ASN, CC0).
-          for family in ipv4 ipv6; do
-            url="https://cdn.jsdelivr.net/npm/@ip-location-db/geo-whois-asn-country/geo-whois-asn-country-${family}.csv"
-            if ! curl --fail --location --silent --show-error --retry 2 --connect-timeout 10 --max-time 75 \
-              "$url" -o ".geoip/${family}.csv"; then
-              echo "::warning::Country data unavailable for ${family}; retaining unknown fallback"
-              rm -f ".geoip/${family}.csv"
-            fi
-          done
+          # Export HUNTX_GEOIP_IPV4_CSV and HUNTX_GEOIP_IPV6_CSV to all
+          # subsequent steps. The old CDN download left these unset, so the
+          # remark formatter never loaded the database and used 🌐 instead.
+          python scripts/prepare_geoip_data.py \
+            --output-dir "$RUNNER_TEMP/huntx-geoip" \
+            --country-only \
+            --github-env "$GITHUB_ENV"
 
       - name: Download restored state
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
