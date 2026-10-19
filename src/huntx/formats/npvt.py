@@ -289,7 +289,7 @@ def _remark_country_hint(uri: str) -> str | None:
     if not isinstance(fragment, str) or not fragment or len(fragment) > 256:
         return None
     readable = unquote(fragment).upper()
-    for match in re.finditer(r'[\\U0001F1E6-\\U0001F1FF]{2}', readable):
+    for match in re.finditer(r'[\U0001F1E6-\U0001F1FF]{2}', readable):
         code = ''.join(chr(ord(symbol) - 127397) for symbol in match.group())
         if code in _HINT_COUNTRIES:
             return code
