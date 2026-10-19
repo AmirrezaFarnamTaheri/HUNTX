@@ -1,6 +1,6 @@
 # Fully pinned CI-only quality-gate toolchain.
 # Keep this file as the single source consumed by PR and production validation.
-ast-serialize==0.12.1
+ast-serialize==0.13.0
 flake8==7.4.1
 iniconfig==2.3.1
 librt==0.16.0
@@ -9,7 +9,7 @@ mypy==2.4.0
 mypy_extensions==1.1.0
 packaging==26.3
 pathspec==1.1.1
-pluggy==1.6.0
+pluggy==1.7.0
 pycodestyle==2.15.0
 pyflakes==4.0.3
 pygments==2.21.0
