@@ -25,7 +25,19 @@ from huntx.core.orchestrator import Orchestrator
 from huntx.store import paths as paths_mod
 
 
-def _config(route_names) -> AppConfig:
+def _config(route_specs) -> AppConfig:
+    """Build a config from ``[(route_name, [formats]), ...]`` or plain names.
+
+    A plain name gets the neutral ``fmt`` format; a pair names the route and
+    the formats it builds, so a test can exercise the real proxy formats and
+    their derivatives.
+    """
+    normalized = []
+    for spec in route_specs:
+        if isinstance(spec, str):
+            normalized.append((spec, ["fmt"]))
+        else:
+            normalized.append((spec[0], list(spec[1])))
     return AppConfig(
         sources=[
             SourceConfig(
@@ -40,7 +52,7 @@ def _config(route_names) -> AppConfig:
                 PublishRoute(
                     name=name,
                     from_sources=["src_bot"],
-                    formats=["fmt"],
+                    formats=formats,
                     destinations=[
                         DestinationConfig(
                             chat_id="dest1",
@@ -49,7 +61,7 @@ def _config(route_names) -> AppConfig:
                         )
                     ],
                 )
-                for name in route_names
+                for name, formats in normalized
             ]
         ),
     )
@@ -58,8 +70,8 @@ def _config(route_names) -> AppConfig:
 class TestExactOutputOwnership(unittest.TestCase):
     """A route may only delete a file it owns by exact name."""
 
-    def _orchestrator(self, route_names):
-        return Orchestrator(_config(route_names))
+    def _orchestrator(self, route_specs):
+        return Orchestrator(_config(route_specs))
 
     def _bind_output_dir(self, orch, tmp):
         out_dir = Path(tmp) / "outputs"
@@ -92,13 +104,16 @@ class TestExactOutputOwnership(unittest.TestCase):
     @patch("huntx.core.orchestrator.BuildPipeline")
     @patch("huntx.core.orchestrator.PublishPipeline")
     def test_sibling_route_sharing_a_prefix_is_not_deleted(self, *args):
-        """Route "all" must not delete route "all_sources"' artifact.
+        """A route must not delete a file that only shares its name prefix.
 
-        The prefix test matched "all_sources.fmt" against route "all". The
-        sibling artifact is older than the retention window, so a prefix-based
-        owner would have deleted it.
+        The prefix test matched "all_sources.fmt" against route "all",
+        because the sibling's name starts with "all". Route "all_sources" is
+        no longer configured, so nothing owns that file any more, but "all"
+        does not own it either: ownership is by exact filename. The sibling
+        artifact is older than the retention window, so a prefix-based owner
+        would have deleted it.
         """
-        orch = self._orchestrator(["all", "all_sources"])
+        orch = self._orchestrator(["all"])
         with tempfile.TemporaryDirectory() as tmp:
             out_dir = self._bind_output_dir(orch, tmp)
 
@@ -179,13 +194,19 @@ class TestExactOutputOwnership(unittest.TestCase):
     @patch("huntx.core.orchestrator.PublishPipeline")
     def test_derivative_names_of_a_derived_format_are_owned(self, *args):
         """npvt's derivative products are owned by exact name too."""
-        orch = self._orchestrator(["route1"])
+        orch = self._orchestrator([("route1", ["npvt", "npvtsub", "fmt"])])
         with tempfile.TemporaryDirectory() as tmp:
-            out_dir = self._bind_output_dir(orch, tmp)
+            self._bind_output_dir(orch, tmp)
 
             owned = orch._owned_output_filenames()
+            # The base format and every derivative the build pipeline derives
+            # from it are owned. The derivative identities are the ones the
+            # build pipeline actually emits ("npvt.decoded.json" and friends),
+            # mapped through the shared naming contract.
             self.assertIn(orch._output_filename("route1", "npvt"), owned)
             self.assertIn(orch._output_filename("route1", "npvt.decoded.json"), owned)
+            self.assertIn(orch._output_filename("route1", "npvt.b64sub"), owned)
+            self.assertIn(orch._output_filename("route1", "npvtsub"), owned)
             self.assertIn(orch._output_filename("route1", "npvtsub.b64sub"), owned)
             # A format that produces no derivatives is owned by one name only.
             self.assertIn(orch._output_filename("route1", "fmt"), owned)

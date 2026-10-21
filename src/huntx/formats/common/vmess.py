@@ -33,11 +33,20 @@ from .b64 import b64_decode_bytes
 # ``sort_keys`` removes the dependence on the key order of the source
 # document, and the compact separators keep the encoding byte-identical
 # across layers.
-_CANONICAL_JSON_KWARGS = {
-    "sort_keys": True,
-    "separators": (",", ":"),
-    "ensure_ascii": False,
-}
+
+
+def _canonical_json(value: Any) -> str:
+    """Encode *value* as canonical VMess JSON.
+
+    One function, so the identity path and the display path cannot drift
+    apart in their encoding settings.
+    """
+    return json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
 
 
 def decode_vmess_payload(line: str) -> Optional[dict[str, Any]]:
@@ -86,7 +95,7 @@ def canonical_vmess_line(line: str) -> Optional[str]:
     if value is None:
         return None
     value.pop("ps", None)
-    canonical = json.dumps(value, **_CANONICAL_JSON_KWARGS)
+    canonical = _canonical_json(value)
     return "vmess://" + base64.b64encode(canonical.encode("utf-8")).decode("ascii")
 
 
@@ -110,5 +119,5 @@ def vmess_payload_with_remark(line: str, remark: str) -> Optional[str]:
     if value is None:
         return None
     value["ps"] = remark
-    encoded = json.dumps(value, **_CANONICAL_JSON_KWARGS).encode("utf-8")
+    encoded = _canonical_json(value).encode("utf-8")
     return "vmess://" + base64.b64encode(encoded).decode("ascii") + marker + fragment

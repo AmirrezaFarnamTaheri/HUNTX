@@ -14,6 +14,7 @@ import unittest
 from huntx.core import runtime_resilience
 from huntx.core.hardened_orchestrator import HardenedOrchestrator
 from huntx.core.optimized_orchestrator import OptimizedHardenedOrchestrator
+from huntx.core.orchestrator import Orchestrator
 
 
 class TestRuntimeResilienceOwnership(unittest.TestCase):
