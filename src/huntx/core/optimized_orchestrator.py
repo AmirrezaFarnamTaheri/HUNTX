@@ -9,11 +9,16 @@ import uuid
 from typing import Any, Optional
 
 from .hardened_orchestrator import HardenedOrchestrator
-from ..connectors.telegram_user.failure_policy import is_permanent_telegram_peer_error
+from ..connectors.telegram_user.failure_policy import (
+    is_permanent_telegram_peer_error,
+    telegram_account_key,
+    telegram_flood_wait_seconds,
+)
 from ..connectors.telegram_user.windowed import WindowedTelegramUserConnector
 from ..pipeline.optimized_transform import OptimizedTransformPipeline
 from ..pipeline.windowed_ingest import WindowedIngestionPipeline
 from ..state.ingestion_queue import PersistentIngestionQueue
+from .source_reliability import prioritize_http_sources, summarize_http_source_reports
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +63,10 @@ def _numeric_channel_id(peer: Any) -> Optional[int]:
     return None
 
 
-async def _close_canonical_connector(self: Any, connector: Any) -> None:
+async def _close_canonical_connector(
+    self: Any,
+    connector: Optional[WindowedTelegramUserConnector],
+) -> None:
     """Close the reusable canonical-resolution connector within a bounded timeout."""
     if connector is None:
         return
@@ -73,20 +81,42 @@ async def _close_canonical_connector(self: Any, connector: Any) -> None:
         logger.exception("[LIFO] Failed closing canonical Telegram client")
 
 
-async def _canonical_ingestion_sources(self: Any, sources: list[Any]) -> list[Any]:
-    """Return reachable, canonicalized Telegram sources plus direct sources.
-
-    The preflight resolves each MTProto source to its canonical channel
-    before the rolling horizon is seeded, so two sources pointing at the same
-    channel cannot both be ingested and published. A source whose channel
-    cannot be reached is preserved rather than dropped, unless the failure is
-    permanent or the peer is a configured numeric channel that is provably
-    unreachable.
-    """
+async def _canonical_ingestion_sources(
+    self: Any,
+    sources: list[Any],
+) -> list[Any]:
+    """Return reachable, canonicalized Telegram sources plus direct sources."""
     accepted: list[Any] = []
     canonical_owner: dict[int, str] = {}
     connector: Optional[WindowedTelegramUserConnector] = None
     connector_key: Optional[tuple[int, str, str]] = None
+    flood_accounts: set[tuple[str, str, str]] = set()
+    self._preflight_flood_deadlines = {}
+
+    def defer_flood_wait(source: Any, exc: BaseException) -> bool:
+        seconds = telegram_flood_wait_seconds(exc)
+        if seconds is None:
+            return False
+        account = telegram_account_key(source)
+        related = [
+            str(candidate.id) for candidate in sources
+            if account is not None and telegram_account_key(candidate) == account
+        ] if account is not None else [str(source.id)]
+        if account is not None:
+            flood_accounts.add(account)
+            self._preflight_flood_deadlines[account] = time.time() + seconds + 5
+        postponed = self._work_queue.defer_sources(
+            related,
+            retry_delay=seconds + 5,
+            reason="Telegram shared FloodWait cooldown",
+        )
+        logger.warning(
+            "[LIFO] MTProto canonical preflight rate-limited for %ds; "
+            "postponed %d already queued window(s), skipped further "
+            "lookups for %d source(s) on the same account",
+            seconds + 5, postponed, len(related),
+        )
+        return True
 
     try:
         for source in sources:
@@ -100,6 +130,10 @@ async def _canonical_ingestion_sources(self: Any, sources: list[Any]) -> list[An
                     str(source.id),
                     "source is no longer configured as telegram_user",
                 )
+                continue
+
+            if telegram_account_key(source) in flood_accounts:
+                accepted.append(source)
                 continue
 
             configured_channel_id = _numeric_channel_id(config.peer)
@@ -138,7 +172,8 @@ async def _canonical_ingestion_sources(self: Any, sources: list[Any]) -> list[An
             key = (int(config.api_id), str(config.api_hash), str(config.session))
             if connector is None or connector_key != key:
                 await _close_canonical_connector(self, connector)
-                connector = WindowedTelegramUserConnector(
+                connector_class = WindowedTelegramUserConnector
+                connector = connector_class(
                     api_id=config.api_id,
                     api_hash=config.api_hash,
                     session=config.session,
@@ -161,11 +196,12 @@ async def _canonical_ingestion_sources(self: Any, sources: list[Any]) -> list[An
                     connector_key = None
                     accepted.append(source)
                     continue
-                except Exception:
-                    logger.exception(
-                        "[LIFO] Failed acquiring Telegram session for %s; preserving source",
-                        source.id,
-                    )
+                except Exception as exc:
+                    if not defer_flood_wait(source, exc):
+                        logger.exception(
+                            "[LIFO] Failed acquiring Telegram session for %s; preserving source",
+                            source.id,
+                        )
                     connector = None
                     connector_key = None
                     accepted.append(source)
@@ -194,6 +230,12 @@ async def _canonical_ingestion_sources(self: Any, sources: list[Any]) -> list[An
                 accepted.append(source)
                 continue
             except Exception as exc:
+                if defer_flood_wait(source, exc):
+                    await _close_canonical_connector(self, connector)
+                    connector = None
+                    connector_key = None
+                    accepted.append(source)
+                    continue
                 if is_permanent_telegram_peer_error(exc):
                     reason = (
                         "permanent Telegram peer failure during canonical preflight: "
@@ -273,14 +315,7 @@ async def _run_hardened(
     no_publish: bool,
     allow_partial_export: bool,
 ) -> dict[str, Any]:
-    """Run the resilient optimized pipeline without bypassing source trust policy.
-
-    Sources that are not publication-approved are terminalized before the
-    rolling horizon is seeded, so an unapproved source can neither be
-    ingested nor reach the published snapshot. The preflight cost is
-    subtracted from the base run's budget, because the preflight is work this
-    run performed and not time the base pipeline gets to spend.
-    """
+    """Run the resilient optimized pipeline without bypassing source trust policy."""
     run_started = time.monotonic()
     original = list(self.config.sources)
     approved = [
@@ -310,6 +345,9 @@ async def _run_hardened(
     self._window_completions = 0
     self._window_failures = 0
     self._reset_investigation_metrics()
+    # The resilient override must initialize the ledger used by both direct
+    # HTTP success and failure paths; without it reports silently disappear.
+    self._http_source_reports = {}
     self._run_owner = uuid.uuid4().hex
     self._completion_buffer_seconds = self._completion_buffer(timeout)
 
@@ -332,6 +370,17 @@ async def _run_hardened(
     try:
         recovered = self._work_queue.recover_expired_leases()
         ingestion_sources = await self._canonical_ingestion_sources(approved)
+        # Stable, source-scoped historical retrieval evidence ranks optional
+        # public feeds without ever reordering canonical Telegram windows.
+        http_ids = [
+            str(source.id) for source in ingestion_sources
+            if getattr(source, "type", None) == "http_subscription"
+        ]
+        if http_ids:
+            state_loader = getattr(self.repo, "get_source_states_batch", None)
+            if callable(state_loader):
+                states = state_loader(http_ids)
+                ingestion_sources = prioritize_http_sources(ingestion_sources, states)
         self._source_by_id = {str(source.id): source for source in ingestion_sources}
         self.config.sources = ingestion_sources
         seed = self._work_queue.seed_rolling_horizon(
@@ -339,6 +388,19 @@ async def _run_hardened(
             lookback_seconds=self._lookback_seconds(),
             window_seconds=self._window_seconds(),
         )
+        # The flood may have happened before this run inserted new windows.
+        # Apply its persisted deadline to those new rows as well.
+        for account, deadline in getattr(self, "_preflight_flood_deadlines", {}).items():
+            related = [
+                str(source.id) for source in ingestion_sources
+                if telegram_account_key(source) == account
+            ]
+            if related:
+                self._work_queue.defer_sources(
+                    related,
+                    retry_delay=max(1, math.ceil(deadline - time.time())),
+                    reason="Telegram shared FloodWait cooldown",
+                )
         preflight_seconds = time.monotonic() - run_started
         remaining_total = None if timeout is None else max(0.0, timeout - preflight_seconds)
         logger.info(
@@ -389,6 +451,7 @@ async def _run_hardened(
     summary["lifo_window_failures"] = self._window_failures
     summary["lifo_residue"] = residue
     summary.update(self._investigation_metrics())
+    summary.update(summarize_http_source_reports(self._http_source_reports))
     summary["ingest_skipped_due_to_budget"] = (
         remaining_residue if self._ingestion_budget_exhausted else 0
     )
