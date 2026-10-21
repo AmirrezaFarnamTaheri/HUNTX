@@ -24,6 +24,10 @@ if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from huntx.core.output_ownership import output_filename  # noqa: E402
+from huntx.formats.common.vmess import (  # noqa: E402
+    canonical_vmess_line,
+    vmess_payload_with_remark,
+)
 
 ManifestValue = float | int | str
 LEGACY_FIRST_SEEN = 0
@@ -109,17 +113,16 @@ def _b64_decode_safe(data: str) -> str:
 
 
 def strip_proxy_remark(uri: str) -> str:
+    """Return the canonical identity for one proxy URI.
+
+    The VMess branch delegates to the shared VMess contract so the snapshot's
+    identity keys, the runtime's identity keys and the schema migration's
+    re-keyed hashes all agree. A payload that decodes to a JSON array, string
+    or number has no canonical form and is left untouched.
+    """
     if uri.startswith("vmess://"):
-        try:
-            raw = _b64_decode_safe(uri[8:])
-            payload = json.loads(raw)
-            if not isinstance(payload, dict):
-                return uri
-            payload.pop("ps", None)
-            canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-            return "vmess://" + base64.b64encode(canonical.encode()).decode()
-        except (binascii.Error, UnicodeDecodeError, ValueError, json.JSONDecodeError):
-            return uri
+        canonical = canonical_vmess_line(uri)
+        return canonical if canonical is not None else uri
     marker = uri.rfind("#")
     return uri[:marker] if marker > 0 else uri
 
@@ -130,17 +133,8 @@ def add_clean_remark(uri: str, counter: dict[str, int]) -> str:
     tag = f"{scheme}-{counter[scheme]}"
 
     if uri.startswith("vmess://"):
-        try:
-            body, marker, fragment = uri.partition("#")
-            raw = _b64_decode_safe(body[8:])
-            payload = json.loads(raw)
-            if not isinstance(payload, dict):
-                return uri
-            payload["ps"] = tag
-            encoded = json.dumps(payload, separators=(",", ":")).encode()
-            return "vmess://" + base64.b64encode(encoded).decode() + marker + fragment
-        except (binascii.Error, UnicodeDecodeError, ValueError, json.JSONDecodeError):
-            return uri
+        remarked = vmess_payload_with_remark(uri, tag)
+        return remarked if remarked is not None else uri
 
     marker = uri.rfind("#")
     base = uri[:marker] if marker > 0 else uri

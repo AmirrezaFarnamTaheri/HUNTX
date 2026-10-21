@@ -1,6 +1,4 @@
-import base64
 import binascii
-import json
 import math
 import re
 from typing import Any, Dict, List
@@ -9,6 +7,7 @@ from .base import FormatHandler
 from .common.b64 import b64_decode as _b64_decode_safe
 from .common.hashing import hash_string
 from .common.normalize_text import normalize_text
+from .common.vmess import canonical_vmess_line, vmess_payload_with_remark
 from .proxy_uri_validator import validate_proxy_uri
 from ..core.router import _AUTH_HTTP_PROXY_RE, _PROXY_SCHEMES
 
@@ -76,17 +75,18 @@ def remark_qualifier(uri: str) -> str:
 
 
 def strip_proxy_remark(uri: str) -> str:
-    """Remove display remarks while preserving proxy semantics."""
+    """Remove display remarks while preserving proxy semantics.
+
+    VMess links carry their remark in the payload's ``ps`` field, so they are
+    canonicalized through the shared VMess contract. Every layer that decides
+    a proxy's identity -- the parse path here, the state store's canonicalizer
+    and the schema migration that re-keys legacy rows -- must agree on that
+    form, or the same proxy is stored under two different hashes and published
+    twice.
+    """
     if uri.startswith('vmess://'):
-        try:
-            b64 = uri[8:]
-            raw = _b64_decode_safe(b64)
-            obj = json.loads(raw)
-            obj.pop('ps', None)
-            canonical = json.dumps(obj, sort_keys=True, separators=(',', ':'))
-            return 'vmess://' + base64.b64encode(canonical.encode()).decode()
-        except (binascii.Error, UnicodeDecodeError, ValueError, json.JSONDecodeError):
-            return uri
+        canonical = canonical_vmess_line(uri)
+        return canonical if canonical is not None else uri
     idx = uri.rfind('#')
     if idx > 0:
         return uri[:idx]
@@ -191,7 +191,7 @@ def format_enriched_remark(uri: str, counter: dict, metadata: dict | None = None
 def add_clean_remark(uri: str, counter: dict, metadata: dict | None = None) -> str:
     """Attach a deterministic display remark to a proxy URI.
 
-    Without metadata the remark is ``<scheme>[-<transport>][-<security>]-<n>``,
+    Without metadata the remark is ``<scheme>[-<transport>][-security]-<n>``,
     so nodes of the same protocol are still distinguishable in a long list.
     """
     if metadata:
@@ -203,16 +203,8 @@ def add_clean_remark(uri: str, counter: dict, metadata: dict | None = None) -> s
         tag = f'{scheme}-{qualifier}-{counter[scheme]}' if qualifier else f'{scheme}-{counter[scheme]}'
 
     if uri.startswith('vmess://'):
-        try:
-            body, marker, fragment = uri.partition("#")
-            b64 = body[8:]
-            raw = _b64_decode_safe(b64)
-            obj = json.loads(raw)
-            obj['ps'] = tag
-            encoded = json.dumps(obj, separators=(',', ':')).encode()
-            return 'vmess://' + base64.b64encode(encoded).decode() + marker + fragment
-        except (binascii.Error, UnicodeDecodeError, ValueError, json.JSONDecodeError):
-            return uri
+        remarked = vmess_payload_with_remark(uri, tag)
+        return remarked if remarked is not None else uri
     idx = uri.rfind('#')
     base = uri[:idx] if idx > 0 else uri
     return f'{base}#{tag}'

@@ -1,5 +1,3 @@
-import base64
-import binascii
 import contextlib
 import hashlib
 import json
@@ -9,6 +7,8 @@ from importlib import resources
 from pathlib import Path
 from typing import Generator, Optional
 
+from ..formats.common.vmess import canonical_vmess_line
+
 logger = logging.getLogger(__name__)
 
 _BUSY_TIMEOUT_MS = 30_000
@@ -17,21 +17,14 @@ _MMAP_SIZE_BYTES = 256 * 1024 * 1024
 
 
 def _canonicalize_vmess_line(line: str) -> Optional[str]:
-    """Return the current canonical VMess URI or ``None`` for non-VMess/invalid data."""
-    if not line.startswith("vmess://"):
-        return None
-    encoded = line[8:].replace("-", "+").replace("_", "/")
-    encoded += "=" * ((4 - len(encoded) % 4) % 4)
-    try:
-        payload = base64.b64decode(encoded, validate=True).decode("utf-8")
-        value = json.loads(payload)
-    except (binascii.Error, UnicodeDecodeError, json.JSONDecodeError, ValueError):
-        return None
-    if not isinstance(value, dict):
-        return None
-    value.pop("ps", None)
-    canonical = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-    return "vmess://" + base64.b64encode(canonical.encode("utf-8")).decode("ascii")
+    """Return the current canonical VMess URI or ``None`` for non-VMess/invalid data.
+
+    This delegates to the shared VMess contract so the identity written by the
+    parse path, the identity re-keyed by the v10 migration and the identity read
+    here cannot drift apart. A payload that decodes to a JSON array, string or
+    number is not a VMess payload and yields ``None`` rather than raising.
+    """
+    return canonical_vmess_line(line)
 
 
 class DBConnection:

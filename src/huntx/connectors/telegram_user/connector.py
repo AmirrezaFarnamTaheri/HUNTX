@@ -241,6 +241,29 @@ class TelegramUserConnector(SourceConnector):
             logger.warning(f"[MTProto] Could not resolve peer {self.peer} for dedup: {e}")
             return None
 
+    async def resolve_channel_id_strict_async(self) -> Optional[int]:
+        """Resolve a Telegram peer without collapsing lookup failures to ``None``.
+
+        ``resolve_channel_id_async`` is the best-effort variant: it returns
+        ``None`` for every failure, which loses the difference between "this
+        peer does not exist" and "the lookup failed transiently". The governed
+        preflight needs that difference, because a permanent peer failure
+        quarantines the source while a transient one must preserve it.
+
+        This is a real method on the connector rather than a patch installed by
+        the resilience module, so the behaviour does not depend on which
+        modules happened to be imported first.
+        """
+        client = self._client()
+        await self._ensure_connected_async(client)
+        entity = await maybe_await(
+            client.get_entity(int(self.peer) if self.peer.lstrip("-").isdigit() else self.peer)
+        )
+        raw_id = getattr(entity, "id", None)
+        if raw_id:
+            logger.info("[MTProto] Resolved peer %s -> channel_id=%s", self.peer, raw_id)
+        return raw_id
+
     # ------------------------------------------------------------------
     # Pass 1: Text messages (fast, no downloads, batched)
     # ------------------------------------------------------------------

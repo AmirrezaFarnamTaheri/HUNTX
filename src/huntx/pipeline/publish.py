@@ -30,8 +30,6 @@ class PublishPipeline:
         self.publishers: Dict[str, TelegramPublisher] = {}
         self._publisher_locks: Dict[str, threading.Lock] = {}
         self._publisher_guard = threading.Lock()
-        self._hash_cache: Dict[str, str | None] = {}
-        self._hash_guard = threading.Lock()
 
     def _publisher_for(self, token: str) -> tuple[TelegramPublisher, threading.Lock]:
         with self._publisher_guard:
@@ -44,18 +42,6 @@ class PublishPipeline:
                 lock = threading.Lock()
                 self._publisher_locks[token] = lock
             return publisher, lock
-
-    def _last_published_hash(self, unique_id: str) -> str | None:
-        with self._hash_guard:
-            if unique_id in self._hash_cache:
-                return self._hash_cache[unique_id]
-        value = self.state_repo.get_last_published_hash(unique_id)
-        with self._hash_guard:
-            return self._hash_cache.setdefault(unique_id, value)
-
-    def _remember_published_hash(self, unique_id: str, artifact_hash: str) -> None:
-        with self._hash_guard:
-            self._hash_cache[unique_id] = artifact_hash
 
     def run(self, build_result: Dict[str, Any], destinations: List[Dict[str, Any]], *, deadline: Deadline | None = None) -> bool:
         if deadline is not None:
