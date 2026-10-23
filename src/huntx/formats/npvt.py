@@ -1,4 +1,3 @@
-import base64
 import binascii
 import json
 import math
@@ -10,6 +9,7 @@ from typing import Any, Dict, List
 
 from .base import FormatHandler
 from .common.b64 import b64_decode as _b64_decode_safe
+from .common.vmess import canonical_vmess_line, vmess_payload_with_remark
 from .common.hashing import hash_string
 from .common.normalize_text import normalize_text
 from .proxy_uri_validator import validate_proxy_uri
@@ -82,18 +82,8 @@ def remark_qualifier(uri: str) -> str:
 def strip_proxy_remark(uri: str) -> str:
     """Remove display remarks while preserving proxy semantics."""
     if uri.startswith('vmess://'):
-        try:
-            body = uri.partition('#')[0]
-            b64 = body[8:]
-            raw = _b64_decode_safe(b64)
-            obj = json.loads(raw)
-            if not isinstance(obj, dict):
-                return uri
-            obj.pop('ps', None)
-            canonical = json.dumps(obj, sort_keys=True, separators=(',', ':'))
-            return 'vmess://' + base64.b64encode(canonical.encode()).decode()
-        except (binascii.Error, UnicodeDecodeError, ValueError, json.JSONDecodeError):
-            return uri
+        canonical = canonical_vmess_line(uri)
+        return canonical if canonical is not None else uri
     idx = uri.rfind('#')
     if idx > 0:
         return uri[:idx]
@@ -110,6 +100,11 @@ def canonical_proxy_identity(uri: str) -> str:
     """
     bare = strip_proxy_remark(uri.strip())
     try:
+        from .common.proxy_identity import client_identity
+
+        typed = client_identity(bare)
+        if typed is not None:
+            return typed
         parsed = urlsplit(bare)
         scheme = parsed.scheme.lower()
         if scheme == 'vmess':
@@ -385,7 +380,7 @@ def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
     """Display useful observable facts without invented geo or fake throughput.
 
     Country is represented by a single flag, or a globe for unknown country;
-    a tentative source hint retains its question mark. Internal canonical
+    source-hint provenance stays in metadata. Internal canonical
     identity never appears in user-facing names. TCP/DNS are not authenticated
     proxy evidence, and configured bandwidth is not a speed test.
     """
@@ -418,7 +413,7 @@ def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
           and isinstance(fields.get('country_hint'), str)
           and fields['country_hint'] in _HINT_COUNTRIES):
         hint = fields['country_hint']
-        location = f'{_country_to_flag(hint)}?'
+        location = _country_to_flag(hint)
 
     scheme = uri.split('://', 1)[0].upper() if '://' in uri else 'PROXY'
     protocol = re.sub(r'[^A-Z0-9+_-]', '', scheme)[:18] or 'PROXY'
@@ -520,16 +515,8 @@ def add_clean_remark(uri: str, counter: dict, metadata: dict | None = None) -> s
         tag = f'{scheme}-{qualifier}-{identity}' if qualifier else f'{scheme}-{identity}'
 
     if uri.startswith('vmess://'):
-        try:
-            body = uri.partition("#")[0]
-            b64 = body[8:]
-            raw = _b64_decode_safe(b64)
-            obj = json.loads(raw)
-            obj['ps'] = tag
-            encoded = json.dumps(obj, separators=(',', ':')).encode()
-            return 'vmess://' + base64.b64encode(encoded).decode()
-        except (binascii.Error, UnicodeDecodeError, ValueError, json.JSONDecodeError):
-            return uri
+        remarked = vmess_payload_with_remark(uri, tag)
+        return remarked if remarked is not None else uri
     idx = uri.rfind('#')
     base = uri[:idx] if idx > 0 else uri
     return f'{base}#{quote(tag, safe="-._~") if evidence_style else tag}'
@@ -601,6 +588,10 @@ class NpvtHandler(FormatHandler):
 
     def build(self, records: List[Dict[str, Any]]) -> bytes:
         """Build a deterministic newline-delimited proxy subscription."""
+        if os.getenv("HUNTX_REQUIRE_PROXY_HEALTH", "0") == "1":
+            from ..core.proxy_health import verified_records
+
+            records = verified_records(records)
         lines = []
         seen = set()
         remark_counter: dict = {}

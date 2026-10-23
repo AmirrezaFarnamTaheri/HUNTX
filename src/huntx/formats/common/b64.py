@@ -29,3 +29,19 @@ def b64_decode(value: str) -> str:
     normalized += "=" * padding
     decoded = base64.b64decode(normalized, validate=True)
     return decoded.decode("utf-8")
+
+
+def b64_decode_bytes(value: str) -> bytes:
+    """Decode URL-safe or standard base64 with automatic padding, as bytes.
+
+    The byte-level counterpart of :func:`b64_decode`. It exists so callers
+    that re-encode a decoded payload do not have to round-trip it through a
+    UTF-8 decode, which would fail on payloads that are not valid UTF-8.
+
+    Raises:
+        binascii.Error: if *value* is not valid base64.
+    """
+    normalized = value.replace("-", "+").replace("_", "/")
+    padding = (4 - len(normalized) % 4) % 4
+    normalized += "=" * padding
+    return base64.b64decode(normalized, validate=True)

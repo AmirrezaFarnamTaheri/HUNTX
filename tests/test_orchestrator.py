@@ -41,7 +41,7 @@ class TestOrchestrator(unittest.TestCase):
                     PublishRoute(
                         name="route1",
                         from_sources=["src_bot"],
-                        formats=["fmt"],
+                        formats=["fmt", "fmt2", "fmt3"],
                         destinations=[DestinationConfig(chat_id="dest1", mode="telegram", caption_template="cap")],
                     )
                 ]
@@ -140,7 +140,7 @@ class TestOutputRetention(unittest.TestCase):
                     PublishRoute(
                         name="route1",
                         from_sources=["src_bot"],
-                        formats=["fmt"],
+                        formats=["fmt", "fmt2", "fmt3"],
                         destinations=[DestinationConfig(chat_id="dest1", mode="telegram", caption_template="cap")],
                     )
                 ]
@@ -175,13 +175,13 @@ class TestOutputRetention(unittest.TestCase):
             )
 
             # A route-owned file produced long ago (older than retention window).
-            old_file = out_dir / "route1.old"
+            old_file = out_dir / orch._output_filename("route1", "fmt2")
             old_file.write_text("old", encoding="utf-8")
             old_mtime = time.time() - (orch.OUTPUT_RETENTION_DAYS + 1) * 86400
             os.utime(old_file, (old_mtime, old_mtime))
 
             # A route-owned file produced recently (within retention window).
-            recent_file = out_dir / "route1.recent"
+            recent_file = out_dir / orch._output_filename("route1", "fmt3")
             recent_file.write_text("recent", encoding="utf-8")
 
             # A non-pipeline helper file must always be preserved.

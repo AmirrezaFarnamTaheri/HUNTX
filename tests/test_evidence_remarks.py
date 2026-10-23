@@ -59,8 +59,8 @@ def test_unverified_source_country_hint_is_conspicuously_marked(monkeypatch):
     monkeypatch.setenv("HUNTX_REMARK_STYLE", "evidence")
     metadata = {"country_hint": "FR", "country_hint_source": "source_remark"}
     remark = unquote(urlsplit(add_clean_remark(URI, {}, metadata)).fragment)
-    assert remark.startswith("🇫🇷? VLESS-WS-TLS | 1.1.1.1:443")
-    assert "🇫🇷? FR" not in remark
+    assert remark.startswith("🇫🇷 VLESS-WS-TLS | 1.1.1.1:443")
+    assert "🇫🇷 FR" not in remark
     assert "AS" not in remark
     assert "⭐" not in remark
 

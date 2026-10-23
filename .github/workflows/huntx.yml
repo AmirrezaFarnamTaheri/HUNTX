@@ -459,6 +459,16 @@ jobs:
             find persist -maxdepth 3 -type f -printf '%s\t%p\n' | sort -nr | head -200 || true
           } | tee persist/data/logs/runtime-context.log
 
+      - name: Install pinned proxy verification engine
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --max-time 120 \
+            https://github.com/SagerNet/sing-box/releases/download/v1.14.3/sing-box-1.14.3-linux-amd64.tar.gz \
+            -o "$RUNNER_TEMP/singbox.tar.gz"
+          echo "e2bdf179c15a3652955dc44867e33ca0965c9c9b91b34267dcc5a5d639a5feee  $RUNNER_TEMP/singbox.tar.gz" | sha256sum -c -
+          tar --no-same-owner -xzf "$RUNNER_TEMP/singbox.tar.gz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/sing-box-1.14.3-linux-amd64" >> "$GITHUB_PATH"
+
       - name: Run HuntX with controlled watchdog
         id: runtime
         env:
@@ -469,6 +479,10 @@ jobs:
           TELEGRAM_USER_SESSION: ${{ secrets.TELEGRAM_USER_SESSION }}
           HUNTX_MAX_WORKERS: ${{ env.MAX_WORKERS }}
           HUNTX_REMARK_STYLE: evidence
+          HUNTX_REQUIRE_PROXY_HEALTH: '1'
+          HUNTX_HEALTH_WORKERS: '16'
+          HUNTX_HEALTH_TIMEOUT: '8'
+          HUNTX_HEALTH_BUDGET: '900'
           HUNTX_GEOIP_IPV4_CSV: .geoip/ipv4.csv
           HUNTX_GEOIP_IPV6_CSV: .geoip/ipv6.csv
           # Time-bounded, public-IP-only DNS/TCP measurements; not speed or auth verification.

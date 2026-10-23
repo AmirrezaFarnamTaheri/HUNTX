@@ -40,7 +40,7 @@ def test_vmess_ps_field_is_checked_before_the_original_name_is_removed(monkeypat
     assert records[0]["data"]["country_hint"] == "DE"
     built = NpvtHandler().build(records).decode()
     decoded = json.loads(base64.b64decode(built[8:] + "=" * (-len(built[8:]) % 4)))
-    assert decoded["ps"].startswith("🇩🇪? VMESS")
+    assert decoded["ps"].startswith("🇩🇪 VMESS")
 
 
 def test_offline_evidence_not_limited_to_a_short_handpicked_country_list(monkeypatch):

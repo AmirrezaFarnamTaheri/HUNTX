@@ -98,7 +98,7 @@ def test_schema_migration_retains_existing_state(tmp_path):
         count = c.execute(
             "SELECT COUNT(*) FROM source_state WHERE source_id = 'legacy'"
         ).fetchone()[0]
-    assert version == 12
+    assert version == 13
     assert count == 1
 
 

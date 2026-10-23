@@ -1,5 +1,3 @@
-import base64
-import binascii
 import contextlib
 import hashlib
 import json
@@ -9,6 +7,8 @@ from importlib import resources
 from pathlib import Path
 from typing import Generator, Optional
 
+from ..formats.common.vmess import canonical_vmess_line
+
 logger = logging.getLogger(__name__)
 
 _BUSY_TIMEOUT_MS = 30_000
@@ -17,21 +17,8 @@ _MMAP_SIZE_BYTES = 256 * 1024 * 1024
 
 
 def _canonicalize_vmess_line(line: str) -> Optional[str]:
-    """Return the current canonical VMess URI or ``None`` for non-VMess/invalid data."""
-    if not line.startswith("vmess://"):
-        return None
-    encoded = line[8:].split("#", 1)[0].replace("-", "+").replace("_", "/")
-    encoded += "=" * ((4 - len(encoded) % 4) % 4)
-    try:
-        payload = base64.b64decode(encoded, validate=True).decode("utf-8")
-        value = json.loads(payload)
-    except (binascii.Error, UnicodeDecodeError, json.JSONDecodeError, ValueError):
-        return None
-    if not isinstance(value, dict):
-        return None
-    value.pop("ps", None)
-    canonical = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-    return "vmess://" + base64.b64encode(canonical.encode("utf-8")).decode("ascii")
+    """Use the shared VMess payload contract for legacy state migration."""
+    return canonical_vmess_line(line)
 
 
 class DBConnection:
@@ -380,6 +367,13 @@ class DBConnection:
                     raise RuntimeError("v12 proxy probe history migration failed")
                 conn.execute("PRAGMA user_version = 12")
                 logger.info("Database schema migrated to version 12.")
+
+            if version < 13:
+                from .identity_migration import migrate_proxy_identities
+
+                changed = migrate_proxy_identities(conn)
+                conn.execute("PRAGMA user_version = 13")
+                logger.info("Database migrated to version 13; re-keyed %s proxy observations.", changed)
 
         except Exception as exc:
             logger.error("Migration check failed: %s", exc)

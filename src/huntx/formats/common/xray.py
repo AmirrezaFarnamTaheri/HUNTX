@@ -521,6 +521,7 @@ def proxy_outbounds_from_uris(
     """
     outbounds: list[dict[str, Any]] = []
     seen_tags = {"direct", "socks-in"}
+    connections: set[str] = set()
     for uri in uris:
         uri = uri.strip()
         if not uri or uri.startswith("#"):
@@ -540,6 +541,12 @@ def proxy_outbounds_from_uris(
             if omissions is not None:
                 omissions[omission_reason(uri, node)] += 1
             continue
+        identity = json.dumps({k: v for k, v in outbound.items() if k != 'tag'}, sort_keys=True)
+        if identity in connections:
+            if omissions is not None:
+                omissions['duplicate connection'] += 1
+            continue
+        connections.add(identity)
         outbounds.append(outbound)
     return outbounds
 

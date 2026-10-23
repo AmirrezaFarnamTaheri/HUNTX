@@ -119,7 +119,7 @@ class TestSingboxParsing(unittest.TestCase):
 
 class TestSingboxConfig(unittest.TestCase):
     def test_config_uses_current_schema_and_no_removed_special_outbounds(self):
-        config = config_from_uris(["trojan://secret@t.example.com:443?sni=t.example.com#Node"])
+        config = config_from_uris(["trojan://third@t.example.com:443?sni=t.example.com#Node"])
         self.assertEqual(config["route"]["final"], "select")
         self.assertEqual(config["route"]["default_domain_resolver"], "google")
         self.assertTrue(config["dns"]["optimistic"])
@@ -139,9 +139,9 @@ class TestSingboxConfig(unittest.TestCase):
         config = config_from_uris(
             [
                 "trojan://secret@t.example.com:443?sni=t.example.com#auto",
-                "trojan://secret@t.example.com:443?sni=t.example.com#direct",
-                "trojan://secret@t.example.com:443?sni=t.example.com#Node",
-                "trojan://secret@t.example.com:443?sni=t.example.com#Node",
+                "trojan://other@t.example.com:443?sni=t.example.com#direct",
+                "trojan://third@t.example.com:443?sni=t.example.com#Node",
+                "trojan://fourth@t.example.com:443?sni=t.example.com#Node",
             ]
         )
         tags = [item["tag"] for item in config["outbounds"]]

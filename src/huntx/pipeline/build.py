@@ -408,7 +408,10 @@ class BuildPipeline:
                 if not defer_output:
                     self.artifact_store.save_output(route_name, format_id, artifact_bytes)
                 built_formats.append(format_id)
-                format_count = len(format_records)
+                format_count = (
+                    len([line for line in artifact_bytes.splitlines() if line.strip()])
+                    if format_id in _DERIVED_PROXY_FORMATS else len(format_records)
+                )
                 if format_id in _DERIVED_PROXY_FORMATS:
                     (
                         decoded,

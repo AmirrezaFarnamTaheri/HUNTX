@@ -128,7 +128,11 @@ def test_public_unified_orchestrator_matches_production_behaviour(isolated_runti
     orchestrator = UnifiedOrchestrator(_config(), max_workers=1)
 
     assert getattr(OptimizedHardenedOrchestrator, "_runtime_resilience_applied", False)
-    assert type(orchestrator)._run_hardened is runtime_resilience._run_hardened
-    assert type(orchestrator)._canonical_ingestion_sources is runtime_resilience._canonical_ingestion_sources
+    assert type(orchestrator)._run_hardened is OptimizedHardenedOrchestrator._run_hardened
+    assert type(orchestrator)._canonical_ingestion_sources is OptimizedHardenedOrchestrator._canonical_ingestion_sources
+    # The module-level names stay as aliases of the very functions the class
+    # binds, so existing callers keep working.
+    assert runtime_resilience._run_hardened is OptimizedHardenedOrchestrator._run_hardened
+    assert runtime_resilience._canonical_ingestion_sources is OptimizedHardenedOrchestrator._canonical_ingestion_sources
     assert isinstance(orchestrator.build_pipeline, GovernedBuildPipeline)
     assert callable(orchestrator._export_outputs)

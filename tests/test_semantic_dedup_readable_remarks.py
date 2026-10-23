@@ -83,11 +83,11 @@ def test_unknown_trojan_has_globe_immediately_before_protocol(monkeypatch):
     assert "ZZ" not in remark(rendered)
 
 
-def test_source_hint_flag_alone_is_visibly_tentative():
+def test_source_hint_flag_is_clean_and_provenance_remains_metadata():
     uri = BASE + "?security=tls&type=ws"
     assert format_evidence_remark(uri, {
         "country_hint": "NL", "country_hint_source": "source_remark"
-    }) == "🇳🇱? VLESS-WS-TLS | edge.example.com:443"
+    }) == "🇳🇱 VLESS-WS-TLS | edge.example.com:443"
 
 
 def test_dns_latency_and_speed_are_visible_only_when_measured_fresh_and_proven(monkeypatch):

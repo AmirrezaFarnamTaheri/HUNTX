@@ -1,6 +1,6 @@
 # Multi-stage minimal container for HUNTX Proxy Daemon & PAC Server
 # Authority: OCI Image Format Specification
-FROM golang:1.26.9-alpine3.24@sha256:3082400e369fa24d5fc60bca20edab3f6d604e0c5a690ec66b295eff4dd87ade AS builder
+FROM golang:1.26.10-alpine3.24@sha256:27f2d3b83cfc5803c8078f8e730af0f7c431bf067afaec8f60a36fb763187cba AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download

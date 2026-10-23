@@ -140,12 +140,16 @@ def _bandwidth(value: str) -> int:
     return int(match.group(0)) if match else 0
 
 
+def _boolean(value: Any) -> bool:
+    return str(value).strip().lower() in {'1', 'true', 'yes'}
+
+
 def _apply_tls(node: ProxyNode, params: dict[str, str], *, default_enabled: bool = False) -> None:
     """Populate TLS-related fields on a proxy node from URI parameters."""
     security = params.get('security', '')
     node.tls_enabled = default_enabled or security in {'tls', 'reality'}
     node.tls_server_name = params.get('sni', '') or params.get('peer', '') or params.get('host', '')
-    node.tls_insecure = params.get('insecure', '0') == '1' or params.get('allowInsecure', '0') == '1'
+    node.tls_insecure = _boolean(params.get('insecure', '0')) or _boolean(params.get('allowInsecure', '0'))
     node.tls_utls_fingerprint = params.get('fp', '')
     if params.get('alpn'):
         node.tls_alpn = [part.strip() for part in params['alpn'].split(',') if part.strip()]
@@ -204,7 +208,7 @@ def _parse_vmess(uri: str) -> Optional[ProxyNode]:
         packet_encoding=str(data.get('packetEncoding', '') or ''),
         tls_enabled=data.get('tls', '') == 'tls',
         tls_server_name=str(data.get('sni', '') or data.get('host', '') or ''),
-        tls_insecure=str(data.get('allowInsecure', '0')) == '1',
+        tls_insecure=_boolean(data.get('allowInsecure', '0')),
     )
     if data.get('alpn'):
         node.tls_alpn = [part.strip() for part in str(data['alpn']).split(',') if part.strip()]
@@ -935,6 +939,7 @@ def config_from_uris(
     """Parse share URIs and render a sing-box client configuration."""
     outbounds: list[dict[str, Any]] = []
     seen_tags = set(_RESERVED_TAGS)
+    connections: set[str] = set()
     for uri in uris:
         uri = uri.strip()
         if not uri or uri.startswith('#'):
@@ -943,7 +948,12 @@ def config_from_uris(
         if node is None:
             continue
         node.tag = _unique_tag(node.tag or node.type, seen_tags)
-        outbounds.append(build_outbound(node))
+        outbound = build_outbound(node)
+        identity = json.dumps({k: v for k, v in outbound.items() if k != 'tag'}, sort_keys=True)
+        if identity in connections:
+            continue
+        connections.add(identity)
+        outbounds.append(outbound)
     return build_singbox_config(outbounds, listen=listen, mixed_port=mixed_port, tun_enabled=tun_enabled)
 
 

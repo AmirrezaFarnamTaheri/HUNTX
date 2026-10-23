@@ -253,6 +253,7 @@ def _clash_proxy(node: ProxyNode, seen_names: set[str]) -> Optional[dict[str, An
 def build_clash_subscription_bytes(text: str) -> bytes:
     """Render a proxies-only Mihomo provider with independent entries."""
     seen_names: set[str] = set()
+    connections: set[str] = set()
     proxies: list[dict[str, Any]] = []
     for raw_line in text.splitlines():
         line = raw_line.strip()
@@ -263,7 +264,10 @@ def build_clash_subscription_bytes(text: str) -> bytes:
             continue
         proxy = _clash_proxy(node, seen_names)
         if proxy is not None:
-            proxies.append(proxy)
+            identity = json.dumps({k: v for k, v in proxy.items() if k != 'name'}, sort_keys=True)
+            if identity not in connections:
+                connections.add(identity)
+                proxies.append(proxy)
     if not proxies:
         return b""
 
