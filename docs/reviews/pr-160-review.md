@@ -34,3 +34,8 @@ Successful proof expires after five minutes. This is a publisher-vantage, point-
 - Python compileall, flake8 and mypy pass; JavaScript lint passes; all 88 frontend unit tests pass under local Node 24 with `node --test` (Node 24 removed the repository command's `--experimental-default-type=module` option; CI uses Node 22).
 - The pinned Sing-box binary was downloaded and checksum-verified, and accepts the generated probe configuration with `sing-box check`. This execution sandbox denies the netlink socket needed to start the engine; the infrastructure preflight correctly blocks publication. Mocked tests cover authenticated success/failure, TLS checking, response checking, duplicate checks and cleanup. A successful live-network probe sweep was not performed here.
 - Go/Docker/Helm/browser and dependency-audit acceptance must come from GitHub's complete workflow matrix; local Python/JS results and CodeRabbit status are not substitutes.
+
+
+## GitHub validation follow-up
+
+Run 39942225319 passed Python, dependency audit, workflow syntax and deployment manifests. Go race tests passed, but govulncheck correctly rejected the existing Go 1.26.9 toolchain for GO-2026-6809 (crypto/x509; fixed in 1.26.10). Both module minimum versions and the digest-pinned Docker builders are updated to 1.26.10. The new image manifest digest was independently matched against the Docker registry and docker-library/repo-info. This is a baseline toolchain defect exposed by the full matrix, not an application test regression.
