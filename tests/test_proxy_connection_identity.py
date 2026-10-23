@@ -81,3 +81,11 @@ def test_boolean_true_alias_does_not_merge_into_verified_tls():
     bypass = secure + '&allowInsecure=true'
     assert canonical_proxy_identity(bypass) == canonical_proxy_identity(secure + '&insecure=1')
     assert canonical_proxy_identity(secure) != canonical_proxy_identity(bypass)
+
+
+def test_identity_folds_sni_case_but_preserves_case_sensitive_custom_ids():
+    assert canonical_proxy_identity(BASE + '?security=tls&sni=CDN.Example') == canonical_proxy_identity(
+        BASE + '?security=tls&sni=cdn.example')
+    first = 'vless://CustomID@edge.example.com:443?security=tls'
+    second = 'vless://customid@edge.example.com:443?security=tls'
+    assert canonical_proxy_identity(first) != canonical_proxy_identity(second)

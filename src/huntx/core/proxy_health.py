@@ -16,6 +16,7 @@ import shutil
 import socket
 import ssl
 import subprocess
+import threading
 import tempfile
 import time
 from collections import Counter
@@ -88,6 +89,11 @@ def check_proxy(uri: str, binary: str, *, timeout: float = 8.0) -> dict[str, Any
         path.chmod(0o600)
         child = subprocess.Popen([binary, 'run', '-c', str(path)], stdin=subprocess.DEVNULL,
                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # Socket timeouts bound individual reads only. Killing the isolated
+        # engine at the node deadline closes any stalled tunnel/socket.
+        watchdog = threading.Timer(max(0.0, stop - time.monotonic()), child.kill)
+        watchdog.daemon = True
+        watchdog.start()
         try:
             ready = False
             while time.monotonic() < stop and child.poll() is None:
@@ -112,6 +118,7 @@ def check_proxy(uri: str, binary: str, *, timeout: float = 8.0) -> dict[str, Any
                     continue
             return {'ok': False, 'reason': 'https_path_failed'}
         finally:
+            watchdog.cancel()
             child.terminate()
             try:
                 child.wait(timeout=2)

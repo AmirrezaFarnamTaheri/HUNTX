@@ -1,5 +1,6 @@
 """Publication must fail closed without node-attributed, fresh HTTPS proof."""
 import time
+import threading
 from unittest.mock import MagicMock
 
 import pytest
@@ -51,6 +52,38 @@ def test_engine_cleanup_and_failed_authenticated_path_do_not_accept_open_tcp(mon
     assert attempts.call_count == 2
     child.terminate.assert_called_once()
     child.wait.assert_called_once()
+
+
+def test_probe_watchdog_kills_engine_at_total_node_deadline(monkeypatch, tmp_path):
+    released = threading.Event()
+
+    class Child:
+        def poll(self):
+            return None
+
+        def kill(self):
+            released.set()
+
+        def terminate(self):
+            released.set()
+
+        def wait(self, timeout=None):
+            return 0
+
+    child = Child()
+    monkeypatch.setattr(health.tempfile, 'TemporaryDirectory', lambda **_kw: __import__('contextlib').nullcontext(str(tmp_path)))
+    monkeypatch.setattr(health.subprocess, 'Popen', lambda *_a, **_kw: child)
+    monkeypatch.setattr(health.socket, 'create_connection', lambda *_a, **_kw: __import__('contextlib').nullcontext())
+
+    def blocked(*_args):
+        released.wait(1)
+        raise OSError('engine socket closed by deadline')
+
+    monkeypatch.setattr(health, '_https_through_proxy', blocked)
+    started = time.monotonic()
+    assert health.check_proxy(BASE, '/fake/engine', timeout=0.08)['ok'] is False
+    assert time.monotonic() - started < 0.5
+    assert released.is_set()
 
 
 def test_missing_engine_prevents_publication_instead_of_falling_back(monkeypatch):

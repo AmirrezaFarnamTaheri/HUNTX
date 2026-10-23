@@ -7,6 +7,7 @@ import json
 import logging
 import time
 import threading
+from pathlib import Path
 from typing import Optional, Any
 from ..connectors.base import run_sync
 from ..store import paths
@@ -50,6 +51,7 @@ _DERIVED_PROXY_SUFFIXES = (
     'singbox.profile.json',
     'xray.profile.json',
 )
+_LEGACY_OUTPUT_OWNERSHIP_MANIFEST = ".huntx-legacy-output-ownership.json"
 
 
 class Orchestrator:
@@ -161,7 +163,33 @@ class Orchestrator:
         # set of filenames a route may own is computed from the same naming
         # contract that writes them, so a file is only ever considered stale if
         # it is an exact output name of a configured route and format.
-        owned_filenames = self._owned_output_filenames()
+        current_owners = {
+            name: {"route": str(route.name), "format": str(fmt)}
+            for route in self.config.routes
+            for fmt in route.formats
+            for name in self._owned_names_for_format(str(route.name), str(fmt))
+        }
+        # Persist route-scoped ownership because the active config cannot tell
+        # us which format produced a stale artifact after that format is
+        # removed. Only exact historical filenames recorded by this exporter
+        # are eligible for retention cleanup.
+        manifest_path = out_dir / _LEGACY_OUTPUT_OWNERSHIP_MANIFEST
+        prior_owners: dict[str, dict[str, str]] = {}
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if isinstance(manifest, dict) and manifest.get("schema_version") == 1:
+                files = manifest.get("files", {})
+                if isinstance(files, dict):
+                    for name, owner in files.items():
+                        if (isinstance(name, str) and Path(name).name == name and isinstance(owner, dict)
+                                and isinstance(owner.get("route"), str)
+                                and isinstance(owner.get("format"), str)):
+                            prior_owners[name] = {"route": owner["route"], "format": owner["format"]}
+        except FileNotFoundError:
+            pass
+        except (OSError, ValueError, TypeError):
+            logger.warning("[Export] Ignoring invalid legacy output ownership manifest")
+        owned_filenames = set(prior_owners) | set(current_owners)
         retention_days = self._output_retention_days()
         retention_cutoff = time.time() - (retention_days * 86400)
         stale_removed = 0
@@ -215,6 +243,15 @@ class Orchestrator:
             except Exception as e:
                 logger.error(f"[Export] Failed to write {filename}: {e}")
 
+        # Retain ownership for cached files still inside the retention window;
+        # discard ownership only after a stale file has actually disappeared.
+        next_owners = {**prior_owners, **current_owners}
+        next_owners.update({name: current_owners.get(name, {"route": "unknown", "format": "unknown"})
+                            for name in output_payloads})
+        next_owners = {name: owner for name, owner in next_owners.items() if (out_dir / name).is_file()}
+        atomic_write(manifest_path, json.dumps({"schema_version": 1, "files": next_owners},
+                                               sort_keys=True).encode("utf-8"))
+
         if files_written == 0:
             logger.warning("[Export] No artifacts produced — outputs/ not updated.")
         else:
@@ -235,11 +272,14 @@ class Orchestrator:
         for route in self.config.routes:
             route_name = str(route.name)
             for fmt in route.formats:
-                owned.add(self._output_filename(route_name, str(fmt)))
-                if str(fmt) not in _DERIVED_PROXY_FORMATS:
-                    continue
-                for suffix in _DERIVED_PROXY_SUFFIXES:
-                    owned.add(self._output_filename(route_name, f"{fmt}.{suffix}"))
+                owned.update(self._owned_names_for_format(route_name, str(fmt)))
+        return owned
+
+    def _owned_names_for_format(self, route_name: str, fmt: str) -> set[str]:
+        owned = {self._output_filename(route_name, fmt)}
+        if fmt in _DERIVED_PROXY_FORMATS:
+            owned.update(self._output_filename(route_name, f"{fmt}.{suffix}")
+                         for suffix in _DERIVED_PROXY_SUFFIXES)
         return owned
 
     @staticmethod

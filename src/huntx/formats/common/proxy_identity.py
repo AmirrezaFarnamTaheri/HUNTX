@@ -6,8 +6,9 @@ options. Dropping unknown options would silently merge distinct connections.
 from __future__ import annotations
 
 import json
+import uuid
 from typing import Any
-from urllib.parse import parse_qsl, urlsplit
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from .singbox import build_outbound, parse_proxy_uri
 from .vmess import decode_vmess_payload
@@ -30,11 +31,23 @@ def client_identity(uri: str) -> str | None:
     scheme = parsed.scheme.lower()
     if scheme not in {'vmess', 'vless', 'trojan', 'ss'}:
         return None
-    node = parse_proxy_uri(uri)
+    # Scheme enum values are case-insensitive in share-link ecosystems. Feed
+    # normalized values to the typed parser while retaining original values
+    # below for unknown-option identity.
+    query = parse_qsl(parsed.query, keep_blank_values=True)
+    normalized_query = [(key, value.lower() if key.lower() in {'security', 'type', 'network'} else value)
+                        for key, value in query]
+    parser_uri = urlunsplit(parsed._replace(query=urlencode(normalized_query)))
+    node = parse_proxy_uri(parser_uri)
     if node is None:
         return None
     node.server = node.server.lower()
-    node.uuid = node.uuid.lower()
+    try:
+        node.uuid = str(uuid.UUID(node.uuid))
+    except (ValueError, AttributeError):
+        # Some clients accept short custom IDs as case-sensitive strings.
+        pass
+    node.tls_server_name = node.tls_server_name.lower()
     # Compare effective connection fields, not dormant model properties (for
     # example an SNI value with TLS disabled). Preserve unknown URI extensions
     # separately below instead of trusting a lossy conversion as the whole key.

@@ -168,6 +168,30 @@ class TestExactOutputOwnership(unittest.TestCase):
     @patch("huntx.core.orchestrator.TransformPipeline")
     @patch("huntx.core.orchestrator.BuildPipeline")
     @patch("huntx.core.orchestrator.PublishPipeline")
+    def test_removed_format_output_expires_from_persisted_route_ownership(self, *args):
+        orch = self._orchestrator([("route1", ["npvt"])])
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = self._bind_output_dir(orch, tmp)
+            retired = out_dir / orch._output_filename("route1", "npvt")
+            orch._export_outputs([{"route_name": "route1", "format": "npvt", "data": b"old feed"}])
+            self.assertTrue(retired.exists())
+
+            orch.config.routes[0].formats = ["fmt"]
+            self._age(retired, orch.OUTPUT_RETENTION_DAYS + 1)
+            orch._export_outputs([{"route_name": "route1", "format": "fmt", "data": b"new format"}])
+
+            self.assertFalse(retired.exists())
+            self.assertTrue((out_dir / orch._output_filename("route1", "fmt")).exists())
+
+    @patch("huntx.core.orchestrator.RawStore")
+    @patch("huntx.core.orchestrator.ArtifactStore")
+    @patch("huntx.core.orchestrator.open_db")
+    @patch("huntx.core.orchestrator.StateRepo")
+    @patch("huntx.core.orchestrator.FormatRegistry")
+    @patch("huntx.core.orchestrator.IngestionPipeline")
+    @patch("huntx.core.orchestrator.TransformPipeline")
+    @patch("huntx.core.orchestrator.BuildPipeline")
+    @patch("huntx.core.orchestrator.PublishPipeline")
     def test_unrelated_file_is_never_deleted(self, *args):
         """A file that is not an exact output name is never a pruning candidate."""
         orch = self._orchestrator(["route1"])
