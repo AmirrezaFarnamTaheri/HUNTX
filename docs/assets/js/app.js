@@ -66,12 +66,12 @@ export function getFlagEmoji(countryCode) {
 /**
  * Choose the catalog entry a client will expand into individual nodes.
  *
- * A subscription has to be a node list. The sing-box and Xray artifacts are
- * whole client configurations, so a client asked to import one of those as a
- * subscription correctly shows a single entry. Base64 is preferred over every
- * other node feed because it is the one body format Shadowrocket, v2rayNG,
- * Streisand, Hiddify and NekoBox all accept, whereas a JSON array only
- * expands in JSON-aware clients.
+ * This resolver selects only feeds that expand into independent proxy entries.
+ * Sing-box and Xray release JSONs are also node subscriptions: their generators
+ * deliberately omit the full-profile envelope that would make clients store one
+ * custom configuration. Base64 remains preferred because it is the one body
+ * format Shadowrocket, v2rayNG, Streisand, Hiddify and NekoBox all accept,
+ * whereas a JSON node container only expands in JSON-aware clients.
  */
 export function pickSubscriptionArtifact(files) {
   const entries = Array.isArray(files) ? files.filter((f) => f && typeof f.filename === "string" && typeof f.path === "string") : [];
@@ -81,7 +81,7 @@ export function pickSubscriptionArtifact(files) {
     let value = 0;
     if (tags.includes("base64")) value += 5;
     if (tags.includes("multi-node")) value += 4;
-    if (tags.includes("json-nodes") || tags.includes("json-array")) value += 3;
+    if (tags.includes("json-nodes") || tags.includes("json-array") || tags.includes("yaml-nodes")) value += 3;
     if (tags.includes("uri-feed") || tags.includes("raw-uris")) value += 1;
     if (tags.includes("full-config") || tags.includes("profile")) value -= 10;
     return value;
@@ -95,7 +95,7 @@ export function pickSubscriptionArtifact(files) {
   return {
     path: best.file.path,
     filename: best.file.filename,
-    label: tags.includes("base64") ? "Base64" : (tags.includes("json-nodes") || tags.includes("json-array")) ? "JSON node feed" : "Raw URI feed"
+    label: tags.includes("base64") ? "Base64" : tags.includes("yaml-nodes") ? "Clash/Mihomo provider" : (tags.includes("json-nodes") || tags.includes("json-array")) ? "JSON node feed" : "Raw URI feed"
   };
 }
 
@@ -159,164 +159,18 @@ export function getArtifactLinkModel(path, locationRef = typeof window === "unde
 }
 
 /** Infer coarse provider/region metadata without fabricating unknown or anycast locations. */
-export function resolveGeoAndCarrier(address, sni = "", host = "") {
-  const addr = (address || "").toLowerCase().trim();
-  const sniLower = (sni || "").toLowerCase().trim();
-  const hostLower = (host || "").toLowerCase().trim();
-  const full = `${addr} ${sniLower} ${hostLower}`;
-
-  let country;
-  let carrier;
-
-  // 1. Explicit domain TLDs & contextual keywords
-  if (addr.includes(".ir") || full.includes("iran") || full.includes("tehran") || full.includes("soundfiy") || full.includes("zula.ir")) {
-    country = "IR";
-    carrier = "MCI / Irancell";
-  } else if (addr.includes(".ua") || full.includes("ukraine")) {
-    country = "UA";
-    carrier = "Kyivstar / Datagroup";
-  } else if (addr.includes(".in") || full.includes("india")) {
-    country = "IN";
-    carrier = "Jio / Bharti Airtel";
-  } else if (full.includes("taipei") || addr.includes(".tw") || full.includes("taiwan")) {
-    country = "TW";
-    carrier = "Chunghwa Telecom";
-  } else if (addr.endsWith(".de") || full.includes("germany") || full.includes("frankfurt")) {
-    country = "DE";
-    carrier = "Hetzner Cloud";
-  } else if (addr.endsWith(".nl") || full.includes("amsterdam") || full.includes("serverius") || full.includes("sellflow")) {
-    country = "NL";
-    carrier = "Serverius / NL";
-  } else if (addr.endsWith(".fi") || full.includes("helsinki") || full.includes("fastly")) {
-    country = "FI";
-    carrier = "Hetzner Online";
-  } else if (addr.endsWith(".fr") || full.includes("paris")) {
-    country = "FR";
-    carrier = "OVHcloud FR";
-  } else if (addr.endsWith(".ru") || full.includes("moscow") || full.includes("rtqa.ru") || full.includes("vdsina")) {
-    country = "RU";
-    carrier = "Rostelecom / Selectel";
-  } else if (addr.endsWith(".sg") || full.includes("singapore") || full.includes("zenlayer")) {
-    country = "SG";
-    carrier = "Zenlayer SG";
-  } else if (addr.endsWith(".jp") || full.includes("tokyo") || full.includes("japan")) {
-    country = "JP";
-    carrier = "AWS Tokyo";
-  } else if (addr.endsWith(".kr") || full.includes("seoul") || full.includes("korea")) {
-    country = "KR";
-    carrier = "KT Corp";
-  } else if (addr.endsWith(".hk") || full.includes("hongkong") || full.includes("aliyun")) {
-    country = "HK";
-    carrier = "Alibaba Cloud HK";
-  } else if (addr.endsWith(".tr") || full.includes("istanbul") || full.includes("turkey") || full.includes("tr1-")) {
-    country = "TR";
-    carrier = "Turkcell / Superonline";
-  } else if (addr.endsWith(".ch") || full.includes("zurich") || full.includes("swiss") || addr.includes(".cloudns.ch")) {
-    country = "CH";
-    carrier = "Swisscom Zurich";
-  } else if (addr.endsWith(".uk") || addr.endsWith(".co.uk") || addr.endsWith(".gb") || full.includes("london")) {
-    country = "GB";
-    carrier = "Virgin Media UK";
-  } else if (addr.endsWith(".ca") || full.includes("toronto") || full.includes("canada")) {
-    country = "CA";
-    carrier = "OVH Canada";
-  } else if (addr.endsWith(".se") || full.includes("stockholm") || full.includes("sweden")) {
-    country = "SE";
-    carrier = "Telia Sweden";
-  }
-  // 2. IP Subnet & Cloud Provider Network Routing
-  else if (addr.startsWith("188.114.")) {
-    country = "NL";
-    carrier = "Cloudflare Amsterdam Edge";
-  } else if (addr.startsWith("162.159.") || addr.startsWith("172.67.") || addr.startsWith("104.18.") || addr.startsWith("104.19.") || addr.startsWith("104.21.") || addr.startsWith("104.16.") || addr.startsWith("172.64.")) {
-    // Cloudflare addresses are anycast. The address alone cannot truthfully
-    // identify a country or city, so retain provider evidence without inventing geography.
-    return {
-      country: "ZZ",
-      country_name: "Unknown",
-      flag: "🌐",
-      carrier: "Cloudflare Anycast",
-      org: "Cloudflare",
-      city: "Unknown",
-      latitude: null,
-      longitude: null,
-      geo_source: "anycast-provider",
-      geo_verified: false
-    };
-  } else if (addr.startsWith("47.243.") || addr.startsWith("8.210.") || addr.startsWith("8.217.")) {
-    country = "HK";
-    carrier = "Alibaba Cloud HK";
-  } else if (addr.startsWith("51.79.")) {
-    country = "SG";
-    carrier = "OVHcloud Singapore";
-  } else if (addr.startsWith("57.129.") || addr.startsWith("57.131.") || addr.startsWith("54.36.")) {
-    country = "FR";
-    carrier = "OVHcloud France";
-  } else if (addr.startsWith("15.237.") || addr.startsWith("15.235.")) {
-    country = "FR";
-    carrier = "AWS Paris";
-  } else if (addr.startsWith("54.74.")) {
-    country = "IE";
-    carrier = "AWS Dublin";
-  } else if (addr.startsWith("82.38.") || addr.startsWith("2.26.")) {
-    country = "GB";
-    carrier = "Virgin Media UK";
-  } else if (addr.startsWith("91.132.") || addr.startsWith("140.99.") || addr.startsWith("5.175.") || addr.startsWith("82.198.")) {
-    country = "DE";
-    carrier = "Hetzner Cloud";
-  } else if (addr.startsWith("95.81.") || addr.startsWith("86.107.")) {
-    country = "IR";
-    carrier = "MCI / TCI Iran";
-  } else if (addr.startsWith("194.87.") || addr.startsWith("62.182.") || addr.startsWith("195.133.") || addr.startsWith("31.133.")) {
-    country = "RU";
-    carrier = "VDSina / Selectel";
-  } else if (addr.startsWith("199.232.")) {
-    country = "FI";
-    carrier = "Fastly Helsinki Edge";
-  } else if (addr.startsWith("150.40.")) {
-    country = "JP";
-    carrier = "AWS Tokyo";
-  } else if (addr.startsWith("152.53.") || addr.startsWith("103.152.") || addr.startsWith("45.207.")) {
-    country = "SG";
-    carrier = "Zenlayer Singapore";
-  } else if (addr.startsWith("92.42.") || addr.startsWith("195.184.") || addr.startsWith("45.131.") || addr.startsWith("45.89.")) {
-    country = "NL";
-    carrier = "Serverius Netherlands";
-  } else if (addr.startsWith("69.63.") || addr.startsWith("192.227.") || addr.startsWith("167.233.") || addr.startsWith("166.62.") || addr.startsWith("209.206.")) {
-    country = "US";
-    carrier = "AWS North America";
-  } else if (addr.startsWith("210.3.")) {
-    country = "HK";
-    carrier = "HKBN Hong Kong";
-  } else {
-    return {
-      country: "ZZ",
-      country_name: "Unknown",
-      flag: "🌐",
-      carrier: "Unverified",
-      org: "Unverified",
-      city: "Unknown",
-      latitude: null,
-      longitude: null,
-      geo_source: "unknown",
-      geo_verified: false
-    };
-  }
-
-  const geoInfo = GEO_COORDINATES[country];
-  const countryName = COUNTRY_NAMES[country] || "Unknown";
-  const flag = getFlagEmoji(country);
-
+export function resolveGeoAndCarrier(address, _sni = "", _host = "") {
+  // Hostnames, URI remarks and IP prefix guesses do not prove physical
+  // server location or carrier. Preserve the destination as unknown until
+  // an independently attributed telemetry record is merged.
+  const host = String(address || "").trim().toLowerCase();
+  const cloudflareAnycast = /^(188\.114\.|162\.159\.|172\.6[47]\.|104\.(?:1[6-9]|2[01])\.)/.test(host);
+  const provider = cloudflareAnycast ? "Cloudflare Anycast" : "Unverified";
   return {
-    country,
-    country_name: countryName,
-    flag,
-    carrier,
-    org: carrier,
-    city: geoInfo.city,
-    latitude: geoInfo.lat,
-    longitude: geoInfo.lon,
-    geo_source: "inferred",
+    country: "ZZ", country_name: "Unknown", flag: "🌐",
+    carrier: provider, org: cloudflareAnycast ? "Cloudflare" : provider, city: "Unknown",
+    latitude: null, longitude: null,
+    geo_source: cloudflareAnycast ? "anycast-provider" : "unknown",
     geo_verified: false
   };
 }
@@ -392,7 +246,7 @@ export const HEALTH_GRADES = Object.freeze([
   Object.freeze({ id: "C", maxLatency: Number.POSITIVE_INFINITY, score: 68, label: "Moderate", color: "text-rose-400 border-rose-800/80 bg-rose-950/60" })
 ]);
 
-/** Map a measured latency value to the canonical dashboard health grade. */
+/** Map measured TCP latency to a speed band, not authenticated proxy health. */
 export function healthForLatency(ping) {
   if (ping === null || ping === undefined || ping === "") {
     return { score: null, grade: "—", label: "Unmeasured", color: "text-gray-400 border-gray-700 bg-gray-900" };
@@ -455,6 +309,58 @@ export function normalizeProxyRecord(proxy) {
   };
 }
 
+/** A network probe is one layer of evidence, not proof of a working proxy. */
+export function getProxyEvidence(proxy = {}) {
+  const kind = String(proxy?.health_evidence || "").toLowerCase();
+  if (kind === "fresh_authenticated_protocol" && typeof proxy?.health_grade === "string"
+      && PUBLISHED_HEALTH_GRADE_META[proxy.health_grade]) {
+    return { id: "authenticated", label: "Protocol checked", detail: "Authenticated proxy-protocol evidence from this snapshot; availability can change.", terminal: false };
+  }
+  if (kind === "failed_authenticated_protocol") {
+    return { id: "protocol_failed", label: "Protocol check failed", detail: "Authenticated protocol check failed; this does not imply a permanent failure.", terminal: false };
+  }
+  if (kind === "tcp_connect_only" || (proxy?.probe_ok === true && proxy?.health_evidence === undefined)) {
+    return { id: "tcp", label: "TCP reachable", detail: "TCP connect does not verify proxy authentication.", terminal: false };
+  }
+  if (kind === "tcp_failed_from_publish_vantage" || (proxy?.probe_ok === false && proxy?.health_evidence === undefined)) {
+    return { id: "tcp_failed", label: "TCP check failed", detail: "TCP failed from one publish vantage; this does not establish permanent failure.", terminal: false };
+  }
+  return { id: "unmeasured", label: "Not measured", detail: "No trustworthy proxy-protocol or TCP test available for this snapshot.", terminal: false };
+}
+
+/** A country flag without independently attributed geography is always a hint. */
+export function getRegionPresentation(proxy = {}) {
+  const code = String(proxy?.country || "").trim().toUpperCase();
+  const known = /^[A-Z]{2}$/.test(code) && code !== "ZZ";
+  if (!known) return { code: "ZZ", flag: "🌐", confidence: "unknown", label: "Unknown region", detail: "Location unavailable; no region is assumed." };
+  const flag = getFlagEmoji(code);
+  const confidence = proxy?.geo_verified === true
+    && Boolean(proxy?.geo_source)
+    && !["unknown", "anycast-provider", "unverified_country_hint", "legacy-estimate", "inferred"].includes(String(proxy?.geo_source || "").toLowerCase())
+    ? "provider" : "hint";
+  const label = COUNTRY_NAMES[code] || code;
+  return confidence === "provider"
+    ? { code, flag, confidence, label, detail: "GeoIP provider estimate, not confirmed physical server location." }
+    : { code, flag: flag + "?", confidence, label, detail: "Unverified country hint; not a measured server location." };
+}
+
+/** Published client remarks are the canonical name; never prepend a guessed country. */
+export function displayPublishedName(tag, protocol) {
+  const name = typeof tag === "string" ? tag.trim() : "";
+  return name || `${String(protocol || "proxy").toUpperCase()} · Unnamed`;
+}
+
+/** Counts are computed once per snapshot and shared with the evidence filter. */
+export function countProxyEvidence(proxies) {
+  const counts = { all: 0, authenticated: 0, protocol_failed: 0, tcp: 0, tcp_failed: 0, unmeasured: 0 };
+  for (const proxy of (Array.isArray(proxies) ? proxies : [])) {
+    const state = getProxyEvidence(proxy).id;
+    counts.all += 1;
+    if (Object.hasOwn(counts, state)) counts[state] += 1;
+  }
+  return counts;
+}
+
 /** Keep unresolved geography out of the known-region count and ranking. */
 export function summarizeRegions(proxies) {
   const counts = new Map();
@@ -469,6 +375,35 @@ export function summarizeRegions(proxies) {
   }
   const countries = [...counts.entries()].sort((a, b) => b[1] - a[1]);
   return { regionCount: countries.length, unknownCount, countries };
+}
+
+export function summarizeEvidence(proxies) {
+  const records = Array.isArray(proxies) ? proxies : [];
+  let authenticated = 0;
+  let unknownGeography = 0;
+  for (const proxy of records) {
+    if (proxy?.health_evidence === "fresh_authenticated_protocol") authenticated += 1;
+    if (getRegionPresentation(proxy).confidence !== "provider") unknownGeography += 1;
+  }
+  return { total: records.length, authenticated,
+    unverified: records.length - authenticated, unknownGeography };
+}
+
+export function proxyEvidencePresentation(node) {
+  switch (node?.health_evidence) {
+    case "fresh_authenticated_protocol":
+      return { level: "authenticated", label: "Auth verified", description: "Fresh authenticated proxy-protocol evidence" };
+    case "failed_authenticated_protocol":
+      return { level: "failed", label: "Auth failed", description: "Authenticated proxy-protocol test failed" };
+    default: {
+      const measured = node?.latency ?? node?.ping;
+      if (measured !== null && measured !== undefined && measured !== "" &&
+          Number.isFinite(Number(measured)) && Number(measured) >= 0) {
+        return { level: "tcp", label: "TCP sampled", description: "TCP or snapshot measurement; proxy authentication unverified" };
+      }
+      return { level: "unverified", label: "Not tested", description: "No authenticated proxy-protocol evidence" };
+    }
+  }
 }
 
 function telemetryKey(node) {
@@ -494,8 +429,8 @@ function mergeTelemetryRecord(node, telemetry) {
   if (!telemetry) return normalizeProxyRecord(node);
   const merged = { ...node };
   for (const field of [
-    "latency", "probe_ok", "health_grade", "health_status", "latency_grade",
-    "pca_score", "pca_version", "country", "country_name", "flag", "carrier",
+    "latency", "probe_ok", "health_grade", "health_status", "health_evidence", "latency_grade",
+    "pca_score", "pca_version", "pca_evidence", "country", "country_name", "flag", "carrier",
     "org", "city", "latitude", "longitude", "geo_source", "geo_verified",
     "security_grade"
   ]) {
@@ -544,6 +479,7 @@ export class AppState {
     this.selectedCountry = "ALL";
     this.selectedOperator = "ALL";
     this.selectedGrade = "ALL";
+    this.selectedEvidence = "ALL";
     this.selectedSecurity = "ALL";
     this.selectedPort = "ALL";
     this.sortBy = "latency_asc";
@@ -775,7 +711,7 @@ export class AppState {
             const liveNode = {
               id: `px-${String(idx + 1).padStart(4, "0")}`,
               protocol: proto,
-              name: `${geo.country}-${tag}`,
+              name: displayPublishedName(tag, proto),
               server: host,
               port: port,
               uuid: entry.user || entry.password || "",
@@ -879,7 +815,7 @@ export class AppState {
     const radarBadge = document.getElementById("radar-live-badge");
     if (radarBadge) {
       const live = this.liveDataState === "ready";
-      radarBadge.textContent = live ? "VERIFIED" : "BUNDLED";
+      radarBadge.textContent = live ? "CATALOG OK" : "BUNDLED";
       radarBadge.className = `px-1.5 py-0.5 text-xs font-bold rounded border ${
         live
           ? "bg-cyan-950/80 text-cyan-300 border-cyan-800/60"
@@ -1012,14 +948,22 @@ export class AppState {
   getHealthScore(nodeOrPing) {
     const node = nodeOrPing && typeof nodeOrPing === "object" ? nodeOrPing : null;
     const publishedGrade = node?.health_grade;
-    if (node && typeof publishedGrade === "string" && PUBLISHED_HEALTH_GRADE_META[publishedGrade]) {
+    const authenticated = getProxyEvidence(node).id === "authenticated";
+    if (node && authenticated && typeof publishedGrade === "string"
+      && PUBLISHED_HEALTH_GRADE_META[publishedGrade]) {
       const rawScore = node.pca_score === null || node.pca_score === undefined || node.pca_score === ""
         ? null
         : Number(node.pca_score);
       const score = rawScore !== null && Number.isFinite(rawScore) ? Math.round(rawScore * 100) : null;
       return { score, grade: publishedGrade, ...PUBLISHED_HEALTH_GRADE_META[publishedGrade] };
     }
-    return healthForLatency(node ? this.getLatency(node) : nodeOrPing);
+    const estimate = healthForLatency(node ? this.getLatency(node) : nodeOrPing);
+    if (node) {
+      return { ...estimate, label: estimate.score === null
+        ? "Proxy unverified; TCP unmeasured"
+        : "TCP latency estimate; proxy authentication unverified" };
+    }
+    return estimate;
   }
 
   getLatency(node) {
@@ -1030,17 +974,46 @@ export class AppState {
   }
 
   getHealthSortValue(node) {
-    const { score } = this.getHealthScore(node);
-    return score ?? Number.NEGATIVE_INFINITY;
+    const level = getProxyEvidence(node).id;
+    const score = this.getHealthScore(node).score ?? 0;
+    if (level === "authenticated") return 3000000 + score;
+    if (level === "tcp") return 2000000 + score;
+    if (level === "protocol_failed") return 1000000;
+    if (level === "tcp_failed") return 500000;
+    return 0;
   }
 
   refreshProxyWorkspace() {
-    // The filter bar counts and the node grid derive from one filtered set;
-    // computing it once here keeps a ~1k-node filter+sort from running twice
-    // on every keystroke and select change.
+    // The toolbar is rebuilt after each filter change. Preserve the exact
+    // control and input selection rather than only preserving quick search:
+    // otherwise keyboard and switch users lose their place on every select
+    // or grid/table toggle.
+    const toolbar = typeof document === "undefined" ? null : document.getElementById("filter-bar");
+    const focused = typeof document === "undefined" ? null : document.activeElement;
+    const preserve = Boolean(toolbar?.contains(focused));
+    const id = preserve ? focused.id : "";
+    const keys = [
+      ["btn-proto-tab", "protocol"],
+      ["btn-evidence-filter", "evidence"]
+    ];
+    const matched = preserve ? keys.find(([className]) => focused.classList.contains(className)) : null;
+    const dataValue = matched ? focused.dataset[matched[1]] : null;
+    const start = preserve && typeof focused.selectionStart === "number" ? focused.selectionStart : null;
+    const end = preserve && typeof focused.selectionEnd === "number" ? focused.selectionEnd : null;
     const filtered = this.getFilteredProxies();
     this.renderFilterBar(filtered);
     this.renderNodes(filtered);
+    if (preserve) {
+      const next = id ? document.getElementById(id) : matched
+        ? Array.from(toolbar.querySelectorAll(`.${matched[0]}`))
+          .find((button) => button.dataset[matched[1]] === dataValue)
+        : null;
+      const target = next || (focused.closest?.("#active-filter-chips") ? document.getElementById("node-quick-search") : null);
+      target?.focus({ preventScroll: true });
+      if (target && start !== null && end !== null && typeof target.setSelectionRange === "function") {
+        target.setSelectionRange(start, end);
+      }
+    }
   }
 
   resetProxyFilters({ focusSearch = false } = {}) {
@@ -1049,6 +1022,7 @@ export class AppState {
     this.selectedCountry = "ALL";
     this.selectedOperator = "ALL";
     this.selectedGrade = "ALL";
+    this.selectedEvidence = "ALL";
     this.selectedSecurity = "ALL";
     this.selectedPort = "ALL";
     this.searchQuery = "";
@@ -1082,7 +1056,7 @@ export class AppState {
     this.renderHeader();
   }
 
-  getFilteredProxies() {
+  getFilteredProxies({ ignoreEvidence = false } = {}) {
     let result = [...this.proxies];
 
     if (this.selectedProtocol !== "ALL") {
@@ -1107,10 +1081,16 @@ export class AppState {
 
     if (this.selectedGrade !== "ALL") {
       result = result.filter(p => {
-        if (this.selectedGrade === "UNMEASURED") return this.getLatency(p) === null;
-        const { grade } = this.getHealthScore(p);
-        return grade === this.selectedGrade;
+        const kind = getProxyEvidence(p).id;
+        if (this.selectedGrade === "UNMEASURED") return !["authenticated", "tcp"].includes(kind);
+        if (this.selectedGrade.startsWith("AUTH:")) return kind === "authenticated" && p.health_grade === this.selectedGrade.slice(5);
+        if (this.selectedGrade.startsWith("TCP:")) return kind === "tcp" && healthForLatency(this.getLatency(p)).grade === this.selectedGrade.slice(4);
+        return false;
       });
+    }
+
+    if (!ignoreEvidence && this.selectedEvidence && this.selectedEvidence !== "ALL") {
+      result = result.filter(node => getProxyEvidence(node).id === this.selectedEvidence);
     }
 
     if (this.selectedSecurity !== "ALL") {
@@ -1174,7 +1154,12 @@ export class AppState {
     } else if (filter === "SUBSCRIPTIONS") {
       list = list.filter(f => f.type === "B64SUB" || f.ext === "B64SUB" || f.type === "NPVT" || f.ext === "NPVT" || (f.tags && f.tags.includes("subscription")));
     } else if (filter === "CONFIGS") {
-      list = list.filter(f => ["SINGBOX", "XRAY", "OVPN", "WARP", "CLASH"].includes(f.type || f.ext) || (f.tags && (f.tags.includes("singbox") || f.tags.includes("xray") || f.tags.includes("openvpn"))));
+      list = list.filter(f => {
+        const tags = Array.isArray(f.tags) ? f.tags : [];
+        if (tags.includes("subscription")) return false;
+        return ["SINGBOX", "XRAY", "OVPN", "WARP", "CLASH"].includes(f.type || f.ext)
+          || tags.some(tag => ["singbox", "xray", "openvpn", "clash"].includes(tag));
+      });
     } else if (filter === "CHUNKS") {
       list = list.filter(f => f.type === "CHUNK" || f.ext === "CHUNK" || (f.filename || f.name || "").includes("chunk_") || (f.tags && f.tags.includes("chunk")));
     }
@@ -1342,13 +1327,12 @@ export class AppState {
           <div>
             <div class="flex items-center gap-2">
               <span class="font-mono text-base font-bold tracking-tight text-white">HUNT<span class="text-cyan-400">X</span></span>
-              <span class="hidden sm:inline px-1.5 py-0.5 text-xs font-mono font-bold bg-cyan-950/80 text-cyan-400 border border-cyan-800/60 rounded">v2.5</span>
             </div>
-            <span class="text-xs text-gray-400 font-mono tracking-wider hidden sm:block">NODE TELEMETRY</span>
+            <span class="text-xs text-gray-400 font-mono tracking-wider hidden sm:block">NETWORK CONTROL ROOM</span>
           </div>
         </a>
 
-        <div class="flex-1 max-w-md hidden md:block">
+        <div class="header-global-search flex-1 max-w-md hidden md:block">
           <div class="relative group">
             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500 group-focus-within:text-cyan-400">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
@@ -1421,6 +1405,16 @@ export class AppState {
           </button>
 
           <button
+            id="btn-open-mobile-search"
+            type="button"
+            class="header-mobile-search min-h-[44px] min-w-[44px] items-center justify-center bg-gray-900 border border-gray-800 text-cyan-300 rounded-xl focus-ring"
+            title="Search published proxies"
+            aria-label="Search published proxies"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+          </button>
+
+          <button
             id="btn-toggle-theme"
             class="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-cyan-500/40 text-gray-400 hover:text-cyan-300 rounded-xl transition-all focus-ring cursor-pointer"
             title="Toggle Light / Dark Theme"
@@ -1475,6 +1469,8 @@ export class AppState {
           >
             <button id="menu-open-scanner" role="menuitem" class="w-full min-h-[44px] px-3 py-2 text-left text-xs font-mono text-emerald-300 hover:bg-gray-900 rounded-xl focus-ring">${i18n.translate("IP Scanner")}</button>
             <button id="menu-open-builder" role="menuitem" class="w-full min-h-[44px] px-3 py-2 text-left text-xs font-mono text-cyan-300 hover:bg-gray-900 rounded-xl focus-ring">${i18n.translate("Sub Builder")}</button>
+            <button id="menu-open-search" role="menuitem" class="w-full min-h-[44px] px-3 py-2 text-left text-xs font-mono text-cyan-300 hover:bg-gray-900 rounded-xl focus-ring">Search proxies</button>
+            <button id="menu-toggle-theme" role="menuitem" class="w-full min-h-[44px] px-3 py-2 text-left text-xs font-mono text-gray-200 hover:bg-gray-900 rounded-xl focus-ring">Toggle appearance</button>
             <button id="menu-open-decoder" role="menuitem" class="w-full min-h-[44px] px-3 py-2 text-left text-xs font-mono text-gray-200 hover:bg-gray-900 rounded-xl focus-ring">${i18n.translate("Decoder")}</button>
             <a href="architecture.html" target="_blank" role="menuitem" class="flex items-center min-h-[44px] px-3 py-2 text-xs font-mono text-indigo-300 hover:bg-gray-900 rounded-xl focus-ring">${i18n.translate("Architecture")}</a>
             <a href="https://github.com/AmirrezaFarnamTaheri/HUNTX" target="_blank" rel="noopener noreferrer" role="menuitem" class="flex items-center min-h-[44px] px-3 py-2 text-xs font-mono text-gray-300 hover:bg-gray-900 rounded-xl focus-ring">GitHub</a>
@@ -1491,6 +1487,12 @@ export class AppState {
     document.getElementById("global-search-input")?.addEventListener("input", (e) => {
       debouncedSearch(e.target.value);
     });
+
+    const openProxySearch = () => {
+      this.switchPageTab("proxies", true);
+      document.getElementById("node-quick-search")?.focus();
+    };
+    document.getElementById("btn-open-mobile-search")?.addEventListener("click", openProxySearch);
 
     document.getElementById("btn-open-scanner")?.addEventListener("click", (e) => {
       this.lastFocusedElement = e.currentTarget;
@@ -1531,6 +1533,14 @@ export class AppState {
       this.lastFocusedElement = toolsButton;
       setToolsOpen(false);
       this.openCleanIPScannerModal();
+    });
+    document.getElementById("menu-open-search")?.addEventListener("click", () => {
+      setToolsOpen(false);
+      openProxySearch();
+    });
+    document.getElementById("menu-toggle-theme")?.addEventListener("click", () => {
+      setToolsOpen(false);
+      this.toggleTheme();
     });
     document.getElementById("menu-open-builder")?.addEventListener("click", () => {
       this.lastFocusedElement = toolsButton;
@@ -1578,13 +1588,14 @@ export class AppState {
     hero.innerHTML = `
       <div class="radar-overview">
         <div class="radar-summary">
-          <h1>Proxy telemetry <span>&amp; node diagnostics</span></h1>
+          <span class="section-eyebrow">HUNTX / Observatory</span>
+          <h2>Published network snapshot <span>and its evidence gaps</span></h2>
           <p class="radar-description">Browse the loaded snapshot, compare recorded measurements, and inspect configurations. Artifact checksums do not verify connectivity.</p>
           <dl class="radar-metrics">
-            <div><dt>Loaded nodes</dt><dd>${activeCount}</dd><span>${regionCount} regions${regionSummary.unknownCount ? ` · ${regionSummary.unknownCount} unresolved` : ""}</span></div>
-            <div><dt>Ingest sources</dt><dd>${sourcesCount}</dd><span>Channels</span></div>
-            <div><dt>Catalog files</dt><dd>${totalFiles}</dd><span>${escapeHTML(totalSize)}</span></div>
-            <div><dt>Avg latency</dt><dd>${avgLatencyNum === null ? "—" : `${avgLatencyNum}ms`}</dd><span>${minLatencyNum === null ? "Unmeasured" : `Min: ${minLatencyNum}ms`}</span></div>
+            <div><dt>Published nodes</dt><dd>${activeCount.toLocaleString("en-US")}</dd><span>${regionCount} reported regions${regionSummary.unknownCount ? ` · ${regionSummary.unknownCount} unresolved` : ""}</span></div>
+            <div><dt>Source inventory</dt><dd>${sourcesCount}</dd><span>Configured upstreams</span></div>
+            <div><dt>Available artifacts</dt><dd>${totalFiles}</dd><span>${escapeHTML(totalSize)}</span></div>
+            <div><dt>Recorded latency</dt><dd>${avgLatencyNum === null ? "—" : `${avgLatencyNum}ms`}</dd><span>${minLatencyNum === null ? "Not measured" : `Lowest: ${minLatencyNum}ms · not auth proof`}</span></div>
           </dl>
 
           <div class="hero-actions flex flex-wrap gap-2.5 pt-2">
@@ -1594,7 +1605,7 @@ export class AppState {
               aria-label="Copy Multi-Node Subscription URL"
             >
               <svg class="w-4 h-4 text-gray-950" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-              Copy Subscription URL
+              Copy subscription URL
             </button>
 
             <a
@@ -1603,10 +1614,10 @@ export class AppState {
               href="artifacts/release/all_sources_singbox.json"
               download
               class="px-3.5 py-2.5 min-h-[44px] bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 hover:border-cyan-400 text-cyan-300 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-1.5"
-              aria-label="Download Sing-box 1.10+ JSON"
+              aria-label="Download Sing-box node subscription JSON"
             >
               <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-              Sing-box Profile
+              Sing-box Subscription
             </a>
 
             <a
@@ -1615,12 +1626,15 @@ export class AppState {
               href="artifacts/release/all_sources_xray.json"
               download
               class="px-3.5 py-2.5 min-h-[44px] bg-indigo-950/60 hover:bg-indigo-900/60 border border-indigo-500/30 hover:border-indigo-400 text-indigo-300 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-1.5"
-              aria-label="Download Xray Config"
+              aria-label="Download Xray node subscription JSON"
             >
               <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-              Xray Config
+              Xray Subscription
             </a>
 
+            <details class="hero-more">
+              <summary class="hero-more-trigger">More tools</summary>
+              <div class="hero-more-menu">
             <button
               id="hero-open-scanner"
               class="px-3.5 py-2.5 min-h-[44px] bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/30 hover:border-emerald-400 text-emerald-300 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-1.5"
@@ -1641,6 +1655,8 @@ export class AppState {
               <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
               Cumulative JSON
             </a>
+              </div>
+            </details>
           </div>
         </div>
 
@@ -1691,7 +1707,7 @@ export class AppState {
     document.getElementById("hero-copy-sub")?.addEventListener("click", (e) => {
       const sub = this.resolveSubscriptionArtifact();
       if (!sub) {
-        this.showToast("No subscription feed in this snapshot", "error");
+        this.showToast("No node subscription feed in this snapshot", "error");
         return;
       }
       this.copyText(resolveArtifactUrl(sub.path), isHostedDashboard()
@@ -1707,8 +1723,9 @@ export class AppState {
     this.reconcileArtifactLinks(hero);
   }
 
-  // The subscription offered to a user is whichever node feed this snapshot
-  // actually published, never a whole client configuration.
+  // The hero action selects the highest-ranked multi-node subscription from the
+  // published catalog. Sing-box/Xray JSON are eligible because their release
+  // derivatives are intentionally outbounds-only node feeds.
   resolveSubscriptionArtifact(catalog = this.catalog) {
     return pickSubscriptionArtifact(Array.isArray(catalog?.files) ? catalog.files : []);
   }
@@ -1811,31 +1828,33 @@ export class AppState {
     if (!container) return;
 
     // 1. Dynamic Carrier Probes computed directly from loaded proxies
-    const carrierMap = {};
+    // Operator strings originate in published data, not trusted code. A Map
+    // avoids special keys such as "__proto__" colliding with Object.prototype.
+    const carrierMap = new Map();
     for (const p of this.proxies) {
-      const cName = p.carrier || p.org || this.detectOperator(p.server, p.sni, p.name);
-      if (!carrierMap[cName]) {
-        carrierMap[cName] = { name: cName, count: 0, pings: [] };
+      const cName = String(p.carrier || p.org || this.detectOperator(p.server, p.sni, p.name) || "Unattributed");
+      if (!carrierMap.has(cName)) {
+        carrierMap.set(cName, { name: cName, count: 0, pings: [] });
       }
-      carrierMap[cName].count += 1;
-      const measured = Number(p.latency) === p.latency && p.latency !== null && p.latency > 0 ? p.latency : null;
-      if (measured !== null) carrierMap[cName].pings.push(measured);
+      const carrier = carrierMap.get(cName);
+      carrier.count += 1;
+      const measured = typeof p.latency === "number" && Number.isFinite(p.latency) && p.latency > 0 ? p.latency : null;
+      if (measured !== null) carrier.pings.push(measured);
     }
 
-    const sortedCarriers = Object.values(carrierMap).sort((a, b) => b.count - a.count);
-    const operators = sortedCarriers.slice(0, 8).map(c => {
-      const hasProbe = c.pings.length > 0;
-      const avgPing = hasProbe ? Math.round(c.pings.reduce((a, b) => a + b, 0) / c.pings.length) : null;
-      const grade = !hasProbe ? "—" : (avgPing <= 35 ? "A+" : (avgPing <= 55 ? "A" : "B+"));
-      const status = !hasProbe ? "No probe data" : (avgPing <= 28 ? "Ultra" : (avgPing <= 45 ? "Optimal" : "Stable"));
+    const sortedCarriers = [...carrierMap.values()].sort((a, b) => b.count - a.count);
+    const operators = sortedCarriers.slice(0, 8).map(carrier => {
+      const samples = carrier.pings.slice().sort((a, b) => a - b);
+      const mid = Math.floor(samples.length / 2);
+      const median = samples.length
+        ? Math.round(samples.length % 2 ? samples[mid] : (samples[mid - 1] + samples[mid]) / 2)
+        : null;
       return {
-        name: c.name,
-        tag: c.name,
-        ping: hasProbe ? `${avgPing}ms` : "—",
-        status: status,
-        loss: "—",
-        grade: grade,
-        count: c.count
+        name: carrier.name,
+        tag: carrier.name,
+        median: median === null ? null : `${median}ms`,
+        samples: samples.length,
+        count: carrier.count
       };
     });
 
@@ -1844,37 +1863,53 @@ export class AppState {
     const sortedCountries = regionSummary.countries.slice(0, 8);
 
     const maxCount = sortedCountries.length > 0 ? sortedCountries[0][1] : 1;
+    const evidence = summarizeEvidence(this.proxies);
 
     container.innerHTML = `
+      <div class="section-eyebrow">Evidence at a glance</div>
+      <div id="evidence-strip" aria-label="Snapshot evidence summary">
+        <div class="evidence-stat" data-tone="good">
+          <span class="evidence-label">Authenticated</span>
+          <div class="evidence-value" data-evidence-count>${evidence.authenticated.toLocaleString("en-US")}</div>
+          <p class="evidence-detail">Fresh proxy-protocol evidence</p>
+        </div>
+        <div class="evidence-stat" data-tone="caution">
+          <span class="evidence-label">Unverified</span>
+          <div class="evidence-value" data-evidence-count>${evidence.unverified.toLocaleString("en-US")}</div>
+          <p class="evidence-detail">Not proven by proxy authentication</p>
+        </div>
+        <div class="evidence-stat">
+          <span class="evidence-label">Unattributed location</span>
+          <div class="evidence-value" data-evidence-count>${evidence.unknownGeography.toLocaleString("en-US")}</div>
+          <p class="evidence-detail">No reliable geographical attribution</p>
+        </div>
+        <p class="evidence-note"><strong>Evidence boundary.</strong> Country hints, IP reachability and TLS handshakes do not validate an authenticated proxy session. Counts describe the loaded snapshot.</p>
+      </div>
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 my-8">
         <!-- Carrier Matrix Card -->
         <div class="lg:col-span-7 cyber-card p-6 bg-gray-900/60 border border-gray-800/80 hover:border-cyan-500/40 rounded-3xl backdrop-blur-md">
           <div class="flex items-center justify-between pb-4 border-b border-gray-800 mb-4">
             <div>
               <h2 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
-                Carrier measurements
+                Network operators
                 <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">${this.telemetryState === "same-generation" ? "SNAPSHOT TELEMETRY" : "NO SNAPSHOT TELEMETRY"}</span>
-              </h3>
-              <p class="text-xs text-gray-400 font-sans mt-0.5">Snapshot operator latency and routing distribution (${this.proxies.length} nodes analyzed)</p>
+              </h2>
+              <p class="text-xs text-gray-400 font-sans mt-0.5">Reported operators and median recorded endpoint latency (${this.proxies.length} nodes in snapshot; not a proxy-auth test)</p>
             </div>
           </div>
 
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
             ${operators.map(op => `
-              <div class="operator-card p-3 rounded-2xl bg-gray-950/80 border border-gray-800/80 hover:border-cyan-500/50 cursor-pointer transition-all flex flex-col justify-between group" data-operator="${escapeHTML(op.tag)}" title="Click to filter live proxies by ${escapeHTML(op.name)}">
-                <div class="flex items-center justify-between">
-                  <span class="text-xs font-mono font-bold text-gray-200 group-hover:text-cyan-300 transition-colors truncate max-w-[90px]">${escapeHTML(op.name)}</span>
-                  <span class="text-xs font-mono font-extrabold text-cyan-400 bg-cyan-950/80 border border-cyan-500/30 px-1.5 py-0.5 rounded-md">${op.grade}</span>
+              <button type="button" class="operator-card p-3 rounded-2xl bg-gray-950/80 border border-gray-800/80 hover:border-cyan-500/50 cursor-pointer transition-all flex flex-col justify-between group" data-operator="${escapeHTML(op.tag)}" aria-label="Filter by operator ${escapeHTML(op.name)}" title="Filter snapshot by ${escapeHTML(op.name)}">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-xs font-mono font-bold text-gray-200 group-hover:text-cyan-300 transition-colors truncate">${escapeHTML(op.name)}</span>
+                  <span class="text-xs font-mono text-gray-400 shrink-0">${op.samples} samples</span>
                 </div>
-                <div class="flex items-baseline justify-between mt-2">
-                  <span class="font-mono text-base font-extrabold text-emerald-400">⚡ ${op.ping}</span>
-                  <span class="text-xs font-mono text-gray-500">${op.count} nodes</span>
+                <div class="flex items-baseline justify-between gap-2 mt-2">
+                  <span class="font-mono text-base font-extrabold text-emerald-400">${op.median === null ? "Not measured" : `p50 ${op.median}`}</span>
+                  <span class="text-xs font-mono text-gray-400">${op.count} nodes</span>
                 </div>
-                <div class="flex items-center justify-between mt-1 text-xs font-mono text-gray-400 pt-1 border-t border-gray-800/40">
-                  <span>Loss: ${op.loss}</span>
-                  <span class="text-cyan-400 font-semibold">${op.status}</span>
-                </div>
-              </div>
+              </button>
             `).join("")}
           </div>
         </div>
@@ -1886,8 +1921,8 @@ export class AppState {
               <h2 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
                 Node distribution
                 <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">${sortedCountries.length} REGIONS</span>
-              </h3>
-              <p class="text-xs text-gray-400 font-sans mt-0.5">Node density across active edge regions and data centers</p>
+              </h2>
+              <p class="text-xs text-gray-400 font-sans mt-0.5">Reported geography from the loaded snapshot; unknown locations are excluded</p>
             </div>
           </div>
 
@@ -1896,17 +1931,17 @@ export class AppState {
               const pct = Math.round((count / (this.proxies.length || 1)) * 100);
               const name = COUNTRY_NAMES[code] || code;
               return `
-                <div class="geo-density-row cursor-pointer group" data-country="${code}" title="Click to filter live proxies by ${name}">
+                <button type="button" class="geo-density-row cursor-pointer group" data-country="${escapeHTML(code)}" aria-label="Filter by reported region ${escapeHTML(name)}" title="Filter snapshot by ${escapeHTML(name)}">
                   <div class="flex items-center justify-between text-xs font-mono mb-1">
                     <span class="font-bold text-gray-200 group-hover:text-cyan-300 transition-colors flex items-center gap-1.5">
-                      <span>${this.getCountryFlag(code)}</span> ${name} (${code})
+                      <span>${escapeHTML(this.getCountryFlag(code))}</span> ${escapeHTML(name)} (${escapeHTML(code)})
                     </span>
                     <span class="text-cyan-400 font-bold">${count} nodes <span class="text-gray-500 font-normal">(${pct}%)</span></span>
                   </div>
                   <div class="h-2 w-full bg-gray-950 rounded-full overflow-hidden border border-gray-800">
                     <div class="h-full bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-full transition-all duration-300 group-hover:from-cyan-400 group-hover:to-indigo-400" style="width:${Math.min(100, Math.round((count / maxCount) * 100))}%"></div>
                   </div>
-                </div>
+                </button>
               `;
             }).join("")}
             ${regionSummary.unknownCount ? `
@@ -1923,7 +1958,7 @@ export class AppState {
         <div class="space-y-1">
           <h2 class="text-base font-mono font-bold text-white flex items-center gap-2">
             Loaded snapshot
-          </h4>
+          </h2>
           <p class="text-xs font-sans text-gray-300">
             ${this.proxies.length} loaded endpoints. Inspect configurations before importing; connectivity is not verified here.
           </p>
@@ -1977,7 +2012,7 @@ export class AppState {
     const transports = ["ALL", ...activeTransports];
 
     // Derive available countries
-    const activeCountries = Array.from(new Set(allProxies.map(p => p.country || "US"))).sort();
+    const activeCountries = Array.from(new Set(allProxies.map(p => p.country || "ZZ"))).sort();
     const countries = [
       { code: "ALL", label: "All Regions" },
       ...activeCountries.map(code => ({
@@ -1996,28 +2031,20 @@ export class AppState {
       }))
     ];
 
-    const hasMeasuredLatency = allProxies.some((proxy) => this.getLatency(proxy) !== null);
-    const hasUnmeasuredLatency = allProxies.some((proxy) => this.getLatency(proxy) === null);
-    const publishedGrades = new Set(allProxies.map((proxy) => proxy.health_grade).filter(Boolean));
-    const gradeOptions = publishedGrades.size
-      ? [...publishedGrades].map((id) => ({
-          id,
-          label: id === "F" ? "Unreachable at publish" : `Published grade ${id}`
-        }))
-      : HEALTH_GRADES.map((grade) => ({
-          id: grade.id,
-          label: Number.isFinite(grade.maxLatency)
-            ? `Grade ${grade.id} (≤${grade.maxLatency}ms)`
-            : `Grade ${grade.id} (>${HEALTH_GRADES[HEALTH_GRADES.length - 2].maxLatency}ms)`
-        }));
+    const publishedGrades = [...new Set(allProxies.filter(p => getProxyEvidence(p).id === "authenticated")
+      .map(p => p.health_grade))].sort();
+    const tcpBands = [...new Set(allProxies.filter(p => getProxyEvidence(p).id === "tcp")
+      .map(p => healthForLatency(this.getLatency(p)).grade))].filter(v => v !== "—").sort();
+    const gradeOptions = [
+      ...publishedGrades.map(id => ({ id: `AUTH:${id}`, label: `Protocol grade ${id}` })),
+      ...tcpBands.map(id => ({ id: `TCP:${id}`, label: `TCP band ${id} (not proxy health)` }))
+    ];
     this.selectedGrade = reconcileGradeSelection(this.selectedGrade, gradeOptions);
-    const grades = hasMeasuredLatency || publishedGrades.size
-      ? [
-          { id: "ALL", label: "All Latency Grades" },
-          ...gradeOptions,
-          ...(hasUnmeasuredLatency ? [{ id: "UNMEASURED", label: "Unmeasured / unreachable" }] : [])
-        ]
-      : [{ id: "ALL", label: "Latency unmeasured" }];
+    const grades = [
+      { id: "ALL", label: "All measurement bands" },
+      ...gradeOptions,
+      { id: "UNMEASURED", label: "No successful test" }
+    ];
 
     const securities = [
       { id: "ALL", label: "All Security Types" },
@@ -2027,14 +2054,62 @@ export class AppState {
     ];
 
     const filtered = precomputed || this.getFilteredProxies();
+    // Keep advanced filters expanded across toolbar rerenders, including
+    // changes made by a focused select inside the disclosure.
+    const oldAdvanced = filterContainer.querySelector("#advanced-filters");
+    if (oldAdvanced) this.advancedFiltersOpen = oldAdvanced.open;
+
+    const activeFilters = [
+      { key: "selectedProtocol", label: "Protocol", value: this.selectedProtocol },
+      { key: "selectedTransport", label: "Transport", value: this.selectedTransport },
+      { key: "selectedCountry", label: "Region", value: this.selectedCountry },
+      { key: "selectedOperator", label: "Operator", value: this.selectedOperator },
+      { key: "selectedGrade", label: "Grade", value: this.selectedGrade },
+      { key: "selectedEvidence", label: "Evidence", value: this.selectedEvidence },
+      { key: "selectedPort", label: "Port", value: this.selectedPort },
+      { key: "selectedSecurity", label: "Security", value: this.selectedSecurity },
+      { key: "searchQuery", label: "Search", value: this.searchQuery }
+    ].filter(item => item.value && item.value !== "ALL");
+
+    const evidenceCounts = countProxyEvidence(this.getFilteredProxies({ ignoreEvidence: true }));
+    const evidenceOptions = [
+      { id: "ALL", label: "All evidence", count: evidenceCounts.all },
+      { id: "authenticated", label: "Protocol checked", count: evidenceCounts.authenticated },
+      { id: "protocol_failed", label: "Protocol failed", count: evidenceCounts.protocol_failed },
+      { id: "tcp", label: "TCP reachable", count: evidenceCounts.tcp },
+      { id: "tcp_failed", label: "TCP failed", count: evidenceCounts.tcp_failed },
+      { id: "unmeasured", label: "Not measured", count: evidenceCounts.unmeasured }
+    ];
 
     filterContainer.innerHTML = `
-      <div class="space-y-4 py-6">
+      <div class="proxy-workspace space-y-4 py-6">
+        <div class="workspace-intro">
+          <span class="catalog-kicker">Published endpoints · candidate inventory, not live local health</span>
+          <span class="workspace-total">${allProxies.length.toLocaleString("en-US")} entries</span>
+        </div>
+        <section id="evidence-overview" class="measurement-bar" aria-label="Proxy measurement evidence">
+          <div class="measurement-head">
+            <div class="measurement-heading"><strong>Evidence quality</strong><span class="measurement-context">Publisher measurements · TCP is not proxy authentication</span></div>
+            <a href="ENDPOINT_EVIDENCE.md" target="_blank" rel="noopener noreferrer" class="focus-ring">${i18n.translate("Evidence guide")} ↗</a>
+          </div>
+          <div class="measurement-pills" role="group" aria-label="Filter by measurement evidence">
+            ${evidenceOptions.map(option => `
+              <button
+                type="button"
+                class="btn-evidence-filter min-h-[44px] px-3.5 py-2 rounded-xl border text-xs font-mono font-semibold focus-ring transition-all ${this.selectedEvidence === option.id ? "bg-cyan-950/60 text-cyan-300 border-cyan-500/60" : "bg-gray-900 text-gray-300 border-gray-800 hover:border-cyan-500/50"}"
+                data-evidence="${option.id}"
+                aria-pressed="${this.selectedEvidence === option.id}"
+              >
+                ${escapeHTML(i18n.translate(option.label))}
+                <span class="evidence-count">${option.count.toLocaleString()}</span>
+              </button>`).join("")}
+          </div>
+        </section>
         <!-- Top Toolbar: Protocol Pills + View Mode Switcher + Search -->
-        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+        <div class="protocol-toolbar">
           <!-- Protocol Tabs -->
-          <div class="flex flex-wrap gap-1.5 items-center" role="toolbar" aria-label="Protocol Filter">
-            <span class="text-xs font-mono font-bold text-gray-400 uppercase tracking-wider mr-1.5 flex items-center gap-1">
+          <div class="protocol-pills" role="group" aria-label="Protocol Filter">
+            <span class="protocol-pills-label text-xs font-mono font-bold text-gray-400 uppercase tracking-wider mr-1.5 flex items-center gap-1">
               <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
               Protocol:
             </span>
@@ -2061,11 +2136,12 @@ export class AppState {
           </div>
 
           <!-- View Mode Switcher & Quick Search -->
-          <div class="flex items-center gap-2.5 w-full lg:w-auto">
+          <div class="filter-primary-controls">
             <!-- View Mode Switcher -->
-            <div class="flex items-center bg-gray-900 border border-gray-800 p-0.5 rounded-xl">
+            <div class="filter-view-toggle" role="group" aria-label="Proxy result view">
               <button
                 id="btn-view-grid"
+                aria-pressed="${this.viewMode === 'grid'}"
                 class="px-3 py-2 min-h-[44px] rounded-lg text-xs font-mono font-semibold transition-all flex items-center gap-1 cursor-pointer focus-ring ${this.viewMode === 'grid' ? 'bg-cyan-500 text-gray-950 font-bold' : 'text-gray-400 hover:text-gray-200'}"
                 title="Grid Cards View (Press V)"
                 aria-label="Grid Cards View"
@@ -2075,6 +2151,7 @@ export class AppState {
               </button>
               <button
                 id="btn-view-table"
+                aria-pressed="${this.viewMode === 'table'}"
                 class="px-3 py-2 min-h-[44px] rounded-lg text-xs font-mono font-semibold transition-all flex items-center gap-1 cursor-pointer focus-ring ${this.viewMode === 'table' ? 'bg-cyan-500 text-gray-950 font-bold' : 'text-gray-400 hover:text-gray-200'}"
                 title="Dense Data Table View (Press V)"
                 aria-label="Dense Table View"
@@ -2084,6 +2161,7 @@ export class AppState {
               </button>
               <button
                 id="btn-view-feed"
+                aria-pressed="${this.viewMode === 'feed'}"
                 class="px-3 py-2 min-h-[44px] rounded-lg text-xs font-mono font-semibold transition-all flex items-center gap-1 cursor-pointer focus-ring ${this.viewMode === 'feed' ? 'bg-cyan-500 text-gray-950 font-bold' : 'text-gray-400 hover:text-gray-200'}"
                 title="Raw Text / Feed View"
                 aria-label="Raw Text Feed View"
@@ -2094,7 +2172,7 @@ export class AppState {
             </div>
 
             <!-- Quick Search Input -->
-            <div class="relative flex-1 sm:w-60">
+            <div class="filter-search">
               <input
                 id="node-quick-search"
                 type="text"
@@ -2107,8 +2185,11 @@ export class AppState {
           </div>
         </div>
 
-        <!-- Dimensional Cyber Select Menus -->
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 items-center">
+        <!-- Secondary dimensions are available without occupying the first viewport. -->
+        <details id="advanced-filters" class="filter-more" ${this.advancedFiltersOpen ? "open" : ""}>
+          <summary>Advanced filters <span class="filter-advanced-summary">Region, operator, transport, security, measurements &amp; sort</span></summary>
+          <div class="filter-advanced-inner">
+          <div class="filter-select-grid">
           <!-- Operator Dropdown -->
           <div class="relative">
             <label class="block text-xs font-mono text-gray-400 mb-1">Operator / Carrier</label>
@@ -2147,7 +2228,7 @@ export class AppState {
 
           <!-- Health Grade Dropdown -->
           <div class="relative">
-            <label class="block text-xs font-mono text-gray-400 mb-1">Health Grade</label>
+            <label class="block text-xs font-mono text-gray-400 mb-1">Measurement type / band</label>
             <select
               id="select-grade"
               class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
@@ -2177,25 +2258,26 @@ export class AppState {
               class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
               aria-label="Sort Order"
             >
-              <option value="latency_asc" ${this.sortBy === "latency_asc" ? "selected" : ""}>Fastest Latency</option>
-              <option value="score_desc" ${this.sortBy === "score_desc" ? "selected" : ""}>Top Health Score</option>
+              <option value="latency_asc" ${this.sortBy === "latency_asc" ? "selected" : ""}>Lowest observed TCP latency</option>
+              <option value="score_desc" ${this.sortBy === "score_desc" ? "selected" : ""}>Authenticated grade, then TCP band</option>
               <option value="name_asc" ${this.sortBy === "name_asc" ? "selected" : ""}>Name (A-Z)</option>
               <option value="country_asc" ${this.sortBy === "country_asc" ? "selected" : ""}>Country (A-Z)</option>
               <option value="port_asc" ${this.sortBy === "port_asc" ? "selected" : ""}>Port (Low-High)</option>
             </select>
           </div>
-        </div>
+          </div>
+        </details>
 
         <!-- Filter Summary & Batch Actions Bar -->
-        <div class="flex flex-wrap items-center justify-between gap-3 p-3 bg-gray-950/80 border border-gray-800/80 rounded-2xl text-xs font-mono">
+        <div class="catalog-results-bar">
           <div class="flex items-center gap-2 text-gray-300">
             <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-            <span>Displaying <strong class="text-cyan-400">${filtered.length}</strong> of ${allProxies.length} nodes · loaded snapshot</span>
+            <span id="filter-result-count" role="status" aria-live="polite">${i18n.translate("Showing")} <strong class="text-cyan-400 tabular-nums">${filtered.length.toLocaleString()}</strong> / ${allProxies.length.toLocaleString()} ${i18n.translate("nodes")}</span>
             ${this.selectedCountry !== "ALL" ? `<span class="px-2 py-0.5 bg-gray-900 border border-gray-800 rounded text-xs text-cyan-300">${this.selectedCountry}</span>` : ''}
             ${this.selectedOperator !== "ALL" ? `<span class="px-2 py-0.5 bg-gray-900 border border-gray-800 rounded text-xs text-blue-300">${this.selectedOperator}</span>` : ''}
           </div>
 
-          <div class="flex items-center gap-2 flex-wrap">
+          <div class="catalog-results-actions">
             <button id="btn-batch-copy-filtered" class="px-3.5 py-2 min-h-[44px] bg-cyan-950 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-300 rounded-xl text-xs font-semibold cursor-pointer focus-ring transition-all flex items-center gap-1.5">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
               Copy Filtered (${filtered.length})
@@ -2211,8 +2293,51 @@ export class AppState {
             </button>
           </div>
         </div>
+        <div id="active-filter-chips" aria-label="Active filters">
+          ${activeFilters.map(item => `
+            <button type="button" class="filter-chip focus-ring"
+              data-filter-key="${item.key}"
+              aria-label="Remove ${item.label.toLowerCase()} filter">
+              <span>${escapeHTML(item.label)}: ${escapeHTML(item.value)}</span>
+              <span aria-hidden="true">×</span>
+            </button>
+          `).join("")}
+        </div>
       </div>
     `;
+
+    filterContainer.querySelector("#advanced-filters")?.addEventListener("toggle", (event) => {
+      this.advancedFiltersOpen = event.currentTarget.open;
+    });
+
+    filterContainer.querySelectorAll(".filter-chip").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset.filterKey;
+        const permitted = new Set([
+          "selectedProtocol", "selectedTransport", "selectedCountry",
+          "selectedOperator", "selectedGrade", "selectedEvidence", "selectedPort", "selectedSecurity", "searchQuery"
+        ]);
+        if (!permitted.has(key)) return;
+        this[key] = key === "searchQuery" ? "" : "ALL";
+        if (key === "searchQuery") {
+          const global = document.getElementById("global-search-input");
+          if (global) global.value = "";
+        }
+        this.refreshProxyWorkspace();
+      });
+    });
+
+    filterContainer.querySelectorAll(".btn-evidence-filter").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const selected = btn.dataset.evidence;
+        if (!["ALL", "authenticated", "protocol_failed", "tcp", "tcp_failed", "unmeasured"].includes(selected)) return;
+        this.selectedEvidence = selected;
+        this.refreshProxyWorkspace();
+        // The toolbar is re-rendered when filtering; restore focus to the
+        // corresponding control for keyboard and switch-access users.
+        document.querySelector(`.btn-evidence-filter[data-evidence="${selected}"]`)?.focus({ preventScroll: true });
+      });
+    });
 
     filterContainer.querySelectorAll(".btn-proto-tab").forEach(btn => {
       btn.addEventListener("click", (e) => {
@@ -2323,8 +2448,8 @@ export class AppState {
       nodesContainer.innerHTML = `
         <div class="py-14 text-center bg-gray-900/40 border border-gray-800 rounded-3xl p-8 backdrop-blur-md">
           <svg class="w-12 h-12 text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-          <span class="font-mono text-sm text-gray-300 font-bold block">No proxy endpoints match current dimensional filters</span>
-          <p class="font-mono text-xs text-gray-500 mt-1">Try resetting protocol, region, or carrier filters</p>
+          <span class="font-mono text-sm text-gray-300 font-bold block">No proxy endpoints match these filters</span>
+          <p class="font-mono text-xs text-gray-500 mt-1">Try clearing the search, protocol, region or carrier filters</p>
           <button id="btn-reset-filters-empty" class="mt-4 px-5 py-2.5 min-h-[44px] bg-cyan-500 text-gray-950 text-xs font-mono font-bold rounded-xl focus-ring cursor-pointer transition-all shadow-md shadow-cyan-500/20">Reset All Filters</button>
         </div>
       `;
@@ -2343,7 +2468,7 @@ export class AppState {
 
     // 1. Grid Cards View
     if (this.viewMode === "grid") {
-      nodesContainer.className = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4";
+      nodesContainer.className = "proxy-node-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4";
       nodesContainer.innerHTML = this.visibleNodes(filtered)
         .map((node) => this.nodeCardHTML(node)).join("")
         + this.nodesSentinelHTML(filtered.length - this.nodeRenderLimit);
@@ -2366,7 +2491,7 @@ export class AppState {
                   <th class="p-3.5">Endpoint (Host:Port)</th>
                   <th class="p-3.5">Transport &amp; TLS</th>
                   <th class="p-3.5">Carrier</th>
-                  <th class="p-3.5">Health</th>
+                  <th class="p-3.5">Probe evidence</th>
                   <th class="p-3.5 text-right">Actions</th>
                 </tr>
               </thead>
@@ -2419,10 +2544,16 @@ export class AppState {
   // One node's compact card. Extracted so the initial window and the
   // progressive appends render nodes through exactly one code path.
     nodeCardHTML(node) {
-        const flag = this.getCountryFlag(node.country);
+        const region = getRegionPresentation(node);
+        const flag = region.flag;
+        const evidence = getProxyEvidence(node);
         const op = node.carrier || node.org || this.detectOperator(node.server, node.sni, node.name);
         const latency = this.getLatency(node);
-        const { score, grade, label: healthLabel, color: gradeColor } = this.getHealthScore(node);
+        const { grade, label: healthLabel, color: healthColor } = this.getHealthScore(node);
+        const gradeColor = evidence.id === "authenticated" ? healthColor
+          : "text-sky-300 border-sky-800/70 bg-sky-950/40";
+        const gradeDisplay = evidence.id === "authenticated" ? `Protocol grade ${grade}`
+          : evidence.id === "tcp" ? "TCP only" : "No grade";
         const isUnmasked = this.unmaskedNodes.has(node.id);
         const isQRVisible = this.activeQRNodes.has(node.id);
 
@@ -2451,16 +2582,17 @@ export class AppState {
         // node's URI on each render was the hottest call in this path. An
         // undecodable node still renders from its normalized fields and
         // only the credential preview falls back to the placeholder.
-        const uuid = node.uuid || node.password || "8f7b3c2a-9e1d-4a5b";
-        const displayUUID = isUnmasked ? uuid : `${uuid.slice(0, 4)}••••-••••-••••-${uuid.slice(-4)}`;
+        const uuid = node.uuid || node.password || "";
+        const displayUUID = !uuid ? "Not available" : isUnmasked ? uuid
+          : `${uuid.slice(0, 4)}••••${uuid.slice(-4)}`;
 
         return `
-          <div class="proxy-card p-4 flex flex-col justify-between group relative">
+          <article class="proxy-card p-4 flex flex-col justify-between group relative" data-evidence-kind="${evidence.id}">
             <div>
               <!-- Header Row: Flags, Protocol, Operator, Health Grade -->
               <div class="proxy-card-header flex items-center justify-between mb-2.5">
                 <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-base" title="${escapeHTML(node.countryName)}">${flag}</span>
+                  <span class="text-base" title="${escapeHTML(region.label)} — ${escapeHTML(region.detail)}" aria-label="${escapeHTML(region.detail)}">${escapeHTML(flag)}</span>
                   <span class="px-2 py-0.5 text-xs font-mono font-bold uppercase rounded border ${protoColor}">
                     ${escapeHTML(node.protocol)}
                   </span>
@@ -2472,8 +2604,8 @@ export class AppState {
                   </span>
                 </div>
                 <div class="flex items-center gap-1.5">
-                  <span class="px-2 py-0.5 text-xs font-mono font-bold rounded border ${gradeColor}" title="${score === null ? healthLabel : `Quality Score: ${score}/100 (${healthLabel})`}">
-                    <span class="text-cyan-400 font-bold mr-0.5">Grade</span> ${grade}
+                  <span class="proxy-grade-badge px-2 py-0.5 text-xs font-mono font-bold rounded border ${gradeColor}" data-evidence-kind="${evidence.id}" title="${escapeHTML(healthLabel)} — ${escapeHTML(evidence.detail)}">
+                    ${escapeHTML(gradeDisplay)}
                   </span>
                   <div class="flex items-center gap-1 text-xs font-mono font-semibold ${latency === null ? 'text-gray-500' : latency < 60 ? 'text-emerald-400' : latency < 120 ? 'text-amber-400' : 'text-rose-400'}">
                     <span class="w-1.5 h-1.5 rounded-full ${latency === null ? 'bg-gray-600' : latency < 60 ? 'bg-emerald-400' : latency < 120 ? 'bg-amber-400' : 'bg-rose-400'}"></span>
@@ -2486,6 +2618,10 @@ export class AppState {
               <h3 class="text-sm font-mono font-semibold text-gray-100 truncate group-hover:text-cyan-300 transition-colors flex items-center justify-between" title="${escapeHTML(node.name)}">
                 <span class="truncate">${escapeHTML(node.name)}</span>
               </h3>
+              <p class="mt-2 flex flex-wrap items-center gap-2 text-xs font-mono">
+                <span class="px-2 py-1 rounded-md border ${evidence.id === "authenticated" ? "bg-emerald-950/50 text-emerald-300 border-emerald-800/40" : evidence.id === "protocol_failed" ? "bg-amber-950/40 text-amber-300 border-amber-800/40" : evidence.id === "tcp" ? "bg-cyan-950/60 text-cyan-300 border-cyan-500/30" : evidence.id === "tcp_failed" ? "bg-amber-950/40 text-amber-300 border-amber-800/40" : "bg-gray-900 text-gray-400 border-gray-800"}">${escapeHTML(i18n.translate(evidence.label))}</span>
+                <span class="text-gray-400" title="${escapeHTML(evidence.detail)}">${escapeHTML(evidence.id === "authenticated" ? "Snapshot protocol test" : evidence.id === "tcp" ? "TCP only — proxy unverified" : evidence.id === "unmeasured" ? "No published test" : "Not permanently failed")}</span>
+              </p>
 
               <!-- Specs Grid -->
               <div class="proxy-specs mt-2.5 space-y-1.5 text-xs font-mono">
@@ -2509,7 +2645,8 @@ export class AppState {
                       class="btn-toggle-mask text-gray-400 hover:text-cyan-400 cursor-pointer p-2 min-h-[44px] min-w-[44px] flex items-center justify-center focus-ring rounded-lg transition-colors"
                       data-node-id="${node.id}"
                       title="${isUnmasked ? 'Mask Credential' : 'Reveal Credential'}"
-                      aria-label="Toggle credential masking"
+                      aria-label="${isUnmasked ? 'Mask credential' : 'Reveal credential'}"
+                      aria-pressed="${isUnmasked}"
                     >
                       ${isUnmasked
                         ? `<svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>`
@@ -2521,7 +2658,7 @@ export class AppState {
 
                 <div class="flex items-center justify-between text-xs pt-1 border-t border-gray-800/40">
                   <span class="text-gray-400">Geo &amp; Carrier:</span>
-                  <span class="text-gray-300 font-semibold">${flag} ${escapeHTML(node.countryName || node.country_name || "Unknown")} • ${escapeHTML(op)} <span class="text-xs text-gray-500">(${node.geo_verified ? "verified" : node.geo_source === "unknown" ? "unknown" : "estimated"})</span></span>
+                  <span class="text-gray-300 font-semibold">${escapeHTML(region.flag)} ${escapeHTML(region.label)} • ${escapeHTML(op)} <span class="text-xs text-gray-500" title="${escapeHTML(region.detail)}">(${region.confidence === "provider" ? "GeoIP estimate" : region.confidence === "hint" ? "unverified hint" : "unknown"})</span></span>
                 </div>
               </div>
 
@@ -2569,19 +2706,21 @@ export class AppState {
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
               </button>
             </div>
-          </div>
+          </article>
         `;
     }
 
   // One node's table row, sharing the reveal window with the card view.
     nodeRowHTML(node) {
-                  const flag = this.getCountryFlag(node.country);
+                  const region = getRegionPresentation(node);
+                  const evidence = getProxyEvidence(node);
+                  const flag = region.flag;
                   const op = node.carrier || node.org || this.detectOperator(node.server, node.sni, node.name);
                   const latency = this.getLatency(node);
                   const { grade } = this.getHealthScore(node);
                   return `
                     <tr class="hover:bg-gray-900/50 transition-colors">
-                      <td class="p-3.5 font-bold text-sm">${flag} <span class="text-xs text-gray-500">${escapeHTML(node.country)}</span></td>
+                      <td class="p-3.5 font-bold text-sm" title="${escapeHTML(region.detail)}">${escapeHTML(flag)} <span class="text-xs text-gray-400">${escapeHTML(region.code)}</span></td>
                       <td class="p-3.5"><span class="px-2 py-0.5 rounded text-xs uppercase font-bold bg-cyan-950 text-cyan-300 border border-cyan-800">${escapeHTML(node.protocol)}</span></td>
                       <td class="p-3.5 font-semibold text-gray-200 truncate max-w-[200px]" title="${escapeHTML(node.name)}">${escapeHTML(node.name)}</td>
                       <td class="p-3.5 text-cyan-300 select-all">${escapeHTML(node.server)}:${node.port}</td>
@@ -2589,7 +2728,7 @@ export class AppState {
                       <td class="p-3.5"><span class="px-2 py-0.5 bg-gray-900 rounded border border-gray-800 text-gray-300 text-xs">${escapeHTML(op)}</span></td>
                       <td class="p-3.5">
                         <span class="font-bold ${latency === null ? 'text-gray-500' : latency < 60 ? 'text-emerald-400' : 'text-amber-400'}">${latency === null ? 'Unmeasured' : `${Math.round(latency)}ms`}</span>
-                        <span class="text-xs text-gray-500 ml-1">Grade ${grade}</span>
+                        <span class="block text-xs text-gray-400 mt-1" title="${escapeHTML(evidence.detail)}">${escapeHTML(i18n.translate(evidence.label))} · ${evidence.id === "authenticated" ? "Protocol grade " + grade : evidence.id === "tcp" ? "TCP only" : "Unverified"}</span>
                       </td>
                       <td class="p-3.5 text-right space-x-1 whitespace-nowrap">
                         <button class="btn-copy-node px-3 py-2 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 text-cyan-300 rounded-xl text-xs font-mono font-medium focus-ring cursor-pointer transition-all" data-raw="${encodeURIComponent(node.raw)}">Copy</button>
@@ -2759,25 +2898,30 @@ export class AppState {
     const releaseCount = allFiles.filter(f => f.category === "release" || f.section === "release").length;
     const devCount = allFiles.filter(f => f.category === "dev" || f.section === "dev").length;
     const subsCount = allFiles.filter(f => f.type === "B64SUB" || f.ext === "B64SUB" || f.type === "NPVT" || f.ext === "NPVT" || (f.tags && f.tags.includes("subscription"))).length;
-    const configsCount = allFiles.filter(f => ["SINGBOX", "XRAY", "OVPN", "WARP", "CLASH"].includes(f.type || f.ext) || (f.tags && (f.tags.includes("singbox") || f.tags.includes("xray")))).length;
+    const configsCount = allFiles.filter(f => {
+      const tags = Array.isArray(f.tags) ? f.tags : [];
+      if (tags.includes("subscription")) return false;
+      return ["SINGBOX", "XRAY", "OVPN", "WARP", "CLASH"].includes(f.type || f.ext)
+        || tags.some(tag => ["singbox", "xray", "openvpn", "clash"].includes(tag));
+    }).length;
     const chunksCount = allFiles.filter(f => f.type === "CHUNK" || f.ext === "CHUNK" || (f.filename || f.name || "").includes("chunk_")).length;
 
     const categories = [
       { id: "ALL", label: `ALL (${allFiles.length})` },
       { id: "RELEASE", label: `PRODUCTION RELEASES (${releaseCount})` },
       { id: "DEV", label: `CUMULATIVE DEV (${devCount})` },
-      { id: "SUBSCRIPTIONS", label: `FEEDS (B64 / NPVT) (${subsCount})` },
+      { id: "SUBSCRIPTIONS", label: `SUBSCRIPTIONS (${subsCount})` },
       { id: "CONFIGS", label: `CORE CONFIGS (${configsCount})` },
       { id: "CHUNKS", label: `SPLIT CHUNKS (${chunksCount})` }
     ].filter((category) => category.id === "ALL" || !category.label.endsWith("(0)"));
 
     artifactSection.innerHTML = `
-      <div class="py-12 border-t border-gray-800/80">
+      <div class="artifacts-workspace py-8">
         <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
           <div>
             <h2 class="text-xl sm:text-2xl font-bold font-mono text-white flex items-center gap-2">
               <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-              Pipeline Output &amp; Artifacts Repository
+              Subscriptions &amp; published files
             </h2>
             <p class="text-xs font-mono text-gray-400 mt-1">Direct access to all ${allFiles.length} generated releases, cumulative datasets, split chunks, and client profiles</p>
             <p class="text-xs font-mono text-gray-500 mt-2">
@@ -2791,7 +2935,7 @@ export class AppState {
 
         <div class="space-y-4 mb-6">
           <div class="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
-            <div class="flex flex-wrap gap-1.5" role="tablist">
+            <div class="flex flex-wrap gap-1.5" role="group" aria-label="Artifact categories">
               ${categories.map(c => `
                 <button
                   class="btn-artifact-tab px-3.5 py-2.5 min-h-[44px] rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${
@@ -2800,8 +2944,7 @@ export class AppState {
                       : "bg-gray-900 text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-gray-800"
                   }"
                   data-filter="${c.id}"
-                  role="tab"
-                  aria-selected="${this.artifactFilter === c.id}"
+                  aria-pressed="${this.artifactFilter === c.id}"
                 >
                   ${c.label}
                 </button>
@@ -2844,7 +2987,7 @@ export class AppState {
             }[file.ext || file.type] || "bg-gray-800 text-gray-300 border-gray-700";
 
             return `
-              <div class="bg-gray-900/60 hover:bg-gray-900 border border-gray-800 hover:border-cyan-500/40 rounded-2xl p-4 transition-all duration-200 flex flex-col justify-between group shadow-lg shadow-black/30">
+              <div class="artifact-card bg-gray-900/60 hover:bg-gray-900 border border-gray-800 hover:border-cyan-500/40 rounded-2xl p-4 transition-all duration-200 flex flex-col justify-between group shadow-lg shadow-black/30">
                 <div>
                   <div class="flex items-center justify-between mb-2">
                     <span class="px-2 py-0.5 text-xs font-mono font-bold uppercase rounded border ${badgeColor}">
@@ -2855,7 +2998,7 @@ export class AppState {
 
                   <h3 class="text-sm font-mono font-bold text-gray-100 truncate group-hover:text-cyan-300 transition-colors" title="${escapeHTML(file.filename)}">
                     ${escapeHTML(file.filename)}
-                  </h4>
+                  </h3>
 
                   <p class="text-xs font-sans text-gray-400 mt-1 line-clamp-2 leading-relaxed">
                     ${escapeHTML(file.description || file.filename)}
@@ -2919,15 +3062,29 @@ export class AppState {
     `;
 
     artifactSection.querySelectorAll(".btn-artifact-tab").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        this.artifactFilter = e.currentTarget.dataset.filter;
+      btn.addEventListener("click", (event) => {
+        const selected = event.currentTarget.dataset.filter;
+        this.artifactFilter = selected;
         this.renderArtifacts();
+        Array.from(artifactSection.querySelectorAll(".btn-artifact-tab"))
+          .find((button) => button.dataset.filter === selected)?.focus({ preventScroll: true });
       });
     });
 
     const debouncedArtifactSearch = debounce((val) => {
       this.artifactSearchQuery = val;
+      const previous = document.getElementById("artifact-search-input");
+      const focused = document.activeElement === previous;
+      const start = previous?.selectionStart;
+      const end = previous?.selectionEnd;
       this.renderArtifacts();
+      if (focused) {
+        const next = document.getElementById("artifact-search-input");
+        next?.focus({ preventScroll: true });
+        if (next && Number.isInteger(start) && Number.isInteger(end)) {
+          next.setSelectionRange(start, end);
+        }
+      }
     }, 120);
 
     const searchInput = document.getElementById("artifact-search-input");
@@ -3058,93 +3215,120 @@ export class AppState {
     }
   }
 
+
   renderRuleStudio() {
     if (typeof document === "undefined") return;
     const container = document.getElementById("rule-studio-section");
     if (!container) return;
+    const previous = container.querySelector("#studio-routing-reference");
+    if (previous) this.studioReferenceOpen = previous.open;
+
+    // The studio uses the actual publication catalog rather than pretending
+    // example routing rules are a generated, downloadable client profile.
+    const files = Array.isArray(this.catalog?.files) ? this.catalog.files : [];
+    const feeds = [
+      { filename: "all_sources_base64.txt", label: "Universal subscription", format: "BASE64", description: "A compact, client-friendly subscription that expands to individual proxies.", note: "Recommended starting point" },
+      { filename: "all_sources_clash.yaml", label: "Clash / Mihomo", format: "YAML", description: "Proxy entries for Clash-compatible clients. Import and refresh as a subscription.", note: "Node feed · no routing policy" },
+      { filename: "all_sources_singbox_nodes.json", label: "Sing-box nodes", format: "JSON", description: "Outbounds-only node list for subscription-capable Sing-box clients.", note: "Nodes only · no inbound / DNS" },
+      { filename: "all_sources_xray_nodes.json", label: "Xray nodes", format: "JSON", description: "Independent outbounds for compatible Xray/V2Ray subscription importers.", note: "Nodes only · no inbound / DNS" },
+      { filename: "all_sources.txt", label: "Raw proxy links", format: "URI", description: "One complete share link per line for clients supporting raw subscriptions.", note: "Raw source" },
+      { filename: "all_sources_singbox_profile.json", label: "Sing-box runnable profile", format: "PROFILE", description: "A separate complete example with inbounds, DNS and routing included.", note: "Full profile · not a node feed" }
+    ];
+    const feedMarkup = feeds.map((item) => {
+      const file = files.find(f => (f.filename || f.name) === item.filename);
+      if (!file || typeof file.path !== "string") return "";
+      const link = getArtifactLinkModel(file.path);
+      return `
+        <a class="studio-feed-card focus-ring" data-artifact="${escapeHTML(item.filename)}"
+           href="${escapeHTML(link.copyValue)}" ${item.format === "PROFILE" ? "download" : `data-copy-url="${escapeHTML(link.copyValue)}"`}>
+          <span class="studio-feed-top">
+            <span class="studio-feed-type">${escapeHTML(item.format)}</span>
+            <span class="studio-feed-arrow" aria-hidden="true">${item.format === "PROFILE" ? "↓" : "⧉"}</span>
+          </span>
+          <strong>${escapeHTML(item.label)}</strong>
+          <p>${escapeHTML(item.description)}</p>
+          <span class="studio-feed-note">${escapeHTML(item.note)}</span>
+        </a>
+      `;
+    }).filter(Boolean).join("");
 
     const rules = [
-      { id: "r1", target: "geosite:category-ads-all", action: "BLOCK", type: "geosite" },
-      { id: "r2", target: "geosite:cn", action: "DIRECT", type: "geosite" },
-      { id: "r3", target: "geoip:cn", action: "DIRECT", type: "geoip" },
-      { id: "r4", target: "openai.com", action: "PROXY-US", type: "domain" },
-      { id: "r5", target: "github.com", action: "AUTO-BEST", type: "domain" },
-      { id: "r6", target: "MATCH (Final)", action: "PROXY-AUTO", type: "match" }
+      { target: "geosite:category-ads-all", action: "BLOCK" },
+      { target: "geosite:cn", action: "DIRECT" },
+      { target: "geoip:cn", action: "DIRECT" },
+      { target: "openai.com", action: "PROXY-US" },
+      { target: "github.com", action: "AUTO-BEST" },
+      { target: "MATCH (Final)", action: "PROXY-AUTO" }
     ];
+    const ruleMarkup = rules.map((rule, index) => `
+      <div class="studio-reference-rule">
+        <code>${index + 1}. ${escapeHTML(rule.target)}</code>
+        <span>${escapeHTML(rule.action)}</span>
+      </div>
+    `).join("");
 
     container.innerHTML = `
-      <section class="mt-8 mb-6">
-        <div class="glass-card bg-gray-900/60 border border-gray-800/80 hover:border-cyan-500/40 rounded-3xl p-6 sm:p-8 backdrop-blur-xl transition-all shadow-xl shadow-cyan-950/20">
-          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-gray-800">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
-              </div>
-              <div>
-                <h3 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
-                  Routing Profile Reference
-                  <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-slate-800 text-slate-300 border border-slate-700">EXAMPLE</span>
-                </h3>
-                <p class="text-xs text-gray-400 font-sans mt-0.5">Illustrative routing order. Download verified profiles from the published catalog; this panel does not modify a live client.</p>
-              </div>
-            </div>
-            <div class="flex items-center gap-2 flex-wrap">
-              <a data-artifact="all_sources_singbox.json" href="artifacts/release/all_sources_singbox.json" download class="px-3.5 py-2 min-h-[44px] bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-xs font-mono font-bold rounded-xl transition-all focus-ring flex items-center gap-1.5 cursor-pointer">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                Sing-box JSON
-              </a>
-              <a data-artifact="all_sources_xray.json" href="artifacts/release/all_sources_xray.json" download class="px-3.5 py-2 min-h-[44px] bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 text-xs font-mono font-bold rounded-xl transition-all focus-ring flex items-center gap-1.5 cursor-pointer">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                Xray Config
-              </a>
-            </div>
+      <section class="studio-launch" aria-labelledby="studio-launch-title">
+        <div class="studio-launch-head">
+          <div>
+            <span class="studio-overline">Subscription workspace / Start here</span>
+            <h2 id="studio-launch-title">Choose a format. Keep the nodes independent.</h2>
+            <p>Get a published feed or open the subscription chooser. These are publication artifacts — not proof of a working proxy on your network.</p>
           </div>
+          <div class="studio-action-bar">
+            <button id="studio-start-builder" type="button" class="studio-primary focus-ring">Choose subscription format <span aria-hidden="true">↗</span></button>
+            <button id="studio-open-converter" type="button" class="focus-ring">Convert local input</button>
+          </div>
+        </div>
+        <div id="studio-feed-options" class="studio-feed-grid" aria-label="Available subscription formats">
+          ${feedMarkup || '<p class="studio-empty-feeds">No published subscriptions in this snapshot. Check the artifacts workspace for publication status.</p>'}
+        </div>
+        <div class="studio-help-line">
+          <span aria-hidden="true">ⓘ</span>
+          <span><strong>Subscription versus profile:</strong> Node feeds import independent proxies; a full profile also contains routing, DNS and inbound settings. Use the format your client expects.</span>
+        </div>
+      </section>
 
-          <div class="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div class="lg:col-span-7 space-y-2.5">
-              ${rules.map((rule, idx) => `
-                <div class="flex items-center justify-between p-3.5 rounded-2xl bg-gray-950/80 border border-gray-800 text-xs font-mono group hover:border-cyan-500/40 transition-all">
-                  <div class="flex items-center gap-3">
-                    <span class="text-gray-500 font-bold w-4">${idx + 1}.</span>
-                    <span class="px-2 py-0.5 rounded text-xs uppercase font-bold tracking-wider ${rule.type === 'geosite' ? 'bg-indigo-950 text-indigo-300 border border-indigo-800' : rule.type === 'geoip' ? 'bg-amber-950 text-amber-300 border border-amber-800' : 'bg-slate-800 text-gray-300 border border-slate-700'}">${rule.type}</span>
-                    <span class="text-cyan-200 font-semibold">${escapeHTML(rule.target)}</span>
-                  </div>
-                  <div class="flex items-center gap-2">
-                    <span class="px-2.5 py-1 rounded-lg text-xs font-bold ${rule.action === 'BLOCK' ? 'bg-rose-950 text-rose-300 border border-rose-800' : rule.action === 'DIRECT' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-cyan-950 text-cyan-300 border border-cyan-800'}">${rule.action}</span>
-                  </div>
-                </div>
-              `).join("")}
-            </div>
-
-            <div class="lg:col-span-5 flex flex-col justify-between p-5 rounded-2xl bg-gray-950 border border-gray-800">
-              <div>
-                <span class="text-xs font-mono uppercase tracking-wider text-gray-400 block mb-3 font-bold">Routing Pipeline Flow</span>
-                <div class="space-y-2 text-xs font-mono">
-                  <div class="p-3 rounded-xl bg-cyan-950/30 border border-cyan-800/40 text-cyan-300 flex items-center justify-between">
-                    <span>1. Inbound (Mixed 7890 / TUN)</span>
-                    <span class="text-xs text-cyan-400 font-bold">LISTEN</span>
-                  </div>
-                  <div class="text-center text-gray-600 text-sm">↓</div>
-                  <div class="p-3 rounded-xl bg-indigo-950/30 border border-indigo-800/40 text-indigo-300 flex items-center justify-between">
-                    <span>2. DNS &amp; Geo-Classifier</span>
-                    <span class="text-xs text-indigo-400 font-bold">RESOLVE</span>
-                  </div>
-                  <div class="text-center text-gray-600 text-sm">↓</div>
-                  <div class="p-3 rounded-xl bg-emerald-950/30 border border-emerald-800/40 text-emerald-300 flex items-center justify-between">
-                    <span>3. Multi-Hop Outbounds</span>
-                    <span class="text-xs text-emerald-400 font-bold">EGRESS</span>
-                  </div>
-                </div>
-              </div>
-              <div class="mt-4 pt-3 border-t border-gray-800/80 flex items-center justify-between text-xs font-mono text-gray-400">
-                <span>Example rules: ${rules.length}</span>
-                <span>Latency impact: not measured</span>
-              </div>
+      <details id="studio-routing-reference" class="studio-routing-reference" ${this.studioReferenceOpen ? "open" : ""}>
+        <summary>Routing reference <span class="routing-description">Examples only · not included in node subscriptions</span></summary>
+        <div class="studio-reference-inner">
+          <p>Examples only. These rules are not applied to any published feed. Client routing is configured separately and may require geosite/geoip databases.</p>
+          <div class="studio-reference-grid">
+            <div class="studio-reference-rules">${ruleMarkup}</div>
+            <div class="studio-reference-path">
+              <strong>Illustrative evaluation order</strong>
+              <ol>
+                <li>Inbound request reaches the local client</li>
+                <li>DNS and rule evaluation select a matching action</li>
+                <li>The client chooses DIRECT, BLOCK, or a configured proxy outbound</li>
+              </ol>
             </div>
           </div>
         </div>
-      </section>
+      </details>
     `;
+
+    container.querySelectorAll(".studio-feed-card[data-copy-url]").forEach(card => {
+      card.addEventListener("click", event => {
+        event.preventDefault();
+        this.copyText(event.currentTarget.dataset.copyUrl,
+          isHostedDashboard() ? "Subscription URL copied to clipboard" : "Portable artifact path copied — serve over HTTPS before importing",
+          event.currentTarget);
+      });
+    });
+    container.querySelector("#studio-routing-reference")?.addEventListener("toggle", event => {
+      this.studioReferenceOpen = event.currentTarget.open;
+    });
+    container.querySelector("#studio-start-builder")?.addEventListener("click", event => {
+      this.lastFocusedElement = event.currentTarget;
+      this.openSubscriptionBuilderModal();
+    });
+    container.querySelector("#studio-open-converter")?.addEventListener("click", () => {
+      this.converterTab = "converter";
+      this.switchPageTab("decoder", true);
+      this.renderDecoderSection();
+      document.getElementById("converter-input-text")?.focus({ preventScroll: true });
+    });
   }
 
   renderDecoderSection() {
@@ -3155,23 +3339,26 @@ export class AppState {
     const currentTab = this.converterTab || "inspector";
 
     decoderSection.innerHTML = `
-      <div class="my-10 p-6 sm:p-8 bg-gray-900/80 border border-cyan-500/20 rounded-3xl backdrop-blur-md shadow-xl">
+      <div class="inspector-workspace my-10 p-6 sm:p-8 bg-gray-900/80 border border-cyan-500/20 rounded-3xl backdrop-blur-md shadow-xl">
         <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-800">
           <div>
             <h3 class="text-lg font-mono font-bold text-white flex items-center gap-2">
               <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
               Protocol Converter &amp; Inspection Studio
             </h3>
-            <p class="text-xs font-mono text-gray-400 mt-0.5">High-performance client-side converter for Sing-box 1.10+, Clash Meta / Mihomo, Xray JSON, Base64 &amp; QR Codes</p>
+            <p class="text-xs font-mono text-gray-400 mt-0.5">Local inspection and conversion for Sing-box, Mihomo, Xray JSON, Base64 and QR codes</p>
           </div>
 
           <!-- Studio Tabs Header -->
-          <div class="flex flex-wrap gap-2" role="tablist">
+          <div class="flex flex-wrap gap-2" role="tablist" aria-label="Protocol tools">
             <button
               class="btn-studio-tab px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${currentTab === 'inspector' ? 'bg-cyan-500 text-gray-950 font-bold shadow-md shadow-cyan-500/30' : 'bg-gray-950 text-gray-400 hover:text-gray-200 border border-gray-800'}"
               data-tab="inspector"
+              id="studio-tab-inspector"
               role="tab"
+              aria-controls="studio-tab-content"
               aria-selected="${currentTab === 'inspector'}"
+              tabindex="${currentTab === 'inspector' ? '0' : '-1'}"
             >
               <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
               <span>Protocol Inspector</span>
@@ -3179,8 +3366,11 @@ export class AppState {
             <button
               class="btn-studio-tab px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${currentTab === 'converter' ? 'bg-cyan-500 text-gray-950 font-bold shadow-md shadow-cyan-500/30' : 'bg-gray-950 text-gray-400 hover:text-gray-200 border border-gray-800'}"
               data-tab="converter"
+              id="studio-tab-converter"
               role="tab"
+              aria-controls="studio-tab-content"
               aria-selected="${currentTab === 'converter'}"
+              tabindex="${currentTab === 'converter' ? '0' : '-1'}"
             >
               <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
               <span>Universal Converter</span>
@@ -3188,8 +3378,11 @@ export class AppState {
             <button
               class="btn-studio-tab px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${currentTab === 'dedup' ? 'bg-cyan-500 text-gray-950 font-bold shadow-md shadow-cyan-500/30' : 'bg-gray-950 text-gray-400 hover:text-gray-200 border border-gray-800'}"
               data-tab="dedup"
+              id="studio-tab-dedup"
               role="tab"
+              aria-controls="studio-tab-content"
               aria-selected="${currentTab === 'dedup'}"
+              tabindex="${currentTab === 'dedup' ? '0' : '-1'}"
             >
               <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
               <span>Bulk Deduplicator</span>
@@ -3197,8 +3390,11 @@ export class AppState {
             <button
               class="btn-studio-tab px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${currentTab === 'qr_studio' ? 'bg-cyan-500 text-gray-950 font-bold shadow-md shadow-cyan-500/30' : 'bg-gray-950 text-gray-400 hover:text-gray-200 border border-gray-800'}"
               data-tab="qr_studio"
+              id="studio-tab-qr_studio"
               role="tab"
+              aria-controls="studio-tab-content"
               aria-selected="${currentTab === 'qr_studio'}"
+              tabindex="${currentTab === 'qr_studio' ? '0' : '-1'}"
             >
               <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
               <span>QR Code Studio</span>
@@ -3207,17 +3403,34 @@ export class AppState {
         </div>
 
         <!-- Tab Content Container -->
-        <div id="studio-tab-content">
+        <div id="studio-tab-content" role="tabpanel" aria-labelledby="studio-tab-${currentTab}" tabindex="0">
         </div>
       </div>
     `;
 
     this.renderStudioTabContent();
 
+    const activateStudioTab = (tab, focus = false) => {
+      this.converterTab = tab;
+      this.renderDecoderSection();
+      if (focus) decoderSection.querySelector(`.btn-studio-tab[data-tab="${tab}"]`)?.focus({ preventScroll: true });
+    };
     decoderSection.querySelectorAll(".btn-studio-tab").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        this.converterTab = e.currentTarget.dataset.tab;
-        this.renderDecoderSection();
+      btn.addEventListener("click", (event) => {
+        activateStudioTab(event.currentTarget.dataset.tab, true);
+      });
+      btn.addEventListener("keydown", (event) => {
+        const tabs = Array.from(decoderSection.querySelectorAll(".btn-studio-tab"));
+        const index = tabs.indexOf(event.currentTarget);
+        const rtl = document.documentElement.dir === "rtl";
+        let nextIndex = -1;
+        if (event.key === (rtl ? "ArrowLeft" : "ArrowRight")) nextIndex = (index + 1) % tabs.length;
+        if (event.key === (rtl ? "ArrowRight" : "ArrowLeft")) nextIndex = (index - 1 + tabs.length) % tabs.length;
+        if (event.key === "Home") nextIndex = 0;
+        if (event.key === "End") nextIndex = tabs.length - 1;
+        if (nextIndex < 0) return;
+        event.preventDefault();
+        activateStudioTab(tabs[nextIndex].dataset.tab, true);
       });
     });
   }
@@ -3228,7 +3441,7 @@ export class AppState {
     const currentTab = this.converterTab || "inspector";
 
     if (currentTab === "inspector") {
-      const defaultUri = (this.proxies[0] && this.proxies[0].raw) || "vless://8f7b3c2a-9e1d-4a5b-b2c3-d4e5f6a7b8c9@104.21.45.88:443?security=reality&sni=speed.cloudflare.com&fp=chrome&pbk=abc123def456&sid=0123456789abcdef&type=grpc&serviceName=vless-grpc#%F0%9F%87%A9%F0%9F%87%AA%20DE-CF%20%7C%20VLESS-REALITY";
+      const defaultUri = ""; // Never prefill a real credential or an invented demonstration endpoint.
       container.innerHTML = `
         <div class="space-y-4">
           <div class="flex flex-col sm:flex-row gap-2">
@@ -3795,25 +4008,25 @@ export class AppState {
     const publicBase = getConfiguredPublicBase();
     const files = Array.isArray(this.catalog?.files) ? this.catalog.files : [];
     const findArtifact = (filename) => files.find((file) => (file.filename || file.name) === filename);
-    // A subscription must be a NODE LIST. Anything that is a whole client
-    // configuration is a profile import, and offering it beside the feeds with
-    // the same "Copy" action is how a user ends up with half a dozen
-    // subscriptions that each contain one unusable node.
+    // Every entry here is a real node subscription. JSON generators omit
+    // inbound/DNS/route profile policy specifically so an update expands nodes
+    // instead of creating one custom full-config item.
     const subscriptionFeeds = [
-      ["all_sources_base64.txt", "Base64 subscription", "The link to add as a subscription URL. One encoded node per line; expands into individual nodes in Shadowrocket, v2rayNG, Streisand, Hiddify and NekoBox.", "cyan", true],
-      ["all_sources.txt", "Raw URI subscription", "One node per line, unencoded. Use this only if your client rejects a base64 body.", "emerald", false],
-      ["all_sources_nekobox.json", "NekoBox node feed", "A top-level JSON array of outbounds. Expands into individual nodes in NekoBox and other JSON-aware clients only.", "amber", false],
+      ["all_sources_base64.txt", "Base64 subscription", "Recommended lossless subscription: the complete one-node-per-line URI list encoded as one Base64 body. Decoding preserves the node list 1:1.", "cyan", true],
+      ["all_sources.txt", "Raw URI subscription", "One node per line, unencoded. Use this when the client accepts raw share-link subscriptions.", "emerald", false],
+      ["all_sources_singbox_nodes.json", "Sing-box JSON subscription", "Outbounds-only JSON. Compatible subscription updaters expand the contained proxies into independent entries.", "sky", false],
+      ["all_sources_xray_nodes.json", "Xray JSON subscription", "Outbounds-only Xray/V2Ray JSON. Current v2rayN imports the contained outbounds as independent subscription items.", "indigo", false],
+      ["all_sources_clash.yaml", "Clash / Mihomo subscription", "Proxy-provider YAML containing only independent entries under proxies. Refreshing the provider updates the node list without importing a full profile.", "violet", false],
+      ["all_sources_nekobox.json", "NekoBox JSON subscription", "Top-level JSON array of standalone NekoBox proxy nodes; each entry imports independently without full-profile routing/DNS.", "amber", false],
     ].map(([filename, label, description, color, recommended]) => ({ filename, label, description, color, recommended, file: findArtifact(filename) }));
-    const profileArtifacts = [
-      ["all_sources_singbox.json", "Sing-box full profile", "cyan"],
-      ["all_sources_xray.json", "Xray full profile", "indigo"],
-    ].map(([filename, label, color]) => ({ filename, label, color, file: findArtifact(filename) }));
-    const devFeeds = files.filter((file) => file.section === "dev" || file.category === "dev" || file.tags?.includes("dev"));
-    const chunks = devFeeds.filter((file) => /chunk_/i.test(file.filename || file.name || ""));
-    const feedCard = ({ label, description, color, file, recommended, copyLabel }) => {
+    const profileDownloads = [
+      ["all_sources_singbox_profile.json", "Sing-box full profile", "Complete runnable Sing-box configuration with inbound, DNS, routing and selector policy.", "sky"],
+      ["all_sources_xray_profile.json", "Xray full profile", "Complete runnable Xray configuration with local inbound and full configuration envelope.", "indigo"],
+    ].map(([filename, label, description, color]) => ({ filename, label, description, color, file: findArtifact(filename) }));
+    const feedCard = ({ label, description, file, recommended, copyLabel }) => {
       if (!file) return "";
       const link = getArtifactLinkModel(file.path);
-      const action = copyLabel || "Copy subscription URL";
+      const action = copyLabel || "Copy Node Subscription URL";
       return `
       <div class="p-3.5 ${recommended ? "bg-cyan-950/40 border-cyan-500/40" : "bg-gray-950 border-gray-800"} border rounded-xl font-mono text-xs flex flex-col justify-between">
         <div>
@@ -3822,32 +4035,31 @@ export class AppState {
         </div>
         <div class="mt-3 rounded-lg border border-gray-800 bg-black/20 px-2.5 py-2">
           <div class="text-xs uppercase tracking-wider text-gray-500 mb-1">${escapeHTML(link.sourceLabel)}</div>
-          <div class="text-xs text-${color}-300 break-all">${escapeHTML(link.display)}</div>
+          <div class="text-xs text-cyan-300 break-all">${escapeHTML(link.display)}</div>
         </div>
         <div class="mt-3 flex items-center justify-end gap-2">
-          <button class="btn-copy-custom px-3 py-1.5 min-h-[44px] bg-${color}-500 text-${color === "indigo" ? "white" : "gray-950"} font-bold rounded-lg text-xs cursor-pointer focus-ring" data-url="${escapeHTML(link.copyValue)}" data-absolute="${link.isAbsolute}">${escapeHTML(action)}</button>
+          <button class="btn-copy-custom px-3 py-1.5 min-h-[44px] bg-cyan-500 text-gray-950 font-bold rounded-lg text-xs cursor-pointer focus-ring" data-url="${escapeHTML(link.copyValue)}" data-absolute="${link.isAbsolute}" data-copy-message="Node subscription URL copied">${escapeHTML(action)}</button>
         </div>
       </div>`;
     };
-    const profileCard = ({ label, color, file }) => {
+    const profileCard = ({ label, description, file }) => {
       if (!file) return "";
       const link = getArtifactLinkModel(file.path);
       return `
-      <div class="p-3.5 bg-gray-950 border border-amber-800/50 rounded-xl font-mono text-xs flex flex-col justify-between">
+      <div class="p-3.5 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs flex flex-col justify-between">
         <div>
           <span class="text-gray-200 font-bold block">${escapeHTML(label)}</span>
-          <span class="text-xs text-amber-300/80 block mt-0.5">A whole client configuration, not a node list. Adding it as a subscription creates a single entry.</span>
+          <span class="text-xs text-gray-500 block mt-0.5">${escapeHTML(description)}</span>
         </div>
         <div class="mt-3 rounded-lg border border-gray-800 bg-black/20 px-2.5 py-2">
           <div class="text-xs uppercase tracking-wider text-gray-500 mb-1">${escapeHTML(link.sourceLabel)}</div>
-          <div class="text-xs text-${color}-300 break-all">${escapeHTML(link.display)}</div>
+          <div class="text-xs text-cyan-300 break-all">${escapeHTML(link.display)}</div>
         </div>
         <div class="mt-3 flex items-center justify-end gap-2">
-          <a class="btn-download-profile px-3 py-1.5 min-h-[44px] inline-flex items-center bg-gray-800 hover:bg-${color}-500 hover:text-gray-950 text-gray-200 font-bold rounded-lg text-xs cursor-pointer focus-ring" href="${escapeHTML(link.display)}" download>Download file</a>
+          <a class="btn-download-profile px-3 py-1.5 min-h-[44px] inline-flex items-center bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 text-gray-200 font-bold rounded-lg text-xs cursor-pointer focus-ring" href="${escapeHTML(link.copyValue)}" download>Download Full Profile</a>
         </div>
       </div>`;
     };
-
     modalContainer.innerHTML = `
       <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="modal-sub-title">
         <div id="modal-box" class="relative w-full max-w-2xl bg-gray-900 border border-cyan-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-cyan-950/50 space-y-5 max-h-[90vh] max-h-[90dvh] overflow-y-auto">
@@ -3861,37 +4073,28 @@ export class AppState {
             </button>
           </div>
 
-          <p class="text-xs font-mono text-gray-400">Add <strong>one</strong> of the subscription links below. A subscription must be a list of individual nodes; the client profiles further down are whole configurations and will show up as a single entry if you add one as a subscription. Links are generated from the published catalog and never from a local filesystem path.</p>
+          <p class="text-xs font-mono text-gray-400"><strong>These are standalone node feeds, not complete client profiles.</strong> Sing-box/Xray feeds are intentionally outbounds-only, and Clash/Mihomo is proxies-only, so updating a subscription refreshes its nodes instead of creating one custom profile.</p>
           ${hosted || publicBase ? "" : `<div class="rounded-xl border border-amber-500/30 bg-amber-950/30 px-3.5 py-3 text-xs leading-relaxed text-amber-200"><strong>Local preview:</strong> copy actions use portable relative paths. Serve or deploy this dashboard over HTTPS, or configure <code>HUNTX_PUBLIC_BASE_URL</code> / <code>&lt;meta name="huntx-public-base-url"&gt;</code>, before importing a subscription on another device.</div>`}
 
           <div class="space-y-4">
-            <!-- Subscriptions: node lists, one per line -->
+            <!-- Node subscriptions: expand into separate proxy entries -->
             <div>
-              <span class="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider block mb-1">1. Subscriptions (add as a subscription URL)</span>
-              <p class="text-xs text-gray-500 mb-2">Each of these expands into individual nodes. Add one.</p>
+              <span class="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider block mb-1">1. Node subscriptions (separate entries)</span>
+              <p class="text-xs text-gray-500 mb-2">Choose the feed your client supports. Configure Clash/Mihomo YAML as a proxy provider, not as a complete profile.</p>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                ${subscriptionFeeds.map(feedCard).join("") || `<p class="col-span-full rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-xs text-amber-200">No compatible production profiles are in this published catalog.</p>`}
+                ${subscriptionFeeds.map(feedCard).join("") || `<p class="col-span-full rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-xs text-amber-200">No node subscription feeds are available in this published catalog.</p>`}
               </div>
             </div>
 
-            <!-- Profiles: whole configurations, deliberately not subscriptions -->
+            <!-- Full profiles remain separate from subscription URLs. -->
             <div>
-              <span class="text-xs font-mono font-bold text-amber-400 uppercase tracking-wider block mb-1">2. Client profiles (download, do not add as a subscription)</span>
-              <p class="text-xs text-gray-500 mb-2">These are complete sing-box and Xray configurations. Importing one into a client creates a single profile containing every node - it is not a node list.</p>
+              <span class="text-xs font-mono font-bold text-amber-400 uppercase tracking-wider block mb-1">2. Full runnable profiles (download only)</span>
+              <p class="text-xs text-gray-500 mb-2">Use these only when you want one complete client configuration. They are not the URLs used for independent-node subscription updates.</p>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                ${profileArtifacts.map(profileCard).join("") || `<p class="col-span-full rounded-xl border border-gray-800 bg-gray-950/40 p-3 text-xs text-gray-500">No client profiles are in this published catalog.</p>`}
+                ${profileDownloads.map(profileCard).join("") || `<p class="col-span-full rounded-xl border border-gray-800 bg-gray-950 p-3 text-xs text-gray-500">No full-profile downloads are in this published catalog.</p>`}
               </div>
             </div>
 
-            ${devFeeds.length ? `
-              <div>
-                <span class="text-xs font-mono font-bold text-indigo-400 uppercase tracking-wider block mb-1">3. Additional Published Feeds</span>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  ${devFeeds.filter((file) => !chunks.includes(file)).map((file) => feedCard({ label: file.filename || file.name, description: file.type === "JSON" ? "Cumulative JSON dataset. Inspection data, not a subscription." : (file.size_str || "Published artifact"), color: "indigo", file, copyLabel: "Copy URL" })).join("")}
-                </div>
-              </div>
-              ${chunks.length ? `<div><span class="text-xs font-mono font-bold text-emerald-400 uppercase tracking-wider block mb-1">4. Lightweight Split Chunks</span><p class="text-xs font-mono text-gray-500 mb-2">Only chunks included in this catalog are shown.</p><div class="grid grid-cols-2 sm:grid-cols-4 gap-2">${chunks.map((file, index) => { const link = getArtifactLinkModel(file.path); return `<button class="btn-copy-custom p-2.5 min-h-[44px] bg-gray-950 hover:bg-gray-800 border border-gray-800 hover:border-cyan-500/40 rounded-xl text-left font-mono text-xs transition-all cursor-pointer focus-ring" data-url="${escapeHTML(link.copyValue)}" data-absolute="${link.isAbsolute}" title="${escapeHTML(link.display)}"><div class="text-cyan-300 font-bold">Chunk ${index + 1}</div><div class="text-xs text-gray-500 truncate">${escapeHTML(file.size_str || "Published artifact")}</div><div class="text-xs text-gray-500 truncate mt-1">${escapeHTML(link.display)}</div></button>`; }).join("")}</div></div>` : ""}
-            ` : ""}
           </div>
         </div>
       </div>
@@ -3909,8 +4112,9 @@ export class AppState {
       btn.addEventListener("click", (e) => {
         const url = e.currentTarget.dataset.url;
         const isAbsolute = e.currentTarget.dataset.absolute === "true";
+        const copyMessage = e.currentTarget.dataset.copyMessage || "Subscription URL copied";
         this.copyText(url, isAbsolute
-          ? "Subscription feed URL copied"
+          ? copyMessage
           : "Portable artifact path copied — configure a public base URL for direct client import");
       });
     });

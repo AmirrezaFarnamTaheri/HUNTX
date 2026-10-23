@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -30,7 +31,16 @@ func writeDist(t *testing.T, names ...string) (string, string) {
 	for _, name := range names {
 		payload := []byte(name + " payload")
 		if filepath.Ext(name) == ".json" {
-			payload = []byte(`{"ok":true,"artifact":"` + name + `"}`)
+			switch {
+			case strings.HasSuffix(name, "_nekobox.json"), strings.HasSuffix(name, ".nekobox.json"):
+				payload = []byte(`[{"type":"trojan","tag":"node"}]`)
+			case strings.HasSuffix(name, "_singbox.json"), strings.HasSuffix(name, ".singbox.json"):
+				payload = []byte(`{"inbounds":[{}],"outbounds":[{}],"dns":{},"route":{}}`)
+			case strings.HasSuffix(name, "_xray.json"), strings.HasSuffix(name, ".xray.json"):
+				payload = []byte(`{"inbounds":[{}],"outbounds":[{}]}`)
+			default:
+				payload = []byte(`{"ok":true,"artifact":"` + name + `"}`)
+			}
 		}
 		full := filepath.Join(dist, name)
 		if err := os.WriteFile(full, payload, 0o600); err != nil {

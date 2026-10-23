@@ -130,6 +130,13 @@ jobs:
                 ) {
                   continue;
                 }
+                // A control-plane change cannot safely republish artifacts
+                // produced by an older main commit. Await a production run
+                // on this revision rather than resurrecting retired formats.
+                if (candidate.head_sha !== context.sha) {
+                  core.info(`Skipping stale producer ${candidate.id}: ${candidate.head_sha} != ${context.sha}.`);
+                  continue;
+                }
                 const artifacts = await publicationArtifacts(candidate);
                 if (artifacts.ready) {
                   selectedRun = candidate;
@@ -197,8 +204,89 @@ jobs:
               return;
             }
 
+            // A successful producer is still stale if code has changed on main.
+            // Mirror-generated changes are the only permitted ancestry drift.
+            const branchResponse = await github.rest.repos.getBranch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              branch: 'main',
+            });
+            const currentMainSHA = branchResponse.data.commit.sha;
+            if (run.head_sha !== currentMainSHA) {
+              const comparison = await github.rest.repos.compareCommits({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                base: run.head_sha,
+                head: currentMainSHA,
+                per_page: 100,
+              });
+              const permittedGeneratedChange = filename =>
+                filename.startsWith('outputs/')
+                || filename.startsWith('outputs_dev/')
+                || filename.startsWith('docs/artifacts/')
+                || filename === 'docs/catalog.json'
+                || filename === 'docs/assets/js/data.js'
+                || filename === 'docs/index.html'
+                || filename === '.github/huntx-generated-files.txt';
+              const files = comparison.data.files || [];
+              const generatedOnly = comparison.data.status === 'ahead'
+                && comparison.data.ahead_by > 0
+                && comparison.data.ahead_by <= 250
+                && files.length > 0
+                && files.length < 300
+                && files.every(file => permittedGeneratedChange(file.filename)
+                  && (!file.previous_filename || permittedGeneratedChange(file.previous_filename)));
+              if (!generatedOnly) {
+                core.setOutput('ready', 'false');
+                core.notice(
+                  `Skipping producer ${runId}: main changed beyond generated artifacts since ${run.head_sha}.`,
+                );
+                return;
+              }
+            }
+
+            // Keep publication monotonic across manual dispatches and replayed
+            // workflow_run events. Idempotent retries of the same source remain valid.
+            let previousPublication = null;
+            try {
+              const prior = await github.rest.repos.getContent({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                path: 'manifests/publication.json',
+                ref: 'generated-outputs',
+              });
+              if (Array.isArray(prior.data) || prior.data.encoding !== 'base64') {
+                throw new Error('generated publication receipt is not a base64 file');
+              }
+              previousPublication = JSON.parse(Buffer.from(prior.data.content, 'base64').toString('utf8'));
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+            if (previousPublication !== null) {
+              const priorId = Number(previousPublication.source_run_id);
+              const priorAttempt = Number(previousPublication.source_run_attempt);
+              if (!Number.isSafeInteger(priorId) || priorId <= 0
+                || !Number.isSafeInteger(priorAttempt) || priorAttempt <= 0) {
+                throw new Error('prior publication receipt has invalid source coordinates');
+              }
+              if (runId < priorId || (runId === priorId && expectedAttempt < priorAttempt)) {
+                core.setOutput('ready', 'false');
+                core.notice(`Skipping replayed producer ${runId}/${expectedAttempt}; published source is ${priorId}/${priorAttempt}.`);
+                return;
+              }
+            }
             const artifacts = await publicationArtifacts(run);
             if (!artifacts.ready) {
+              if (artifacts.intentional) {
+                // Recovery manually dispatches the publisher after production.
+                // Respect the same explicit no-release verdict as workflow_run:
+                // no distributable was approved, so keep the last release.
+                core.setOutput('ready', 'false');
+                core.notice(
+                  `Producer run ${runId} explicitly withheld its release; preserving the current deployment.`,
+                );
+                return;
+              }
               core.setFailed(
                 `Run ${runId} is missing unexpired publication artifacts: ${artifacts.missing.join(', ')}`,
               );
@@ -258,7 +346,7 @@ jobs:
 
       - name: Download verified checkpoint handoff
         if: steps.source.outputs.ready == 'true'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: runtime-checkpoint-${{ steps.source.outputs.run_id }}-${{ steps.source.outputs.run_attempt }}
           path: ${{ runner.temp }}/huntx-publication/checkpoint
@@ -267,7 +355,7 @@ jobs:
 
       - name: Download distributable output
         if: steps.source.outputs.ready == 'true'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: huntx-output-${{ steps.source.outputs.run_id }}-${{ steps.source.outputs.run_attempt }}
           path: ${{ runner.temp }}/huntx-publication/dist
@@ -298,7 +386,7 @@ jobs:
 
       - name: Download structured runtime diagnostics
         if: steps.source.outputs.ready == 'true'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: huntx-logs-${{ steps.source.outputs.run_id }}-${{ steps.source.outputs.run_attempt }}
           path: ${{ runner.temp }}/huntx-publication/logs
@@ -325,6 +413,41 @@ jobs:
           fi
           python scripts/check_release_eligibility.py             --verify-receipt "$SOURCE_ROOT/logs/release-receipt.json"             --dist "$SOURCE_ROOT/dist"             --run-id "$SOURCE_RUN_ID" --run-attempt "$SOURCE_RUN_ATTEMPT"
           echo "ready=true" >> "$GITHUB_OUTPUT"
+
+      - name: Validate producer client artifacts against current contracts
+        if: steps.release.outputs.ready == 'true'
+        env:
+          PYTHONPATH: src
+          SOURCE_DIST: ${{ runner.temp }}/huntx-publication/dist
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from scripts.verify_output import validate_file
+
+          dist = Path(os.environ["SOURCE_DIST"])
+          failed = []
+          for candidate in sorted(dist.rglob("*.json")):
+              if candidate.name == "manifest.json":
+                  continue
+              stats = validate_file(candidate)
+              if stats.get("invalid") or stats.get("type") == "empty":
+                  failed.append(candidate.relative_to(dist).as_posix())
+          if failed:
+              raise SystemExit("Release JSON contract invalid: " + ", ".join(failed))
+          PY
+
+      - name: Prepare attributed country and network operator data
+        if: steps.release.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          # Public-domain PDDL server-country and origin-AS range tables,
+          # independently checksummed. These populate the dashboard sidecar
+          # from the real endpoint IP instead of guessing from the SNI.
+          python scripts/prepare_geoip_data.py \
+            --output-dir "$RUNNER_TEMP/huntx-geoip" \
+            --github-env "$GITHUB_ENV"
 
       - name: Build verified dashboard data from release dist
         if: steps.release.outputs.ready == 'true'
@@ -355,7 +478,9 @@ jobs:
           # Remove checkout's historical data before generating the fallback.
           rm -rf outputs
           mkdir -p outputs
+          is_empty_release=false
           if PYTHONPATH=src python scripts/check_release_eligibility.py --empty-release --dist "$SOURCE_DIST"; then
+            is_empty_release=true
             echo "Verified explicit empty release: no decoded artifact is required."
           else
             test -n "$decoded" || { echo "::error::decoded artifact missing from checkpoint handoff"; exit 1; }
@@ -364,6 +489,11 @@ jobs:
           # Dev history remains cumulative in the snapshot, never fresh fallback data.
           mkdir -p "$SOURCE_ROOT/empty-dev"
           HUNTX_GENERATED_AT="$SOURCE_CREATED_AT" PYTHONPATH=src python -c 'import os; from pathlib import Path; from scripts import generate_site_data as site; site.generate_dashboard_data(Path("outputs"), Path(os.environ["HUNTX_FALLBACK_DEV"]), Path(os.environ["DASHBOARD_ROOT"]) / "catalog.json", Path(os.environ["DASHBOARD_ROOT"]) / "assets/js/data.js")'
+          # An explicit, manifest-verified empty release carries no proxy fleet.
+          # Otherwise require fully measured, scored, evidence-backed records.
+          if [[ "$is_empty_release" != "true" ]]; then
+            python scripts/verify_dashboard_telemetry.py "$DASHBOARD_ROOT/assets/js/data.js"
+          fi
           cp -a "$DASHBOARD_ROOT/catalog.json" docs/catalog.json
           rm -rf docs/artifacts
           cp -a "$DASHBOARD_ROOT/artifacts" docs/artifacts
@@ -375,7 +505,7 @@ jobs:
 
       - name: Download structured runtime diagnostics
         if: steps.release.outputs.ready == 'true'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: huntx-logs-${{ steps.source.outputs.run_id }}-${{ steps.source.outputs.run_attempt }}
           path: ${{ runner.temp }}/huntx-publication/logs

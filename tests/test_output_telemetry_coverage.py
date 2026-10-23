@@ -146,22 +146,53 @@ def test_published_sha256_matches_the_file_on_disk(catalog: dict) -> None:
         pytest.xfail(f"catalog trails its artifacts: {mismatches[:5]}")
 
 
-def test_subscription_tagged_outputs_are_node_feeds_not_client_configs(generator) -> None:
-    """Anything tagged subscription must be a node feed a client imports as a list."""
-    subscription_entries = [
-        entry
-        for entry in _catalog().get("files", [])
-        if "subscription" in (entry.get("tags") or [])
-    ]
-    # Complete client configurations are profile imports: advertising them as
-    # subscriptions is the exact mistake that made clients import one JSON
-    # profile instead of a node list.
-    configs = [
-        entry.get("filename")
-        for entry in subscription_entries
-        if (entry.get("type") or entry.get("ext")) in {"SINGBOX", "XRAY"}
-    ]
-    assert not configs, f"client configs mistagged as subscriptions: {configs}"
+def test_subscription_tagged_outputs_are_independent_node_feeds(generator) -> None:
+    """Client-format subscription products must classify as multi-node feeds."""
+    for name, expected_type, shape_tag in (
+        ("all_sources_singbox_nodes.json", "SINGBOX", "json-nodes"),
+        ("all_sources_xray_nodes.json", "XRAY", "json-nodes"),
+        ("all_sources_nekobox.json", "NEKOBOX", "json-nodes"),
+        ("all_sources_clash.yaml", "CLASH", "yaml-nodes"),
+    ):
+        kind, tags, description = generator._infer_tags_and_type(
+            Path("release") / name, "release"
+        )
+        assert kind == expected_type
+        assert "subscription" in tags
+        assert "multi-node" in tags
+        assert shape_tag in tags
+        assert "independent" in description.lower()
+
+
+def test_full_client_profiles_are_not_subscription_feeds(generator) -> None:
+    """Runnable profile downloads stay distinct from independent-node feeds."""
+    for name, expected_type in (
+        ("all_sources_singbox_profile.json", "SINGBOX"),
+        ("all_sources_xray_profile.json", "XRAY"),
+        ("all_sources_singbox.json", "SINGBOX"),
+        ("all_sources_xray.json", "XRAY"),
+    ):
+        kind, tags, description = generator._infer_tags_and_type(
+            Path("release") / name, "release"
+        )
+        assert kind == expected_type
+        assert "client-config" in tags
+        assert "full-config" in tags
+        assert "subscription" not in tags
+        assert "complete runnable" in description.lower()
+
+
+def test_node_subscriptions_are_never_advertised_as_runnable_profiles(generator) -> None:
+    for name, expected_type in (
+        ("all_sources_singbox_nodes.json", "SINGBOX"),
+        ("all_sources_xray_nodes.json", "XRAY"),
+    ):
+        kind, tags, description = generator._infer_tags_and_type(Path("release") / name, "release")
+        assert kind == expected_type
+        assert "subscription" in tags
+        assert "json-nodes" in tags
+        assert "client-config" not in tags
+        assert "multi-node" in description.lower()
 
 
 def test_every_registered_format_has_a_serializer(generator) -> None:
@@ -207,20 +238,22 @@ def test_sample_proxies_carry_telemetry_or_an_explicit_gap() -> None:
 
 
 def test_health_and_pca_cover_the_whole_measured_fleet() -> None:
-    """A measured node must carry both health and a governed score."""
+    """Every measured node has a scored, evidence-aware health classification.
+
+    Bare TCP reachability is not an authenticated proxy success and must not
+    manufacture a health grade merely to satisfy a publishing test.
+    """
+    from scripts.verify_dashboard_telemetry import (
+        load_dashboard_proxies,
+        validate_proxy_telemetry,
+    )
+
     data_path = ROOT / "docs" / "assets" / "js" / "data.js"
     if not data_path.is_file():
         pytest.skip("data.js is generated at publish time and is absent locally")
-    raw = data_path.read_text(encoding="utf-8")
-    match = __import__("re").search(r"SAMPLE_PROXIES\s*=\s*(\[.*?\]);\s*\n", raw, __import__("re").S)
-    assert match
-    proxies = json.loads(match.group(1))
-
-    measured = [p for p in proxies if p.get("probe_ok") is True]
-    ungraded = [p.get("id") for p in measured if not p.get("health_grade")]
-    unscored = [p.get("id") for p in measured if not p.get("pca_score")]
-    assert not ungraded, f"measured nodes without a health grade: {ungraded[:5]}"
-    assert not unscored, f"measured nodes without a governed score: {unscored[:5]}"
+    proxies = load_dashboard_proxies(data_path)
+    totals = validate_proxy_telemetry(proxies)
+    assert totals["scored"] == totals["proxies"]
 
 
 def test_the_classification_table_is_the_single_source_of_truth(generator) -> None:
@@ -264,6 +297,10 @@ def test_the_classification_table_is_the_single_source_of_truth(generator) -> No
         "all_sources_npvt_raw.txt",
         "all_sources_npvt_singbox.json",
         "all_sources_npvt_xray.json",
+        "all_sources_singbox_profile.json",
+        "all_sources_xray_profile.json",
+        "all_sources_singbox_nodes.json",
+        "all_sources_xray_nodes.json",
     ]
     for name in shipped:
         kind, tags, description = generator._infer_tags_and_type(Path(name), "release")
@@ -277,6 +314,9 @@ def test_the_classification_table_is_the_single_source_of_truth(generator) -> No
         ("all_sources_singbox.json", "SINGBOX"),
         ("all_sources_xray.json", "XRAY"),
         ("all_sources_nekobox.json", "NEKOBOX"),
+        ("all_sources_clash.yaml", "CLASH"),
+        ("all_sources_singbox_profile.json", "SINGBOX"),
+        ("all_sources_xray_profile.json", "XRAY"),
         ("all_sources.json", "JSON"),
         ("all_sources_base64.txt", "B64SUB"),
         ("all_sources.txt", "TXT"),
@@ -287,6 +327,7 @@ def test_the_classification_table_is_the_single_source_of_truth(generator) -> No
         ("all_sources.npvt.xray.json", "XRAY"),
         ("all_sources_npvt_xray.json", "XRAY"),
         ("all_sources.npvt.nekobox.json", "NEKOBOX"),
+        ("all_sources.npvt.clash.yaml", "CLASH"),
         ("all_sources.npvt.decoded.json", "JSON"),
         ("all_sources_npvt_decoded.json", "JSON"),
         ("all_sources.npvt.raw.txt", "TXT"),

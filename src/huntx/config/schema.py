@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -76,6 +76,20 @@ class TelegramUserSourceConfig(BaseModel):
         return None if parsed == 0 else parsed
 
 
+class HttpSubscriptionSourceConfig(BaseModel):
+    url: str
+    enabled: bool = True
+    mode: Literal["auto", "xray_profile_audit"] = "auto"
+    timeout_seconds: int = Field(default=12, ge=2, le=40)
+
+    @field_validator("url")
+    @classmethod
+    def check_public_url(cls, url: str) -> str:
+        from ..connectors.http_subscription.connector import validate_public_feed_url
+
+        return validate_public_feed_url(url)
+
+
 class SourceSelector(BaseModel):
     include_formats: List[str]
 
@@ -86,6 +100,8 @@ class SourceConfig(BaseModel):
     selector: Optional[SourceSelector] = None
     telegram: Optional[TelegramSourceConfig] = None
     telegram_user: Optional[TelegramUserSourceConfig] = None
+    http_subscription: Optional[HttpSubscriptionSourceConfig] = None
+    required: bool = True
     trust_state: SourceTrustState = SourceTrustState.APPROVED
     discovered_from: Optional[str] = None
     approval_evidence: List[str] = Field(default_factory=list)
@@ -93,7 +109,7 @@ class SourceConfig(BaseModel):
     @field_validator("type")
     @classmethod
     def validate_type(cls, v: str) -> str:
-        if v not in ("telegram", "telegram_user", "v2ray_collector"):
+        if v not in ("telegram", "telegram_user", "v2ray_collector", "http_subscription"):
             raise ValueError(f"Unknown source type: {v}")
         return v
 
@@ -108,7 +124,10 @@ class SourceConfig(BaseModel):
 
     @property
     def publication_eligible(self) -> bool:
-        return self.trust_state == SourceTrustState.APPROVED
+        return (self.trust_state == SourceTrustState.APPROVED and
+                (self.type != "http_subscription" or bool(
+                    self.http_subscription and self.http_subscription.enabled
+                )))
 
 
 class DestinationConfig(BaseModel):

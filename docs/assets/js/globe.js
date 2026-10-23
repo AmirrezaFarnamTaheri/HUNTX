@@ -462,9 +462,14 @@ export function initTelemetryGlobe(canvasId, onNodeSelect, customHubs = null, op
     // overlapped, so the visible set changes as the globe rotates.
     placedRects.length = 0;
     labelCandidates.length = 0;
-    for (let i = 0; i < hubs.length; i++) {
-      const h = hubs[i];
-      if (h.screenZ > 0.2 || h === hoveredHub) labelCandidates.push(h);
+    // A compact radar cannot fit two-line geographic labels without clipping.
+    // Preserve the interactive hub tooltip; the accessible distribution list
+    // provides counts independently of the canvas.
+    if (width >= 300) {
+      for (let i = 0; i < hubs.length; i++) {
+        const h = hubs[i];
+        if (h.screenZ > 0.2 || h === hoveredHub) labelCandidates.push(h);
+      }
     }
     labelCandidates.sort((a, b) => {
       if (a === hoveredHub) return -1;

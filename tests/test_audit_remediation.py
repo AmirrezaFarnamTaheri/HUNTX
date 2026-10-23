@@ -15,7 +15,7 @@ class TestAuditRemediation(unittest.TestCase):
         with patch("urllib.request.urlopen") as mock_url:
             mock_resp = MagicMock()
             mock_resp.getcode.return_value = 200
-            mock_resp.read.return_value = b'{"ok": true, "result": {}}'
+            mock_resp.read.return_value = b'{"ok": true, "result": {"message_id": 42}}'
             mock_url.return_value.__enter__.return_value = mock_resp
 
             pub = TelegramPublisher("123:abc")

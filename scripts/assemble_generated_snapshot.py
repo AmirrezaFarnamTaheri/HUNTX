@@ -24,17 +24,17 @@ if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from huntx.core.output_ownership import output_filename  # noqa: E402
-from huntx.formats.common.vmess import (  # noqa: E402
-    canonical_vmess_line,
-    vmess_payload_with_remark,
+from huntx.formats.npvt import (  # noqa: E402
+    strip_proxy_remark, canonical_proxy_identity, add_clean_remark,
 )
 
 ManifestValue = float | int | str
 LEGACY_FIRST_SEEN = 0
 _MANIFEST_CHUNK_BYTES = 16 * 1024 * 1024
-_DERIVED_SUFFIXES = (
-    "decoded.json", "raw.txt", "singbox.json", "xray.json", "nekobox.json",
-)
+# Preserve historical Sing-box/Xray full-profile URLs and frozen URI aliases.
+# Obsolete dotted decoded datasets and NekoBox artifacts are retired only once
+# their canonical replacements exist, preventing old telemetry from resurfacing.
+_DERIVED_SUFFIXES = ("decoded.json", "nekobox.json")
 
 
 def copy_tree(src: Path, dst: Path) -> None:
@@ -110,35 +110,6 @@ def _b64_decode_safe(data: str) -> str:
     normalized += "=" * ((4 - len(normalized) % 4) % 4)
     decoded = base64.b64decode(normalized, validate=True)
     return decoded.decode("utf-8")
-
-
-def strip_proxy_remark(uri: str) -> str:
-    """Return the canonical identity for one proxy URI.
-
-    The VMess branch delegates to the shared VMess contract so the snapshot's
-    identity keys, the runtime's identity keys and the schema migration's
-    re-keyed hashes all agree. A payload that decodes to a JSON array, string
-    or number has no canonical form and is left untouched.
-    """
-    if uri.startswith("vmess://"):
-        canonical = canonical_vmess_line(uri)
-        return canonical if canonical is not None else uri
-    marker = uri.rfind("#")
-    return uri[:marker] if marker > 0 else uri
-
-
-def add_clean_remark(uri: str, counter: dict[str, int]) -> str:
-    scheme = uri.split("://", 1)[0].lower() if "://" in uri else "proxy"
-    counter[scheme] = counter.get(scheme, 0) + 1
-    tag = f"{scheme}-{counter[scheme]}"
-
-    if uri.startswith("vmess://"):
-        remarked = vmess_payload_with_remark(uri, tag)
-        return remarked if remarked is not None else uri
-
-    marker = uri.rfind("#")
-    base = uri[:marker] if marker > 0 else uri
-    return f"{base}#{tag}"
 
 
 def _normalise_manifest_value(value: Any) -> ManifestValue:
@@ -217,6 +188,29 @@ def write_compressed_dev_manifest(dev_dir: Path, manifest: dict[str, ManifestVal
     )
 
 
+def compact_semantic_manifest(manifest: dict[str, ManifestValue]) -> dict[str, ManifestValue]:
+    """Merge equivalent URI spellings without discarding distinct credentials.
+
+    Retain the earliest known timestamp and one valid original URI; the key
+    itself is a normalized *identity* and is never exported as a rewritten URI.
+    Repeated keys preserve their original order, TLS/password/path differences
+    remain independent, and a stable lexical tie-break makes publish idempotent.
+    """
+    selected: dict[str, tuple[str, ManifestValue]] = {}
+    for uri, first_seen in sorted(manifest.items()):
+        fingerprint = canonical_proxy_identity(uri)
+        prior = selected.get(fingerprint)
+        if prior is None:
+            selected[fingerprint] = (uri, first_seen)
+        elif str(prior[1]) in {"0", "0.0"} and str(first_seen) not in {"0", "0.0"}:
+            # The historic 0 is "first seen unknown", NOT epoch zero.
+            # A known source timestamp always outranks that sentinel.
+            selected[fingerprint] = (prior[0], first_seen)
+        elif str(first_seen) not in {"0", "0.0"} and _earlier(first_seen, prior[1]):
+            selected[fingerprint] = (prior[0], first_seen)
+    return {uri: first_seen for uri, first_seen in selected.values()}
+
+
 def merge_dev_manifests(
     previous: dict[str, ManifestValue],
     current: dict[str, ManifestValue],
@@ -226,7 +220,7 @@ def merge_dev_manifests(
         existing = merged.get(uri)
         if existing is None or _earlier(first_seen, existing):
             merged[uri] = first_seen
-    return merged
+    return compact_semantic_manifest(merged)
 
 
 def seed_missing_identities(
@@ -236,7 +230,7 @@ def seed_missing_identities(
     seeded = dict(manifest)
     for uri, first_seen in identity_seed.items():
         seeded.setdefault(uri, first_seen)
-    return seeded
+    return compact_semantic_manifest(seeded)
 
 
 def _add_legacy_identity(
@@ -362,6 +356,7 @@ def write_dev_outputs(
     source_created_at: str,
 ) -> None:
     dev_dir.mkdir(parents=True, exist_ok=True)
+    manifest = compact_semantic_manifest(manifest)
     manifest_path = dev_dir / "_manifest.json"
     manifest_path.write_text(
         json.dumps(manifest, ensure_ascii=False, sort_keys=True) + "\n",
@@ -481,6 +476,41 @@ def _catalog_dev_trio(docs_dir: Path, dev_dir: Path) -> None:
     catalog_path.write_text(json.dumps(catalog, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def sync_dashboard_fallback_catalog(docs_dir: Path) -> None:
+    """Align the bundled fallback after cumulative dev metadata is appended."""
+    source = docs_dir / "catalog.json"
+    module = docs_dir / "assets" / "js" / "data.js"
+    if not module.is_file():
+        return
+    catalog = json.loads(source.read_text(encoding="utf-8"))
+    body = module.read_text(encoding="utf-8")
+    prefix = "export const FALLBACK_CATALOG = "
+    suffix = ";\n\nexport const SAMPLE_PROXIES = "
+    if body.count(prefix) != 1:
+        raise ValueError("dashboard fallback catalog declaration is missing or duplicated")
+    before, rest = body.split(prefix, 1)
+    if suffix not in rest:
+        raise ValueError("dashboard fallback catalog is missing its terminator")
+    _, after = rest.split(suffix, 1)
+    encoded = json.dumps(catalog, separators=(",", ":"), ensure_ascii=True)
+    updated = before + prefix + encoded + suffix + after
+    stats_prefix = "export const INGEST_STATS = "
+    if updated.count(stats_prefix) != 1:
+        raise ValueError("dashboard fallback telemetry declaration is missing or duplicated")
+    stats_before, stats_source = updated.split(stats_prefix, 1)
+    stats, consumed = json.JSONDecoder().raw_decode(stats_source)
+    if not isinstance(stats, dict):
+        raise ValueError("dashboard fallback telemetry must be a JSON object")
+    stats["total_published_files"] = catalog["total_files"]
+    stats["total_storage_bytes"] = catalog["total_size"]
+    stats["total_storage_str"] = catalog["total_size_str"]
+    encoded_stats = json.dumps(stats, separators=(",", ":"), ensure_ascii=True)
+    module.write_text(
+        stats_before + stats_prefix + encoded_stats + stats_source[consumed:],
+        encoding="utf-8",
+    )
+
+
 def write_main_sync_inventory(destination: Path) -> None:
     managed: list[str] = []
     for name in ("outputs", "outputs_dev", "docs"):
@@ -579,6 +609,7 @@ def assemble_snapshot(
                     target_file.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(source_file, target_file)
         _catalog_dev_trio(destination / "docs", destination / "docs" / "artifacts" / "dev")
+        sync_dashboard_fallback_catalog(destination / "docs")
         if shell_root is not None:
             _refresh_frontend_index(destination)
         dashboard_file_count = sum(1 for p in (destination / "docs").rglob("*") if p.is_file())

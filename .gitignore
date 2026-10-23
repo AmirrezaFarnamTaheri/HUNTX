@@ -58,3 +58,6 @@ temp_test_output/
 .reviews/
 playwright-report/
 test-results/
+
+# Generated local MCP diagnostics
+.statamcp/debug/

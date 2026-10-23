@@ -6,6 +6,7 @@ from unittest.mock import Mock
 from huntx.formats.common.singbox import (
     TARGET_SINGBOX_VERSION,
     build_singbox_config_bytes,
+    build_singbox_profile_bytes,
     config_from_uris,
     parse_proxy_uri,
 )
@@ -118,7 +119,7 @@ class TestSingboxParsing(unittest.TestCase):
 
 class TestSingboxConfig(unittest.TestCase):
     def test_config_uses_current_schema_and_no_removed_special_outbounds(self):
-        config = config_from_uris(["trojan://secret@t.example.com:443?sni=t.example.com#Node"])
+        config = config_from_uris(["trojan://third@t.example.com:443?sni=t.example.com#Node"])
         self.assertEqual(config["route"]["final"], "select")
         self.assertEqual(config["route"]["default_domain_resolver"], "google")
         self.assertTrue(config["dns"]["optimistic"])
@@ -138,9 +139,9 @@ class TestSingboxConfig(unittest.TestCase):
         config = config_from_uris(
             [
                 "trojan://secret@t.example.com:443?sni=t.example.com#auto",
-                "trojan://secret@t.example.com:443?sni=t.example.com#direct",
-                "trojan://secret@t.example.com:443?sni=t.example.com#Node",
-                "trojan://secret@t.example.com:443?sni=t.example.com#Node",
+                "trojan://other@t.example.com:443?sni=t.example.com#direct",
+                "trojan://third@t.example.com:443?sni=t.example.com#Node",
+                "trojan://fourth@t.example.com:443?sni=t.example.com#Node",
             ]
         )
         tags = [item["tag"] for item in config["outbounds"]]
@@ -159,8 +160,25 @@ class TestSingboxConfig(unittest.TestCase):
         raw = build_singbox_config_bytes("trojan://secret@t.example.com:443?sni=t.example.com#Node")
         self.assertTrue(raw)
         parsed = json.loads(raw.decode("utf-8"))
-        self.assertIn("outbounds", parsed)
-        self.assertIn("inbounds", parsed)
+        self.assertEqual(set(parsed), {"outbounds"})
+        self.assertEqual(len(parsed["outbounds"]), 1)
+        self.assertNotIn("domain_resolver", parsed["outbounds"][0])
+        self.assertNotIn("inbounds", parsed)
+        self.assertNotIn("dns", parsed)
+        self.assertNotIn("route", parsed)
+
+        full = json.loads(
+            build_singbox_profile_bytes(
+                "trojan://secret@t.example.com:443?sni=t.example.com#Node"
+            ).decode("utf-8")
+        )
+        self.assertIn("inbounds", full)
+        self.assertIn("dns", full)
+        self.assertIn("route", full)
+        full_proxy = next(
+            item for item in full["outbounds"] if item.get("type") == "trojan"
+        )
+        self.assertEqual(full_proxy["domain_resolver"], "google")
 
 
 class TestBuildPipelineSingboxDerivative(unittest.TestCase):
@@ -186,13 +204,19 @@ class TestBuildPipelineSingboxDerivative(unittest.TestCase):
         self.assertIn("npvt.decoded.json", formats)
         self.assertIn("npvt.b64sub", formats)
         self.assertIn("npvt.singbox.json", formats)
+        self.assertIn("npvt.singbox.profile.json", formats)
+        self.assertIn("npvt.xray.profile.json", formats)
 
         saved_formats = {call.args[1] for call in self.artifact_store.save_output.call_args_list}
         self.assertIn("npvt.singbox.json", saved_formats)
+        self.assertIn("npvt.singbox.profile.json", saved_formats)
+        self.assertIn("npvt.xray.profile.json", saved_formats)
 
         singbox_result = next(result for result in results if result["format"] == "npvt.singbox.json")
         parsed = json.loads(singbox_result["data"].decode("utf-8"))
-        self.assertIn("outbounds", parsed)
+        self.assertEqual(set(parsed), {"outbounds"})
+        self.assertEqual(len(parsed["outbounds"]), 1)
+        self.assertNotIn("inbounds", parsed)
 
     def test_no_singbox_derivative_when_no_parseable_uris(self):
         route_config = {"name": "route1", "formats": ["npvt"], "from_sources": ["src1"]}

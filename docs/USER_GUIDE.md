@@ -244,3 +244,13 @@ that URL; make the receiver private and use `ORCHESTRATOR_BEARER_TOKEN` when
 it requires bearer authentication. See
 [Development](DEVELOPMENT.md#6-fleet-deployment-boundary) for Compose and Helm
 prerequisites.
+
+## Network Doctor (user-side recovery)
+
+Open [Network Doctor](network-doctor.html) from the dashboard's **Fix connection** link. Select your device, connection type and symptom, then choose **Show recovery steps**. Follow the three manual troubleshooting steps, record whether the original node or a separately tested alternative works, and optionally copy a privacy-safe support summary. **Start over** resets the selections.
+
+**Scope and evidence:** The static page does not perform native VLESS, VMess, Trojan, Shadowsocks, or other protocol handshakes; it does not scan endpoints, change device settings, or prove that a proxy is alive. The optional **Check published catalog** action fetches the same-origin `catalog.json` without caching and reports subscription metadata only. It does **not** verify connectivity. User-reported success is labeled as such and is never promoted to verified global proxy health or used to change publication gates.
+
+**Safety and privacy:** Do not disable TLS certificate verification, expose credentials, or blindly switch to direct traffic. Keep a backup of the original profile and revert unsuccessful temporary client adjustments. The support summary contains only allowlisted device/network categories, symptom, and self-reported outcome; no proxy URIs, credentials, endpoint IPs, Wi-Fi identifiers, or browsing history are collected or uploaded. A working alternative is not a revival of the original endpoint.
+
+**Local verification:** `npm run test:unit` includes the Network Doctor decision-engine contract suite. `npx playwright test tests/frontend_network_doctor.spec.mjs` exercises the browser wizard and small-screen behavior. The PWA caches the wizard and its modules, with network-first refresh for HTML and JavaScript.

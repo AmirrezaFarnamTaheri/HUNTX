@@ -38,18 +38,27 @@ type NodeMetrics struct {
 	PacketLoss   float64
 	SecurityType SecurityProtocol
 	Carrier      string
+	// Feed availability and TCP connect are not authenticated proxy evidence.
+	ProbeKind    string
+	ProbeOK      bool
+	ProbeAgeSecs int64
 }
 
 // HealthResult contains the computed health score, tier grade, and recommendation status.
 type HealthResult struct {
-	Score       float64
-	Grade       ScoreGrade
-	Recommended bool
+	Score         float64
+	Grade         ScoreGrade
+	Recommended   bool
+	VerifiedGrade ScoreGrade
+	Evidence      string
 }
 
 // CalculateHealthScore computes the quality score of a node based on the mathematical matrix:
 // Score = 40.0 + max(0, 25 - latency/4) + Sum(Ws) + min(15, speed_mbps * 3) - Penalties
 func CalculateHealthScore(node NodeMetrics, targetISP string) HealthResult {
+	node.LatencyMs = validMetric(node.LatencyMs, 0, 0, 0)
+	node.SpeedMbps = validMetric(node.SpeedMbps, 0, 0, 0)
+	node.PacketLoss = validMetric(node.PacketLoss, 0, 0, 100)
 	baseScore := 40.0
 
 	// 1. Latency Component
@@ -60,7 +69,7 @@ func CalculateHealthScore(node NodeMetrics, targetISP string) HealthResult {
 
 	// 2. Security Weight (Ws)
 	securityWeight := 0.0
-	switch node.SecurityType {
+	switch SecurityProtocol(strings.ToLower(string(node.SecurityType))) {
 	case SecurityReality:
 		securityWeight = 10.0
 	case SecurityTLS, SecurityGRPC, SecurityH2:
@@ -76,7 +85,8 @@ func CalculateHealthScore(node NodeMetrics, targetISP string) HealthResult {
 
 	// 4. Carrier Alignment Boost
 	carrierBoost := 0.0
-	if targetISP != "" && strings.EqualFold(node.Carrier, targetISP) {
+	if strings.TrimSpace(targetISP) != "" && strings.TrimSpace(node.Carrier) != "" &&
+		strings.EqualFold(strings.TrimSpace(node.Carrier), strings.TrimSpace(targetISP)) {
 		carrierBoost = 5.0
 	}
 
@@ -116,9 +126,37 @@ func CalculateHealthScore(node NodeMetrics, targetISP string) HealthResult {
 		grade = GradeF
 	}
 
-	return HealthResult{
-		Score:       total,
-		Grade:       grade,
-		Recommended: total >= 75.0,
+	if node.ProbeKind == "protocol_authenticated" && !node.ProbeOK {
+		return HealthResult{Score: 0, Grade: GradeF, VerifiedGrade: GradeF, Evidence: "failed_probe"}
 	}
+	if node.ProbeKind == "tcp_connect" && !node.ProbeOK {
+		return HealthResult{Score: 0, Grade: GradeF, Evidence: "tcp_connect_failed"}
+	}
+	verified := node.ProbeKind == "protocol_authenticated" &&
+		node.ProbeOK && node.LatencyMs > 0 &&
+		node.ProbeAgeSecs >= 0 && node.ProbeAgeSecs <= 3600
+	result := HealthResult{Score: math.Round(total*100) / 100, Grade: grade, Evidence: "unverified"}
+	if verified {
+		result.VerifiedGrade = grade
+		result.Recommended = total >= 75
+		result.Evidence = "fresh_authenticated_protocol"
+	} else if node.ProbeKind == "tcp_connect" && node.ProbeOK {
+		result.Evidence = "tcp_connect_only"
+	} else if node.ProbeKind == "protocol_authenticated" && node.ProbeOK {
+		result.Evidence = "stale_authenticated_probe"
+	}
+	return result
+}
+
+func validMetric(value, fallback, minimum, maximum float64) float64 {
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		return fallback
+	}
+	if value < minimum {
+		return minimum
+	}
+	if maximum > 0 && value > maximum {
+		return maximum
+	}
+	return value
 }

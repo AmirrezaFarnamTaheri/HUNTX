@@ -13,6 +13,9 @@ _DERIVED_FORMATS = {
     "singbox.json",
     "xray.json",
     "nekobox.json",
+    "clash.yaml",
+    "singbox.profile.json",
+    "xray.profile.json",
 }
 _DERIVED_SUFFIXES = (
     ".b64sub",
@@ -21,6 +24,9 @@ _DERIVED_SUFFIXES = (
     ".singbox.json",
     ".xray.json",
     ".nekobox.json",
+    ".clash.yaml",
+    ".singbox.profile.json",
+    ".xray.profile.json",
 )
 
 
@@ -54,7 +60,7 @@ def _validate_route_format(registry: FormatRegistry, route_name: str, fmt: str) 
         raise ValueError(
             f"Route {route_name} format {fmt!r} is a derived output, not a route input; "
             "configure 'npvt' and/or 'npvtsub' and HUNTX will generate supported "
-            "decoded/base64/raw/sing-box/Xray/NekoBox derivatives automatically"
+            "decoded/base64/raw/Sing-box/Xray/NekoBox/Clash and full-profile derivatives automatically"
         )
 
     registered = set(registry.list_formats())
@@ -93,6 +99,13 @@ def validate_config(config: AppConfig):
         if source.id in seen_ids:
             raise ValueError(f"Duplicate source ID: {source.id}")
         seen_ids.add(source.id)
+
+        if source.type != "http_subscription" and not source.required:
+            raise ValueError(
+                f"Source {source.id} is required; only HTTP feed sources may be optional"
+            )
+        if source.type != "http_subscription" and source.http_subscription is not None:
+            raise ValueError(f"Source {source.id} has an HTTP block for a different type")
 
         if source.type == "telegram":
             if not source.telegram:
@@ -150,6 +163,12 @@ def validate_config(config: AppConfig):
                 raise ValueError(
                     f"Source {source.id} has invalid/unexpanded telegram_user peer"
                 )
+
+        elif source.type == "http_subscription":
+            if source.http_subscription is None:
+                raise ValueError(f"Source {source.id} is missing http_subscription block")
+            if source.telegram is not None or source.telegram_user is not None:
+                raise ValueError(f"Source {source.id} must not define Telegram blocks")
 
         elif source.type == "v2ray_collector":
             if source.telegram or source.telegram_user:

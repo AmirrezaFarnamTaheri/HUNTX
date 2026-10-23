@@ -4,6 +4,8 @@ import json
 import time
 from typing import Any, Iterable, Optional
 
+from .proxy_retirement import PROXY_UNPUBLISHABLE_SQL
+
 
 def upsert_record_verdict(
     db: Any,
@@ -91,12 +93,18 @@ def get_records_for_governed_build(
              AND v.record_type = r.record_type
              AND v.policy_tier = 'secure'
         """
-        verdict_where = " AND v.syntax_status = 'pass' AND v.policy_status = 'pass'"
+        # A relaxed freshness setting allows an *unknown* probe, never a
+        # confirmed failed, expired, or malformed probe. A reported 'pass'
+        # without any expiry cannot be substantiated and is excluded.
+        verdict_where = (
+            " AND v.syntax_status = 'pass' AND v.policy_status = 'pass'"
+            " AND v.probe_status IN ('pass', 'unknown')"
+            " AND (v.probe_status <> 'pass' OR v.probe_expires_at IS NOT NULL)"
+            " AND (v.probe_expires_at IS NULL OR v.probe_expires_at > ?)"
+        )
+        args.append(float(now_epoch if now_epoch is not None else time.time()))
         if require_fresh_probe:
-            verdict_where += (
-                " AND v.probe_status = 'pass'" " AND v.probe_expires_at IS NOT NULL" " AND v.probe_expires_at > ?"
-            )
-            args.append(float(now_epoch if now_epoch is not None else time.time()))
+            verdict_where += " AND v.probe_status = 'pass'"
     # Exact observation provenance preserves the configured source trust boundary.
     query = f"""
         WITH filtered AS (
@@ -107,6 +115,12 @@ def get_records_for_governed_build(
             WHERE r.record_type IN ({type_marks})
               AND s.source_id IN ({source_marks})
               AND r.is_active = 1
+              AND NOT EXISTS (
+                  SELECT 1 FROM proxy_lifecycle p
+                  WHERE p.unique_hash = r.unique_hash
+                    AND p.record_type = r.record_type
+                    AND {PROXY_UNPUBLISHABLE_SQL}
+              )
               {extra}
               {verdict_where}
         ), dedup AS (

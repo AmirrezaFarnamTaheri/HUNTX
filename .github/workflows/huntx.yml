@@ -149,7 +149,7 @@ jobs:
 
       - name: Upload validation diagnostics
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: production-validation-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -326,7 +326,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload state handoff
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: runtime-state-input-${{ github.run_id }}-${{ github.run_attempt }}
           path: state-input/
@@ -383,6 +383,9 @@ jobs:
           set -euo pipefail
           mkdir -p .bin
           go build -o .bin/huntx-tools ./cmd/huntx-tools
+          # This job runs HTTP feeds; validation ran on a different runner.
+          go build -o .bin/huntx-engine ./cmd/huntx-engine
+          test -x .bin/huntx-engine
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -400,8 +403,19 @@ jobs:
           python -m pip install --no-deps -e .
           python -m pip check
 
+      - name: Prepare checksum-verified offline country data for proxy flags
+        run: |
+          set -euo pipefail
+          # Export HUNTX_GEOIP_IPV4_CSV and HUNTX_GEOIP_IPV6_CSV to all
+          # subsequent steps. The old CDN download left these unset, so the
+          # remark formatter never loaded the database and used 🌐 instead.
+          python scripts/prepare_geoip_data.py \
+            --output-dir "$RUNNER_TEMP/huntx-geoip" \
+            --country-only \
+            --github-env "$GITHUB_ENV"
+
       - name: Download restored state
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: runtime-state-input-${{ github.run_id }}-${{ github.run_attempt }}
           path: persist
@@ -445,6 +459,16 @@ jobs:
             find persist -maxdepth 3 -type f -printf '%s\t%p\n' | sort -nr | head -200 || true
           } | tee persist/data/logs/runtime-context.log
 
+      - name: Install pinned proxy verification engine
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --max-time 120 \
+            https://github.com/SagerNet/sing-box/releases/download/v1.14.3/sing-box-1.14.3-linux-amd64.tar.gz \
+            -o "$RUNNER_TEMP/singbox.tar.gz"
+          echo "e2bdf179c15a3652955dc44867e33ca0965c9c9b91b34267dcc5a5d639a5feee  $RUNNER_TEMP/singbox.tar.gz" | sha256sum -c -
+          tar --no-same-owner -xzf "$RUNNER_TEMP/singbox.tar.gz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/sing-box-1.14.3-linux-amd64" >> "$GITHUB_PATH"
+
       - name: Run HuntX with controlled watchdog
         id: runtime
         env:
@@ -454,6 +478,15 @@ jobs:
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_USER_SESSION: ${{ secrets.TELEGRAM_USER_SESSION }}
           HUNTX_MAX_WORKERS: ${{ env.MAX_WORKERS }}
+          HUNTX_REMARK_STYLE: evidence
+          HUNTX_REQUIRE_PROXY_HEALTH: '1'
+          HUNTX_HEALTH_WORKERS: '16'
+          HUNTX_HEALTH_TIMEOUT: '8'
+          HUNTX_HEALTH_BUDGET: '900'
+          HUNTX_GEOIP_IPV4_CSV: .geoip/ipv4.csv
+          HUNTX_GEOIP_IPV6_CSV: .geoip/ipv6.csv
+          # Time-bounded, public-IP-only DNS/TCP measurements; not speed or auth verification.
+          HUNTX_REMARK_TCP_PROBE: '1'
           LOG_LEVEL: INFO
         run: |
           set -euo pipefail
@@ -511,6 +544,13 @@ jobs:
             HUNTX_GENERATED_AT="$generated_at" PYTHONPATH=src python -c 'from pathlib import Path; from scripts import generate_site_data as site; site.generate_dashboard_data(Path("persist/data/outputs"), Path("persist/data/outputs_dev"), Path("'"$candidate_dir"'/catalog.json"), Path("'"$candidate_dir"'/assets/js/data.js"))' || return 1
             test -f "$candidate_dir/index.html" || return 1
             test -s "$candidate_dir/assets/js/data.js" || return 1
+            # The release receipt is the only authority for a legitimate
+            # empty release. Nonempty dashboards must carry evidence-backed
+            # telemetry; TCP-only nodes must never be graded as verified.
+            is_empty="$(python -c 'import json; print(json.load(open("persist/data/logs/release-receipt.json"))["empty_release"])')" || return 1
+            if [[ "$is_empty" != "True" ]]; then
+              python scripts/verify_dashboard_telemetry.py "$candidate_dir/assets/js/data.js" || return 1
+            fi
             test -f "$candidate_dir/assets/js/app.js" || return 1
             test -f "$candidate_dir/assets/css/tailwind.css" || return 1
             test -f "$candidate_dir/sw.js" || return 1
@@ -587,6 +627,41 @@ jobs:
             --checkpoint-ready "${{ steps.checkpoint.outputs.ready || 'false' }}" \
             --package-ready "${{ steps.package.outputs.ready || 'false' }}" \
             --package-source "${{ steps.package.outputs.source || 'none' }}"
+          # Record per-source feed and campaign health without URLs or secrets.
+          # The logs artifact also captures source-health.json on every run.
+          python scripts/report_source_health.py \
+            --config configs/config.prod.yaml \
+            --summary "$HUNTX_RUN_SUMMARY_PATH" \
+            --db persist/state.db \
+            --output persist/data/logs/source-health.json
+          # Rebuild metadata for previously ingested *and* current active
+          # records without touching their canonical raw URI/SQLite state.
+          python scripts/report_endpoint_inventory.py \
+            --db persist/state.db \
+            --max-records 50000 \
+            --output persist/data/logs/endpoint-inventory.json
+          # Distinguish temporary verified-failure suppression from terminal
+          # credential revocation. Emit no raw proxies or secrets.
+          python scripts/report_proxy_retirements.py \
+            --db persist/state.db \
+            --output persist/data/logs/proxy-retirements.json
+
+      - name: Probe bounded public endpoint sample
+        if: always()
+        timeout-minutes: 6
+        run: |
+          set -euo pipefail
+          # Layered observations: DNS, TCP, standard verified TLS only.
+          # QUIC/REALITY/WebSocket/gRPC and proxy auth remain unverified.
+          # Numeric pinned public IPs prevent DNS rebinding to local services.
+          python scripts/report_network_diagnostics.py \
+            --db persist/state.db \
+            --max-records 50000 \
+            --max-endpoints 24 \
+            --concurrency 4 \
+            --timeout 3.0 \
+            --enable-network \
+            --output persist/data/logs/network-diagnostics.json
 
       - name: Record explicit no-release verdict
         if: ${{ always() && steps.package.outputs.ready != 'true' }}
@@ -606,7 +681,7 @@ jobs:
 
       - name: Publish explicit no-release verdict
         if: ${{ always() && steps.package.outputs.ready != 'true' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: huntx-no-release-${{ github.run_id }}-${{ github.run_attempt }}
           path: no-release-verdict/
@@ -616,7 +691,7 @@ jobs:
 
       - name: Upload checkpoint handoff
         if: steps.checkpoint.outputs.ready == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: runtime-checkpoint-${{ github.run_id }}-${{ github.run_attempt }}
           path: checkpoint-package/
@@ -627,7 +702,7 @@ jobs:
 
       - name: Upload distributable output
         if: steps.package.outputs.ready == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: huntx-output-${{ github.run_id }}-${{ github.run_attempt }}
           path: persist/data/dist/
@@ -637,12 +712,25 @@ jobs:
 
       - name: Upload logs and structured diagnostics
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: huntx-logs-${{ github.run_id }}-${{ github.run_attempt }}
           path: persist/data/logs/
           if-no-files-found: warn
           retention-days: 7
+
+      - name: Retain sanitized per-source health history
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: source-health-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            persist/data/logs/source-health.json
+            persist/data/logs/endpoint-inventory.json
+            persist/data/logs/proxy-retirements.json
+            persist/data/logs/network-diagnostics.json
+          if-no-files-found: warn
+          retention-days: 30
 
       - name: Upload Pages artifact
         if: steps.package.outputs.ready == 'true'
@@ -717,7 +805,7 @@ jobs:
           go build -o .bin/huntx-tools ./cmd/huntx-tools
 
       - name: Download checkpoint handoff
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: runtime-checkpoint-${{ github.run_id }}-${{ github.run_attempt }}
           path: checkpoint-package

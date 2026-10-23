@@ -10,9 +10,17 @@ import time
 from collections import defaultdict
 from typing import Any, Optional
 from urllib.parse import parse_qs, unquote, urlparse
+from ..formats.common.clash import build_clash_subscription_bytes
 from ..formats.common.nekobox import build_nekobox_outbounds_bytes
-from ..formats.common.singbox import build_singbox_config_bytes
-from ..formats.common.xray import build_xray_config_bytes, xray_fidelity_report
+from ..formats.common.singbox import (
+    build_singbox_config_bytes,
+    build_singbox_profile_bytes,
+)
+from ..formats.common.xray import (
+    build_xray_config_bytes,
+    build_xray_profile_bytes,
+    xray_fidelity_report,
+)
 from ..formats.registry import FormatRegistry
 from ..state.repo import StateRepo
 from ..store.artifact_store import ArtifactStore
@@ -91,7 +99,7 @@ class BuildPipeline:
     def _decode_vmess(line: str) -> dict[str, Any]:
         """Decode one VMess share URI into structured JSON metadata."""
         try:
-            obj = json.loads(BuildPipeline._b64_decode(line[8:]))
+            obj = json.loads(BuildPipeline._b64_decode(line[8:].split('#', 1)[0]))
             # A VMess remark lives in the payload's "ps" field, not in the URI
             # fragment, so without this the dashboard invents its own
             # "vmess-N" name and disagrees with the client.
@@ -232,7 +240,7 @@ class BuildPipeline:
     def _proxy_derivatives(
         self,
         artifact_bytes: bytes,
-    ) -> tuple[bytes, bytes, bytes, bytes, bytes]:
+    ) -> tuple[bytes, bytes, bytes, bytes, bytes, bytes, bytes, bytes]:
         """Create proxy derivative artifacts from one UTF-8 decode.
 
         The raw artifact is not among them: it is the base output itself, and
@@ -242,17 +250,59 @@ class BuildPipeline:
         try:
             text = artifact_bytes.decode('utf-8', errors='ignore')
         except (AttributeError, UnicodeDecodeError):
-            return b'', b'', b'', b'', b''
+            return b'', b'', b'', b'', b'', b'', b'', b''
         stripped = text.strip()
         if not stripped:
-            return b'', b'', b'', b'', b''
+            return b'', b'', b'', b'', b'', b'', b'', b''
         return (
             self._decode_proxy_text(text),
             base64.b64encode(stripped.encode('utf-8')),
             build_singbox_config_bytes(text),
             build_xray_config_bytes(text),
             build_nekobox_outbounds_bytes(text),
+            build_clash_subscription_bytes(text),
+            build_singbox_profile_bytes(text),
+            build_xray_profile_bytes(text),
         )
+
+    @staticmethod
+    def _derived_node_count(fmt: str, payload: bytes) -> int:
+        """Count the nodes actually rendered, excluding profile infrastructure.
+
+        Format handlers can omit unsupported records without failing the
+        entire feed. Using source-row counts for their captions was misleading.
+        """
+        if fmt.endswith(".b64sub"):
+            return len([line for line in base64.b64decode(payload).splitlines() if line.strip()])
+        if fmt.endswith(".clash.yaml"):
+            return sum(1 for line in payload.splitlines() if line.lstrip().startswith(b"- "))
+        decoded = json.loads(payload)
+        if fmt.endswith(".decoded.json"):
+            return len(decoded["entries"])
+        if fmt.endswith(".nekobox.json"):
+            if not isinstance(decoded, list) or not all(
+                isinstance(node, dict) and node.get("type") and node.get("tag")
+                for node in decoded
+            ):
+                raise ValueError("NekoBox node feed must be a JSON array of typed, tagged nodes")
+            return len(decoded)
+        if not isinstance(decoded, dict):
+            raise ValueError(f"Expected JSON object for derived format {fmt}")
+        outbounds = decoded.get("outbounds")
+        if not isinstance(outbounds, list):
+            raise ValueError(f"Derived format {fmt} contains no outbounds list")
+        if fmt.endswith(".singbox.profile.json"):
+            return sum(
+                isinstance(item, dict)
+                and item.get("type") not in {"selector", "urltest", "direct", "block", "dns"}
+                for item in outbounds
+            )
+        if fmt.endswith(".xray.profile.json"):
+            return sum(
+                isinstance(item, dict) and item.get("protocol") not in {"freedom", "blackhole"}
+                for item in outbounds
+            )
+        return len(outbounds)
 
     @staticmethod
     def _log_xray_fidelity(fmt: str, artifact_bytes: bytes) -> None:
@@ -358,21 +408,31 @@ class BuildPipeline:
                 if not defer_output:
                     self.artifact_store.save_output(route_name, format_id, artifact_bytes)
                 built_formats.append(format_id)
-                format_count = len(format_records)
+                format_count = (
+                    len([line for line in artifact_bytes.splitlines() if line.strip()])
+                    if format_id in _DERIVED_PROXY_FORMATS else len(format_records)
+                )
                 if format_id in _DERIVED_PROXY_FORMATS:
-                    decoded, reencoded, singbox, xray, nekobox = self._proxy_derivatives(
-                        artifact_bytes
-                    )
+                    (
+                        decoded,
+                        reencoded,
+                        singbox,
+                        xray,
+                        nekobox,
+                        clash,
+                        singbox_profile,
+                        xray_profile,
+                    ) = self._proxy_derivatives(artifact_bytes)
                     if decoded:
                         derived_format = f'{format_id}.decoded.json'
                         if not defer_output:
                             self.artifact_store.save_output(route_name, derived_format, decoded)
-                        results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(decoded).hexdigest(), 'data': decoded, 'count': format_count})
+                        results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(decoded).hexdigest(), 'data': decoded, 'count': self._derived_node_count(derived_format, decoded)})
                     if reencoded:
                         derived_format = f'{format_id}.b64sub'
                         if not defer_output:
                             self.artifact_store.save_output(route_name, derived_format, reencoded)
-                        results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(reencoded).hexdigest(), 'data': reencoded, 'count': format_count})
+                        results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(reencoded).hexdigest(), 'data': reencoded, 'count': self._derived_node_count(derived_format, reencoded)})
                     # The raw pass-through is deliberately not a product: it is
                     # byte-for-byte the base artifact, and publishing it under a
                     # second name only duplicated the feed. The canonical name
@@ -383,18 +443,33 @@ class BuildPipeline:
                         derived_format = f'{format_id}.singbox.json'
                         if not defer_output:
                             self.artifact_store.save_output(route_name, derived_format, singbox)
-                        results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(singbox).hexdigest(), 'data': singbox, 'count': format_count})
+                        results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(singbox).hexdigest(), 'data': singbox, 'count': self._derived_node_count(derived_format, singbox)})
                     if xray:
                         self._log_xray_fidelity(format_id, artifact_bytes)
                         derived_format = f'{format_id}.xray.json'
                         if not defer_output:
                             self.artifact_store.save_output(route_name, derived_format, xray)
-                        results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(xray).hexdigest(), 'data': xray, 'count': format_count})
+                        results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(xray).hexdigest(), 'data': xray, 'count': self._derived_node_count(derived_format, xray)})
                     if nekobox:
                         derived_format = f'{format_id}.nekobox.json'
                         if not defer_output:
                             self.artifact_store.save_output(route_name, derived_format, nekobox)
-                        results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(nekobox).hexdigest(), 'data': nekobox, 'count': format_count})
+                        results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(nekobox).hexdigest(), 'data': nekobox, 'count': self._derived_node_count(derived_format, nekobox)})
+                    if clash:
+                        derived_format = f'{format_id}.clash.yaml'
+                        if not defer_output:
+                            self.artifact_store.save_output(route_name, derived_format, clash)
+                        results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(clash).hexdigest(), 'data': clash, 'count': self._derived_node_count(derived_format, clash)})
+                    if singbox_profile:
+                        derived_format = f'{format_id}.singbox.profile.json'
+                        if not defer_output:
+                            self.artifact_store.save_output(route_name, derived_format, singbox_profile)
+                        results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(singbox_profile).hexdigest(), 'data': singbox_profile, 'count': self._derived_node_count(derived_format, singbox_profile)})
+                    if xray_profile:
+                        derived_format = f'{format_id}.xray.profile.json'
+                        if not defer_output:
+                            self.artifact_store.save_output(route_name, derived_format, xray_profile)
+                        results.append({'route_name': route_name, 'format': derived_format, 'unique_id': f'{route_name}:{derived_format}', 'artifact_hash': hashlib.sha256(xray_profile).hexdigest(), 'data': xray_profile, 'count': self._derived_node_count(derived_format, xray_profile)})
                 results.append({'route_name': route_name, 'format': format_id, 'unique_id': f'{route_name}:{format_id}', 'artifact_hash': artifact_hash, 'data': artifact_bytes, 'count': format_count})
                 logger.info('[Build] route=%s format=%s records=%s bytes=%s build_seconds=%.3f hash=%s', route_name, format_id, format_count, len(artifact_bytes), build_duration, artifact_hash[:12] if artifact_hash else 'N/A')
             except DeadlineExceeded:

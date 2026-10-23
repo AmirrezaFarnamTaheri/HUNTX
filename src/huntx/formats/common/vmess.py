@@ -52,13 +52,8 @@ def _canonical_json(value: Any) -> str:
 def decode_vmess_payload(line: str) -> Optional[dict[str, Any]]:
     """Return the decoded VMess JSON object, or ``None`` when it is not one.
 
-    The whole remainder of *line* after ``vmess://`` is treated as the
-    base64 payload, including any URL fragment. That is deliberate: the v10
-    schema migration and the state store's canonicalizer both decode
-    ``line[8:]``, so a link carrying a fragment is undecodable in every
-    identity-bearing layer. Splitting the fragment off here would give such a
-    link a canonical form that the migration never produces, and the record
-    would be re-keyed on every upgrade.
+    Decode only the payload: an optional URL fragment is a display remark,
+    not connection identity. Standard and URL-safe base64 are both accepted.
 
     A payload that decodes to a JSON array, string or number is not a VMess
     payload: it has no ``ps`` field to strip and no identity to keep, so it
@@ -67,7 +62,7 @@ def decode_vmess_payload(line: str) -> Optional[dict[str, Any]]:
     """
     if not isinstance(line, str) or not line.startswith("vmess://"):
         return None
-    body = line[8:]
+    body = line.partition("#")[0][8:]
     if not body:
         return None
     try:
@@ -80,6 +75,12 @@ def decode_vmess_payload(line: str) -> Optional[dict[str, Any]]:
     except (UnicodeDecodeError, ValueError):
         return None
     if not isinstance(value, dict):
+        return None
+    try:
+        # JSON permits escaped surrogate literals and Python accepts NaN by
+        # default. Neither is a portable client payload or canonical UTF-8.
+        json.dumps(value, ensure_ascii=False, allow_nan=False).encode('utf-8')
+    except (ValueError, UnicodeError):
         return None
     return value
 
@@ -102,10 +103,8 @@ def canonical_vmess_line(line: str) -> Optional[str]:
 def vmess_payload_with_remark(line: str, remark: str) -> Optional[str]:
     """Return *line*'s VMess payload with its ``ps`` field set to *remark*.
 
-    This is the display path, not the identity path: it decodes the payload
-    alone, so the URL fragment of *line* is preserved verbatim. Subscribers
-    rely on that fragment resolving, and the identity canonicalizer
-    deliberately does not split it.
+    VMess clients read the display name from ``ps``. Remove the old fragment
+    so it cannot override the new name or leak the upstream channel label.
 
     The payload is re-encoded with the same canonical JSON settings the
     identity canonicalizer uses, so a remarked link and its canonical form
@@ -114,10 +113,10 @@ def vmess_payload_with_remark(line: str, remark: str) -> Optional[str]:
     Returns ``None`` when *line* is not a VMess link or its payload is not a
     JSON object, so callers can fall back to the original URI.
     """
-    body, marker, fragment = line.partition("#")
+    body = line.partition("#")[0]
     value = decode_vmess_payload(body)
     if value is None:
         return None
     value["ps"] = remark
     encoded = _canonical_json(value).encode("utf-8")
-    return "vmess://" + base64.b64encode(encoded).decode("ascii") + marker + fragment
+    return "vmess://" + base64.b64encode(encoded).decode("ascii")

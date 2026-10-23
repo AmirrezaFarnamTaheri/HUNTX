@@ -9,6 +9,7 @@ import uuid
 from typing import Any, Optional
 
 from .hardened_orchestrator import HardenedOrchestrator
+from .source_reliability import prioritize_http_sources, summarize_http_source_reports
 from ..connectors.telegram_user.failure_policy import (
     is_permanent_telegram_peer_error,
     telegram_account_key,
@@ -18,17 +19,8 @@ from ..connectors.telegram_user.windowed import WindowedTelegramUserConnector
 from ..pipeline.optimized_transform import OptimizedTransformPipeline
 from ..pipeline.windowed_ingest import WindowedIngestionPipeline
 from ..state.ingestion_queue import PersistentIngestionQueue
-from .source_reliability import prioritize_http_sources, summarize_http_source_reports
 
 logger = logging.getLogger(__name__)
-
-
-# The resilient preflight and run implementations live at module level so the
-# compatibility aliases in ``runtime_resilience`` can call them with any object
-# that implements the contract, not only with an instance of this class. The
-# class binds them below, which makes them ordinary methods: every construction
-# path inherits the same behaviour without anyone having to install a patch
-# first.
 
 
 def _bounded_float(name: str, default: float, minimum: float, maximum: float) -> float:
@@ -377,11 +369,19 @@ async def _run_hardened(
             if getattr(source, "type", None) == "http_subscription"
         ]
         if http_ids:
-            state_loader = getattr(self.repo, "get_source_states_batch", None)
+            state_loader = getattr(getattr(self, "repo", None), "get_source_states_batch", None)
             if callable(state_loader):
                 states = state_loader(http_ids)
                 ingestion_sources = prioritize_http_sources(ingestion_sources, states)
         self._source_by_id = {str(source.id): source for source in ingestion_sources}
+        worker_count = min(getattr(self, "max_workers", 1), len(ingestion_sources))
+        has_telegram_windows = any(
+            getattr(source, "type", None) == "telegram_user"
+            for source in ingestion_sources
+        )
+        self._window_worker_claimed = False
+        self._windows_need_reserved_worker = has_telegram_windows and worker_count > 1
+        self._single_worker_parallel_windows = has_telegram_windows and worker_count == 1
         self.config.sources = ingestion_sources
         seed = self._work_queue.seed_rolling_horizon(
             ingestion_sources,
@@ -426,14 +426,19 @@ async def _run_hardened(
             allow_partial_export,
         )
     finally:
-        windowed = getattr(self, "_windowed_ingestion", None)
-        if windowed is not None:
-            await windowed.close(_cleanup_timeout(self))
-        released = self._work_queue.release_owner(self._run_owner)
-        if released:
-            logger.warning("[LIFO] Released %s unfinished lease(s) to residue", released)
-        self.config.sources = original
-        self._ingestion_stop_monotonic = None
+        try:
+            windowed = getattr(self, "_windowed_ingestion", None)
+            if windowed is not None:
+                await windowed.close(_cleanup_timeout(self))
+        finally:
+            try:
+                released = self._work_queue.release_owner(self._run_owner)
+                if released:
+                    logger.warning("[LIFO] Released %s unfinished lease(s) to residue", released)
+            finally:
+                self.config.sources = original
+                self._source_by_id = {str(source.id): source for source in original}
+                self._ingestion_stop_monotonic = None
 
     residue = self._work_queue.summary()
     remaining_residue = int(residue.get("remaining", 0))
@@ -477,11 +482,8 @@ async def _run_hardened(
 class OptimizedHardenedOrchestrator(HardenedOrchestrator):
     """Hardened runner with persistent newest-window-first ingestion."""
 
-    # The resilient preflight and run behaviour is bound here, so it is part
-    # of the class rather than a patch installed on it. ``runtime_resilience``
-    # keeps module-level aliases that forward to these same functions.
-    _canonical_timeout = staticmethod(_canonical_timeout)
-    _cleanup_timeout = staticmethod(_cleanup_timeout)
+    _canonical_timeout = _canonical_timeout
+    _cleanup_timeout = _cleanup_timeout
     _numeric_channel_id = staticmethod(_numeric_channel_id)
     _close_canonical_connector = _close_canonical_connector
     _canonical_ingestion_sources = _canonical_ingestion_sources
@@ -506,6 +508,7 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
         self._ingestion_budget_exhausted = False
         self._completion_buffer_seconds = 0.0
         self._run_owner = ""
+        self._preflight_flood_deadlines: dict[tuple[str, str, str], float] = {}
         self._window_pages = 0
         self._window_completions = 0
         self._window_failures = 0
@@ -638,6 +641,8 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                 )
             )
         except asyncio.TimeoutError:
+            if getattr(source, "type", None) == "http_subscription":
+                self._record_http_source_failure(str(source.id), "TimeoutError")
             if remaining is not None and timeout < configured_timeout:
                 self._ingestion_budget_exhausted = True
                 logger.warning(
@@ -650,11 +655,18 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                     source.id,
                     timeout,
                 )
-        except Exception:
+        except Exception as exc:
+            if getattr(source, "type", None) == "http_subscription":
+                self._record_http_source_failure(str(source.id), type(exc).__name__)
             logger.exception("[Worker] Source %s failed", source.id)
         finally:
             async with lock:
-                results["ok" if success else "err"] += 1
+                if success:
+                    results["ok"] += 1
+                elif getattr(source, "required", True):
+                    results["err"] += 1
+                else:
+                    results["optional_err"] = results.get("optional_err", 0) + 1
 
     async def _run_persistent_windows(
         self,
@@ -746,6 +758,42 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                     results["err"] += 1
             except Exception as exc:
                 self._window_failures += 1
+                flood_wait = telegram_flood_wait_seconds(exc)
+                if flood_wait is not None:
+                    # MTProto FloodWait is an account-level Retry-After, not
+                    # hundreds of independent broken source windows. Preserve
+                    # all cursors and postpone only peers using this session.
+                    retry_delay = flood_wait + 5
+                    account_key = telegram_account_key(source)
+                    session_sources = (
+                        [
+                            source_id for source_id, candidate in self._source_by_id.items()
+                            if telegram_account_key(candidate) == account_key
+                        ]
+                        if account_key is not None else [item.source_id]
+                    )
+                    self._work_queue.fail(
+                        item.id,
+                        self._run_owner,
+                        "Telegram shared FloodWait cooldown",
+                        lease_token=item.lease_token,
+                        retry_delay=retry_delay,
+                    )
+                    postponed = self._work_queue.defer_sources(
+                        session_sources,
+                        retry_delay=retry_delay,
+                        reason="Telegram shared FloodWait cooldown",
+                    )
+                    async with lock:
+                        results["err"] += 1
+                    logger.warning(
+                        "[LIFO] Telegram account rate-limited for %ds; deferred "
+                        "%d queued window(s) for %d source(s), preserving cursors",
+                        retry_delay,
+                        postponed,
+                        len(session_sources),
+                    )
+                    continue
                 if is_permanent_telegram_peer_error(exc):
                     reason = (
                         "permanent Telegram peer failure: "
@@ -783,6 +831,26 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                     item.window_end_ts,
                 )
 
+    async def _drain_direct_sources(
+        self,
+        source_queue: asyncio.Queue[Any],
+        results: dict[str, int],
+        lock: asyncio.Lock,
+        configured_timeout: float,
+    ) -> None:
+        while True:
+            try:
+                source = source_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                return
+            try:
+                if getattr(source, "type", None) != "telegram_user":
+                    await self._run_direct_source(
+                        source, results, lock, configured_timeout,
+                    )
+            finally:
+                source_queue.task_done()
+
     async def _worker_async(
         self,
         source_queue: asyncio.Queue[Any],
@@ -790,21 +858,28 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
         lock: asyncio.Lock,
     ) -> None:
         configured_timeout = self._source_timeout()
-
-        while True:
-            try:
-                source = source_queue.get_nowait()
-            except asyncio.QueueEmpty:
-                break
-            try:
-                if getattr(source, "type", None) != "telegram_user":
-                    await self._run_direct_source(
-                        source,
-                        results,
-                        lock,
-                        configured_timeout,
-                    )
-            finally:
-                source_queue.task_done()
-
+        if getattr(self, "_windows_need_reserved_worker", False):
+            # An optional HTTP feed can occupy a worker for a full timeout.
+            # Start MTProto history immediately, rather than waiting for
+            # every direct source to finish before draining Telegram windows.
+            # There are no awaits between checking and setting the claim.
+            if not getattr(self, "_window_worker_claimed", False):
+                self._window_worker_claimed = True
+                await self._run_persistent_windows(results, lock, configured_timeout)
+                return
+        if getattr(self, "_single_worker_parallel_windows", False):
+            if not getattr(self, "_window_worker_claimed", False):
+                self._window_worker_claimed = True
+                # A single worker would otherwise starve Telegram history.
+                # Run exactly one bounded direct worker and one window worker.
+                await asyncio.gather(
+                    self._drain_direct_sources(
+                        source_queue, results, lock, configured_timeout,
+                    ),
+                    self._run_persistent_windows(results, lock, configured_timeout),
+                )
+                return
+        await self._drain_direct_sources(
+            source_queue, results, lock, configured_timeout,
+        )
         await self._run_persistent_windows(results, lock, configured_timeout)

@@ -138,6 +138,83 @@ class TestTransformPipeline(unittest.TestCase):
         self.pipeline.process_pending()
         self.state_repo.add_records_batch.assert_not_called()
 
+    def test_budget_selects_source_order_even_when_completion_order_is_reversed(self):
+        """The record budget must not select arbitrary futures from an unordered set."""
+        from concurrent.futures import wait as real_wait
+        from huntx.pipeline.optimized_transform import OptimizedTransformPipeline
+
+        rows = [
+            {"id": 1, "raw_hash": "a", "source_id": "src1", "filename": "first"},
+            {"id": 2, "raw_hash": "b", "source_id": "src1", "filename": "second"},
+        ]
+
+        def processed(row):
+            return {
+                "status": "ok",
+                "format": "fmt1",
+                "records": 1,
+                "record_rows": [(row["raw_hash"], row["id"], "fmt1", "hash", "{}")],
+                "status_update": ("processed", None, row["id"]),
+            }
+
+        def reversed_ready(futures, timeout=None):
+            done, not_done = real_wait(futures, timeout=timeout)
+            return list(reversed(list(futures))), not_done
+
+        for pipeline_class in (TransformPipeline, OptimizedTransformPipeline):
+            with self.subTest(pipeline=pipeline_class.__name__):
+                self.state_repo.get_pending_files.reset_mock()
+                self.state_repo.get_pending_files.return_value = rows
+                self.state_repo.add_records_batch.reset_mock()
+                self.state_repo.update_observation_status_batch.reset_mock()
+                pipeline = pipeline_class(
+                    self.raw_store, self.state_repo, self.registry, self.source_configs,
+                    max_workers=2,
+                )
+                with patch.object(pipeline, "_process_single_file", side_effect=processed):
+                    with patch("huntx.pipeline.transform.concurrent.futures.wait", side_effect=reversed_ready):
+                        result = pipeline.process_pending(max_records=1)
+                self.assertEqual(result["processed"], 1)
+                self.assertEqual(result["deferred"], 1)
+                committed = self.state_repo.add_records_batch.call_args.args[0]
+                self.assertEqual([record[1] for record in committed], [1])
+
+    def test_oversized_observation_exceeding_total_budget_fails_fast(self):
+        """A file that can never fit the run budget cannot stay pending forever."""
+        from huntx.pipeline.optimized_transform import OptimizedTransformPipeline
+
+        rows = [{"id": 1, "raw_hash": "a", "source_id": "src1", "filename": "large"}]
+
+        def parsed(row):
+            return {
+                "status": "ok",
+                "format": "fmt1",
+                "records": 2,
+                "record_rows": [(row["raw_hash"], row["id"], "fmt1", "x", "{}")] * 2,
+                "status_update": ("processed", None, row["id"]),
+            }
+
+        for cls in (TransformPipeline, OptimizedTransformPipeline):
+            with self.subTest(pipeline=cls.__name__):
+                self.state_repo.get_pending_files.return_value = rows
+                self.state_repo.add_records_batch.reset_mock()
+                pipeline = cls(
+                    self.raw_store, self.state_repo, self.registry, self.source_configs,
+                    max_workers=2,
+                )
+                with patch.object(pipeline, "_process_single_file", side_effect=parsed):
+                    with self.assertRaisesRegex(RuntimeError, "exceeding HUNTX_TRANSFORM_MAX_RECORDS"):
+                        pipeline.process_pending(max_records=1)
+                self.state_repo.add_records_batch.assert_not_called()
+
+    def test_unexpected_worker_crash_aborts_instead_of_repeating_pending_forever(self):
+        self.state_repo.get_pending_files.return_value = [
+            {"id": 1, "raw_hash": "a", "source_id": "src1", "filename": "first"},
+        ]
+        with patch.object(self.pipeline, "_process_single_file", side_effect=RuntimeError("worker bug")):
+            with self.assertRaises(RuntimeError, msg="unexpected worker crash must not be silently retried"):
+                self.pipeline.process_pending(max_batches=1)
+
 
 if __name__ == "__main__":
     unittest.main()

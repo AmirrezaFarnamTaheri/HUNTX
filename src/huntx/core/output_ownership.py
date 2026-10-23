@@ -35,12 +35,14 @@ _EMPTY_RELEASE_PAYLOAD = {
 # the feed and the extension already identifies the product, so
 # "all_sources_npvt_decoded.json" only ever told a reader which internal handler
 # produced the file. The products now read: all_sources.txt (the URI feed),
-# all_sources_base64.txt, all_sources.json, all_sources_singbox.json,
-# all_sources_xray.json and all_sources_nekobox.json.
+# all_sources_base64.txt, all_sources.json, all_sources_singbox_nodes.json,
+# all_sources_xray_nodes.json, all_sources_nekobox.json, all_sources_clash.yaml.
+# The historical all_sources_singbox.json and all_sources_xray.json stay
+# runnable full profiles; explicit *_profile.json aliases are also published.
 #
 # configs/config.prod.yaml enables BOTH npvt and npvtsub on the all_sources
 # route, and both are in _DERIVED_PROXY_FORMATS, so each one produces its own
-# decoded/base64/singbox/xray/nekobox derivative. Dropping the format segment
+# decoded/base64/singbox/xray/nekobox/clash plus full-profile derivatives. Dropping the format segment
 # outright made all five pairs want the same filename, which only surfaced at
 # export time as a RuntimeError because derived products are not configured
 # formats and configured_output_identities cannot see them. Each base format
@@ -51,9 +53,12 @@ _DERIVED_STEM = {"npvt": "", "npvtsub": "_sub"}
 _DERIVED_CANONICAL_SUFFIX = {
     ".b64sub": "_base64.txt",
     ".decoded.json": ".json",
-    ".singbox.json": "_singbox.json",
-    ".xray.json": "_xray.json",
+    ".singbox.json": "_singbox_nodes.json",
+    ".xray.json": "_xray_nodes.json",
     ".nekobox.json": "_nekobox.json",
+    ".clash.yaml": "_clash.yaml",
+    ".singbox.profile.json": "_singbox.json",
+    ".xray.profile.json": "_xray.json",
 }
 
 # Filenames published under earlier names, keyed by the logical format that owns
@@ -66,13 +71,14 @@ _FROZEN_FILENAME_ALIASES = {
     "npvt": (".txt", (".npvt", ".npvt.raw.txt", "_npvt_raw.txt")),
     "npvt.b64sub": ("_base64.txt", (".npvt.b64sub", "_npvt_b64sub.txt")),
     "npvt.decoded.json": (".json", ("_npvt_decoded.json",)),
-    "npvt.singbox.json": ("_singbox.json", ("_npvt_singbox.json",)),
-    "npvt.xray.json": ("_xray.json", ("_npvt_xray.json",)),
+    # Earlier releases used these names for complete client profiles.
+    "npvt.singbox.profile.json": ("_singbox.json", ("_singbox_profile.json", "_npvt_singbox.json", ".npvt.singbox.json")),
+    "npvt.xray.profile.json": ("_xray.json", ("_xray_profile.json", "_npvt_xray.json", ".npvt.xray.json")),
     "npvt.nekobox.json": ("_nekobox.json", ("_npvt_nekobox.json",)),
     "npvtsub.b64sub": ("_sub_base64.txt", ("_npvtsub_b64sub.txt",)),
     "npvtsub.decoded.json": ("_sub.json", ("_npvtsub_decoded.json",)),
-    "npvtsub.singbox.json": ("_sub_singbox.json", ("_npvtsub_singbox.json",)),
-    "npvtsub.xray.json": ("_sub_xray.json", ("_npvtsub_xray.json",)),
+    "npvtsub.singbox.profile.json": ("_sub_singbox.json", ("_sub_singbox_profile.json", "_npvtsub_singbox.json", ".npvtsub.singbox.json")),
+    "npvtsub.xray.profile.json": ("_sub_xray.json", ("_sub_xray_profile.json", "_npvtsub_xray.json", ".npvtsub.xray.json")),
     "npvtsub.nekobox.json": ("_sub_nekobox.json", ("_npvtsub_nekobox.json",)),
 }
 

@@ -39,11 +39,22 @@ class ProxyScoringEngine:
         security_type: str = "none",
         carrier: Optional[str] = None,
         target_isp: Optional[str] = None,
+        *,
+        probe_kind: str = "unverified",
+        probe_ok: bool | None = None,
+        observation_age_seconds: float | None = None,
+        max_probe_age_seconds: float = 3600.0,
     ) -> Dict[str, Any]:
         """Calculates carrier-aware health score matching Master Compendium §8 formula.
 
         Score = 40.0 + max(0, 25 - latency/4) + Sum(Ws) + min(15, speed_mbps * 3) + carrier_boost - penalties
         """
+        # External telemetry can contain NaN, infinity, missing and negative
+        # measurements. Normalize before both arithmetic and threshold checks.
+        latency_ms = _finite_metric(latency_ms, default=0.0, minimum=0.0)
+        speed_mbps = _finite_metric(speed_mbps, default=0.0, minimum=0.0)
+        packet_loss = _finite_metric(packet_loss, default=0.0, minimum=0.0, maximum=100.0)
+        security_type = security_type.lower() if isinstance(security_type, str) else "none"
         base_score = 40.0
 
         # 1. Latency component
@@ -59,7 +70,7 @@ class ProxyScoringEngine:
 
         # 4. Carrier alignment
         carrier_boost = 0.0
-        if carrier and target_isp and carrier.strip().lower() == target_isp.strip().lower():
+        if isinstance(carrier, str) and isinstance(target_isp, str) and carrier.strip() and carrier.strip().lower() == target_isp.strip().lower():
             carrier_boost = 5.0
 
         # 5. Penalties
@@ -86,14 +97,53 @@ class ProxyScoringEngine:
         else:
             grade = "F"
 
+        # TCP connection does not authenticate proxy protocol credentials.
+        # Keep a numeric estimate, but never label it as verified/recommended.
+        age = _finite_metric(observation_age_seconds, default=float("inf"), minimum=0.0)
+        threshold = _finite_metric(
+            max_probe_age_seconds, default=3600.0, minimum=1.0,
+            maximum=7 * 24 * 3600,
+        )
+        authenticated = (
+            probe_kind == "protocol_authenticated"
+            and probe_ok is True
+            and 0 <= age <= threshold
+            and latency_ms > 0
+        )
+        if probe_kind == "protocol_authenticated" and probe_ok is False:
+            return {
+                "score": 0.0, "grade": "F", "verified_grade": "F",
+                "recommended": False, "evidence": "failed_probe",
+            }
+        if probe_kind == "tcp_connect" and probe_ok is False:
+            return {
+                "score": 0.0, "grade": "F", "verified_grade": None,
+                "recommended": False, "evidence": "tcp_connect_failed",
+            }
         return {
             "score": round(clamped, 2),
             "grade": grade,
-            "recommended": clamped >= 75.0,
+            "verified_grade": grade if authenticated else None,
+            "recommended": authenticated and clamped >= 75.0,
+            "evidence": (
+                "fresh_authenticated_protocol"
+                if authenticated else
+                "tcp_connect_only" if probe_kind == "tcp_connect" and probe_ok is True
+                else "stale_authenticated_probe"
+                if probe_kind == "protocol_authenticated" and probe_ok is True
+                else "unverified"
+            ),
         }
 
     def score_proxy(self, record: Mapping[str, Any]) -> float:
-        """Backward-compatible proxy score calculation."""
+        """Rank measured nodes without accidentally reviving rejected history."""
+        lifecycle = str(record.get("lifecycle", record.get("status", ""))).lower()
+        if (
+            record.get("probe_ok") is False
+            or record.get("is_active") in (False, 0)
+            or lifecycle in {"dead", "retired", "revoked", "quarantined", "invalid"}
+        ):
+            return 0.0
         latency = _finite_metric(record.get("latency_ms", 9999.0), default=9999.0, minimum=0.0)
         success_rate = _finite_metric(
             record.get("historical_success_rate", 0.5),

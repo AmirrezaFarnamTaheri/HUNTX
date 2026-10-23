@@ -457,7 +457,11 @@ class HardenedOrchestrator(Orchestrator):
             "publish_cancelled": publish_cancelled,
             "ingest_ok": results["ok"],
             "ingest_err": results["err"],
-            "degraded_source_failures": results["err"] if results["ok"] else 0,
+            "optional_ingest_err": results.get("optional_err", 0),
+            "degraded_source_failures": (
+                results["err"] + results.get("optional_err", 0)
+                if results["ok"] else 0
+            ),
             "ingestion_cancelled": ingestion_cancelled,
             "build_pending": build_pending,
             "build_cancelled": build_cancelled,

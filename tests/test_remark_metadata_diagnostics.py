@@ -21,11 +21,11 @@ def test_nonnegative_finite_latency_is_displayed(latency):
 @pytest.mark.parametrize("country", [None, "", "ZZ", "USA", 42, "éé"])
 def test_unknown_country_is_not_invented(country):
     remark = format_enriched_remark(URI, {}, {"country": country})
-    assert remark.startswith("🌐 ZZ | VLESS")
+    assert remark.startswith("🌐 VLESS |")
 
 
 def test_missing_country_does_not_default_to_germany():
-    assert format_enriched_remark(URI, {}, {"latency_ms": 42}).startswith("🌐 ZZ")
+    assert format_enriched_remark(URI, {}, {"latency_ms": 42}).startswith("🌐 VLESS |")
 
 
 @pytest.mark.parametrize("grade", [None, "", "-", "  ", 42, True])
@@ -36,10 +36,14 @@ def test_missing_grade_is_not_displayed(grade):
 
 def test_metadata_normalization_and_sequence():
     counter = {}
-    metadata = {"country": " de ", "operator": "CF", "health_grade": "A+", "latency_ms": 42}
+    metadata = {
+        "country": " de ", "operator": "CF", "operator_verified": True,
+        "health_grade": "A+", "latency_ms": 42,
+        "probe_kind": "protocol_authenticated", "probe_ok": True, "probe_age_seconds": 20,
+    }
     first = format_enriched_remark(URI, counter, metadata)
     second = format_enriched_remark(URI.replace("vless://", "Vless://"), counter, metadata)
-    assert first == "🇩🇪 DE-CF | VLESS | ⚡42ms | ⭐A+ | #001"
+    assert first == "🇩🇪 VLESS | OP:CF | ⚡42ms | ⭐A+ | #001"
     assert second.endswith("#002")
     assert metadata["country"] == " de "
 
@@ -53,11 +57,26 @@ def test_metadata_normalization_and_sequence():
 def test_transport_and_security_are_shown_in_the_protocol_tag(transport, security, expected):
     """Transport and security belong in the remark so nodes differ at a glance."""
     remark = format_enriched_remark(URI, {}, {"country": "DE", "transport": transport, "security": security})
-    assert f"DE | {expected} |" in remark
+    assert f"🇩🇪 {expected} |" in remark
 
 
 @pytest.mark.parametrize("junk", ["none", "auto", "unknown", "NONE"])
 def test_placeholder_transport_values_are_not_displayed(junk):
     remark = format_enriched_remark(URI, {}, {"country": "DE", "transport": junk})
-    assert "DE | VLESS-" not in remark
-    assert "DE | VLESS |" in remark
+    assert "🇩🇪 VLESS-" not in remark
+    assert "🇩🇪 VLESS |" in remark
+
+
+def test_unverified_upstream_marketing_cannot_claim_quality_or_operator():
+    remark = format_enriched_remark(URI, {}, {
+        "country": "ZZ", "operator": "MCI", "health_grade": "A+",
+        "latency_ms": 42,
+    })
+    assert "MCI" not in remark
+    assert "⭐A+" not in remark
+    assert "⚡42ms" in remark  # TCP latency alone is not an authenticated proxy.
+    failed = format_enriched_remark(URI, {}, {
+        "country": "ZZ", "probe_kind": "protocol_authenticated",
+        "probe_ok": False, "health_grade": "A+",
+    })
+    assert "⭐F" in failed and "⭐A+" not in failed

@@ -24,7 +24,7 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("subcommand required: runtime-generation, release-manifest, verify-output, or site-data")
+		return errors.New("subcommand required: runtime-generation, release-manifest, verify-output, site-data, local-probe, or mihomo-node")
 	}
 	switch args[0] {
 	case "runtime-generation":
@@ -35,6 +35,10 @@ func run(args []string) error {
 		return runVerifyOutput(args[1:])
 	case "site-data":
 		return runSiteData(args[1:])
+	case "local-probe":
+		return runLocalProbe(args[1:])
+	case "mihomo-node":
+		return runMihomoNode(args[1:])
 	default:
 		return fmt.Errorf("unsupported subcommand: %s", args[0])
 	}

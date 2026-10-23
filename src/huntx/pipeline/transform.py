@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from ..config.schema import SourceConfig
 from ..core.router import decide_format
+from ..core.endpoint_intelligence import PrefixIntelligence, describe_proxy_endpoint
 from ..formats.registry import FormatRegistry
 from ..state.repo import StateRepo
 from ..store.raw_store import RawStore
@@ -47,6 +48,23 @@ class TransformPipeline:
         self.registry = registry
         self.source_configs = source_configs or {}
         self.max_workers = max(1, int(max_workers))
+        # Optional, explicitly versioned IP-prefix evidence. No remote lookups
+        # are made while parsing feeds, and invalid/expired snapshots never
+        # turn into geographical or ASN guesses.
+        self._network_intelligence: PrefixIntelligence | None = None
+        self._intelligence_status = "not_configured"
+        intelligence_path = os.environ.get("HUNTX_NETWORK_INTELLIGENCE_PATH", "").strip()
+        if intelligence_path:
+            try:
+                self._network_intelligence = PrefixIntelligence.from_file(
+                    intelligence_path
+                )
+                self._intelligence_status = "loaded"
+            except (OSError, ValueError):
+                logger.warning(
+                    "[Transform] Ignoring unavailable/invalid network intelligence snapshot"
+                )
+                self._intelligence_status = "unavailable"
         self.max_records_per_file = _positive_limit(
             "HUNTX_TRANSFORM_MAX_RECORDS_PER_FILE",
             None,
@@ -138,13 +156,27 @@ class TransformPipeline:
                         self.max_records_per_file,
                     )
                     return result
+                payload = record["data"]
+                # Only enrich standard URI observations. The normalized
+                # subscription line remains byte-for-byte unchanged; endpoint
+                # evidence lives in a separate, non-published mapping.
+                if fmt_id == "npvt" and isinstance(payload, dict):
+                    line = payload.get("line")
+                    if isinstance(line, str):
+                        endpoint = describe_proxy_endpoint(
+                            line,
+                            intelligence=self._network_intelligence,
+                            intelligence_status=self._intelligence_status,
+                        )
+                        if endpoint is not None:
+                            payload = {**payload, "endpoint": endpoint}
                 record_rows.append(
                     (
                         raw_hash,
                         observation_id,
                         fmt_id,
                         record["unique_hash"],
-                        json.dumps(record["data"], default=str),
+                        json.dumps(payload, default=str),
                     )
                 )
 
@@ -257,12 +289,17 @@ class TransformPipeline:
                     stop_reason = "deadline"
 
                 batch_results: List[Dict[str, Any]] = []
-                for future in done:
+                # Result selection must follow the observation-id submission
+                # order, not the unordered completion set. Budget limits
+                # otherwise select different records on identical reruns.
+                for future in futures:
+                    if future not in done:
+                        continue
                     try:
                         result = future.result()
                     except Exception as exc:
                         logger.error("[Transform] Worker thread failed: %s", exc)
-                        continue
+                        raise RuntimeError("Transform worker exited unexpectedly") from exc
                     batch_results.append(result)
                     if result["format"]:
                         format_counts[result["format"]] += 1
@@ -272,6 +309,14 @@ class TransformPipeline:
                 selected_records = 0
                 for result in batch_results:
                     generated = int(result.get("records", 0)) if result.get("status") == "ok" else 0
+                    if generated > record_limit:
+                        # Replaying a source that can never fit the entire run
+                        # budget causes permanent starvation. Stop instead.
+                        raise RuntimeError(
+                            f"Pending observation yields {generated} records, exceeding "
+                            f"HUNTX_TRANSFORM_MAX_RECORDS={record_limit}; increase "
+                            "the total budget or reduce the per-file record count"
+                        )
                     if generated > remaining_records - selected_records:
                         deferred += 1
                         stop_reason = "max_records"

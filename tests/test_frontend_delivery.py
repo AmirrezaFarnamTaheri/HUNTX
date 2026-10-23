@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import socket
 from pathlib import Path
 from unittest import mock
 
@@ -150,6 +151,22 @@ def _proxy(**overrides):
     return proxy
 
 
+def test_unverified_hostname_and_prefix_cannot_fabricate_carrier_or_city() -> None:
+    module = _load_site_generator()
+    for value in ("vpn.example.de", "mci.example.ir", "54.74.10.20"):
+        geo = module.resolve_geo_and_carrier(value)
+        assert geo["carrier"] == "Unverified"
+        assert geo["org"] == "Unverified"
+        assert geo["city"] == "Unknown"
+        assert geo["latitude"] is None and geo["longitude"] is None
+        assert geo["geo_source"] == "unverified_country_hint"
+        assert geo["geo_verified"] is False
+    anycast = module.resolve_geo_and_carrier("188.114.96.2")
+    assert anycast["country"] == "ZZ"
+    assert anycast["carrier"] == "Cloudflare Anycast"
+    assert anycast["latitude"] is None
+
+
 def test_geoip_enrichment_falls_back_offline() -> None:
     """A GeoIP network failure must leave the offline heuristic record in place."""
     module = _load_site_generator()
@@ -213,41 +230,76 @@ def test_geoip_enrichment_sets_measured_geo_for_unknown_nodes() -> None:
 
 
 def test_tcp_probe_records_measured_latency_and_failure() -> None:
-    """TCP probes set latency in milliseconds on success and probe_ok=False on failure."""
+    """Validated public DNS resolves once and connects by numeric address."""
     module = _load_site_generator()
+    public = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("1.1.1.1", 443))]
     with mock.patch.dict(os.environ):
         os.environ.pop("HUNTX_PROBE_DISABLE", None)
-        with mock.patch.object(module.socket, "create_connection", side_effect=OSError("refused")):
-            failed = module.probe_tcp_latency([_proxy(server="198.51.100.2")])
+        with mock.patch.object(module.socket, "getaddrinfo", return_value=public):
+            with mock.patch.object(module.socket, "socket") as sock:
+                sock.return_value.__enter__.return_value.connect.side_effect = OSError("refused")
+                failed = module.probe_tcp_latency([_proxy(server="proxy.example.com")])
         assert failed[0]["probe_ok"] is False
         assert failed[0].get("latency") is None
-        with mock.patch.object(module.socket, "create_connection", return_value=mock.MagicMock()):
-            with mock.patch.object(module.time, "monotonic", side_effect=[0.0, 0.042]):
-                succeeded = module.probe_tcp_latency([_proxy(server="198.51.100.1")])
-    assert succeeded[0]["probe_ok"] is True
-    assert succeeded[0]["latency"] == 42
+        with mock.patch.object(module.socket, "getaddrinfo", return_value=public):
+            with mock.patch.object(module.socket, "socket") as sock:
+                with mock.patch.object(module.time, "monotonic", side_effect=[0.0, 0.0, 0.042]):
+                    passed = module.probe_tcp_latency([_proxy(server="proxy.example.com")])
+                sock.return_value.__enter__.return_value.connect.assert_called_once_with(
+                    ("1.1.1.1", 443)
+                )
+        assert passed[0]["probe_ok"] is True
+        assert passed[0]["latency"] == 42
 
 
-def test_catalog_tags_keep_client_configs_out_of_subscription_feeds() -> None:
-    """Complete client configs are profile imports; node feeds stay subscription-usable."""
+def test_publication_tcp_probe_refuses_private_or_documentation_dns_answers() -> None:
+    module = _load_site_generator()
+    unsafe = [
+        (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("169.254.169.254", 443)),
+        (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 443)),
+        (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("198.51.100.1", 443)),
+    ]
+    with mock.patch.dict(os.environ):
+        os.environ.pop("HUNTX_PROBE_DISABLE", None)
+        with mock.patch.object(module.socket, "getaddrinfo", return_value=unsafe):
+            with mock.patch.object(module.socket, "socket") as sock:
+                results = module.probe_tcp_latency([_proxy(server="proxy.example.com")])
+                sock.assert_not_called()
+    assert results[0]["probe_ok"] is False
+
+
+def test_catalog_tags_reserve_subscription_for_node_feeds() -> None:
+    """Only artifacts that expand into independent nodes may be subscriptions."""
     module = _load_site_generator()
     singbox_type, singbox_tags, singbox_desc = module._infer_tags_and_type(
-        Path("release/all_sources_singbox.json"), "release"
+        Path("release/all_sources_singbox_nodes.json"), "release"
     )
     assert singbox_type == "SINGBOX"
-    assert "subscription" not in singbox_tags
-    assert "not a subscription" in singbox_desc
+    assert "subscription" in singbox_tags
+    assert "json-nodes" in singbox_tags
+    assert "multi-node" in singbox_tags
+    assert "independent" in singbox_desc
     xray_type, xray_tags, _ = module._infer_tags_and_type(
-        Path("release/all_sources_xray.json"), "release"
+        Path("release/all_sources_xray_nodes.json"), "release"
     )
     assert xray_type == "XRAY"
-    assert "subscription" not in xray_tags
+    assert "subscription" in xray_tags
+    assert "json-nodes" in xray_tags
+    assert "multi-node" in xray_tags
     nekobox_type, nekobox_tags, _ = module._infer_tags_and_type(
         Path("release/all_sources_nekobox.json"), "release"
     )
     assert nekobox_type == "NEKOBOX"
     assert "subscription" in nekobox_tags
     assert "json-nodes" in nekobox_tags
+    clash_type, clash_tags, clash_desc = module._infer_tags_and_type(
+        Path("release/all_sources_clash.yaml"), "release"
+    )
+    assert clash_type == "CLASH"
+    assert "subscription" in clash_tags
+    assert "yaml-nodes" in clash_tags
+    assert "multi-node" in clash_tags
+    assert "independent" in clash_desc
     raw_type, raw_tags, _ = module._infer_tags_and_type(
         Path("release/all_sources.txt"), "release"
     )
@@ -258,8 +310,8 @@ def test_catalog_tags_keep_client_configs_out_of_subscription_feeds() -> None:
     )
     assert b64_type == "B64SUB"
     assert "subscription" in b64_tags
-    # The base64 feed is the one link a client expands into every node, so it
-    # must be the one tagged as a multi-node subscription.
+    # Base64 is lossless across raw URI schemes, but the client-specific feeds
+    # are multi-node subscriptions too.
     assert "multi-node" in b64_tags
     npvt_type, npvt_tags, _ = module._infer_tags_and_type(
         Path("release/all_sources.npvt"), "release"
@@ -268,16 +320,14 @@ def test_catalog_tags_keep_client_configs_out_of_subscription_feeds() -> None:
     assert "subscription" in npvt_tags
 
 
-def test_frontend_feeds_filter_includes_json_node_feeds() -> None:
-    """The subscriptions filter offers tagged JSON node feeds; client configs are a separate bucket."""
+def test_frontend_feeds_filter_separates_node_subscriptions_from_full_configs() -> None:
+    """Client-format node feeds stay subscriptions instead of masquerading as configs."""
     application = (ROOT / "docs" / "assets" / "js" / "app.js").read_text(encoding="utf-8")
-    # The catalog tags NEKOBOX JSON node feeds as "subscription", and the
-    # subscriptions filter admits anything carrying that tag.
     subs = application.split('filter === "SUBSCRIPTIONS"')[1].split("} else if")[0]
     assert 'f.tags.includes("subscription")' in subs
-    # A JSON node feed is not a client config: the config bucket lists clients only.
     configs = application.split('filter === "CONFIGS"')[1].split("} else if")[0]
-    assert "NEKOBOX" not in configs
+    assert 'tags.includes("subscription")' in configs
+    assert "return false" in configs
 
 
 def test_unresolvable_servers_are_dropped_but_tcp_failures_kept() -> None:
@@ -313,29 +363,59 @@ def test_hostname_geo_resolution_feed_unknown_hosts_to_geoip() -> None:
 
 
 def test_carrier_panel_reports_all_failed_probes_without_bogus_latency() -> None:
-    """A carrier whose every probe failed must not synthesize a 0ms average."""
+    """Missing samples must render as unmeasured, not 0ms or fabricated loss."""
     application = (ROOT / "docs" / "assets" / "js" / "app.js").read_text(encoding="utf-8")
-    # The average is computed only from successful probes; an empty ping
-    # list yields no latency at all rather than a synthesized 0ms average.
-    assert "const hasProbe = c.pings.length > 0" in application
-    assert "c.pings.reduce((a, b) => a + b, 0) / c.pings.length) : null" in application
+    # The median is computed only for nonempty samples; the browser suite
+    # exercises the rendered empty and adversarial-operator cases.
+    assert "const median = samples.length" in application
+    assert "median: median === null ? null" in application
+    assert 'op.median === null ? "Not measured"' in application
+    assert "Loss: ${op.loss}" not in application
 
 
-def test_health_grade_combines_probe_latency_and_security() -> None:
-    """Reachability, latency band, and transport security form one letter grade."""
+def test_tcp_latency_bands_are_not_authenticated_proxy_health() -> None:
     module = _load_site_generator()
     with mock.patch.dict(os.environ):
         os.environ.pop("HUNTX_HEALTH_DISABLE", None)
-        fast = module.grade_proxy_health([_proxy(latency=20, probe_ok=True, security_grade="A+")])[0]
-        slow = module.grade_proxy_health([_proxy(latency=250, probe_ok=True, security_grade="A+")])[0]
-        down = module.grade_proxy_health([_proxy(latency=None, probe_ok=False, security_grade="A+")])[0]
-    assert fast["health_grade"] == "A+"
-    assert fast["health_status"] == "Reachable at publish"
+        fast = module.grade_proxy_health([
+            _proxy(latency=20, probe_ok=True, security_grade="A+")
+        ])[0]
+        slow = module.grade_proxy_health([
+            _proxy(latency=250, probe_ok=True, security_grade="A+")
+        ])[0]
+        down = module.grade_proxy_health([
+            _proxy(latency=None, probe_ok=False, security_grade="A+")
+        ])[0]
+    assert fast["health_grade"] is None
+    assert fast["health_evidence"] == "tcp_connect_only"
+    assert "unverified" in fast["health_status"]
     assert fast["latency_grade"] == "A+"
-    assert slow["health_grade"] == "C+"
-    assert down["health_grade"] == "F"
-    assert down["health_status"] == "TCP unreachable at publish"
+    assert slow["latency_grade"] == "C"
+    assert slow["health_grade"] is None
+    assert down["health_grade"] is None
+    assert down["health_evidence"] == "tcp_failed_from_publish_vantage"
     assert down["latency_grade"] is None
+
+
+def test_authenticated_proxy_evidence_gates_verified_health() -> None:
+    module = _load_site_generator()
+    values = _proxy(
+        latency=22, probe_ok=True, security_grade="A+",
+        probe_kind="protocol_authenticated", authenticated_probe_ok=True,
+        authenticated_probe_age_seconds=30, authenticated_latency_ms=33,
+    )
+    verified = module.grade_proxy_health([dict(values)])[0]
+    assert verified["health_grade"] == "A+"
+    assert verified["health_evidence"] == "fresh_authenticated_protocol"
+    stale = module.grade_proxy_health([
+        dict(values, authenticated_probe_age_seconds=3601)
+    ])[0]
+    assert stale["health_grade"] is None
+    failed = module.grade_proxy_health([
+        dict(values, authenticated_probe_ok=False)
+    ])[0]
+    assert failed["health_grade"] == "F"
+    assert failed["health_evidence"] == "failed_authenticated_protocol"
 
 
 def test_health_grade_can_be_disabled() -> None:
@@ -364,7 +444,10 @@ def test_remark_marks_unreachable_nodes_as_failed() -> None:
     down = format_enriched_remark("vless://x@h:443", {}, {"country": "DE", "health_grade": "A+", "probe_ok": False})
     assert "⭐F" in down
     assert "⭐A+" not in down
-    up = format_enriched_remark("vless://x@h:443", {}, {"country": "DE", "health_grade": "A"})
+    up = format_enriched_remark("vless://x@h:443", {}, {
+        "country": "DE", "health_grade": "A",
+        "probe_kind": "protocol_authenticated", "probe_ok": True, "probe_age_seconds": 50,
+    })
     assert "⭐A" in up
 
 
@@ -401,8 +484,11 @@ def test_frontend_uses_only_canonical_product_artifact_names() -> None:
         # The products the dashboard offers a download for. The decoded dataset
         # and the node feed have no hero anchor — they are reached through the
         # catalog, and the subscription link is resolved from it at click time.
-        "all_sources_singbox.json",
-        "all_sources_xray.json",
+        "all_sources_singbox_nodes.json",
+        "all_sources_xray_nodes.json",
+        "all_sources_clash.yaml",
+        "all_sources_singbox_profile.json",
+        "all_sources_xray_profile.json",
     ):
         assert canonical in application
 
@@ -420,17 +506,19 @@ def test_frontend_uses_only_canonical_product_artifact_names() -> None:
     ):
         assert stale not in application
 
-    # A subscription has to be a node list. The builder must keep the node feeds
-    # and the whole client configurations in separate sections, offer the former
-    # as "Copy subscription URL" and the latter only as a download, and say that
-    # a profile import creates a single entry.
-    assert "Subscriptions (add as a subscription URL)" in application
-    assert "Client profiles (download, do not add as a subscription)" in application
-    assert "Copy subscription URL" in application
-    assert "creates a single entry" in application
+    # Sing-box/Xray/Clash are node feeds: their generators omit full-profile
+    # policy specifically so subscription updates expand independent entries.
+    assert "Node subscriptions (separate entries)" in application
+    assert "These are standalone node feeds, not complete client profiles" in application
+    assert "Copy Node Subscription URL" in application
+    assert "Sing-box JSON subscription" in application
+    assert "Xray JSON subscription" in application
+    assert "Clash / Mihomo subscription" in application
+    assert "NekoBox JSON subscription" in application
+    assert "Full runnable profiles (download only)" in application
+    assert "Sing-box full profile" in application
+    assert "Xray full profile" in application
     assert "btn-download-profile" in application
-    assert "NekoBox node feed" in application
-    assert "do not add as a subscription" in application
 
 
 def test_dashboard_only_generator_reuses_the_verified_catalog(tmp_path: Path) -> None:
@@ -505,3 +593,13 @@ def test_publish_workflow_uses_telemetry_only_entry_point() -> None:
     step = workflow.split("Build verified dashboard data from release dist", 1)[1].split("Download structured runtime diagnostics", 1)[0]
     assert "site.main()" not in step
     assert 'cp "$DASHBOARD_ROOT/assets/js/data.js" docs/assets/js/data.js' in step
+
+
+def test_subscription_cards_use_classes_compiled_in_checked_in_css() -> None:
+    app = (ROOT / "docs/assets/js/app.js").read_text(encoding="utf-8")
+    css = (ROOT / "docs/assets/css/tailwind.css").read_text(encoding="utf-8")
+    assert 'bg-${color}-500' not in app
+    assert 'hover:bg-${color}-500' not in app
+    assert 'text-${color}-300' not in app
+    assert ".bg-cyan-500" in css
+    assert ".text-cyan-300" in css

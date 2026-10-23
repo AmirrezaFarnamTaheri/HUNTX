@@ -57,6 +57,20 @@ class TestPublishPipeline(unittest.TestCase):
                 self.pipeline.run(build_result, destinations)
         publisher.assert_not_called()
 
+    def test_interrupted_sending_state_blocks_automatic_resend(self):
+        """Crash after Telegram accepts bytes may leave an unconfirmed send."""
+        build_result = self._build()
+        self.state_repo.get_delivery_state.return_value = "sending"
+        destinations = [{"chat_id": "123", "token": "tok"}]
+
+        with patch("huntx.pipeline.publish.TelegramPublisher") as publisher:
+            with self.assertRaisesRegex(RuntimeError, "UnknownPublicationOutcome"):
+                self.pipeline.run(build_result, destinations)
+
+        publisher.assert_not_called()
+        self.state_repo.mark_delivery_sending.assert_not_called()
+        self.state_repo.mark_published.assert_not_called()
+
     @patch.dict(
         "os.environ",
         {

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 import importlib.util
 import json
 from pathlib import Path
@@ -19,15 +21,18 @@ def _load_verify_output() -> ModuleType:
 def test_verify_output_treats_new_client_json_as_json(tmp_path):
     verifier = _load_verify_output()
     xray = tmp_path / "all_sources_npvt_xray.json"
-    xray.write_text(json.dumps({"outbounds": [{"protocol": "vless"}]}), encoding="utf-8")
+    xray.write_text(
+        json.dumps({"inbounds": [{"protocol": "socks"}], "outbounds": [{"protocol": "vless"}]}),
+        encoding="utf-8",
+    )
     nekobox = tmp_path / "all_sources_npvt_nekobox.json"
     nekobox.write_text(
         json.dumps([{"type": "vless", "tag": "node"}]),
         encoding="utf-8",
     )
 
-    assert verifier.validate_file(xray)["type"] == "json"
-    assert verifier.validate_file(nekobox)["type"] == "json"
+    assert verifier.validate_file(xray).get("invalid") is not True
+    assert verifier.validate_file(nekobox).get("invalid") is not True
 
 
 def test_verify_output_treats_raw_derivative_as_proxy_text(tmp_path):
@@ -66,6 +71,58 @@ def test_committed_nekobox_outputs_are_node_feeds_not_client_configs():
             assert node.get("tag"), f"{path.name} has an outbound without a tag"
 
 
+def test_committed_nekobox_aliases_and_published_metadata_are_consistent():
+    """Frozen subscriber URLs and dashboard metadata must match the canonical feed."""
+    import hashlib
+
+    repo = OUTPUTS_DIR.parent
+    names = ("all_sources_nekobox.json", "all_sources_npvt_nekobox.json")
+    manifest = json.loads(
+        (repo / "docs" / "artifacts" / "release" / "manifest.json").read_text(encoding="utf-8")
+    )
+    records = {item["path"]: item for item in manifest["artifacts"]}
+    catalog = json.loads((repo / "docs" / "catalog.json").read_text(encoding="utf-8"))
+    assert catalog["total_files"] == len(catalog["files"])
+    assert catalog["total_size"] == sum(item["size"] for item in catalog["files"])
+
+    canonical = (OUTPUTS_DIR / names[0]).read_bytes()
+    payload = json.loads(canonical)
+    assert isinstance(payload, list) and payload
+    tags = [node["tag"] for node in payload]
+    assert len(tags) == len(set(tags)), "duplicate NekoBox node tags cause selection collisions"
+    assert all(
+        node["type"] not in {"selector", "urltest", "direct", "block", "dns"}
+        and "domain_resolver" not in node
+        for node in payload
+    )
+    for name in names:
+        assert (OUTPUTS_DIR / name).read_bytes() == canonical, name
+        assert (repo / "docs" / "artifacts" / "release" / name).read_bytes() == canonical, name
+        assert records[name]["sha256"] == hashlib.sha256(canonical).hexdigest(), name
+        assert records[name]["size"] == len(canonical), name
+
+    listed = [
+        item for item in catalog["files"]
+        if item["path"] == "artifacts/release/all_sources_nekobox.json"
+    ]
+    assert len(listed) == 1, "the canonical NekoBox feed must appear once in the catalog"
+    assert listed[0]["sha256"] == hashlib.sha256(canonical).hexdigest()
+    assert listed[0]["size"] == len(canonical)
+
+
+def test_bundled_dashboard_catalog_tracks_committed_release_metadata():
+    repo = OUTPUTS_DIR.parent
+    live = json.loads((repo / "docs" / "catalog.json").read_text(encoding="utf-8"))
+    module = (repo / "docs" / "assets" / "js" / "data.js").read_text(encoding="utf-8")
+    start = "export const FALLBACK_CATALOG = "
+    end = ";\n\nexport const SAMPLE_PROXIES = "
+    assert module.count(start) == 1
+    catalog_string = module.split(start, 1)[1].split(end, 1)[0]
+    assert json.loads(catalog_string) == live
+    app = (repo / "docs" / "assets" / "js" / "app.js").read_text(encoding="utf-8")
+    assert "Top-level JSON array of standalone NekoBox proxy nodes" in app
+
+
 def test_committed_client_configs_are_complete_importable_profiles():
     """Sing-box and Xray JSON are profile imports: a client needs inbounds and outbounds."""
     files = _committed_outputs("*singbox.json") + _committed_outputs("*xray.json")
@@ -91,3 +148,177 @@ def test_committed_base64_feeds_decode_to_proxy_uris():
         assert lines, f"{path.name} decodes to no URIs"
         for line in lines:
             assert "://" in line, f"{path.name} has a non-URI line: {line[:40]}"
+
+
+def test_malformed_derived_products_are_marked_invalid(tmp_path):
+    verifier = _load_verify_output()
+    broken_json = tmp_path / "all_sources_singbox_profile.json"
+    broken_json.write_text("{", encoding="utf-8")
+    broken_yaml = tmp_path / "all_sources_clash.yaml"
+    broken_yaml.write_text("proxies:\\n  - not-json", encoding="utf-8")
+    assert verifier.validate_file(broken_json).get("invalid") is True
+    assert verifier.validate_file(broken_yaml).get("invalid") is True
+
+
+def test_full_profiles_are_not_classified_as_decoded_dataset(tmp_path):
+    verifier = _load_verify_output()
+    path = tmp_path / "all_sources_xray_profile.json"
+    path.write_text(json.dumps({"inbounds": [], "outbounds": []}), encoding="utf-8")
+    assert verifier.validate_file(path)["type"] == "json"
+
+
+def test_node_and_profile_json_contracts_are_not_interchangeable(tmp_path):
+    verifier = _load_verify_output()
+    cases = (
+        ("all_sources_nekobox.json", {"outbounds": [{"type": "trojan", "tag": "node"}]}, True),
+        ("all_sources_nekobox.json", [{"type": "trojan", "tag": "node"}], False),
+        ("all_sources_singbox_nodes.json", {"inbounds": [{}], "outbounds": [{"type": "trojan", "tag": "a"}]}, True),
+        ("all_sources_singbox.json", {"outbounds": [{"type": "trojan", "tag": "a"}]}, True),
+        ("all_sources_xray_nodes.json", {"outbounds": [{"protocol": "vless", "tag": "a"}], "route": {}}, True),
+        ("all_sources_xray.json", {"outbounds": [{"protocol": "vless", "tag": "a"}]}, True),
+        ("all_sources_singbox_nodes.json", {"outbounds": [{"type": "trojan", "tag": "a"}]}, False),
+        ("all_sources_xray_nodes.json", {"outbounds": [{"protocol": "vless", "tag": "a"}]}, False),
+        ("all_sources_singbox.json", {
+            "inbounds": [{"type": "mixed"}], "dns": {}, "route": {},
+            "outbounds": [{"type": "trojan", "tag": "a"}]}, False),
+        ("all_sources_xray.json", {
+            "inbounds": [{"protocol": "socks"}], "outbounds": [{"protocol": "vmess", "tag": "a"}]}, False),
+    )
+    for number, (filename, payload, should_fail) in enumerate(cases):
+        target = tmp_path / str(number)
+        target.mkdir()
+        file = target / filename
+        file.write_text(json.dumps(payload), encoding="utf-8")
+        result = verifier.validate_file(file)
+        assert bool(result.get("invalid")) is should_fail, (filename, result)
+
+
+def test_nekobox_rejects_duplicate_tags_and_non_proxy_helpers(tmp_path):
+    verifier = _load_verify_output()
+    invalid_feeds = (
+        [{"type": "trojan", "tag": "same"}, {"type": "vless", "tag": "same"}],
+        [{"type": "direct", "tag": "direct"}],
+    )
+    for payload in invalid_feeds:
+        path = tmp_path / "all_sources_nekobox.json"
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        assert verifier.validate_file(path).get("invalid") is True
+
+
+def test_legacy_nekobox_array_keeps_import_compatibility(tmp_path):
+    verifier = _load_verify_output()
+    file = tmp_path / "all_sources_nekobox.json"
+    file.write_text(json.dumps([{"type": "trojan", "tag": "node"}]), encoding="utf-8")
+    assert not verifier.validate_file(file).get("invalid")
+
+
+def test_invalid_artifact_cannot_erase_last_good_dist(tmp_path, monkeypatch):
+    verifier = _load_verify_output()
+    outputs = tmp_path / "outputs"
+    dist = tmp_path / "dist"
+    outputs.mkdir()
+    dist.mkdir()
+    (dist / "last-good.txt").write_text("retained", encoding="utf-8")
+    (outputs / "all_sources_singbox_nodes.json").write_text("{", encoding="utf-8")
+    monkeypatch.setattr(verifier, "OUTPUT_DIR", outputs)
+    monkeypatch.setattr(verifier, "DIST_DIR", dist)
+    with pytest.raises(RuntimeError, match="refusing to publish malformed"):
+        verifier.main()
+    assert (dist / "last-good.txt").read_text(encoding="utf-8") == "retained"
+
+
+def test_copy_error_preserves_existing_dist(tmp_path, monkeypatch):
+    verifier = _load_verify_output()
+    outputs = tmp_path / "outputs"
+    dist = tmp_path / "dist"
+    outputs.mkdir()
+    dist.mkdir()
+    (outputs / "all_sources.txt").write_text("vless://id@example.test:443#node\n", encoding="utf-8")
+    (dist / "previous.txt").write_text("safe", encoding="utf-8")
+    monkeypatch.setattr(verifier, "OUTPUT_DIR", outputs)
+    monkeypatch.setattr(verifier, "DIST_DIR", dist)
+
+    def fail_copy(*_args, **_kwargs):
+        raise OSError("simulated disk exhaustion")
+
+    monkeypatch.setattr(verifier.shutil, "copy2", fail_copy)
+    with pytest.raises(OSError, match="simulated disk exhaustion"):
+        verifier.main()
+    assert (dist / "previous.txt").read_text(encoding="utf-8") == "safe"
+
+
+def test_install_rename_error_rolls_back_previous_dist(tmp_path, monkeypatch):
+    verifier = _load_verify_output()
+    outputs = tmp_path / "outputs"
+    dist = tmp_path / "dist"
+    outputs.mkdir()
+    dist.mkdir()
+    (outputs / "all_sources.txt").write_text("vless://id@example.test:443#node\n", encoding="utf-8")
+    (dist / "previous.txt").write_text("safe", encoding="utf-8")
+    monkeypatch.setattr(verifier, "OUTPUT_DIR", outputs)
+    monkeypatch.setattr(verifier, "DIST_DIR", dist)
+    real_replace = verifier.os.replace
+
+    def rename(src, dst):
+        if Path(src).name == "prepared" and Path(dst) == dist:
+            raise OSError("simulated directory installation failure")
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(verifier.os, "replace", rename)
+    with pytest.raises(OSError, match="simulated directory installation failure"):
+        verifier.main()
+    assert (dist / "previous.txt").read_text(encoding="utf-8") == "safe"
+
+
+def test_successful_install_removes_old_dist_files(tmp_path, monkeypatch):
+    verifier = _load_verify_output()
+    outputs = tmp_path / "outputs"
+    dist = tmp_path / "dist"
+    outputs.mkdir()
+    dist.mkdir()
+    (dist / "obsolete.txt").write_text("old", encoding="utf-8")
+    payload = "vless://id@example.test:443#node\n"
+    (outputs / "all_sources.txt").write_text(payload, encoding="utf-8")
+    monkeypatch.setattr(verifier, "OUTPUT_DIR", outputs)
+    monkeypatch.setattr(verifier, "DIST_DIR", dist)
+    verifier.main()
+    assert not (dist / "obsolete.txt").exists()
+    assert (dist / "all_sources.txt").read_text(encoding="utf-8") == payload
+    assert (dist / "verify_output.py").is_file()
+
+
+def test_flattened_output_collisions_are_rejected_without_mutating_dist(tmp_path, monkeypatch):
+    verifier = _load_verify_output()
+    outputs = tmp_path / "outputs"
+    dist = tmp_path / "dist"
+    (outputs / "a").mkdir(parents=True)
+    (outputs / "b").mkdir()
+    dist.mkdir()
+    (outputs / "a" / "feed.txt").write_text("vless://id@example.test:443#one\n")
+    (outputs / "b" / "feed.txt").write_text("vless://id@example.test:443#two\n")
+    (dist / "old.txt").write_text("safe")
+    monkeypatch.setattr(verifier, "OUTPUT_DIR", outputs)
+    monkeypatch.setattr(verifier, "DIST_DIR", dist)
+    with pytest.raises(RuntimeError, match="Conflicting generated output filename"):
+        verifier.main()
+    assert (dist / "old.txt").read_text() == "safe"
+
+
+def test_symlinked_generated_artifact_is_rejected_without_mutating_dist(tmp_path, monkeypatch):
+    verifier = _load_verify_output()
+    outputs = tmp_path / "outputs"
+    dist = tmp_path / "dist"
+    outputs.mkdir()
+    dist.mkdir()
+    secret = tmp_path / "secret.txt"
+    secret.write_text("should-not-be-published")
+    try:
+        (outputs / "feed.txt").symlink_to(secret)
+    except (NotImplementedError, OSError):
+        pytest.skip("symlinks unavailable on this filesystem")
+    (dist / "old.txt").write_text("safe")
+    monkeypatch.setattr(verifier, "OUTPUT_DIR", outputs)
+    monkeypatch.setattr(verifier, "DIST_DIR", dist)
+    with pytest.raises(RuntimeError, match="Refusing symlinked generated output"):
+        verifier.main()
+    assert (dist / "old.txt").read_text() == "safe"

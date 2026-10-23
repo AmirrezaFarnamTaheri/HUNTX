@@ -22,6 +22,40 @@ _PERMANENT_VALUE_ERROR_MARKERS = (
 )
 
 
+def telegram_account_key(source: object) -> tuple[str, str, str] | None:
+    """Identify a Telegram login without exposing the session or API hash."""
+    account = getattr(source, "telegram_user", None)
+    if account is None:
+        return None
+    fields = (
+        getattr(account, "api_id", None),
+        getattr(account, "api_hash", None),
+        getattr(account, "session", None),
+    )
+    if any(value is None or value == "" for value in fields):
+        return None
+    return (str(fields[0]), str(fields[1]), str(fields[2]))
+
+
+def telegram_flood_wait_seconds(exc: BaseException) -> int | None:
+    """Extract Telegram's explicit Retry-After without parsing arbitrary error strings.
+
+    Telethon's FloodWaitError exposes `seconds`; a wrapped exception may keep
+    it as its cause or context. Never silently shorten the server's cooldown,
+    mistake a generic timeout for a flood wait, or quarantine the source.
+    """
+    current: Optional[BaseException] = exc
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if type(current).__name__ in {"FloodWaitError", "FloodPremiumWaitError"}:
+            seconds = getattr(current, "seconds", None)
+            if type(seconds) is int and 0 < seconds <= 30 * 24 * 3600:
+                return seconds
+        current = current.__cause__ or current.__context__
+    return None
+
+
 def is_permanent_telegram_peer_error(exc: BaseException) -> bool:
     """Return whether retrying the configured Telegram peer cannot self-heal.
 

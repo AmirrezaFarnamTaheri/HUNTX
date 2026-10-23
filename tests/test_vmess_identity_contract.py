@@ -132,13 +132,13 @@ def test_the_state_store_and_the_parse_path_agree():
     assert _canonicalize_vmess_line(uri) == strip_proxy_remark(uri)
 
 
-def test_adding_a_remark_preserves_the_url_fragment():
+def test_adding_a_remark_removes_the_obsolete_url_fragment():
     uri = "vmess://" + _encode({**BASE, "ps": "old"}) + "#%73ource-1"
 
     remarked = vmess_payload_with_remark(uri, "vmess-1")
 
     assert remarked is not None
-    assert remarked.partition("#")[2] == "%73ource-1"
+    assert "#" not in remarked
     assert _decode(remarked)["ps"] == "vmess-1"
 
 

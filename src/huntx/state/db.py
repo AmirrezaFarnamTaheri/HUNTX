@@ -17,13 +17,7 @@ _MMAP_SIZE_BYTES = 256 * 1024 * 1024
 
 
 def _canonicalize_vmess_line(line: str) -> Optional[str]:
-    """Return the current canonical VMess URI or ``None`` for non-VMess/invalid data.
-
-    This delegates to the shared VMess contract so the identity written by the
-    parse path, the identity re-keyed by the v10 migration and the identity read
-    here cannot drift apart. A payload that decodes to a JSON array, string or
-    number is not a VMess payload and yields ``None`` rather than raising.
-    """
+    """Use the shared VMess payload contract for legacy state migration."""
     return canonical_vmess_line(line)
 
 
@@ -324,6 +318,63 @@ class DBConnection:
                 conn.execute("PRAGMA user_version = 10")
                 version = 10
                 logger.info("Database schema migrated to version 10; canonicalised %s VMess record(s).", migrated)
+
+            if version < 11:
+                # Fence remote send attempts across processes, and persist all
+                # operator reconciliations of uncertain delivery outcomes.
+                delivery_columns = {
+                    row["name"] for row in conn.execute("PRAGMA table_info(publication_deliveries)")
+                }
+                if "attempt_token" not in delivery_columns:
+                    conn.execute("ALTER TABLE publication_deliveries ADD COLUMN attempt_token TEXT")
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS publication_delivery_reconciliations (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        intent_id INTEGER NOT NULL,
+                        destination_id TEXT NOT NULL,
+                        previous_state TEXT NOT NULL,
+                        resulting_state TEXT NOT NULL,
+                        operator TEXT NOT NULL,
+                        reason TEXT NOT NULL,
+                        remote_receipt TEXT,
+                        reconciled_at REAL NOT NULL,
+                        FOREIGN KEY (intent_id) REFERENCES publication_intents(id) ON DELETE CASCADE
+                    )
+                """)
+                conn.execute("PRAGMA user_version = 11")
+                version = 11
+                logger.info("Database schema migrated to version 11.")
+            if version < 12:
+                lifecycle_columns = {
+                    row["name"] for row in conn.execute(
+                        "PRAGMA table_info(proxy_lifecycle)"
+                    ).fetchall()
+                }
+                needed = {
+                    "unique_hash", "record_type", "lifecycle_status",
+                    "first_seen_at", "last_seen_at", "consecutive_failures",
+                }
+                if not needed.issubset(lifecycle_columns):
+                    raise RuntimeError("v12 proxy lifecycle migration failed")
+                history_columns = {
+                    row["name"] for row in conn.execute(
+                        "PRAGMA table_info(proxy_probe_history)"
+                    ).fetchall()
+                }
+                if not {"probe_id", "unique_hash", "record_type", "success"}.issubset(
+                    history_columns
+                ):
+                    raise RuntimeError("v12 proxy probe history migration failed")
+                conn.execute("PRAGMA user_version = 12")
+                logger.info("Database schema migrated to version 12.")
+
+            if version < 13:
+                from .identity_migration import migrate_proxy_identities
+
+                changed = migrate_proxy_identities(conn)
+                conn.execute("PRAGMA user_version = 13")
+                logger.info("Database migrated to version 13; re-keyed %s proxy observations.", changed)
+
         except Exception as exc:
             logger.error("Migration check failed: %s", exc)
             raise

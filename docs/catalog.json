@@ -7,9 +7,9 @@
       "media_type": "application/json",
       "path": "artifacts/release/all_sources.json",
       "section": "release",
-      "sha256": "3fecaad26ba2c858918aedbdbba58bd1d1a22687272f4808a5ceb32590e8c01e",
-      "size": 1289320,
-      "size_str": "1.2 MB",
+      "sha256": "01d70b2135c5b5a1611b3151b13114a5e6900b5cfbc718d2c5b335af6b5dbccd",
+      "size": 4981025,
+      "size_str": "4.8 MB",
       "tags": [
         "release",
         "production",
@@ -26,9 +26,9 @@
       "media_type": "text/plain",
       "path": "artifacts/release/all_sources.txt",
       "section": "release",
-      "sha256": "6ab3bcf3e57a1dd15d2919c11cbb074fd66cdf2ad778f9cf088e479f8cfde47c",
-      "size": 443231,
-      "size_str": "432.8 KB",
+      "sha256": "e11acc2a9cfbf943c0fc1882a3de38ff5f1ad6c3e93c2a05f05873f754172248",
+      "size": 1850777,
+      "size_str": "1.8 MB",
       "tags": [
         "release",
         "production",
@@ -46,9 +46,9 @@
       "media_type": "text/plain",
       "path": "artifacts/release/all_sources_base64.txt",
       "section": "release",
-      "sha256": "077b9ec3404471afe0f3a1c08c46613d29f70c5f333e75229d0e0b29b3e7da3e",
-      "size": 590976,
-      "size_str": "577.1 KB",
+      "sha256": "f933b9536cf97b7df18629d8d28346d703fcded8686cd70d4f8b7e9a8a3438a4",
+      "size": 2467704,
+      "size_str": "2.4 MB",
       "tags": [
         "release",
         "production",
@@ -60,66 +60,167 @@
       "type": "B64SUB"
     },
     {
-      "description": "NekoBox-compatible JSON node feed: a top-level array of sing-box outbounds, which is what makes clients expand it into individual nodes. Wrapping the same outbounds in a configuration-shaped object would import as a single custom configuration instead.",
+      "description": "Clash/Mihomo proxy-provider subscription. The payload contains only a proxies list of standalone nodes, so provider refresh updates independent proxy entries without importing routing, DNS, listeners, or proxy groups.",
+      "ext": "CLASH",
+      "filename": "all_sources_clash.yaml",
+      "media_type": "application/yaml",
+      "path": "artifacts/release/all_sources_clash.yaml",
+      "section": "release",
+      "sha256": "1eb92470a888b7f0a087eef28995c072041615e7706bbdadec110e37388ad1a8",
+      "size": 1988487,
+      "size_str": "1.9 MB",
+      "tags": [
+        "release",
+        "production",
+        "subscription",
+        "clash",
+        "mihomo",
+        "yaml-nodes",
+        "multi-node"
+      ],
+      "type": "CLASH"
+    },
+    {
+      "description": "NekoBox-compatible JSON node feed: a top-level array of standalone sing-box proxy outbounds, without DNS, routing or inbound profile policy. Each array entry represents an independent node rather than one custom configuration.",
       "ext": "NEKOBOX",
       "filename": "all_sources_nekobox.json",
       "media_type": "application/json",
       "path": "artifacts/release/all_sources_nekobox.json",
       "section": "release",
-      "sha256": "9b162953ed04ad1678ed0faec4899734a4e25da45b9da924c75e11ea5ae9423d",
-      "size": 715810,
-      "size_str": "699.0 KB",
+      "sha256": "c40901d45bb80d5ecdab9c671be20a39d68483029da72f03069d424a3b9e2a84",
+      "size": 2811135,
+      "size_str": "2.7 MB",
       "tags": [
         "release",
         "production",
         "subscription",
-        "json-nodes"
+        "json-nodes",
+        "multi-node"
       ],
       "type": "NEKOBOX"
     },
     {
-      "description": "Complete Sing-box 1.10+ client configuration. This is a whole profile, not a subscription: importing it as a subscription URL creates ONE entry by design. Use the base64 feed for a multi-node subscription.",
+      "description": "Complete runnable Sing-box client profile with inbound, DNS, routing and selector policy. Historical Sing-box profile URLs retain these semantics; independent nodes are at *_singbox_nodes.json.",
       "ext": "SINGBOX",
       "filename": "all_sources_singbox.json",
       "media_type": "application/json",
       "path": "artifacts/release/all_sources_singbox.json",
       "section": "release",
-      "sha256": "58f228397cdfec0ce57c245de7747100febe1961d2350c6f0c0f923e40a064b3",
-      "size": 862246,
-      "size_str": "842.0 KB",
+      "sha256": "5189946dee92b9ad31cf343102dc3ecf1b54eecf4d9d41dae43f4d52def0d732",
+      "size": 3897075,
+      "size_str": "3.7 MB",
       "tags": [
         "release",
         "production",
+        "client-config",
         "singbox",
-        "routing-profile",
-        "outbounds"
+        "full-config"
       ],
       "type": "SINGBOX"
     },
     {
-      "description": "Complete Xray-core 1.8+ / V2Ray client configuration. This is a whole profile, not a subscription: importing it as a subscription URL creates ONE entry by design. Use the base64 feed for a multi-node subscription.",
+      "description": "Sing-box JSON multi-node subscription. The payload contains standalone proxy outbounds only and deliberately omits inbound/DNS/route profile policy so compatible subscription updaters expand nodes independently.",
+      "ext": "SINGBOX",
+      "filename": "all_sources_singbox_nodes.json",
+      "media_type": "application/json",
+      "path": "artifacts/release/all_sources_singbox_nodes.json",
+      "section": "release",
+      "sha256": "c1b52a4d1e1b5d62881d43be4b4e3ab6b9b7e9c399c1e01ca3b84b8a2447521f",
+      "size": 3030476,
+      "size_str": "2.9 MB",
+      "tags": [
+        "release",
+        "production",
+        "subscription",
+        "singbox",
+        "json-nodes",
+        "multi-node"
+      ],
+      "type": "SINGBOX"
+    },
+    {
+      "description": "Complete runnable Sing-box client profile with inbound, DNS, routing and selector policy. Historical Sing-box profile URLs retain these semantics; independent nodes are at *_singbox_nodes.json.",
+      "ext": "SINGBOX",
+      "filename": "all_sources_singbox_profile.json",
+      "media_type": "application/json",
+      "path": "artifacts/release/all_sources_singbox_profile.json",
+      "section": "release",
+      "sha256": "5189946dee92b9ad31cf343102dc3ecf1b54eecf4d9d41dae43f4d52def0d732",
+      "size": 3897075,
+      "size_str": "3.7 MB",
+      "tags": [
+        "release",
+        "production",
+        "client-config",
+        "singbox",
+        "full-config"
+      ],
+      "type": "SINGBOX"
+    },
+    {
+      "description": "Complete runnable Xray client profile with local inbound and full configuration envelope. Historical Xray profile URLs retain these semantics; independent nodes are at *_xray_nodes.json.",
       "ext": "XRAY",
       "filename": "all_sources_xray.json",
       "media_type": "application/json",
       "path": "artifacts/release/all_sources_xray.json",
       "section": "release",
-      "sha256": "bbf80229170a724b9b09b14a62018e4e6babcb3f241be8c6d3e589302159de52",
-      "size": 651531,
-      "size_str": "636.3 KB",
+      "sha256": "cc6228ae7883f3716440f7dba253bbab15f9290477d45ba49ca4a6b0237f5ef5",
+      "size": 2284688,
+      "size_str": "2.2 MB",
       "tags": [
         "release",
         "production",
+        "client-config",
+        "xray",
+        "full-config"
+      ],
+      "type": "XRAY"
+    },
+    {
+      "description": "Xray/V2Ray JSON multi-node subscription. The payload is outbounds-only, so compatible subscription updaters such as v2rayN import each outbound as an independent subscription item.",
+      "ext": "XRAY",
+      "filename": "all_sources_xray_nodes.json",
+      "media_type": "application/json",
+      "path": "artifacts/release/all_sources_xray_nodes.json",
+      "section": "release",
+      "sha256": "a219be7756f0b292d4be42af9ada1954503de32389d2a371f4c2dc074512c739",
+      "size": 2284351,
+      "size_str": "2.2 MB",
+      "tags": [
+        "release",
+        "production",
+        "subscription",
         "xray",
         "v2ray",
-        "core-config"
+        "json-nodes",
+        "multi-node"
+      ],
+      "type": "XRAY"
+    },
+    {
+      "description": "Complete runnable Xray client profile with local inbound and full configuration envelope. Historical Xray profile URLs retain these semantics; independent nodes are at *_xray_nodes.json.",
+      "ext": "XRAY",
+      "filename": "all_sources_xray_profile.json",
+      "media_type": "application/json",
+      "path": "artifacts/release/all_sources_xray_profile.json",
+      "section": "release",
+      "sha256": "cc6228ae7883f3716440f7dba253bbab15f9290477d45ba49ca4a6b0237f5ef5",
+      "size": 2284688,
+      "size_str": "2.2 MB",
+      "tags": [
+        "release",
+        "production",
+        "client-config",
+        "xray",
+        "full-config"
       ],
       "type": "XRAY"
     }
   ],
-  "generated_at": "2026-09-29T07:42:37.931417Z",
+  "generated_at": "2026-10-23T07:54:39.702594Z",
   "release_manifest": "artifacts/release/manifest.json",
   "schema_version": 1,
-  "total_files": 6,
-  "total_size": 4553114,
-  "total_size_str": "4.3 MB"
+  "total_files": 11,
+  "total_size": 31777481,
+  "total_size_str": "30.3 MB"
 }

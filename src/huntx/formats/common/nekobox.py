@@ -1,4 +1,4 @@
-"""Render NekoBox-compatible sing-box node feeds as top-level outbound arrays."""
+"""Render NekoBox-compatible multi-node feeds as top-level JSON arrays."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import json
 
 from .singbox import config_from_uris
 
-_NEKOBOX_EXCLUDED_TYPES = {"selector", "urltest", "direct"}
+_NEKOBOX_EXCLUDED_TYPES = {"selector", "urltest", "direct", "block", "dns"}
 
 
 def _proxy_only_outbound(outbound: dict) -> dict | None:
@@ -19,13 +19,11 @@ def _proxy_only_outbound(outbound: dict) -> dict | None:
 
 
 def build_nekobox_outbounds_bytes(text: str) -> bytes:
-    """Render a NekoBox node feed: a top-level array of proxy-only outbounds.
+    """Render a NekoBox node feed that expands into independent proxy entries.
 
-    NekoBox and similar clients import a subscription-style top-level JSON
-    array as individual selectable nodes. Wrapping the nodes inside a
-    configuration-shaped ``{"outbounds": [...]}`` object made the whole
-    artifact import as one custom JSON configuration instead of expanding
-    the nodes.
+    Each array entry represents an independent proxy node, without
+    profile-level DNS, routing, or inbound policy. A configuration-shaped
+    object can instead be treated as a single custom profile.
     """
     try:
         config = config_from_uris(text.splitlines())

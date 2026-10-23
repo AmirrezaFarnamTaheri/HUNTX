@@ -1,5 +1,6 @@
 import concurrent.futures
 import hashlib
+import ipaddress
 import json
 import math
 import mimetypes
@@ -12,6 +13,16 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
+
+# Script entrypoints run without an installed package when invoked directly.
+import sys
+
+_SRC = Path(__file__).resolve().parents[1] / "src"
+if str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
+from huntx.formats.npvt import canonical_proxy_identity  # noqa: E402
+from huntx.formats.proxy_uri_validator import validate_proxy_uri  # noqa: E402
+from huntx.core.remark_geoip import estimate_country, estimate_as_organization, is_anycast_address  # noqa: E402
 
 
 def _generated_at() -> str:
@@ -283,49 +294,49 @@ def resolve_geo_and_carrier(address: str, sni: str = "", host: str = "") -> dict
     full = f"{addr} {sni_lower} {host_lower}"
 
     country = None
-    carrier = None
 
     # 1. Explicit domain TLDs & contextual keywords
     if ".ir" in addr or "iran" in full or "tehran" in full or "soundfiy" in full or "zula.ir" in full:
-        country, carrier = "IR", "MCI / Irancell"
+        country = "IR"
     elif ".ua" in addr or "ukraine" in full:
-        country, carrier = "UA", "Kyivstar / Datagroup"
+        country = "UA"
     elif ".in" in addr or "india" in full:
-        country, carrier = "IN", "Jio / Bharti Airtel"
+        country = "IN"
     elif "taipei" in full or ".tw" in addr or "taiwan" in full:
-        country, carrier = "TW", "Chunghwa Telecom"
+        country = "TW"
     elif ".de" in addr or "germany" in full or "frankfurt" in full:
-        country, carrier = "DE", "Hetzner Cloud"
+        country = "DE"
     elif ".nl" in addr or "amsterdam" in full or "serverius" in full or "sellflow" in full:
-        country, carrier = "NL", "Serverius / NL"
+        country = "NL"
     elif ".fi" in addr or "helsinki" in full or "fastly" in full:
-        country, carrier = "FI", "Hetzner Online"
+        country = "FI"
     elif ".fr" in addr or "paris" in full:
-        country, carrier = "FR", "OVHcloud FR"
+        country = "FR"
     elif ".ru" in addr or "moscow" in full or "rtqa.ru" in full or "vdsina" in full:
-        country, carrier = "RU", "Rostelecom / Selectel"
+        country = "RU"
     elif ".sg" in addr or "singapore" in full or "zenlayer" in full:
-        country, carrier = "SG", "Zenlayer SG"
+        country = "SG"
     elif ".jp" in addr or "tokyo" in full or "japan" in full:
-        country, carrier = "JP", "AWS Tokyo"
+        country = "JP"
     elif ".kr" in addr or "seoul" in full or "korea" in full:
-        country, carrier = "KR", "KT Corp"
+        country = "KR"
     elif ".hk" in addr or "hongkong" in full or "aliyun" in full:
-        country, carrier = "HK", "Alibaba Cloud HK"
+        country = "HK"
     elif ".tr" in addr or "istanbul" in full or "turkey" in full or "tr1-" in full:
-        country, carrier = "TR", "Turkcell / Superonline"
+        country = "TR"
     elif ".ch" in addr or "zurich" in full or "swiss" in full or ".cloudns.ch" in addr:
-        country, carrier = "CH", "Swisscom Zurich"
+        country = "CH"
     elif ".uk" in addr or ".co.uk" in addr or ".gb" in addr or "london" in full:
-        country, carrier = "GB", "Virgin Media UK"
+        country = "GB"
     elif ".ca" in addr or "toronto" in full or "canada" in full:
-        country, carrier = "CA", "OVH Canada"
+        country = "CA"
     elif ".se" in addr or "stockholm" in full or "sweden" in full:
-        country, carrier = "SE", "Telia Sweden"
+        country = "SE"
     # 2. IP Subnet & Cloud Provider Network Routing
-    elif addr.startswith("188.114."):
-        country, carrier = "NL", "Cloudflare Amsterdam Edge"
-    elif addr.startswith(("162.159.", "172.67.", "104.18.", "104.19.", "104.21.", "104.16.", "172.64.")):
+    elif addr.startswith((
+        "188.114.", "162.159.", "172.67.", "104.18.",
+        "104.19.", "104.21.", "104.16.", "172.64.",
+    )):
         # Cloudflare IPs are anycast; provider identity is evidence, location is not.
         return {
             "country": "ZZ",
@@ -340,35 +351,35 @@ def resolve_geo_and_carrier(address: str, sni: str = "", host: str = "") -> dict
             "geo_verified": False,
         }
     elif addr.startswith(("47.243.", "8.210.", "8.217.")):
-        country, carrier = "HK", "Alibaba Cloud HK"
+        country = "HK"
     elif addr.startswith("51.79."):
-        country, carrier = "SG", "OVHcloud Singapore"
+        country = "SG"
     elif addr.startswith(("57.129.", "57.131.", "54.36.")):
-        country, carrier = "FR", "OVHcloud France"
+        country = "FR"
     elif addr.startswith(("15.237.", "15.235.")):
-        country, carrier = "FR", "AWS Paris"
+        country = "FR"
     elif addr.startswith("54.74."):
-        country, carrier = "IE", "AWS Dublin"
+        country = "IE"
     elif addr.startswith(("82.38.", "2.26.")):
-        country, carrier = "GB", "Virgin Media UK"
+        country = "GB"
     elif addr.startswith(("91.132.", "140.99.", "5.175.", "82.198.")):
-        country, carrier = "DE", "Hetzner Cloud"
+        country = "DE"
     elif addr.startswith(("95.81.", "86.107.")):
-        country, carrier = "IR", "MCI / TCI Iran"
+        country = "IR"
     elif addr.startswith(("194.87.", "62.182.", "195.133.", "31.133.")):
-        country, carrier = "RU", "VDSina / Selectel"
+        country = "RU"
     elif addr.startswith("199.232."):
-        country, carrier = "FI", "Fastly Helsinki Edge"
+        country = "FI"
     elif addr.startswith("150.40."):
-        country, carrier = "JP", "AWS Tokyo"
+        country = "JP"
     elif addr.startswith(("152.53.", "103.152.", "45.207.")):
-        country, carrier = "SG", "Zenlayer Singapore"
+        country = "SG"
     elif addr.startswith(("92.42.", "195.184.", "45.131.", "45.89.")):
-        country, carrier = "NL", "Serverius Netherlands"
+        country = "NL"
     elif addr.startswith(("69.63.", "192.227.", "167.233.", "166.62.", "209.206.")):
-        country, carrier = "US", "AWS North America"
+        country = "US"
     elif addr.startswith("210.3."):
-        country, carrier = "HK", "HKBN Hong Kong"
+        country = "HK"
     else:
         return {
             "country": "ZZ",
@@ -383,20 +394,20 @@ def resolve_geo_and_carrier(address: str, sni: str = "", host: str = "") -> dict
             "geo_verified": False,
         }
 
-    lat, lon, hub_name = GEO_COORDINATES[country]
+    # Hostname hints and broad IP-prefix guesses are not IP geolocation or
+    # ASN ownership evidence. Preserve the coarse country hint, but do not
+    # invent a specific operator or a city-level pin on the globe.
     country_name = COUNTRY_NAMES.get(country, "Unknown")
-    flag = _country_flag(country)
-
     return {
         "country": country,
         "country_name": country_name,
-        "flag": flag,
-        "carrier": carrier,
-        "org": carrier,
-        "city": hub_name,
-        "latitude": lat,
-        "longitude": lon,
-        "geo_source": "inferred",
+        "flag": _country_flag(country),
+        "carrier": "Unverified",
+        "org": "Unverified",
+        "city": "Unknown",
+        "latitude": None,
+        "longitude": None,
+        "geo_source": "unverified_country_hint",
         "geo_verified": False,
     }
 
@@ -485,65 +496,130 @@ def _geoip_batch_lookup(addresses: list[str]) -> tuple[dict[str, dict], dict[str
 
 
 def _resolve_hostnames(addresses: list[str]) -> list[str]:
-    """Translate hostname servers to IPs so GeoIP can locate them.
+    """Resolve server hostnames, preferring routable A then AAAA records.
 
-    ip-api.com resolves literal addresses only, so a hostname like
-    ``de-1.example.com`` would otherwise stay unknown. Bare IPs and any
-    host that does not resolve pass through unchanged; a lookup miss
-    never removes a node from the batch.
+    Network probes and lookups must use the actual server address, never the
+    SNI or a remark. A resolution failure keeps the original input unchanged.
     """
     def _one(address: str) -> str:
-        if not address:
-            return address
+        clean = str(address or "").strip().strip("[]")
+        if not clean:
+            return clean
         try:
-            socket.inet_aton(address)
-            return address  # already a literal IPv4 address
-        except OSError:
+            ipaddress.ip_address(clean)
+            return clean
+        except ValueError:
+            pass
+        # Keep the established A-record resolver semantics, including for
+        # older source records. Fall back to getaddrinfo for IPv6-only hosts.
+        try:
+            ipv4 = socket.gethostbyname(clean)
+            if ipv4:
+                return ipv4
+        except (OSError, UnicodeError):
             pass
         try:
-            return socket.gethostbyname(address) or address
-        except OSError:
-            return address
+            answers = socket.getaddrinfo(clean, None, type=socket.SOCK_STREAM)
+        except (OSError, UnicodeError):
+            return clean
+        public = []
+        for answer in answers:
+            candidate = answer[4][0]
+            try:
+                ip = ipaddress.ip_address(candidate)
+            except ValueError:
+                continue
+            if ip.is_global and candidate not in public:
+                public.append(candidate)
+        return next((ip for ip in public if ":" not in ip), public[0] if public else clean)
 
-    # Hostnames resolve in parallel: the sequential path spent most of the
-    # publish window waiting on one DNS query at a time.
     with concurrent.futures.ThreadPoolExecutor(max_workers=PROBE_MAX_WORKERS) as executor:
         return list(executor.map(_one, addresses))
 
 
 def enrich_proxies_with_geoip(proxies: list[dict]) -> list[dict]:
-    """Enrich explicitly-unknown geography with measured GeoIP where reachable.
+    """Apply IP-backed country and AS attribution without guessing a server's location.
 
-    Only nodes whose geography is still unknown are looked up: anycast
-    prefixes stay deliberately unknown (a registered PoP location is not the
-    node's location), and a network failure leaves the heuristic record in
-    place instead of failing generation. Set ``HUNTX_GEOIP_DISABLE=1`` to skip
-    the lookups entirely.
+    The publisher supplies verified HTTPS-downloaded PDDL country/ASN range
+    tables. Offline lookup takes precedence over source-name guesses and does
+    not expose node hostnames to external GeoIP APIs. When tables are absent,
+    the existing best-effort online provider remains a development fallback.
+    Public anycast addresses never gain a physical country from allocations.
     """
     if os.environ.get("HUNTX_GEOIP_DISABLE", "").strip():
         return proxies
-    unresolved_addresses: list[str] = []
+
+    eligible = {"unknown", "unverified_country_hint", "legacy-estimate", "inferred", "anycast-provider"}
+    addresses: list[str] = []
     seen: set[str] = set()
     for proxy in proxies:
-        if proxy.get("geo_source") != "unknown":
+        source = str(proxy.get("geo_source") or "unknown").lower()
+        if proxy.get("geo_verified") is True or source not in eligible:
             continue
-        address = str(proxy.get("server") or "").strip()
-        if not address or address in seen:
-            continue
-        seen.add(address)
-        unresolved_addresses.append(address)
-    if not unresolved_addresses:
-        return proxies
-    queried_addresses = _resolve_hostnames(unresolved_addresses)
-    resolved, translation = _geoip_batch_lookup(queried_addresses)
-    if not resolved:
-        return proxies
-    for proxy in proxies:
         server = str(proxy.get("server") or "").strip()
-        # ip-api answers with the literal it was asked about. A hostname node
-        # was queried as its resolved IP, so match through that translation.
-        record = resolved.get(translation.get(server, server))
-        if record is not None:
+        if server and server not in seen:
+            seen.add(server)
+            addresses.append(server)
+
+    if not addresses:
+        return proxies
+
+    translated = dict(zip(addresses, _resolve_hostnames(addresses)))
+    offline = any(os.environ.get(name, "").strip() for name in (
+        "HUNTX_GEOIP_IPV4_CSV", "HUNTX_GEOIP_IPV6_CSV",
+        "HUNTX_ASN_IPV4_CSV", "HUNTX_ASN_IPV6_CSV",
+    ))
+    if offline:
+        for proxy in proxies:
+            source = str(proxy.get("geo_source") or "unknown").lower()
+            if proxy.get("geo_verified") is True or source not in eligible:
+                continue
+            server = str(proxy.get("server") or "").strip()
+            if not server:
+                continue
+            ip = translated.get(server, server)
+            if is_anycast_address(ip):
+                # An anycast exit IP may route through different countries.
+                # A country-looking SNI or original remark is not evidence.
+                proxy.update({
+                    "country": "ZZ", "country_name": "Unknown", "flag": "🌐",
+                    "city": "Unknown", "latitude": None, "longitude": None,
+                    "geo_source": "anycast-provider", "geo_verified": False,
+                })
+            else:
+                country = estimate_country(ip)
+                if country:
+                    proxy.update({
+                        "country": country,
+                        "country_name": COUNTRY_NAMES.get(country, country),
+                        "flag": _country_flag(country),
+                        "city": "Unknown",
+                        "latitude": None, "longitude": None,
+                        "geo_source": "server-country-pddl",
+                        # Dataset-backed allocation estimate, not a physical
+                        # or proxy-protocol location measurement.
+                        "geo_verified": True,
+                    })
+            network = estimate_as_organization(ip)
+            if network:
+                proxy["org"] = network
+                proxy["carrier"] = network
+        return proxies
+
+    # Local developer fallback when the official publication datasets are not
+    # provided. It may fail without breaking frontend generation, but never
+    # overrides an anycast or already evidence-backed location.
+    looked_up, _ = _geoip_batch_lookup(list(translated.values()))
+    for proxy in proxies:
+        source = str(proxy.get("geo_source") or "unknown").lower()
+        if proxy.get("geo_verified") is True or source not in eligible:
+            continue
+        server = str(proxy.get("server") or "").strip()
+        ip = translated.get(server, server)
+        if is_anycast_address(ip):
+            continue
+        record = looked_up.get(ip)
+        if record:
             proxy.update(record)
     return proxies
 
@@ -620,11 +696,30 @@ def probe_tcp_latency(proxies: list[dict]) -> list[dict]:
     def measure(target: tuple[str, int]) -> tuple[tuple[str, int], int | None]:
         server, port = target
         started = time.monotonic()
+        # The hostname is untrusted: pin a public numeric DNS answer before
+        # connecting, rather than resolving again in socket.create_connection.
+        from huntx.core.latency_benchmarker import _public_addresses
+
         try:
-            with socket.create_connection((server, port), timeout=PROBE_TIMEOUT_SECONDS):
-                return target, round((time.monotonic() - started) * 1000)
-        except OSError:
+            answers = socket.getaddrinfo(server, port, type=socket.SOCK_STREAM)
+        except (OSError, ValueError, TypeError):
             return target, None
+        for family, address in _public_addresses(answers)[:6]:
+            remaining = PROBE_TIMEOUT_SECONDS - (time.monotonic() - started)
+            if remaining <= 0:
+                break
+            try:
+                with socket.socket(family, socket.SOCK_STREAM) as connection:
+                    connection.settimeout(remaining)
+                    target_address = (
+                        (address, port, 0, 0) if family == socket.AF_INET6
+                        else (address, port)
+                    )
+                    connection.connect(target_address)
+                return target, round((time.monotonic() - started) * 1000)
+            except (OSError, ValueError, TypeError):
+                continue
+        return target, None
 
     outcomes: dict[tuple[str, int], int | None] = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=PROBE_MAX_WORKERS) as executor:
@@ -699,35 +794,48 @@ def _latency_grade(latency_ms: int | float | None) -> str | None:
 
 
 def grade_proxy_health(proxies: list[dict]) -> list[dict]:
-    """Attach per-node health metadata derived from the measured probe.
-
-    Three signals are combined into one letter grade so the dashboard and the
-    published remarks can describe a node without inventing measurements:
-    reachability (``probe_ok``), latency band, and transport security. Nodes
-    that were never probed stay explicitly ``unmeasured`` rather than being
-    scored as slow. Set ``HUNTX_HEALTH_DISABLE=1`` to leave grades unset.
-    """
+    """Do not call a working TCP socket an authenticated working proxy."""
     if os.environ.get("HUNTX_HEALTH_DISABLE", "").strip():
         return proxies
     for proxy in proxies:
-        latency = proxy.get("latency")
-        proxy["latency_grade"] = _latency_grade(latency)
-        security_grade = str(proxy.get("security_grade") or "")
-        if proxy.get("probe_ok") is not True:
-            # An unreachable node is graded on the one signal that exists.
+        proxy["latency_grade"] = _latency_grade(proxy.get("latency"))
+        proxy["health_grade"] = None
+        proxy["health_evidence"] = (
+            "tcp_connect_only" if proxy.get("probe_ok") is True
+            else "tcp_failed_from_publish_vantage" if proxy.get("probe_ok") is False
+            else "unmeasured"
+        )
+        proxy["health_status"] = (
+            "TCP reachable; proxy protocol unverified"
+            if proxy.get("probe_ok") is True
+            else "TCP unreachable from publish vantage; proxy unverified"
+            if proxy.get("probe_ok") is False else "Not tested"
+        )
+
+        if proxy.get("probe_kind") != "protocol_authenticated":
+            continue
+        if proxy.get("authenticated_probe_ok") is False:
             proxy["health_grade"] = "F"
-            proxy["health_status"] = "TCP unreachable at publish"
+            proxy["health_evidence"] = "failed_authenticated_protocol"
+            proxy["health_status"] = "Authenticated proxy protocol check failed"
             continue
-        if proxy["latency_grade"] is None:
-            proxy["health_grade"] = None
-            proxy["health_status"] = "Probed, latency unavailable"
+        age = proxy.get("authenticated_probe_age_seconds")
+        duration = proxy.get("authenticated_latency_ms")
+        if (
+            proxy.get("authenticated_probe_ok") is not True
+            or not isinstance(age, (int, float)) or isinstance(age, bool)
+            or not math.isfinite(age) or not 0 <= age <= 3600
+        ):
             continue
-        # Security only upgrades a reachable, fast node; it never rescues one.
-        boost = HEALTH_SECURITY_GRADES.get(security_grade, 0)
-        order = [grade for _, grade in HEALTH_LATENCY_BANDS] + ["C"]
-        position = max(0, order.index(proxy["latency_grade"]) - (1 if boost == 3 else 0))
-        proxy["health_grade"] = order[position]
-        proxy["health_status"] = "Reachable at publish"
+        grade = _latency_grade(duration)
+        if grade is None:
+            continue
+        boost = HEALTH_SECURITY_GRADES.get(str(proxy.get("security_grade") or ""), 0)
+        order = [label for _, label in HEALTH_LATENCY_BANDS] + ["C"]
+        pos = max(0, order.index(grade) - (1 if boost == 3 else 0))
+        proxy["health_grade"] = order[pos]
+        proxy["health_evidence"] = "fresh_authenticated_protocol"
+        proxy["health_status"] = "Authenticated proxy protocol verified within one hour"
     return proxies
 
 
@@ -796,6 +904,7 @@ def score_governed_pca(proxies: list[dict]) -> list[dict]:
             3,
         )
         proxy["pca_version"] = GOVERNED_PCA_VERSION
+        proxy["pca_evidence"] = "publisher_tcp_reachability_candidate_rank"
     return proxies
 
 
@@ -885,7 +994,23 @@ def parse_production_proxies() -> list[dict]:
             pass
 
     proxies = []
+    seen_connections: set[str] = set()
     for i, entry in enumerate(raw_nodes):
+        # The same valid configuration can appear in the release's decoded
+        # feed, an auxiliary testing profile, and cumulative legacy history.
+        # Prefer the canonical release record and never count its aliases as
+        # additional nodes. Preserve distinct credentials, paths and TLS data.
+        raw_uri = entry.get("raw")
+        if isinstance(raw_uri, str) and validate_proxy_uri(raw_uri):
+            connection_key = canonical_proxy_identity(raw_uri)
+        else:
+            connection_key = json.dumps([
+                entry.get("protocol"), entry.get("address"), entry.get("port"),
+                entry.get("user"), entry.get("password"), entry.get("params"),
+            ], sort_keys=True, default=str, ensure_ascii=False)
+        if connection_key in seen_connections:
+            continue
+        seen_connections.add(connection_key)
         idx = i + 1
         protocol = (entry.get("protocol") or "vless").lower()
         address = entry.get("address") or ""
