@@ -76,7 +76,16 @@ def _enabled_sources_count() -> int | None:
             return None
         return sum(
             1 for source in sources
-            if isinstance(source, dict) and source.get("enabled", True) is not False
+            if isinstance(source, dict)
+            and source.get("trust_state", "approved") == "approved"
+            and source.get("enabled", True) is not False
+            and (
+                source.get("type") != "http_subscription"
+                or (
+                    isinstance(source.get("http_subscription"), dict)
+                    and source["http_subscription"].get("enabled", True) is True
+                )
+            )
         )
     except (OSError, ValueError, TypeError):
         return None
@@ -780,6 +789,40 @@ def probe_tcp_latency(proxies: list[dict]) -> list[dict]:
     return proxies
 
 
+def annotate_dns_resolution(proxies: list[dict]) -> list[dict]:
+    """Record a DNS outcome without dropping an already admitted connection.
+
+    Resolver failure from the publisher's vantage is not sufficient proof
+    that an earlier authenticated HTTPS success ceased to be valid; also
+    avoid making IPv6-only hosts disappear from the dashboard.
+    """
+    unique_addresses = sorted({
+        str(node.get("server") or "").strip()
+        for node in proxies if str(node.get("server") or "").strip()
+    })
+
+    def lookup(address: str) -> tuple[str, bool]:
+        try:
+            ipaddress.ip_address(address)
+            return address, True
+        except ValueError:
+            pass
+        try:
+            return address, bool(socket.getaddrinfo(address, None, type=socket.SOCK_STREAM))
+        except (OSError, ValueError, TypeError):
+            return address, False
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=PROBE_MAX_WORKERS) as pool:
+        answers = dict(pool.map(lookup, unique_addresses))
+    for node in proxies:
+        address = str(node.get("server") or "").strip()
+        node["dns_resolution"] = (
+            "resolved_from_publish_vantage" if answers.get(address)
+            else "unresolved_from_publish_vantage"
+        )
+    return proxies
+
+
 def drop_unreachable_proxies(proxies: list[dict]) -> list[dict]:
     """Drop proxies whose server has no resolvable address at all.
 
@@ -1016,9 +1059,13 @@ def parse_production_proxies() -> list[dict]:
         except Exception:
             pass
 
-    # 2. Production Outbound Configurations: v2ray_test_config.json (742 outbounds)
+    # A current release is authoritative. Supplemental/retired datasets are
+    # never extra "verified" nodes in its dashboard; use them only for
+    # explicitly legacy snapshots where there is no primary release feed.
+    current_release = decoded_file.exists()
+    # 2. Legacy V2Ray test config (fallback only).
     v2ray_file = OUTPUTS_DIR / "v2ray_test_config.json"
-    if v2ray_file.exists():
+    if v2ray_file.exists() and not current_release:
         try:
             vdata = json.loads(v2ray_file.read_text(encoding="utf-8"))
             for ob in vdata.get("outbounds", []):
@@ -1048,9 +1095,9 @@ def parse_production_proxies() -> list[dict]:
         except Exception:
             pass
 
-    # 3. Protocol Diversity from Dev Dataset: proxies.json (Trojan, Hysteria2, WireGuard, TUIC, Shadowsocks, VLESS)
+    # 3. Historical/dev population is NOT current verified production data.
     dev_proxies_file = OUTPUTS_DEV_DIR / "proxies.json"
-    if dev_proxies_file.exists():
+    if dev_proxies_file.exists() and not current_release:
         try:
             dev_data = json.loads(dev_proxies_file.read_text(encoding="utf-8"))
             trojans, hy2s, wgs, tuics, sss = [], [], [], [], []
@@ -1187,6 +1234,35 @@ def parse_production_proxies() -> list[dict]:
     return proxies
 
 
+def assert_current_feed_parity(proxies: list[dict]) -> dict[str, int]:
+    """Fail if the dashboard drops or invents connections from the release feed.
+
+    Compare semantic identities, not remarks or endpoint-only keys. Do not
+    expose credentials or exact connection URIs in CI error messages.
+    """
+    primary = OUTPUTS_DIR / "all_sources.txt"
+    if not primary.is_file():
+        return {"admitted": 0, "dashboard": len(proxies), "scope": "legacy"}
+    source = [
+        canonical_proxy_identity(line.strip())
+        for line in primary.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    displayed = [
+        canonical_proxy_identity(str(node.get("raw_uri") or ""))
+        for node in proxies
+    ]
+    if len(source) != len(set(source)):
+        raise ValueError("Primary URI feed contains duplicate semantic identities")
+    if len(source) != len(displayed) or set(source) != set(displayed):
+        raise ValueError(
+            "dashboard output loses or fabricates current production identities: "
+            f"admitted={len(source)} dashboard={len(displayed)} "
+            f"shared={len(set(source) & set(displayed))}"
+        )
+    return {"admitted": len(source), "dashboard": len(displayed), "scope": "current"}
+
+
 def compute_aggregate_stats(proxies: list[dict], catalog: dict) -> dict:
     """Compute aggregate dashboard statistics without inventing unavailable measurements."""
     dev_proxies_file = OUTPUTS_DEV_DIR / "proxies.json"
@@ -1321,12 +1397,13 @@ def generate_dashboard_data(
             grade_proxy_health(
                 probe_tcp_latency(
                     enrich_proxies_with_geoip(
-                        drop_unreachable_proxies(parse_production_proxies())
+                        annotate_dns_resolution(parse_production_proxies())
                     )
                 )
             )
         )
-        stats = compute_aggregate_stats(proxies, catalog)
+        assert_current_feed_parity(proxies)
+    stats = compute_aggregate_stats(proxies, catalog)
         _write_dashboard_data(catalog, proxies, stats, DATA_JS_FILE)
     finally:
         OUTPUTS_DIR, OUTPUTS_DEV_DIR, DATA_JS_FILE = previous
@@ -1425,10 +1502,9 @@ def generate_all() -> None:
 
     # Parse production proxies from outputs, then enrich unresolved geography
     # with measured GeoIP before hubs and aggregate statistics are computed.
-    # Parse production proxies, drop servers nothing on the internet can
-    # resolve, enrich surviving geography with measured GeoIP, then probe.
-    # Ordering matters: dropping unresolvable nodes first means GeoIP and
-    # probes never spend their budget on nodes that cannot work at all.
+    # The dashboard must not silently drop publisher-authenticated nodes
+    # merely because a later DNS lookup fails from a different vantage.
+    # Record resolver failures separately; no pre-display health filtering.
     proxies = score_governed_pca(
         grade_proxy_health(
             probe_tcp_latency(
