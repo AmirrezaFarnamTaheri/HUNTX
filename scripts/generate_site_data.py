@@ -1417,7 +1417,7 @@ def generate_dashboard_data(
             )
         )
         assert_current_feed_parity(proxies)
-    stats = compute_aggregate_stats(proxies, catalog)
+        stats = compute_aggregate_stats(proxies, catalog)
         _write_dashboard_data(catalog, proxies, stats, DATA_JS_FILE)
     finally:
         OUTPUTS_DIR, OUTPUTS_DEV_DIR, DATA_JS_FILE = previous
