@@ -634,9 +634,23 @@ class NpvtHandler(FormatHandler):
                 seen.add(identity)
                 if rich:
                     observed = observations.get(line)
-                    if observed and (not isinstance(evidence_metadata, dict)
-                                     or evidence_metadata.get('probe_kind') != 'protocol_authenticated'):
-                        evidence_metadata = {**(evidence_metadata or {}), **observed}
+                    if observed:
+                        stored_observations = evidence_metadata if isinstance(evidence_metadata, dict) else {}
+                        # DNS and resolved-IP evidence is independent of the
+                        # authenticated HTTPS probe. Never replace that stronger
+                        # proxy observation with a weaker TCP handshake.
+                        evidence_metadata = {
+                            **stored_observations,
+                            **{key: value for key, value in observed.items()
+                               if key in {'geoip_address', 'dns_status',
+                                          'dns_checked_at', 'dns_expires_at'}},
+                        }
+                        if stored_observations.get('probe_kind') != 'protocol_authenticated':
+                            evidence_metadata.update({
+                                key: value for key, value in observed.items()
+                                if key not in {'geoip_address', 'dns_status',
+                                               'dns_checked_at', 'dns_expires_at'}
+                            })
                     # Older persisted records predate the endpoint metadata
                     # contract. Enrich at read time without mutating the
                     # canonical observation or changing the raw link.
