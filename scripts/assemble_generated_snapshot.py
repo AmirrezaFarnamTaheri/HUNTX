@@ -683,6 +683,12 @@ def assemble_snapshot(
     if previous_snapshot_root is not None and previous_snapshot_root.exists():
         previous_dev = first_dir(previous_snapshot_root, "outputs_dev")
     previous_manifest = load_dev_manifest(previous_dev / "_manifest.json" if previous_dev else None)
+    previous_outputs = (
+        first_dir(previous_snapshot_root, "outputs")
+        if previous_snapshot_root is not None and previous_snapshot_root.exists()
+        else None
+    )
+    churn_report = build_proxy_churn_report(destination / "outputs", previous_outputs)
     legacy_manifest = load_legacy_dev_identities(legacy_dev_root)
     current_manifest = load_dev_manifest(current_dev / "_manifest.json" if current_dev else None)
 
@@ -717,6 +723,7 @@ def assemble_snapshot(
             # later reconciled to the appended cumulative catalog.
             (destination / "docs" / "assets" / "js" / "bundle.js").unlink(missing_ok=True)
         _catalog_dev_trio(destination / "docs", destination / "docs" / "artifacts" / "dev")
+        catalog_proxy_churn(destination / "docs", churn_report)
         sync_dashboard_fallback_catalog(destination / "docs")
         if shell_root is not None:
             _refresh_frontend_index(destination)
@@ -730,6 +737,10 @@ def assemble_snapshot(
 
     manifests = destination / "manifests"
     manifests.mkdir(exist_ok=True)
+    (manifests / "proxy-churn.json").write_text(
+        json.dumps(churn_report, sort_keys=True, indent=2) + "\n",
+        encoding="utf-8",
+    )
     payload: dict[str, Any] = {
         "schema_version": 3,
         "source_run_id": run_id,
