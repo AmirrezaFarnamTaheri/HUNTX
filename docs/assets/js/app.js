@@ -316,6 +316,9 @@ export function getProxyEvidence(proxy = {}) {
       && PUBLISHED_HEALTH_GRADE_META[proxy.health_grade]) {
     return { id: "authenticated", label: "Protocol checked", detail: "Authenticated proxy-protocol evidence from this snapshot; availability can change.", terminal: false };
   }
+  if (kind === "expired_authenticated_protocol") {
+    return { id: "unmeasured", label: "HTTPS evidence expired", detail: "A previous authenticated HTTPS check succeeded, but its publication evidence has expired. Current proxy health is unknown.", terminal: false };
+  }
   if (kind === "failed_authenticated_protocol") {
     return { id: "protocol_failed", label: "Protocol check failed", detail: "Authenticated protocol check failed; this does not imply a permanent failure.", terminal: false };
   }
@@ -958,6 +961,9 @@ export class AppState {
       return { score, grade: publishedGrade, ...PUBLISHED_HEALTH_GRADE_META[publishedGrade] };
     }
     const estimate = healthForLatency(node ? this.getLatency(node) : nodeOrPing);
+    if (node?.health_evidence === "expired_authenticated_protocol") {
+      return { ...estimate, label: "Previous authenticated HTTPS evidence expired; current proxy health unverified" };
+    }
     if (node) {
       return { ...estimate, label: estimate.score === null
         ? "Proxy unverified; TCP unmeasured"

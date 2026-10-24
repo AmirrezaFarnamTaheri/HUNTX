@@ -458,6 +458,13 @@ def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
               and fields.get('probe_authenticated') is True):
             details.append(f'AUTH:{round(latency)}ms')
 
+    if (latency is None and fields.get('probe_kind') == 'protocol_authenticated'
+            and fields.get('probe_authenticated') is True):
+        expired = fields.get('probe_expires_at')
+        if (isinstance(expired, (int, float)) and not isinstance(expired, bool)
+                and math.isfinite(expired) and expired <= time.time()):
+            details.append('AUTH:STALE')
+
     # Speeds are shown ONLY after an actual authenticated end-to-end speed
     # measurement, never from a Hysteria2 uplink/downlink CONFIG setting.
     if (fields.get('speed_kind') == 'authenticated_throughput'
