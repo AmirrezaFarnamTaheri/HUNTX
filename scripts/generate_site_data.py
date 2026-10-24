@@ -924,14 +924,26 @@ def parse_production_proxies() -> list[dict]:
         try:
             data = json.loads(decoded_file.read_text(encoding="utf-8"))
             for entry in data.get("entries", []):
+                # VMess metadata is nested under decoded.add/port/id.
+                # Use the source URI as the lossless parser authority.
+                decoded = entry.get("decoded")
+                if not isinstance(decoded, dict):
+                    decoded = {}
+                raw = entry.get("raw") or ""
                 raw_nodes.append({
                     "protocol": (entry.get("protocol") or "vless").lower(),
-                    "address": entry.get("address") or "",
-                    "port": entry.get("port") or 443,
+                    "address": entry.get("address") or decoded.get("add") or "",
+                    "port": entry.get("port") or decoded.get("port") or 443,
                     "tag": entry.get("tag") or "",
-                    "params": entry.get("params") or {},
-                    "raw": entry.get("raw") or "",
-                    "user": entry.get("user") or entry.get("password") or ""
+                    "params": entry.get("params") or {
+                        "type": decoded.get("net") or "tcp",
+                        "security": decoded.get("tls") or "none",
+                        "sni": decoded.get("sni") or "",
+                        "host": decoded.get("host") or "",
+                        "path": decoded.get("path") or "",
+                    },
+                    "raw": raw,
+                    "user": entry.get("user") or entry.get("password") or decoded.get("id") or ""
                 })
         except Exception:
             pass
@@ -1019,7 +1031,12 @@ def parse_production_proxies() -> list[dict]:
         params = entry.get("params") or {}
         raw = entry.get("raw") or ""
 
-        security = params.get("security") or ("tls" if params.get("sni") or params.get("alpn") else "none")
+        # Trojan and Hysteria2 use implicit TLS. A missing security= query
+        # must not make them appear to be plaintext in the dashboard.
+        security = params.get("security") or (
+            "tls" if protocol in {"trojan", "hysteria2", "hy2", "hysteria", "tuic", "anytls"}
+            or params.get("sni") or params.get("alpn") else "none"
+        )
         transport = params.get("type") or params.get("network") or "tcp"
         sni = params.get("sni") or ""
         host = params.get("host") or ""
