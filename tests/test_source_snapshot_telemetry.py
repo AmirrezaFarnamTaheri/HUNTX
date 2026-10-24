@@ -10,7 +10,7 @@ def test_source_counts_use_same_run_evidence_and_do_not_inflate_enabled(tmp_path
         "sources:\n"
         "- id: alpha\n  type: telegram_user\n"
         "- id: beta\n  type: http_subscription\n  enabled: false\n"
-        "- id: gamma\n  type: http_subscription\n",
+        "- id: gamma\n  type: http_subscription\n  http_subscription:\n    enabled: true\n",
         encoding="utf-8",
     )
     health = tmp_path / "source-health.json"
