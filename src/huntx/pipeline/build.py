@@ -21,6 +21,7 @@ from ..formats.common.xray import (
     build_xray_profile_bytes,
     xray_fidelity_report,
 )
+from .format_coverage import build_client_coverage_report
 from ..formats.registry import FormatRegistry
 from ..state.repo import StateRepo
 from ..store.artifact_store import ArtifactStore
@@ -444,6 +445,19 @@ class BuildPipeline:
                         singbox_profile,
                         xray_profile,
                     ) = self._proxy_derivatives(artifact_bytes)
+                    coverage = build_client_coverage_report(
+                        artifact_bytes.decode('utf-8'),
+                        singbox=singbox, xray=xray, nekobox=nekobox, clash=clash,
+                    )
+                    coverage_format = f'{format_id}.coverage.json'
+                    if not defer_output:
+                        self.artifact_store.save_output(route_name, coverage_format, coverage)
+                    results.append({
+                        'route_name': route_name, 'format': coverage_format,
+                        'unique_id': f'{route_name}:{coverage_format}',
+                        'artifact_hash': hashlib.sha256(coverage).hexdigest(),
+                        'data': coverage, 'count': format_count,
+                    })
                     if decoded:
                         derived_format = f'{format_id}.decoded.json'
                         if not defer_output:

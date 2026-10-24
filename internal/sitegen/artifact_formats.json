@@ -43,6 +43,12 @@
     ],
     "all_sources_xray_nodes.json": [
       "all_sources_xray_nodes.json"
+    ],
+    "all_sources_coverage.json": [
+      "all_sources_coverage.json"
+    ],
+    "all_sources_sub_coverage.json": [
+      "all_sources_sub_coverage.json"
     ]
   },
   "sections": {
@@ -53,6 +59,15 @@
       ],
       "default_description": "Verified artifact from the latest published run",
       "rules": [
+        {
+          "match": {
+            "kind": "contains",
+            "value": "_coverage.json"
+          },
+          "type": "COVERAGE",
+          "tags": ["release", "quality", "conversion", "node-coverage"],
+          "description": "Credential-free reconciliation of admitted connections and per-client representability, with identity-digest omission reasons."
+        },
         {
           "match": {
             "kind": "contains_any",

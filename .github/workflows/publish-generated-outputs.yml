@@ -428,14 +428,16 @@ jobs:
 
           dist = Path(os.environ["SOURCE_DIST"])
           failed = []
-          for candidate in sorted(dist.rglob("*.json")):
+          for candidate in sorted(dist.rglob("*")):
+              if not candidate.is_file() or candidate.suffix.lower() not in {".json", ".yaml"}:
+                  continue
               if candidate.name == "manifest.json":
                   continue
               stats = validate_file(candidate)
               if stats.get("invalid") or stats.get("type") == "empty":
                   failed.append(candidate.relative_to(dist).as_posix())
           if failed:
-              raise SystemExit("Release JSON contract invalid: " + ", ".join(failed))
+              raise SystemExit("Release client artifact contract invalid: " + ", ".join(failed))
           PY
 
       - name: Prepare attributed country and network operator data
