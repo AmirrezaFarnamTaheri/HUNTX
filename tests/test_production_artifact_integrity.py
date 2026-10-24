@@ -9,7 +9,7 @@ import base64
 import json
 import time
 from pathlib import Path
-from urllib.parse import quote, unquote, urlsplit
+from urllib.parse import unquote, urlsplit
 
 import yaml
 
@@ -83,8 +83,9 @@ def test_vmess_nested_decoded_object_survives_dashboard_parsing(
              "port": "443", "id": UUID, "net": "ws", "tls": "tls"}
     raw = "vmess://" + base64.b64encode(json.dumps(vmess).encode()).decode()
     (tmp_path / "all_sources.json").write_text(
-        json.dumps({"entries": [{"protocol": "vmess", "raw": raw,
-                                  "decoded": vmess, "tag": "Example"}]}),
+        json.dumps({"entries": [
+            {"protocol": "vmess", "raw": raw, "decoded": vmess, "tag": "Example"}
+        ]}),
         encoding="utf-8",
     )
     monkeypatch.setattr(site, "OUTPUTS_DIR", tmp_path)
@@ -135,7 +136,7 @@ def test_authenticated_proxy_keeps_independent_dns_and_country_observations(
         "huntx.formats.npvt.estimate_country",
         lambda address: "DE" if address == "5.5.5.5" else None,
     )
-    link = f"trojan://secret@host.example.com:443?sni=good.example.com"
+    link = "trojan://secret@host.example.com:443?sni=good.example.com"
     result = NpvtHandler().build([{"data": {
         "line": link, "probe_kind": "protocol_authenticated",
         "probe_authenticated": True, "latency_ms": 55,
