@@ -546,6 +546,17 @@ jobs:
           test -n "$(find "$SOURCE_ROOT/snapshot/outputs" -type f -size +0c -print -quit)"
           test -s "$SOURCE_ROOT/snapshot/outputs_dev/_manifest.json.gz.index.json"
           test -s "$SOURCE_ROOT/snapshot/manifests/main-sync-files.txt"
+          # Check the EXACT tree that upload-pages-artifact will package.
+          # Producer-side preflight cannot detect assets lost by assembly.
+          for required in index.html assets/js/app.js assets/js/control-room.js \
+              assets/js/boot-guard.js assets/js/data.js assets/css/tailwind.css \
+              assets/css/interface.css assets/css/atlas-v2.css manifest.json sw.js \
+              architecture.html network-doctor.html; do
+            test -s "$SOURCE_ROOT/snapshot/docs/$required" || {
+              echo "::error title=Broken final Pages package::Missing $required"
+              exit 1
+            }
+          done
 
       - name: Configure Pages deployment
         if: steps.release.outputs.ready == 'true'
