@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import re
 import time
 from pathlib import Path
@@ -113,7 +114,8 @@ def validate_proxy_telemetry(proxies: list[dict]) -> dict[str, int]:
             invalid(f"unknown or missing health evidence {evidence!r}")
 
         if (
-            proxy.get("geo_source") == "server-country-pddl"
+            os.environ.get("HUNTX_REQUIRE_REMARK_GEO_PARITY") == "1"
+            and proxy.get("geo_source") == "server-country-pddl"
             and proxy.get("geo_verified") is True
             and proxy.get("flag") not in (None, "🌐")
             and isinstance(proxy.get("name"), str)

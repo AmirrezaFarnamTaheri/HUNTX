@@ -428,7 +428,7 @@ class BuildPipeline:
                     if format_id in _DERIVED_PROXY_FORMATS else len(format_records)
                 )
                 if format_id in _DERIVED_PROXY_FORMATS:
-                    if publication_gate:
+                    if isinstance(publication_gate, bytes) and publication_gate:
                         gate = json.loads(publication_gate)
                         if gate.get('admitted') != format_count:
                             raise ValueError("Authenticated gate and published URI counts disagree")
@@ -441,7 +441,7 @@ class BuildPipeline:
                             'artifact_hash': hashlib.sha256(publication_gate).hexdigest(),
                             'data': publication_gate, 'count': gate['candidates'],
                         })
-                    if publication_evidence:
+                    if isinstance(publication_evidence, bytes) and publication_evidence:
                         report = json.loads(publication_evidence)
                         if (report.get('admitted_count') != format_count
                                 or len(report.get('records', {})) != format_count):

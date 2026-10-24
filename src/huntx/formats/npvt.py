@@ -463,7 +463,7 @@ def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
         expired = fields.get('probe_expires_at')
         if (isinstance(expired, (int, float)) and not isinstance(expired, bool)
                 and math.isfinite(expired) and expired <= time.time()):
-            details.append('AUTH:STALE')
+            details.append('HTTPS:EXPIRED')
 
     # Speeds are shown ONLY after an actual authenticated end-to-end speed
     # measurement, never from a Hysteria2 uplink/downlink CONFIG setting.

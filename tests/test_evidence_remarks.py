@@ -133,5 +133,5 @@ def test_expired_authenticated_remark_explicitly_marks_stale_measurement(monkeyp
         "latency_ms": 45, "probe_checked_at": old,
         "probe_expires_at": old + 300,
     })
-    assert "AUTH:STALE" in remark
+    assert "HTTPS:EXPIRED" in remark
     assert "AUTH:45ms" not in remark

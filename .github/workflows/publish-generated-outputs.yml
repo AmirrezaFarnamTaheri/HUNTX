@@ -508,7 +508,7 @@ jobs:
           # An explicit, manifest-verified empty release carries no proxy fleet.
           # Otherwise require fully measured, scored, evidence-backed records.
           if [[ "$is_empty_release" != "true" ]]; then
-            python scripts/verify_dashboard_telemetry.py "$DASHBOARD_ROOT/assets/js/data.js"
+            HUNTX_REQUIRE_REMARK_GEO_PARITY=1 python scripts/verify_dashboard_telemetry.py "$DASHBOARD_ROOT/assets/js/data.js"
           fi
           cp -a "$DASHBOARD_ROOT/catalog.json" docs/catalog.json
           rm -rf docs/artifacts
