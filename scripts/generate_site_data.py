@@ -1254,6 +1254,20 @@ def assert_current_feed_parity(proxies: list[dict]) -> dict[str, int]:
     ]
     if len(source) != len(set(source)):
         raise ValueError("Primary URI feed contains duplicate semantic identities")
+    if os.environ.get("HUNTX_REQUIRE_PUBLISHED_AUTH", "").strip() == "1":
+        sidecar = OUTPUTS_DIR / "all_sources_health.json"
+        if not sidecar.is_file():
+            raise ValueError("Missing authenticated HTTPS evidence for current release")
+        verified = json.loads(sidecar.read_text(encoding="utf-8"))
+        records = verified.get("records")
+        if (verified.get("schema_version") != 1 or not isinstance(records, dict)
+                or verified.get("admitted_count") != len(source)):
+            raise ValueError("Authenticated evidence and admitted proxy counts disagree")
+        required = {
+            hashlib.sha256(item.encode("utf-8")).hexdigest() for item in source
+        }
+        if required != set(records):
+            raise ValueError("Authenticated evidence identities disagree with release feed")
     if len(source) != len(displayed) or set(source) != set(displayed):
         raise ValueError(
             "dashboard output loses or fabricates current production identities: "

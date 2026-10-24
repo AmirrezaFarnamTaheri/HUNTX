@@ -461,6 +461,7 @@ jobs:
           HUNTX_FALLBACK_DEV: ${{ runner.temp }}/huntx-publication/empty-dev
           HUNTX_SOURCE_HEALTH_REPORT: ${{ runner.temp }}/huntx-publication/logs/source-health.json
           HUNTX_SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
+          HUNTX_REQUIRE_PUBLISHED_AUTH: '1'
         run: |
           set -euo pipefail
           mkdir -p .bin
@@ -489,6 +490,17 @@ jobs:
           else
             test -n "$decoded" || { echo "::error::decoded artifact missing from checkpoint handoff"; exit 1; }
             cp "$decoded" outputs/all_sources.json
+            # The decoded file alone loses the publisher's authenticated
+            # HTTPS attestation and hides dropped connections. Copy the
+            # canonical URI feed and sidecar from the SAME immutable dist.
+            for filename in all_sources.txt all_sources_health.json; do
+              candidate="$(find "$SOURCE_DIST" -name "$filename" -print -quit)"
+              test -n "$candidate" && test -s "$candidate" || {
+                echo "::error title=Missing verified publisher evidence::$filename not found"
+                exit 1
+              }
+              cp "$candidate" "outputs/$filename"
+            done
           fi
           # Dev history remains cumulative in the snapshot, never fresh fallback data.
           mkdir -p "$SOURCE_ROOT/empty-dev"
