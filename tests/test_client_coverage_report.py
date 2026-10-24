@@ -92,7 +92,6 @@ def test_rejects_duplicate_client_visible_names():
 
 def test_deduped_after_conversion_is_accounted_for(monkeypatch):
     from huntx.pipeline import format_coverage as coverage
-    from huntx.formats.common.singbox import build_singbox_config_bytes
     from huntx.formats.common.xray import build_xray_config_bytes
     from huntx.formats.common.nekobox import build_nekobox_outbounds_bytes
     from huntx.formats.common.clash import build_clash_subscription_bytes
@@ -105,6 +104,7 @@ def test_deduped_after_conversion_is_accounted_for(monkeypatch):
     first_node = next(node for node in example["outbounds"] if node.get("tag") == "First")
     # This emulates a client converter collapsing distinct canonical
     # connections to a single normalized outbound, while preserving names.
+
     def make_colliding_single(line):
         name = "First" if "first@" in line else "Second"
         return json.dumps({"outbounds": [{**first_node, "tag": name}]}).encode()
