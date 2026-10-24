@@ -646,10 +646,13 @@ class NpvtHandler(FormatHandler):
                         checked = fields.get('probe_checked_at')
                         expires = fields.get('probe_expires_at')
                         duration = fields.get('latency_ms')
-                        if all(
-                            type(value) in (int, float) and math.isfinite(value)
-                            for value in (checked, expires, duration)
-                        ) and 0 <= duration and checked <= expires:
+                        if (
+                            isinstance(checked, (int, float)) and not isinstance(checked, bool)
+                            and isinstance(expires, (int, float)) and not isinstance(expires, bool)
+                            and isinstance(duration, (int, float)) and not isinstance(duration, bool)
+                            and all(math.isfinite(value) for value in (checked, expires, duration))
+                            and 0 <= duration and checked <= expires
+                        ):
                             digest = hashlib.sha256(identity.encode('utf-8')).hexdigest()
                             attestations[digest] = {
                                 'checked_at': checked, 'expires_at': expires,

@@ -27,6 +27,7 @@ def _nodes(payload: bytes, fmt: str) -> list[dict[str, Any]]:
             raise ValueError("Clash provider is not a proxies-only list")
         return [json.loads(line.strip()[2:]) for line in lines[1:] if line.strip()]
     parsed = json.loads(payload)
+    nodes: Any
     if fmt == "nekobox":
         if not isinstance(parsed, list):
             raise ValueError("NekoBox output is not an array")
