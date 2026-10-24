@@ -42,7 +42,7 @@ def test_report_reconciles_each_client_and_never_exposes_credentials():
     assert report["identities"][digests[0]]["formats"]["xray"]["status"] == "represented"
     omitted = report["identities"][digests[1]]["formats"]["xray"]
     assert omitted["status"] == "unsupported"
-    assert omitted["reason"] == "plaintext_transport_not_supported"
+    assert omitted["reason"] == "plaintext VLESS to a public address, which Xray refuses"
     assert report["formats"]["xray"]["reasons"][omitted["reason"]] == 1
     for digest in digests:
         for fmt in ("singbox", "nekobox", "clash"):
