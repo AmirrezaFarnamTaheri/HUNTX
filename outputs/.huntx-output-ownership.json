@@ -193,7 +193,7 @@
       "route": "all_sources"
     }
   },
-  "generated_at": "2026-10-24T08:01:52.407802+00:00",
-  "min_ingested_at": "2026-10-21T07:39:57+00:00",
+  "generated_at": "2026-10-24T11:27:48.754488+00:00",
+  "min_ingested_at": "2026-10-21T11:05:14+00:00",
   "schema_version": 1
 }
