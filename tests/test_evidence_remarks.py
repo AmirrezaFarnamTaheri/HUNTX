@@ -121,6 +121,7 @@ def test_legacy_records_receive_fresh_offline_evidence_during_build(monkeypatch,
     assert "VLESS-WS-TLS" in tag
     assert "⭐" not in tag
 
+
 def test_expired_authenticated_remark_explicitly_marks_stale_measurement(monkeypatch):
     import time
     from huntx.formats.npvt import format_evidence_remark
