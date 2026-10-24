@@ -573,6 +573,9 @@ jobs:
               exit 1
             }
           done
+          # Follow local HTML, JS imports and CSS asset references inside
+          # the final assembled upload, not merely the checked-in source.
+          python scripts/validate_pages_package.py "$SOURCE_ROOT/snapshot/docs"
 
       - name: Configure Pages deployment
         if: steps.release.outputs.ready == 'true'
