@@ -120,3 +120,18 @@ def test_legacy_records_receive_fresh_offline_evidence_during_build(monkeypatch,
     assert "AS13335" in tag
     assert "VLESS-WS-TLS" in tag
     assert "⭐" not in tag
+
+
+def test_expired_authenticated_remark_explicitly_marks_stale_measurement(monkeypatch):
+    import time
+    from huntx.formats.npvt import format_evidence_remark
+    monkeypatch.setenv("HUNTX_REMARK_STYLE", "evidence")
+    link = "trojan://alpha@5.5.5.5:443?security=tls"
+    old = time.time() - 1000
+    remark = format_evidence_remark(link, {
+        "probe_kind": "protocol_authenticated", "probe_authenticated": True,
+        "latency_ms": 45, "probe_checked_at": old,
+        "probe_expires_at": old + 300,
+    })
+    assert "HTTPS:EXPIRED" in remark
+    assert "AUTH:45ms" not in remark

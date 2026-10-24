@@ -476,6 +476,103 @@ def _catalog_dev_trio(docs_dir: Path, dev_dir: Path) -> None:
     catalog_path.write_text(json.dumps(catalog, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def _proxy_hashes(directory: Path | None, filename: str) -> set[str] | None:
+    """Return normalized connection digests, or None if feed was unavailable."""
+    if directory is None or not (directory / filename).is_file():
+        return None
+    found: set[str] = set()
+    for line in (directory / filename).read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        identity = canonical_proxy_identity(line.strip())
+        digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()
+        if digest in found:
+            raise ValueError("Released proxy feed contains duplicate semantic identities")
+        found.add(digest)
+    return found
+
+
+def build_proxy_churn_report(
+    current_outputs: Path, previous_outputs: Path | None
+) -> dict[str, Any]:
+    """Compare connection identities; a disappearance is not permanent death."""
+    current = _proxy_hashes(current_outputs, "all_sources.txt")
+    previous = _proxy_hashes(previous_outputs, "all_sources.txt")
+    alternate = _proxy_hashes(current_outputs, "all_sources_sub.txt")
+    if current is None:
+        return {"schema_version": 1, "status": "current_primary_missing"}
+    decisions: dict[str, str] = {}
+    gate_path = current_outputs / "all_sources_gate.json"
+    if gate_path.is_file():
+        gate = json.loads(gate_path.read_text(encoding="utf-8"))
+        if gate.get("schema_version") == 1 and isinstance(gate.get("identities"), dict):
+            decisions = {
+                key: value for key, value in gate["identities"].items()
+                if isinstance(key, str) and isinstance(value, str)
+            }
+    result: dict[str, Any] = {
+        "schema_version": 1,
+        "status": "complete" if previous is not None else "previous_unavailable",
+        "identity": "sha256-of-canonical-proxy-identity",
+        "current_count": len(current),
+        "previous_count": len(previous) if previous is not None else None,
+        "retained_count": len(current & previous) if previous is not None else None,
+        "appeared_count": len(current - previous) if previous is not None else None,
+        "disappeared_count": len(previous - current) if previous is not None else None,
+        "appeared": sorted(current - previous) if previous is not None else [],
+        "disappeared": {
+            key: {
+                "status": "absent_from_current_published_snapshot",
+                "current_gate_status": decisions.get(key, "not_in_current_gate_candidates"),
+                "permanently_dead": False,
+            }
+            for key in sorted(previous - current)
+        } if previous is not None else {},
+        "variants": {
+            "base_count": len(current),
+            "sub_count": len(alternate) if alternate is not None else None,
+            "shared_count": len(current & alternate) if alternate is not None else None,
+            "base_only_count": len(current - alternate) if alternate is not None else None,
+            "sub_only_count": len(alternate - current) if alternate is not None else None,
+        },
+    }
+    return result
+
+
+def catalog_proxy_churn(docs_dir: Path, report: dict[str, Any]) -> None:
+    """Publish on-demand churn evidence as a cataloged, credential-free JSON."""
+    directory = docs_dir / "artifacts" / "quality"
+    directory.mkdir(parents=True, exist_ok=True)
+    blob = json.dumps(report, sort_keys=True, indent=2).encode("utf-8") + b"\n"
+    filename = "proxy-churn.json"
+    (directory / filename).write_bytes(blob)
+    catalog_path = docs_dir / "catalog.json"
+    if not catalog_path.is_file():
+        return
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    entries = catalog.get("files")
+    if not isinstance(entries, list):
+        raise ValueError("Dashboard catalog is missing its entries")
+    rel = "artifacts/quality/proxy-churn.json"
+    if not any(row.get("path") == rel for row in entries):
+        entries.append({
+            "filename": filename, "path": rel, "size": len(blob),
+            "size_str": _format_size(len(blob)),
+            "media_type": "application/json",
+            "sha256": hashlib.sha256(blob).hexdigest(),
+            "tags": ["quality", "churn", "reconciliation"],
+            "section": "quality", "type": "JSON", "ext": "JSON",
+            "description": "Connection changes; a missing node is not necessarily dead",
+        })
+        catalog["files"] = entries
+        catalog["total_files"] = len(entries)
+        catalog["total_size"] = int(catalog.get("total_size") or 0) + len(blob)
+        catalog["total_size_str"] = _format_size(catalog["total_size"])
+        catalog_path.write_text(
+            json.dumps(catalog, sort_keys=True, indent=2) + "\n", encoding="utf-8"
+        )
+
+
 def sync_dashboard_fallback_catalog(docs_dir: Path) -> None:
     """Align the bundled fallback after cumulative dev metadata is appended."""
     source = docs_dir / "catalog.json"
@@ -501,6 +598,12 @@ def sync_dashboard_fallback_catalog(docs_dir: Path) -> None:
     stats, consumed = json.JSONDecoder().raw_decode(stats_source)
     if not isinstance(stats, dict):
         raise ValueError("dashboard fallback telemetry must be a JSON object")
+    history = docs_dir / "artifacts" / "dev" / "proxies.json"
+    if history.is_file():
+        historical = json.loads(history.read_text(encoding="utf-8"))
+        count = historical.get("_count") if isinstance(historical, dict) else None
+        if type(count) is int and count >= 0:
+            stats["total_cumulative_nodes"] = count
     stats["total_published_files"] = catalog["total_files"]
     stats["total_storage_bytes"] = catalog["total_size"]
     stats["total_storage_str"] = catalog["total_size_str"]
@@ -580,6 +683,12 @@ def assemble_snapshot(
     if previous_snapshot_root is not None and previous_snapshot_root.exists():
         previous_dev = first_dir(previous_snapshot_root, "outputs_dev")
     previous_manifest = load_dev_manifest(previous_dev / "_manifest.json" if previous_dev else None)
+    previous_outputs = (
+        first_dir(previous_snapshot_root, "outputs")
+        if previous_snapshot_root is not None and previous_snapshot_root.exists()
+        else None
+    )
+    churn_report = build_proxy_churn_report(destination / "outputs", previous_outputs)
     legacy_manifest = load_legacy_dev_identities(legacy_dev_root)
     current_manifest = load_dev_manifest(current_dev / "_manifest.json" if current_dev else None)
 
@@ -591,6 +700,13 @@ def assemble_snapshot(
     if dashboard_root is not None:
         if not dashboard_root.is_dir():
             raise ValueError(f"missing dashboard data directory: {dashboard_root}")
+        # Stage the complete application shell before overlaying current-run data.
+        # Copying data-only dashboard_root used to silently strip JS/CSS/PWA
+        # assets from the final Pages artifact.
+        if shell_root is not None:
+            if not shell_root.is_dir():
+                raise ValueError(f"missing dashboard shell directory: {shell_root}")
+            copy_tree(shell_root, destination / "docs")
         copy_tree(dashboard_root, destination / "docs")
         retire_dashboard_derivatives(destination / "docs")
         dev_artifacts = destination / "docs" / "artifacts" / "dev"
@@ -602,13 +718,12 @@ def assemble_snapshot(
         if shell_root is not None:
             if not shell_root.is_dir():
                 raise ValueError(f"missing dashboard shell directory: {shell_root}")
-            for rel in ("index.html", "assets/js/data.js"):
-                source_file = shell_root / rel
-                if source_file.is_file():
-                    target_file = destination / "docs" / rel
-                    target_file.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(source_file, target_file)
+            # The assembled shell must never shadow verified current-run
+            # telemetry. Dashboard data.js is produced from this run and
+            # later reconciled to the appended cumulative catalog.
+            (destination / "docs" / "assets" / "js" / "bundle.js").unlink(missing_ok=True)
         _catalog_dev_trio(destination / "docs", destination / "docs" / "artifacts" / "dev")
+        catalog_proxy_churn(destination / "docs", churn_report)
         sync_dashboard_fallback_catalog(destination / "docs")
         if shell_root is not None:
             _refresh_frontend_index(destination)
@@ -622,6 +737,10 @@ def assemble_snapshot(
 
     manifests = destination / "manifests"
     manifests.mkdir(exist_ok=True)
+    (manifests / "proxy-churn.json").write_text(
+        json.dumps(churn_report, sort_keys=True, indent=2) + "\n",
+        encoding="utf-8",
+    )
     payload: dict[str, Any] = {
         "schema_version": 3,
         "source_run_id": run_id,

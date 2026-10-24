@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import http.client
+import hashlib
 import json
 import logging
 import math
@@ -163,6 +164,14 @@ def _verify_engine(binary: str) -> None:
                 child.wait(timeout=2)
 
 
+class CheckedRecords(list[dict[str, Any]]):
+    """Admitted records paired with a sanitized per-candidate gate receipt."""
+
+    def __init__(self, records: list[dict[str, Any]], gate_report: dict[str, Any]):
+        super().__init__(records)
+        self.gate_report = gate_report
+
+
 def verified_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Check each semantic identity once; return only freshly attested records."""
     from ..formats.npvt import canonical_proxy_identity
@@ -175,6 +184,7 @@ def verified_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
             candidates.setdefault(canonical_proxy_identity(line), (line, fields))
     if not candidates:
         return []
+    outcomes = {key: "not_completed" for key in candidates}
     binary = shutil.which(os.getenv('HUNTX_SINGBOX_BINARY', 'sing-box'))
     if binary is None:
         raise RuntimeError('Authenticated publication checks require the sing-box engine')
@@ -195,7 +205,13 @@ def verified_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 except Exception:
                     # Do not log exception text: engine failures may contain URIs.
                     result = {'ok': False, 'reason': 'probe_error'}
-                reasons[str(result.get('reason', 'invalid_result'))] += 1
+                reason = str(result.get('reason', 'invalid_result'))
+                if reason not in {
+                    'unsupported', 'engine_start_failed', 'https_path_failed',
+                    'authenticated_https', 'probe_error', 'invalid_result',
+                }:
+                    reason = 'other_probe_failure'
+                reasons[reason] += 1
                 if result.get('ok') is True:
                     checked = result.get('checked_at')
                     latency = result.get('latency_ms')
@@ -204,17 +220,30 @@ def verified_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
                             and isinstance(latency, (int, float)) and not isinstance(latency, bool)
                             and math.isfinite(latency) and 0 <= latency <= timeout * 1000):
                         results[key] = result
+                        outcomes[key] = 'authenticated_https'
+                    else:
+                        outcomes[key] = 'invalid_measurement'
+                else:
+                    outcomes[key] = reason
         except TimeoutError:
             reasons['budget_exhausted'] += sum(not f.done() for f in futures)
         finally:
             for future in futures:
                 future.cancel()
     accepted = []
+    expired_successes = 0
+    # These counts describe the post-check admission stage. A successful
+    # HTTPS attempt does not become publication proof once its TTL expires.
     for key, (_, fields) in candidates.items():
         accepted_result = results.get(key)
-        # Earlier successes expire too; a long sweep cannot publish stale proof.
-        if accepted_result is None or time.time() - accepted_result['checked_at'] > 300:
+        if accepted_result is None:
             continue
+        # Earlier successes expire too; a long sweep cannot publish stale proof.
+        if time.time() - accepted_result['checked_at'] > 300:
+            expired_successes += 1
+            outcomes[key] = 'success_expired_before_publication'
+            continue
+        outcomes[key] = 'admitted'
         result = accepted_result
         accepted.append({'data': {
             **fields, 'probe_kind': 'protocol_authenticated',
@@ -222,6 +251,21 @@ def verified_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
             'probe_checked_at': result['checked_at'],
             'probe_expires_at': result['checked_at'] + 300,
         }})
-    logger.info('Proxy HTTPS gate: candidates=%d accepted=%d excluded=%d reasons=%s',
-                len(candidates), len(accepted), len(candidates) - len(accepted), dict(reasons))
-    return accepted
+    dispositions = Counter(outcomes.values())
+    reasons['success_expired_before_publication'] = expired_successes
+    logger.info('Proxy HTTPS gate: candidates=%d accepted=%d excluded=%d reasons=%s post_gate=%s',
+                len(candidates), len(accepted), len(candidates) - len(accepted),
+                dict(reasons), dict(dispositions))
+    if dispositions['admitted'] != len(accepted) or sum(dispositions.values()) != len(candidates):
+        raise ValueError('HTTPS candidate disposition reconciliation failed')
+    ledger = {
+        'schema_version': 1, 'scope': 'single_authenticated_https_sweep',
+        'candidates': len(candidates), 'admitted': len(accepted),
+        'rejected': len(candidates) - len(accepted),
+        'reasons': dict(sorted(dispositions.items())),
+        'identities': {
+            hashlib.sha256(key.encode('utf-8')).hexdigest(): outcomes[key]
+            for key in sorted(candidates)
+        },
+    }
+    return CheckedRecords(accepted, ledger)

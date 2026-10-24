@@ -65,6 +65,58 @@ def _configured_sources_count():
         return count or None
 
 
+def _enabled_sources_count() -> int | None:
+    """Configured inputs with enabled!=false, not necessarily recently observed."""
+    try:
+        import yaml
+
+        config = yaml.safe_load(CONFIG_PROD_FILE.read_text(encoding="utf-8")) or {}
+        sources = config.get("sources") or []
+        if not isinstance(sources, list):
+            return None
+        return sum(
+            1 for source in sources
+            if isinstance(source, dict)
+            and source.get("trust_state", "approved") == "approved"
+            and source.get("enabled", True) is not False
+            and (
+                source.get("type") != "http_subscription"
+                or (
+                    isinstance(source.get("http_subscription"), dict)
+                    and source["http_subscription"].get("enabled", True) is True
+                )
+            )
+        )
+    except (OSError, ValueError, TypeError):
+        return None
+
+
+def _source_observation_counts() -> dict | None:
+    """Load only sanitized source-health data for the exact producer run."""
+    filename = os.environ.get("HUNTX_SOURCE_HEALTH_REPORT", "").strip()
+    expected_run = os.environ.get("HUNTX_SOURCE_RUN_ID", "").strip()
+    if not filename or not expected_run:
+        return None
+    try:
+        payload = json.loads(Path(filename).read_text(encoding="utf-8"))
+        if payload.get("schema_version") != 1 or str(payload.get("run_id")) != expected_run:
+            return None
+        counts = payload.get("counts")
+        if not isinstance(counts, dict):
+            return None
+        wanted = {
+            "configured_sources", "enabled", "disabled", "telegram_observed",
+            "http_retrieved", "http_source_failures", "telegram_not_observed",
+            "telegram_quarantined", "telegram_retrying", "http_not_observed",
+        }
+        return {
+            name: value for name, value in counts.items()
+            if name in wanted and type(value) is int and value >= 0
+        }
+    except (OSError, ValueError, TypeError, AttributeError):
+        return None
+
+
 OUTPUTS_DIR = REPO_ROOT / "outputs"
 OUTPUTS_DEV_DIR = REPO_ROOT / "outputs_dev"
 DOCS_DIR = REPO_ROOT / "docs"
@@ -737,6 +789,40 @@ def probe_tcp_latency(proxies: list[dict]) -> list[dict]:
     return proxies
 
 
+def annotate_dns_resolution(proxies: list[dict]) -> list[dict]:
+    """Record a DNS outcome without dropping an already admitted connection.
+
+    Resolver failure from the publisher's vantage is not sufficient proof
+    that an earlier authenticated HTTPS success ceased to be valid; also
+    avoid making IPv6-only hosts disappear from the dashboard.
+    """
+    unique_addresses = sorted({
+        str(node.get("server") or "").strip()
+        for node in proxies if str(node.get("server") or "").strip()
+    })
+
+    def lookup(address: str) -> tuple[str, bool]:
+        try:
+            ipaddress.ip_address(address)
+            return address, True
+        except ValueError:
+            pass
+        try:
+            return address, bool(socket.getaddrinfo(address, None, type=socket.SOCK_STREAM))
+        except (OSError, ValueError, TypeError):
+            return address, False
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=PROBE_MAX_WORKERS) as pool:
+        answers = dict(pool.map(lookup, unique_addresses))
+    for node in proxies:
+        address = str(node.get("server") or "").strip()
+        node["dns_resolution"] = (
+            "resolved_from_publish_vantage" if answers.get(address)
+            else "unresolved_from_publish_vantage"
+        )
+    return proxies
+
+
 def drop_unreachable_proxies(proxies: list[dict]) -> list[dict]:
     """Drop proxies whose server has no resolvable address at all.
 
@@ -813,6 +899,15 @@ def grade_proxy_health(proxies: list[dict]) -> list[dict]:
         )
 
         if proxy.get("probe_kind") != "protocol_authenticated":
+            continue
+        expiry = proxy.get("authenticated_probe_expires_at")
+        if (
+            proxy.get("authenticated_probe_ok") is True
+            and type(expiry) in (int, float) and math.isfinite(expiry)
+            and expiry <= time.time()
+        ):
+            proxy["health_evidence"] = "expired_authenticated_protocol"
+            proxy["health_status"] = "Publisher HTTPS check previously succeeded; evidence expired"
             continue
         if proxy.get("authenticated_probe_ok") is False:
             proxy["health_grade"] = "F"
@@ -911,6 +1006,13 @@ def score_governed_pca(proxies: list[dict]) -> list[dict]:
 def parse_production_proxies() -> list[dict]:
     """Load and normalize the production proxy snapshot for static publishing."""
     raw_nodes: list[dict] = []
+    authenticated: dict[str, dict] = {}
+    sidecar = OUTPUTS_DIR / "all_sources_health.json"
+    if sidecar.is_file():
+        evidence = json.loads(sidecar.read_text(encoding="utf-8"))
+        if evidence.get("schema_version") != 1 or not isinstance(evidence.get("records"), dict):
+            raise ValueError("Invalid authenticated publisher sidecar")
+        authenticated = evidence["records"]
 
     # 1. Prefer the canonical product name; the earlier names are still
     #    published as frozen aliases, so a directory carrying only those still
@@ -924,21 +1026,46 @@ def parse_production_proxies() -> list[dict]:
         try:
             data = json.loads(decoded_file.read_text(encoding="utf-8"))
             for entry in data.get("entries", []):
+                # VMess metadata is nested under decoded.add/port/id.
+                # Use the source URI as the lossless parser authority.
+                decoded = entry.get("decoded")
+                if not isinstance(decoded, dict):
+                    decoded = {}
+                raw = entry.get("raw") or ""
+                protocol_name = (entry.get("protocol") or "vless").lower()
+                params = entry.get("params") or {}
+                if protocol_name == "vmess" and not params:
+                    params = {
+                        "type": decoded.get("net") or "tcp",
+                        "security": decoded.get("tls") or "none",
+                        "sni": decoded.get("sni") or "",
+                        "host": decoded.get("host") or "",
+                        "path": decoded.get("path") or "",
+                    }
+                port_value = entry.get("port") or decoded.get("port") or 443
+                try:
+                    port_value = int(port_value)
+                except (ValueError, TypeError):
+                    port_value = 443
                 raw_nodes.append({
                     "protocol": (entry.get("protocol") or "vless").lower(),
-                    "address": entry.get("address") or "",
-                    "port": entry.get("port") or 443,
+                    "address": entry.get("address") or decoded.get("add") or "",
+                    "port": port_value,
                     "tag": entry.get("tag") or "",
-                    "params": entry.get("params") or {},
-                    "raw": entry.get("raw") or "",
-                    "user": entry.get("user") or entry.get("password") or ""
+                    "params": params,
+                    "raw": raw,
+                    "user": entry.get("user") or entry.get("password") or decoded.get("id") or ""
                 })
         except Exception:
             pass
 
-    # 2. Production Outbound Configurations: v2ray_test_config.json (742 outbounds)
+    # A current release is authoritative. Supplemental/retired datasets are
+    # never extra "verified" nodes in its dashboard; use them only for
+    # explicitly legacy snapshots where there is no primary release feed.
+    current_release = decoded_file.exists()
+    # 2. Legacy V2Ray test config (fallback only).
     v2ray_file = OUTPUTS_DIR / "v2ray_test_config.json"
-    if v2ray_file.exists():
+    if v2ray_file.exists() and not current_release:
         try:
             vdata = json.loads(v2ray_file.read_text(encoding="utf-8"))
             for ob in vdata.get("outbounds", []):
@@ -968,9 +1095,9 @@ def parse_production_proxies() -> list[dict]:
         except Exception:
             pass
 
-    # 3. Protocol Diversity from Dev Dataset: proxies.json (Trojan, Hysteria2, WireGuard, TUIC, Shadowsocks, VLESS)
+    # 3. Historical/dev population is NOT current verified production data.
     dev_proxies_file = OUTPUTS_DEV_DIR / "proxies.json"
-    if dev_proxies_file.exists():
+    if dev_proxies_file.exists() and not current_release:
         try:
             dev_data = json.loads(dev_proxies_file.read_text(encoding="utf-8"))
             trojans, hy2s, wgs, tuics, sss = [], [], [], [], []
@@ -1019,7 +1146,12 @@ def parse_production_proxies() -> list[dict]:
         params = entry.get("params") or {}
         raw = entry.get("raw") or ""
 
-        security = params.get("security") or ("tls" if params.get("sni") or params.get("alpn") else "none")
+        # Trojan and Hysteria2 use implicit TLS. A missing security= query
+        # must not make them appear to be plaintext in the dashboard.
+        security = params.get("security") or (
+            "tls" if protocol in {"trojan", "hysteria2", "hy2", "hysteria", "tuic", "anytls"}
+            or params.get("sni") or params.get("alpn") else "none"
+        )
         transport = params.get("type") or params.get("network") or "tcp"
         sni = params.get("sni") or ""
         host = params.get("host") or ""
@@ -1060,7 +1192,13 @@ def parse_production_proxies() -> list[dict]:
             "country": geo["country"],
             "country_name": geo["country_name"],
             "flag": geo["flag"],
+            # Preserve legacy carrier key for existing UI filters, but this
+            # records the network owner / origin-AS organization, not a
+            # confirmed consumer mobile carrier.
             "carrier": geo["carrier"],
+            "carrier_verified": False,
+            "network_operator": geo["org"],
+            "origin_as_org": geo["org"],
             "org": geo["org"],
             "city": geo["city"],
             "latitude": geo["latitude"],
@@ -1072,9 +1210,71 @@ def parse_production_proxies() -> list[dict]:
             "security_grade": security_grade,
             "raw_uri": raw
         }
+        if isinstance(raw, str) and raw:
+            digest = hashlib.sha256(canonical_proxy_identity(raw).encode("utf-8")).hexdigest()
+            sample = authenticated.get(digest)
+            if isinstance(sample, dict):
+                checked = sample.get("checked_at")
+                expires = sample.get("expires_at")
+                duration = sample.get("duration_ms")
+                if all(
+                    type(value) in (int, float) and math.isfinite(value)
+                    for value in (checked, expires, duration)
+                ) and 0 <= duration and checked <= expires and checked <= time.time() + 60:
+                    proxy_obj.update({
+                        "probe_kind": "protocol_authenticated",
+                        "authenticated_probe_ok": True,
+                        "authenticated_probe_checked_at": checked,
+                        "authenticated_probe_expires_at": expires,
+                        "authenticated_probe_age_seconds": max(0, time.time() - checked),
+                        "authenticated_latency_ms": duration,
+                    })
         proxies.append(proxy_obj)
 
     return proxies
+
+
+def assert_current_feed_parity(proxies: list[dict]) -> dict[str, int]:
+    """Fail if the dashboard drops or invents connections from the release feed.
+
+    Compare semantic identities, not remarks or endpoint-only keys. Do not
+    expose credentials or exact connection URIs in CI error messages.
+    """
+    primary = OUTPUTS_DIR / "all_sources.txt"
+    if not primary.is_file():
+        return {"admitted": 0, "dashboard": len(proxies), "scope": "legacy"}
+    source = [
+        canonical_proxy_identity(line.strip())
+        for line in primary.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    displayed = [
+        canonical_proxy_identity(str(node.get("raw_uri") or ""))
+        for node in proxies
+    ]
+    if len(source) != len(set(source)):
+        raise ValueError("Primary URI feed contains duplicate semantic identities")
+    if os.environ.get("HUNTX_REQUIRE_PUBLISHED_AUTH", "").strip() == "1":
+        sidecar = OUTPUTS_DIR / "all_sources_health.json"
+        if not sidecar.is_file():
+            raise ValueError("Missing authenticated HTTPS evidence for current release")
+        verified = json.loads(sidecar.read_text(encoding="utf-8"))
+        records = verified.get("records")
+        if (verified.get("schema_version") != 1 or not isinstance(records, dict)
+                or verified.get("admitted_count") != len(source)):
+            raise ValueError("Authenticated evidence and admitted proxy counts disagree")
+        required = {
+            hashlib.sha256(item.encode("utf-8")).hexdigest() for item in source
+        }
+        if required != set(records):
+            raise ValueError("Authenticated evidence identities disagree with release feed")
+    if len(source) != len(displayed) or set(source) != set(displayed):
+        raise ValueError(
+            "dashboard output loses or fabricates current production identities: "
+            f"admitted={len(source)} dashboard={len(displayed)} "
+            f"shared={len(set(source) & set(displayed))}"
+        )
+    return {"admitted": len(source), "dashboard": len(displayed), "scope": "current"}
 
 
 def compute_aggregate_stats(proxies: list[dict], catalog: dict) -> dict:
@@ -1088,7 +1288,15 @@ def compute_aggregate_stats(proxies: list[dict], catalog: dict) -> dict:
         except Exception:
             pass
 
-    active_sources = _configured_sources_count()
+    configured_sources = _configured_sources_count()
+    enabled_sources = _enabled_sources_count()
+    source_observations = _source_observation_counts()
+    observed_sources = None
+    if source_observations is not None:
+        observed_sources = (
+            source_observations.get("telegram_observed", 0)
+            + source_observations.get("http_retrieved", 0)
+        )
 
     proto_counts = {}
     sec_counts = {}
@@ -1138,7 +1346,13 @@ def compute_aggregate_stats(proxies: list[dict], catalog: dict) -> dict:
         "total_published_files": catalog["total_files"],
         "total_storage_bytes": catalog["total_size"],
         "total_storage_str": catalog["total_size_str"],
-        "active_sources_count": active_sources,
+        "active_sources_count": enabled_sources,
+        "configured_sources_count": configured_sources,
+        "enabled_sources_count": enabled_sources,
+        "observed_sources_count": observed_sources,
+        "source_observation_counts": source_observations,
+        "catalog_product_count": catalog["total_files"],
+        "catalog_product_bytes": catalog["total_size"],
         "protocols": proto_counts,
         "securities": sec_counts,
         "transports": trans_counts,
@@ -1197,11 +1411,12 @@ def generate_dashboard_data(
             grade_proxy_health(
                 probe_tcp_latency(
                     enrich_proxies_with_geoip(
-                        drop_unreachable_proxies(parse_production_proxies())
+                        annotate_dns_resolution(parse_production_proxies())
                     )
                 )
             )
         )
+        assert_current_feed_parity(proxies)
         stats = compute_aggregate_stats(proxies, catalog)
         _write_dashboard_data(catalog, proxies, stats, DATA_JS_FILE)
     finally:
@@ -1301,19 +1516,19 @@ def generate_all() -> None:
 
     # Parse production proxies from outputs, then enrich unresolved geography
     # with measured GeoIP before hubs and aggregate statistics are computed.
-    # Parse production proxies, drop servers nothing on the internet can
-    # resolve, enrich surviving geography with measured GeoIP, then probe.
-    # Ordering matters: dropping unresolvable nodes first means GeoIP and
-    # probes never spend their budget on nodes that cannot work at all.
+    # The dashboard must not silently drop publisher-authenticated nodes
+    # merely because a later DNS lookup fails from a different vantage.
+    # Record resolver failures separately; no pre-display health filtering.
     proxies = score_governed_pca(
         grade_proxy_health(
             probe_tcp_latency(
                 enrich_proxies_with_geoip(
-                    drop_unreachable_proxies(parse_production_proxies())
+                    annotate_dns_resolution(parse_production_proxies())
                 )
             )
         )
     )
+    assert_current_feed_parity(proxies)
     stats = compute_aggregate_stats(proxies, catalog)
 
     # Generate docs/assets/js/data.js dynamically. The globe hubs the

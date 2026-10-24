@@ -483,8 +483,8 @@ jobs:
           HUNTX_HEALTH_WORKERS: '16'
           HUNTX_HEALTH_TIMEOUT: '8'
           HUNTX_HEALTH_BUDGET: '900'
-          HUNTX_GEOIP_IPV4_CSV: .geoip/ipv4.csv
-          HUNTX_GEOIP_IPV6_CSV: .geoip/ipv6.csv
+          # Country dataset paths arrive through GITHUB_ENV from the
+          # checksum-verified prepare_geoip_data.py step; do not shadow them.
           # Time-bounded, public-IP-only DNS/TCP measurements; not speed or auth verification.
           HUNTX_REMARK_TCP_PROBE: '1'
           LOG_LEVEL: INFO

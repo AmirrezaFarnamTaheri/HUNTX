@@ -428,14 +428,16 @@ jobs:
 
           dist = Path(os.environ["SOURCE_DIST"])
           failed = []
-          for candidate in sorted(dist.rglob("*.json")):
+          for candidate in sorted(dist.rglob("*")):
+              if not candidate.is_file() or candidate.suffix.lower() not in {".json", ".yaml"}:
+                  continue
               if candidate.name == "manifest.json":
                   continue
               stats = validate_file(candidate)
               if stats.get("invalid") or stats.get("type") == "empty":
                   failed.append(candidate.relative_to(dist).as_posix())
           if failed:
-              raise SystemExit("Release JSON contract invalid: " + ", ".join(failed))
+              raise SystemExit("Release client artifact contract invalid: " + ", ".join(failed))
           PY
 
       - name: Prepare attributed country and network operator data
@@ -457,6 +459,9 @@ jobs:
           SOURCE_CREATED_AT: ${{ steps.release.outputs.generated_at }}
           DASHBOARD_ROOT: ${{ runner.temp }}/huntx-dashboard/docs
           HUNTX_FALLBACK_DEV: ${{ runner.temp }}/huntx-publication/empty-dev
+          HUNTX_SOURCE_HEALTH_REPORT: ${{ runner.temp }}/huntx-publication/logs/source-health.json
+          HUNTX_SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
+          HUNTX_REQUIRE_PUBLISHED_AUTH: '1'
         run: |
           set -euo pipefail
           mkdir -p .bin
@@ -485,6 +490,17 @@ jobs:
           else
             test -n "$decoded" || { echo "::error::decoded artifact missing from checkpoint handoff"; exit 1; }
             cp "$decoded" outputs/all_sources.json
+            # The decoded file alone loses the publisher's authenticated
+            # HTTPS attestation and hides dropped connections. Copy the
+            # canonical URI feed and sidecar from the SAME immutable dist.
+            for filename in all_sources.txt all_sources_health.json; do
+              candidate="$(find "$SOURCE_DIST" -name "$filename" -print -quit)"
+              test -n "$candidate" && test -s "$candidate" || {
+                echo "::error title=Missing verified publisher evidence::$filename not found"
+                exit 1
+              }
+              cp "$candidate" "outputs/$filename"
+            done
           fi
           # Dev history remains cumulative in the snapshot, never fresh fallback data.
           mkdir -p "$SOURCE_ROOT/empty-dev"
@@ -492,7 +508,7 @@ jobs:
           # An explicit, manifest-verified empty release carries no proxy fleet.
           # Otherwise require fully measured, scored, evidence-backed records.
           if [[ "$is_empty_release" != "true" ]]; then
-            python scripts/verify_dashboard_telemetry.py "$DASHBOARD_ROOT/assets/js/data.js"
+            HUNTX_REQUIRE_REMARK_GEO_PARITY=1 python scripts/verify_dashboard_telemetry.py "$DASHBOARD_ROOT/assets/js/data.js"
           fi
           cp -a "$DASHBOARD_ROOT/catalog.json" docs/catalog.json
           rm -rf docs/artifacts
@@ -546,6 +562,20 @@ jobs:
           test -n "$(find "$SOURCE_ROOT/snapshot/outputs" -type f -size +0c -print -quit)"
           test -s "$SOURCE_ROOT/snapshot/outputs_dev/_manifest.json.gz.index.json"
           test -s "$SOURCE_ROOT/snapshot/manifests/main-sync-files.txt"
+          # Check the EXACT tree that upload-pages-artifact will package.
+          # Producer-side preflight cannot detect assets lost by assembly.
+          for required in index.html assets/js/app.js assets/js/control-room.js \
+              assets/js/boot-guard.js assets/js/data.js assets/css/tailwind.css \
+              assets/css/interface.css assets/css/atlas-v2.css manifest.json sw.js \
+              architecture.html network-doctor.html; do
+            test -s "$SOURCE_ROOT/snapshot/docs/$required" || {
+              echo "::error title=Broken final Pages package::Missing $required"
+              exit 1
+            }
+          done
+          # Follow local HTML, JS imports and CSS asset references inside
+          # the final assembled upload, not merely the checked-in source.
+          python scripts/validate_pages_package.py "$SOURCE_ROOT/snapshot/docs"
 
       - name: Configure Pages deployment
         if: steps.release.outputs.ready == 'true'

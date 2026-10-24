@@ -98,6 +98,11 @@ def _clash_proxy(node: ProxyNode, seen_names: set[str]) -> Optional[dict[str, An
     if not node.server or not 1 <= node.port <= 65535:
         return None
 
+    # Drop the malformed connection, never silently mutate its SNI into a
+    # different endpoint or emit YAML that a client refuses to load.
+    for value in (node.server, node.tls_server_name, *node.transport_host):
+        if any(ord(char) < 32 or 0x7f <= ord(char) <= 0x9f for char in value):
+            return None
     name = _unique_name(node.tag or node.type, seen_names)
     common: dict[str, Any] = {
         "name": name,

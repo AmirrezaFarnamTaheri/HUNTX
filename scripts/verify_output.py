@@ -1,6 +1,9 @@
 import os
 import base64
 import json
+import re
+import math
+import yaml
 import shutil
 import tempfile
 import zipfile
@@ -222,6 +225,11 @@ def validate_clash_subscription(path: Path) -> Dict[str, Any]:
         lines = path.read_text(encoding="utf-8").splitlines()
         if not lines or lines[0].strip() != "proxies:":
             raise ValueError("Clash subscription must start with a proxies: list")
+        parsed_yaml = yaml.safe_load(path.read_text(encoding="utf-8"))
+        if not isinstance(parsed_yaml, dict) or set(parsed_yaml) != {"proxies"}:
+            raise ValueError("Clash provider must contain only proxies")
+        if not isinstance(parsed_yaml["proxies"], list):
+            raise ValueError("Clash provider proxies must be an array")
         for line in lines[1:]:
             stripped = line.strip()
             if not stripped:
@@ -233,8 +241,102 @@ def validate_clash_subscription(path: Path) -> Dict[str, Any]:
                 raise ValueError("Clash subscription contains an invalid proxy mapping")
             stats["entries"] += 1
             stats["protocols"][str(item["type"])] += 1
-    except (OSError, ValueError, TypeError) as e:
+    except (OSError, ValueError, TypeError, yaml.YAMLError) as e:
         print(f"  ERROR: Invalid Clash subscription: {e}")
+        stats["invalid"] = True
+    return stats
+
+
+def validate_gate_report(path: Path) -> Dict[str, Any]:
+    """Verify the candidate disposition ledger conserves every identity."""
+    stats: Dict[str, Any] = {"type": "health_gate", "entries": 0}
+    try:
+        report = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(report, dict) or report.get("schema_version") != 1:
+            raise ValueError("invalid health gate schema")
+        n, accepted, rejected = (
+            report.get("candidates"), report.get("admitted"), report.get("rejected")
+        )
+        if (any(type(v) is not int or v < 0 for v in (n, accepted, rejected))
+                or accepted + rejected != n):
+            raise ValueError("health gate totals do not reconcile")
+        identities, reasons = report.get("identities"), report.get("reasons")
+        if (not isinstance(identities, dict) or len(identities) != n
+                or not isinstance(reasons, dict)
+                or sum(reasons.values()) != n
+                or reasons.get("admitted", 0) != accepted):
+            raise ValueError("health gate dispositions do not reconcile")
+        for digest, reason in identities.items():
+            if (not isinstance(digest, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", digest) is None
+                    or not isinstance(reason, str) or reason not in reasons):
+                raise ValueError("invalid health-gate identity row")
+        stats["entries"] = n
+    except (OSError, ValueError, TypeError) as error:
+        print(f"  ERROR: Invalid health gate: {error}")
+        stats["invalid"] = True
+    return stats
+
+
+def validate_coverage_report(path: Path) -> Dict[str, Any]:
+    """Reject fabricated or incomplete client conversion coverage matrices."""
+    stats: Dict[str, Any] = {"type": "format_coverage", "entries": 0}
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(document, dict) or document.get("schema_version") != 1:
+            raise ValueError("invalid client coverage schema")
+        identities = document.get("identities")
+        formats = document.get("formats")
+        n = document.get("admitted_count")
+        if (type(n) is not int or n < 0 or not isinstance(identities, dict)
+                or len(identities) != n or not isinstance(formats, dict)
+                or set(formats) != {"singbox", "xray", "nekobox", "clash"}):
+            raise ValueError("invalid coverage identities/formats")
+        for name, totals in formats.items():
+            if (not isinstance(totals, dict)
+                    or type(totals.get("represented")) is not int
+                    or type(totals.get("omitted")) is not int
+                    or totals["represented"] + totals["omitted"] != n):
+                raise ValueError(f"{name}: client coverage does not conserve nodes")
+        for digest, row in identities.items():
+            if (not isinstance(digest, str) or re.fullmatch(r"[0-9a-f]{64}", digest) is None
+                    or not isinstance(row, dict)
+                    or not isinstance(row.get("formats"), dict)
+                    or set(row["formats"]) != set(formats)):
+                raise ValueError("invalid per-proxy coverage row")
+        stats["entries"] = n
+    except (OSError, ValueError, TypeError) as error:
+        print(f"  ERROR: Invalid client coverage: {error}")
+        stats["invalid"] = True
+    return stats
+
+
+def validate_health_sidecar(path: Path) -> Dict[str, Any]:
+    """Check the private-data-free, identity-keyed publication attestation."""
+    stats: Dict[str, Any] = {"type": "health_sidecar", "entries": 0}
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+        if (not isinstance(document, dict)
+                or document.get("schema_version") != 1
+                or document.get("evidence") != "publisher_authenticated_https"):
+            raise ValueError("invalid publisher evidence schema")
+        records = document.get("records")
+        if not isinstance(records, dict) or document.get("admitted_count") != len(records):
+            raise ValueError("authenticated sidecar count mismatch")
+        for digest, values in records.items():
+            if not isinstance(digest, str) or re.fullmatch(r"[0-9a-f]{64}", digest) is None:
+                raise ValueError("invalid semantic connection digest")
+            if not isinstance(values, dict):
+                raise ValueError("invalid evidence entry")
+            measured = [values.get(key) for key in ("checked_at", "expires_at", "duration_ms")]
+            if any(type(value) not in (int, float) or not math.isfinite(value) for value in measured):
+                raise ValueError("missing or non-finite authenticated probe measurement")
+            checked, expires, duration = measured
+            if not 0 <= duration <= 30000 or not checked <= expires:
+                raise ValueError("invalid authenticated evidence timestamps")
+        stats["entries"] = len(records)
+    except (OSError, ValueError, TypeError) as error:
+        print(f"  ERROR: Invalid authenticated evidence: {error}")
         stats["invalid"] = True
     return stats
 
@@ -285,6 +387,16 @@ def validate_file(path: Path) -> Dict[str, Any]:
         stats = validate_json_file(path, artifact_kind="nekobox_nodes")
         print(f"    NekoBox subscription: {stats['entries']} nodes  {size_kb:.1f} KB")
         return stats
+
+    if _matches_derived_name(name, ".health.json", "_health.json"):
+        stats = validate_health_sidecar(path)
+        return stats
+
+    if _matches_derived_name(name, ".gate.json", "_gate.json"):
+        return validate_gate_report(path)
+
+    if _matches_derived_name(name, ".coverage.json", "_coverage.json"):
+        return validate_coverage_report(path)
 
     if _matches_derived_name(name, ".clash.yaml", "_clash.yaml"):
         stats = validate_clash_subscription(path)
@@ -389,6 +501,12 @@ def _prepare_verified_dist(staged: Path) -> tuple[int, int, Counter]:
             format_counts["nekobox.json"] += 1
         elif _matches_derived_name(name, ".clash.yaml", "_clash.yaml"):
             format_counts["clash.yaml"] += 1
+        elif _matches_derived_name(name, ".health.json", "_health.json"):
+            format_counts["health.json"] += 1
+        elif _matches_derived_name(name, ".coverage.json", "_coverage.json"):
+            format_counts["coverage.json"] += 1
+        elif _matches_derived_name(name, ".gate.json", "_gate.json"):
+            format_counts["gate.json"] += 1
         elif name.endswith(".b64sub") or name.endswith("_b64sub.txt") or name.endswith("_base64.txt"):
             format_counts["b64sub"] += 1
         elif (

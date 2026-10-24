@@ -21,6 +21,7 @@ from ..formats.common.xray import (
     build_xray_profile_bytes,
     xray_fidelity_report,
 )
+from .format_coverage import build_client_coverage_report
 from ..formats.registry import FormatRegistry
 from ..state.repo import StateRepo
 from ..store.artifact_store import ArtifactStore
@@ -385,9 +386,17 @@ class BuildPipeline:
                     deadline.raise_if_expired("build")
                 build_start = time.monotonic()
                 format_lock = self._format_lock(format_id)
+                publication_evidence = b''
+                publication_gate = b''
                 if deadline is None:
                     with format_lock:
                         artifact_bytes = handler.build(format_records)
+                        evidence_reader = getattr(handler, 'publication_evidence_bytes', None)
+                        if callable(evidence_reader):
+                            publication_evidence = evidence_reader()
+                        gate_reader = getattr(handler, 'publication_gate_bytes', None)
+                        if callable(gate_reader):
+                            publication_gate = gate_reader()
                 else:
                     acquired = format_lock.acquire(timeout=deadline.clamp_timeout(3600.0))
                     if not acquired:
@@ -395,6 +404,12 @@ class BuildPipeline:
                     try:
                         deadline.raise_if_expired("build")
                         artifact_bytes = handler.build(format_records)
+                        evidence_reader = getattr(handler, 'publication_evidence_bytes', None)
+                        if callable(evidence_reader):
+                            publication_evidence = evidence_reader()
+                        gate_reader = getattr(handler, 'publication_gate_bytes', None)
+                        if callable(gate_reader):
+                            publication_gate = gate_reader()
                         deadline.raise_if_expired("build")
                     finally:
                         format_lock.release()
@@ -413,6 +428,33 @@ class BuildPipeline:
                     if format_id in _DERIVED_PROXY_FORMATS else len(format_records)
                 )
                 if format_id in _DERIVED_PROXY_FORMATS:
+                    if isinstance(publication_gate, bytes) and publication_gate:
+                        gate = json.loads(publication_gate)
+                        if gate.get('admitted') != format_count:
+                            raise ValueError("Authenticated gate and published URI counts disagree")
+                        derived_format = f'{format_id}.gate.json'
+                        if not defer_output:
+                            self.artifact_store.save_output(route_name, derived_format, publication_gate)
+                        results.append({
+                            'route_name': route_name, 'format': derived_format,
+                            'unique_id': f'{route_name}:{derived_format}',
+                            'artifact_hash': hashlib.sha256(publication_gate).hexdigest(),
+                            'data': publication_gate, 'count': gate['candidates'],
+                        })
+                    if isinstance(publication_evidence, bytes) and publication_evidence:
+                        report = json.loads(publication_evidence)
+                        if (report.get('admitted_count') != format_count
+                                or len(report.get('records', {})) != format_count):
+                            raise ValueError("Authenticated sidecar and URI feed disagree")
+                        derived_format = f'{format_id}.health.json'
+                        if not defer_output:
+                            self.artifact_store.save_output(route_name, derived_format, publication_evidence)
+                        results.append({
+                            'route_name': route_name, 'format': derived_format,
+                            'unique_id': f'{route_name}:{derived_format}',
+                            'artifact_hash': hashlib.sha256(publication_evidence).hexdigest(),
+                            'data': publication_evidence, 'count': format_count,
+                        })
                     (
                         decoded,
                         reencoded,
@@ -423,6 +465,19 @@ class BuildPipeline:
                         singbox_profile,
                         xray_profile,
                     ) = self._proxy_derivatives(artifact_bytes)
+                    coverage = build_client_coverage_report(
+                        artifact_bytes.decode('utf-8'),
+                        singbox=singbox, xray=xray, nekobox=nekobox, clash=clash,
+                    )
+                    coverage_format = f'{format_id}.coverage.json'
+                    if not defer_output:
+                        self.artifact_store.save_output(route_name, coverage_format, coverage)
+                    results.append({
+                        'route_name': route_name, 'format': coverage_format,
+                        'unique_id': f'{route_name}:{coverage_format}',
+                        'artifact_hash': hashlib.sha256(coverage).hexdigest(),
+                        'data': coverage, 'count': format_count,
+                    })
                     if decoded:
                         derived_format = f'{format_id}.decoded.json'
                         if not defer_output:

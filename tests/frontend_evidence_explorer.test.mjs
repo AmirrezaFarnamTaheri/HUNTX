@@ -95,3 +95,13 @@ test("dashboard surfaces verified measurement meaning and never prefixes publish
   assert.match(js, /role="status" aria-live="polite"/);
   assert.match(js, /TCP connect does not verify proxy authentication/);
 });
+
+test("expired authenticated HTTPS evidence is labeled explicitly and never ranked as verified", () => {
+  const expired = { ...authenticated, health_evidence: "expired_authenticated_protocol",
+    health_grade: null, authenticated_probe_ok: true };
+  assert.equal(getProxyEvidence(expired).id, "unmeasured");
+  assert.match(getProxyEvidence(expired).label, /expired/i);
+  const app = Object.create(AppState.prototype);
+  assert.match(app.getHealthScore(expired).label, /expired/i);
+  assert.equal(countProxyEvidence([expired]).unmeasured, 1);
+});
