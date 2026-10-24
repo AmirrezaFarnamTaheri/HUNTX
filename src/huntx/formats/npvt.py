@@ -587,6 +587,10 @@ class NpvtHandler(FormatHandler):
                 self._append_uri(records, seen_hashes, uri)
         return records
 
+    def publication_gate_bytes(self) -> bytes:
+        """Return the sanitized rejection ledger for this build's HTTPS gate."""
+        return getattr(self, "_publication_gate", b"")
+
     def publication_evidence_bytes(self) -> bytes:
         """Return a credential-free, identity-keyed HTTPS admission receipt."""
         return getattr(self, "_publication_evidence", b"")
@@ -595,10 +599,16 @@ class NpvtHandler(FormatHandler):
         """Build a deterministic newline-delimited proxy subscription."""
         require_health = os.getenv("HUNTX_REQUIRE_PROXY_HEALTH", "0") == "1"
         self._publication_evidence = b""
+        self._publication_gate = b""
         if require_health:
             from ..core.proxy_health import verified_records
 
             records = verified_records(records)
+            ledger = getattr(records, 'gate_report', None)
+            if isinstance(ledger, dict):
+                self._publication_gate = json.dumps(
+                    ledger, sort_keys=True, separators=(',', ':')
+                ).encode('utf-8')
         lines = []
         seen = set()
         attestations: dict[str, dict] = {}

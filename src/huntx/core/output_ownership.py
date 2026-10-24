@@ -55,6 +55,7 @@ _DERIVED_CANONICAL_SUFFIX = {
     ".decoded.json": ".json",
     ".health.json": "_health.json",
     ".coverage.json": "_coverage.json",
+    ".gate.json": "_gate.json",
     ".singbox.json": "_singbox_nodes.json",
     ".xray.json": "_xray_nodes.json",
     ".nekobox.json": "_nekobox.json",

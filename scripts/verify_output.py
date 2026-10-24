@@ -247,6 +247,37 @@ def validate_clash_subscription(path: Path) -> Dict[str, Any]:
     return stats
 
 
+def validate_gate_report(path: Path) -> Dict[str, Any]:
+    """Verify the candidate disposition ledger conserves every identity."""
+    stats: Dict[str, Any] = {"type": "health_gate", "entries": 0}
+    try:
+        report = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(report, dict) or report.get("schema_version") != 1:
+            raise ValueError("invalid health gate schema")
+        n, accepted, rejected = (
+            report.get("candidates"), report.get("admitted"), report.get("rejected")
+        )
+        if (any(type(v) is not int or v < 0 for v in (n, accepted, rejected))
+                or accepted + rejected != n):
+            raise ValueError("health gate totals do not reconcile")
+        identities, reasons = report.get("identities"), report.get("reasons")
+        if (not isinstance(identities, dict) or len(identities) != n
+                or not isinstance(reasons, dict)
+                or sum(reasons.values()) != n
+                or reasons.get("admitted", 0) != accepted):
+            raise ValueError("health gate dispositions do not reconcile")
+        for digest, reason in identities.items():
+            if (not isinstance(digest, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", digest) is None
+                    or not isinstance(reason, str) or reason not in reasons):
+                raise ValueError("invalid health-gate identity row")
+        stats["entries"] = n
+    except (OSError, ValueError, TypeError) as error:
+        print(f"  ERROR: Invalid health gate: {error}")
+        stats["invalid"] = True
+    return stats
+
+
 def validate_coverage_report(path: Path) -> Dict[str, Any]:
     """Reject fabricated or incomplete client conversion coverage matrices."""
     stats: Dict[str, Any] = {"type": "format_coverage", "entries": 0}
@@ -361,6 +392,9 @@ def validate_file(path: Path) -> Dict[str, Any]:
         stats = validate_health_sidecar(path)
         return stats
 
+    if _matches_derived_name(name, ".gate.json", "_gate.json"):
+        return validate_gate_report(path)
+
     if _matches_derived_name(name, ".coverage.json", "_coverage.json"):
         return validate_coverage_report(path)
 
@@ -471,6 +505,8 @@ def _prepare_verified_dist(staged: Path) -> tuple[int, int, Counter]:
             format_counts["health.json"] += 1
         elif _matches_derived_name(name, ".coverage.json", "_coverage.json"):
             format_counts["coverage.json"] += 1
+        elif _matches_derived_name(name, ".gate.json", "_gate.json"):
+            format_counts["gate.json"] += 1
         elif name.endswith(".b64sub") or name.endswith("_b64sub.txt") or name.endswith("_base64.txt"):
             format_counts["b64sub"] += 1
         elif (

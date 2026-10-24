@@ -49,6 +49,12 @@
     ],
     "all_sources_sub_coverage.json": [
       "all_sources_sub_coverage.json"
+    ],
+    "all_sources_gate.json": [
+      "all_sources_gate.json"
+    ],
+    "all_sources_sub_gate.json": [
+      "all_sources_sub_gate.json"
     ]
   },
   "sections": {
@@ -59,6 +65,15 @@
       ],
       "default_description": "Verified artifact from the latest published run",
       "rules": [
+        {
+          "match": {
+            "kind": "contains",
+            "value": "_gate.json"
+          },
+          "type": "GATE",
+          "tags": ["release", "quality", "proxy-health", "rejections"],
+          "description": "Sanitized authenticated HTTPS candidate admission and failure reasons; not proof of permanent proxy death."
+        },
         {
           "match": {
             "kind": "contains",
