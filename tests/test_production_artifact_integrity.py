@@ -70,9 +70,12 @@ def test_clash_omits_invalid_sni_instead_of_shipping_unloadable_yaml() -> None:
     good = "hysteria2://pass@5.5.5.5:443?sni=good.example.com#Good"
     # UTF-8 percent-decoding yields a C1 control, invalid in YAML hostnames.
     bad = "hysteria2://pass@5.5.5.6:443?sni=%C2%9Fbroken.example.com#Bad"
-    output = build_clash_subscription_bytes(good + "\n" + bad)
+    unicode_name = "hysteria2://pass@5.5.5.7:443?sni=good.example.com#%F0%9F%87%A9%F0%9F%87%AA%20Good"
+    output = build_clash_subscription_bytes(good + "\n" + bad + "\n" + unicode_name)
     document = yaml.safe_load(output)
-    assert [p["name"] for p in document["proxies"]] == ["Good"]
+    assert [p["name"] for p in document["proxies"]] == ["Good", "🇩🇪 Good"]
+    assert "\\ud83c" not in output.decode("utf-8")
+    assert "🇩🇪" in output.decode("utf-8")
     assert "\u009f" not in output.decode("utf-8")
 
 
