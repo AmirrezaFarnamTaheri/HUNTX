@@ -280,7 +280,7 @@ def build_clash_subscription_bytes(text: str) -> bytes:
     # list item avoids a YAML dependency while safely quoting source strings.
     lines = ["proxies:"]
     lines.extend(
-        "  - " + json.dumps(proxy, ensure_ascii=True, separators=(",", ":"))
+        "  - " + json.dumps(proxy, ensure_ascii=False, separators=(",", ":"))
         for proxy in proxies
     )
     return ("\n".join(lines) + "\n").encode("utf-8")
