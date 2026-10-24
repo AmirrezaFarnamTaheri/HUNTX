@@ -930,18 +930,27 @@ def parse_production_proxies() -> list[dict]:
                 if not isinstance(decoded, dict):
                     decoded = {}
                 raw = entry.get("raw") or ""
-                raw_nodes.append({
-                    "protocol": (entry.get("protocol") or "vless").lower(),
-                    "address": entry.get("address") or decoded.get("add") or "",
-                    "port": entry.get("port") or decoded.get("port") or 443,
-                    "tag": entry.get("tag") or "",
-                    "params": entry.get("params") or {
+                protocol_name = (entry.get("protocol") or "vless").lower()
+                params = entry.get("params") or {}
+                if protocol_name == "vmess" and not params:
+                    params = {
                         "type": decoded.get("net") or "tcp",
                         "security": decoded.get("tls") or "none",
                         "sni": decoded.get("sni") or "",
                         "host": decoded.get("host") or "",
                         "path": decoded.get("path") or "",
-                    },
+                    }
+                port_value = entry.get("port") or decoded.get("port") or 443
+                try:
+                    port_value = int(port_value)
+                except (ValueError, TypeError):
+                    port_value = 443
+                raw_nodes.append({
+                    "protocol": (entry.get("protocol") or "vless").lower(),
+                    "address": entry.get("address") or decoded.get("add") or "",
+                    "port": port_value,
+                    "tag": entry.get("tag") or "",
+                    "params": params,
                     "raw": raw,
                     "user": entry.get("user") or entry.get("password") or decoded.get("id") or ""
                 })
