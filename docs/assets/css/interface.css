@@ -404,6 +404,12 @@ html #data-status-pill {
   .radar-summary h2 { max-width: 26ch; }
   #radar-diagnostics > .grid { grid-template-columns: 1fr; }
 }
+/* At 320px the standalone search action forces header overflow. The same
+   action is available under the always-visible Tools menu, so consolidate it
+   without shrinking accessible 44px touch targets. */
+@media (max-width: 359px) {
+  #main-header #btn-open-mobile-search { display: none !important; }
+}
 @media (max-width: 375px) {
   #evidence-strip { grid-template-columns: 1fr; }
   #evidence-strip .evidence-stat:last-of-type { grid-column: auto; }
