@@ -210,10 +210,16 @@ def verified_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
             for future in futures:
                 future.cancel()
     accepted = []
+    expired_successes = 0
+    # These counts describe the post-check admission stage. A successful
+    # HTTPS attempt does not become publication proof once its TTL expires.
     for key, (_, fields) in candidates.items():
         accepted_result = results.get(key)
+        if accepted_result is None:
+            continue
         # Earlier successes expire too; a long sweep cannot publish stale proof.
-        if accepted_result is None or time.time() - accepted_result['checked_at'] > 300:
+        if time.time() - accepted_result['checked_at'] > 300:
+            expired_successes += 1
             continue
         result = accepted_result
         accepted.append({'data': {
@@ -222,6 +228,7 @@ def verified_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
             'probe_checked_at': result['checked_at'],
             'probe_expires_at': result['checked_at'] + 300,
         }})
+    reasons['success_expired_before_publication'] = expired_successes
     logger.info('Proxy HTTPS gate: candidates=%d accepted=%d excluded=%d reasons=%s',
                 len(candidates), len(accepted), len(candidates) - len(accepted), dict(reasons))
     return accepted
