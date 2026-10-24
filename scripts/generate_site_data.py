@@ -65,6 +65,49 @@ def _configured_sources_count():
         return count or None
 
 
+def _enabled_sources_count() -> int | None:
+    """Configured inputs with enabled!=false, not necessarily recently observed."""
+    try:
+        import yaml
+
+        config = yaml.safe_load(CONFIG_PROD_FILE.read_text(encoding="utf-8")) or {}
+        sources = config.get("sources") or []
+        if not isinstance(sources, list):
+            return None
+        return sum(
+            1 for source in sources
+            if isinstance(source, dict) and source.get("enabled", True) is not False
+        )
+    except (OSError, ValueError, TypeError):
+        return None
+
+
+def _source_observation_counts() -> dict | None:
+    """Load only sanitized source-health data for the exact producer run."""
+    filename = os.environ.get("HUNTX_SOURCE_HEALTH_REPORT", "").strip()
+    expected_run = os.environ.get("HUNTX_SOURCE_RUN_ID", "").strip()
+    if not filename or not expected_run:
+        return None
+    try:
+        payload = json.loads(Path(filename).read_text(encoding="utf-8"))
+        if payload.get("schema_version") != 1 or str(payload.get("run_id")) != expected_run:
+            return None
+        counts = payload.get("counts")
+        if not isinstance(counts, dict):
+            return None
+        wanted = {
+            "configured_sources", "enabled", "disabled", "telegram_observed",
+            "http_retrieved", "http_source_failures", "telegram_not_observed",
+            "telegram_quarantined", "telegram_retrying", "http_not_observed",
+        }
+        return {
+            name: value for name, value in counts.items()
+            if name in wanted and type(value) is int and value >= 0
+        }
+    except (OSError, ValueError, TypeError, AttributeError):
+        return None
+
+
 OUTPUTS_DIR = REPO_ROOT / "outputs"
 OUTPUTS_DEV_DIR = REPO_ROOT / "outputs_dev"
 DOCS_DIR = REPO_ROOT / "docs"
@@ -1102,7 +1145,13 @@ def parse_production_proxies() -> list[dict]:
             "country": geo["country"],
             "country_name": geo["country_name"],
             "flag": geo["flag"],
+            # Preserve legacy carrier key for existing UI filters, but this
+            # records the network owner / origin-AS organization, not a
+            # confirmed consumer mobile carrier.
             "carrier": geo["carrier"],
+            "carrier_verified": False,
+            "network_operator": geo["org"],
+            "origin_as_org": geo["org"],
             "org": geo["org"],
             "city": geo["city"],
             "latitude": geo["latitude"],
@@ -1149,7 +1198,15 @@ def compute_aggregate_stats(proxies: list[dict], catalog: dict) -> dict:
         except Exception:
             pass
 
-    active_sources = _configured_sources_count()
+    configured_sources = _configured_sources_count()
+    enabled_sources = _enabled_sources_count()
+    source_observations = _source_observation_counts()
+    observed_sources = None
+    if source_observations is not None:
+        observed_sources = (
+            source_observations.get("telegram_observed", 0)
+            + source_observations.get("http_retrieved", 0)
+        )
 
     proto_counts = {}
     sec_counts = {}
@@ -1199,7 +1256,13 @@ def compute_aggregate_stats(proxies: list[dict], catalog: dict) -> dict:
         "total_published_files": catalog["total_files"],
         "total_storage_bytes": catalog["total_size"],
         "total_storage_str": catalog["total_size_str"],
-        "active_sources_count": active_sources,
+        "active_sources_count": enabled_sources,
+        "configured_sources_count": configured_sources,
+        "enabled_sources_count": enabled_sources,
+        "observed_sources_count": observed_sources,
+        "source_observation_counts": source_observations,
+        "catalog_product_count": catalog["total_files"],
+        "catalog_product_bytes": catalog["total_size"],
         "protocols": proto_counts,
         "securities": sec_counts,
         "transports": trans_counts,

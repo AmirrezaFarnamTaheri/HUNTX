@@ -1583,7 +1583,13 @@ export class AppState {
     const minLatencyNum = measuredLatencies.length ? Math.min(...measuredLatencies) : null;
     const totalFiles = this.catalog.total_files || (this.catalog.files ? this.catalog.files.length : "—");
     const totalSize = this.catalog.total_size_str || "Not published";
-    const sourcesCount = this.stats?.active_sources_count ?? "—";
+    const observedSources = this.stats?.observed_sources_count;
+    const enabledSources = this.stats?.enabled_sources_count ?? this.stats?.active_sources_count;
+    const configuredSources = this.stats?.configured_sources_count ?? enabledSources;
+    const sourcesCount = observedSources ?? enabledSources ?? "—";
+    const sourcesCaption = observedSources == null
+      ? `${enabledSources ?? "—"} enabled of ${configuredSources ?? "—"} configured`
+      : `${observedSources} observed · ${enabledSources ?? "—"} enabled`;
 
     hero.innerHTML = `
       <div class="radar-overview">
@@ -1593,8 +1599,8 @@ export class AppState {
           <p class="radar-description">Browse the loaded snapshot, compare recorded measurements, and inspect configurations. Artifact checksums do not verify connectivity.</p>
           <dl class="radar-metrics">
             <div><dt>Published nodes</dt><dd>${activeCount.toLocaleString("en-US")}</dd><span>${regionCount} reported regions${regionSummary.unknownCount ? ` · ${regionSummary.unknownCount} unresolved` : ""}</span></div>
-            <div><dt>Source inventory</dt><dd>${sourcesCount}</dd><span>Configured upstreams</span></div>
-            <div><dt>Available artifacts</dt><dd>${totalFiles}</dd><span>${escapeHTML(totalSize)}</span></div>
+            <div><dt>Source observations</dt><dd>${sourcesCount}</dd><span>${sourcesCaption}</span></div>
+            <div><dt>Catalog products</dt><dd>${totalFiles}</dd><span>${escapeHTML(totalSize)} · aliases excluded</span></div>
             <div><dt>Recorded latency</dt><dd>${avgLatencyNum === null ? "—" : `${avgLatencyNum}ms`}</dd><span>${minLatencyNum === null ? "Not measured" : `Lowest: ${minLatencyNum}ms · not auth proof`}</span></div>
           </dl>
 
@@ -1886,7 +1892,7 @@ export class AppState {
         <p class="evidence-note"><strong>Evidence boundary.</strong> Country hints, IP reachability and TLS handshakes do not validate an authenticated proxy session. Counts describe the loaded snapshot.</p>
       </div>
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 my-8">
-        <!-- Carrier Matrix Card -->
+        <!-- Network operator observations -->
         <div class="lg:col-span-7 cyber-card p-6 bg-gray-900/60 border border-gray-800/80 hover:border-cyan-500/40 rounded-3xl backdrop-blur-md">
           <div class="flex items-center justify-between pb-4 border-b border-gray-800 mb-4">
             <div>
@@ -2027,7 +2033,7 @@ export class AppState {
       { id: "ALL", label: "All Operators" },
       ...activeOperators.map(op => ({
         id: op,
-        label: `Carrier: ${op}`
+        label: `Network operator: ${op}`
       }))
     ];
 
@@ -2192,7 +2198,7 @@ export class AppState {
           <div class="filter-select-grid">
           <!-- Operator Dropdown -->
           <div class="relative">
-            <label class="block text-xs font-mono text-gray-400 mb-1">Operator / Carrier</label>
+            <label class="block text-xs font-mono text-gray-400 mb-1">Network operator / ASN</label>
             <select
               id="select-operator"
               class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
@@ -2449,7 +2455,7 @@ export class AppState {
         <div class="py-14 text-center bg-gray-900/40 border border-gray-800 rounded-3xl p-8 backdrop-blur-md">
           <svg class="w-12 h-12 text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
           <span class="font-mono text-sm text-gray-300 font-bold block">No proxy endpoints match these filters</span>
-          <p class="font-mono text-xs text-gray-500 mt-1">Try clearing the search, protocol, region or carrier filters</p>
+          <p class="font-mono text-xs text-gray-500 mt-1">Try clearing the search, protocol, region or network-operator filters</p>
           <button id="btn-reset-filters-empty" class="mt-4 px-5 py-2.5 min-h-[44px] bg-cyan-500 text-gray-950 text-xs font-mono font-bold rounded-xl focus-ring cursor-pointer transition-all shadow-md shadow-cyan-500/20">Reset All Filters</button>
         </div>
       `;
@@ -2490,7 +2496,7 @@ export class AppState {
                   <th class="p-3.5">Remark / Name</th>
                   <th class="p-3.5">Endpoint (Host:Port)</th>
                   <th class="p-3.5">Transport &amp; TLS</th>
-                  <th class="p-3.5">Carrier</th>
+                  <th class="p-3.5">Network operator</th>
                   <th class="p-3.5">Probe evidence</th>
                   <th class="p-3.5 text-right">Actions</th>
                 </tr>
@@ -2657,7 +2663,7 @@ export class AppState {
                 </div>
 
                 <div class="flex items-center justify-between text-xs pt-1 border-t border-gray-800/40">
-                  <span class="text-gray-400">Geo &amp; Carrier:</span>
+                  <span class="text-gray-400">Country &amp; network:</span>
                   <span class="text-gray-300 font-semibold">${escapeHTML(region.flag)} ${escapeHTML(region.label)} • ${escapeHTML(op)} <span class="text-xs text-gray-500" title="${escapeHTML(region.detail)}">(${region.confidence === "provider" ? "GeoIP estimate" : region.confidence === "hint" ? "unverified hint" : "unknown"})</span></span>
                 </div>
               </div>

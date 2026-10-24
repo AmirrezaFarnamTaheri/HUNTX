@@ -112,6 +112,15 @@ def validate_proxy_telemetry(proxies: list[dict]) -> dict[str, int]:
         else:
             invalid(f"unknown or missing health evidence {evidence!r}")
 
+        if (
+            proxy.get("geo_source") == "server-country-pddl"
+            and proxy.get("geo_verified") is True
+            and proxy.get("flag") not in (None, "🌐")
+            and isinstance(proxy.get("name"), str)
+            and proxy["name"].startswith("🌐")
+        ):
+            invalid("verified country flag contradicts published subscription remark")
+
         score = proxy.get("pca_score")
         if not _finite_number(score) or not 0 <= score <= 1:
             invalid("missing or invalid governed score (0.0 is valid)")

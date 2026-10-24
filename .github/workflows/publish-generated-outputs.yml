@@ -459,6 +459,8 @@ jobs:
           SOURCE_CREATED_AT: ${{ steps.release.outputs.generated_at }}
           DASHBOARD_ROOT: ${{ runner.temp }}/huntx-dashboard/docs
           HUNTX_FALLBACK_DEV: ${{ runner.temp }}/huntx-publication/empty-dev
+          HUNTX_SOURCE_HEALTH_REPORT: ${{ runner.temp }}/huntx-publication/logs/source-health.json
+          HUNTX_SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
         run: |
           set -euo pipefail
           mkdir -p .bin
