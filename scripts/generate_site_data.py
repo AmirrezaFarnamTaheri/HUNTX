@@ -1523,11 +1523,12 @@ def generate_all() -> None:
         grade_proxy_health(
             probe_tcp_latency(
                 enrich_proxies_with_geoip(
-                    drop_unreachable_proxies(parse_production_proxies())
+                    annotate_dns_resolution(parse_production_proxies())
                 )
             )
         )
     )
+    assert_current_feed_parity(proxies)
     stats = compute_aggregate_stats(proxies, catalog)
 
     # Generate docs/assets/js/data.js dynamically. The globe hubs the
