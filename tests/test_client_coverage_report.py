@@ -74,14 +74,14 @@ def test_rejects_duplicate_canonical_identity():
     other_remark = "trojan://secret@5.5.5.5:443?security=tls#Two"
     with pytest.raises(ValueError, match="duplicate canonical"):
         build_client_coverage_report(
-            same + "\\n" + other_remark,
+            same + "\n" + other_remark,
             singbox=b"", xray=b"", nekobox=b"", clash=b"",
         )
 
 
 def test_rejects_duplicate_client_visible_names():
     lines = (
-        "trojan://first@5.5.5.5:443?security=tls#Same\\n"
+        "trojan://first@5.5.5.5:443?security=tls#Same\n"
         "trojan://second@5.5.5.6:443?security=tls#Same"
     )
     with pytest.raises(ValueError, match="duplicate client-visible names"):
@@ -98,7 +98,7 @@ def test_deduped_after_conversion_is_accounted_for(monkeypatch):
 
     first = "trojan://first@5.5.5.5:443?security=tls#First"
     second = "trojan://second@5.5.5.6:443?security=tls#Second"
-    feed = first + "\\n" + second
+    feed = first + "\n" + second
     original = coverage._BUILD_ONE["singbox"]
     example = json.loads(original(first))
     first_node = next(node for node in example["outbounds"] if node.get("tag") == "First")
