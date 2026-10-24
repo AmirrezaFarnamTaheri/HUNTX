@@ -501,6 +501,12 @@ def sync_dashboard_fallback_catalog(docs_dir: Path) -> None:
     stats, consumed = json.JSONDecoder().raw_decode(stats_source)
     if not isinstance(stats, dict):
         raise ValueError("dashboard fallback telemetry must be a JSON object")
+    history = docs_dir / "artifacts" / "dev" / "proxies.json"
+    if history.is_file():
+        historical = json.loads(history.read_text(encoding="utf-8"))
+        count = historical.get("_count") if isinstance(historical, dict) else None
+        if type(count) is int and count >= 0:
+            stats["total_cumulative_nodes"] = count
     stats["total_published_files"] = catalog["total_files"]
     stats["total_storage_bytes"] = catalog["total_size"]
     stats["total_storage_str"] = catalog["total_size_str"]
@@ -591,6 +597,13 @@ def assemble_snapshot(
     if dashboard_root is not None:
         if not dashboard_root.is_dir():
             raise ValueError(f"missing dashboard data directory: {dashboard_root}")
+        # Stage the complete application shell before overlaying current-run data.
+        # Copying data-only dashboard_root used to silently strip JS/CSS/PWA
+        # assets from the final Pages artifact.
+        if shell_root is not None:
+            if not shell_root.is_dir():
+                raise ValueError(f"missing dashboard shell directory: {shell_root}")
+            copy_tree(shell_root, destination / "docs")
         copy_tree(dashboard_root, destination / "docs")
         retire_dashboard_derivatives(destination / "docs")
         dev_artifacts = destination / "docs" / "artifacts" / "dev"
@@ -602,12 +615,10 @@ def assemble_snapshot(
         if shell_root is not None:
             if not shell_root.is_dir():
                 raise ValueError(f"missing dashboard shell directory: {shell_root}")
-            for rel in ("index.html", "assets/js/data.js"):
-                source_file = shell_root / rel
-                if source_file.is_file():
-                    target_file = destination / "docs" / rel
-                    target_file.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(source_file, target_file)
+            # The assembled shell must never shadow verified current-run
+            # telemetry. Dashboard data.js is produced from this run and
+            # later reconciled to the appended cumulative catalog.
+            (destination / "docs" / "assets" / "js" / "bundle.js").unlink(missing_ok=True)
         _catalog_dev_trio(destination / "docs", destination / "docs" / "artifacts" / "dev")
         sync_dashboard_fallback_catalog(destination / "docs")
         if shell_root is not None:
