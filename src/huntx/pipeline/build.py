@@ -385,9 +385,13 @@ class BuildPipeline:
                     deadline.raise_if_expired("build")
                 build_start = time.monotonic()
                 format_lock = self._format_lock(format_id)
+                publication_evidence = b''
                 if deadline is None:
                     with format_lock:
                         artifact_bytes = handler.build(format_records)
+                        evidence_reader = getattr(handler, 'publication_evidence_bytes', None)
+                        if callable(evidence_reader):
+                            publication_evidence = evidence_reader()
                 else:
                     acquired = format_lock.acquire(timeout=deadline.clamp_timeout(3600.0))
                     if not acquired:
@@ -395,6 +399,9 @@ class BuildPipeline:
                     try:
                         deadline.raise_if_expired("build")
                         artifact_bytes = handler.build(format_records)
+                        evidence_reader = getattr(handler, 'publication_evidence_bytes', None)
+                        if callable(evidence_reader):
+                            publication_evidence = evidence_reader()
                         deadline.raise_if_expired("build")
                     finally:
                         format_lock.release()
@@ -413,6 +420,20 @@ class BuildPipeline:
                     if format_id in _DERIVED_PROXY_FORMATS else len(format_records)
                 )
                 if format_id in _DERIVED_PROXY_FORMATS:
+                    if publication_evidence:
+                        report = json.loads(publication_evidence)
+                        if (report.get('admitted_count') != format_count
+                                or len(report.get('records', {})) != format_count):
+                            raise ValueError("Authenticated sidecar and URI feed disagree")
+                        derived_format = f'{format_id}.health.json'
+                        if not defer_output:
+                            self.artifact_store.save_output(route_name, derived_format, publication_evidence)
+                        results.append({
+                            'route_name': route_name, 'format': derived_format,
+                            'unique_id': f'{route_name}:{derived_format}',
+                            'artifact_hash': hashlib.sha256(publication_evidence).hexdigest(),
+                            'data': publication_evidence, 'count': format_count,
+                        })
                     (
                         decoded,
                         reencoded,

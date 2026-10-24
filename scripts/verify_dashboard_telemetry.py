@@ -12,6 +12,7 @@ import argparse
 import json
 import math
 import re
+import time
 from pathlib import Path
 
 _LATENCY_GRADES = frozenset({"A+", "A", "B+", "B", "C+", "C"})
@@ -40,7 +41,7 @@ def validate_proxy_telemetry(proxies: list[dict]) -> dict[str, int]:
         raise AssertionError("dashboard published zero proxies")
     counts = {
         "proxies": len(proxies), "tcp_only": 0, "tcp_failed": 0,
-        "verified": 0, "auth_failed": 0, "scored": 0,
+        "verified": 0, "auth_failed": 0, "expired": 0, "scored": 0,
     }
     for index, proxy in enumerate(proxies):
         ident = proxy.get("id") or proxy.get("server") or f"index {index}"
@@ -89,6 +90,17 @@ def validate_proxy_telemetry(proxies: list[dict]) -> dict[str, int]:
             ):
                 invalid("verified grade lacks fresh authenticated protocol evidence")
             counts["verified"] += 1
+        elif evidence == "expired_authenticated_protocol":
+            expiry = proxy.get("authenticated_probe_expires_at")
+            if (
+                grade is not None
+                or proxy.get("probe_kind") != "protocol_authenticated"
+                or proxy.get("authenticated_probe_ok") is not True
+                or not _finite_number(expiry)
+                or expiry > time.time()
+            ):
+                invalid("expired authenticated evidence must not receive a verified grade")
+            counts["expired"] += 1
         elif evidence == "failed_authenticated_protocol":
             if (
                 grade != "F"

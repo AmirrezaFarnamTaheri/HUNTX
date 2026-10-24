@@ -1,6 +1,8 @@
 import os
 import base64
 import json
+import re
+import math
 import shutil
 import tempfile
 import zipfile
@@ -239,6 +241,36 @@ def validate_clash_subscription(path: Path) -> Dict[str, Any]:
     return stats
 
 
+def validate_health_sidecar(path: Path) -> Dict[str, Any]:
+    """Check the private-data-free, identity-keyed publication attestation."""
+    stats: Dict[str, Any] = {"type": "health_sidecar", "entries": 0}
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+        if (not isinstance(document, dict)
+                or document.get("schema_version") != 1
+                or document.get("evidence") != "publisher_authenticated_https"):
+            raise ValueError("invalid publisher evidence schema")
+        records = document.get("records")
+        if not isinstance(records, dict) or document.get("admitted_count") != len(records):
+            raise ValueError("authenticated sidecar count mismatch")
+        for digest, values in records.items():
+            if not isinstance(digest, str) or re.fullmatch(r"[0-9a-f]{64}", digest) is None:
+                raise ValueError("invalid semantic connection digest")
+            if not isinstance(values, dict):
+                raise ValueError("invalid evidence entry")
+            measured = [values.get(key) for key in ("checked_at", "expires_at", "duration_ms")]
+            if any(type(value) not in (int, float) or not math.isfinite(value) for value in measured):
+                raise ValueError("missing or non-finite authenticated probe measurement")
+            checked, expires, duration = measured
+            if not 0 <= duration <= 30000 or not checked <= expires:
+                raise ValueError("invalid authenticated evidence timestamps")
+        stats["entries"] = len(records)
+    except (OSError, ValueError, TypeError) as error:
+        print(f"  ERROR: Invalid authenticated evidence: {error}")
+        stats["invalid"] = True
+    return stats
+
+
 def _matches_derived_name(name: str, dotted: str, canonical: str) -> bool:
     """Match artifact-store dotted names and canonical exported filenames."""
     return name.endswith(dotted) or name.endswith(canonical)
@@ -284,6 +316,10 @@ def validate_file(path: Path) -> Dict[str, Any]:
     if _matches_derived_name(name, ".nekobox.json", "_nekobox.json"):
         stats = validate_json_file(path, artifact_kind="nekobox_nodes")
         print(f"    NekoBox subscription: {stats['entries']} nodes  {size_kb:.1f} KB")
+        return stats
+
+    if _matches_derived_name(name, ".health.json", "_health.json"):
+        stats = validate_health_sidecar(path)
         return stats
 
     if _matches_derived_name(name, ".clash.yaml", "_clash.yaml"):
@@ -389,6 +425,8 @@ def _prepare_verified_dist(staged: Path) -> tuple[int, int, Counter]:
             format_counts["nekobox.json"] += 1
         elif _matches_derived_name(name, ".clash.yaml", "_clash.yaml"):
             format_counts["clash.yaml"] += 1
+        elif _matches_derived_name(name, ".health.json", "_health.json"):
+            format_counts["health.json"] += 1
         elif name.endswith(".b64sub") or name.endswith("_b64sub.txt") or name.endswith("_base64.txt"):
             format_counts["b64sub"] += 1
         elif (

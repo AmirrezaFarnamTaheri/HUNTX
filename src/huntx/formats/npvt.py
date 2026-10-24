@@ -1,4 +1,5 @@
 import binascii
+import hashlib
 import json
 import math
 import os
@@ -586,14 +587,21 @@ class NpvtHandler(FormatHandler):
                 self._append_uri(records, seen_hashes, uri)
         return records
 
+    def publication_evidence_bytes(self) -> bytes:
+        """Return a credential-free, identity-keyed HTTPS admission receipt."""
+        return getattr(self, "_publication_evidence", b"")
+
     def build(self, records: List[Dict[str, Any]]) -> bytes:
         """Build a deterministic newline-delimited proxy subscription."""
-        if os.getenv("HUNTX_REQUIRE_PROXY_HEALTH", "0") == "1":
+        require_health = os.getenv("HUNTX_REQUIRE_PROXY_HEALTH", "0") == "1"
+        self._publication_evidence = b""
+        if require_health:
             from ..core.proxy_health import verified_records
 
             records = verified_records(records)
         lines = []
         seen = set()
+        attestations: dict[str, dict] = {}
         remark_counter: dict = {}
         rich = os.getenv("HUNTX_REMARK_STYLE", "legacy").lower() == "evidence"
         observations: dict[str, dict] = {}
@@ -632,6 +640,21 @@ class NpvtHandler(FormatHandler):
             identity = canonical_proxy_identity(stripped)
             if identity not in seen:
                 seen.add(identity)
+                if require_health:
+                    fields = record.get('data', record) if isinstance(record, dict) else {}
+                    if isinstance(fields, dict) and fields.get('probe_kind') == 'protocol_authenticated':
+                        checked = fields.get('probe_checked_at')
+                        expires = fields.get('probe_expires_at')
+                        duration = fields.get('latency_ms')
+                        if all(
+                            type(value) in (int, float) and math.isfinite(value)
+                            for value in (checked, expires, duration)
+                        ) and 0 <= duration and checked <= expires:
+                            digest = hashlib.sha256(identity.encode('utf-8')).hexdigest()
+                            attestations[digest] = {
+                                'checked_at': checked, 'expires_at': expires,
+                                'duration_ms': duration,
+                            }
                 if rich:
                     observed = observations.get(line)
                     if observed:
@@ -687,4 +710,11 @@ class NpvtHandler(FormatHandler):
                     remark_counter[preview] = ordinal
                     evidence_metadata = {**stored, '_remark_ordinal': ordinal}
                 lines.append(add_clean_remark(stripped, remark_counter, evidence_metadata))
+        if require_health:
+            if len(attestations) != len(lines):
+                raise ValueError("Authenticated sidecar does not cover every admitted proxy")
+            self._publication_evidence = json.dumps({
+                'schema_version': 1, 'evidence': 'publisher_authenticated_https',
+                'admitted_count': len(lines), 'records': attestations,
+            }, sort_keys=True, separators=(',', ':')).encode('utf-8')
         return '\n'.join(lines).encode('utf-8')

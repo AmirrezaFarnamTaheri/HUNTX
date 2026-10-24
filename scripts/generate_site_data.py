@@ -814,6 +814,15 @@ def grade_proxy_health(proxies: list[dict]) -> list[dict]:
 
         if proxy.get("probe_kind") != "protocol_authenticated":
             continue
+        expiry = proxy.get("authenticated_probe_expires_at")
+        if (
+            proxy.get("authenticated_probe_ok") is True
+            and type(expiry) in (int, float) and math.isfinite(expiry)
+            and expiry <= time.time()
+        ):
+            proxy["health_evidence"] = "expired_authenticated_protocol"
+            proxy["health_status"] = "Publisher HTTPS check previously succeeded; evidence expired"
+            continue
         if proxy.get("authenticated_probe_ok") is False:
             proxy["health_grade"] = "F"
             proxy["health_evidence"] = "failed_authenticated_protocol"
@@ -911,6 +920,13 @@ def score_governed_pca(proxies: list[dict]) -> list[dict]:
 def parse_production_proxies() -> list[dict]:
     """Load and normalize the production proxy snapshot for static publishing."""
     raw_nodes: list[dict] = []
+    authenticated: dict[str, dict] = {}
+    sidecar = OUTPUTS_DIR / "all_sources_health.json"
+    if sidecar.is_file():
+        evidence = json.loads(sidecar.read_text(encoding="utf-8"))
+        if evidence.get("schema_version") != 1 or not isinstance(evidence.get("records"), dict):
+            raise ValueError("Invalid authenticated publisher sidecar")
+        authenticated = evidence["records"]
 
     # 1. Prefer the canonical product name; the earlier names are still
     #    published as frozen aliases, so a directory carrying only those still
@@ -1098,6 +1114,25 @@ def parse_production_proxies() -> list[dict]:
             "security_grade": security_grade,
             "raw_uri": raw
         }
+        if isinstance(raw, str) and raw:
+            digest = hashlib.sha256(canonical_proxy_identity(raw).encode("utf-8")).hexdigest()
+            sample = authenticated.get(digest)
+            if isinstance(sample, dict):
+                checked = sample.get("checked_at")
+                expires = sample.get("expires_at")
+                duration = sample.get("duration_ms")
+                if all(
+                    type(value) in (int, float) and math.isfinite(value)
+                    for value in (checked, expires, duration)
+                ) and 0 <= duration and checked <= expires and checked <= time.time() + 60:
+                    proxy_obj.update({
+                        "probe_kind": "protocol_authenticated",
+                        "authenticated_probe_ok": True,
+                        "authenticated_probe_checked_at": checked,
+                        "authenticated_probe_expires_at": expires,
+                        "authenticated_probe_age_seconds": max(0, time.time() - checked),
+                        "authenticated_latency_ms": duration,
+                    })
         proxies.append(proxy_obj)
 
     return proxies
