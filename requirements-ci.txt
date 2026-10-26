@@ -1,6 +1,6 @@
 # Fully pinned CI-only quality-gate toolchain.
 # Keep this file as the single source consumed by PR and production validation.
-ast-serialize==0.13.0
+ast-serialize==0.13.1
 flake8==7.4.1
 iniconfig==2.3.1
 librt==0.16.0
