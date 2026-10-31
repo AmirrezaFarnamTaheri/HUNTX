@@ -91,6 +91,18 @@ class TestTelegramUserConnectorOwnership(unittest.TestCase):
             connector.cleanup()
         self.assertNotIn(fake_session, "\\n".join(logs.output))
 
+    def test_lock_registry_does_not_store_raw_session_secrets(self) -> None:
+        session = "FAKE_HIGH_ENTROPY_SESSION_PRIVATE_TEST"
+        connector = _connector(session)
+        connector.__enter__()
+        try:
+            self.assertFalse(
+                any(session in str(key) for key in TelegramUserConnector._session_locks),
+                "session credentials must never persist as registry keys",
+            )
+        finally:
+            connector.cleanup()
+
     def test_distinct_sync_sessions_do_not_block_each_other(self) -> None:
         first = _connector("first")
         second = _connector("second")
@@ -166,6 +178,33 @@ class TestTelegramUserConnectorAsyncOwnership(unittest.IsolatedAsyncioTestCase):
         owner.cleanup()
         await asyncio.wait_for(waiter.__aenter__(), timeout=0.5)
         await waiter.cleanup_async()
+
+    async def test_connected_async_owner_requires_async_cleanup(self) -> None:
+        session = "must-await-cleanup"
+        owner = _connector(session)
+        client = MagicMock()
+        client.is_connected.return_value = True
+        client.disconnect = AsyncMock()
+        await owner.__aenter__()
+        TelegramUserConnector._local.clients[owner._client_key] = client
+        owner._client()
+        with self.assertRaisesRegex(RuntimeError, "cleanup_async"):
+            owner.cleanup()
+        self.assertIsNotNone(owner._async_lock)
+        client.disconnect.assert_not_awaited()
+        await owner.cleanup_async()
+        client.disconnect.assert_awaited_once_with()
+
+    async def test_connect_error_logs_only_exception_type(self) -> None:
+        marker = "FAKE_SECRET_CONNECT_EXCEPTION_TEST"
+        owner = _connector("safe-session")
+        client = MagicMock()
+        client.is_connected.return_value = False
+        client.connect = AsyncMock(side_effect=RuntimeError(marker))
+        with self.assertLogs("huntx.connectors.telegram_user.connector", level="ERROR") as logs:
+            with self.assertRaises(RuntimeError):
+                await owner._ensure_connected_async(client)
+        self.assertNotIn(marker, "\\n".join(logs.output))
 
     async def test_same_async_session_waits_for_owner_release(self) -> None:
         first = _connector("shared")
