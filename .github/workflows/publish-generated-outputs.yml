@@ -626,6 +626,16 @@ jobs:
           python scripts/publisher_live_attestation.py finalize \
             --snapshot-root "$SNAPSHOT_ROOT" \
             --producer-receipt "$SOURCE_ROOT/logs/release-receipt.json"
+          # Pages publishes the full sealed snapshot, but generated-outputs
+          # deliberately omits seven redundant cumulative-history files.
+          # Seal a SECOND digest over the exact Git tree BEFORE checkout
+          # cleanup removes the assembler script from this working copy.
+          python - "$SNAPSHOT_ROOT" "$GIT_SNAPSHOT_ROOT" <<'PY'
+          from pathlib import Path
+          from sys import argv
+          from scripts.assemble_generated_snapshot import prepare_repository_snapshot
+          prepare_repository_snapshot(Path(argv[1]), Path(argv[2]))
+          PY
           # The dashboard step regenerates tracked files in-place while
           # assembling the snapshot; this step works on the pristine
           # branches, so discard that working-copy dirt first.
@@ -646,17 +656,8 @@ jobs:
           fi
           git rm -rf . >/dev/null 2>&1 || true
           git clean -fdx
-          rm -rf "$GIT_SNAPSHOT_ROOT"
-          mkdir -p "$GIT_SNAPSHOT_ROOT"
-          cp -a "$SNAPSHOT_ROOT"/. "$GIT_SNAPSHOT_ROOT"/
-          rm -f \
-            "$GIT_SNAPSHOT_ROOT/outputs_dev/_manifest.json" \
-            "$GIT_SNAPSHOT_ROOT/outputs_dev/proxies.json" \
-            "$GIT_SNAPSHOT_ROOT/outputs_dev/proxies.txt" \
-            "$GIT_SNAPSHOT_ROOT/outputs_dev/proxies_b64sub.txt" \
-            "$GIT_SNAPSHOT_ROOT/docs/artifacts/dev/proxies.json" \
-            "$GIT_SNAPSHOT_ROOT/docs/artifacts/dev/proxies.txt" \
-            "$GIT_SNAPSHOT_ROOT/docs/artifacts/dev/proxies_b64sub.txt"
+          # Exactly the already-verified, Git-specific snapshot; no more
+          # file removal or modification after its SHA256SUMS is sealed.
           cp -a "$GIT_SNAPSHOT_ROOT"/. .
 
           git config user.name github-actions[bot]
