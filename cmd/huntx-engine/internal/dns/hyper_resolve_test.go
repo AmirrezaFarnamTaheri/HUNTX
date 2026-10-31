@@ -95,59 +95,59 @@ func TestHyperResolve_InvalidDomain(t *testing.T) {
 
 
 func TestDoHRejectsNXDomainSpoofedOrWrongFamilyAnswers(t *testing.T) {
-    cases := []struct { name, payload string }{
-        {"nxdomain_with_address", `{"Status":3,"Answer":[{"name":"hardened.invalid.","type":1,"TTL":300,"data":"9.9.9.9"}]}`},
-        {"unrelated_owner", `{"Status":0,"Answer":[{"name":"attacker.invalid.","type":1,"TTL":300,"data":"9.9.9.9"}]}`},
-        {"ipv6_address_disguised_as_A", `{"Status":0,"Answer":[{"name":"hardened.invalid.","type":1,"TTL":300,"data":"2606:4700:4700::1111"}]}`},
-        {"ipv4_address_disguised_as_AAAA", `{"Status":0,"Answer":[{"name":"hardened.invalid.","type":28,"TTL":300,"data":"9.9.9.9"}]}`},
-    }
-    for _, tc := range cases {
-        t.Run(tc.name, func(t *testing.T) {
-            server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-                w.Header().Set("Content-Type", "application/dns-json")
-                _, _ = w.Write([]byte(tc.payload))
-            }))
-            defer server.Close()
-            resolver := dns.NewHyperResolver(&dns.Config{
-                DoHServers: []string{server.URL+"?name=%s&type=A"},
-                Timeout: 500 * time.Millisecond,
-            })
-            _, err := resolver.Resolve(context.Background(), "hardened.invalid")
-            if err == nil {
-                t.Fatal("untrusted DoH record was accepted as a resolved address")
-            }
-            if ip, ok := resolver.GetCached("hardened.invalid"); ok {
-                t.Errorf("untrusted response poisoned cache with %s", ip)
-            }
-        })
-    }
+	cases := []struct{ name, payload string }{
+		{"nxdomain_with_address", `{"Status":3,"Answer":[{"name":"hardened.invalid.","type":1,"TTL":300,"data":"9.9.9.9"}]}`},
+		{"unrelated_owner", `{"Status":0,"Answer":[{"name":"attacker.invalid.","type":1,"TTL":300,"data":"9.9.9.9"}]}`},
+		{"ipv6_address_disguised_as_A", `{"Status":0,"Answer":[{"name":"hardened.invalid.","type":1,"TTL":300,"data":"2606:4700:4700::1111"}]}`},
+		{"ipv4_address_disguised_as_AAAA", `{"Status":0,"Answer":[{"name":"hardened.invalid.","type":28,"TTL":300,"data":"9.9.9.9"}]}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/dns-json")
+				_, _ = w.Write([]byte(tc.payload))
+			}))
+			defer server.Close()
+			resolver := dns.NewHyperResolver(&dns.Config{
+				DoHServers: []string{server.URL + "?name=%s&type=A"},
+				Timeout:    500 * time.Millisecond,
+			})
+			_, err := resolver.Resolve(context.Background(), "hardened.invalid")
+			if err == nil {
+				t.Fatal("untrusted DoH record was accepted as a resolved address")
+			}
+			if ip, ok := resolver.GetCached("hardened.invalid"); ok {
+				t.Errorf("untrusted response poisoned cache with %s", ip)
+			}
+		})
+	}
 }
 
 func TestDoHRejectsQueryParameterInjectionInHostname(t *testing.T) {
-    server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-        _, _ = w.Write([]byte(`{"Status":0,"Answer":[{"name":"hardened.invalid","type":1,"TTL":300,"data":"9.9.9.9"}]}`))
-    }))
-    defer server.Close()
-    resolver := dns.NewHyperResolver(&dns.Config{
-        DoHServers: []string{server.URL+"?name=%s&type=A"},
-        Timeout: 500 * time.Millisecond,
-    })
-    if _, err := resolver.Resolve(context.Background(), "hardened.invalid&type=AAAA"); err == nil {
-        t.Fatal("DNS query manipulation was accepted")
-    }
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"Status":0,"Answer":[{"name":"hardened.invalid","type":1,"TTL":300,"data":"9.9.9.9"}]}`))
+	}))
+	defer server.Close()
+	resolver := dns.NewHyperResolver(&dns.Config{
+		DoHServers: []string{server.URL + "?name=%s&type=A"},
+		Timeout:    500 * time.Millisecond,
+	})
+	if _, err := resolver.Resolve(context.Background(), "hardened.invalid&type=AAAA"); err == nil {
+		t.Fatal("DNS query manipulation was accepted")
+	}
 }
 
 func TestDoHAcceptsOwnerBoundValidCNAMEAnswer(t *testing.T) {
-    server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-        _, _ = w.Write([]byte(`{"Status":0,"Answer":[{"name":"alias.invalid.","type":5,"TTL":60,"data":"edge.invalid."},{"name":"edge.invalid.","type":1,"TTL":120,"data":"9.9.9.9"}]}`))
-    }))
-    defer server.Close()
-    resolver := dns.NewHyperResolver(&dns.Config{
-        DoHServers: []string{server.URL+"?name=%s&type=A"},
-        Timeout: 500 * time.Millisecond,
-    })
-    got, err := resolver.Resolve(context.Background(), "alias.invalid")
-    if err != nil || got != "9.9.9.9" {
-        t.Fatalf("valid CNAME chain rejected: ip=%q err=%v", got, err)
-    }
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"Status":0,"Answer":[{"name":"alias.invalid.","type":5,"TTL":60,"data":"edge.invalid."},{"name":"edge.invalid.","type":1,"TTL":120,"data":"9.9.9.9"}]}`))
+	}))
+	defer server.Close()
+	resolver := dns.NewHyperResolver(&dns.Config{
+		DoHServers: []string{server.URL + "?name=%s&type=A"},
+		Timeout:    500 * time.Millisecond,
+	})
+	got, err := resolver.Resolve(context.Background(), "alias.invalid")
+	if err != nil || got != "9.9.9.9" {
+		t.Fatalf("valid CNAME chain rejected: ip=%q err=%v", got, err)
+	}
 }
