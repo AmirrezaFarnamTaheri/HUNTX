@@ -899,7 +899,29 @@ class StateRepo:
 
                 # Remove expired children before their observations: the exact
                 # provenance foreign key deliberately uses ON DELETE RESTRICT.
-                c = conn.execute("DELETE FROM records WHERE created_at < datetime('now', ?)", (f"-{days} days",))
+                # Keep every historically authenticated proxy available for
+                # deliberate future rechecks, even when the discovery source
+                # has not refreshed in the normal retention window. A failed
+                # probe or a slower connection is NOT proof of permanent death.
+                # Explicit revocation/death/archival remains authoritative.
+                # This does not make an old record publication-eligible: the
+                # current build window and per-node fresh HTTPS gate still
+                # require independent recent authentication.
+                c = conn.execute(
+                    """
+                    DELETE FROM records
+                    WHERE created_at < datetime('now', ?)
+                      AND NOT EXISTS (
+                          SELECT 1 FROM proxy_lifecycle p
+                          WHERE p.unique_hash = records.unique_hash
+                            AND p.record_type = records.record_type
+                            AND p.last_success_at IS NOT NULL
+                            AND p.authenticated_successes > 0
+                            AND p.lifecycle_status NOT IN ('dead', 'revoked', 'archived')
+                      )
+                    """,
+                    (f"-{days} days",),
+                )
                 res["records"] = c.rowcount
 
                 # A fresh record still needs its observation, even when its raw
