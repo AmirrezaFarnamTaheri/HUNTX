@@ -30,6 +30,7 @@ def _endpoint(uri: str) -> tuple[str, int] | None:
     except (TypeError, ValueError, UnicodeError, OverflowError):
         return None
     if (node is None or node.type in _UDP_PROTOCOLS or node.naive_quic
+            or node.transport_type == 'quic' or node.network == 'udp'
             or not node.server or type(node.port) is not int
             or not 1 <= node.port <= 65535):
         return None
@@ -55,7 +56,12 @@ def _measure(target: tuple[str, int]) -> tuple[tuple[str, int], dict]:
         )
     public = _public_addresses(answers)
     if not public:
-        return target, {}
+        # A DNS answer pointing only at internal/loopback addresses must
+        # not be reported as public reachability, nor cause a connection.
+        return target, (
+            {'dns_status': 'non_public_answer', 'dns_checked_at': now,
+             'dns_expires_at': now + _OBSERVATION_TTL} if is_dns else {}
+        )
     evidence: dict = (
         {'dns_status': 'resolved', 'dns_checked_at': now,
          'dns_expires_at': now + _OBSERVATION_TTL} if is_dns else {}

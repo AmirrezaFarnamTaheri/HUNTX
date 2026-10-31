@@ -3,6 +3,7 @@ package tlsdiag
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net"
 	"time"
@@ -12,6 +13,7 @@ import (
 type Classifier struct {
 	Timeout            time.Duration
 	InsecureSkipVerify bool
+	RootCAs            *x509.CertPool
 	ALPNProtos         []string
 }
 
@@ -21,7 +23,7 @@ var _ Prober = (*Classifier)(nil)
 func NewClassifier(opts ...Option) *Classifier {
 	c := &Classifier{
 		Timeout:            3 * time.Second,
-		InsecureSkipVerify: true, // Default true for diagnostic inspection of untrusted proxy nodes
+		InsecureSkipVerify: false, // A TLS handshake without chain/hostname verification is not trusted.
 		ALPNProtos:         []string{"h2", "http/1.1"},
 	}
 	for _, opt := range opts {
@@ -36,8 +38,8 @@ func (c *Classifier) Probe(ctx context.Context, target string, serverName string
 	report := TLSReport{
 		Target:      target,
 		ServerName:  serverName,
-		Posture:     PostureVulnerable,
-		PostureName: PostureVulnerable.String(),
+		Posture:     PostureUnknown,
+		PostureName: PostureUnknown.String(),
 		Success:     false,
 	}
 
@@ -59,6 +61,7 @@ func (c *Classifier) Probe(ctx context.Context, target string, serverName string
 	tlsConfig := &tls.Config{
 		ServerName:         serverName,
 		InsecureSkipVerify: c.InsecureSkipVerify,
+		RootCAs:            c.RootCAs,
 		NextProtos:         c.ALPNProtos,
 		MinVersion:         tls.VersionTLS10,
 		MaxVersion:         tls.VersionTLS13,
@@ -74,6 +77,7 @@ func (c *Classifier) Probe(ctx context.Context, target string, serverName string
 	}
 
 	state := tlsConn.ConnectionState()
+	report.CertificateVerified = !c.InsecureSkipVerify && len(state.VerifiedChains) > 0
 	report.HandshakeTime = time.Since(start)
 	report.Success = true
 	report.ALPN = state.NegotiatedProtocol
@@ -95,6 +99,11 @@ func (c *Classifier) Probe(ctx context.Context, target string, serverName string
 		report.Posture = PostureVulnerable
 	}
 
+	if !report.CertificateVerified {
+		// Explicit insecure inspection may collect ALPN/TLS version, but
+		// must never advertise a hardened or trusted transport.
+		report.Posture = PostureUnknown
+	}
 	report.PostureName = report.Posture.String()
 	report.JA4Fingerprint = CalculateJA4S(state.Version, state.CipherSuite, state.NegotiatedProtocol)
 

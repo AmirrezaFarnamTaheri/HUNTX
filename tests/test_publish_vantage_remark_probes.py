@@ -23,7 +23,8 @@ def test_private_dns_addresses_are_never_connected(monkeypatch):
     monkeypatch.setattr(remark_probe.socket, "socket", lambda *a, **k: calls.append(a))
     target, observation = remark_probe._measure(("private.example", 443))
     assert target == ("private.example", 443)
-    assert observation == {}
+    assert observation["dns_status"] == "non_public_answer"
+    assert "probe_kind" not in observation
     assert calls == []
 
 

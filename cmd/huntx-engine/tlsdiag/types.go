@@ -52,7 +52,10 @@ type TLSReport struct {
 	PostureName    string          `json:"posture_name"`
 	HandshakeTime  time.Duration   `json:"handshake_time_ms"`
 	Success        bool            `json:"success"`
-	Error          string          `json:"error,omitempty"`
+	// CertificateVerified means the peer chain and hostname were checked.
+	// A successful handshake alone is not a trusted TLS connection.
+	CertificateVerified bool   `json:"certificate_verified"`
+	Error               string `json:"error,omitempty"`
 }
 
 // Prober defines the contract for running active TLS diagnostic handshakes.

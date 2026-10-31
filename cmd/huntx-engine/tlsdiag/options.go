@@ -1,6 +1,9 @@
 package tlsdiag
 
-import "time"
+import (
+	"crypto/x509"
+	"time"
+)
 
 // Option configures a Classifier instance using functional options.
 type Option func(*Classifier)
@@ -27,5 +30,13 @@ func WithALPNProtocols(protos []string) Option {
 		if len(protos) > 0 {
 			c.ALPNProtos = protos
 		}
+	}
+}
+
+// WithRootCAs adds an explicit trust store for deterministic tests or private PKI.
+// Nil uses the operating system's trusted roots.
+func WithRootCAs(roots *x509.CertPool) Option {
+	return func(c *Classifier) {
+		c.RootCAs = roots
 	}
 }
