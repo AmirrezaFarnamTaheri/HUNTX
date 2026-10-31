@@ -109,6 +109,10 @@ def _tcp_probe_target(uri: str) -> tuple[str, int] | None:
             node = parse_proxy_uri(uri)
             if node is None:
                 return None
+            if node.transport_type == "quic" or node.network == "udp":
+                # The VMess transport is inside the encoded payload; a raw
+                # TCP connect would be a false failure for QUIC/UDP links.
+                return None
             host, port = node.server, node.port
         else:
             host, port = parsed.hostname, parsed.port
