@@ -140,22 +140,13 @@ class TransformPipeline:
                 return result
 
             record_rows = []
-            for index, record in enumerate(records):
-                if index >= self.max_records_per_file:
-                    result["status"] = "failed"
-                    result["record_rows"] = []
-                    result["records"] = 0
-                    result["status_update"] = (
-                        "failed",
-                        "Transform record limit exceeded",
-                        observation_id,
-                    )
-                    logger.error(
-                        "[Transform] Record limit exceeded file=%s limit=%s",
-                        filename,
-                        self.max_records_per_file,
-                    )
-                    return result
+            # The per-file limit bounds each *database write chunk*, not
+            # the number of valid configurations in an approved subscription.
+            # Parsing all rows atomically avoids dropping working identities
+            # when one upstream source has more than 10,000 distinct nodes.
+            # The run-wide record budget still fails closed if this observation
+            # cannot fit; it remains pending rather than being marked failed.
+            for record in records:
                 payload = record["data"]
                 # Only enrich standard URI observations. The normalized
                 # subscription line remains byte-for-byte unchanged; endpoint
@@ -211,7 +202,12 @@ class TransformPipeline:
         if all_record_rows or status_updates:
             with self.state_repo.db.connect() as conn:
                 if all_record_rows:
-                    self.state_repo.add_records_batch(all_record_rows, conn=conn)
+                    # Keep one transaction for all chunks and source status
+                    # flips. A later chunk failure rolls every insert back;
+                    # the whole observation stays pending for a safe retry.
+                    for start in range(0, len(all_record_rows), self.max_records_per_file):
+                        chunk = all_record_rows[start:start + self.max_records_per_file]
+                        self.state_repo.add_records_batch(chunk, conn=conn)
                 if status_updates:
                     self.state_repo.update_observation_status_batch(status_updates, conn=conn)
 
