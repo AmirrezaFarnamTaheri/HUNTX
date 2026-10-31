@@ -82,7 +82,9 @@ def test_quality_gate_runs_for_direct_main_changes():
 
     assert "  push:" in trigger
     assert "      - main" in trigger
-    assert '      - "fix/**"' in trigger
+    assert "  pull_request:" in trigger
+    assert "  workflow_dispatch:" in trigger
+    assert '      - "fix/**"' not in trigger
     assert '      - ".github/**"' in trigger
     assert '      - "outputs/**"' in trigger
     assert '      - "outputs_dev/**"' in trigger
