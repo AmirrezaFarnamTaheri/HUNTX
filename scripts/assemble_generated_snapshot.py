@@ -476,8 +476,15 @@ def _catalog_dev_trio(docs_dir: Path, dev_dir: Path) -> None:
     catalog_path.write_text(json.dumps(catalog, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def _proxy_hashes(\n    directory: Path | None, filename: str, *, historical: bool = False\n) -> set[str] | None:
-    """Return distinct connection digests; reject duplicates in new feeds only.\n\n    Historical snapshots may predate semantic deduplication. Treat repeated\n    historical identities as one for churn metrics, never as new proof.\n    """
+def _proxy_hashes(
+    directory: Path | None, filename: str, *, historical: bool = False
+) -> set[str] | None:
+    """Return connection digests, or None when a feed is unavailable.
+
+    Historical publication snapshots can predate semantic deduplication.
+    Collapse repeated historical identities for churn comparisons only.
+    Current output and alternate feeds must still have unique identities.
+    """
     if directory is None or not (directory / filename).is_file():
         return None
     found: set[str] = set()
@@ -486,7 +493,7 @@ def _proxy_hashes(\n    directory: Path | None, filename: str, *, historical: bo
             continue
         identity = canonical_proxy_identity(line.strip())
         digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()
-        if digest in found:
+        if digest in found and not historical:
             raise ValueError("Released proxy feed contains duplicate semantic identities")
         found.add(digest)
     return found
