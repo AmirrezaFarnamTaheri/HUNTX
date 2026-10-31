@@ -141,3 +141,11 @@ def test_production_checkpoint_persists_after_runtime_failures_but_not_workflow_
     assert "if: ${{ always() && !cancelled() && needs.run.outputs.checkpoint_ready == 'true' }}" in persist_job
     assert "runtime-checkpoint-${{ github.run_id }}-${{ github.run_attempt }}" in persist_job
     assert "Reverify checkpoint" in persist_job
+
+
+def test_runtime_watchdog_is_derived_from_application_timeout():
+    """The OS kill watchdog must not silently overrun the configured budget."""
+    workflow = Path(".github/workflows/huntx.yml").read_text()
+    assert 'watchdog_budget_seconds=$((HUNTX_RUN_TIMEOUT + 300))' in workflow
+    assert 'timeout --signal=TERM --kill-after=30s "${watchdog_budget_seconds}s"' in workflow
+    assert '105m' not in workflow
