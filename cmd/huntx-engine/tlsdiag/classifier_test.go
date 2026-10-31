@@ -102,7 +102,7 @@ func TestTLSClassifierProbesLocalTLSServer(t *testing.T) {
 	addr, cleanup := startMockTLSServer(t, cert, []string{"h2", "http/1.1"})
 	defer cleanup()
 
-	classifier := NewClassifier(WithTimeout(2 * time.Second))
+	classifier := NewClassifier(WithTimeout(2 * time.Second), WithInsecureSkipVerify(true))
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -119,8 +119,8 @@ func TestTLSClassifierProbesLocalTLSServer(t *testing.T) {
 		t.Errorf("expected negotiated ALPN 'h2', got %q", report.ALPN)
 	}
 
-	if report.Posture == PostureUnknown || report.Posture == PostureVulnerable {
-		t.Errorf("expected standard or hardened posture, got %v (%s)", report.Posture, report.PostureName)
+	if report.Posture != PostureUnknown || report.CertificateVerified {
+		t.Errorf("untrusted diagnostic handshake must not count as verified secure TLS: %+v", report)
 	}
 }
 
@@ -133,8 +133,42 @@ func TestTLSClassifierHandlesConnectionRefused(t *testing.T) {
 	if report.Success {
 		t.Fatalf("expected failure on unbound port, got success")
 	}
-	if report.Posture != PostureVulnerable {
-		t.Errorf("expected vulnerable posture for failed connection, got %v", report.Posture)
+	if report.Posture != PostureUnknown {
+		t.Errorf("failed connection has unknown posture, not a TLS vulnerability: %v", report.Posture)
+	}
+}
+
+func TestTLSClassifierRejectsUntrustedCertificateByDefault(t *testing.T) {
+	cert := generateSelfSignedCert(t)
+	addr, cleanup := startMockTLSServer(t, cert, []string{"h2"})
+	defer cleanup()
+
+	report := NewClassifier(WithTimeout(2 * time.Second)).Probe(context.Background(), addr, "localhost")
+	if report.Success || report.CertificateVerified {
+		t.Errorf("untrusted self-signed endpoint must not be reported as valid: %+v", report)
+	}
+	if report.Posture != PostureUnknown {
+		t.Errorf("failed verification does not establish vulnerable TLS: %+v", report)
+	}
+}
+
+func TestTLSClassifierAcceptsExplicitlyTrustedCertificate(t *testing.T) {
+	cert := generateSelfSignedCert(t)
+	addr, cleanup := startMockTLSServer(t, cert, []string{"h2"})
+	defer cleanup()
+	leaf, err := x509.ParseCertificate(cert.Certificate[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	roots := x509.NewCertPool()
+	roots.AddCert(leaf)
+	classifier := NewClassifier(WithTimeout(2 * time.Second), WithRootCAs(roots))
+	report := classifier.Probe(context.Background(), addr, "localhost")
+	if !report.Success || !report.CertificateVerified {
+		t.Errorf("trusted certificate must be explicitly verified: %+v", report)
+	}
+	if report.Posture != PostureHardened && report.Posture != PostureStandard {
+		t.Errorf("verified modern TLS must have a supported posture: %+v", report)
 	}
 }
 
