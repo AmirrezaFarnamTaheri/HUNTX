@@ -1,62 +1,84 @@
-# Generated outputs publication model
+# Generated-output lifecycle and retention
 
-`huntx-production` is the trusted producer. `Publish Generated Outputs` validates a completed successful producer run, downloads its verified checkpoint, distributable bundle, and diagnostics, and then publishes one deterministic snapshot.
+The `huntx-production` workflow is the only trusted runtime producer. Its
+checkpoint, current-run distributable, source-health report, and release receipt
+have distinct provenance. A green build or a successful no-release verdict
+does **not** imply that fresh proxies were published or authenticated.
 
-## Directory semantics
+## Publication targets (after #165)
 
-- `outputs/` contains the artifacts produced by the source workflow run being published. A later run replaces the default-branch mirror; the `generated-outputs` commit history records prior published runs.
-- `outputs_dev/` is an all-time cumulative, deduplicated proxy data set. Before publishing, the workflow merges the previous generated manifest, recoverable legacy history from the default branch, and the current run manifest.
-- `dist/` and `run-summary/` belong to the current source run.
-- `manifests/publication.json` records provenance and previous, legacy, current, and cumulative counts.
+- `generated-outputs`: a dedicated branch that records the validated public
+  snapshot, historical identity manifest, and dashboard shell/assets.
+- GitHub Pages: the publication workflow deploys the exact verified snapshot,
+  rather than claiming that an older checked-in sample represents a new release.
+- GitHub Actions artifacts: per-run checkpoint/output/log artifacts, retained
+  according to their explicit workflow retention settings.
+- `main`: **source code and historical data only**. The publisher does **not**
+  commit or force-push generated `outputs/` or `outputs_dev/` back to `main`.
+  Legacy tracked files may remain visible at old revisions and must not be
+  interpreted as current live data.
 
-This means `outputs_dev/` remains cumulative even when the production workflow is stateless because no S3 bucket is configured.
+`outputs/` refers to one verified producer run. `outputs_dev/` contains a
+cumulative, semantically deduplicated set of historical proxy identities.
+`dist/` and release receipts must match that producer's run ID, attempt and
+commit. The publication manifest is an immutable audit record of the accepted
+release. A no-release verdict leaves the previous distribution unchanged.
 
-## Legacy cumulative bootstrap
+## Bootstrap and recovery
 
-Older repository states can contain a large, valid `outputs_dev/proxies.txt` or `proxies.json` while `_manifest.json` is blank or absent. The rendered history is authoritative migration input and must not be discarded merely because the newer manifest contract was introduced later.
+Older source history may contain valid `outputs_dev/proxies.txt`,
+`proxies.json`, and manifests even when `_manifest.json` is empty. The
+publisher recovers these as **migration inputs**, preserving known first-seen
+timestamps and using zero only when history cannot establish a date.
+Unrecoverable non-empty legacy layouts fail closed rather than silently
+discarding cumulative identities.
 
-The publisher checks the default-branch `outputs_dev/` directory on every publication:
+A successful generated-branch publication is monotonic and uses
+`--force-with-lease` against the expected previous generated head. Replaying
+the same verified run should be idempotent; obsolete producers cannot overwrite
+a newer publication. The old `main` mirror is **not** a recovery destination.
+Use the validated producer artifacts and the generated branch.
 
-1. A non-empty legacy manifest is loaded when valid.
-2. Proxy identities are recovered from `proxies.txt` and `proxies.json`.
-3. `proxies_b64sub.txt` is used as a fallback when no identities were recovered from the other representations.
-4. Known timestamps are preserved. Identities that have no historical timestamp receive the sentinel `0`.
-5. Legacy identities seed only missing entries; they never replace a known timestamp from the generated manifest.
-6. A non-empty but unrecoverable legacy layout fails publication closed instead of silently shrinking the cumulative set.
+## Repository growth and safe retention
 
-After a successful publication, the newly generated `_manifest.json` becomes the durable cumulative contract, while legacy recovery remains idempotent protection for default-branch history.
+The new default `.gitignore` patterns protect **untracked** local generated
+payloads. Git ignores do not untrack or delete files already committed.
+Historic `main` blobs and older `generated-outputs` commits still consume
+Git storage, even if their latest working trees appear compact.
 
-## Publication targets
+No automated job is allowed to rewrite `main` history or discard the
+cumulative identity manifest. Before any planned reduction:
 
-Each successful publication updates both:
+1. Export a verified, restorable backup of the latest source tree, the current
+   generated branch snapshot, cumulative identity manifest, publication
+   receipts, and configured state backend generation.
+2. Inventory byte size and earliest/latest timestamps, then classify current
+   distributables, replay state, historical public proxy payloads, and
+   diagnostic logs separately. Treat generated proxy credentials as potentially
+   sensitive user-facing data even when they are not HuntX control-plane keys.
+3. Decide retention windows and who may access exported archives; do not
+   silently discard the oldest `first_seen` provenance or unexpired release
+   receipts.
+4. Dry-run any retention script against a restored copy and verify checksums,
+   continuity, legacy-bootstrap behavior, and replay/idempotency tests.
+5. Schedule destructive history compaction as a separate, reviewed migration
+   requiring a coordinated contributor re-clone and rollback procedure.
 
-1. `generated-outputs`, a generated-data-only branch whose commits form one publication history chain.
-2. `main/outputs/` and `main/outputs_dev/`, a source-branch mirror for users who browse the default branch.
+## Pages deployment configuration
 
-The main mirror is ownership-scoped by `.github/huntx-generated-files.txt`. Only paths listed in that inventory are replaced or removed. Unmanaged helper files such as `outputs/verify_output.py` are preserved.
+The verified publisher's `actions/deploy-pages` deployment and GitHub's
+independent legacy `pages build and deployment` activity must not race to
+present different generations. On October 31 the repository showed a successful
+legacy Jekyll Pages build from `main` after a publisher run that deliberately
+skipped republishing stale output. **Those green runs do not establish that
+the public dashboard is showing the newest verified generated snapshot.**
+The repository owner must confirm GitHub Pages is configured to deploy the
+GitHub Actions publication artifact, then verify the public page's manifest,
+run ID, timestamp and download bytes against the immutable receipt.
 
-## Producer artifacts
+## Gates
 
-The `huntx-production` workflow produces:
-
-- `huntx-output-<run_id>-<attempt>`: distributable artifacts from `persist/data/dist/`
-- `runtime-checkpoint-<run_id>-<attempt>`: verified recoverable state, including the current run outputs
-- `huntx-logs-<run_id>-<attempt>`: structured runtime diagnostics
-
-The publisher accepts artifacts only after validating the originating workflow name, workflow path, source branch, completion state, conclusion, and run attempt.
-
-## Guarantees
-
-- current-run `outputs/` never inherits files from an older snapshot
-- cumulative `outputs_dev/` never loses an identity present in generated, legacy, or current verified inputs
-- duplicate proxy identities keep a known earliest `first_seen` value
-- blank legacy manifests do not erase rendered cumulative history
-- repeated publication of the same run and parent snapshot is deterministic and idempotent
-- generated publication commits preserve ancestry and use `--force-with-lease`
-- main synchronization retries non-fast-forward races without force-pushing
-- stale generated files are removed through an explicit ownership inventory
-- unmanaged source-branch files are not deleted
-
-## Recovery
-
-If generated-branch publication or the main mirror fails, the producer artifacts remain the recovery source. A manual dispatch can republish a validated producer run by its run ID and attempt. A failed main push does not require regenerating runtime data; rerunning the publisher reuses the same verified artifacts and deterministic snapshot.
+Keep fail-closed checks for the producer workflow identity and attempt,
+current-run release receipt, output digest/manifest, allowed destinations,
+proxy protocol authentication, and the final Pages package. Optional Telegram
+availability is diagnostic, not a reason to fabricate successful ingestion.
