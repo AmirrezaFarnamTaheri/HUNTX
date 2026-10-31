@@ -100,6 +100,7 @@ def test_rejects_mismatch_between_producer_feed_and_public_download(tmp_path):
 
 def test_rejects_no_live_authenticated_handshake_and_does_not_fake_one(tmp_path):
     root = snapshot(tmp_path)
+
     def all_failed(records):
         return CheckedRecords([], {
             "schema_version": 1, "scope": "single_authenticated_https_sweep",
