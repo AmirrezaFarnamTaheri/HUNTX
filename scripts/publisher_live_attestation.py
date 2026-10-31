@@ -345,6 +345,8 @@ def main() -> int:
         )
         path.write_text(json.dumps(report, sort_keys=True, indent=2) + "\n",
                         encoding="utf-8")
+        from scripts.assemble_generated_snapshot import write_snapshot_digest
+        write_snapshot_digest(root)
         print(f"Publisher HTTPS recheck: candidates={report['candidate_count']} "
               f"fresh={report['fresh_authenticated_count']} receipt={path.name}")
     else:
