@@ -801,25 +801,33 @@ def annotate_dns_resolution(proxies: list[dict]) -> list[dict]:
         for node in proxies if str(node.get("server") or "").strip()
     })
 
-    def lookup(address: str) -> tuple[str, bool]:
+    from huntx.core.latency_benchmarker import _public_addresses
+
+    def lookup(address: str) -> tuple[str, str]:
         try:
-            ipaddress.ip_address(address)
-            return address, True
+            literal = ipaddress.ip_address(address.strip("[]"))
         except ValueError:
             pass
+        else:
+            return (
+                address, "resolved_from_publish_vantage"
+                if literal.is_global else "non_public_dns_answer"
+            )
         try:
-            return address, bool(socket.getaddrinfo(address, None, type=socket.SOCK_STREAM))
+            answers = socket.getaddrinfo(address, None, type=socket.SOCK_STREAM)
         except (OSError, ValueError, TypeError):
-            return address, False
+            return address, "unresolved_from_publish_vantage"
+        if _public_addresses(answers):
+            return address, "resolved_from_publish_vantage"
+        # A local/private answer is DNS resolution, but it is not a public
+        # candidate for a proxy test and must never imply reachability.
+        return address, "non_public_dns_answer" if answers else "unresolved_from_publish_vantage"
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=PROBE_MAX_WORKERS) as pool:
         answers = dict(pool.map(lookup, unique_addresses))
     for node in proxies:
         address = str(node.get("server") or "").strip()
-        node["dns_resolution"] = (
-            "resolved_from_publish_vantage" if answers.get(address)
-            else "unresolved_from_publish_vantage"
-        )
+        node["dns_resolution"] = answers.get(address, "unresolved_from_publish_vantage")
     return proxies
 
 
