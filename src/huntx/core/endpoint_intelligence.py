@@ -232,6 +232,10 @@ def describe_proxy_endpoint(
     endpoint_id = hashlib.sha256(
         f"network-endpoint-v1|{protocol}|{host}|{node.port}".encode("utf-8")
     ).hexdigest()[:24]
+    udp_transport = (
+        protocol in _UDP_PROTOCOLS or bool(node.naive_quic)
+        or node.network == "udp" or node.transport_type == "quic"
+    )
     status = (
         "unresolved_hostname" if address is None else
         "non_public_ip" if not address.is_global else
@@ -247,7 +251,7 @@ def describe_proxy_endpoint(
         "host_kind": host_kind,
         "ip": str(address) if address is not None and address.is_global else None,
         "ip_version": address.version if address is not None else None,
-        "transport_kind": "udp" if protocol in _UDP_PROTOCOLS or bool(node.naive_quic) else "tcp",
+        "transport_kind": "udp" if udp_transport else "tcp",
         "transport": node.transport_type or node.network or None,
         "tls_mode": "reality" if node.tls_reality_enabled else "tls" if node.tls_enabled else "none",
         "asn": None,
@@ -283,7 +287,7 @@ def describe_proxy_endpoint(
                if node.transport_type == "grpc" and node.tls_alpn
                and "h2" not in node.tls_alpn else [])
             + (["udp_requires_native_protocol_probe"]
-               if protocol in _UDP_PROTOCOLS or bool(node.naive_quic) else [])
+               if udp_transport else [])
             + (["reality_requires_native_protocol_probe"]
                if node.tls_reality_enabled else [])
         ),
