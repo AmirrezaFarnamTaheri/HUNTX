@@ -94,3 +94,31 @@ def test_legacy_staged_feed_passes_strict_parity_without_mutating_archive(tmp_pa
     assert (docs / "assets/js/data.js").is_file()
     assert (source / "all_sources.txt").read_text(encoding="utf-8").splitlines() == [a, b]
 
+def test_real_committed_archive_stages_cleanly_for_current_dashboard(tmp_path, monkeypatch):
+    """Prove staging against the actual archived release, not only tiny fixtures."""
+    from scripts import generate_site_data as site
+
+    source = Path(__file__).resolve().parents[1] / "outputs"
+    if not (source / "all_sources.txt").is_file():
+        from pytest import skip
+        skip("committed legacy release fixture not available")
+    staged = tmp_path / "current-staged"
+    report = stage_legacy_release_fixture(source, staged)
+    assert report["input"] >= report["retained"] > 0
+    # Dev snapshots may have new URI aliases; this is only an input for the
+    # read-only generator, never a replacement for publication integrity.
+    docs = tmp_path / "generated-site"
+    monkeypatch.setattr(site, "OUTPUTS_DIR", staged)
+    monkeypatch.setattr(site, "OUTPUTS_DEV_DIR", tmp_path / "no-dev")
+    monkeypatch.setattr(site, "DOCS_DIR", docs)
+    monkeypatch.setattr(site, "ARTIFACTS_DIR", docs / "artifacts")
+    monkeypatch.setattr(site, "CATALOG_FILE", docs / "catalog.json")
+    monkeypatch.setattr(site, "DATA_JS_FILE", docs / "assets/js/data.js")
+    monkeypatch.setattr(site, "annotate_dns_resolution", lambda nodes: nodes)
+    monkeypatch.setattr(site, "enrich_proxies_with_geoip", lambda nodes: nodes)
+    monkeypatch.setattr(site, "probe_tcp_latency", lambda nodes: [
+        dict(node, probe_ok=False, latency=None) for node in nodes
+    ])
+    site.generate_all()
+    assert (docs / "assets/js/data.js").stat().st_size > 0
+
