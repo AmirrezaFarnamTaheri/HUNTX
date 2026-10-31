@@ -6,6 +6,7 @@ import importlib.util
 import json
 import os
 import socket
+import time
 from pathlib import Path
 from unittest import mock
 
@@ -403,6 +404,7 @@ def test_authenticated_proxy_evidence_gates_verified_health() -> None:
         latency=22, probe_ok=True, security_grade="A+",
         probe_kind="protocol_authenticated", authenticated_probe_ok=True,
         authenticated_probe_age_seconds=30, authenticated_latency_ms=33,
+        authenticated_probe_expires_at=time.time() + 300,
     )
     verified = module.grade_proxy_health([dict(values)])[0]
     assert verified["health_grade"] == "A+"
