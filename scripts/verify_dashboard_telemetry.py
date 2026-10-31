@@ -56,6 +56,8 @@ def validate_proxy_telemetry(proxies: list[dict]) -> dict[str, int]:
         # A UDP/QUIC proxy has no TCP endpoint measurement to report.
         # Historical snapshots still contain bool TCP observations and must
         # remain readable until the next verified publication.
+        if proxy.get("probe_transport") == "udp" and proxy.get("probe_ok") is not None:
+            invalid("native UDP cannot have a TCP probe outcome")
         if type(proxy.get("probe_ok")) is not bool and not udp_unmeasured:
             invalid("missing TCP measurement outcome (probe_ok)")
         if "health_grade" not in proxy or "latency_grade" not in proxy:
@@ -95,11 +97,13 @@ def validate_proxy_telemetry(proxies: list[dict]) -> dict[str, int]:
                 invalid("fresh authenticated proxy lacks a verified grade")
             age = proxy.get("authenticated_probe_age_seconds")
             duration = proxy.get("authenticated_latency_ms")
+            expiry = proxy.get("authenticated_probe_expires_at")
             if (
                 proxy.get("probe_kind") != "protocol_authenticated"
                 or proxy.get("authenticated_probe_ok") is not True
                 or not _finite_number(age) or not 0 <= age <= 3600
                 or not _finite_number(duration) or duration < 0
+                or not _finite_number(expiry) or expiry <= time.time()
             ):
                 invalid("verified grade lacks fresh authenticated protocol evidence")
             counts["verified"] += 1
