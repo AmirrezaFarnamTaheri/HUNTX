@@ -117,3 +117,63 @@ def test_pages_package_detects_dashboard_missing_vmess_from_feed(tmp_path: Path)
         encoding="utf-8",
     )
     assert validate_pages_package(tmp_path)["missing"] == []
+
+def test_pages_rejects_stale_aggregate_manifest_even_if_release_and_catalog_valid(tmp_path: Path):
+    """A legacy root manifest must not misdescribe otherwise verified downloads."""
+    (tmp_path / "index.html").write_text("<html></html>", encoding="utf-8")
+    release = tmp_path / "artifacts" / "release"
+    release.mkdir(parents=True)
+    payload = b"synthetic-release-data"
+    artifact = release / "feed.txt"
+    artifact.write_bytes(payload)
+    expected = {
+        "path": "artifacts/release/feed.txt", "size": len(payload),
+        "sha256": hashlib.sha256(payload).hexdigest(),
+    }
+    (tmp_path / "catalog.json").write_text(
+        json.dumps({"files": [expected]}), encoding="utf-8"
+    )
+    (release / "manifest.json").write_text(
+        json.dumps({"artifact_count": 1, "artifacts": [{
+            "path": "feed.txt", "size": expected["size"],
+            "sha256": expected["sha256"],
+        }]}), encoding="utf-8"
+    )
+    aggregate = tmp_path / "artifacts" / "manifest.json"
+    aggregate.write_text(json.dumps({"artifact_count": 1, "artifacts": [{
+        "path": "release/feed.txt",
+        "size": len(payload) + 100,
+        "sha256": expected["sha256"],
+    }]}), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="feed.txt|aggregate"):
+        validate_pages_package(tmp_path)
+
+    aggregate.write_text(json.dumps({"artifact_count": 1, "artifacts": [{
+        "path": "release/feed.txt",
+        "size": len(payload),
+        "sha256": expected["sha256"],
+    }]}), encoding="utf-8")
+    assert validate_pages_package(tmp_path)["missing"] == []
+
+
+def test_pages_rejects_aggregate_catalog_path_disagreement(tmp_path: Path):
+    (tmp_path / "index.html").write_text("<html></html>", encoding="utf-8")
+    release = tmp_path / "artifacts" / "release"
+    release.mkdir(parents=True)
+    for name in ("one.txt", "two.txt"):
+        (release / name).write_bytes(b"valid")
+    digest = hashlib.sha256(b"valid").hexdigest()
+    (tmp_path / "catalog.json").write_text(json.dumps({
+        "files": [{"path": "artifacts/release/one.txt", "size": 5, "sha256": digest}]
+    }), encoding="utf-8")
+    (tmp_path / "artifacts" / "manifest.json").write_text(json.dumps({
+        "artifact_count": 2,
+        "artifacts": [
+            {"path": "release/one.txt", "size": 5, "sha256": digest},
+            {"path": "release/two.txt", "size": 5, "sha256": digest},
+        ],
+    }), encoding="utf-8")
+    with pytest.raises(ValueError, match="aggregate.*catalog"):
+        validate_pages_package(tmp_path)
+
