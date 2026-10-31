@@ -414,8 +414,17 @@ class HardenedOrchestrator(Orchestrator):
         export_start = time.monotonic()
         if release_eligible:
             try:
+                # An export can be valid on disk yet still be too late to
+                # publish. Check after each synchronous mutation as well
+                # as before it; do not approve an expired generation.
+                deadline.raise_if_expired("export")
                 self._export_outputs(all_build_results)
+                deadline.raise_if_expired("export")
                 self._export_dev_outputs(all_build_results)
+                deadline.raise_if_expired("export")
+            except DeadlineExceeded:
+                release_eligible = False
+                mark_timeout("export")
             except Exception:
                 release_eligible = False
                 status = "failed"
@@ -432,14 +441,24 @@ class HardenedOrchestrator(Orchestrator):
 
         cleanup_skipped_due_to_deadline = deadline.expired()
         if cleanup_skipped_due_to_deadline:
+            if status == "completed":
+                release_eligible = False
+                mark_timeout("cleanup")
             logger.warning("[Orchestrator] Skipping cleanup because the global deadline is exhausted")
             stage_seconds["cleanup"] = 0.0
         else:
             cleanup_start = time.monotonic()
             try:
+                deadline.raise_if_expired("cleanup")
                 self.raw_store.prune_processed(self.repo)
+                deadline.raise_if_expired("cleanup")
                 self.raw_store.prune_orphans(self.repo)
+                deadline.raise_if_expired("cleanup")
                 self.artifact_store.prune_archive()
+                deadline.raise_if_expired("cleanup")
+            except DeadlineExceeded:
+                release_eligible = False
+                mark_timeout("cleanup")
             except Exception:
                 if status == "completed":
                     status = "partial"
