@@ -15,6 +15,10 @@ on:
       - "src/huntx/**"
       - "scripts/generate_site_data.py"
       - "scripts/verify_dashboard_telemetry.py"
+      - "scripts/assemble_generated_snapshot.py"
+      - "scripts/validate_pages_package.py"
+      - "docs/assets/js/**"
+      - ".github/workflows/publish-generated-outputs.yml"
   workflow_dispatch:
 
 permissions:
@@ -43,7 +47,7 @@ jobs:
           set -euo pipefail
 
           production_runs="$(gh api "repos/${GH_REPO}/actions/workflows/huntx.yml/runs?per_page=20")"
-          production_active="$(jq '[.workflow_runs[] | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "requested" or .status == "pending")] | length' <<<"$production_runs")"
+          production_active="$(jq '[.workflow_runs[] | select(.head_branch == "main") | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "requested" or .status == "pending")] | length' <<<"$production_runs")"
           if (( production_active > 0 )); then
             echo "huntx-production already has an active run; recovery is unnecessary."
             exit 0
@@ -56,7 +60,7 @@ jobs:
             exit 0
           fi
 
-          latest="$(jq -c '[.workflow_runs[] | select(.event == "schedule" or .event == "workflow_dispatch")] | sort_by(.created_at) | last // empty' <<<"$production_runs")"
+          latest="$(jq -c '[.workflow_runs[] | select(.head_branch == "main") | select(.event == "schedule" or .event == "workflow_dispatch")] | sort_by(.created_at) | last // empty' <<<"$production_runs")"
           dispatch_recovery() {
             echo "Dispatching verified HUNTX recovery orchestrator."
             gh api --method POST \
@@ -75,6 +79,7 @@ jobs:
           status="$(jq -r '.status' <<<"$latest")"
           conclusion="$(jq -r '.conclusion // ""' <<<"$latest")"
           latest_id="$(jq -r '.id' <<<"$latest")"
+          latest_sha="$(jq -r '.head_sha // ""' <<<"$latest")"
           latest_epoch="$(date -u -d "$created_at" +%s)"
           now_epoch="$(date -u +%s)"
           age_seconds="$(( now_epoch - latest_epoch ))"
@@ -84,6 +89,23 @@ jobs:
           echo "latest_status=$status"
           echo "latest_conclusion=$conclusion"
           echo "latest_age_seconds=$age_seconds"
+          echo "latest_source_sha=$latest_sha"
+          echo "watchdog_main_sha=$GITHUB_SHA"
+
+          # A completed producer from an older source revision cannot authorize
+          # publishing the current source code. Treat this as stale immediately
+          # after a relevant main push, even if the producer is under 2h20m old.
+          # The active-producer and active-recovery checks above always take
+          # precedence, preventing duplicate dispatch during an ongoing run.
+          if [[ -z "$latest_sha" ]]; then
+            echo "::error title=Missing producer source SHA::Cannot verify production source revision."
+            exit 1
+          fi
+          if [[ "$latest_sha" != "$GITHUB_SHA" ]]; then
+            echo "::warning title=Production source revision stale::Latest run $latest_id used an earlier source commit; dispatching verified recovery for current main."
+            dispatch_recovery
+            exit 0
+          fi
 
           if [[ "$event" == "schedule" && "$status" == "completed" && "$conclusion" != "success" && "$age_seconds" -ge 900 ]]; then
             echo "::warning title=Scheduled production failed::Run $latest_id concluded $conclusion; starting one verified recovery."
