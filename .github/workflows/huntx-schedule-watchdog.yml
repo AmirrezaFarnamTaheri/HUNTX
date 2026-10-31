@@ -18,6 +18,9 @@ on:
       - "scripts/assemble_generated_snapshot.py"
       - "scripts/validate_pages_package.py"
       - "docs/assets/js/**"
+      # Production publication mirrors the generated telemetry module to main.
+      # Exclude it from the push trigger to avoid a self-triggering release loop.
+      - "!docs/assets/js/data.js"
       - ".github/workflows/publish-generated-outputs.yml"
   workflow_dispatch:
 
@@ -102,9 +105,30 @@ jobs:
             exit 1
           fi
           if [[ "$latest_sha" != "$GITHUB_SHA" ]]; then
-            echo "::warning title=Production source revision stale::Latest run $latest_id used an earlier source commit; dispatching verified recovery for current main."
-            dispatch_recovery
-            exit 0
+            # Generated outputs are mirrored back to main after publication.
+            # Mirror the publisher's exact allowed file set so this expected
+            # commit drift does not start a production feedback loop.
+            comparison="$(gh api "repos/${GH_REPO}/compare/${latest_sha}...${GITHUB_SHA}?per_page=100")"
+            generated_only="$(jq -r '
+              def permitted:
+                startswith("outputs/") or startswith("outputs_dev/")
+                or startswith("docs/artifacts/")
+                or . == "docs/catalog.json"
+                or . == "docs/assets/js/data.js"
+                or . == "docs/index.html"
+                or . == ".github/huntx-generated-files.txt";
+              (.status == "ahead")
+              and (.ahead_by > 0 and .ahead_by <= 250)
+              and (.files | type == "array" and length > 0 and length < 300)
+              and all(.files[]; (.filename | permitted)
+                and ((.previous_filename // .filename) | permitted))
+            ' <<<"$comparison")"
+            if [[ "$generated_only" != "true" ]]; then
+              echo "::warning title=Production source revision stale::Latest run $latest_id used an earlier source commit; dispatching verified recovery for current main."
+              dispatch_recovery
+              exit 0
+            fi
+            echo "Main differs from producer only by generated artifacts; no source-revision recovery is required."
           fi
 
           if [[ "$event" == "schedule" && "$status" == "completed" && "$conclusion" != "success" && "$age_seconds" -ge 900 ]]; then
