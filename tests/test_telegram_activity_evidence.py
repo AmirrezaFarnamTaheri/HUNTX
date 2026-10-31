@@ -83,3 +83,20 @@ def test_real_artifact_shape_exposes_nested_residue():
     result = evaluate("[LIFO] MTProto canonical preflight rate-limited for 505s",
                       summary(), source_run_id=1, source_health=health())
     assert result["run_summary_windows_pending"] == 1478
+
+
+def test_telegram_source_counts_are_not_bounded_by_http_source_counts():
+    log = "[MTProto] Connected.\n[MTProto] Resolved peer peer -> channel_id=1\n"
+    log += "".join(f"[LIFO] source=tg-{i} scanned=1 ingested=1 completed=True\n" for i in range(40))
+    result = evaluate(log, summary(sources_checked=32, messages_scanned=40, lifo_windows_completed=40),
+                      source_run_id=1, source_health=health(81))
+    assert result["status"] == "verified_activity"
+    assert result["telegram_sources_observed"] == 40
+
+
+def test_unknown_source_with_completed_window_is_contradictory_evidence():
+    log = "[MTProto] Connected.\n[MTProto] Resolved peer peer -> channel_id=1\n"
+    log += "[LIFO] source=rogue scanned=1 ingested=1 completed=True\n"
+    with pytest.raises(EvidenceContractError, match="not an enabled Telegram source"):
+        evaluate(log, summary(messages_scanned=1, lifo_windows_completed=1),
+                 source_run_id=1, source_health=health(1))
