@@ -1,7 +1,6 @@
 """Never call an unauditable or expired proxy check a fresh authenticated success."""
 from __future__ import annotations
 
-import math
 import time
 
 import pytest
