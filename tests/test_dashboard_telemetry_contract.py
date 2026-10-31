@@ -146,3 +146,17 @@ def test_verified_geo_rejects_unknown_country_with_nonunknown_flag(monkeypatch):
             name="vless-1", geo_source="server-country-pddl", geo_verified=True,
             country="ZZ", flag="🇩🇪",
         )])
+
+
+def test_authenticated_failure_cannot_receive_positive_candidate_rank():
+    from scripts.generate_site_data import score_governed_pca
+
+    node = {
+        "probe_ok": True, "latency": 4.0,
+        "security_grade": "A+", "geo_verified": True,
+        "probe_kind": "protocol_authenticated", "authenticated_probe_ok": False,
+        "health_evidence": "failed_authenticated_protocol", "health_grade": "F",
+    }
+    result = score_governed_pca([node])
+    assert result[0]["pca_score"] == 0.0
+    assert result[0]["pca_evidence"] == "publisher_tcp_reachability_candidate_rank"
