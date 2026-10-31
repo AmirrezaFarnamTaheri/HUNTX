@@ -807,25 +807,17 @@ class TelegramUserConnector(SourceConnector):
         self._release_async_lock()
 
     def __del__(self):
-        """Release the in-process session lock on destruction.
+        """Drop stale registry ownership and session locks without network I/O.
 
-        Deliberately does NOT disconnect clients. ``__del__`` runs at
-        arbitrary GC time and during interpreter shutdown, where the event
-        loop may be closed or absent and module globals may already be torn
-        down to ``None``; driving Telethon's network disconnect from here is
-        unreliable and can raise or hang (exceptions in ``__del__`` are
-        swallowed and merely printed to stderr, so failures are invisible).
-
-        The session lock is a pure in-process resource that would otherwise
-        leak and deadlock later acquisitions, so releasing it is both safe
-        and necessary. Socket teardown is left to the explicit
-        ``cleanup()`` / ``cleanup_async()`` paths (the latter used by the
-        async context manager), with the OS reclaiming any socket whose
-        client object is garbage-collected.
+        An abandoned connector must not leave a cached Telethon client tied to
+        a closed event loop for the next owner of the same StringSession.
+        Explicit cleanup remains mandatory for graceful socket disconnect.
+        Garbage collection can occur during shutdown, so never await, log,
+        or run an event loop here.
         """
         try:
+            self._detach_owned_client()
             self._release_session_locks()
         except Exception:
-            # Never raise from __del__; there is no caller to handle it and
-            # logging may itself be unavailable during interpreter shutdown.
+            # Interpreter shutdown may have torn down threading/module globals.
             pass
