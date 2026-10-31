@@ -118,6 +118,7 @@ def test_pages_package_detects_dashboard_missing_vmess_from_feed(tmp_path: Path)
     )
     assert validate_pages_package(tmp_path)["missing"] == []
 
+
 def test_pages_rejects_stale_aggregate_manifest_even_if_release_and_catalog_valid(tmp_path: Path):
     """A legacy root manifest must not misdescribe otherwise verified downloads."""
     (tmp_path / "index.html").write_text("<html></html>", encoding="utf-8")
@@ -176,4 +177,3 @@ def test_pages_rejects_aggregate_catalog_path_disagreement(tmp_path: Path):
     }), encoding="utf-8")
     with pytest.raises(ValueError, match="aggregate.*catalog"):
         validate_pages_package(tmp_path)
-
