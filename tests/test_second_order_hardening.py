@@ -214,6 +214,7 @@ def test_optional_destination_policy_reaches_publisher():
             }
         ]
     )
+
     def confirmed_publisher(_result, destinations, **_kwargs):
         captured_destinations.extend(destinations)
         return True
