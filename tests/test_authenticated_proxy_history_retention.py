@@ -90,3 +90,93 @@ def test_unverified_expired_record_still_prunes_normally(tmp_path):
     repo, observed = make_observation(tmp_path, "e" * 64)
     repo.prune_old_data(1)
     assert counts(repo, observed) == (0, 0)
+
+
+def test_actual_production_build_persists_authenticated_success_for_future_retests(
+    tmp_path, monkeypatch
+):
+    """Do not rely on a lifecycle row that the real producer never updates."""
+    import hashlib
+    from unittest.mock import Mock
+
+    from huntx.core.proxy_health import CheckedRecords
+    from huntx.formats.npvt import NpvtHandler, canonical_proxy_identity
+    from huntx.pipeline.build import BuildPipeline
+
+    uri = "trojan://secret@5.5.5.5:443?security=tls#Eligible"
+    digest = hashlib.sha256(canonical_proxy_identity(uri).encode("utf-8")).hexdigest()
+    repo = StateRepo(open_db(tmp_path / "working.db"))
+    observation = repo.record_file("approved", "message-1", "c" * 64, 90,
+                                   "nodes.txt", status="processed")
+    repo.add_record("c" * 64, "npvt", digest, {"line": uri},
+                    source_observation_id=observation)
+    with repo.db.connect() as conn:
+        conn.execute("UPDATE records SET created_at = '2000-01-01 00:00:00'")
+        conn.execute("UPDATE seen_files SET ingested_at = '2000-01-01 00:00:00'")
+    now = time.time()
+    admitted = [{
+        "data": {"line": uri, "probe_kind": "protocol_authenticated",
+                 "probe_authenticated": True, "probe_checked_at": now,
+                 "probe_expires_at": now + 300, "latency_ms": 17}
+    }]
+    ledger = {
+        "schema_version": 1, "scope": "single_authenticated_https_sweep",
+        "candidates": 1, "admitted": 1, "rejected": 0,
+        "identities": {digest: "admitted"}, "reasons": {"admitted": 1},
+    }
+    monkeypatch.setenv("HUNTX_REQUIRE_PROXY_HEALTH", "1")
+    monkeypatch.setenv("HUNTX_REMARK_STYLE", "legacy")
+    monkeypatch.setattr(
+        "huntx.core.proxy_health.verified_records",
+        lambda records: CheckedRecords(admitted, ledger),
+    )
+    registry = Mock()
+    registry.get.return_value = NpvtHandler()
+    artifacts = Mock()
+    artifacts.save_artifact.return_value = "f" * 64
+    pipeline = BuildPipeline(repo, artifacts, registry)
+    results = pipeline.run({
+        "name": "all_sources", "from_sources": ["approved"], "formats": ["npvt"],
+    })
+    assert results
+    with repo.db.connect() as conn:
+        lifecycle = conn.execute(
+            "SELECT authenticated_successes FROM proxy_lifecycle "
+            "WHERE unique_hash = ? AND record_type = 'npvt'", (digest,)
+        ).fetchone()
+        persisted = conn.execute(
+            "SELECT probe_id, unique_hash FROM proxy_probe_history "
+            "WHERE unique_hash = ?", (digest,)
+        ).fetchall()
+    assert lifecycle is not None and lifecycle["authenticated_successes"] == 1
+    assert len(persisted) == 1
+    assert "secret@" not in str([dict(item) for item in persisted])
+    repo.prune_old_data(1)
+    assert counts(repo, observation) == (1, 1)
+
+
+def test_unmatched_sidecar_identity_cannot_forge_durable_authentication(tmp_path):
+    import hashlib
+
+    from huntx.formats.npvt import canonical_proxy_identity
+
+    repo = StateRepo(open_db(tmp_path / "forge.db"))
+    uri = "trojan://secret@5.5.5.5:443?security=tls"
+    digest = hashlib.sha256(canonical_proxy_identity(uri).encode()).hexdigest()
+    evidence = json.dumps({
+        "schema_version": 1, "evidence": "publisher_authenticated_https",
+        "admitted_count": 1,
+        "records": {"a" * 64: {
+            "checked_at": time.time(), "expires_at": time.time() + 300,
+            "duration_ms": 50,
+        }},
+    }).encode()
+    import pytest
+    with pytest.raises(ValueError, match="(sidecar|identity|mismatch|digest)"):
+        repo.persist_authenticated_build_evidence("npvt", (uri + "\n").encode(), evidence)
+    with repo.db.connect() as conn:
+        recorded = conn.execute(
+            "SELECT COUNT(*) FROM proxy_probe_history WHERE unique_hash = ?",
+            (digest,),
+        ).fetchone()[0]
+    assert recorded == 0
