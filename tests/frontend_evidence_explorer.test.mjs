@@ -11,7 +11,10 @@ const tcp = { id: "tcp", name: "Node A", protocol: "vless", transport: "ws", ser
   country_name: "Germany", geo_verified: false, geo_source: "unverified_country_hint", health_grade: "A+" };
 const failed = { ...tcp, id: "failed", name: "Node B", health_evidence: "tcp_failed_from_publish_vantage", probe_ok: false, latency: null };
 const authenticated = { ...tcp, id: "auth", name: "Node C", health_evidence: "fresh_authenticated_protocol",
-  health_grade: "A", geo_source: "ip-api", geo_verified: true };
+  health_grade: "A", geo_source: "ip-api", geo_verified: true,
+  probe_kind: "protocol_authenticated", authenticated_probe_ok: true,
+  authenticated_probe_age_seconds: 5,
+  authenticated_probe_expires_at: Date.now() / 1000 + 300 };
 const unknown = { ...tcp, id: "unknown", name: "Node D", health_evidence: "", probe_ok: null, latency: null, country: "ZZ" };
 
 test("observation badges distinguish authenticated, TCP-only, failed TCP and unmeasured evidence", () => {
@@ -23,6 +26,16 @@ test("observation badges distinguish authenticated, TCP-only, failed TCP and unm
   assert.equal(getProxyEvidence(failed).terminal, false);
   assert.equal(getProxyEvidence(unknown).id, "unmeasured");
   assert.equal(getProxyEvidence({ ...tcp, health_evidence: "", probe_ok: null, health_grade: "A+" }).id, "unmeasured");
+});
+
+test("expired HTTPS attestations are not displayed as authenticated after publication", () => {
+  for (const expiry of [undefined, null, false, 0, Number.NaN, Number.POSITIVE_INFINITY, Date.now() / 1000 - 1]) {
+    const stale = { ...authenticated, authenticated_probe_expires_at: expiry };
+    const result = getProxyEvidence(stale);
+    assert.equal(result.id, "unmeasured");
+    assert.match(result.detail, /expired|unavailable/i);
+  }
+  assert.equal(getProxyEvidence(authenticated).id, "authenticated");
 });
 
 test("authenticated protocol failures cannot masquerade as failed TCP connects", () => {

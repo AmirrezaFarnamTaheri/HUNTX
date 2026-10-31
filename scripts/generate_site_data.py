@@ -948,6 +948,13 @@ def grade_proxy_health(proxies: list[dict]) -> list[dict]:
             proxy["health_evidence"] = "expired_authenticated_protocol"
             proxy["health_status"] = "Publisher HTTPS check previously succeeded; evidence expired"
             continue
+        if proxy.get("authenticated_probe_ok") is True and (
+            type(expiry) not in (int, float) or not math.isfinite(expiry)
+        ):
+            # An age and response latency without an independently bounded
+            # expiry cannot substantiate a *fresh* authenticated connection.
+            # Preserve the lower-confidence TCP/UDP observation only.
+            continue
         if proxy.get("authenticated_probe_ok") is False:
             proxy["health_grade"] = "F"
             proxy["health_evidence"] = "failed_authenticated_protocol"

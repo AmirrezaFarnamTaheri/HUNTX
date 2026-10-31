@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 
 import pytest
@@ -50,6 +51,7 @@ def test_fresh_authenticated_success_can_be_graded() -> None:
     result = validate_proxy_telemetry([
         _proxy(probe_kind="protocol_authenticated", authenticated_probe_ok=True,
                authenticated_probe_age_seconds=59,
+               authenticated_probe_expires_at=time.time() + 300,
                authenticated_latency_ms=33, health_grade="A",
                health_evidence="fresh_authenticated_protocol")
     ])
