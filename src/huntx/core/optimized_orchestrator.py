@@ -23,6 +23,14 @@ from ..state.ingestion_queue import PersistentIngestionQueue
 logger = logging.getLogger(__name__)
 
 
+def _count_telegram_window_failure(results: dict[str, int], *, availability: bool) -> None:
+    """Keep explicitly nonblocking upstream outages distinct from runtime defects."""
+    if availability and os.environ.get("HUNTX_TELEGRAM_RETRY_RELEASE") == "1":
+        results["optional_err"] = results.get("optional_err", 0) + 1
+    else:
+        results["err"] = results.get("err", 0) + 1
+
+
 def _bounded_float(name: str, default: float, minimum: float, maximum: float) -> float:
     """Read a finite bounded floating-point environment setting."""
     raw = os.environ.get(name, str(default))
@@ -697,7 +705,7 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
         except Exception as exc:
             if getattr(source, "type", None) == "http_subscription":
                 self._record_http_source_failure(str(source.id), type(exc).__name__)
-            logger.exception("[Worker] Source %s failed", source.id)
+            logger.error("[Worker] Source %s failed error_type=%s", source.id, type(exc).__name__)
         finally:
             async with lock:
                 if success:
@@ -790,11 +798,13 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                     lease_token=item.lease_token,
                     retry_delay=retry_delay,
                 )
-                if remaining is not None and timeout < configured_timeout:
+                budget_ended = remaining is not None and timeout < configured_timeout
+                if budget_ended:
                     self._ingestion_budget_exhausted = True
-                    return
                 async with lock:
-                    results["err"] += 1
+                    _count_telegram_window_failure(results, availability=not budget_ended)
+                if budget_ended:
+                    return
             except Exception as exc:
                 self._window_failures += 1
                 flood_wait = telegram_flood_wait_seconds(exc)
@@ -824,7 +834,7 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                         reason="Telegram shared FloodWait cooldown",
                     )
                     async with lock:
-                        results["err"] += 1
+                        _count_telegram_window_failure(results, availability=True)
                     logger.warning(
                         "[LIFO] Telegram account rate-limited for %ds; deferred "
                         "%d queued window(s) for %d source(s), preserving cursors",
@@ -843,7 +853,7 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                         reason,
                     )
                     async with lock:
-                        results["err"] += 1
+                        _count_telegram_window_failure(results, availability=True)
                     logger.warning(
                         "[LIFO] Quarantined source=%s after permanent Telegram "
                         "peer failure type=%s terminalized=%s",
@@ -857,17 +867,18 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                 self._work_queue.fail(
                     item.id,
                     self._run_owner,
-                    str(exc),
+                    f"window error: {type(exc).__name__}",
                     lease_token=item.lease_token,
                     retry_delay=retry_delay,
                 )
                 async with lock:
                     results["err"] += 1
-                logger.exception(
-                    "[LIFO] Window failed source=%s window=[%s,%s)",
+                logger.error(
+                    "[LIFO] Window failed source=%s window=[%s,%s) error_type=%s",
                     item.source_id,
                     item.window_start_ts,
                     item.window_end_ts,
+                    type(exc).__name__,
                 )
 
     async def _drain_direct_sources(
