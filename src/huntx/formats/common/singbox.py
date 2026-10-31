@@ -423,7 +423,7 @@ def _parse_hysteria2(uri: str) -> Optional[ProxyNode]:
                 if not 1 <= int(token) <= 65535:
                     return None
                 continue
-            match = re.fullmatch(r'(\\d+)-(\\d+)', token)
+            match = re.fullmatch(r'(\d+)-(\d+)', token)
             if match is None:
                 return None
             start, end = map(int, match.groups())
@@ -433,7 +433,7 @@ def _parse_hysteria2(uri: str) -> Optional[ProxyNode]:
             node.server_ports = tokens
     obfs_type = params.get('obfs', '')
     obfs_password = params.get('obfs-password', '') or params.get('obfs_password', '')
-    if bool(obfs_type) != bool(obfs_password) or (obfs_type and obfs_type not in _SUPPORTED_HY2_OBFS):
+    if (obfs_password and not obfs_type) or (obfs_type and obfs_type not in _SUPPORTED_HY2_OBFS):
         return None
     if obfs_type:
         node.obfs_type = obfs_type
