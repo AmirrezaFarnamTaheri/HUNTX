@@ -118,3 +118,31 @@ def test_dashboard_loader_rejects_missing_export(tmp_path: Path) -> None:
     data_js.write_text("export const INGEST_STATS = {};\n", encoding="utf-8")
     with pytest.raises(ValueError, match="SAMPLE_PROXIES export missing"):
         load_dashboard_proxies(data_js)
+
+
+def test_verified_geo_flag_is_independent_of_original_subscription_remark(monkeypatch):
+    # A clean generic client name may legitimately retain a globe.
+    monkeypatch.setenv("HUNTX_REQUIRE_REMARK_GEO_PARITY", "1")
+    result = validate_proxy_telemetry([_proxy(
+        name="🌐 vless-1", geo_source="server-country-pddl", geo_verified=True,
+        country="DE", flag="🇩🇪",
+    )])
+    assert result["proxies"] == 1
+
+
+def test_verified_geo_rejects_incorrect_country_flag(monkeypatch):
+    monkeypatch.setenv("HUNTX_REQUIRE_REMARK_GEO_PARITY", "1")
+    with pytest.raises(AssertionError, match="country flag contradicts"):
+        validate_proxy_telemetry([_proxy(
+            name="vless-1", geo_source="server-country-pddl", geo_verified=True,
+            country="DE", flag="🇺🇸",
+        )])
+
+
+def test_verified_geo_rejects_unknown_country_with_nonunknown_flag(monkeypatch):
+    monkeypatch.setenv("HUNTX_REQUIRE_REMARK_GEO_PARITY", "1")
+    with pytest.raises(AssertionError, match="country flag contradicts"):
+        validate_proxy_telemetry([_proxy(
+            name="vless-1", geo_source="server-country-pddl", geo_verified=True,
+            country="ZZ", flag="🇩🇪",
+        )])
