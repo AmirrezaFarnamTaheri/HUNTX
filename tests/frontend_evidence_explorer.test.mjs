@@ -12,6 +12,7 @@ const tcp = { id: "tcp", name: "Node A", protocol: "vless", transport: "ws", ser
 const failed = { ...tcp, id: "failed", name: "Node B", health_evidence: "tcp_failed_from_publish_vantage", probe_ok: false, latency: null };
 const authenticated = { ...tcp, id: "auth", name: "Node C", health_evidence: "fresh_authenticated_protocol",
   health_grade: "A", geo_source: "ip-api", geo_verified: true,
+  probe_kind: "protocol_authenticated", authenticated_probe_ok: true,
   authenticated_probe_age_seconds: 5,
   authenticated_probe_expires_at: Date.now() / 1000 + 300 };
 const unknown = { ...tcp, id: "unknown", name: "Node D", health_evidence: "", probe_ok: null, latency: null, country: "ZZ" };
