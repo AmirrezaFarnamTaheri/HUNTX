@@ -141,6 +141,7 @@ class TelegramUserConnector(SourceConnector):
         self._document_pending: set[int] = set()
         self.offset = min(self._text_offset, self._document_offset)
         self._client_key = (self.api_id, self.session)
+        self._owned_client: Optional[Any] = None
         self._sync_lock = None
         self._async_lock = None
         fw = fetch_windows or {}
@@ -161,34 +162,47 @@ class TelegramUserConnector(SourceConnector):
         self.offset = min(self._text_offset, self._document_offset)
 
     def _client(self) -> TelegramClient:
-        # Allow tests to inject a mock client even if Telethon isn't installed.
-        if hasattr(self._local, "clients") and getattr(self._local, "clients"):
-            if self._client_key in self._local.clients:
-                return self._local.clients[self._client_key]
+        # A cached client is not automatically owned by every connector with
+        # the same session. An unentered caller may not steal another owner's
+        # cached client or disconnect it via cleanup().
+        if self._owned_client is not None:
+            return self._owned_client
+
+        if self._sync_lock is None and self._async_lock is None:
+            lock = self._get_session_lock()
+            if not lock.acquire(blocking=False):
+                raise RuntimeError(
+                    "Telegram session is busy; acquire an async or sync context first"
+                )
+            self._sync_lock = lock
+
+        clients = getattr(self._local, "clients", None)
+        if clients is None:
+            clients = {}
+            self._local.clients = clients
+        cached = clients.get(self._client_key)
+        if cached is not None:
+            self._owned_client = cached
+            return cached
 
         if TelegramClient is None or StringSession is None:
+            self._release_session_locks()
             raise RuntimeError(
                 "Telethon is required for telegram_user sources. Install dependencies (pip install -e .)."
             )
-        if not hasattr(self._local, "clients"):
-            self._local.clients = {}
-
-        if self._client_key not in self._local.clients:
-            logger.info(f"Initializing new Telegram User Client for api_id={self.api_id}")
-            if self._sync_lock is None and self._async_lock is None:
-                lock = self._get_session_lock()
-                lock.acquire()
-                self._sync_lock = lock
-            try:
-                self._local.clients[self._client_key] = TelegramClient(
-                    StringSession(self.session),
-                    self.api_id,
-                    self.api_hash,
-                )
-            except Exception:
-                self._release_sync_lock()
-                raise
-        return self._local.clients[self._client_key]
+        try:
+            logger.info("Initializing Telegram User Client for api_id=%s", self.api_id)
+            owned = TelegramClient(
+                StringSession(self.session),
+                self.api_id,
+                self.api_hash,
+            )
+            clients[self._client_key] = owned
+            self._owned_client = owned
+            return owned
+        except Exception:
+            self._release_session_locks()
+            raise
 
     def _ensure_connected(self, client: TelegramClient):
         run_sync(self._ensure_connected_async(client))
@@ -710,38 +724,53 @@ class TelegramUserConnector(SourceConnector):
             "document_offset": self._document_offset,
         }
 
-    def cleanup(self):
-        """Clean up Telegram client connections synchronously."""
-        clients = getattr(self._local, "clients", {})
-        client = clients.get(self._client_key)
+    def _detach_owned_client(self) -> Any:
+        """Remove only this instance's client, never another session owner."""
+        client = getattr(self, "_owned_client", None)
+        self._owned_client = None
+        if client is None:
+            return None
+        clients = getattr(self._local, "clients", None)
+        if not isinstance(clients, dict) or clients.get(self._client_key) is not client:
+            # A different connection now occupies the registry slot. It must
+            # remain untouched, even if the old client became stale.
+            return None
+        clients.pop(self._client_key, None)
+        return client
+
+    def cleanup(self) -> None:
+        """Synchronously detach only the owned client and release all leases."""
+        client = self._detach_owned_client()
         try:
             if client is not None and client.is_connected():
-                client.disconnect()
-                logger.debug("Disconnected owned Telegram client for key %s", self._client_key)
+                # Most modern Telethon clients return an awaitable. Do not
+                # silently leak it when cleanup is invoked synchronously.
+                run_sync(maybe_await(client.disconnect()))
+                logger.debug("Disconnected owned Telegram client api_id=%s", self.api_id)
         except Exception as exc:
-            logger.warning("Error disconnecting Telegram client for key %s: %s", self._client_key, exc)
+            logger.warning(
+                "Error disconnecting Telegram client api_id=%s error_type=%s",
+                self.api_id,
+                type(exc).__name__,
+            )
         finally:
-            clients.pop(self._client_key, None)
-            self._release_sync_lock()
+            self._release_session_locks()
 
-    async def cleanup_async(self):
-        """Clean up Telegram client connections asynchronously."""
-        clients = getattr(self._local, "clients", {})
-        client = clients.get(self._client_key)
+    async def cleanup_async(self) -> None:
+        """Asynchronously detach only the owned client and release all leases."""
+        client = self._detach_owned_client()
         try:
             if client is not None and client.is_connected():
                 await maybe_await(client.disconnect())
-                logger.debug("Disconnected owned Telegram client for key %s", self._client_key)
-        except RuntimeError as exc:
-            if "Event loop is closed" in str(exc):
-                logger.debug("Expected loop closure during cleanup for %s: %s", self._client_key, exc)
-            else:
-                logger.warning("RuntimeError disconnecting Telegram client for %s: %s", self._client_key, exc)
+                logger.debug("Disconnected owned Telegram client api_id=%s", self.api_id)
         except Exception as exc:
-            logger.warning("Error disconnecting Telegram client for key %s: %s", self._client_key, exc)
+            logger.warning(
+                "Error disconnecting Telegram client api_id=%s error_type=%s",
+                self.api_id,
+                type(exc).__name__,
+            )
         finally:
-            clients.pop(self._client_key, None)
-            self._release_async_lock()
+            self._release_session_locks()
 
     def _release_sync_lock(self) -> None:
         lock, self._sync_lock = self._sync_lock, None
