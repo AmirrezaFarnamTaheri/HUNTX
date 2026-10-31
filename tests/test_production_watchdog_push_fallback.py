@@ -89,7 +89,7 @@ def test_watchdog_jq_generated_only_policy_matches_publisher_provenance():
         skip("GitHub Actions watchdog jq not installed in this environment")
     source = WATCHDOG.read_text(encoding="utf-8")
     start_marker = "generated_only=\"$(jq -r '"
-    end_marker = "' <<<'\"$comparison\")\""
+    end_marker = "' <<<\"$comparison\")\""
     assert start_marker in source
     start = source.index(start_marker) + len(start_marker)
     assert end_marker in source[start:]
@@ -119,4 +119,3 @@ def test_watchdog_jq_generated_only_policy_matches_publisher_provenance():
             check=True, text=True,
         )
         assert process.stdout.strip() == str(expected).lower()
-
