@@ -132,3 +132,12 @@ def test_downstream_evidence_gates_are_attempt_specific():
         assert "expectedName = `huntx-logs-${runId}-${run.data.run_attempt}`" in workflow
         assert "a.name === expectedName" in workflow
         assert "a.name.startsWith('huntx-logs-')" not in workflow
+
+
+def test_production_checkpoint_persists_after_runtime_failures_but_not_workflow_cancellation():
+    """Cancellation must never race a remote generation-pointer write."""
+    workflow = Path(".github/workflows/huntx.yml").read_text()
+    persist_job = workflow[workflow.index("\n  persist:\n"):workflow.index("\n  deploy-pages:\n")]
+    assert "if: ${{ always() && !cancelled() && needs.run.outputs.checkpoint_ready == 'true' }}" in persist_job
+    assert "runtime-checkpoint-${{ github.run_id }}-${{ github.run_attempt }}" in persist_job
+    assert "Reverify checkpoint" in persist_job
