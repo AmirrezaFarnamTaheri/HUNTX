@@ -12,7 +12,7 @@ import pytest
 
 from huntx.core.proxy_health import CheckedRecords
 from huntx.formats.npvt import canonical_proxy_identity
-from scripts.publisher_live_attestation import build_attestation, verify_attestation
+from scripts.publisher_live_attestation import (\n    build_attestation, finalize_attestation, verify_attestation,\n)
 
 
 FAST = "trojan://synthetic-fast@5.5.5.5:443?security=tls#Fast"
@@ -129,3 +129,25 @@ def test_report_cannot_rewrite_source_identity_or_hide_missing_node(tmp_path):
     (root / "outputs" / "all_sources_sub.txt").write_text(FAST + "\n")
     with pytest.raises(ValueError, match="(digest|feed|mismatch|identity)"):
         verify_attestation(root, report, now=CLOCK)
+
+
+def test_finalization_expires_only_proof_not_working_proxy_membership(tmp_path):
+    root = snapshot(tmp_path)
+    report = build(root)
+    # The fast observation ages out while the slower but genuine HTTPS
+    # success remains alive. Do not delete the fast node from either feed.
+    report["identities"][digest(FAST)]["expires_at"] = CLOCK + 230
+    finalized = finalize_attestation(root, report, now=CLOCK + 240)
+    assert finalized["fresh_authenticated_count"] == 1
+    assert finalized["identities"][digest(FAST)]["status"] == "expired_during_publication"
+    assert finalized["identities"][digest(SLOW)]["status"] == "fresh_authenticated"
+    assert finalized["feeds"]["all_sources"]["identity_count"] == 3
+    assert finalized["feeds"]["all_sources_sub"]["identity_count"] == 2
+    assert (root / "outputs" / "all_sources.txt").read_text().count("trojan://") == 3
+
+
+def test_finalization_blocks_release_when_all_publisher_proof_expires(tmp_path):
+    root = snapshot(tmp_path)
+    report = build(root)
+    with pytest.raises(ValueError, match="(fresh|expired|authentication)"):
+        finalize_attestation(root, report, now=CLOCK + 301)
