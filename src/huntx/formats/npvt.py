@@ -588,7 +588,16 @@ class NpvtHandler(FormatHandler):
             if not clean:
                 continue
             if _is_proxy_line(clean):
-                self._append_uri(records, seen_hashes, clean)
+                # Some upstream feeds put multiple share links on a single
+                # line separated by whitespace. Validating that entire line
+                # as a *single* URI discards every node. Accept a complete
+                # single URI first; otherwise recover separately validated
+                # links without accepting surrounding arbitrary text.
+                if validate_proxy_uri(clean):
+                    self._append_uri(records, seen_hashes, clean)
+                else:
+                    for uri in _extract_proxy_uris(clean):
+                        self._append_uri(records, seen_hashes, uri)
                 continue
             for uri in _extract_proxy_uris(clean):
                 self._append_uri(records, seen_hashes, uri)
