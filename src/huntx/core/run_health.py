@@ -165,7 +165,10 @@ def evaluate_run_health(
     if ingest_skipped_due_to_budget:
         degraded_reasons.append("ingest_skipped_due_to_budget")
     if lifo_residue_remaining:
-        degraded_reasons.append("ingestion_residue_remaining")
+        degraded_reasons.append(
+            "telegram_retry_wait_nonblocking" if summary.get("telegram_availability_degraded") is True
+            else "ingestion_residue_remaining"
+        )
     if partial_reason:
         degraded_reasons.append(partial_reason)
     if bool(summary.get("ingestion_budget_exhausted")):
@@ -208,6 +211,7 @@ def evaluate_run_health(
         "post_run_delivery_failures": post_run_delivery_failures,
         "ingest_skipped_due_to_budget": ingest_skipped_due_to_budget,
         "lifo_residue_remaining": lifo_residue_remaining,
+        "telegram_retry_only_release": summary.get("telegram_availability_degraded") is True,
         "partial_reason": partial_reason or None,
         "ingestion_budget_exhausted": bool(summary.get("ingestion_budget_exhausted")),
         "timed_out_stage": summary.get("timed_out_stage"),
