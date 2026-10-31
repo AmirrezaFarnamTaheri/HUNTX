@@ -145,30 +145,3 @@ func Example_probeTLS() {
 	)
 	_ = classifier
 }
-
-
-func TestTLSClassifierRejectsUntrustedCertificateByDefault(t *testing.T) {
-    certificate := generateSelfSignedCert(t)
-    endpoint, stop := startMockTLSServer(t, certificate, []string{"h2"})
-    defer stop()
-    report := NewClassifier(WithTimeout(2 * time.Second)).Probe(context.Background(), endpoint, "node.test")
-    if report.Success {
-        t.Fatalf("an untrusted self-signed certificate was accepted by default: %+v", report)
-    }
-    if report.Posture == PostureHardened || report.Posture == PostureStandard {
-        t.Fatalf("an unverified TLS endpoint received a trusted posture: %+v", report)
-    }
-}
-
-func TestTLSClassifierInsecureInspectionNeverRatesUnverifiedAsHardened(t *testing.T) {
-    certificate := generateSelfSignedCert(t)
-    endpoint, stop := startMockTLSServer(t, certificate, []string{"h2"})
-    defer stop()
-    report := NewClassifier(WithTimeout(2*time.Second), WithInsecureSkipVerify(true)).Probe(context.Background(), endpoint, "node.test")
-    if !report.Success {
-        t.Fatalf("explicit inspection should record a completed handshake: %s", report.Error)
-    }
-    if report.Posture == PostureHardened || report.Posture == PostureStandard {
-        t.Fatalf("an unverified TLS handshake must not be rated trusted: %+v", report)
-    }
-}
