@@ -277,9 +277,48 @@ def verify_attestation(root: Path, report: dict[str, Any], *,
     return True
 
 
+
+def finalize_attestation(root: Path, report: dict[str, Any], *,
+                         now: float | None = None) -> dict[str, Any]:
+    """Remove expired *claims*, never expired proxy identities or feed lines."""
+    clock = time.time() if now is None else float(now)
+    if not math.isfinite(clock) or clock <= 0:
+        raise ValueError("invalid publisher finalization clock")
+    # A round trip through JSON makes a private copy without sharing nested
+    # state with the original proof. The report is credential-free.
+    updated = json.loads(json.dumps(report))
+    identities = updated.get("identities")
+    if not isinstance(identities, dict):
+        raise ValueError("invalid publisher attestation identity inventory")
+    for details in identities.values():
+        if isinstance(details, dict) and details.get("status") == "fresh_authenticated":
+            expires = details.get("expires_at")
+            if type(expires) not in (int, float) or not math.isfinite(expires):
+                raise ValueError("invalid publisher authenticated proof expiry")
+            if expires <= clock:
+                details["status"] = "expired_during_publication"
+    fresh = {key for key, value in identities.items()
+             if isinstance(value, dict) and value.get("status") == "fresh_authenticated"}
+    updated["fresh_authenticated_count"] = len(fresh)
+    feeds = updated.get("feeds")
+    if not isinstance(feeds, dict):
+        raise ValueError("invalid publisher feed inventory")
+    for metadata in feeds.values():
+        if not isinstance(metadata, dict) or not isinstance(
+            metadata.get("identity_digests"), list
+        ):
+            raise ValueError("invalid publisher identity listing")
+        metadata["fresh_authenticated_count"] = sum(
+            key in fresh for key in metadata["identity_digests"]
+        )
+    updated["finalized_at"] = datetime.fromtimestamp(clock, timezone.utc).isoformat()
+    verify_attestation(root, updated, now=clock)
+    return updated
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("build", "verify"))
+    parser.add_argument("action", choices=("build", "finalize", "verify"))
     parser.add_argument("--snapshot-root", type=Path, required=True)
     parser.add_argument("--source-run-id")
     parser.add_argument("--source-run-attempt", type=int)
@@ -310,7 +349,14 @@ def main() -> int:
               f"fresh={report['fresh_authenticated_count']} receipt={path.name}")
     else:
         report = json.loads(path.read_text(encoding="utf-8"))
-        verify_attestation(root, report)
+        if args.action == "finalize":
+            report = finalize_attestation(root, report)
+            path.write_text(json.dumps(report, sort_keys=True, indent=2) + "\n",
+                            encoding="utf-8")
+            from scripts.assemble_generated_snapshot import write_snapshot_digest
+            write_snapshot_digest(root)
+        else:
+            verify_attestation(root, report)
         print(f"Publisher authentication remains fresh: {report['fresh_authenticated_count']}")
     return 0
 
