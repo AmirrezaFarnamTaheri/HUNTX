@@ -65,3 +65,17 @@ def test_telegram_backlog_normal_run_released_without_special_policy(monkeypatch
     orch = runner({"remaining": 5, "retry_wait": 5},
                   {"feed-a": {"status": "parsed", "nodes": 5}})
     assert orch._ingestion_demotion_reason() == "ingestion_residue_remaining"
+
+
+def test_missing_queue_state_does_not_authorize_release(monkeypatch):
+    monkeypatch.setenv("HUNTX_TELEGRAM_RETRY_RELEASE", "1")
+    orch = object.__new__(OptimizedHardenedOrchestrator)
+    orch._ingestion_budget_exhausted = False
+    assert orch._ingestion_demotion_reason() == "ingestion_state_unavailable"
+
+
+def test_broken_queue_state_does_not_authorize_release(monkeypatch):
+    monkeypatch.setenv("HUNTX_TELEGRAM_RETRY_RELEASE", "1")
+    orch = runner({"remaining": 0, "retry_wait": 0}, {})
+    orch._work_queue.summary.side_effect = OSError("corrupt sqlite")
+    assert orch._ingestion_demotion_reason() == "ingestion_state_unavailable"
