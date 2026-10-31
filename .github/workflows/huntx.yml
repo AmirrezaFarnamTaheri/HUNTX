@@ -667,6 +667,34 @@ jobs:
             --enable-network \
             --output persist/data/logs/network-diagnostics.json
 
+      - name: Reconcile pipeline evidence without inventing successful probes
+        if: always()
+        run: |
+          set -euo pipefail
+          files=(
+            "$HUNTX_RUN_SUMMARY_PATH"
+            persist/data/logs/source-health.json
+            persist/data/logs/endpoint-inventory.json
+            persist/data/logs/network-diagnostics.json
+          )
+          for file in "${files[@]}"; do
+            if [[ ! -s "$file" ]]; then
+              echo "::warning title=Pipeline audit incomplete::Missing structured input $file"
+              exit 0
+            fi
+          done
+          python scripts/audit_pipeline_evidence.py \
+            --summary "$HUNTX_RUN_SUMMARY_PATH" \
+            --source-health persist/data/logs/source-health.json \
+            --endpoint-inventory persist/data/logs/endpoint-inventory.json \
+            --network-diagnostics persist/data/logs/network-diagnostics.json \
+            --output persist/data/logs/pipeline-evidence-audit.json
+          {
+            echo "## Evidence integrity and independent validation"
+            echo
+            echo "Cross-artifact counts reconciled. Without independent sample labels, no TP/TN/FP/FN rates are claimed."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Record explicit no-release verdict
         if: ${{ always() && steps.package.outputs.ready != 'true' }}
         run: |
@@ -733,6 +761,7 @@ jobs:
             persist/data/logs/endpoint-inventory.json
             persist/data/logs/proxy-retirements.json
             persist/data/logs/network-diagnostics.json
+            persist/data/logs/pipeline-evidence-audit.json
           if-no-files-found: warn
           retention-days: 30
 
