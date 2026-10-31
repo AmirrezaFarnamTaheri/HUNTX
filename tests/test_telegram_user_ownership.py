@@ -35,6 +35,8 @@ class TestTelegramUserConnectorOwnership(unittest.TestCase):
             first_key: first_client,
             second_key: second_client,
         }
+        first.__enter__()
+        first._client()
 
         first.cleanup()
 
@@ -50,11 +52,70 @@ class TestTelegramUserConnectorOwnership(unittest.TestCase):
         TelegramUserConnector._local.clients = {
             (connector.api_id, connector.session): client,
         }
+        connector.__enter__()
+        connector._client()
 
         connector.cleanup()
         connector.cleanup()
 
         client.disconnect.assert_called_once_with()
+
+    def test_unentered_duplicate_cannot_destroy_owned_client(self) -> None:
+        first = _connector("shared-unentered")
+        duplicate = _connector("shared-unentered")
+        client = MagicMock()
+        client.is_connected.return_value = True
+        first.__enter__()
+        try:
+            TelegramUserConnector._local.clients[first._client_key] = client
+            self.assertIs(first._client(), client)
+            duplicate.cleanup()
+            client.disconnect.assert_not_called()
+            self.assertIs(TelegramUserConnector._local.clients[first._client_key], client)
+            with self.assertRaisesRegex(RuntimeError, "session.*busy|session.*owned"):
+                duplicate._client()
+        finally:
+            first.cleanup()
+        client.disconnect.assert_called_once()
+
+    def test_cleanup_log_never_exposes_session_or_exception_text(self) -> None:
+        fake_session = "SENSITIVE_SESSION_STRING_TEST_ONLY"
+        connector = _connector(fake_session)
+        client = MagicMock()
+        client.is_connected.return_value = True
+        client.disconnect.side_effect = RuntimeError("disconnection from " + fake_session)
+        connector.__enter__()
+        TelegramUserConnector._local.clients[connector._client_key] = client
+        connector._client()
+        with self.assertLogs("huntx.connectors.telegram_user.connector", level="WARNING") as logs:
+            connector.cleanup()
+        self.assertNotIn(fake_session, "\\n".join(logs.output))
+
+    def test_finalizer_drops_stale_cached_client_without_network_io(self) -> None:
+        owner = _connector("finalizer-stale-client")
+        client = MagicMock()
+        client.is_connected.return_value = True
+        owner.__enter__()
+        TelegramUserConnector._local.clients[owner._client_key] = client
+        owner._client()
+        owner.__del__()
+
+        self.assertNotIn(owner._client_key, TelegramUserConnector._local.clients)
+        client.disconnect.assert_not_called()
+        # Explicit cleanup remains safe after a finalizer already ran.
+        owner.cleanup()
+
+    def test_lock_registry_does_not_store_raw_session_secrets(self) -> None:
+        session = "FAKE_HIGH_ENTROPY_SESSION_PRIVATE_TEST"
+        connector = _connector(session)
+        connector.__enter__()
+        try:
+            self.assertFalse(
+                any(session in str(key) for key in TelegramUserConnector._session_locks),
+                "session credentials must never persist as registry keys",
+            )
+        finally:
+            connector.cleanup()
 
     def test_distinct_sync_sessions_do_not_block_each_other(self) -> None:
         first = _connector("first")
@@ -97,6 +158,8 @@ class TestTelegramUserConnectorAsyncOwnership(unittest.IsolatedAsyncioTestCase):
             first_key: first_client,
             second_key: second_client,
         }
+        await first.__aenter__()
+        first._client()
 
         await first.cleanup_async()
 
@@ -104,6 +167,153 @@ class TestTelegramUserConnectorAsyncOwnership(unittest.IsolatedAsyncioTestCase):
         second_client.disconnect.assert_not_awaited()
         self.assertNotIn(first_key, TelegramUserConnector._local.clients)
         self.assertIs(TelegramUserConnector._local.clients[second_key], second_client)
+
+    async def test_unentered_async_duplicate_cannot_destroy_owned_client(self) -> None:
+        first = _connector("shared-async-unentered")
+        duplicate = _connector("shared-async-unentered")
+        client = MagicMock()
+        client.is_connected.return_value = True
+        client.disconnect = AsyncMock()
+        await first.__aenter__()
+        try:
+            TelegramUserConnector._local.clients[first._client_key] = client
+            self.assertIs(first._client(), client)
+            await duplicate.cleanup_async()
+            client.disconnect.assert_not_awaited()
+            self.assertIn(first._client_key, TelegramUserConnector._local.clients)
+        finally:
+            await first.cleanup_async()
+        client.disconnect.assert_awaited_once_with()
+
+    async def test_cleanup_sync_after_async_acquisition_releases_owned_lock(self) -> None:
+        owner = _connector("mispaired-async")
+        waiter = _connector("mispaired-async")
+        await owner.__aenter__()
+        owner.cleanup()
+        await asyncio.wait_for(waiter.__aenter__(), timeout=0.5)
+        await waiter.cleanup_async()
+
+    async def test_cancelled_cleanup_keeps_session_lease_during_shielded_disconnect(self) -> None:
+        """Cancellation may not admit a new Telethon owner during teardown."""
+        owner = _connector("shielded-disconnect-session")
+        contender = _connector("shielded-disconnect-session")
+        client = MagicMock()
+        client.is_connected.return_value = True
+        disconnect_entered = asyncio.Event()
+        disconnect_release = asyncio.Event()
+
+        async def shielded_disconnect() -> None:
+            disconnect_entered.set()
+            await asyncio.shield(disconnect_release.wait())
+
+        client.disconnect = AsyncMock(side_effect=shielded_disconnect)
+        await owner.__aenter__()
+        TelegramUserConnector._local.clients[owner._client_key] = client
+        owner._client()
+        cleanup = asyncio.create_task(owner.cleanup_async())
+        waiting = None
+        try:
+            await asyncio.wait_for(disconnect_entered.wait(), timeout=1.0)
+            cleanup.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await cleanup
+            waiting = asyncio.create_task(contender.__aenter__())
+            await asyncio.sleep(0.06)
+            self.assertFalse(
+                waiting.done(),
+                "another MTProto connector must not enter while teardown continues",
+            )
+            disconnect_release.set()
+            await asyncio.wait_for(waiting, timeout=1.0)
+        finally:
+            disconnect_release.set()
+            if waiting is not None and waiting.done():
+                await contender.cleanup_async()
+            elif waiting is not None:
+                waiting.cancel()
+                try:
+                    await waiting
+                except asyncio.CancelledError:
+                    pass
+            await asyncio.sleep(0.05)
+            await owner.cleanup_async()
+
+    async def test_reentrant_cleanup_does_not_release_pending_disconnect_lease(self) -> None:
+        """A second cleanup entry cannot bypass the first shielded teardown."""
+        owner = _connector("reentrant-disconnect-session")
+        contender = _connector("reentrant-disconnect-session")
+        client = MagicMock()
+        client.is_connected.return_value = True
+        entered = asyncio.Event()
+        release = asyncio.Event()
+
+        async def disconnect() -> None:
+            entered.set()
+            await asyncio.shield(release.wait())
+
+        client.disconnect = AsyncMock(side_effect=disconnect)
+        await owner.__aenter__()
+        TelegramUserConnector._local.clients[owner._client_key] = client
+        owner._client()
+        first = asyncio.create_task(owner.cleanup_async())
+        waiting = None
+        try:
+            await asyncio.wait_for(entered.wait(), timeout=1.0)
+            first.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await first
+            # The second async cleanup and an incorrect sync cleanup must not
+            # release the live session lease before disconnect is complete.
+            second = asyncio.create_task(owner.cleanup_async())
+            await asyncio.sleep(0)
+            with self.assertRaisesRegex(RuntimeError, "cleanup_async"):
+                owner.cleanup()
+            waiting = asyncio.create_task(contender.__aenter__())
+            await asyncio.sleep(0.06)
+            self.assertFalse(waiting.done())
+            self.assertFalse(second.done())
+            release.set()
+            await asyncio.wait_for(second, timeout=1.0)
+            await asyncio.wait_for(waiting, timeout=1.0)
+        finally:
+            release.set()
+            if waiting is not None and waiting.done():
+                await contender.cleanup_async()
+            elif waiting is not None:
+                waiting.cancel()
+                try:
+                    await waiting
+                except asyncio.CancelledError:
+                    pass
+            await asyncio.sleep(0.05)
+            await owner.cleanup_async()
+
+    async def test_connected_async_owner_requires_async_cleanup(self) -> None:
+        session = "must-await-cleanup"
+        owner = _connector(session)
+        client = MagicMock()
+        client.is_connected.return_value = True
+        client.disconnect = AsyncMock()
+        await owner.__aenter__()
+        TelegramUserConnector._local.clients[owner._client_key] = client
+        owner._client()
+        with self.assertRaisesRegex(RuntimeError, "cleanup_async"):
+            owner.cleanup()
+        self.assertIsNotNone(owner._async_lock)
+        client.disconnect.assert_not_awaited()
+        await owner.cleanup_async()
+        client.disconnect.assert_awaited_once_with()
+
+    async def test_connect_error_logs_only_exception_type(self) -> None:
+        marker = "FAKE_SECRET_CONNECT_EXCEPTION_TEST"
+        owner = _connector("safe-session")
+        client = MagicMock()
+        client.is_connected.return_value = False
+        client.connect = AsyncMock(side_effect=RuntimeError(marker))
+        with self.assertLogs("huntx.connectors.telegram_user.connector", level="ERROR") as logs:
+            with self.assertRaises(RuntimeError):
+                await owner._ensure_connected_async(client)
+        self.assertNotIn(marker, "\\n".join(logs.output))
 
     async def test_same_async_session_waits_for_owner_release(self) -> None:
         first = _connector("shared")

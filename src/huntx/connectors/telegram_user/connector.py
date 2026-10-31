@@ -1,7 +1,9 @@
 import asyncio
+import hashlib
 import logging
 import time
 import threading
+import weakref
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, AsyncIterator, List
 
@@ -72,16 +74,22 @@ class TelegramUserConnector(SourceConnector):
     # One process-wide lock per session, shared by sync AND async clients.
     # Separate asyncio.Lock/RLock registries allowed two owners to use the
     # same Telethon StringSession simultaneously (and RLock was reentrant).
-    _session_locks: Dict[str, Any] = {}
+    # Do not permanently retain StringSession credentials in a class-level
+    # dictionary. Weak lock values disappear when no entered connector uses
+    # them, while a digest preserves cross-instance serialization.
+    _session_locks: weakref.WeakValueDictionary[str, Any] = weakref.WeakValueDictionary()
     _session_locks_lock = threading.Lock()
     _sync_lock: Optional[Any]
     _async_lock: Optional[Any]
 
     def _get_session_lock(self) -> Any:
+        key = hashlib.sha256(self.session.encode("utf-8")).hexdigest()
         with self._session_locks_lock:
-            if self.session not in self._session_locks:
-                self._session_locks[self.session] = threading.Lock()
-            return self._session_locks[self.session]
+            lock = self._session_locks.get(key)
+            if lock is None:
+                lock = threading.Lock()
+                self._session_locks[key] = lock
+            return lock
 
     def _get_session_lock_async(self) -> Any:
         return self._get_session_lock()
@@ -141,6 +149,10 @@ class TelegramUserConnector(SourceConnector):
         self._document_pending: set[int] = set()
         self.offset = min(self._text_offset, self._document_offset)
         self._client_key = (self.api_id, self.session)
+        self._owned_client: Optional[Any] = None
+        # Retain the session lock until an async disconnect truly completes,
+        # even when the outer cleanup task is cancelled.
+        self._disconnect_task: Optional[asyncio.Task[Any]] = None
         self._sync_lock = None
         self._async_lock = None
         fw = fetch_windows or {}
@@ -161,34 +173,47 @@ class TelegramUserConnector(SourceConnector):
         self.offset = min(self._text_offset, self._document_offset)
 
     def _client(self) -> TelegramClient:
-        # Allow tests to inject a mock client even if Telethon isn't installed.
-        if hasattr(self._local, "clients") and getattr(self._local, "clients"):
-            if self._client_key in self._local.clients:
-                return self._local.clients[self._client_key]
+        # A cached client is not automatically owned by every connector with
+        # the same session. An unentered caller may not steal another owner's
+        # cached client or disconnect it via cleanup().
+        if self._owned_client is not None:
+            return self._owned_client
+
+        if self._sync_lock is None and self._async_lock is None:
+            lock = self._get_session_lock()
+            if not lock.acquire(blocking=False):
+                raise RuntimeError(
+                    "Telegram session is busy; acquire an async or sync context first"
+                )
+            self._sync_lock = lock
+
+        clients = getattr(self._local, "clients", None)
+        if clients is None:
+            clients = {}
+            self._local.clients = clients
+        cached = clients.get(self._client_key)
+        if cached is not None:
+            self._owned_client = cached
+            return cached
 
         if TelegramClient is None or StringSession is None:
+            self._release_session_locks()
             raise RuntimeError(
                 "Telethon is required for telegram_user sources. Install dependencies (pip install -e .)."
             )
-        if not hasattr(self._local, "clients"):
-            self._local.clients = {}
-
-        if self._client_key not in self._local.clients:
-            logger.info(f"Initializing new Telegram User Client for api_id={self.api_id}")
-            if self._sync_lock is None and self._async_lock is None:
-                lock = self._get_session_lock()
-                lock.acquire()
-                self._sync_lock = lock
-            try:
-                self._local.clients[self._client_key] = TelegramClient(
-                    StringSession(self.session),
-                    self.api_id,
-                    self.api_hash,
-                )
-            except Exception:
-                self._release_sync_lock()
-                raise
-        return self._local.clients[self._client_key]
+        try:
+            logger.info("Initializing Telegram User Client for api_id=%s", self.api_id)
+            owned = TelegramClient(
+                StringSession(self.session),
+                self.api_id,
+                self.api_hash,
+            )
+            clients[self._client_key] = owned
+            self._owned_client = owned
+            return owned
+        except Exception:
+            self._release_session_locks()
+            raise
 
     def _ensure_connected(self, client: TelegramClient):
         run_sync(self._ensure_connected_async(client))
@@ -200,7 +225,7 @@ class TelegramUserConnector(SourceConnector):
                 await maybe_await(client.connect())
                 logger.info("[MTProto] Connected.")
             except Exception as e:
-                logger.error(f"[MTProto] Connection failed: {e}")
+                logger.error("[MTProto] Connection failed error_type=%s", type(e).__name__)
                 raise
 
     def _resolve_peer(self, peer_entity, client: TelegramClient = None):
@@ -214,19 +239,19 @@ class TelegramUserConnector(SourceConnector):
                 return entity
             except Exception as e:
                 logger.warning(
-                    f"[MTProto] API resolution failed for {peer_entity}: {e}. " f"Falling back to raw PeerChannel."
+                    f"[MTProto] API resolution failed for {peer_entity} error_type={type(e).__name__}. " f"Falling back to raw PeerChannel."
                 )
                 try:
                     real_id, peer_type = utils.resolve_id(int(peer_entity))  # type: ignore[union-attr]
                     return peer_type(real_id)
                 except Exception as e2:
-                    logger.warning(f"[MTProto] Fallback also failed for {peer_entity}: {e2}. Using as-is.")
+                    logger.warning("[MTProto] Fallback failed for %s error_type=%s; using as-is", peer_entity, type(e2).__name__)
         elif isinstance(peer_entity, str) and peer_entity.startswith("-100"):
             try:
                 real_id, peer_type = utils.resolve_id(int(peer_entity))  # type: ignore[union-attr]
                 return peer_type(real_id)
             except Exception as e:
-                logger.warning(f"[MTProto] Failed to resolve marked ID {peer_entity}: {e}. Using as-is.")
+                logger.warning("[MTProto] Failed to resolve marked ID %s error_type=%s; using as-is", peer_entity, type(e).__name__)
         return peer_entity
 
     def resolve_channel_id(self) -> Optional[int]:
@@ -244,7 +269,7 @@ class TelegramUserConnector(SourceConnector):
                 logger.info(f"[MTProto] Resolved peer {self.peer} -> channel_id={raw_id}")
             return raw_id
         except Exception as e:
-            logger.warning(f"[MTProto] Could not resolve peer {self.peer} for dedup: {e}")
+            logger.warning("[MTProto] Could not resolve peer %s for dedup error_type=%s", self.peer, type(e).__name__)
             return None
 
     async def resolve_channel_id_strict_async(self) -> Optional[int]:
@@ -286,7 +311,7 @@ class TelegramUserConnector(SourceConnector):
             if client.is_connected():
                 await maybe_await(client.disconnect())
         except Exception as e:
-            logger.debug(f"[MTProto] Disconnect failed during reconnect: {e}")
+            logger.debug("[MTProto] Disconnect failed during reconnect error_type=%s", type(e).__name__)
         await maybe_await(client.connect())
         logger.info("[MTProto] Reconnected.")
 
@@ -393,7 +418,7 @@ class TelegramUserConnector(SourceConnector):
             except ConnectionError as e:
                 retries += 1
                 if retries > _MAX_RECONNECT_RETRIES:
-                    logger.error(f"[MTProto] Pass 1: exhausted {_MAX_RECONNECT_RETRIES} reconnect retries: {e}")
+                    logger.error("[MTProto] Pass 1: exhausted %d reconnect retries error_type=%s", _MAX_RECONNECT_RETRIES, type(e).__name__)
                     raise
                 await self._reconnect_async(client, retries - 1)
                 logger.info(f"[MTProto] Pass 1: resuming from min_id={resume_after_id} after reconnect")
@@ -535,7 +560,7 @@ class TelegramUserConnector(SourceConnector):
                         raise
                     except Exception as e:
                         self._document_pending.add(msg.id)
-                        logger.error(f"[MTProto] Download failed msg {msg.id}: {e}")
+                        logger.error("[MTProto] Download failed msg=%s error_type=%s", msg.id, type(e).__name__)
                         stats["download_errors"] += 1
                         raise
 
@@ -553,7 +578,7 @@ class TelegramUserConnector(SourceConnector):
             except ConnectionError as e:
                 retries += 1
                 if retries > _MAX_RECONNECT_RETRIES:
-                    logger.error(f"[MTProto] Pass 2: exhausted {_MAX_RECONNECT_RETRIES} reconnect retries: {e}")
+                    logger.error("[MTProto] Pass 2: exhausted %d reconnect retries error_type=%s", _MAX_RECONNECT_RETRIES, type(e).__name__)
                     raise
                 await self._reconnect_async(client, retries - 1)
                 logger.info(f"[MTProto] Pass 2: resuming from min_id={resume_after_id} after reconnect")
@@ -677,7 +702,7 @@ class TelegramUserConnector(SourceConnector):
                 )
 
         except Exception as e:
-            logger.error(f"[MTProto] Error listing messages for {self.peer}: {e}")
+            logger.error("[MTProto] Error listing messages for %s error_type=%s", self.peer, type(e).__name__)
             raise
 
     def acknowledge(self, items) -> None:
@@ -710,38 +735,103 @@ class TelegramUserConnector(SourceConnector):
             "document_offset": self._document_offset,
         }
 
-    def cleanup(self):
-        """Clean up Telegram client connections synchronously."""
-        clients = getattr(self._local, "clients", {})
-        client = clients.get(self._client_key)
-        try:
-            if client is not None and client.is_connected():
-                client.disconnect()
-                logger.debug("Disconnected owned Telegram client for key %s", self._client_key)
-        except Exception as exc:
-            logger.warning("Error disconnecting Telegram client for key %s: %s", self._client_key, exc)
-        finally:
-            clients.pop(self._client_key, None)
-            self._release_sync_lock()
+    def _detach_owned_client(self) -> Any:
+        """Remove only this instance's client, never another session owner."""
+        client = getattr(self, "_owned_client", None)
+        self._owned_client = None
+        if client is None:
+            return None
+        clients = getattr(self._local, "clients", None)
+        if not isinstance(clients, dict) or clients.get(self._client_key) is not client:
+            # A different connection now occupies the registry slot. It must
+            # remain untouched, even if the old client became stale.
+            return None
+        clients.pop(self._client_key, None)
+        return client
 
-    async def cleanup_async(self):
-        """Clean up Telegram client connections asynchronously."""
-        clients = getattr(self._local, "clients", {})
-        client = clients.get(self._client_key)
+    def cleanup(self) -> None:
+        """Synchronously detach only the owned client and release all leases."""
+        if (self._async_lock is not None and self._owned_client is not None) or self._disconnect_task is not None:
+            # Telethon connections are bound to their owning event loop.
+            # Trying to await their disconnect on a new worker-thread loop
+            # would silently break lifecycle ordering and session safety.
+            raise RuntimeError("Connected async Telegram owner requires cleanup_async")
+        client = self._detach_owned_client()
         try:
             if client is not None and client.is_connected():
-                await maybe_await(client.disconnect())
-                logger.debug("Disconnected owned Telegram client for key %s", self._client_key)
-        except RuntimeError as exc:
-            if "Event loop is closed" in str(exc):
-                logger.debug("Expected loop closure during cleanup for %s: %s", self._client_key, exc)
-            else:
-                logger.warning("RuntimeError disconnecting Telegram client for %s: %s", self._client_key, exc)
+                # Most modern Telethon clients return an awaitable. Do not
+                # silently leak it when cleanup is invoked synchronously.
+                run_sync(maybe_await(client.disconnect()))
+                logger.debug("Disconnected owned Telegram client api_id=%s", self.api_id)
         except Exception as exc:
-            logger.warning("Error disconnecting Telegram client for key %s: %s", self._client_key, exc)
+            logger.warning(
+                "Error disconnecting Telegram client api_id=%s error_type=%s",
+                self.api_id,
+                type(exc).__name__,
+            )
         finally:
-            clients.pop(self._client_key, None)
-            self._release_async_lock()
+            self._release_session_locks()
+
+    def _finish_async_disconnect(self, task: asyncio.Task[Any]) -> None:
+        """Release the session lease only after the protected teardown finishes."""
+        if self._disconnect_task is not task:
+            return
+        self._disconnect_task = None
+        try:
+            error = task.exception()
+        except asyncio.CancelledError:
+            logger.warning(
+                "Telegram disconnect task was cancelled api_id=%s", self.api_id
+            )
+        else:
+            if error is not None:
+                logger.warning(
+                    "Error disconnecting Telegram client api_id=%s error_type=%s",
+                    self.api_id,
+                    type(error).__name__,
+                )
+        finally:
+            self._release_session_locks()
+
+    async def cleanup_async(self) -> None:
+        """Disconnect the owned client without exposing its session to a new owner.
+
+        Telethon can shield its disconnect internals. Cancelling our outer
+        cleanup therefore must not release the session lock before the actual
+        disconnect finishes. A single shielded child task owns that lifecycle,
+        and its completion callback releases the session lock exactly once.
+        """
+        task = self._disconnect_task
+        if task is None:
+            client = self._detach_owned_client()
+            try:
+                if client is not None and client.is_connected():
+                    task = asyncio.create_task(maybe_await(client.disconnect()))
+                    self._disconnect_task = task
+                    task.add_done_callback(self._finish_async_disconnect)
+                else:
+                    self._release_session_locks()
+                    return
+            except Exception as exc:
+                logger.warning(
+                    "Error disconnecting Telegram client api_id=%s error_type=%s",
+                    self.api_id,
+                    type(exc).__name__,
+                )
+                self._release_session_locks()
+                return
+        try:
+            # Cancelling this caller must never cancel the actual disconnect.
+            await asyncio.shield(task)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            # The completion callback records the exception's class, without
+            # accidentally logging credentials or session details.
+            pass
+        finally:
+            if task.done():
+                self._finish_async_disconnect(task)
 
     def _release_sync_lock(self) -> None:
         lock, self._sync_lock = self._sync_lock, None
@@ -765,25 +855,18 @@ class TelegramUserConnector(SourceConnector):
         self._release_async_lock()
 
     def __del__(self):
-        """Release the in-process session lock on destruction.
+        """Drop stale registry ownership and session locks without network I/O.
 
-        Deliberately does NOT disconnect clients. ``__del__`` runs at
-        arbitrary GC time and during interpreter shutdown, where the event
-        loop may be closed or absent and module globals may already be torn
-        down to ``None``; driving Telethon's network disconnect from here is
-        unreliable and can raise or hang (exceptions in ``__del__`` are
-        swallowed and merely printed to stderr, so failures are invisible).
-
-        The session lock is a pure in-process resource that would otherwise
-        leak and deadlock later acquisitions, so releasing it is both safe
-        and necessary. Socket teardown is left to the explicit
-        ``cleanup()`` / ``cleanup_async()`` paths (the latter used by the
-        async context manager), with the OS reclaiming any socket whose
-        client object is garbage-collected.
+        An abandoned connector must not leave a cached Telethon client tied to
+        a closed event loop for the next owner of the same StringSession.
+        Explicit cleanup remains mandatory for graceful socket disconnect.
+        Garbage collection can occur during shutdown, so never await, log,
+        or run an event loop here.
         """
         try:
-            self._release_session_locks()
+            if getattr(self, "_disconnect_task", None) is None:
+                self._detach_owned_client()
+                self._release_session_locks()
         except Exception:
-            # Never raise from __del__; there is no caller to handle it and
-            # logging may itself be unavailable during interpreter shutdown.
+            # Interpreter shutdown may have torn down threading/module globals.
             pass

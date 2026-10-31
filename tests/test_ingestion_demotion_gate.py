@@ -168,3 +168,53 @@ def test_hardened_publisher_timeout_returns_without_waiting_for_stalled_thread()
     assert summary["status"] == "timed_out"
     assert summary["release_eligible"] is False
     orch._export_outputs.assert_not_called()
+
+
+class _ControllableDeadline:
+    """Deterministic deadline triggered by a chosen synchronous operation."""
+
+    def __init__(self):
+        self.expired_now = False
+
+    def remaining_seconds(self):
+        return 0.0 if self.expired_now else 5.0
+
+    def expired(self):
+        return self.expired_now
+
+    def raise_if_expired(self, stage="operation"):
+        from huntx.core.deadline import DeadlineExceeded
+
+        if self.expired_now:
+            raise DeadlineExceeded("deadline exceeded during " + stage)
+
+
+def test_export_overrunning_deadline_never_reports_completed(monkeypatch):
+    """Even successful disk writes cannot authorize an expired release."""
+    orch = _base_orchestrator()
+    deadline = _ControllableDeadline()
+    monkeypatch.setattr("huntx.core.hardened_orchestrator.Deadline", lambda _timeout: deadline)
+    orch._export_outputs.side_effect = lambda _results: setattr(deadline, "expired_now", True)
+
+    summary = asyncio.run(orch._run_hardened(10.0, True, False))
+
+    assert summary["status"] == "timed_out"
+    assert summary["timed_out_stage"] == "export"
+    assert summary["release_eligible"] is False
+    orch._export_dev_outputs.assert_not_called()
+
+
+def test_cleanup_deadline_stops_remaining_mutations(monkeypatch):
+    """Slow archive cleanup must not create a false completed outcome."""
+    orch = _base_orchestrator()
+    deadline = _ControllableDeadline()
+    monkeypatch.setattr("huntx.core.hardened_orchestrator.Deadline", lambda _timeout: deadline)
+    orch.raw_store.prune_processed.side_effect = lambda _repo: setattr(deadline, "expired_now", True)
+
+    summary = asyncio.run(orch._run_hardened(10.0, True, False))
+
+    assert summary["status"] == "timed_out"
+    assert summary["timed_out_stage"] == "cleanup"
+    assert summary["release_eligible"] is False
+    orch.raw_store.prune_orphans.assert_not_called()
+    orch.artifact_store.prune_archive.assert_not_called()

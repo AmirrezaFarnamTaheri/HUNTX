@@ -37,6 +37,13 @@ my_config.yaml
 huntx-output/
 temp_*
 
+# New local generated payloads are never implicitly staged to source main.
+# Existing tracked legacy files need a separate backup-verified index migration.
+/outputs/*
+!/outputs/README.md
+/outputs_dev/*
+!/outputs_dev/README.md
+
 # Go build outputs
 cmd/huntx-engine/*.exe
 

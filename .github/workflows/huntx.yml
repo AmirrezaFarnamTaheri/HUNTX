@@ -499,7 +499,15 @@ jobs:
             mv "$HUNTX_RUN_SUMMARY_PATH" "${HUNTX_RUN_SUMMARY_PATH}.previous"
           fi
           set +e
-          timeout --signal=TERM --kill-after=60s 105m \
+          # Enforce the same run-wide deadline at the OS boundary. The five
+          # minute allowance covers CLI shutdown and checkpoint handoff;
+          # non-cooperative children receive a forced termination after 30s.
+          if [[ ! "$HUNTX_RUN_TIMEOUT" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error title=Invalid runtime timeout::HUNTX_RUN_TIMEOUT must be a positive integer in seconds"
+            exit 1
+          fi
+          watchdog_budget_seconds=$((HUNTX_RUN_TIMEOUT + 300))
+          timeout --signal=TERM --kill-after=30s "${watchdog_budget_seconds}s" \
             huntx \
               --config configs/config.prod.yaml \
               --data-dir persist/data \
@@ -808,7 +816,7 @@ jobs:
   persist:
     name: persist-immutable-state
     needs: run
-    if: ${{ always() && needs.run.outputs.checkpoint_ready == 'true' }}
+    if: ${{ always() && !cancelled() && needs.run.outputs.checkpoint_ready == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: production
