@@ -175,46 +175,83 @@ export function resolveGeoAndCarrier(address, _sni = "", _host = "") {
   };
 }
 
-/** Cluster only evidence-backed proxy coordinates into globe hubs. */
+/**
+ * Decode current release records without losing VMess's embedded endpoint.
+ * A VMess share encodes host, port, TLS and display name in JSON rather than
+ * URI authority/query/fragment fields. No guessed network location is added.
+ */
+export function normalizeDecodedProxyInput(entry, index = 0) {
+  if (!entry || typeof entry !== "object") return null;
+  const proto = String(entry.protocol || "vless").toLowerCase();
+  const decoded = entry.decoded && typeof entry.decoded === "object" && !Array.isArray(entry.decoded)
+    ? entry.decoded : {};
+  const host = String(entry.address || decoded.add || "").trim();
+  const defaultPort = proto === "ssh" ? 22 : (proto.startsWith("socks") ? 1080 : 443);
+  const port = Number(entry.port ?? decoded.port ?? defaultPort);
+  if (!host || !Number.isInteger(port) || port < 1 || port > 65535) return null;
+  const declared = entry.params && typeof entry.params === "object" && !Array.isArray(entry.params)
+    ? entry.params : {};
+  const params = proto === "vmess" ? {
+    type: decoded.net || "tcp",
+    security: decoded.tls || "none",
+    sni: decoded.sni || "",
+    host: decoded.host || "",
+    path: decoded.path || "",
+    alpn: decoded.alpn || "",
+    ...declared,
+  } : declared;
+  const tag = String(entry.tag || decoded.ps || `${proto}-${index + 1}`);
+  const user = String(entry.user || entry.password || decoded.id || "");
+  const implicitTLS = new Set(["trojan", "hysteria", "hysteria2", "hy2", "tuic", "anytls"]);
+  const nativeUDP = new Set(["hysteria", "hysteria2", "hy2", "tuic"]);
+  return {
+    proto, tag, host, port, params, user,
+    defaultSecurity: implicitTLS.has(proto) || String(entry.raw || "").startsWith("https://")
+      ? "tls" : "none",
+    defaultTransport: nativeUDP.has(proto) ? "udp" : "tcp",
+  };
+}
+
+
+/** Only measured, provider-attributed coordinates are mappable as points.
+ * Country-allocation estimates remain available in region summaries, not as
+ * invented city coordinates. A grouped point is an approximate centroid.
+ */
 export function clusterGlobeHubs(proxies) {
   const hubMap = {};
   for (const p of proxies) {
-    const code = String(p.country || "ZZ").toUpperCase();
-    const latitude = Number(p.latitude);
-    const longitude = Number(p.longitude);
-    if (code === "ZZ" || !Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
+    const code = String(p?.country || "ZZ").toUpperCase();
+    if (getRegionPresentation(p).confidence !== "provider" ||
+        String(p?.geo_source || "").toLowerCase() === "server-country-pddl" ||
+        typeof p?.latitude !== "number" || typeof p?.longitude !== "number") continue;
+    const latitude = p.latitude;
+    const longitude = p.longitude;
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) ||
+        Math.abs(latitude) > 90 || Math.abs(longitude) > 180) continue;
     if (!hubMap[code]) {
-      const geo = GEO_COORDINATES[code] || { lat: latitude, lon: longitude, city: `${code} Hub` };
+      const country = p.country_name || COUNTRY_NAMES[code] || code;
       hubMap[code] = {
-        name: geo.city,
-        lat: geo.lat,
-        lon: geo.lon,
-        pings: [],
-        code: code,
-        country: p.country_name || COUNTRY_NAMES[code] || code,
-        carrier: p.carrier || p.org || "Direct",
-        count: 0
+        name: `${country} · approximate`,
+        latitudeSum: 0, longitudeSum: 0,
+        pings: [], code, country, count: 0,
       };
     }
-    const measured = Number.isFinite(p.latency) && p.latency > 0 ? p.latency : null;
-    if (measured !== null) hubMap[code].pings.push(measured);
-    hubMap[code].count += 1;
+    const group = hubMap[code];
+    group.latitudeSum += latitude;
+    group.longitudeSum += longitude;
+    const measured = typeof p.latency === "number" && Number.isFinite(p.latency) && p.latency > 0
+      ? p.latency : null;
+    if (measured !== null) group.pings.push(measured);
+    group.count += 1;
   }
-
-  const hubs = Object.values(hubMap).map(h => {
-    const avgPing = h.pings.length > 0 ? Math.round(h.pings.reduce((a, b) => a + b, 0) / h.pings.length) : null;
-    return {
-      name: h.name,
-      lat: h.lat,
-      lon: h.lon,
-      ping: avgPing,
-      code: h.code,
-      country: h.country,
-      carrier: h.carrier,
-      count: h.count
-    };
-  });
-
+  const hubs = Object.values(hubMap).map(h => ({
+    name: h.name,
+    lat: h.latitudeSum / h.count,
+    lon: h.longitudeSum / h.count,
+    ping: h.pings.length ? Math.round(h.pings.reduce((a, b) => a + b, 0) / h.pings.length) : null,
+    code: h.code, country: h.country, count: h.count,
+    location_precision: "approximate_provider_coordinates",
+  }));
   hubs.sort((a, b) => b.count - a.count);
   return hubs;
 }
@@ -693,16 +730,15 @@ export class AppState {
         if (decodedData && Array.isArray(decodedData.entries)) {
           const telemetryByKey = new Map((telemetrySnapshot || []).map((record) => [telemetryKey(record), record]));
           proxyCandidate = decodedData.entries.map((entry, idx) => {
-            const proto = (entry.protocol || "vless").toLowerCase();
-            const tag = entry.tag || `${proto}-${idx + 1}`;
-            const host = entry.address || "";
-            if (!host) return null;
-            const port = entry.port || 443;
-            const params = entry.params || {};
+            const normalized = normalizeDecodedProxyInput(entry, idx);
+            if (!normalized) return null;
+            const { proto, tag, host, port, params, user, defaultSecurity, defaultTransport } = normalized;
             const sni = params.sni || "";
             const hostHeader = params.host || "";
-            const transport = params.type || "tcp";
-            const security = params.security || (params.sni || params.alpn ? "tls" : "none");
+            const transport = params.type || params.network || defaultTransport;
+            const security = params.security || (
+              params.sni || params.alpn ? "tls" : defaultSecurity
+            );
             const raw = entry.raw || "";
 
             const geo = resolveGeoAndCarrier(host, sni, hostHeader);
@@ -717,8 +753,8 @@ export class AppState {
               name: displayPublishedName(tag, proto),
               server: host,
               port: port,
-              uuid: entry.user || entry.password || "",
-              password: entry.password || entry.user || "",
+              uuid: user,
+              password: String(entry.password || user),
               security: security,
               transport: transport,
               sni: sni,
