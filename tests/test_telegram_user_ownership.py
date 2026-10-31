@@ -193,6 +193,101 @@ class TestTelegramUserConnectorAsyncOwnership(unittest.IsolatedAsyncioTestCase):
         await asyncio.wait_for(waiter.__aenter__(), timeout=0.5)
         await waiter.cleanup_async()
 
+    async def test_cancelled_cleanup_keeps_session_lease_during_shielded_disconnect(self) -> None:
+        """Cancellation may not admit a new Telethon owner during teardown."""
+        owner = _connector("shielded-disconnect-session")
+        contender = _connector("shielded-disconnect-session")
+        client = MagicMock()
+        client.is_connected.return_value = True
+        disconnect_entered = asyncio.Event()
+        disconnect_release = asyncio.Event()
+
+        async def shielded_disconnect() -> None:
+            disconnect_entered.set()
+            await asyncio.shield(disconnect_release.wait())
+
+        client.disconnect = AsyncMock(side_effect=shielded_disconnect)
+        await owner.__aenter__()
+        TelegramUserConnector._local.clients[owner._client_key] = client
+        owner._client()
+        cleanup = asyncio.create_task(owner.cleanup_async())
+        waiting = None
+        try:
+            await asyncio.wait_for(disconnect_entered.wait(), timeout=1.0)
+            cleanup.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await cleanup
+            waiting = asyncio.create_task(contender.__aenter__())
+            await asyncio.sleep(0.06)
+            self.assertFalse(
+                waiting.done(),
+                "another MTProto connector must not enter while teardown continues",
+            )
+            disconnect_release.set()
+            await asyncio.wait_for(waiting, timeout=1.0)
+        finally:
+            disconnect_release.set()
+            if waiting is not None and waiting.done():
+                await contender.cleanup_async()
+            elif waiting is not None:
+                waiting.cancel()
+                try:
+                    await waiting
+                except asyncio.CancelledError:
+                    pass
+            await asyncio.sleep(0.05)
+            await owner.cleanup_async()
+
+    async def test_reentrant_cleanup_does_not_release_pending_disconnect_lease(self) -> None:
+        """A second cleanup entry cannot bypass the first shielded teardown."""
+        owner = _connector("reentrant-disconnect-session")
+        contender = _connector("reentrant-disconnect-session")
+        client = MagicMock()
+        client.is_connected.return_value = True
+        entered = asyncio.Event()
+        release = asyncio.Event()
+
+        async def disconnect() -> None:
+            entered.set()
+            await asyncio.shield(release.wait())
+
+        client.disconnect = AsyncMock(side_effect=disconnect)
+        await owner.__aenter__()
+        TelegramUserConnector._local.clients[owner._client_key] = client
+        owner._client()
+        first = asyncio.create_task(owner.cleanup_async())
+        waiting = None
+        try:
+            await asyncio.wait_for(entered.wait(), timeout=1.0)
+            first.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await first
+            # The second async cleanup and an incorrect sync cleanup must not
+            # release the live session lease before disconnect is complete.
+            second = asyncio.create_task(owner.cleanup_async())
+            await asyncio.sleep(0)
+            with self.assertRaisesRegex(RuntimeError, "cleanup_async"):
+                owner.cleanup()
+            waiting = asyncio.create_task(contender.__aenter__())
+            await asyncio.sleep(0.06)
+            self.assertFalse(waiting.done())
+            self.assertFalse(second.done())
+            release.set()
+            await asyncio.wait_for(second, timeout=1.0)
+            await asyncio.wait_for(waiting, timeout=1.0)
+        finally:
+            release.set()
+            if waiting is not None and waiting.done():
+                await contender.cleanup_async()
+            elif waiting is not None:
+                waiting.cancel()
+                try:
+                    await waiting
+                except asyncio.CancelledError:
+                    pass
+            await asyncio.sleep(0.05)
+            await owner.cleanup_async()
+
     async def test_connected_async_owner_requires_async_cleanup(self) -> None:
         session = "must-await-cleanup"
         owner = _connector(session)
