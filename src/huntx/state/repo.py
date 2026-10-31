@@ -868,6 +868,87 @@ class StateRepo:
             logger.error(f"Failed to get last published hash for {route_name}: {e}")
             raise
 
+    def persist_authenticated_build_evidence(
+        self, record_type: str, artifact_bytes: bytes, evidence_bytes: bytes,
+    ) -> int:
+        """Persist only real, identity-matched authenticated build successes.
+
+        The sidecar contains no proxy credentials. A successful historical
+        observation authorizes *retention for future retesting*, not a fresh
+        publication claim after its five-minute expiry. Only the producer
+        HTTPS gate can create the sidecar; never persist TCP-only estimates.
+        """
+        import hashlib
+        import math
+
+        from ..formats.npvt import canonical_proxy_identity
+        from .proxy_lifecycle import record_authenticated_probe
+
+        if record_type not in {"npvt", "npvtsub"}:
+            raise ValueError("only canonical proxy feeds have authenticated sidecars")
+        try:
+            report = json.loads(evidence_bytes)
+            lines = [
+                line.strip() for line in artifact_bytes.decode("utf-8").splitlines()
+                if line.strip()
+            ]
+        except (ValueError, UnicodeError, TypeError) as exc:
+            raise ValueError("invalid producer authenticated sidecar") from exc
+        if not isinstance(report, dict):
+            raise ValueError("invalid producer authenticated sidecar")
+        observations = report.get("records")
+        if (
+            report.get("schema_version") != 1
+            or report.get("evidence") != "publisher_authenticated_https"
+            or type(report.get("admitted_count")) is not int
+            or not isinstance(observations, dict)
+            or report["admitted_count"] != len(lines)
+            or len(observations) != len(lines)
+        ):
+            raise ValueError("producer authenticated sidecar count mismatch")
+        digests = [
+            hashlib.sha256(canonical_proxy_identity(line).encode("utf-8")).hexdigest()
+            for line in lines
+        ]
+        if len(set(digests)) != len(lines) or set(observations) != set(digests):
+            raise ValueError("producer authenticated sidecar identity mismatch")
+
+        verified: list[tuple[str, int, float]] = []
+        for digest in sorted(observations):
+            entry = observations[digest]
+            if not isinstance(entry, dict):
+                raise ValueError("invalid producer authenticated sidecar measurement")
+            checked, expires, duration = (
+                entry.get("checked_at"), entry.get("expires_at"),
+                entry.get("duration_ms"),
+            )
+            if (
+                any(type(value) not in (int, float) or not math.isfinite(value)
+                    for value in (checked, expires, duration))
+                or checked <= 0
+                or not 0 < expires - checked <= 300.001
+                or not 0 <= duration <= 30000
+            ):
+                raise ValueError("invalid producer authenticated sidecar measurement")
+            verified.append((digest, int(checked), float(duration)))
+
+        persisted = 0
+        for digest, checked, duration in verified:
+            # The existing probe ledger enforces idempotence, terminal
+            # revocation and monotonic evidence per identity.
+            inserted = record_authenticated_probe(
+                self.db,
+                unique_hash=digest,
+                record_type=record_type,
+                probe_id=f"build:{record_type}:{digest}:{checked * 1000}",
+                vantage_id="producer-isolated-https",
+                success=True,
+                latency_ms=duration,
+                checked_at=checked,
+            )
+            persisted += int(inserted)
+        return persisted
+
     def prune_old_data(self, days: int) -> Dict[str, Any]:
         """Purge seen_files, records, and published_artifacts older than N days.
         Returns a dict summarizing the counts of pruned entries and deleted raw_hashes."""
