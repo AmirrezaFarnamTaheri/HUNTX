@@ -58,6 +58,10 @@ env:
   HUNTX_TELEGRAM_CLEANUP_TIMEOUT: "10"
   HUNTX_SOURCE_TIMEOUT: "600"
   HUNTX_ALLOW_PARTIAL_EXPORT: "true"
+  # A Telegram-only retry backlog is advisory when independent HTTP feeds
+  # contributed current nodes. Authenticating the proxies and obtaining a
+  # current-run release receipt are still mandatory publication gates.
+  HUNTX_TELEGRAM_RETRY_RELEASE: "1"
   HUNTX_RUN_SUMMARY_PATH: "persist/data/logs/run-summary.json"
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
   PIP_NO_INPUT: "1"
