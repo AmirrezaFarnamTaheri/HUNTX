@@ -476,8 +476,15 @@ def _catalog_dev_trio(docs_dir: Path, dev_dir: Path) -> None:
     catalog_path.write_text(json.dumps(catalog, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def _proxy_hashes(directory: Path | None, filename: str) -> set[str] | None:
-    """Return normalized connection digests, or None if feed was unavailable."""
+def _proxy_hashes(
+    directory: Path | None, filename: str, *, historical: bool = False
+) -> set[str] | None:
+    """Return connection digests, or None when a feed is unavailable.
+
+    Historical publication snapshots can predate semantic deduplication.
+    Collapse repeated historical identities for churn comparisons only.
+    Current output and alternate feeds must still have unique identities.
+    """
     if directory is None or not (directory / filename).is_file():
         return None
     found: set[str] = set()
@@ -486,7 +493,7 @@ def _proxy_hashes(directory: Path | None, filename: str) -> set[str] | None:
             continue
         identity = canonical_proxy_identity(line.strip())
         digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()
-        if digest in found:
+        if digest in found and not historical:
             raise ValueError("Released proxy feed contains duplicate semantic identities")
         found.add(digest)
     return found
@@ -497,7 +504,7 @@ def build_proxy_churn_report(
 ) -> dict[str, Any]:
     """Compare connection identities; a disappearance is not permanent death."""
     current = _proxy_hashes(current_outputs, "all_sources.txt")
-    previous = _proxy_hashes(previous_outputs, "all_sources.txt")
+    previous = _proxy_hashes(previous_outputs, "all_sources.txt", historical=True)
     alternate = _proxy_hashes(current_outputs, "all_sources_sub.txt")
     if current is None:
         return {"schema_version": 1, "status": "current_primary_missing"}
