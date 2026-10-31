@@ -214,9 +214,11 @@ def test_optional_destination_policy_reaches_publisher():
             }
         ]
     )
-    orchestrator.publish_pipeline = SimpleNamespace(
-        run=lambda result, destinations, **kwargs: captured_destinations.extend(destinations)
-    )
+    def confirmed_publisher(_result, destinations, **_kwargs):
+        captured_destinations.extend(destinations)
+        return True
+
+    orchestrator.publish_pipeline = SimpleNamespace(run=confirmed_publisher)
 
     summary = asyncio.run(
         orchestrator._run_hardened(
