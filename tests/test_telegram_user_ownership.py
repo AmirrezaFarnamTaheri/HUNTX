@@ -56,6 +56,37 @@ class TestTelegramUserConnectorOwnership(unittest.TestCase):
 
         client.disconnect.assert_called_once_with()
 
+    def test_unentered_duplicate_cannot_destroy_owned_client(self) -> None:
+        first = _connector("shared-unentered")
+        duplicate = _connector("shared-unentered")
+        client = MagicMock()
+        client.is_connected.return_value = True
+        first.__enter__()
+        try:
+            TelegramUserConnector._local.clients[first._client_key] = client
+            self.assertIs(first._client(), client)
+            duplicate.cleanup()
+            client.disconnect.assert_not_called()
+            self.assertIs(TelegramUserConnector._local.clients[first._client_key], client)
+            with self.assertRaisesRegex(RuntimeError, "session.*busy|session.*owned"):
+                duplicate._client()
+        finally:
+            first.cleanup()
+        client.disconnect.assert_called_once()
+
+    def test_cleanup_log_never_exposes_session_or_exception_text(self) -> None:
+        fake_session = "SENSITIVE_SESSION_STRING_TEST_ONLY"
+        connector = _connector(fake_session)
+        client = MagicMock()
+        client.is_connected.return_value = True
+        client.disconnect.side_effect = RuntimeError("disconnection from " + fake_session)
+        connector.__enter__()
+        TelegramUserConnector._local.clients[connector._client_key] = client
+        connector._client()
+        with self.assertLogs("huntx.connectors.telegram_user.connector", level="WARNING") as logs:
+            connector.cleanup()
+        self.assertNotIn(fake_session, "\\n".join(logs.output))
+
     def test_distinct_sync_sessions_do_not_block_each_other(self) -> None:
         first = _connector("first")
         second = _connector("second")
@@ -104,6 +135,31 @@ class TestTelegramUserConnectorAsyncOwnership(unittest.IsolatedAsyncioTestCase):
         second_client.disconnect.assert_not_awaited()
         self.assertNotIn(first_key, TelegramUserConnector._local.clients)
         self.assertIs(TelegramUserConnector._local.clients[second_key], second_client)
+
+    async def test_unentered_async_duplicate_cannot_destroy_owned_client(self) -> None:
+        first = _connector("shared-async-unentered")
+        duplicate = _connector("shared-async-unentered")
+        client = MagicMock()
+        client.is_connected.return_value = True
+        client.disconnect = AsyncMock()
+        await first.__aenter__()
+        try:
+            TelegramUserConnector._local.clients[first._client_key] = client
+            self.assertIs(first._client(), client)
+            await duplicate.cleanup_async()
+            client.disconnect.assert_not_awaited()
+            self.assertIn(first._client_key, TelegramUserConnector._local.clients)
+        finally:
+            await first.cleanup_async()
+        client.disconnect.assert_awaited_once_with()
+
+    async def test_cleanup_sync_after_async_acquisition_releases_owned_lock(self) -> None:
+        owner = _connector("mispaired-async")
+        waiter = _connector("mispaired-async")
+        await owner.__aenter__()
+        owner.cleanup()
+        await asyncio.wait_for(waiter.__aenter__(), timeout=0.5)
+        await waiter.cleanup_async()
 
     async def test_same_async_session_waits_for_owner_release(self) -> None:
         first = _connector("shared")
