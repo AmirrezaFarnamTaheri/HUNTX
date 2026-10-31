@@ -18,6 +18,7 @@ import {
   buildBase64Sub
 } from "./decoder.js";
 import { renderQRCodeSVG } from "./qrcode.js";
+import { summarizeCatalog } from "./network-doctor.js";
 
 export const COUNTRY_NAMES = {
   DE: "Germany", NL: "Netherlands", US: "United States", GB: "United Kingdom",
@@ -825,6 +826,19 @@ export class AppState {
     const pill = document.getElementById("data-status-pill");
     if (!pill) return;
     const when = escapeHTML(this.catalog?.generated_at || "");
+    // Artifact integrity is independent of publication freshness. In
+    // particular, a week-old checksum-valid feed must not look like an
+    // up-to-date authenticated proxy snapshot.
+    let freshness = "unknown";
+    if (this.liveDataState === "ready") {
+      try {
+        freshness = summarizeCatalog(this.catalog).freshness;
+      } catch {
+        freshness = "unknown";
+      }
+    }
+    const displayState = this.liveDataState === "ready" && freshness !== "recent"
+      ? "outdated" : this.liveDataState;
     const map = {
       ready: {
         cls: "data-status-ready",
@@ -832,12 +846,18 @@ export class AppState {
           ? `Artifact integrity verified · snapshot telemetry available${when ? " · " + when : ""}`
           : `Artifact integrity verified · telemetry unavailable${when ? " · " + when : ""}`
       },
+      outdated: {
+        cls: "data-status-stale",
+        text: freshness === "stale"
+          ? `Published snapshot is outdated · artifact integrity verified, proxy health not current${when ? " · " + when : ""}`
+          : `Publication timestamp is missing, invalid or in the future · freshness unverified${when ? " · " + when : ""}`
+      },
       stale: { cls: "data-status-stale", text: "Bundled snapshot — published data unavailable" },
       "integrity-error": { cls: "data-status-stale", text: "Integrity check failed — bundled snapshot shown" },
       loading: { cls: "data-status-loading", text: "Verifying published snapshot…" },
       idle: { cls: "data-status-loading", text: "Bundled snapshot" }
     };
-    const info = map[this.liveDataState] || map.idle;
+    const info = map[displayState] || map.idle;
     pill.className = `data-status ${info.cls}`;
     pill.textContent = info.text;
 
@@ -845,12 +865,13 @@ export class AppState {
     if (pipelineBadge) {
       const states = {
         ready: { dot: "bg-emerald-500", glow: "", text: "SNAPSHOT VERIFIED", tone: "text-emerald-400", frame: "bg-emerald-950/50 border-emerald-800/40" },
+        outdated: { dot: "bg-amber-500", glow: "", text: "OUTDATED SNAPSHOT", tone: "text-amber-400", frame: "bg-amber-950/40 border-amber-800/40" },
         stale: { dot: "bg-amber-500", glow: "", text: "BUNDLED SNAPSHOT", tone: "text-amber-400", frame: "bg-amber-950/40 border-amber-800/40" },
         "integrity-error": { dot: "bg-rose-500", glow: "", text: "INTEGRITY CHECK FAILED", tone: "text-rose-400", frame: "bg-rose-950/40 border-rose-800/40" },
         loading: { dot: "bg-slate-400", glow: "", text: "SYNCING", tone: "text-slate-300", frame: "bg-slate-900/60 border-slate-700/50" },
         idle: { dot: "bg-slate-400", glow: "", text: "BUNDLED SNAPSHOT", tone: "text-slate-300", frame: "bg-slate-900/60 border-slate-700/50" }
       };
-      const s = states[this.liveDataState] || states.idle;
+      const s = states[displayState] || states.idle;
       pipelineBadge.className = `hidden lg:flex items-center gap-2 px-3 py-1.5 ${s.frame} rounded-full`;
       pipelineBadge.innerHTML = `
         <span class="relative flex h-2 w-2">
@@ -862,8 +883,9 @@ export class AppState {
 
     const radarBadge = document.getElementById("radar-live-badge");
     if (radarBadge) {
-      const live = this.liveDataState === "ready";
-      radarBadge.textContent = live ? "CATALOG OK" : "BUNDLED";
+      const live = displayState === "ready";
+      radarBadge.textContent = live ? "CATALOG OK"
+        : displayState === "outdated" ? "CATALOG STALE" : "BUNDLED";
       radarBadge.className = `px-1.5 py-0.5 text-xs font-bold rounded border ${
         live
           ? "bg-cyan-950/80 text-cyan-300 border-cyan-800/60"
