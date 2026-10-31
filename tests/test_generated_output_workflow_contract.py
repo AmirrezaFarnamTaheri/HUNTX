@@ -101,3 +101,19 @@ def test_publisher_rejects_obsolete_producer_replay_and_changed_main_code():
     authorized = workflow.index("core.setOutput('ready', 'true')")
     assert workflow.index("github.rest.repos.getBranch") < authorized
     assert workflow.index("path: 'manifests/publication.json'") < authorized
+
+
+def test_new_local_generated_output_payloads_are_ignored_by_git():
+    """Legacy tracked artifacts are separate from future untracked data."""
+    import subprocess
+
+    for relative in (
+        "outputs/huntx-probe-untracked.txt",
+        "outputs_dev/huntx-probe-untracked.json",
+    ):
+        result = subprocess.run(
+            ["git", "check-ignore", "--no-index", "--quiet", relative],
+            check=False,
+            capture_output=True,
+        )
+        assert result.returncode == 0, relative
