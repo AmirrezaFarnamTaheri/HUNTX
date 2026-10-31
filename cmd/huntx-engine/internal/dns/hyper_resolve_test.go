@@ -93,7 +93,6 @@ func TestHyperResolve_InvalidDomain(t *testing.T) {
 	}
 }
 
-
 func TestDoHRejectsNXDomainSpoofedOrWrongFamilyAnswers(t *testing.T) {
 	cases := []struct{ name, payload string }{
 		{"nxdomain_with_address", `{"Status":3,"Answer":[{"name":"hardened.invalid.","type":1,"TTL":300,"data":"9.9.9.9"}]}`},
