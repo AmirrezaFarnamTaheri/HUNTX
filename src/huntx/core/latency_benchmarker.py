@@ -101,9 +101,17 @@ def _tcp_probe_target(uri: str) -> tuple[str, int] | None:
             return None
         host: str | None
         port: int | None
-        if scheme == "vmess" or (scheme == "ss" and not parsed.hostname):
+        if scheme in {"vmess", "ss", "ssh"}:
+            # Legacy Shadowsocks shares encode the entire endpoint in base64.
+            # SSH permits the standard implicit port 22. The normalized
+            # parser is authoritative for these schemes, never urlsplit's
+            # apparent (possibly base64) URI hostname.
             node = parse_proxy_uri(uri)
             if node is None:
+                return None
+            if node.transport_type == "quic" or node.network == "udp":
+                # The VMess transport is inside the encoded payload; a raw
+                # TCP connect would be a false failure for QUIC/UDP links.
                 return None
             host, port = node.server, node.port
         else:

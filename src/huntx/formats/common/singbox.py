@@ -20,6 +20,12 @@ from .b64 import b64_decode
 TARGET_SINGBOX_VERSION = '1.14+'
 _RESERVED_TAGS = {'select', 'auto', 'direct'}
 _SUPPORTED_HY2_OBFS = {'salamander', 'gecko'}
+_SHARE_TRANSPORTS = {'', 'tcp', 'raw', 'ws', 'grpc', 'h2', 'http', 'httpupgrade', 'quic'}
+
+
+def _transport_is_lossless(transport: str, header_type: str) -> bool:
+    """Fail closed when a share link specifies an unmodelled handshake layer."""
+    return transport in _SHARE_TRANSPORTS and header_type in {'', 'none'}
 
 
 @dataclass
@@ -197,6 +203,13 @@ def _parse_vmess(uri: str) -> Optional[ProxyNode]:
     uuid = str(data.get('id', '')).strip()
     if not server or not uuid or not 1 <= port <= 65535:
         return None
+    transport = str(data.get('net', 'tcp') or 'tcp').lower()
+    header_type = str(data.get('type', '') or '').lower()
+    tls_mode = str(data.get('tls', '') or '').lower()
+    if not _transport_is_lossless(transport, header_type):
+        return None
+    if tls_mode not in {'', 'none', 'tls'}:
+        return None
     node = ProxyNode(
         type='vmess',
         tag=str(data.get('ps', '') or server),
@@ -206,7 +219,7 @@ def _parse_vmess(uri: str) -> Optional[ProxyNode]:
         alter_id=max(0, _parse_int(data.get('aid'))),
         security=str(data.get('scy', 'auto') or 'auto'),
         packet_encoding=str(data.get('packetEncoding', '') or ''),
-        tls_enabled=data.get('tls', '') == 'tls',
+        tls_enabled=tls_mode == 'tls',
         tls_server_name=str(data.get('sni', '') or data.get('host', '') or ''),
         tls_insecure=_boolean(data.get('allowInsecure', '0')),
     )
@@ -219,7 +232,7 @@ def _parse_vmess(uri: str) -> Optional[ProxyNode]:
             'host': str(data.get('host', '') or ''),
             'serviceName': str(data.get('serviceName', '') or data.get('path', '') or ''),
         },
-        str(data.get('net', 'tcp') or 'tcp').lower(),
+        transport,
     )
     return node
 
@@ -233,6 +246,21 @@ def _parse_vless_or_trojan(uri: str, node_type: str) -> Optional[ProxyNode]:
     if not parsed.username:
         return None
     params = _query(parsed)
+    security = str(params.get('security', '') or '').lower()
+    transport = str(params.get('type', 'tcp') or 'tcp').lower()
+    header_type = str(params.get('headerType', '') or params.get('header_type', '') or '').lower()
+    if security not in {'', 'none', 'tls', 'reality'}:
+        return None
+    if security == 'reality' and (not params.get('pbk') or not params.get('sni')):
+        return None
+    if params.get('pbk') and security not in {'', 'reality'}:
+        return None
+    if node_type == 'vless' and 'encryption' in params and params['encryption'].lower() != 'none':
+        return None
+    if not _transport_is_lossless(transport, header_type):
+        return None
+    if 'network' in params and params['network'] not in {'tcp', 'udp'}:
+        return None
     credential = urllib.parse.unquote(parsed.username)
     node = ProxyNode(
         type=node_type,
@@ -249,7 +277,7 @@ def _parse_vless_or_trojan(uri: str, node_type: str) -> Optional[ProxyNode]:
     if params.get('network') in {'tcp', 'udp'}:
         node.network = params['network']
     _apply_tls(node, params, default_enabled=node_type == 'trojan' and params.get('security', 'tls') != 'none')
-    _apply_transport(node, params, params.get('type', 'tcp').lower())
+    _apply_transport(node, params, transport)
     return node
 
 
@@ -388,15 +416,27 @@ def _parse_hysteria2(uri: str) -> Optional[ProxyNode]:
         server_ports=server_ports,
     )
     raw_ports = params.get('mport', '') or params.get('ports', '')
-    if raw_ports and not server_ports:
-        node.server_ports = [part.strip() for part in raw_ports.split(',') if part.strip()]
+    if raw_ports:
+        tokens = [part.strip() for part in raw_ports.split(',')]
+        for token in tokens:
+            if token.isdigit():
+                if not 1 <= int(token) <= 65535:
+                    return None
+                continue
+            match = re.fullmatch(r'(\d+)-(\d+)', token)
+            if match is None:
+                return None
+            start, end = map(int, match.groups())
+            if not 1 <= start <= end <= 65535:
+                return None
+        if not server_ports:
+            node.server_ports = tokens
     obfs_type = params.get('obfs', '')
     obfs_password = params.get('obfs-password', '') or params.get('obfs_password', '')
-    if obfs_type in _SUPPORTED_HY2_OBFS:
+    if (obfs_password and not obfs_type) or (obfs_type and obfs_type not in _SUPPORTED_HY2_OBFS):
+        return None
+    if obfs_type:
         node.obfs_type = obfs_type
-        node.obfs_password = obfs_password
-    elif obfs_password:
-        node.obfs_type = 'salamander'
         node.obfs_password = obfs_password
     _apply_tls(node, params, default_enabled=True)
     return node
