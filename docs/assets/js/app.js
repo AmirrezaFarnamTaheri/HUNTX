@@ -349,9 +349,18 @@ export function normalizeProxyRecord(proxy) {
 /** A network probe is one layer of evidence, not proof of a working proxy. */
 export function getProxyEvidence(proxy = {}) {
   const kind = String(proxy?.health_evidence || "").toLowerCase();
-  if (kind === "fresh_authenticated_protocol" && typeof proxy?.health_grade === "string"
-      && PUBLISHED_HEALTH_GRADE_META[proxy.health_grade]) {
-    return { id: "authenticated", label: "Protocol checked", detail: "Authenticated proxy-protocol evidence from this snapshot; availability can change.", terminal: false };
+  if (kind === "fresh_authenticated_protocol") {
+    const expiry = proxy?.authenticated_probe_expires_at;
+    const age = proxy?.authenticated_probe_age_seconds;
+    const stillVerified = proxy?.probe_kind === "protocol_authenticated"
+      && proxy?.authenticated_probe_ok === true
+      && typeof expiry === "number" && Number.isFinite(expiry) && expiry > Date.now() / 1000
+      && typeof age === "number" && Number.isFinite(age) && age >= 0 && age <= 3600
+      && typeof proxy?.health_grade === "string" && Boolean(PUBLISHED_HEALTH_GRADE_META[proxy.health_grade]);
+    if (stillVerified) {
+      return { id: "authenticated", label: "Protocol checked", detail: "Fresh authenticated HTTPS-through-proxy evidence; availability may change.", terminal: false };
+    }
+    return { id: "unmeasured", label: "HTTPS proof unavailable", detail: "Authenticated-protocol evidence has expired or cannot be verified from this snapshot.", terminal: false };
   }
   if (kind === "expired_authenticated_protocol") {
     return { id: "unmeasured", label: "HTTPS evidence expired", detail: "A previous authenticated HTTPS check succeeded, but its publication evidence has expired. Current proxy health is unknown.", terminal: false };
