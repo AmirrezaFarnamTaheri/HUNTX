@@ -150,6 +150,9 @@ class TelegramUserConnector(SourceConnector):
         self.offset = min(self._text_offset, self._document_offset)
         self._client_key = (self.api_id, self.session)
         self._owned_client: Optional[Any] = None
+        # Retain the session lock until an async disconnect truly completes,
+        # even when the outer cleanup task is cancelled.
+        self._disconnect_task: Optional[asyncio.Task[Any]] = None
         self._sync_lock = None
         self._async_lock = None
         fw = fetch_windows or {}
@@ -748,7 +751,7 @@ class TelegramUserConnector(SourceConnector):
 
     def cleanup(self) -> None:
         """Synchronously detach only the owned client and release all leases."""
-        if self._async_lock is not None and self._owned_client is not None:
+        if (self._async_lock is not None and self._owned_client is not None) or self._disconnect_task is not None:
             # Telethon connections are bound to their owning event loop.
             # Trying to await their disconnect on a new worker-thread loop
             # would silently break lifecycle ordering and session safety.
@@ -769,21 +772,66 @@ class TelegramUserConnector(SourceConnector):
         finally:
             self._release_session_locks()
 
-    async def cleanup_async(self) -> None:
-        """Asynchronously detach only the owned client and release all leases."""
-        client = self._detach_owned_client()
+    def _finish_async_disconnect(self, task: asyncio.Task[Any]) -> None:
+        """Release the session lease only after the protected teardown finishes."""
+        if self._disconnect_task is not task:
+            return
+        self._disconnect_task = None
         try:
-            if client is not None and client.is_connected():
-                await maybe_await(client.disconnect())
-                logger.debug("Disconnected owned Telegram client api_id=%s", self.api_id)
-        except Exception as exc:
+            error = task.exception()
+        except asyncio.CancelledError:
             logger.warning(
-                "Error disconnecting Telegram client api_id=%s error_type=%s",
-                self.api_id,
-                type(exc).__name__,
+                "Telegram disconnect task was cancelled api_id=%s", self.api_id
             )
+        else:
+            if error is not None:
+                logger.warning(
+                    "Error disconnecting Telegram client api_id=%s error_type=%s",
+                    self.api_id,
+                    type(error).__name__,
+                )
         finally:
             self._release_session_locks()
+
+    async def cleanup_async(self) -> None:
+        """Disconnect the owned client without exposing its session to a new owner.
+
+        Telethon can shield its disconnect internals. Cancelling our outer
+        cleanup therefore must not release the session lock before the actual
+        disconnect finishes. A single shielded child task owns that lifecycle,
+        and its completion callback releases the session lock exactly once.
+        """
+        task = self._disconnect_task
+        if task is None:
+            client = self._detach_owned_client()
+            try:
+                if client is not None and client.is_connected():
+                    task = asyncio.create_task(maybe_await(client.disconnect()))
+                    self._disconnect_task = task
+                    task.add_done_callback(self._finish_async_disconnect)
+                else:
+                    self._release_session_locks()
+                    return
+            except Exception as exc:
+                logger.warning(
+                    "Error disconnecting Telegram client api_id=%s error_type=%s",
+                    self.api_id,
+                    type(exc).__name__,
+                )
+                self._release_session_locks()
+                return
+        try:
+            # Cancelling this caller must never cancel the actual disconnect.
+            await asyncio.shield(task)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            # The completion callback records the exception's class, without
+            # accidentally logging credentials or session details.
+            pass
+        finally:
+            if task.done():
+                self._finish_async_disconnect(task)
 
     def _release_sync_lock(self) -> None:
         lock, self._sync_lock = self._sync_lock, None
@@ -816,8 +864,9 @@ class TelegramUserConnector(SourceConnector):
         or run an event loop here.
         """
         try:
-            self._detach_owned_client()
-            self._release_session_locks()
+            if getattr(self, "_disconnect_task", None) is None:
+                self._detach_owned_client()
+                self._release_session_locks()
         except Exception:
             # Interpreter shutdown may have torn down threading/module globals.
             pass
