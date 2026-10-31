@@ -51,3 +51,29 @@ def test_watchdog_main_pushes_cover_publisher_and_ui_artifact_fixes():
         ".github/workflows/publish-generated-outputs.yml",
     ):
         assert required in paths
+
+def test_generated_mirror_updates_do_not_trigger_a_new_producer():
+    """Generated-only commits after a successful release are legitimate SHA drift."""
+    source = WATCHDOG.read_text(encoding="utf-8")
+    assert 'compare/${latest_sha}...${GITHUB_SHA}' in source
+    assert "generated_only" in source
+    for permitted in (
+        "outputs/",
+        "outputs_dev/",
+        "docs/artifacts/",
+        "docs/catalog.json",
+        "docs/assets/js/data.js",
+        "docs/index.html",
+        ".github/huntx-generated-files.txt",
+    ):
+        assert permitted in source
+    assert 'if [[ "$generated_only" != "true" ]]; then' in source
+
+
+def test_generated_data_js_is_not_an_independent_watchdog_push_trigger():
+    events = yaml.load(WATCHDOG.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)["on"]
+    paths = events["push"]["paths"]
+    assert "docs/assets/js/**" in paths
+    assert "!docs/assets/js/data.js" in paths
+    assert paths.index("docs/assets/js/**") < paths.index("!docs/assets/js/data.js")
+
