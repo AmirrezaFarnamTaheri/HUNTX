@@ -366,3 +366,24 @@ def test_rejected_or_dead_history_is_never_promoted_by_scoring(state):
     from huntx.core.scoring import ProxyScoringEngine
 
     assert ProxyScoringEngine().score_proxy(state) == 0.0
+
+
+def test_single_line_source_with_space_separated_links_recovers_independent_nodes():
+    # Real public feeds concatenate many separate share URIs on a single line.
+    # An invalid advertising token must not suppress the following good nodes.
+    second = "trojan://private-secret@5.5.5.5:443?security=tls#second"
+    malformed = "trojan://bad@bad_host:0#advertisement"
+    payload = (malformed + " " + URI + " " + second).encode()
+    normalized, report = normalize_feed(payload)
+    lines = normalized.decode().splitlines()
+    assert report["nodes"] == 2
+    assert len(lines) == 2
+    assert all(validate_proxy_uri(line) for line in lines)
+    assert not any("bad_host" in line for line in lines)
+
+
+def test_inline_multi_uri_feed_does_not_invent_nodes_from_non_links():
+    payload = ("follow our channel " + URI + " not a proxy " + URI).encode()
+    normalized, report = normalize_feed(payload)
+    assert report["nodes"] == 1
+    assert normalized.decode().count("vless://") == 1
