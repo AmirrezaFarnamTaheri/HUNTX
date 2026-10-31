@@ -212,10 +212,6 @@ def _parse_vmess(uri: str) -> Optional[ProxyNode]:
         return None
     if tls_mode not in {'', 'none', 'tls'}:
         return None
-    if transport == 'grpc' and tls_mode == 'tls' and data.get('alpn'):
-        alpn = [part.strip().lower() for part in str(data['alpn']).split(',')]
-        if 'h2' not in alpn:
-            return None
     node = ProxyNode(
         type='vmess',
         tag=str(data.get('ps', '') or server),
@@ -267,10 +263,6 @@ def _parse_vless_or_trojan(uri: str, node_type: str) -> Optional[ProxyNode]:
         return None
     if 'network' in params and params['network'] not in {'tcp', 'udp'}:
         return None
-    if transport == 'grpc' and security in {'tls', 'reality'} and params.get('alpn'):
-        alpn = [part.strip().lower() for part in params['alpn'].split(',')]
-        if 'h2' not in alpn:
-            return None
     credential = urllib.parse.unquote(parsed.username)
     node = ProxyNode(
         type=node_type,
