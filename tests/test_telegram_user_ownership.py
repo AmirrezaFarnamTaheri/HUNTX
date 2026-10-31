@@ -116,3 +116,47 @@ class TestTelegramUserConnectorAsyncOwnership(unittest.IsolatedAsyncioTestCase):
         await first.cleanup_async()
         await asyncio.wait_for(waiting, timeout=1.0)
         await second.cleanup_async()
+
+
+    async def test_sync_owner_blocks_async_connector_for_the_same_session(self) -> None:
+        """Sync and async contexts must serialize access to one MTProto session."""
+        sync_owner = _connector("cross-mode")
+        async_waiter = _connector("cross-mode")
+        sync_owner.__enter__()
+        waiter = asyncio.create_task(async_waiter.__aenter__())
+        try:
+            await asyncio.sleep(0.05)
+            self.assertFalse(waiter.done(), "async connector bypassed sync session owner")
+        finally:
+            sync_owner.cleanup()
+        await asyncio.wait_for(waiter, timeout=1.0)
+        await async_waiter.cleanup_async()
+
+    async def test_async_owner_blocks_sync_connector_for_the_same_session(self) -> None:
+        """A sync thread must not enter while an async owner holds the session."""
+        async_owner = _connector("cross-mode-reverse")
+        sync_waiter = _connector("cross-mode-reverse")
+        await async_owner.__aenter__()
+        started = threading.Event()
+        acquired = threading.Event()
+
+        def sync_worker():
+            started.set()
+            sync_waiter.__enter__()
+            try:
+                acquired.set()
+            finally:
+                sync_waiter.cleanup()
+
+        thread = threading.Thread(target=sync_worker)
+        thread.start()
+        try:
+            self.assertTrue(started.wait(timeout=1.0))
+            await asyncio.sleep(0.05)
+            self.assertFalse(acquired.is_set(), "sync connector bypassed async session owner")
+        finally:
+            await async_owner.cleanup_async()
+        thread.join(timeout=1.0)
+        self.assertFalse(thread.is_alive())
+        self.assertTrue(acquired.is_set())
+
