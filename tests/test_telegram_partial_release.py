@@ -3,7 +3,6 @@
 Only verified, retry-only Telegram residue may be advisory. A general partial
 run, missing HTTP input, or timeout must still prohibit publication.
 """
-from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
