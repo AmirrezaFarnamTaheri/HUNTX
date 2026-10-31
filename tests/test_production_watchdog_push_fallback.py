@@ -51,4 +51,3 @@ def test_watchdog_main_pushes_cover_publisher_and_ui_artifact_fixes():
         ".github/workflows/publish-generated-outputs.yml",
     ):
         assert required in paths
-
