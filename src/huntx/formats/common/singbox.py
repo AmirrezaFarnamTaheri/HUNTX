@@ -152,9 +152,11 @@ def _boolean(value: Any) -> bool:
 
 def _apply_tls(node: ProxyNode, params: dict[str, str], *, default_enabled: bool = False) -> None:
     """Populate TLS-related fields on a proxy node from URI parameters."""
-    security = params.get('security', '')
+    security = str(params.get('security', '') or '').lower()
     node.tls_enabled = default_enabled or security in {'tls', 'reality'}
-    node.tls_server_name = params.get('sni', '') or params.get('peer', '') or params.get('host', '')
+    # The HTTP/WebSocket Host header is not certificate SNI. With no explicit
+    # SNI or peer, sing-box should verify the actual dial target hostname.
+    node.tls_server_name = params.get('sni', '') or params.get('peer', '')
     node.tls_insecure = _boolean(params.get('insecure', '0')) or _boolean(params.get('allowInsecure', '0'))
     node.tls_utls_fingerprint = params.get('fp', '')
     if params.get('alpn'):
@@ -220,7 +222,7 @@ def _parse_vmess(uri: str) -> Optional[ProxyNode]:
         security=str(data.get('scy', 'auto') or 'auto'),
         packet_encoding=str(data.get('packetEncoding', '') or ''),
         tls_enabled=tls_mode == 'tls',
-        tls_server_name=str(data.get('sni', '') or data.get('host', '') or ''),
+        tls_server_name=str(data.get('sni', '') or ''),
         tls_insecure=_boolean(data.get('allowInsecure', '0')),
     )
     if data.get('alpn'):
@@ -276,7 +278,7 @@ def _parse_vless_or_trojan(uri: str, node_type: str) -> Optional[ProxyNode]:
     )
     if params.get('network') in {'tcp', 'udp'}:
         node.network = params['network']
-    _apply_tls(node, params, default_enabled=node_type == 'trojan' and params.get('security', 'tls') != 'none')
+    _apply_tls(node, params, default_enabled=node_type == 'trojan' and security != 'none')
     _apply_transport(node, params, transport)
     return node
 
