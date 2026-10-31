@@ -13,7 +13,8 @@ def test_production_workflow_uses_verified_atomic_generations():
     assert "HUNTX_ALLOW_PARTIAL_SUCCESS" not in workflow
     assert 'HUNTX_ALLOW_PARTIAL_EXPORT: "true"' in workflow
     assert 'HUNTX_RUN_SUMMARY_PATH: "persist/data/logs/run-summary.json"' in workflow
-    assert "timeout --signal=TERM --kill-after=60s 105m" in workflow
+    assert 'watchdog_budget_seconds=$((HUNTX_RUN_TIMEOUT + 300))' in workflow
+    assert 'timeout --signal=TERM --kill-after=30s "${watchdog_budget_seconds}s"' in workflow
     assert "scripts/checkpoint_runtime_state.py" in workflow
     assert "scripts/report_runtime_health.py" in workflow
     assert "huntx-tools runtime-generation" in workflow
