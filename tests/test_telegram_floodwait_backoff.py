@@ -81,8 +81,14 @@ def test_session_cooldown_defers_only_its_own_windows_and_survives_new_seed(tmp_
     assert due is not None and due.source_id in {"a", "b"}
 
 
+@pytest.mark.parametrize("retry_release_enabled", [False, True])
 @pytest.mark.asyncio
-async def test_flood_wait_on_one_window_postpones_same_account_without_hot_loop(tmp_path):
+async def test_flood_wait_on_one_window_postpones_same_account_without_hot_loop(
+    tmp_path, monkeypatch, retry_release_enabled,
+):
+    monkeypatch.setenv(
+        "HUNTX_TELEGRAM_RETRY_RELEASE", "1" if retry_release_enabled else "0"
+    )
     queue = PersistentIngestionQueue(open_db(tmp_path / "state.db"))
     now = int(time.time())
     sources = [_source("a"), _source("b")]
@@ -109,7 +115,10 @@ async def test_flood_wait_on_one_window_postpones_same_account_without_hot_loop(
 
     await runner._run_persistent_windows(results, asyncio.Lock(), 30.0)
 
-    assert results == {"ok": 0, "err": 1}
+    assert results == (
+        {"ok": 0, "err": 0, "optional_err": 1}
+        if retry_release_enabled else {"ok": 0, "err": 1}
+    )
     assert runner._window_failures == 1
     runner._windowed_ingestion.run_page.assert_awaited_once()
     with queue.db.connect() as conn:
