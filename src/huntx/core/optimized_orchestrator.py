@@ -464,7 +464,7 @@ async def _run_hardened(
     summary["excluded_sources"] = len(rejected)
     summary["canonical_ingestion_sources"] = len(ingestion_sources)
 
-    retry_only_release = self._telegram_retry_release_allowed(residue)
+    retry_only_release = OptimizedHardenedOrchestrator._telegram_retry_release_allowed(self, residue)
     summary["telegram_availability_degraded"] = retry_only_release
     summary["telegram_retry_windows"] = int(residue.get("retry_wait", 0))
     if retry_only_release:
