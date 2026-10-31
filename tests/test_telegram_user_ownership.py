@@ -117,7 +117,6 @@ class TestTelegramUserConnectorAsyncOwnership(unittest.IsolatedAsyncioTestCase):
         await asyncio.wait_for(waiting, timeout=1.0)
         await second.cleanup_async()
 
-
     async def test_sync_owner_blocks_async_connector_for_the_same_session(self) -> None:
         """Sync and async contexts must serialize access to one MTProto session."""
         sync_owner = _connector("cross-mode")
@@ -159,4 +158,3 @@ class TestTelegramUserConnectorAsyncOwnership(unittest.IsolatedAsyncioTestCase):
         thread.join(timeout=1.0)
         self.assertFalse(thread.is_alive())
         self.assertTrue(acquired.is_set())
-
