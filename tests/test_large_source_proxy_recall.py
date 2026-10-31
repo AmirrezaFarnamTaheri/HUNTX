@@ -75,7 +75,6 @@ def test_oversize_for_global_run_budget_is_never_silently_acknowledged(
 
 def test_later_insert_chunk_failure_cannot_ack_partial_source(monkeypatch):
     pipeline, repo, observation = make_pipeline(monkeypatch, TransformPipeline)
-    conn = repo.db.connect.return_value.__enter__.return_value
     repo.add_records_batch.side_effect = [None, RuntimeError("write failed")]
     with patch("huntx.pipeline.transform.decide_format", return_value="conf_lines"):
         with pytest.raises(RuntimeError, match="write failed"):
