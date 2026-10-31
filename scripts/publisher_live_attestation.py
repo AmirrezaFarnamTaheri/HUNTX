@@ -276,6 +276,7 @@ def verify_attestation(root: Path, report: dict[str, Any], *,
             raise ValueError(f"{stem}: publisher feed digest/identity mismatch")
     return True
 
+
 def finalize_attestation(root: Path, report: dict[str, Any], *,
                          now: float | None = None) -> dict[str, Any]:
     """Remove expired *claims*, never expired proxy identities or feed lines."""
