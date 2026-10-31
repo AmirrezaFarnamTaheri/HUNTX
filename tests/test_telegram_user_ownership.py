@@ -91,6 +91,20 @@ class TestTelegramUserConnectorOwnership(unittest.TestCase):
             connector.cleanup()
         self.assertNotIn(fake_session, "\\n".join(logs.output))
 
+    def test_finalizer_drops_stale_cached_client_without_network_io(self) -> None:
+        owner = _connector("finalizer-stale-client")
+        client = MagicMock()
+        client.is_connected.return_value = True
+        owner.__enter__()
+        TelegramUserConnector._local.clients[owner._client_key] = client
+        owner._client()
+        owner.__del__()
+
+        self.assertNotIn(owner._client_key, TelegramUserConnector._local.clients)
+        client.disconnect.assert_not_called()
+        # Explicit cleanup remains safe after a finalizer already ran.
+        owner.cleanup()
+
     def test_lock_registry_does_not_store_raw_session_secrets(self) -> None:
         session = "FAKE_HIGH_ENTROPY_SESSION_PRIVATE_TEST"
         connector = _connector(session)
