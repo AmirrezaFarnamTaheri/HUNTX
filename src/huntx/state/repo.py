@@ -923,14 +923,23 @@ class StateRepo:
                 entry.get("duration_ms"),
             )
             if (
-                any(type(value) not in (int, float) or not math.isfinite(value)
-                    for value in (checked, expires, duration))
-                or checked <= 0
-                or not 0 < expires - checked <= 300.001
-                or not 0 <= duration <= 30000
+                not isinstance(checked, (int, float)) or isinstance(checked, bool)
+                or not isinstance(expires, (int, float)) or isinstance(expires, bool)
+                or not isinstance(duration, (int, float)) or isinstance(duration, bool)
             ):
                 raise ValueError("invalid producer authenticated sidecar measurement")
-            verified.append((digest, int(checked), float(duration)))
+            checked_at = float(checked)
+            expires_at = float(expires)
+            duration_ms = float(duration)
+            if (
+                not all(math.isfinite(value)
+                        for value in (checked_at, expires_at, duration_ms))
+                or checked_at <= 0
+                or not 0 < expires_at - checked_at <= 300.001
+                or not 0 <= duration_ms <= 30000
+            ):
+                raise ValueError("invalid producer authenticated sidecar measurement")
+            verified.append((digest, int(checked_at), duration_ms))
 
         persisted = 0
         for digest, checked, duration in verified:
