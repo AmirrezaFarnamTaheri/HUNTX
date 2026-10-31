@@ -593,10 +593,18 @@ class NpvtHandler(FormatHandler):
                 # as a *single* URI discards every node. Accept a complete
                 # single URI first; otherwise recover separately validated
                 # links without accepting surrounding arbitrary text.
-                if validate_proxy_uri(clean):
+                candidates = _extract_proxy_uris(clean)
+                if len(candidates) > 1:
+                    # A URL parser can accept a fragment containing another
+                    # URI and silently swallow it as part of the first tag.
+                    # Detect multiple actual share URI schemes before trusting
+                    # whole-line syntax validation.
+                    for uri in candidates:
+                        self._append_uri(records, seen_hashes, uri)
+                elif validate_proxy_uri(clean):
                     self._append_uri(records, seen_hashes, clean)
                 else:
-                    for uri in _extract_proxy_uris(clean):
+                    for uri in candidates:
                         self._append_uri(records, seen_hashes, uri)
                 continue
             for uri in _extract_proxy_uris(clean):
