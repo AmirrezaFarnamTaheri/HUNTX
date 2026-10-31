@@ -564,6 +564,41 @@ jobs:
           # the final assembled upload, not merely the checked-in source.
           python scripts/validate_pages_package.py "$SOURCE_ROOT/snapshot/docs"
 
+      # Reauthenticate only AFTER expensive producer/export/assembler work.
+      # This is publisher-only proof; source dist and primary/sub URI inventories
+      # remain byte-for-byte unchanged and low-scoring nodes are never curated.
+      - name: Install pinned last-mile proxy verification engine
+        if: steps.release.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --max-time 120 \
+            https://github.com/SagerNet/sing-box/releases/download/v1.14.3/sing-box-1.14.3-linux-amd64.tar.gz \
+            -o "$RUNNER_TEMP/singbox-publisher.tar.gz"
+          echo "e2bdf179c15a3652955dc44867e33ca0965c9c9b91b34267dcc5a5d639a5feee  $RUNNER_TEMP/singbox-publisher.tar.gz" | sha256sum -c -
+          tar --no-same-owner -xzf "$RUNNER_TEMP/singbox-publisher.tar.gz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/sing-box-1.14.3-linux-amd64" >> "$GITHUB_PATH"
+
+      - name: Recheck complete published proxy inventory
+        if: steps.release.outputs.ready == 'true'
+        env:
+          PYTHONPATH: src
+          SOURCE_ROOT: ${{ runner.temp }}/huntx-publication
+          SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ steps.source.outputs.run_attempt }}
+          SOURCE_COMMIT: ${{ steps.source.outputs.head_sha }}
+          HUNTX_HEALTH_WORKERS: '32'
+          HUNTX_HEALTH_TIMEOUT: '8'
+          HUNTX_HEALTH_BUDGET: '900'
+        run: |
+          set -euo pipefail
+          python scripts/publisher_live_attestation.py build \
+            --snapshot-root "$SOURCE_ROOT/snapshot" \
+            --source-run-id "$SOURCE_RUN_ID" \
+            --source-run-attempt "$SOURCE_RUN_ATTEMPT" \
+            --source-commit "$SOURCE_COMMIT" \
+            --producer-receipt "$SOURCE_ROOT/logs/release-receipt.json"
+          test -s "$SOURCE_ROOT/snapshot/manifests/SHA256SUMS"
+
       - name: Configure Pages deployment
         if: steps.release.outputs.ready == 'true'
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
@@ -578,12 +613,19 @@ jobs:
         if: steps.release.outputs.ready == 'true'
         env:
           SNAPSHOT_ROOT: ${{ runner.temp }}/huntx-publication/snapshot
+          SOURCE_ROOT: ${{ runner.temp }}/huntx-publication
+          PYTHONPATH: src
           GIT_SNAPSHOT_ROOT: ${{ runner.temp }}/huntx-publication/git-snapshot
           SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
           SOURCE_RUN_ATTEMPT: ${{ steps.source.outputs.run_attempt }}
           RESTORED_SHA: ${{ steps.previous.outputs.sha }}
         run: |
           set -euo pipefail
+          # Retire expired publisher claims immediately before committing,
+          # never dropping their identities from the immutable public feed.
+          python scripts/publisher_live_attestation.py finalize \
+            --snapshot-root "$SNAPSHOT_ROOT" \
+            --producer-receipt "$SOURCE_ROOT/logs/release-receipt.json"
           # The dashboard step regenerates tracked files in-place while
           # assembling the snapshot; this step works on the pristine
           # branches, so discard that working-copy dirt first.
@@ -620,7 +662,20 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add --all
-          git diff --cached --check
+          # Two immutable historical shell files predate this publisher and
+          # contain intentional Markdown hard-break whitespace / a final blank
+          # line. Preserve their exact bytes rather than rewriting history.
+          # Only exempt these two from Git whitespace LINT. Every file,
+          # including both, remains in the immutable snapshot SHA256SUMS.
+          git diff --cached --check -- . \
+            ':(exclude)docs/history/MASTER_FORENSIC_COMPENDIUM.md' \
+            ':(exclude)docs/manifest.json'
+          for shell_file in docs/history/MASTER_FORENSIC_COMPENDIUM.md docs/manifest.json; do
+            cmp -s "$SNAPSHOT_ROOT/$shell_file" "$shell_file" || {
+              echo "::error title=Historical shell modified::$shell_file differs from the verified snapshot"
+              exit 1
+            }
+          done
           if git diff --cached --quiet; then
             echo "Generated snapshot is unchanged; branch update is idempotent."
             exit 0
