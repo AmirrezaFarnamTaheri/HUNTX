@@ -573,6 +573,70 @@ def catalog_proxy_churn(docs_dir: Path, report: dict[str, Any]) -> None:
         )
 
 
+def rebuild_aggregate_artifact_manifest(docs_dir: Path) -> None:
+    """Regenerate the public root artifact index from the *final* catalog.
+
+    Go site-data creates the current release-specific manifest, but the shell
+    may still carry an obsolete aggregate index from a historical snapshot.
+    Build this index after cumulative dev/churn products have been appended.
+    """
+    catalog_path = docs_dir / "catalog.json"
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    entries = catalog.get("files")
+    if not isinstance(entries, list):
+        raise ValueError("Dashboard catalog is missing its downloadable file list")
+    artifact_root = (docs_dir / "artifacts").resolve()
+    artifact_root.mkdir(parents=True, exist_ok=True)
+    seen: set[str] = set()
+    artifacts: list[dict[str, Any]] = []
+    for item in entries:
+        if not isinstance(item, dict):
+            raise ValueError("Invalid dashboard catalog product")
+        path = item.get("path")
+        if not isinstance(path, str) or not path.startswith("artifacts/"):
+            raise ValueError("Invalid dashboard artifact path")
+        relative = path.removeprefix("artifacts/")
+        if not relative or relative.startswith("/") or ".." in Path(relative).parts:
+            raise ValueError("unsafe dashboard artifact path")
+        if relative in seen:
+            raise ValueError("Duplicate dashboard artifact path")
+        seen.add(relative)
+        target = (artifact_root / relative).resolve()
+        try:
+            target.relative_to(artifact_root)
+        except ValueError as exc:
+            raise ValueError("Dashboard artifact escapes root") from exc
+        if not target.is_file():
+            raise ValueError(f"Missing dashboard artifact {relative}")
+        size, digest = item.get("size"), item.get("sha256")
+        if type(size) is not int or size < 0 or target.stat().st_size != size:
+            raise ValueError(f"Dashboard artifact size mismatch {relative}")
+        if not isinstance(digest, str) or len(digest) != 64:
+            raise ValueError(f"Invalid dashboard artifact checksum {relative}")
+        hasher = hashlib.sha256()
+        with target.open("rb") as file:
+            for chunk in iter(lambda: file.read(1024 * 1024), b""):
+                hasher.update(chunk)
+        if hasher.hexdigest() != digest:
+            raise ValueError(f"Dashboard artifact checksum mismatch {relative}")
+        result: dict[str, Any] = {
+            "path": relative, "size": size, "sha256": digest,
+        }
+        if isinstance(item.get("media_type"), str):
+            result["media_type"] = item["media_type"]
+        artifacts.append(result)
+    artifacts.sort(key=lambda artifact: artifact["path"])
+    document = {
+        "schema_version": 1,
+        "artifact_count": len(artifacts),
+        "artifacts": artifacts,
+    }
+    (artifact_root / "manifest.json").write_text(
+        json.dumps(document, sort_keys=True, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
 def sync_dashboard_fallback_catalog(docs_dir: Path) -> None:
     """Align the bundled fallback after cumulative dev metadata is appended."""
     source = docs_dir / "catalog.json"
@@ -724,6 +788,7 @@ def assemble_snapshot(
             (destination / "docs" / "assets" / "js" / "bundle.js").unlink(missing_ok=True)
         _catalog_dev_trio(destination / "docs", destination / "docs" / "artifacts" / "dev")
         catalog_proxy_churn(destination / "docs", churn_report)
+        rebuild_aggregate_artifact_manifest(destination / "docs")
         sync_dashboard_fallback_catalog(destination / "docs")
         if shell_root is not None:
             _refresh_frontend_index(destination)
