@@ -53,8 +53,12 @@ def _window_failure_orchestrator(exc: Exception):
     return orchestrator, queue
 
 
+@pytest.mark.parametrize("retry_release_enabled", [False, True])
 @pytest.mark.asyncio
-async def test_dead_username_terminalizes_all_source_windows_instead_of_retrying():
+async def test_dead_username_terminalizes_all_source_windows_instead_of_retrying(monkeypatch, retry_release_enabled):
+    monkeypatch.setenv(
+        "HUNTX_TELEGRAM_RETRY_RELEASE", "1" if retry_release_enabled else "0"
+    )
     orchestrator, queue = _window_failure_orchestrator(
         ValueError('No user has "sip_socksip" as username')
     )
@@ -65,11 +69,18 @@ async def test_dead_username_terminalizes_all_source_windows_instead_of_retrying
     queue.terminalize_source.assert_called_once()
     assert queue.terminalize_source.call_args.args[0] == "dead-source"
     queue.fail.assert_not_called()
-    assert results == {"ok": 0, "err": 1}
+    assert results == (
+        {"ok": 0, "err": 0, "optional_err": 1}
+        if retry_release_enabled else {"ok": 0, "err": 1}
+    )
 
 
+@pytest.mark.parametrize("retry_release_enabled", [False, True])
 @pytest.mark.asyncio
-async def test_unusable_numeric_peer_terminalizes_source_instead_of_retrying():
+async def test_unusable_numeric_peer_terminalizes_source_instead_of_retrying(monkeypatch, retry_release_enabled):
+    monkeypatch.setenv(
+        "HUNTX_TELEGRAM_RETRY_RELEASE", "1" if retry_release_enabled else "0"
+    )
     orchestrator, queue = _window_failure_orchestrator(
         ValueError(
             "Could not find the input entity for "
@@ -83,11 +94,18 @@ async def test_unusable_numeric_peer_terminalizes_source_instead_of_retrying():
     queue.terminalize_source.assert_called_once()
     assert queue.terminalize_source.call_args.args[0] == "dead-source"
     queue.fail.assert_not_called()
-    assert results == {"ok": 0, "err": 1}
+    assert results == (
+        {"ok": 0, "err": 0, "optional_err": 1}
+        if retry_release_enabled else {"ok": 0, "err": 1}
+    )
 
 
+@pytest.mark.parametrize("retry_release_enabled", [False, True])
 @pytest.mark.asyncio
-async def test_peer_id_invalid_terminalizes_source_instead_of_retrying():
+async def test_peer_id_invalid_terminalizes_source_instead_of_retrying(monkeypatch, retry_release_enabled):
+    monkeypatch.setenv(
+        "HUNTX_TELEGRAM_RETRY_RELEASE", "1" if retry_release_enabled else "0"
+    )
     orchestrator, queue = _window_failure_orchestrator(
         PeerIdInvalidError("An invalid Peer was used")
     )
@@ -98,11 +116,18 @@ async def test_peer_id_invalid_terminalizes_source_instead_of_retrying():
     queue.terminalize_source.assert_called_once()
     assert queue.terminalize_source.call_args.args[0] == "dead-source"
     queue.fail.assert_not_called()
-    assert results == {"ok": 0, "err": 1}
+    assert results == (
+        {"ok": 0, "err": 0, "optional_err": 1}
+        if retry_release_enabled else {"ok": 0, "err": 1}
+    )
 
 
+@pytest.mark.parametrize("retry_release_enabled", [False, True])
 @pytest.mark.asyncio
-async def test_transient_window_failure_remains_retryable():
+async def test_transient_window_failure_remains_retryable(monkeypatch, retry_release_enabled):
+    monkeypatch.setenv(
+        "HUNTX_TELEGRAM_RETRY_RELEASE", "1" if retry_release_enabled else "0"
+    )
     orchestrator, queue = _window_failure_orchestrator(
         ConnectionError("temporary Telegram transport failure")
     )
