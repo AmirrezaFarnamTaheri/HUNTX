@@ -52,6 +52,7 @@ def test_watchdog_main_pushes_cover_publisher_and_ui_artifact_fixes():
     ):
         assert required in paths
 
+
 def test_generated_mirror_updates_do_not_trigger_a_new_producer():
     """Generated-only commits after a successful release are legitimate SHA drift."""
     source = WATCHDOG.read_text(encoding="utf-8")
