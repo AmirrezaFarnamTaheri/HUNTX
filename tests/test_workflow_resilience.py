@@ -122,6 +122,7 @@ def test_telegram_activity_gate_keeps_availability_nonfatal_without_forged_succe
     assert "EvidenceContractError" in verifier
     assert "No completed LIFO source windows found" not in workflow
 
+
 def test_downstream_evidence_gates_are_attempt_specific():
     telegram = Path(".github/workflows/huntx-telegram-activity-gate.yml").read_text()
     investigation = Path(".github/workflows/huntx-real-investigation-gate.yml").read_text()
