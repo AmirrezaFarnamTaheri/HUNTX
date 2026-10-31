@@ -662,7 +662,20 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add --all
-          git diff --cached --check
+          # Two immutable historical shell files predate this publisher and
+          # contain intentional Markdown hard-break whitespace / a final blank
+          # line. Preserve their exact bytes rather than rewriting history.
+          # Only exempt these two from Git whitespace LINT. Every file,
+          # including both, remains in the immutable snapshot SHA256SUMS.
+          git diff --cached --check -- . \
+            ':(exclude)docs/history/MASTER_FORENSIC_COMPENDIUM.md' \
+            ':(exclude)docs/manifest.json'
+          for shell_file in docs/history/MASTER_FORENSIC_COMPENDIUM.md docs/manifest.json; do
+            cmp -s "$SNAPSHOT_ROOT/$shell_file" "$shell_file" || {
+              echo "::error title=Historical shell modified::$shell_file differs from the verified snapshot"
+              exit 1
+            }
+          done
           if git diff --cached --quiet; then
             echo "Generated snapshot is unchanged; branch update is idempotent."
             exit 0
