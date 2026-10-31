@@ -194,9 +194,9 @@ def audit_artifacts(
     stage["endpoint_identity"] = item("observed", distinct=distinct, repeated_endpoint_observations=repeated,
                                       scanned=scanned, invalid=invalid)
     stage["geo_attribution"] = item("unknown" if _count(ec, "unresolved_geo") == distinct else "partial",
-                                     unresolved_country=_count(ec, "unresolved_geo"),
-                                     unattributed_asn=_count(ec, "unattributed_asn"), distinct=distinct,
-                                     scope="network metadata, not physical exit geography")
+                                    unresolved_country=_count(ec, "unresolved_geo"),
+                                    unattributed_asn=_count(ec, "unattributed_asn"), distinct=distinct,
+                                    scope="network metadata, not physical exit geography")
     stage["dns_diagnostics"] = item("observed" if tested else "unknown",
                                     sampled=tested, outcomes=layers.get("dns"))
     stage["tcp_diagnostics"] = item("observed" if tested else "unknown",
