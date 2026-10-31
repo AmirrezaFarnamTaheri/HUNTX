@@ -115,7 +115,7 @@ async def test_transient_window_failure_remains_retryable():
     assert queue.fail.call_args.args[:3] == (
         11,
         "run-owner",
-        "temporary Telegram transport failure",
+        "window error: ConnectionError",
     )
     assert results == {"ok": 0, "err": 1}
 
