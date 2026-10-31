@@ -1,7 +1,6 @@
 """Regression matrix for nonblocking Telegram source availability."""
-import json
 import pytest
-from scripts.verify_telegram_activity import EvidenceContractError, evaluate, main
+from scripts.verify_telegram_activity import EvidenceContractError, evaluate
 
 
 def summary(**changes):
