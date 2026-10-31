@@ -59,11 +59,11 @@ def test_churn_tolerates_duplicate_semantic_identities_only_in_previous_snapshot
     shared = "trojan://beta@5.5.5.6:443?security=tls"
     fresh = "trojan://gamma@5.5.5.7:443?security=tls"
     (previous / "all_sources.txt").write_text(
-        duplicate_old + "#One\\n" + duplicate_old + "#Two\\n"
-        + shared + "#Shared\\n", encoding="utf-8"
+        duplicate_old + "#One\n" + duplicate_old + "#Two\n"
+        + shared + "#Shared\n", encoding="utf-8"
     )
     (current / "all_sources.txt").write_text(
-        shared + "#Now\\n" + fresh + "#Fresh\\n", encoding="utf-8"
+        shared + "#Now\n" + fresh + "#Fresh\n", encoding="utf-8"
     )
 
     report = build_proxy_churn_report(current, previous)
@@ -77,12 +77,12 @@ def test_churn_tolerates_duplicate_semantic_identities_only_in_previous_snapshot
     # A duplicated current primary or alternate must still fail closed.
     with pytest.raises(ValueError, match="duplicate semantic identities"):
         (current / "all_sources.txt").write_text(
-            shared + "#One\\n" + shared + "#Two\\n", encoding="utf-8"
+            shared + "#One\n" + shared + "#Two\n", encoding="utf-8"
         )
         build_proxy_churn_report(current, previous)
-    (current / "all_sources.txt").write_text(fresh + "\\n", encoding="utf-8")
+    (current / "all_sources.txt").write_text(fresh + "\n", encoding="utf-8")
     (current / "all_sources_sub.txt").write_text(
-        shared + "#One\\n" + shared + "#Two\\n", encoding="utf-8"
+        shared + "#One\n" + shared + "#Two\n", encoding="utf-8"
     )
     with pytest.raises(ValueError, match="duplicate semantic identities"):
         build_proxy_churn_report(current, previous)
