@@ -100,6 +100,7 @@ def _verify_artifact(root: Path, relative: str, item: dict, *, manifest: str) ->
 def _verify_publication_artifacts(root: Path) -> int:
     """Validate exact catalog and release manifest bytes before Pages upload."""
     checked = 0
+    catalog_paths: set[str] | None = None
     catalog = root / "catalog.json"
     if catalog.is_file():
         try:
@@ -109,6 +110,7 @@ def _verify_publication_artifacts(root: Path) -> int:
         if not isinstance(document, dict) or not isinstance(document.get("files"), list):
             raise ValueError("Invalid Pages catalog file list")
         seen: set[str] = set()
+        catalog_paths = seen
         for entry in document["files"]:
             if not isinstance(entry, dict) or not isinstance(entry.get("path"), str):
                 raise ValueError("Invalid Pages catalog artifact")
@@ -142,6 +144,36 @@ def _verify_publication_artifacts(root: Path) -> int:
             seen.add(rel)
             _verify_artifact(root, "artifacts/release/" + rel, entry, manifest="release")
             checked += 1
+
+    # A legacy aggregate manifest can survive a shell overlay even after the
+    # release-specific manifest and catalog are replaced. Validate this public
+    # index too; valid checksums elsewhere must not conceal stale downloads.
+    aggregate = root / "artifacts" / "manifest.json"
+    if aggregate.is_file():
+        try:
+            document = json.loads(aggregate.read_text(encoding="utf-8"))
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise ValueError("Invalid aggregate artifact manifest") from exc
+        if not isinstance(document, dict) or not isinstance(document.get("artifacts"), list):
+            raise ValueError("Invalid aggregate manifest artifact list")
+        entries = document["artifacts"]
+        if document.get("artifact_count") != len(entries):
+            raise ValueError("Aggregate manifest artifact count mismatch")
+        aggregate_paths: set[str] = set()
+        for entry in entries:
+            if not isinstance(entry, dict) or not isinstance(entry.get("path"), str):
+                raise ValueError("Invalid aggregate manifest artifact")
+            relative = entry["path"]
+            if not relative or relative.startswith("/") or ".." in Path(relative).parts:
+                raise ValueError("unsafe aggregate manifest artifact path")
+            path = "artifacts/" + relative
+            if path in aggregate_paths:
+                raise ValueError(f"Duplicate aggregate artifact {relative}")
+            aggregate_paths.add(path)
+            _verify_artifact(root, path, entry, manifest="aggregate")
+            checked += 1
+        if catalog_paths is not None and aggregate_paths != catalog_paths:
+            raise ValueError("aggregate manifest/catalog file inventory mismatch")
     return checked
 
 
