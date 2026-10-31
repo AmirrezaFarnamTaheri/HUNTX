@@ -387,3 +387,13 @@ def test_inline_multi_uri_feed_does_not_invent_nodes_from_non_links():
     normalized, report = normalize_feed(payload)
     assert report["nodes"] == 1
     assert normalized.decode().count("vless://") == 1
+
+
+def test_two_valid_links_on_one_line_cannot_be_swallowed_by_first_remark():
+    # A URI validator may ignore a fragment containing spaces. Find all
+    # independent proxy links *before* accepting the entire physical line.
+    second = "trojan://secret@5.5.5.5:443?security=tls#second"
+    normalized, report = normalize_feed((URI + " " + second).encode())
+    lines = normalized.decode().splitlines()
+    assert report["nodes"] == len(lines) == 2
+    assert all(validate_proxy_uri(line) for line in lines)
