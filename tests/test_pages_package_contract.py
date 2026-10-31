@@ -95,3 +95,25 @@ def test_pages_catalog_rejects_files_escaping_upload_root(tmp_path: Path):
     )
     with pytest.raises(ValueError, match="escapes|unsafe"):
         validate_pages_package(tmp_path)
+
+
+def test_pages_package_detects_dashboard_missing_vmess_from_feed(tmp_path: Path):
+    """Every published raw node must have a matching dashboard record."""
+    (tmp_path / "index.html").write_text("<html></html>", encoding="utf-8")
+    feed = tmp_path / "artifacts" / "release" / "all_sources.txt"
+    feed.parent.mkdir(parents=True)
+    feed.write_text("vless://synthetic@host.example:443#one\\nvmess://synthetic-encoded\\n", encoding="utf-8")
+    js = tmp_path / "assets" / "js" / "data.js"
+    js.parent.mkdir(parents=True)
+    js.write_text(
+        'export const SAMPLE_PROXIES = [{"raw_uri":"vless://synthetic@host.example:443#one"}];\\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="dashboard.*feed|feed.*dashboard"):
+        validate_pages_package(tmp_path)
+    js.write_text(
+        'export const SAMPLE_PROXIES = [{"raw_uri":"vless://synthetic@host.example:443#one"},'
+        '{"raw_uri":"vmess://synthetic-encoded"}];\\n',
+        encoding="utf-8",
+    )
+    assert validate_pages_package(tmp_path)["missing"] == []
