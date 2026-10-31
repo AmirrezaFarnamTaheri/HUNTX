@@ -28,7 +28,7 @@ def test_production_publisher_never_commits_generated_data_to_main():
     assert "--force-with-lease=\"refs/heads/generated-outputs:" in workflow
     assert "actions/deploy-pages@" in workflow
     assert "Deploy cumulative dashboard to Pages" in workflow
-    assert "Source-branch mirrors: \`none\`" in workflow
+    assert "Source-branch mirrors: `none`" in workflow
 
 
 def test_control_plane_push_republishes_latest_trusted_producer_without_recursion():
@@ -38,9 +38,9 @@ def test_control_plane_push_republishes_latest_trusted_producer_without_recursio
     assert "  push:" in trigger
     assert "      - main" in trigger
     assert '      - ".github/workflows/publish-generated-outputs.yml"' in trigger
-    assert '      - ".github/huntx-generated-files.txt"' in trigger
+    assert '      - ".github/huntx-generated-files.txt"' not in trigger
     assert '      - "scripts/assemble_generated_snapshot.py"' in trigger
-    assert '      - "scripts/sync_generated_outputs_to_main.py"' in trigger
+    assert '      - "scripts/sync_generated_outputs_to_main.py"' not in trigger
     assert "outputs/**" not in trigger
     assert "outputs_dev/**" not in trigger
 
