@@ -65,8 +65,19 @@ def test_explicit_certificate_sni_is_not_replaced_by_websocket_host(uri):
     "trojan://synthetic@origin.example.net:443?security=tls&type=grpc&alpn=http%2F1.1",
     _vmess(net="grpc", alpn="http/1.1"),
 ])
-def test_explicit_incompatible_grpc_alpn_is_not_exported_as_viable(uri):
-    assert parse_proxy_uri(uri) is None
+def test_explicit_incompatible_grpc_alpn_is_diagnosed_without_downgrading(uri):
+    from huntx.core.endpoint_intelligence import describe_proxy_endpoint
+
+    node = parse_proxy_uri(uri)
+    assert node is not None
+    assert node.transport_type == "grpc"
+    assert node.tls_alpn == ["http/1.1"]
+    # Diagnostics must retain invalid ALPN to explain a future handshake
+    # failure, rather than silently rewriting the offered protocol to h2.
+    assert build_outbound(node)["tls"]["alpn"] == ["http/1.1"]
+    diagnosis = describe_proxy_endpoint(uri)
+    assert diagnosis is not None
+    assert "grpc_alpn_h2_not_declared" in diagnosis["diagnostic_findings"]
 
 
 @pytest.mark.parametrize("uri", [
