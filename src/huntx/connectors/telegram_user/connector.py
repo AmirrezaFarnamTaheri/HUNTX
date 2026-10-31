@@ -69,30 +69,30 @@ class TelegramUserItem:
 
 class TelegramUserConnector(SourceConnector):
     _local = threading.local()
-    _session_locks: Dict[str, threading.RLock] = {}
+    # One process-wide lock per session, shared by sync AND async clients.
+    # Separate asyncio.Lock/RLock registries allowed two owners to use the
+    # same Telethon StringSession simultaneously (and RLock was reentrant).
+    _session_locks: Dict[str, Any] = {}
     _session_locks_lock = threading.Lock()
     _sync_lock: Optional[Any]
-    _async_lock: Optional[asyncio.Lock]
+    _async_lock: Optional[Any]
 
-    _session_locks_async: Dict[str, asyncio.Lock] = {}
-    _session_locks_async_lock = threading.Lock()
-
-    def _get_session_lock(self) -> threading.RLock:
+    def _get_session_lock(self) -> Any:
         with self._session_locks_lock:
             if self.session not in self._session_locks:
-                self._session_locks[self.session] = threading.RLock()
+                self._session_locks[self.session] = threading.Lock()
             return self._session_locks[self.session]
 
-    def _get_session_lock_async(self) -> asyncio.Lock:
-        with self._session_locks_async_lock:
-            if self.session not in self._session_locks_async:
-                self._session_locks_async[self.session] = asyncio.Lock()
-            return self._session_locks_async[self.session]
+    def _get_session_lock_async(self) -> Any:
+        return self._get_session_lock()
 
     def __enter__(self):
         if self._sync_lock is None:
             lock = self._get_session_lock()
-            lock.acquire()
+            # The synchronous connector must not wait forever for a session
+            # abandoned by another worker.
+            if not lock.acquire(timeout=60.0):
+                raise TimeoutError("Telegram session is busy beyond its acquisition deadline")
             self._sync_lock = lock
         return self
 
@@ -102,7 +102,13 @@ class TelegramUserConnector(SourceConnector):
     async def __aenter__(self):
         if self._async_lock is None:
             lock = self._get_session_lock_async()
-            await lock.acquire()
+            stop = time.monotonic() + 60.0
+            # Nonblocking polling avoids asyncio.to_thread(lock.acquire),
+            # whose cancelled worker could acquire and leak the lock later.
+            while not lock.acquire(blocking=False):
+                if time.monotonic() >= stop:
+                    raise TimeoutError("Telegram session is busy beyond its acquisition deadline")
+                await asyncio.sleep(0.02)
             self._async_lock = lock
         return self
 
