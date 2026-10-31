@@ -3,6 +3,18 @@ name: HUNTX Schedule Watchdog
 on:
   schedule:
     - cron: "47 * * * *"
+  # GitHub's cron service can lag or skip runs. A verified main update to
+  # production code rechecks the same guarded recovery policy immediately.
+  # Path filtering avoids an expensive retry on documentation-only merges.
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/huntx-schedule-watchdog.yml"
+      - ".github/workflows/huntx.yml"
+      - "src/huntx/**"
+      - "scripts/generate_site_data.py"
+      - "scripts/verify_dashboard_telemetry.py"
   workflow_dispatch:
 
 permissions:
