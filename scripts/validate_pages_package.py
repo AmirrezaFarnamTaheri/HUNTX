@@ -58,7 +58,7 @@ def _references(path: Path) -> list[str]:
     return []
 
 
-_HEX_SHA256 = re.compile(r"[0-9a-f]{64}\\Z")
+_HEX_SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 
 
 def _verify_artifact(root: Path, relative: str, item: dict, *, manifest: str) -> None:
@@ -145,6 +145,44 @@ def _verify_publication_artifacts(root: Path) -> int:
     return checked
 
 
+def _verify_dashboard_feed_parity(root: Path) -> None:
+    """Require every immutable primary URI to appear in the deployed dashboard.
+
+    The checked-in historical snapshot omitted every VMess entry even though
+    the client feed carried them. UI-only resource checks could not detect it.
+    Do not print URI values: raw links include proxy credentials.
+    """
+    feed = root / "artifacts" / "release" / "all_sources.txt"
+    module = root / "assets" / "js" / "data.js"
+    if not feed.is_file() or not module.is_file():
+        return
+    lines = [line.strip() for line in feed.read_text(encoding="utf-8").splitlines() if line.strip()]
+    body = module.read_text(encoding="utf-8")
+    declaration = "export const SAMPLE_PROXIES = "
+    if body.count(declaration) != 1:
+        raise ValueError("Pages dashboard SAMPLE_PROXIES export is missing or duplicated")
+    try:
+        records, _ = json.JSONDecoder().raw_decode(body.split(declaration, 1)[1])
+    except json.JSONDecodeError as exc:
+        raise ValueError("Pages dashboard SAMPLE_PROXIES JSON invalid") from exc
+    if not isinstance(records, list) or any(
+        not isinstance(node, dict) or not isinstance(node.get("raw_uri"), str)
+        for node in records
+    ):
+        raise ValueError("Pages dashboard SAMPLE_PROXIES must contain raw_uri strings")
+    rendered = [node["raw_uri"] for node in records]
+    if (
+        len(lines) != len(rendered)
+        or len(set(lines)) != len(lines)
+        or len(set(rendered)) != len(rendered)
+        or set(lines) != set(rendered)
+    ):
+        raise ValueError(
+            "Pages dashboard and release feed identities differ "
+            f"(feed={len(lines)} dashboard={len(rendered)}); refusing stale publication"
+        )
+
+
 def validate_pages_package(root: Path) -> dict[str, object]:
     """Fail closed on missing local files and paths that escape the static root.
 
@@ -181,6 +219,7 @@ def validate_pages_package(root: Path) -> dict[str, object]:
     if missing:
         raise ValueError("Missing Pages assets: " + ", ".join(sorted(missing)[:25]))
     _verify_publication_artifacts(root)
+    _verify_dashboard_feed_parity(root)
     return {"files_checked": scanned, "missing": []}
 
 
