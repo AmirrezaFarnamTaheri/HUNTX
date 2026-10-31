@@ -118,3 +118,78 @@ test("expired authenticated HTTPS evidence is labeled explicitly and never ranke
   assert.match(app.getHealthScore(expired).label, /expired/i);
   assert.equal(countProxyEvidence([expired]).unmeasured, 1);
 });
+
+
+test("seven-day-old but checksum-valid catalog is prominently marked outdated", () => {
+  const pill = { className: "", textContent: "" };
+  const pipeline = { className: "", innerHTML: "" };
+  const radar = { className: "", textContent: "" };
+  const elements = {
+    "data-status-pill": pill,
+    "pipeline-state-badge": pipeline,
+    "radar-live-badge": radar
+  };
+  const previousDocument = globalThis.document;
+  try {
+    globalThis.document = { getElementById: (id) => elements[id] || null };
+    const app = Object.create(AppState.prototype);
+    app.catalog = {
+      generated_at: new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString(),
+      files: [{ tags: ["subscription"] }]
+    };
+    app.liveDataState = "ready";
+    app.telemetryState = "same-generation";
+    app.renderDataStatus();
+    assert.match(pill.className, /data-status-stale/);
+    assert.match(pill.textContent, /outdated|stale/i);
+    assert.match(pipeline.innerHTML, /STALE|OUTDATED/i);
+    assert.equal(radar.textContent, "CATALOG STALE");
+  } finally {
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
+  }
+});
+
+test("recent published catalog retains normal verified-status treatment", () => {
+  const pill = { className: "", textContent: "" };
+  const radar = { className: "", textContent: "" };
+  const previousDocument = globalThis.document;
+  try {
+    globalThis.document = { getElementById: (id) => ({
+      "data-status-pill": pill,
+      "radar-live-badge": radar
+    }[id] || null) };
+    const app = Object.create(AppState.prototype);
+    app.catalog = {
+      generated_at: new Date(Date.now() - 3600 * 1000).toISOString(),
+      files: [{ tags: ["subscription"] }]
+    };
+    app.liveDataState = "ready";
+    app.telemetryState = "same-generation";
+    app.renderDataStatus();
+    assert.match(pill.className, /data-status-ready/);
+    assert.equal(radar.textContent, "CATALOG OK");
+  } finally {
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
+  }
+});
+
+test("unknown or future publication date is not displayed as fresh", () => {
+  const pill = { className: "", textContent: "" };
+  const previousDocument = globalThis.document;
+  try {
+    globalThis.document = { getElementById: (id) => id === "data-status-pill" ? pill : null };
+    for (const timestamp of ["not-a-date", new Date(Date.now() + 10 * 60 * 1000).toISOString()]) {
+      const app = Object.create(AppState.prototype);
+      app.catalog = { generated_at: timestamp, files: [{ tags: ["subscription"] }] };
+      app.liveDataState = "ready";
+      app.telemetryState = "unavailable";
+      app.renderDataStatus();
+      assert.match(pill.className, /data-status-stale/);
+    }
+  } finally {
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
+  }
+});
