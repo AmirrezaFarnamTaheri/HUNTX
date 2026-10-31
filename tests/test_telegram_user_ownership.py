@@ -35,6 +35,8 @@ class TestTelegramUserConnectorOwnership(unittest.TestCase):
             first_key: first_client,
             second_key: second_client,
         }
+        first.__enter__()
+        first._client()
 
         first.cleanup()
 
@@ -50,6 +52,8 @@ class TestTelegramUserConnectorOwnership(unittest.TestCase):
         TelegramUserConnector._local.clients = {
             (connector.api_id, connector.session): client,
         }
+        connector.__enter__()
+        connector._client()
 
         connector.cleanup()
         connector.cleanup()
@@ -128,6 +132,8 @@ class TestTelegramUserConnectorAsyncOwnership(unittest.IsolatedAsyncioTestCase):
             first_key: first_client,
             second_key: second_client,
         }
+        await first.__aenter__()
+        first._client()
 
         await first.cleanup_async()
 
