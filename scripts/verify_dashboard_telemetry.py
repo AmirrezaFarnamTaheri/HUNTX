@@ -11,7 +11,6 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import os
 import re
 import time
 from pathlib import Path
@@ -113,15 +112,19 @@ def validate_proxy_telemetry(proxies: list[dict]) -> dict[str, int]:
         else:
             invalid(f"unknown or missing health evidence {evidence!r}")
 
-        if (
-            os.environ.get("HUNTX_REQUIRE_REMARK_GEO_PARITY") == "1"
-            and proxy.get("geo_source") == "server-country-pddl"
-            and proxy.get("geo_verified") is True
-            and proxy.get("flag") not in (None, "🌐")
-            and isinstance(proxy.get("name"), str)
-            and proxy["name"].startswith("🌐")
-        ):
-            invalid("verified country flag contradicts published subscription remark")
+        # A subscription remark is a display name, not an IP-attribution
+        # claim. A generic globe prefix on the preserved raw name is valid.
+        # Instead, validate country/flag *metadata* against the same dataset.
+        if proxy.get("geo_source") == "server-country-pddl" and proxy.get("geo_verified") is True:
+            country = proxy.get("country")
+            if (
+                not isinstance(country, str) or re.fullmatch(r"[A-Z]{2}", country) is None
+                or country in {"XX", "ZZ"}
+            ):
+                invalid("verified country flag contradicts missing/invalid country evidence")
+            expected_flag = "".join(chr(0x1F1E6 + ord(ch) - ord("A")) for ch in country)
+            if proxy.get("flag") != expected_flag:
+                invalid("verified country flag contradicts published country metadata")
 
         score = proxy.get("pca_score")
         if not _finite_number(score) or not 0 <= score <= 1:
