@@ -808,7 +808,7 @@ jobs:
   persist:
     name: persist-immutable-state
     needs: run
-    if: ${{ always() && needs.run.outputs.checkpoint_ready == 'true' }}
+    if: ${{ always() && !cancelled() && needs.run.outputs.checkpoint_ready == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: production
