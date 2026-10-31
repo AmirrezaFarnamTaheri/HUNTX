@@ -723,6 +723,19 @@ def _parse_proxy_uri(uri: str) -> dict | None:
 
 PROBE_TIMEOUT_SECONDS = 2.5
 PROBE_MAX_WORKERS = 128
+_NATIVE_UDP_PROXY_PROTOCOLS = frozenset({
+    "hysteria", "hysteria2", "hy2", "tuic", "wireguard",
+    "wg", "warp", "juicity", "dnstt",
+})
+_NATIVE_UDP_TRANSPORTS = frozenset({"udp", "quic", "kcp"})
+
+
+def _is_native_udp_proxy(proxy: dict) -> bool:
+    """Return True only when the advertised endpoint transport is UDP-native."""
+    return (
+        str(proxy.get("protocol") or "").strip().lower() in _NATIVE_UDP_PROXY_PROTOCOLS
+        or str(proxy.get("transport") or "").strip().lower() in _NATIVE_UDP_TRANSPORTS
+    )
 
 
 def probe_tcp_latency(proxies: list[dict]) -> list[dict]:
@@ -733,13 +746,25 @@ def probe_tcp_latency(proxies: list[dict]) -> list[dict]:
     outcome so the dashboard can separate failed probes from unmeasured nodes.
     Set ``HUNTX_PROBE_DISABLE=1`` to skip the probes entirely.
     """
-    if os.environ.get("HUNTX_PROBE_DISABLE", "").strip():
-        return proxies
     targets: dict[tuple[str, int], list[int]] = {}
     for idx, proxy in enumerate(proxies):
+        is_udp = _is_native_udp_proxy(proxy)
+        proxy["probe_transport"] = "udp" if is_udp else "tcp"
+        if is_udp:
+            # A missing TCP listener says nothing about UDP proxy reachability.
+            # Only the separate authenticated native protocol gate can decide.
+            proxy["probe_ok"] = None
+            proxy["latency"] = None
+            continue
+        if os.environ.get("HUNTX_PROBE_DISABLE", "").strip():
+            proxy["probe_ok"] = None
+            proxy["latency"] = None
+            continue
         server = str(proxy.get("server") or "").strip()
         port = proxy.get("port")
         if not server or not isinstance(port, int) or not 0 < port < 65536:
+            proxy["probe_ok"] = False
+            proxy["latency"] = None
             continue
         targets.setdefault((server, port), []).append(idx)
     if not targets:
@@ -777,12 +802,15 @@ def probe_tcp_latency(proxies: list[dict]) -> list[dict]:
     with concurrent.futures.ThreadPoolExecutor(max_workers=PROBE_MAX_WORKERS) as executor:
         for target, latency_ms in executor.map(measure, targets):
             outcomes[target] = latency_ms
-    for idx, proxy in enumerate(proxies):
+    for proxy in proxies:
+        if proxy["probe_transport"] == "udp":
+            continue
         server = str(proxy.get("server") or "").strip()
         port = proxy.get("port")
         outcome = outcomes.get((server, port)) if isinstance(port, int) else None
         if outcome is None:
             proxy["probe_ok"] = False
+            proxy["latency"] = None
         else:
             proxy["probe_ok"] = True
             proxy["latency"] = outcome
@@ -905,6 +933,9 @@ def grade_proxy_health(proxies: list[dict]) -> list[dict]:
             else "TCP unreachable from publish vantage; proxy unverified"
             if proxy.get("probe_ok") is False else "Not tested"
         )
+        if proxy.get("probe_transport") == "udp" and proxy.get("probe_ok") is None:
+            proxy["health_evidence"] = "udp_native_handshake_unmeasured"
+            proxy["health_status"] = "Native UDP proxy handshake not measured from publisher vantage"
 
         if proxy.get("probe_kind") != "protocol_authenticated":
             continue
@@ -1001,7 +1032,12 @@ def score_governed_pca(proxies: list[dict]) -> list[dict]:
         if proxy.get("probe_kind") == "protocol_authenticated" and proxy.get("authenticated_probe_ok") is False:
             score = 0.0
         else:
-            reachability = 1.0 if proxy.get("probe_ok") is True else 0.0
+            # A fresh, authenticated protocol request is stronger reachability
+            # evidence than TCP, and works for native UDP/QUIC proxies too.
+            reachability = 1.0 if (
+                proxy.get("probe_ok") is True
+                or proxy.get("health_evidence") == "fresh_authenticated_protocol"
+            ) else 0.0
             latency_score = _pca_latency_component(proxy, floor, ceiling)
             security = _pca_security_component(proxy)
             geo = 1.0 if proxy.get("geo_verified") is True else 0.0

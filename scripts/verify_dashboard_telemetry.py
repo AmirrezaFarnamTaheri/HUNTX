@@ -41,7 +41,8 @@ def validate_proxy_telemetry(proxies: list[dict]) -> dict[str, int]:
         raise AssertionError("dashboard published zero proxies")
     counts = {
         "proxies": len(proxies), "tcp_only": 0, "tcp_failed": 0,
-        "verified": 0, "auth_failed": 0, "expired": 0, "scored": 0,
+        "udp_unmeasured": 0, "verified": 0, "auth_failed": 0,
+        "expired": 0, "scored": 0,
     }
     for index, proxy in enumerate(proxies):
         ident = proxy.get("id") or proxy.get("server") or f"index {index}"
@@ -49,7 +50,13 @@ def validate_proxy_telemetry(proxies: list[dict]) -> dict[str, int]:
         def invalid(message: str) -> None:
             raise AssertionError(f"proxy {ident}: {message}")
 
-        if type(proxy.get("probe_ok")) is not bool:
+        udp_unmeasured = (
+            proxy.get("probe_transport") == "udp" and proxy.get("probe_ok") is None
+        )
+        # A UDP/QUIC proxy has no TCP endpoint measurement to report.
+        # Historical snapshots still contain bool TCP observations and must
+        # remain readable until the next verified publication.
+        if type(proxy.get("probe_ok")) is not bool and not udp_unmeasured:
             invalid("missing TCP measurement outcome (probe_ok)")
         if "health_grade" not in proxy or "latency_grade" not in proxy:
             invalid("missing explicit health/latency grade fields")
@@ -62,6 +69,8 @@ def validate_proxy_telemetry(proxies: list[dict]) -> dict[str, int]:
             invalid("successful TCP measurement lacks latency band")
         if proxy["probe_ok"] is False and latency_grade is not None:
             invalid("failed TCP measurement has a latency band")
+        if udp_unmeasured and (latency_grade is not None or proxy.get("latency") is not None):
+            invalid("unmeasured UDP cannot have TCP latency")
 
         evidence = proxy.get("health_evidence")
         grade = proxy["health_grade"]
@@ -77,6 +86,10 @@ def validate_proxy_telemetry(proxies: list[dict]) -> dict[str, int]:
             if proxy.get("probe_kind") == "protocol_authenticated" and proxy.get("authenticated_probe_ok") is False:
                 invalid("failed authenticated probe must be explicitly graded F")
             counts["tcp_only" if proxy["probe_ok"] else "tcp_failed"] += 1
+        elif evidence == "udp_native_handshake_unmeasured":
+            if not udp_unmeasured or grade is not None:
+                invalid("native UDP handshake status contradicts measurement evidence")
+            counts["udp_unmeasured"] += 1
         elif evidence == "fresh_authenticated_protocol":
             if grade not in _LATENCY_GRADES:
                 invalid("fresh authenticated proxy lacks a verified grade")
