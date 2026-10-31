@@ -446,6 +446,14 @@ class BuildPipeline:
                         if (report.get('admitted_count') != format_count
                                 or len(report.get('records', {})) != format_count):
                             raise ValueError("Authenticated sidecar and URI feed disagree")
+                        # Keep the genuine HTTPS success in durable lifecycle
+                        # history BEFORE the run's age-based pruning. This is
+                        # an independent observed fact, never permission to
+                        # advertise an old handshake as currently working.
+                        if isinstance(self.state_repo, StateRepo):
+                            self.state_repo.persist_authenticated_build_evidence(
+                                format_id, artifact_bytes, publication_evidence,
+                            )
                         derived_format = f'{format_id}.health.json'
                         if not defer_output:
                             self.artifact_store.save_output(route_name, derived_format, publication_evidence)
