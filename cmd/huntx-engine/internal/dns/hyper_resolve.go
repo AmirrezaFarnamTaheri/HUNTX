@@ -8,7 +8,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
+	"net/url"
 	"net/http"
 	"strings"
 	"sync"
@@ -53,6 +55,79 @@ type dohResponse struct {
 		TTL  int    `json:"TTL"`
 		Data string `json:"data"`
 	} `json:"Answer"`
+}
+
+// validatedDNSName rejects injected query delimiters and malformed DNS labels.
+// The returned ASCII hostname is also safe for URL-escaped DoH queries.
+func validatedDNSName(raw string) (string, error) {
+	host := strings.TrimSuffix(strings.ToLower(strings.TrimSpace(raw)), ".")
+	if host == "" || len(host) > 253 {
+		return "", errors.New("dns: invalid hostname")
+	}
+	for _, label := range strings.Split(host, ".") {
+		if len(label) == 0 || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
+			return "", errors.New("dns: invalid hostname label")
+		}
+		for _, char := range label {
+			if !(char >= 'a' && char <= 'z' || char >= '0' && char <= '9' || char == '-') {
+				return "", errors.New("dns: invalid hostname label")
+			}
+		}
+	}
+	return host, nil
+}
+
+// trustedDoHAnswer accepts only NOERROR records for the actual queried name,
+// or its bounded CNAME chain. This prevents unrelated records in the JSON
+// response from poisoning the shared resolver cache.
+func trustedDoHAnswer(host string, response dohResponse) (string, time.Duration, bool) {
+	if response.Status != 0 {
+		return "", 0, false
+	}
+	owners := map[string]bool{host: true}
+	for depth := 0; depth < 8; depth++ {
+		added := false
+		for _, answer := range response.Answer {
+			if answer.Type != 5 {
+				continue
+			}
+			owner, ownerErr := validatedDNSName(answer.Name)
+			alias, aliasErr := validatedDNSName(answer.Data)
+			if ownerErr != nil || aliasErr != nil || !owners[owner] || owners[alias] {
+				continue
+			}
+			owners[alias] = true
+			added = true
+		}
+		if !added {
+			break
+		}
+	}
+	for _, answer := range response.Answer {
+		owner, err := validatedDNSName(answer.Name)
+		if err != nil || !owners[owner] {
+			continue
+		}
+		ip := net.ParseIP(answer.Data)
+		if ip == nil {
+			continue
+		}
+		if answer.Type != 1 && answer.Type != 28 {
+			continue
+		}
+		if answer.Type == 1 && ip.To4() == nil || answer.Type == 28 && ip.To4() != nil {
+			continue
+		}
+		ttlSeconds := answer.TTL
+		if ttlSeconds < 0 {
+			ttlSeconds = 0
+		}
+		if ttlSeconds > 86400 {
+			ttlSeconds = 86400
+		}
+		return ip.String(), time.Duration(ttlSeconds) * time.Second, true
+	}
+	return "", 0, false
 }
 
 // NewHyperResolver constructs a new HyperResolver with default or custom configuration.
@@ -101,6 +176,11 @@ func (r *HyperResolver) Resolve(ctx context.Context, host string) (string, error
 	if net.ParseIP(host) != nil {
 		return host, nil
 	}
+	var nameErr error
+	host, nameErr = validatedDNSName(host)
+	if nameErr != nil {
+		return "", nameErr
+	}
 
 	// 2. Memory Cache Check
 	if ip, found := r.GetCached(host); found {
@@ -136,7 +216,7 @@ func (r *HyperResolver) Resolve(ctx context.Context, host string) (string, error
 		activeWorkers++
 		template := dohTemplate
 		go func() {
-			targetURL := fmt.Sprintf(template, host)
+			targetURL := fmt.Sprintf(template, url.QueryEscape(host))
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, targetURL, nil)
 			if err != nil {
 				ch <- queryResult{err: err}
@@ -157,24 +237,16 @@ func (r *HyperResolver) Resolve(ctx context.Context, host string) (string, error
 			}
 
 			var dohResp dohResponse
-			if err := json.NewDecoder(resp.Body).Decode(&dohResp); err != nil {
+			if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&dohResp); err != nil {
 				ch <- queryResult{err: err}
 				return
 			}
 
-			for _, ans := range dohResp.Answer {
-				// Type 1 (A) or Type 28 (AAAA)
-				if (ans.Type == 1 || ans.Type == 28) && net.ParseIP(ans.Data) != nil {
-					ttlDuration := time.Duration(ans.TTL) * time.Second
-					if ttlDuration < 30*time.Second {
-						ttlDuration = r.config.DefaultTTL
-					}
-					ch <- queryResult{ip: ans.Data, ttl: ttlDuration, err: nil}
-					return
-				}
+			if ip, ttl, ok := trustedDoHAnswer(host, dohResp); ok {
+				ch <- queryResult{ip: ip, ttl: ttl}
+				return
 			}
-
-			ch <- queryResult{err: errors.New("doh: no valid A or AAAA answer found")}
+			ch <- queryResult{err: errors.New("doh: no owner-matched successful A or AAAA answer")}
 		}()
 	}
 
