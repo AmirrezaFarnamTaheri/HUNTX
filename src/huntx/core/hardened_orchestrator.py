@@ -290,7 +290,10 @@ class HardenedOrchestrator(Orchestrator):
                         if pending_build.cancel():
                             build_cancelled += 1
             finally:
-                build_executor.shutdown(wait=True, cancel_futures=True)
+                # Never block past the global deadline merely to join
+                # noncooperative build threads. Pending work is cancelled
+                # above, and its results cannot authorize a release.
+                build_executor.shutdown(wait=not deadline.expired(), cancel_futures=True)
                 stage_seconds["build"] = time.monotonic() - build_start
 
         # Recoverable progress is not permission to replace the last release.
@@ -363,7 +366,10 @@ class HardenedOrchestrator(Orchestrator):
                 for completed_publish in done:
                     route_name = pending_publish[completed_publish]
                     try:
-                        completed_publish.result()
+                        if completed_publish.result() is not True:
+                            raise RuntimeError(
+                                "publisher returned without confirmation of every destination"
+                            )
                     except DeadlineExceeded:
                         failed_routes.add(route_name)
                         mark_timeout("publishing")
@@ -383,7 +389,10 @@ class HardenedOrchestrator(Orchestrator):
                         if pending_item.cancel():
                             publish_cancelled += 1
             finally:
-                publisher.shutdown(wait=True, cancel_futures=True)
+                # The real publisher receives this same deadline. An
+                # uncooperative thread must not hold the orchestrator in
+                # shutdown after the release has already been invalidated.
+                publisher.shutdown(wait=not deadline.expired(), cancel_futures=True)
                 stage_seconds["publishing"] = time.monotonic() - publish_start
 
         if status == "completed":
