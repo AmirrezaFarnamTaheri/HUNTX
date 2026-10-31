@@ -177,6 +177,104 @@ def _verify_publication_artifacts(root: Path) -> int:
     return checked
 
 
+def _verify_authenticated_feed_conservation(root: Path) -> None:
+    """Fail closed if an authenticated identity is lost in the final Pages tree.
+
+    A count or SHA-256 file checksum alone cannot expose a substituted proxy.
+    Match each exact canonical connection digest in the primary and alternate
+    feeds against both the authenticated HTTPS sidecar and the admission ledger.
+    Retain every admitted connection regardless of latency, quality or country;
+    unverified candidates remain in the ledger, not the working subscription.
+
+    Authentication expiry is evaluated by the health consumer; historical
+    evidence must stay readable after expiry, not become a fresh health claim.
+    """
+    import math
+    import sys
+    from collections import Counter
+
+    release = root / "artifacts" / "release"
+    for stem in ("all_sources", "all_sources_sub"):
+        feed = release / f"{stem}.txt"
+        health_path = release / f"{stem}_health.json"
+        gate_path = release / f"{stem}_gate.json"
+        if not health_path.exists() and not gate_path.exists():
+            # Older published bundles and explicit empty releases may lack an
+            # authenticated feed. Do not invent verification on their behalf.
+            continue
+        if not all(path.is_file() for path in (feed, health_path, gate_path)):
+            raise ValueError(f"{stem}: incomplete authenticated feed evidence")
+
+        # This validator is also run as a direct script by GitHub Actions,
+        # without a package-install step for the HUNTX source tree itself.
+        source_dir = str(Path(__file__).resolve().parents[1] / "src")
+        if source_dir not in sys.path:
+            sys.path.insert(0, source_dir)
+        from huntx.formats.npvt import canonical_proxy_identity
+
+        lines = [line.strip() for line in feed.read_text(encoding="utf-8").splitlines()
+                 if line.strip()]
+        digests = [
+            hashlib.sha256(canonical_proxy_identity(line).encode("utf-8")).hexdigest()
+            for line in lines
+        ]
+        identities = set(digests)
+        if len(identities) != len(digests):
+            raise ValueError(f"{stem}: duplicate semantic proxy identities in final feed")
+
+        try:
+            health = json.loads(health_path.read_text(encoding="utf-8"))
+            gate = json.loads(gate_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise ValueError(f"{stem}: invalid authenticated evidence JSON") from exc
+        records = health.get("records") if isinstance(health, dict) else None
+        if (not isinstance(records, dict)
+                or health.get("schema_version") != 1
+                or health.get("evidence") != "publisher_authenticated_https"
+                or type(health.get("admitted_count")) is not int
+                or health["admitted_count"] != len(records)):
+            raise ValueError(f"{stem}: invalid authenticated sidecar")
+        if set(records) != identities:
+            raise ValueError(
+                f"{stem}: authenticated sidecar identity mismatch "
+                f"(feed={len(identities)} sidecar={len(records)})"
+            )
+        for measurement in records.values():
+            if not isinstance(measurement, dict):
+                raise ValueError(f"{stem}: invalid authenticated measurement")
+            values = [measurement.get(key) for key in
+                      ("checked_at", "expires_at", "duration_ms")]
+            if (any(type(value) not in (int, float) or not math.isfinite(value)
+                    for value in values)
+                    or values[1] < values[0] or not 0 <= values[2] <= 30000):
+                raise ValueError(f"{stem}: invalid authenticated measurement")
+
+        ledger = gate.get("identities") if isinstance(gate, dict) else None
+        reasons = gate.get("reasons") if isinstance(gate, dict) else None
+        if (not isinstance(ledger, dict) or not isinstance(reasons, dict)
+                or gate.get("schema_version") != 1
+                or gate.get("scope") != "single_authenticated_https_sweep"
+                or any(type(gate.get(key)) is not int or gate[key] < 0
+                       for key in ("candidates", "admitted", "rejected"))
+                or gate["candidates"] != len(ledger)
+                or gate["admitted"] + gate["rejected"] != gate["candidates"]
+                or any(not isinstance(key, str) or re.fullmatch(r"[0-9a-f]{64}", key) is None
+                       or not isinstance(status, str) or not status
+                       for key, status in ledger.items())
+                or any(not isinstance(reason, str)
+                       or type(count) is not int or count < 0
+                       for reason, count in reasons.items())
+                or sum(reasons.values()) != gate["candidates"]
+                or Counter(ledger.values()) != Counter(reasons)):
+            raise ValueError(f"{stem}: invalid authenticated admission gate")
+        admitted = {key for key, status in ledger.items() if status == "admitted"}
+        if gate["admitted"] != len(admitted) or admitted != identities:
+            raise ValueError(
+                f"{stem}: admitted identity mismatch between gate and feed "
+                f"(gate={len(admitted)} feed={len(identities)})"
+            )
+
+
 def _verify_dashboard_feed_parity(root: Path) -> None:
     """Require every immutable primary URI to appear in the deployed dashboard.
 
@@ -251,6 +349,7 @@ def validate_pages_package(root: Path) -> dict[str, object]:
     if missing:
         raise ValueError("Missing Pages assets: " + ", ".join(sorted(missing)[:25]))
     _verify_publication_artifacts(root)
+    _verify_authenticated_feed_conservation(root)
     _verify_dashboard_feed_parity(root)
     return {"files_checked": scanned, "missing": []}
 
