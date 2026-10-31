@@ -70,6 +70,7 @@ def evaluate(
         windows_pending = _nonnegative_int(residue, "remaining")
 
     telegram_enabled: int | None = None
+    enabled_telegram_ids: set[str] | None = None
     telegram_statuses: dict[str, int] = {}
     if source_health is not None:
         if (not isinstance(source_health, Mapping)
@@ -84,6 +85,7 @@ def evaluate(
             if source.get("type") == "telegram_user" and source.get("enabled") is True:
                 telegram.append(source)
         telegram_enabled = len(telegram)
+        enabled_telegram_ids = {str(source.get("id")) for source in telegram}
         for source in telegram:
             name = str(source.get("status") or "unknown")
             telegram_statuses[name] = telegram_statuses.get(name, 0) + 1
@@ -109,10 +111,14 @@ def evaluate(
         raise EvidenceContractError(
             f"Completed-window scan evidence exceeds structured total: {scanned_in_log} > {messages_scanned}"
         )
-    if observed_sources > sources_checked:
-        raise EvidenceContractError(
-            f"Distinct completed sources exceed structured count: {observed_sources} > {sources_checked}"
-        )
+    # sources_checked measures HTTP retrieval in current production summaries,
+    # not Telegram channel count. Check against the Telegram source registry.
+    if telegram_enabled is not None and observed_sources > telegram_enabled:
+        raise EvidenceContractError("Completed Telegram sources exceed enabled Telegram sources")
+    if enabled_telegram_ids is not None:
+        unrecognized = {item[0] for item in completed} - enabled_telegram_ids
+        if unrecognized:
+            raise EvidenceContractError("Completed window references a source that is not an enabled Telegram source")
     if ingested_in_log > scanned_in_log:
         raise EvidenceContractError("Completed window ingested count exceeds scanned count")
     if telegram_enabled == 0 and (len(completed) or windows_completed or messages_scanned):
