@@ -850,7 +850,7 @@ export class AppState {
         cls: "data-status-stale",
         text: freshness === "stale"
           ? `Published snapshot is outdated · artifact integrity verified, proxy health not current${when ? " · " + when : ""}`
-          : `Publication timestamp is missing, invalid or in the future · freshness unverified${when ? " · " + when : ""}`
+          : `Artifact integrity verified · publication timestamp missing, invalid or in the future · freshness unverified${when ? " · " + when : ""}`
       },
       stale: { cls: "data-status-stale", text: "Bundled snapshot — published data unavailable" },
       "integrity-error": { cls: "data-status-stale", text: "Integrity check failed — bundled snapshot shown" },
