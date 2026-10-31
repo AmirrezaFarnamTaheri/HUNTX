@@ -1,7 +1,9 @@
 import asyncio
+import hashlib
 import logging
 import time
 import threading
+import weakref
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, AsyncIterator, List
 
@@ -72,16 +74,22 @@ class TelegramUserConnector(SourceConnector):
     # One process-wide lock per session, shared by sync AND async clients.
     # Separate asyncio.Lock/RLock registries allowed two owners to use the
     # same Telethon StringSession simultaneously (and RLock was reentrant).
-    _session_locks: Dict[str, Any] = {}
+    # Do not permanently retain StringSession credentials in a class-level
+    # dictionary. Weak lock values disappear when no entered connector uses
+    # them, while a digest preserves cross-instance serialization.
+    _session_locks: weakref.WeakValueDictionary[str, Any] = weakref.WeakValueDictionary()
     _session_locks_lock = threading.Lock()
     _sync_lock: Optional[Any]
     _async_lock: Optional[Any]
 
     def _get_session_lock(self) -> Any:
+        key = hashlib.sha256(self.session.encode("utf-8")).hexdigest()
         with self._session_locks_lock:
-            if self.session not in self._session_locks:
-                self._session_locks[self.session] = threading.Lock()
-            return self._session_locks[self.session]
+            lock = self._session_locks.get(key)
+            if lock is None:
+                lock = threading.Lock()
+                self._session_locks[key] = lock
+            return lock
 
     def _get_session_lock_async(self) -> Any:
         return self._get_session_lock()
@@ -214,7 +222,7 @@ class TelegramUserConnector(SourceConnector):
                 await maybe_await(client.connect())
                 logger.info("[MTProto] Connected.")
             except Exception as e:
-                logger.error(f"[MTProto] Connection failed: {e}")
+                logger.error("[MTProto] Connection failed error_type=%s", type(e).__name__)
                 raise
 
     def _resolve_peer(self, peer_entity, client: TelegramClient = None):
@@ -228,19 +236,19 @@ class TelegramUserConnector(SourceConnector):
                 return entity
             except Exception as e:
                 logger.warning(
-                    f"[MTProto] API resolution failed for {peer_entity}: {e}. " f"Falling back to raw PeerChannel."
+                    f"[MTProto] API resolution failed for {peer_entity} error_type={type(e).__name__}. " f"Falling back to raw PeerChannel."
                 )
                 try:
                     real_id, peer_type = utils.resolve_id(int(peer_entity))  # type: ignore[union-attr]
                     return peer_type(real_id)
                 except Exception as e2:
-                    logger.warning(f"[MTProto] Fallback also failed for {peer_entity}: {e2}. Using as-is.")
+                    logger.warning("[MTProto] Fallback failed for %s error_type=%s; using as-is", peer_entity, type(e2).__name__)
         elif isinstance(peer_entity, str) and peer_entity.startswith("-100"):
             try:
                 real_id, peer_type = utils.resolve_id(int(peer_entity))  # type: ignore[union-attr]
                 return peer_type(real_id)
             except Exception as e:
-                logger.warning(f"[MTProto] Failed to resolve marked ID {peer_entity}: {e}. Using as-is.")
+                logger.warning("[MTProto] Failed to resolve marked ID %s error_type=%s; using as-is", peer_entity, type(e).__name__)
         return peer_entity
 
     def resolve_channel_id(self) -> Optional[int]:
@@ -258,7 +266,7 @@ class TelegramUserConnector(SourceConnector):
                 logger.info(f"[MTProto] Resolved peer {self.peer} -> channel_id={raw_id}")
             return raw_id
         except Exception as e:
-            logger.warning(f"[MTProto] Could not resolve peer {self.peer} for dedup: {e}")
+            logger.warning("[MTProto] Could not resolve peer %s for dedup error_type=%s", self.peer, type(e).__name__)
             return None
 
     async def resolve_channel_id_strict_async(self) -> Optional[int]:
@@ -300,7 +308,7 @@ class TelegramUserConnector(SourceConnector):
             if client.is_connected():
                 await maybe_await(client.disconnect())
         except Exception as e:
-            logger.debug(f"[MTProto] Disconnect failed during reconnect: {e}")
+            logger.debug("[MTProto] Disconnect failed during reconnect error_type=%s", type(e).__name__)
         await maybe_await(client.connect())
         logger.info("[MTProto] Reconnected.")
 
@@ -407,7 +415,7 @@ class TelegramUserConnector(SourceConnector):
             except ConnectionError as e:
                 retries += 1
                 if retries > _MAX_RECONNECT_RETRIES:
-                    logger.error(f"[MTProto] Pass 1: exhausted {_MAX_RECONNECT_RETRIES} reconnect retries: {e}")
+                    logger.error("[MTProto] Pass 1: exhausted %d reconnect retries error_type=%s", _MAX_RECONNECT_RETRIES, type(e).__name__)
                     raise
                 await self._reconnect_async(client, retries - 1)
                 logger.info(f"[MTProto] Pass 1: resuming from min_id={resume_after_id} after reconnect")
@@ -549,7 +557,7 @@ class TelegramUserConnector(SourceConnector):
                         raise
                     except Exception as e:
                         self._document_pending.add(msg.id)
-                        logger.error(f"[MTProto] Download failed msg {msg.id}: {e}")
+                        logger.error("[MTProto] Download failed msg=%s error_type=%s", msg.id, type(e).__name__)
                         stats["download_errors"] += 1
                         raise
 
@@ -567,7 +575,7 @@ class TelegramUserConnector(SourceConnector):
             except ConnectionError as e:
                 retries += 1
                 if retries > _MAX_RECONNECT_RETRIES:
-                    logger.error(f"[MTProto] Pass 2: exhausted {_MAX_RECONNECT_RETRIES} reconnect retries: {e}")
+                    logger.error("[MTProto] Pass 2: exhausted %d reconnect retries error_type=%s", _MAX_RECONNECT_RETRIES, type(e).__name__)
                     raise
                 await self._reconnect_async(client, retries - 1)
                 logger.info(f"[MTProto] Pass 2: resuming from min_id={resume_after_id} after reconnect")
@@ -691,7 +699,7 @@ class TelegramUserConnector(SourceConnector):
                 )
 
         except Exception as e:
-            logger.error(f"[MTProto] Error listing messages for {self.peer}: {e}")
+            logger.error("[MTProto] Error listing messages for %s error_type=%s", self.peer, type(e).__name__)
             raise
 
     def acknowledge(self, items) -> None:
@@ -740,6 +748,11 @@ class TelegramUserConnector(SourceConnector):
 
     def cleanup(self) -> None:
         """Synchronously detach only the owned client and release all leases."""
+        if self._async_lock is not None and self._owned_client is not None:
+            # Telethon connections are bound to their owning event loop.
+            # Trying to await their disconnect on a new worker-thread loop
+            # would silently break lifecycle ordering and session safety.
+            raise RuntimeError("Connected async Telegram owner requires cleanup_async")
         client = self._detach_owned_client()
         try:
             if client is not None and client.is_connected():
