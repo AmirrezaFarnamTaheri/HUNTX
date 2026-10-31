@@ -112,6 +112,31 @@ def test_tcp_endpoint_probes_decode_shadowsocks_and_ssh_default_port():
     assert _tcp_probe_target("hysteria2://secret@edge.example.com:443") is None
 
 
+def test_encoded_vmess_quic_is_not_mislabeled_or_tcp_probed():
+    """An encoded QUIC transport must not be reported as TCP-unreachable."""
+    from huntx.core.endpoint_intelligence import describe_proxy_endpoint
+
+    link = _vmess(net="quic", tls="tls")
+    assert _tcp_probe_target(link) is None
+    evidence = describe_proxy_endpoint(link)
+    assert evidence is not None
+    assert evidence["transport_kind"] == "udp"
+    assert "udp_requires_native_protocol_probe" in evidence["diagnostic_findings"]
+
+
+@pytest.mark.parametrize("uri", [
+    f"vless://{UUID}@edge.example.com:443?security=tls&type=quic",
+    "socks5://alice:password@edge.example.com:1080?network=udp",
+])
+def test_declared_udp_transport_is_not_mislabeled_as_tcp(uri):
+    from huntx.core.endpoint_intelligence import describe_proxy_endpoint
+
+    evidence = describe_proxy_endpoint(uri)
+    assert evidence is not None
+    assert evidence["transport_kind"] == "udp"
+    assert "udp_requires_native_protocol_probe" in evidence["diagnostic_findings"]
+
+
 def test_country_and_asn_overlapping_tables_fall_back_to_outer_range(tmp_path, monkeypatch):
     """Lookup within a broad prefix must survive a shorter nested range ending."""
     country = tmp_path / "country.csv"
