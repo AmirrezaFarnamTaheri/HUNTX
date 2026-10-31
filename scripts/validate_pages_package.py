@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 from html.parser import HTMLParser
@@ -57,6 +58,93 @@ def _references(path: Path) -> list[str]:
     return []
 
 
+_HEX_SHA256 = re.compile(r"[0-9a-f]{64}\\Z")
+
+
+def _verify_artifact(root: Path, relative: str, item: dict, *, manifest: str) -> None:
+    """Check integrity of each declared downloadable artifact in the Pages tree."""
+    if not isinstance(relative, str) or not relative or relative.startswith("/"):
+        raise ValueError(f"unsafe {manifest} artifact path")
+    relative_path = Path(relative)
+    if (
+        relative_path.is_absolute()
+        or ".." in relative_path.parts
+        or "\\\\" in relative
+        or "?" in relative
+        or "#" in relative
+    ):
+        raise ValueError(f"unsafe {manifest} artifact path")
+    candidate = (root / relative_path).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError as exc:
+        raise ValueError(f"{manifest} artifact escapes package root") from exc
+    if not candidate.is_file():
+        raise ValueError(f"Missing {manifest} artifact {relative}")
+    expected_size = item.get("size")
+    digest = item.get("sha256")
+    if type(expected_size) is not int or expected_size < 0:
+        raise ValueError(f"Invalid size in {manifest} artifact {relative}")
+    if not isinstance(digest, str) or not _HEX_SHA256.fullmatch(digest):
+        raise ValueError(f"Invalid sha256 in {manifest} artifact {relative}")
+    if candidate.stat().st_size != expected_size:
+        raise ValueError(f"{manifest} artifact size mismatch {relative}")
+    hasher = hashlib.sha256()
+    with candidate.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            hasher.update(chunk)
+    if hasher.hexdigest() != digest:
+        raise ValueError(f"{manifest} artifact digest mismatch {relative}")
+
+
+def _verify_publication_artifacts(root: Path) -> int:
+    """Validate exact catalog and release manifest bytes before Pages upload."""
+    checked = 0
+    catalog = root / "catalog.json"
+    if catalog.is_file():
+        try:
+            document = json.loads(catalog.read_text(encoding="utf-8"))
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise ValueError("Invalid Pages catalog.json") from exc
+        if not isinstance(document, dict) or not isinstance(document.get("files"), list):
+            raise ValueError("Invalid Pages catalog file list")
+        seen: set[str] = set()
+        for entry in document["files"]:
+            if not isinstance(entry, dict) or not isinstance(entry.get("path"), str):
+                raise ValueError("Invalid Pages catalog artifact")
+            relative = entry["path"]
+            if not relative.startswith("artifacts/"):
+                raise ValueError(f"unsafe catalog artifact path {relative}")
+            if relative in seen:
+                raise ValueError(f"Duplicate catalog artifact {relative}")
+            seen.add(relative)
+            _verify_artifact(root, relative, entry, manifest="catalog")
+            checked += 1
+    release = root / "artifacts" / "release" / "manifest.json"
+    if release.is_file():
+        try:
+            document = json.loads(release.read_text(encoding="utf-8"))
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise ValueError("Invalid release manifest") from exc
+        if not isinstance(document, dict) or not isinstance(document.get("artifacts"), list):
+            raise ValueError("Invalid release manifest artifact list")
+        if "artifact_count" in document and document["artifact_count"] != len(document["artifacts"]):
+            raise ValueError("Release manifest artifact count mismatch")
+        seen: set[str] = set()
+        for entry in document["artifacts"]:
+            if not isinstance(entry, dict) or not isinstance(entry.get("path"), str):
+                raise ValueError("Invalid release manifest artifact")
+            rel = entry["path"]
+            if not rel or rel.startswith("/") or ".." in Path(rel).parts:
+                raise ValueError("unsafe release artifact path")
+            if rel in seen:
+                raise ValueError(f"Duplicate release artifact {rel}")
+            seen.add(rel)
+            _verify_artifact(root, "artifacts/release/" + rel, entry, manifest="release")
+            checked += 1
+    return checked
+
+
 def validate_pages_package(root: Path) -> dict[str, object]:
     """Fail closed on missing local files and paths that escape the static root.
 
@@ -92,6 +180,7 @@ def validate_pages_package(root: Path) -> dict[str, object]:
                 missing.add(relative.as_posix())
     if missing:
         raise ValueError("Missing Pages assets: " + ", ".join(sorted(missing)[:25]))
+    _verify_publication_artifacts(root)
     return {"files_checked": scanned, "missing": []}
 
 
