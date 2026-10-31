@@ -61,7 +61,7 @@ def test_global_deadline_is_wired_through_mutation_workers() -> None:
     assert "deadline: Deadline | None = None" in publish
     assert "deadline: Deadline | None = None" in telegram
     assert "deadline=deadline" in orch
-    assert "shutdown(wait=True, cancel_futures=True)" in orch
+    assert orch.count("shutdown(wait=not deadline.expired(), cancel_futures=True)") == 2
     assert "deadline.clamp_timeout(60.0)" in telegram
     assert "deadline.sleep(" in telegram
 
