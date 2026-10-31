@@ -1,4 +1,7 @@
 """Recovery must be triggerable by a verified main update if schedules stall."""
+import json
+import shutil
+import subprocess
 from pathlib import Path
 
 import yaml
@@ -28,3 +31,91 @@ def test_push_recovery_reuses_active_run_and_staleness_guards():
     assert "huntx-recovery-orchestrator.yml/dispatches" in source
     # A push must never skip through the downstream producer authentication gates.
     assert "publish-generated-outputs.yml/dispatches" not in source
+
+
+def test_watchdog_recovers_when_latest_completed_production_has_old_source_commit():
+    """A new commit must not wait for 2h20m if its release is not produced."""
+    source = WATCHDOG.read_text(encoding="utf-8")
+    assert 'latest_sha="$(jq -r' in source
+    assert 'if [[ "$latest_sha" != "$GITHUB_SHA" ]]; then' in source
+    assert "Production source revision stale" in source
+    # Active production/recovery checks must remain ahead of dispatch.
+    assert source.index("production_active") < source.index("Production source revision stale")
+    assert source.index("recovery_active") < source.index("Production source revision stale")
+
+
+def test_watchdog_main_pushes_cover_publisher_and_ui_artifact_fixes():
+    events = yaml.load(WATCHDOG.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)["on"]
+    paths = events["push"]["paths"]
+    for required in (
+        "scripts/assemble_generated_snapshot.py",
+        "scripts/validate_pages_package.py",
+        "docs/assets/js/**",
+        ".github/workflows/publish-generated-outputs.yml",
+    ):
+        assert required in paths
+
+
+def test_generated_mirror_updates_do_not_trigger_a_new_producer():
+    """Generated-only commits after a successful release are legitimate SHA drift."""
+    source = WATCHDOG.read_text(encoding="utf-8")
+    assert 'compare/${latest_sha}...${GITHUB_SHA}' in source
+    assert "generated_only" in source
+    for permitted in (
+        "outputs/",
+        "outputs_dev/",
+        "docs/artifacts/",
+        "docs/catalog.json",
+        "docs/assets/js/data.js",
+        "docs/index.html",
+        ".github/huntx-generated-files.txt",
+    ):
+        assert permitted in source
+    assert 'if [[ "$generated_only" != "true" ]]; then' in source
+
+
+def test_generated_data_js_is_not_an_independent_watchdog_push_trigger():
+    events = yaml.load(WATCHDOG.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)["on"]
+    paths = events["push"]["paths"]
+    assert "docs/assets/js/**" in paths
+    assert "!docs/assets/js/data.js" in paths
+    assert paths.index("docs/assets/js/**") < paths.index("!docs/assets/js/data.js")
+
+
+def test_watchdog_jq_generated_only_policy_matches_publisher_provenance():
+    """Execute the actual jq policy against adversarial compare responses."""
+    if shutil.which("jq") is None:
+        from pytest import skip
+        skip("GitHub Actions watchdog jq not installed in this environment")
+    source = WATCHDOG.read_text(encoding="utf-8")
+    start_marker = "generated_only=\"$(jq -r '"
+    end_marker = "' <<<\"$comparison\")\""
+    assert start_marker in source
+    start = source.index(start_marker) + len(start_marker)
+    assert end_marker in source[start:]
+    expression = source[start:source.index(end_marker, start)]
+    examples = [
+        ({"status": "ahead", "ahead_by": 1, "files": [
+            {"filename": "docs/assets/js/data.js"},
+        ]}, True),
+        ({"status": "ahead", "ahead_by": 3, "files": [
+            {"filename": "outputs/all_sources.txt"},
+            {"filename": "docs/catalog.json"},
+        ]}, True),
+        ({"status": "ahead", "ahead_by": 1, "files": [
+            {"filename": "docs/assets/js/app.js"},
+        ]}, False),
+        ({"status": "ahead", "ahead_by": 1, "files": [
+            {"filename": "docs/artifacts/feed.json", "previous_filename": "src/huntx/secrets.py"},
+        ]}, False),
+        ({"status": "diverged", "ahead_by": 1, "files": [
+            {"filename": "docs/catalog.json"},
+        ]}, False),
+    ]
+    for response, expected in examples:
+        process = subprocess.run(
+            ["jq", "-r", expression],
+            input=json.dumps(response), capture_output=True,
+            check=True, text=True,
+        )
+        assert process.stdout.strip() == str(expected).lower()
