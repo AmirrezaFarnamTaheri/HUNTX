@@ -65,17 +65,28 @@ jobs:
           # never touched by this check; it must be read-only on main.
           python - <<'PY'
           import importlib.util, pathlib, tempfile
+          from scripts.stage_dev_refresh_fixture import stage_legacy_release_fixture
           spec = importlib.util.spec_from_file_location(
               "site", "scripts/generate_site_data.py"
           )
           site = importlib.util.module_from_spec(spec)
           spec.loader.exec_module(site)
-          scratch = pathlib.Path(tempfile.mkdtemp())
+          root = pathlib.Path(tempfile.mkdtemp(prefix="huntx-dev-refresh-"))
+          scratch = root / "docs"
+          scratch.mkdir()
+          # The committed October fixture predates the release's semantic
+          # deduplication contract. Normalize ONLY the scratch copy; the
+          # production publish gate still rejects duplicate identities.
+          staged_release = root / "release-input"
+          report = stage_legacy_release_fixture(pathlib.Path("outputs"), staged_release)
+          site.OUTPUTS_DIR = staged_release
           site.DOCS_DIR = scratch
           site.ARTIFACTS_DIR = scratch / "artifacts"
           site.CATALOG_FILE = scratch / "catalog.json"
           site.DATA_JS_FILE = scratch / "assets" / "js" / "data.js"
           site.generate_all()
+          # Counts are sanitized and cannot disclose proxy credentials.
+          print("legacy fixture normalization:", report)
           # Hand the scratch root to the verification step by path, not by
           # guessing which /tmp directory was newest.
           pathlib.Path("scratch-root.txt").write_text(str(scratch), encoding="utf-8")
