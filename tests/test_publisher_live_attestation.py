@@ -12,7 +12,9 @@ import pytest
 
 from huntx.core.proxy_health import CheckedRecords
 from huntx.formats.npvt import canonical_proxy_identity
-from scripts.publisher_live_attestation import (\n    build_attestation, finalize_attestation, verify_attestation,\n)
+from scripts.publisher_live_attestation import (
+    build_attestation, finalize_attestation, verify_attestation,
+)
 
 
 FAST = "trojan://synthetic-fast@5.5.5.5:443?security=tls#Fast"
