@@ -21,6 +21,10 @@ class TestTelegramUserConnector(unittest.TestCase):
         self.logger = logging.getLogger("huntx.connectors.telegram_user.connector")
         self.logger.setLevel(logging.DEBUG)
 
+    def tearDown(self):
+        self.connector.cleanup()
+        super().tearDown()
+
     def _set_mock_client(self, mock_client):
         """Helper to inject a mock client into the thread-local storage."""
         if not hasattr(TelegramUserConnector._local, "clients"):
