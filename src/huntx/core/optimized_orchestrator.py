@@ -23,6 +23,14 @@ from ..state.ingestion_queue import PersistentIngestionQueue
 logger = logging.getLogger(__name__)
 
 
+def _count_telegram_window_failure(results: dict[str, int], *, availability: bool) -> None:
+    """Keep explicitly nonblocking upstream outages distinct from runtime defects."""
+    if availability and os.environ.get("HUNTX_TELEGRAM_RETRY_RELEASE") == "1":
+        results["optional_err"] = results.get("optional_err", 0) + 1
+    else:
+        results["err"] = results.get("err", 0) + 1
+
+
 def _bounded_float(name: str, default: float, minimum: float, maximum: float) -> float:
     """Read a finite bounded floating-point environment setting."""
     raw = os.environ.get(name, str(default))
@@ -464,11 +472,20 @@ async def _run_hardened(
     summary["excluded_sources"] = len(rejected)
     summary["canonical_ingestion_sources"] = len(ingestion_sources)
 
+    retry_only_release = OptimizedHardenedOrchestrator._telegram_retry_release_allowed(self, residue)
+    summary["telegram_availability_degraded"] = retry_only_release
+    summary["telegram_retry_windows"] = int(residue.get("retry_wait", 0))
+    if retry_only_release:
+        logger.warning(
+            "[LIFO] Telegram availability degraded: %d retrying windows; "
+            "current authenticated HTTP release path remains independently gated",
+            remaining_residue,
+        )
     if self._ingestion_budget_exhausted and summary.get("status") == "completed":
         summary["status"] = "partial"
     if self._ingestion_budget_exhausted:
         summary["partial_reason"] = "ingestion_budget_exhausted"
-    elif remaining_residue > 0 and summary.get("status") == "completed":
+    elif remaining_residue > 0 and not retry_only_release and summary.get("status") == "completed":
         summary["status"] = "partial"
         summary["partial_reason"] = "ingestion_residue_remaining"
     if summary.get("status") != "completed":
@@ -583,23 +600,53 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
             return None
         return stop - time.monotonic()
 
-    def _ingestion_demotion_reason(self) -> Optional[str]:
-        """Report ingestion incompleteness that blocks release eligibility.
+    def _telegram_retry_release_allowed(self, residue: dict[str, Any]) -> bool:
+        """Permit current verified HTTP output when Telegram is only retry-waiting.
 
-        Overrides the hardened base hook so an exhausted ingestion budget or
-        leftover queue residue blocks publication/export at decision time.
+        Retry-only status is an availability problem, not a completed Telegram
+        scan. We still require a current parsed HTTP feed with real nodes, an
+        explicit production opt-in, and no exhausted ingestion budget. Other
+        incomplete work, missing state, and missing HTTP evidence fail closed.
+        The separate authenticated proxy-health/release receipt remains required.
         """
+        if os.environ.get("HUNTX_TELEGRAM_RETRY_RELEASE") != "1":
+            return False
+        if getattr(self, "_ingestion_budget_exhausted", False):
+            return False
+        remaining = residue.get("remaining")
+        retry_wait = residue.get("retry_wait")
+        if (type(remaining) is not int or type(retry_wait) is not int
+                or remaining <= 0 or retry_wait != remaining):
+            return False
+        reports = getattr(self, "_http_source_reports", None)
+        if not isinstance(reports, dict):
+            return False
+        return any(
+            isinstance(report, dict)
+            and report.get("status") in {"parsed", "audited"}
+            and type(report.get("nodes")) is int
+            and report["nodes"] > 0
+            for report in reports.values()
+        )
+
+    def _ingestion_demotion_reason(self) -> Optional[str]:
+        """Fail closed except for explicitly allowed, retry-only Telegram outages."""
         if getattr(self, "_ingestion_budget_exhausted", False):
             return "ingestion_budget_exhausted"
         queue = getattr(self, "_work_queue", None)
         if queue is None:
-            return None
+            return "ingestion_state_unavailable"
         try:
-            remaining = int(queue.summary().get("remaining", 0))
+            residue = queue.summary()
+            if not isinstance(residue, dict):
+                raise ValueError("unexpected ingestion queue summary")
+            remaining = residue.get("remaining")
+            if type(remaining) is not int or remaining < 0:
+                raise ValueError("invalid ingestion queue remaining count")
         except Exception:
-            logger.exception("[LIFO] Failed to read ingestion residue")
-            return None
-        if remaining > 0:
+            logger.exception("[LIFO] Ingestion queue state cannot be verified")
+            return "ingestion_state_unavailable"
+        if remaining > 0 and not self._telegram_retry_release_allowed(residue):
             return "ingestion_residue_remaining"
         return None
 
@@ -658,7 +705,7 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
         except Exception as exc:
             if getattr(source, "type", None) == "http_subscription":
                 self._record_http_source_failure(str(source.id), type(exc).__name__)
-            logger.exception("[Worker] Source %s failed", source.id)
+            logger.error("[Worker] Source %s failed error_type=%s", source.id, type(exc).__name__)
         finally:
             async with lock:
                 if success:
@@ -751,11 +798,13 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                     lease_token=item.lease_token,
                     retry_delay=retry_delay,
                 )
-                if remaining is not None and timeout < configured_timeout:
+                budget_ended = remaining is not None and timeout < configured_timeout
+                if budget_ended:
                     self._ingestion_budget_exhausted = True
-                    return
                 async with lock:
-                    results["err"] += 1
+                    _count_telegram_window_failure(results, availability=not budget_ended)
+                if budget_ended:
+                    return
             except Exception as exc:
                 self._window_failures += 1
                 flood_wait = telegram_flood_wait_seconds(exc)
@@ -785,7 +834,7 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                         reason="Telegram shared FloodWait cooldown",
                     )
                     async with lock:
-                        results["err"] += 1
+                        _count_telegram_window_failure(results, availability=True)
                     logger.warning(
                         "[LIFO] Telegram account rate-limited for %ds; deferred "
                         "%d queued window(s) for %d source(s), preserving cursors",
@@ -804,7 +853,7 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                         reason,
                     )
                     async with lock:
-                        results["err"] += 1
+                        _count_telegram_window_failure(results, availability=True)
                     logger.warning(
                         "[LIFO] Quarantined source=%s after permanent Telegram "
                         "peer failure type=%s terminalized=%s",
@@ -818,17 +867,18 @@ class OptimizedHardenedOrchestrator(HardenedOrchestrator):
                 self._work_queue.fail(
                     item.id,
                     self._run_owner,
-                    str(exc),
+                    f"window error: {type(exc).__name__}",
                     lease_token=item.lease_token,
                     retry_delay=retry_delay,
                 )
                 async with lock:
                     results["err"] += 1
-                logger.exception(
-                    "[LIFO] Window failed source=%s window=[%s,%s)",
+                logger.error(
+                    "[LIFO] Window failed source=%s window=[%s,%s) error_type=%s",
                     item.source_id,
                     item.window_start_ts,
                     item.window_end_ts,
+                    type(exc).__name__,
                 )
 
     async def _drain_direct_sources(

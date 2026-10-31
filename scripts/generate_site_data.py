@@ -987,17 +987,24 @@ def score_governed_pca(proxies: list[dict]) -> list[dict]:
     floor = min(latencies) if latencies else 0.0
     ceiling = max(latencies) if latencies else 0.0
     for proxy in proxies:
-        reachability = 1.0 if proxy.get("probe_ok") is True else 0.0
-        latency_score = _pca_latency_component(proxy, floor, ceiling)
-        security = _pca_security_component(proxy)
-        geo = 1.0 if proxy.get("geo_verified") is True else 0.0
-        proxy["pca_score"] = round(
-            GOVERNED_PCA_WEIGHTS["reachability"] * reachability
-            + GOVERNED_PCA_WEIGHTS["latency"] * latency_score
-            + GOVERNED_PCA_WEIGHTS["security"] * security
-            + GOVERNED_PCA_WEIGHTS["geo_verification"] * geo,
-            3,
-        )
+        # A proven failed proxy-authentication attempt is stronger negative
+        # evidence than an open TCP port or a short TCP handshake. It must not
+        # rank as a viable candidate even if TLS and GeoIP look favorable.
+        if proxy.get("probe_kind") == "protocol_authenticated" and proxy.get("authenticated_probe_ok") is False:
+            score = 0.0
+        else:
+            reachability = 1.0 if proxy.get("probe_ok") is True else 0.0
+            latency_score = _pca_latency_component(proxy, floor, ceiling)
+            security = _pca_security_component(proxy)
+            geo = 1.0 if proxy.get("geo_verified") is True else 0.0
+            score = round(
+                GOVERNED_PCA_WEIGHTS["reachability"] * reachability
+                + GOVERNED_PCA_WEIGHTS["latency"] * latency_score
+                + GOVERNED_PCA_WEIGHTS["security"] * security
+                + GOVERNED_PCA_WEIGHTS["geo_verification"] * geo,
+                3,
+            )
+        proxy["pca_score"] = score
         proxy["pca_version"] = GOVERNED_PCA_VERSION
         proxy["pca_evidence"] = "publisher_tcp_reachability_candidate_rank"
     return proxies

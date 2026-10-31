@@ -1,6 +1,8 @@
 """Ingestion incompleteness must block the release before it is published."""
 
 import asyncio
+import threading
+import time
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -116,5 +118,53 @@ def test_optimized_hook_tolerates_missing_work_queue():
     """A partially-constructed instance must not raise on the hook."""
     orch = object.__new__(OptimizedHardenedOrchestrator)
     orch._ingestion_budget_exhausted = False
-    # No _work_queue attribute set; the hook must fail open to None, not raise.
-    assert orch._ingestion_demotion_reason() is None
+    # Missing queue state cannot prove a complete ingestion; fail closed.
+    assert orch._ingestion_demotion_reason() == "ingestion_state_unavailable"
+
+
+def _required_destination():
+    return SimpleNamespace(
+        chat_id="123",
+        mode="telegram",
+        caption_template="Update",
+        token="test-publication-token",
+        required=True,
+    )
+
+
+def test_false_publisher_result_cannot_authorize_a_release():
+    """A returned False means zero verified deliveries, not success."""
+    orch = _base_orchestrator()
+    orch.config.routes[0].destinations = [_required_destination()]
+    orch.publish_pipeline.run.return_value = False
+
+    summary = asyncio.run(orch._run_hardened(None, False, False))
+
+    assert summary["publish_failures"] == 1
+    assert summary["status"] == "partial"
+    assert summary["release_eligible"] is False
+    orch._export_outputs.assert_not_called()
+
+
+def test_hardened_publisher_timeout_returns_without_waiting_for_stalled_thread():
+    """A hung publisher must not consume an unbounded extra shutdown wait."""
+    orch = _base_orchestrator()
+    orch.config.routes[0].destinations = [_required_destination()]
+    release = threading.Event()
+
+    def stalled_publish(*_args, **_kwargs):
+        release.wait(timeout=2.0)
+        return True
+
+    orch.publish_pipeline.run.side_effect = stalled_publish
+    started = time.monotonic()
+    try:
+        summary = asyncio.run(orch._run_hardened(0.18, False, False))
+    finally:
+        release.set()
+    elapsed = time.monotonic() - started
+
+    assert elapsed < 0.55, f"deadline added a blocking publisher shutdown: {elapsed:.3f}s"
+    assert summary["status"] == "timed_out"
+    assert summary["release_eligible"] is False
+    orch._export_outputs.assert_not_called()

@@ -103,3 +103,32 @@ def test_explicit_geoip_opt_out_does_not_enrich(attribution_tables, monkeypatch)
     monkeypatch.setenv("HUNTX_GEOIP_DISABLE", "1")
     node = {"server": "5.5.5.23", "country": "ZZ", "geo_source": "unknown", "geo_verified": False}
     assert site.enrich_proxies_with_geoip([node])[0]["country"] == "ZZ"
+
+
+def test_endpoint_inventory_reuses_verified_offline_country_without_guessing_hostnames(attribution_tables):
+    from huntx.core.endpoint_intelligence import describe_proxy_endpoint
+
+    literal = describe_proxy_endpoint(
+        "vless://11111111-2222-3333-4444-555555555555@5.5.5.23:443"
+    )
+    assert literal is not None
+    assert literal["geo"] == {
+        "status": "ip_allocation_country_estimate", "country_code": "DE"
+    }
+    assert literal["as_org"] == "Example Network GmbH"
+    assert literal["asn"] is None  # An AS organization string is not an ASN measurement
+    assert literal["intelligence"]["status"] == "offline_allocation_dataset"
+
+    hostname = describe_proxy_endpoint(
+        "vless://11111111-2222-3333-4444-555555555555@edge.example.com:443#DE"
+    )
+    assert hostname is not None
+    assert hostname["geo"]["country_code"] is None
+    assert hostname["as_org"] is None
+
+    anycast = describe_proxy_endpoint(
+        "vless://11111111-2222-3333-4444-555555555555@8.8.8.8:443#US"
+    )
+    assert anycast is not None
+    assert anycast["geo"]["country_code"] is None
+    assert anycast["anycast"] is True

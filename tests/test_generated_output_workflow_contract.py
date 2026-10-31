@@ -19,15 +19,16 @@ def test_generated_publication_preserves_commit_history_and_cumulative_parent():
     assert "--force-with-lease=\"refs/heads/generated-outputs:${remote_sha}\"" in workflow
 
 
-def test_main_mirror_is_inventory_scoped_and_never_force_pushed():
+def test_production_publisher_never_commits_generated_data_to_main():
     workflow = _workflow()
 
-    assert "scripts/sync_generated_outputs_to_main.py" in workflow
-    assert ".github/huntx-generated-files.txt" in workflow
-    assert "git push origin HEAD:refs/heads/main" in workflow
-    main_mirror = workflow[workflow.index("- name: Mirror verified outputs to main") :]
-    assert "--force" not in main_mirror
-    assert "test -f scripts/verify_output.py" in main_mirror
+    assert "Mirror verified outputs to main" not in workflow
+    assert "git push origin HEAD:refs/heads/main" not in workflow
+    assert "Validate resulting main head" not in workflow
+    assert "--force-with-lease=\"refs/heads/generated-outputs:" in workflow
+    assert "actions/deploy-pages@" in workflow
+    assert "Deploy cumulative dashboard to Pages" in workflow
+    assert r"Source-branch mirrors: \`none\`" in workflow
 
 
 def test_control_plane_push_republishes_latest_trusted_producer_without_recursion():
@@ -37,9 +38,9 @@ def test_control_plane_push_republishes_latest_trusted_producer_without_recursio
     assert "  push:" in trigger
     assert "      - main" in trigger
     assert '      - ".github/workflows/publish-generated-outputs.yml"' in trigger
-    assert '      - ".github/huntx-generated-files.txt"' in trigger
+    assert '      - ".github/huntx-generated-files.txt"' not in trigger
     assert '      - "scripts/assemble_generated_snapshot.py"' in trigger
-    assert '      - "scripts/sync_generated_outputs_to_main.py"' in trigger
+    assert '      - "scripts/sync_generated_outputs_to_main.py"' not in trigger
     assert "outputs/**" not in trigger
     assert "outputs_dev/**" not in trigger
 

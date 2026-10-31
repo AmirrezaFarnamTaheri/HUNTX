@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from ..formats.common.singbox import parse_proxy_uri
+from .remark_geoip import estimate_country, estimate_as_organization, is_anycast_address
 
 _MAX_DATASET_BYTES = 8 * 1024 * 1024
 _MAX_PREFIXES = 50_000
@@ -287,6 +288,37 @@ def describe_proxy_endpoint(
                if node.tls_reality_enabled else [])
         ),
     }
+    if intelligence is None and address is not None and address.is_global:
+        # Publication already installs checksum-verified offline country data.
+        # Reuse it in the independent endpoint inventory, where it was
+        # previously missing and every public IP appeared geo-unknown.
+        # An allocation estimate is not the location of a proxy's exit POP.
+        ip_literal = str(address)
+        if is_anycast_address(ip_literal):
+            result["anycast"] = True
+            result["geo"] = {
+                "status": "anycast_location_unknown", "country_code": None,
+            }
+        else:
+            country = estimate_country(ip_literal)
+            if country is not None:
+                result["geo"] = {
+                    "status": "ip_allocation_country_estimate",
+                    "country_code": country,
+                }
+                result["intelligence"] = {
+                    "status": "offline_allocation_dataset",
+                    "evidence": "checksum_verified_country_table",
+                }
+        org = estimate_as_organization(ip_literal)
+        if org is not None:
+            result["as_org"] = org
+            # AS owner attribution does not imply a measured retail carrier.
+            result["intelligence"] = {
+                "status": "offline_allocation_dataset",
+                "evidence": "checksum_verified_asn_table",
+            }
+
     if intelligence is not None:
         result["intelligence"] = {
             "status": "no_match", "provider": intelligence.provider,

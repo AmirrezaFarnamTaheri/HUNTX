@@ -82,7 +82,9 @@ def test_quality_gate_runs_for_direct_main_changes():
 
     assert "  push:" in trigger
     assert "      - main" in trigger
-    assert '      - "fix/**"' in trigger
+    assert "  pull_request:" in trigger
+    assert "  workflow_dispatch:" in trigger
+    assert '      - "fix/**"' not in trigger
     assert '      - ".github/**"' in trigger
     assert '      - "outputs/**"' in trigger
     assert '      - "outputs_dev/**"' in trigger
@@ -98,28 +100,27 @@ def test_go_release_plane_is_present():
     assert Path("internal/sitegen/sitegen.go").exists()
 
 
-def test_telegram_activity_gate_validates_real_runtime_evidence():
+def test_telegram_activity_gate_keeps_availability_nonfatal_without_forged_success():
     workflow = Path(".github/workflows/huntx-telegram-activity-gate.yml").read_text()
+    verifier = Path("scripts/verify_telegram_activity.py").read_text()
 
     assert f"actions/github-script@{GITHUB_SCRIPT_V9_SHA}" in workflow
-    assert "actions/github-script@v9" not in workflow
     assert "github.rest.actions.downloadArtifact" in workflow
     assert "expectedName = `huntx-logs-${runId}-${run.data.run_attempt}`" in workflow
     assert "runtime.log" in workflow
     assert "run-summary.json" in workflow
-    assert "[MTProto] Connected." in workflow
-    assert "[MTProto] Resolved peer " in workflow
-    assert "completed=True" in workflow
-    assert "No MTProto connection evidence found" in workflow
-    assert "No MTProto peer-resolution evidence found" in workflow
-    assert "No completed LIFO source windows found" in workflow
-    assert "No scanned Telegram messages found" in workflow
-    assert "run_summary_messages_scanned" in workflow
+    assert "source-health.json" in workflow
+    assert "scripts/verify_telegram_activity.py" in workflow
+    assert "--source-run-id" in workflow
+    assert "--source-health" in workflow
     assert "telegram-activity-evidence.json" in workflow
     assert "workflow_dispatch:" in workflow
-    assert "pass1_scanned" not in workflow
-    assert "No MTProto Fetching evidence found" not in workflow
-    assert "No MTProto Done evidence found" not in workflow
+    assert "verified_telegram_ingestion" in verifier
+    assert "availability_nonblocking" in verifier
+    assert "rate_limited" in verifier
+    assert "completed_empty" in verifier
+    assert "EvidenceContractError" in verifier
+    assert "No completed LIFO source windows found" not in workflow
 
 
 def test_downstream_evidence_gates_are_attempt_specific():

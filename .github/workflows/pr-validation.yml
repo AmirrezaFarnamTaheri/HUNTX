@@ -24,12 +24,12 @@ on:
       - "scripts/**"
       - "src/**"
       - "tests/**"
+  # Direct main updates remain validated. PR branches use the pull_request
+  # trigger, avoiding duplicate full validation runs for the same commit.
+  # Unopened branches can be checked via workflow_dispatch.
   push:
     branches:
       - main
-      - "fix/**"
-      - "agent/**"
-      - "codex/**"
     paths:
       - ".github/**"
       - "outputs/**"
