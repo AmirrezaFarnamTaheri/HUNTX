@@ -54,6 +54,7 @@ def test_stage_dev_refresh_rejects_empty_or_nonexistent_release_feed(tmp_path: P
     with raises(ValueError, match="missing|empty"):
         stage_legacy_release_fixture(source, tmp_path / "stage")
 
+
 def test_legacy_staged_feed_passes_strict_parity_without_mutating_archive(tmp_path, monkeypatch):
     """End-to-end scratch generation exercises the real strict parity gate."""
     from scripts import generate_site_data as site
@@ -94,6 +95,7 @@ def test_legacy_staged_feed_passes_strict_parity_without_mutating_archive(tmp_pa
     assert (docs / "assets/js/data.js").is_file()
     assert (source / "all_sources.txt").read_text(encoding="utf-8").splitlines() == [a, b]
 
+
 def test_real_committed_archive_stages_cleanly_for_current_dashboard(tmp_path, monkeypatch):
     """Prove staging against the actual archived release, not only tiny fixtures."""
     from scripts import generate_site_data as site
@@ -121,4 +123,3 @@ def test_real_committed_archive_stages_cleanly_for_current_dashboard(tmp_path, m
     ])
     site.generate_all()
     assert (docs / "assets/js/data.js").stat().st_size > 0
-
