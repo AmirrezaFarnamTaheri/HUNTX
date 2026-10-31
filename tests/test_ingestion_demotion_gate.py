@@ -116,5 +116,5 @@ def test_optimized_hook_tolerates_missing_work_queue():
     """A partially-constructed instance must not raise on the hook."""
     orch = object.__new__(OptimizedHardenedOrchestrator)
     orch._ingestion_budget_exhausted = False
-    # No _work_queue attribute set; the hook must fail open to None, not raise.
-    assert orch._ingestion_demotion_reason() is None
+    # Missing queue state cannot prove a complete ingestion; fail closed.
+    assert orch._ingestion_demotion_reason() == "ingestion_state_unavailable"
