@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import importlib.util
 import json
 import tempfile
@@ -177,16 +178,34 @@ class TestDashboardDataWiring(unittest.TestCase):
 
     def _dashboard_fixture(self, root: Path) -> Path:
         dashboard = root / "dashboard"
-        (dashboard / "artifacts" / "release").mkdir(parents=True)
+        release = dashboard / "artifacts" / "release"
+        release.mkdir(parents=True)
+        # A synthetic catalog must describe actual immutable bytes. The
+        # previous test advertised a missing file with a fabricated digest,
+        # which prevented detection of stale aggregate manifests.
+        payload = b"synthetic-configuration"
+        (release / "all_sources.conf_lines").write_bytes(payload)
         release_entry = {
             "filename": "all_sources.conf_lines",
             "path": "artifacts/release/all_sources.conf_lines",
-            "size": 10,
-            "sha256": "a" * 64,
+            "size": len(payload),
+            "sha256": hashlib.sha256(payload).hexdigest(),
         }
-        catalog = {"total_files": 1, "total_size": 10, "files": [release_entry]}
+        catalog = {
+            "total_files": 1,
+            "total_size": len(payload),
+            "files": [release_entry],
+        }
         (dashboard / "catalog.json").write_text(json.dumps(catalog), encoding="utf-8")
-        (dashboard / "artifacts" / "release" / "manifest.json").write_text("{}\n", encoding="utf-8")
+        _write_json(release / "manifest.json", {
+            "schema_version": 1,
+            "artifact_count": 1,
+            "artifacts": [{
+                "path": "all_sources.conf_lines",
+                "size": len(payload),
+                "sha256": release_entry["sha256"],
+            }],
+        })
         return dashboard
 
     def test_dashboard_data_is_staged_into_snapshot_and_inventory(self):
