@@ -102,7 +102,7 @@ func TestTLSClassifierProbesLocalTLSServer(t *testing.T) {
 	addr, cleanup := startMockTLSServer(t, cert, []string{"h2", "http/1.1"})
 	defer cleanup()
 
-	classifier := NewClassifier(WithTimeout(2 * time.Second), WithInsecureSkipVerify(true))
+	classifier := NewClassifier(WithTimeout(2*time.Second), WithInsecureSkipVerify(true))
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -143,7 +143,7 @@ func TestTLSClassifierRejectsUntrustedCertificateByDefault(t *testing.T) {
 	addr, cleanup := startMockTLSServer(t, cert, []string{"h2"})
 	defer cleanup()
 
-	report := NewClassifier(WithTimeout(2 * time.Second)).Probe(context.Background(), addr, "localhost")
+	report := NewClassifier(WithTimeout(2*time.Second)).Probe(context.Background(), addr, "localhost")
 	if report.Success || report.CertificateVerified {
 		t.Errorf("untrusted self-signed endpoint must not be reported as valid: %+v", report)
 	}
@@ -162,7 +162,7 @@ func TestTLSClassifierAcceptsExplicitlyTrustedCertificate(t *testing.T) {
 	}
 	roots := x509.NewCertPool()
 	roots.AddCert(leaf)
-	classifier := NewClassifier(WithTimeout(2 * time.Second), WithRootCAs(roots))
+	classifier := NewClassifier(WithTimeout(2*time.Second), WithRootCAs(roots))
 	report := classifier.Probe(context.Background(), addr, "localhost")
 	if !report.Success || !report.CertificateVerified {
 		t.Errorf("trusted certificate must be explicitly verified: %+v", report)
