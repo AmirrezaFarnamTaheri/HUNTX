@@ -73,9 +73,9 @@ def evaluate(
     telegram_statuses: dict[str, int] = {}
     if source_health is not None:
         if (not isinstance(source_health, Mapping)
-            or type(source_health.get("schema_version")) is not int
-            or source_health["schema_version"] != 1
-            or not isinstance(source_health.get("sources"), list)):
+                or type(source_health.get("schema_version")) is not int
+                or source_health["schema_version"] != 1
+                or not isinstance(source_health.get("sources"), list)):
             raise EvidenceContractError("source-health.json requires a sources list and schema_version=1")
         telegram = []
         for source in source_health["sources"]:
