@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from bisect import bisect_right
 from functools import lru_cache
+from itertools import accumulate
 import csv
 import ipaddress
 import os
@@ -38,7 +39,7 @@ def _anycast(address) -> bool:
 def _load_ranges(filename: str):
     path = Path(filename)
     if not path.is_file() or path.stat().st_size > 35 * 1024 * 1024:
-        return (), (), ()
+        return (), (), (), ()
     rows = []
     with path.open(newline="", encoding="utf-8") as stream:
         for row in csv.reader(stream):
@@ -56,7 +57,30 @@ def _load_ranges(filename: str):
                 continue
             rows.append((int(start), int(end), code))
     rows.sort()
-    return tuple(row[0] for row in rows), tuple(row[1] for row in rows), tuple(row[2] for row in rows)
+    starts = tuple(row[0] for row in rows)
+    ends = tuple(row[1] for row in rows)
+    return starts, ends, tuple(row[2] for row in rows), tuple(accumulate(ends, max))
+
+
+def _lookup_nested_range(
+    address: int,
+    starts: tuple[int, ...],
+    ends: tuple[int, ...],
+    values: tuple[str, ...],
+    max_ends: tuple[int, ...],
+) -> str | None:
+    """Prefer the latest-starting covering range, including nested overlaps.
+
+    A simple bisect misses a broad range when a shorter, later-starting
+    range has already ended. Prefix maxima avoid linear scans across gaps;
+    only overlapping intervals need fallback checks.
+    """
+    index = bisect_right(starts, address) - 1
+    while index >= 0 and max_ends[index] >= address:
+        if ends[index] >= address:
+            return values[index]
+        index -= 1
+    return None
 
 
 def estimate_country(host: str) -> str | None:
@@ -72,13 +96,10 @@ def estimate_country(host: str) -> str | None:
     if not filename:
         return None
     try:
-        starts, ends, countries = _load_ranges(filename)
+        starts, ends, countries, max_ends = _load_ranges(filename)
     except (OSError, UnicodeError, csv.Error):
         return None
-    index = bisect_right(starts, int(ip)) - 1
-    if index < 0 or int(ip) > ends[index]:
-        return None
-    return countries[index]
+    return _lookup_nested_range(int(ip), starts, ends, countries, max_ends)
 
 
 @lru_cache(maxsize=4)
@@ -86,7 +107,7 @@ def _load_asn_ranges(filename: str):
     """Read the PDDL origin-AS range table once for each configured file."""
     path = Path(filename)
     if not path.is_file() or path.stat().st_size > 96 * 1024 * 1024:
-        return (), (), ()
+        return (), (), (), ()
     rows = []
     with path.open(newline="", encoding="utf-8") as stream:
         for row in csv.reader(stream):
@@ -104,7 +125,9 @@ def _load_asn_ranges(filename: str):
                 continue
             rows.append((int(start), int(end), organization))
     rows.sort()
-    return tuple(row[0] for row in rows), tuple(row[1] for row in rows), tuple(row[2] for row in rows)
+    starts = tuple(row[0] for row in rows)
+    ends = tuple(row[1] for row in rows)
+    return starts, ends, tuple(row[2] for row in rows), tuple(accumulate(ends, max))
 
 
 def is_anycast_address(host: str) -> bool:
@@ -127,10 +150,7 @@ def estimate_as_organization(host: str) -> str | None:
     if not filename:
         return None
     try:
-        starts, ends, organizations = _load_asn_ranges(filename)
+        starts, ends, organizations, max_ends = _load_asn_ranges(filename)
     except (OSError, UnicodeError, csv.Error):
         return None
-    index = bisect_right(starts, int(ip)) - 1
-    if index < 0 or int(ip) > ends[index]:
-        return None
-    return organizations[index]
+    return _lookup_nested_range(int(ip), starts, ends, organizations, max_ends)
