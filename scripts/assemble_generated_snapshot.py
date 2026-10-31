@@ -476,8 +476,8 @@ def _catalog_dev_trio(docs_dir: Path, dev_dir: Path) -> None:
     catalog_path.write_text(json.dumps(catalog, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def _proxy_hashes(directory: Path | None, filename: str) -> set[str] | None:
-    """Return normalized connection digests, or None if feed was unavailable."""
+def _proxy_hashes(\n    directory: Path | None, filename: str, *, historical: bool = False\n) -> set[str] | None:
+    """Return distinct connection digests; reject duplicates in new feeds only.\n\n    Historical snapshots may predate semantic deduplication. Treat repeated\n    historical identities as one for churn metrics, never as new proof.\n    """
     if directory is None or not (directory / filename).is_file():
         return None
     found: set[str] = set()
@@ -497,7 +497,7 @@ def build_proxy_churn_report(
 ) -> dict[str, Any]:
     """Compare connection identities; a disappearance is not permanent death."""
     current = _proxy_hashes(current_outputs, "all_sources.txt")
-    previous = _proxy_hashes(previous_outputs, "all_sources.txt")
+    previous = _proxy_hashes(previous_outputs, "all_sources.txt", historical=True)
     alternate = _proxy_hashes(current_outputs, "all_sources_sub.txt")
     if current is None:
         return {"schema_version": 1, "status": "current_primary_missing"}
