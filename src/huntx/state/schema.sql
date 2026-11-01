@@ -102,6 +102,24 @@ CREATE TABLE IF NOT EXISTS proxy_probe_history (
         REFERENCES proxy_lifecycle(unique_hash, record_type) ON DELETE RESTRICT
 );
 
+-- Bounded, source-independent rotation of retained genuine HTTPS successes.
+-- This is a SCHEDULING ledger, never authenticated publication evidence.
+-- Selecting an old candidate cannot change proxy_lifecycle.last_probe_at or
+-- promote it to a fresh working identity. Selection counts prevent starvation
+-- among a finite pool even if the system clock moves backwards.
+CREATE TABLE IF NOT EXISTS proxy_retest_schedule (
+    record_type TEXT NOT NULL CHECK(record_type IN ('npvt', 'npvtsub')),
+    unique_hash TEXT NOT NULL CHECK(length(unique_hash) = 64),
+    last_selected_at REAL NOT NULL,
+    selection_count INTEGER NOT NULL DEFAULT 1 CHECK(selection_count > 0),
+    PRIMARY KEY(record_type, unique_hash),
+    FOREIGN KEY(unique_hash, record_type)
+        REFERENCES proxy_lifecycle(unique_hash, record_type) ON DELETE RESTRICT
+);
+
+CREATE INDEX IF NOT EXISTS idx_proxy_retest_fairness
+    ON proxy_retest_schedule(selection_count, last_selected_at, record_type);
+
 -- Index repeated authenticated failures by canonical identity.
 CREATE INDEX IF NOT EXISTS idx_proxy_probe_identity_time
     ON proxy_probe_history(unique_hash, record_type, checked_at DESC);
