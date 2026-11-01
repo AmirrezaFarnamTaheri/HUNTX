@@ -362,6 +362,8 @@ def normalize_feed(payload: bytes, mode: str = "auto") -> tuple[bytes, dict[str,
             decoded = base64.b64decode(
                 compact + "=" * (-len(compact) % 4), altchars=b"-_", validate=True
             )
+            if len(decoded) > MAX_FEED_BYTES:
+                raise ValueError("decoded feed exceeds bounded size")
             text = decoded.decode("utf-8-sig")
         except (ValueError, UnicodeDecodeError, binascii.Error) as exc:
             raise ValueError("malformed base64 feed") from exc
