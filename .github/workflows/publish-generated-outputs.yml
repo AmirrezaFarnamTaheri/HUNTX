@@ -586,8 +586,8 @@ jobs:
           SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
           SOURCE_RUN_ATTEMPT: ${{ steps.source.outputs.run_attempt }}
           SOURCE_COMMIT: ${{ steps.source.outputs.head_sha }}
-          HUNTX_HEALTH_WORKERS: '32'
-          HUNTX_HEALTH_TIMEOUT: '8'
+          HUNTX_HEALTH_WORKERS: '48'
+          HUNTX_HEALTH_TIMEOUT: '25'
           HUNTX_HEALTH_BUDGET: '900'
         run: |
           set -euo pipefail
