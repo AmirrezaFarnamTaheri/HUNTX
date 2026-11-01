@@ -1,0 +1,4714 @@
+// HUNTX / GatherX Node Intelligence & Telemetry Dashboard Application
+// High-Craft Cyber Telemetry Interface adhering to UI/UX Pro Max, Elite Frontend Architecture, and WCAG 2.1 AA.
+
+import { initTelemetryGlobe } from "./globe.js";
+import { i18n } from "./i18n.js";
+// Batch conversion for every client format goes through `convertProxyBatch`,
+// which owns the format switch. Only the single-node helpers and the feed
+// builders used directly by the dashboard are imported here.
+import {
+  decodeProxyURI,
+  extractAllURIs,
+  convertProxyBatch,
+  nodeToSingboxOutbound,
+  nodeToClashProxy,
+  clashProxyToYAML,
+  buildSingboxConfig,
+  buildClashMetaYAML,
+  buildBase64Sub
+} from "./decoder.js";
+import { renderQRCodeSVG } from "./qrcode.js";
+import { summarizeCatalog } from "./network-doctor.js";
+
+export const COUNTRY_NAMES = {
+  DE: "Germany", NL: "Netherlands", US: "United States", GB: "United Kingdom",
+  FR: "France", FI: "Finland", SG: "Singapore", JP: "Japan", KR: "South Korea",
+  HK: "Hong Kong", TR: "Turkey", SE: "Sweden", CH: "Switzerland", CA: "Canada",
+  IR: "Iran", RU: "Russia", AU: "Australia", BR: "Brazil", ZA: "South Africa",
+  IT: "Italy", ES: "Spain", AE: "UAE", IN: "India", TW: "Taiwan", UA: "Ukraine",
+  IE: "Ireland", ZZ: "Unknown"
+};
+
+export const GEO_COORDINATES = {
+  DE: { lat: 50.1109, lon: 8.6821, city: "Frankfurt Hub" },
+  NL: { lat: 52.3676, lon: 4.9041, city: "Amsterdam Hub" },
+  FI: { lat: 60.1699, lon: 24.9384, city: "Helsinki Hub" },
+  US: { lat: 37.7749, lon: -122.4194, city: "Silicon Valley" },
+  FR: { lat: 48.8566, lon: 2.3522, city: "Paris Hub" },
+  GB: { lat: 51.5074, lon: -0.1278, city: "London Edge" },
+  RU: { lat: 55.7558, lon: 37.6173, city: "Moscow Hub" },
+  SG: { lat: 1.3521, lon: 103.8198, city: "Singapore Hub" },
+  JP: { lat: 35.6762, lon: 139.6503, city: "Tokyo Hub" },
+  KR: { lat: 37.5665, lon: 126.9780, city: "Seoul Hub" },
+  HK: { lat: 22.3193, lon: 114.1694, city: "Hong Kong Edge" },
+  CH: { lat: 47.3769, lon: 8.5417, city: "Zurich Edge" },
+  SE: { lat: 59.3293, lon: 18.0686, city: "Stockholm Hub" },
+  IR: { lat: 35.6892, lon: 51.3890, city: "Tehran Edge" },
+  TR: { lat: 41.0082, lon: 28.9784, city: "Istanbul Hub" },
+  CA: { lat: 43.6532, lon: -79.3832, city: "Toronto Edge" },
+  AU: { lat: -33.8688, lon: 151.2093, city: "Sydney Hub" },
+  BR: { lat: -23.5505, lon: -46.6333, city: "São Paulo Hub" },
+  ZA: { lat: -26.2041, lon: 28.0473, city: "Johannesburg Edge" },
+  IN: { lat: 19.0760, lon: 72.8777, city: "Mumbai Hub" },
+  TW: { lat: 25.0330, lon: 121.5654, city: "Taipei Edge" },
+  UA: { lat: 50.4501, lon: 30.5234, city: "Kyiv Edge" },
+  IE: { lat: 53.3498, lon: -6.2603, city: "Dublin Edge" },
+};
+
+export function getFlagEmoji(countryCode) {
+  if (!countryCode || countryCode.length !== 2 || String(countryCode).toUpperCase() === "ZZ") return "🌐";
+  return countryCode
+    .toUpperCase()
+    .split("")
+    .map(c => String.fromCodePoint(127397 + c.charCodeAt(0)))
+    .join("");
+}
+
+/**
+ * Choose the catalog entry a client will expand into individual nodes.
+ *
+ * This resolver selects only feeds that expand into independent proxy entries.
+ * Sing-box and Xray release JSONs are also node subscriptions: their generators
+ * deliberately omit the full-profile envelope that would make clients store one
+ * custom configuration. Base64 remains preferred because it is the one body
+ * format Shadowrocket, v2rayNG, Streisand, Hiddify and NekoBox all accept,
+ * whereas a JSON node container only expands in JSON-aware clients.
+ */
+export function pickSubscriptionArtifact(files) {
+  const entries = Array.isArray(files) ? files.filter((f) => f && typeof f.filename === "string" && typeof f.path === "string") : [];
+  const subscriptions = entries.filter((f) => (Array.isArray(f.tags) ? f.tags : []).includes("subscription"));
+  const score = (f) => {
+    const tags = Array.isArray(f.tags) ? f.tags : [];
+    let value = 0;
+    if (tags.includes("base64")) value += 5;
+    if (tags.includes("multi-node")) value += 4;
+    if (tags.includes("json-nodes") || tags.includes("json-array") || tags.includes("yaml-nodes")) value += 3;
+    if (tags.includes("uri-feed") || tags.includes("raw-uris")) value += 1;
+    if (tags.includes("full-config") || tags.includes("profile")) value -= 10;
+    return value;
+  };
+  const ranked = subscriptions
+    .map((f) => ({ file: f, rank: score(f) }))
+    .sort((a, z) => z.rank - a.rank || a.file.filename.localeCompare(z.file.filename));
+  const best = ranked[0];
+  if (!best || best.rank <= 0) return null;
+  const tags = Array.isArray(best.file.tags) ? best.file.tags : [];
+  return {
+    path: best.file.path,
+    filename: best.file.filename,
+    label: tags.includes("base64") ? "Base64" : tags.includes("yaml-nodes") ? "Clash/Mihomo provider" : (tags.includes("json-nodes") || tags.includes("json-array")) ? "JSON node feed" : "Raw URI feed"
+  };
+}
+
+/**
+ * Create artifact links that remain safe to copy from both a deployed
+ * dashboard and a local file preview. `file:` URLs expose a developer's
+ * filesystem and are not importable on another device, so local previews
+ * deliberately fall back to portable relative paths unless a public base URL
+ * is explicitly configured.
+ */
+export function normalizeArtifactPath(path) {
+  return String(path || "")
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^\.\//, "")
+    .replace(/^\/+/, "");
+}
+
+export function getConfiguredPublicBase(documentRef = typeof document === "undefined" ? null : document) {
+  const globalBase = typeof window !== "undefined" && typeof window.HUNTX_PUBLIC_BASE_URL === "string"
+    ? window.HUNTX_PUBLIC_BASE_URL
+    : "";
+  const metaBase = documentRef?.querySelector?.('meta[name="huntx-public-base-url"]')?.content || "";
+  const dataBase = documentRef?.documentElement?.dataset?.publicBaseUrl || "";
+  const rawBase = (globalBase || metaBase || dataBase || "").trim();
+  if (!rawBase) return "";
+  try {
+    const fallback = typeof window !== "undefined" ? window.location.href : "https://example.invalid/";
+    return new URL(rawBase, fallback).href;
+  } catch {
+    return "";
+  }
+}
+
+export function resolveArtifactUrl(path, locationRef = typeof window === "undefined" ? null : window.location) {
+  const safePath = normalizeArtifactPath(path);
+  const configuredBase = getConfiguredPublicBase();
+  if (configuredBase) return new URL(safePath, configuredBase).href;
+  if (!locationRef || !["http:", "https:"].includes(locationRef.protocol)) return safePath;
+  return new URL(safePath, locationRef.href).href;
+}
+
+export function isHostedDashboard(locationRef = typeof window === "undefined" ? null : window.location) {
+  return Boolean(locationRef && ["http:", "https:"].includes(locationRef.protocol));
+}
+
+export function getArtifactLinkModel(path, locationRef = typeof window === "undefined" ? null : window.location) {
+  const safePath = normalizeArtifactPath(path);
+  const configuredBase = getConfiguredPublicBase();
+  const hosted = isHostedDashboard(locationRef);
+  const url = resolveArtifactUrl(safePath, locationRef);
+  const isAbsolute = Boolean(configuredBase || hosted);
+  return {
+    path: safePath,
+    url,
+    display: isAbsolute ? url : `./${safePath}`,
+    copyValue: url,
+    isAbsolute,
+    sourceLabel: configuredBase ? "public base URL" : hosted ? "current origin" : "portable relative path"
+  };
+}
+
+/** Infer coarse provider/region metadata without fabricating unknown or anycast locations. */
+export function resolveGeoAndCarrier(address, _sni = "", _host = "") {
+  // Hostnames, URI remarks and IP prefix guesses do not prove physical
+  // server location or carrier. Preserve the destination as unknown until
+  // an independently attributed telemetry record is merged.
+  const host = String(address || "").trim().toLowerCase();
+  const cloudflareAnycast = /^(188\.114\.|162\.159\.|172\.6[47]\.|104\.(?:1[6-9]|2[01])\.)/.test(host);
+  const provider = cloudflareAnycast ? "Cloudflare Anycast" : "Unverified";
+  return {
+    country: "ZZ", country_name: "Unknown", flag: "🌐",
+    carrier: provider, org: cloudflareAnycast ? "Cloudflare" : provider, city: "Unknown",
+    latitude: null, longitude: null,
+    geo_source: cloudflareAnycast ? "anycast-provider" : "unknown",
+    geo_verified: false
+  };
+}
+
+/**
+ * Decode current release records without losing VMess's embedded endpoint.
+ * A VMess share encodes host, port, TLS and display name in JSON rather than
+ * URI authority/query/fragment fields. No guessed network location is added.
+ */
+export function normalizeDecodedProxyInput(entry, index = 0) {
+  if (!entry || typeof entry !== "object") return null;
+  const proto = String(entry.protocol || "vless").toLowerCase();
+  const decoded = entry.decoded && typeof entry.decoded === "object" && !Array.isArray(entry.decoded)
+    ? entry.decoded : {};
+  const host = String(entry.address || decoded.add || "").trim();
+  const defaultPort = proto === "ssh" ? 22 : (proto.startsWith("socks") ? 1080 : 443);
+  const port = Number(entry.port ?? decoded.port ?? defaultPort);
+  if (!host || !Number.isInteger(port) || port < 1 || port > 65535) return null;
+  const declared = entry.params && typeof entry.params === "object" && !Array.isArray(entry.params)
+    ? entry.params : {};
+  const params = proto === "vmess" ? {
+    type: decoded.net || "tcp",
+    security: decoded.tls || "none",
+    sni: decoded.sni || "",
+    host: decoded.host || "",
+    path: decoded.path || "",
+    alpn: decoded.alpn || "",
+    ...declared,
+  } : declared;
+  const tag = String(entry.tag || decoded.ps || `${proto}-${index + 1}`);
+  const user = String(entry.user || entry.password || decoded.id || "");
+  const implicitTLS = new Set(["trojan", "hysteria", "hysteria2", "hy2", "tuic", "anytls"]);
+  const nativeUDP = new Set(["hysteria", "hysteria2", "hy2", "tuic"]);
+  return {
+    proto, tag, host, port, params, user,
+    defaultSecurity: implicitTLS.has(proto) || String(entry.raw || "").startsWith("https://")
+      ? "tls" : "none",
+    defaultTransport: nativeUDP.has(proto) ? "udp" : "tcp",
+  };
+}
+
+
+/** Only measured, provider-attributed coordinates are mappable as points.
+ * Country-allocation estimates remain available in region summaries, not as
+ * invented city coordinates. A grouped point is an approximate centroid.
+ */
+export function clusterGlobeHubs(proxies) {
+  const hubMap = {};
+  for (const p of proxies) {
+    const code = String(p?.country || "ZZ").toUpperCase();
+    if (getRegionPresentation(p).confidence !== "provider" ||
+        String(p?.geo_source || "").toLowerCase() === "server-country-pddl" ||
+        typeof p?.latitude !== "number" || typeof p?.longitude !== "number") continue;
+    const latitude = p.latitude;
+    const longitude = p.longitude;
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) ||
+        Math.abs(latitude) > 90 || Math.abs(longitude) > 180) continue;
+    if (!hubMap[code]) {
+      const country = p.country_name || COUNTRY_NAMES[code] || code;
+      hubMap[code] = {
+        name: `${country} · approximate`,
+        latitudeSum: 0, longitudeSum: 0,
+        pings: [], code, country, count: 0,
+      };
+    }
+    const group = hubMap[code];
+    group.latitudeSum += latitude;
+    group.longitudeSum += longitude;
+    const measured = typeof p.latency === "number" && Number.isFinite(p.latency) && p.latency > 0
+      ? p.latency : null;
+    if (measured !== null) group.pings.push(measured);
+    group.count += 1;
+  }
+  const hubs = Object.values(hubMap).map(h => ({
+    name: h.name,
+    lat: h.latitudeSum / h.count,
+    lon: h.longitudeSum / h.count,
+    ping: h.pings.length ? Math.round(h.pings.reduce((a, b) => a + b, 0) / h.pings.length) : null,
+    code: h.code, country: h.country, count: h.count,
+    location_precision: "approximate_provider_coordinates",
+  }));
+  hubs.sort((a, b) => b.count - a.count);
+  return hubs;
+}
+
+function escapeHTML(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function debounce(fn, delay = 150) {
+  let timer = null;
+  return function (...args) {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      fn.apply(this, args);
+    }, delay);
+  };
+}
+
+export const HEALTH_GRADES = Object.freeze([
+  Object.freeze({ id: "A+", maxLatency: 45, score: 98, label: "Ultra Fast", color: "text-emerald-400 border-emerald-800/80 bg-emerald-950/60" }),
+  Object.freeze({ id: "A", maxLatency: 80, score: 91, label: "Fast", color: "text-cyan-400 border-cyan-800/80 bg-cyan-950/60" }),
+  Object.freeze({ id: "B", maxLatency: 140, score: 82, label: "Stable", color: "text-amber-400 border-amber-800/80 bg-amber-950/60" }),
+  Object.freeze({ id: "C", maxLatency: Number.POSITIVE_INFINITY, score: 68, label: "Moderate", color: "text-rose-400 border-rose-800/80 bg-rose-950/60" })
+]);
+
+/** Map measured TCP latency to a speed band, not authenticated proxy health. */
+export function healthForLatency(ping) {
+  if (ping === null || ping === undefined || ping === "") {
+    return { score: null, grade: "—", label: "Unmeasured", color: "text-gray-400 border-gray-700 bg-gray-900" };
+  }
+  const value = Number(ping);
+  if (!Number.isFinite(value) || value < 0) {
+    return { score: null, grade: "—", label: "Unmeasured", color: "text-gray-400 border-gray-700 bg-gray-900" };
+  }
+  const grade = HEALTH_GRADES.find((candidate) => value <= candidate.maxLatency) || HEALTH_GRADES[HEALTH_GRADES.length - 1];
+  return { score: grade.score, grade: grade.id, label: grade.label, color: grade.color };
+}
+
+/** Grade transport security independently from latency health. */
+export function securityGrade(security) {
+  const value = String(security || "none").toLowerCase();
+  if (value === "reality") return "A+";
+  if (value === "tls") return "A";
+  return "B+";
+}
+
+const PUBLISHED_HEALTH_GRADE_META = Object.freeze({
+  "A+": { label: "Snapshot A+", color: "text-emerald-400 border-emerald-800/80 bg-emerald-950/60" },
+  "A": { label: "Snapshot A", color: "text-cyan-400 border-cyan-800/80 bg-cyan-950/60" },
+  "B+": { label: "Snapshot B+", color: "text-sky-400 border-sky-800/80 bg-sky-950/60" },
+  "B": { label: "Snapshot B", color: "text-amber-400 border-amber-800/80 bg-amber-950/60" },
+  "C+": { label: "Snapshot C+", color: "text-orange-400 border-orange-800/80 bg-orange-950/60" },
+  "C": { label: "Snapshot C", color: "text-rose-400 border-rose-800/80 bg-rose-950/60" },
+  "F": { label: "Unreachable at publish", color: "text-gray-400 border-gray-700 bg-gray-900" }
+});
+
+/** Build a cache-busted module URL for one catalog generation. */
+export function telemetryModuleUrl(generation) {
+  const encoded = encodeURIComponent(String(generation || "unknown"));
+  return `./data.js?generation=${encoded}`;
+}
+
+/** Keep a selected health grade only when the current dataset still offers it. */
+export function reconcileGradeSelection(selectedGrade, gradeOptions) {
+  const available = new Set(["ALL", "UNMEASURED", ...(gradeOptions || []).map((grade) => grade.id)]);
+  return available.has(selectedGrade) ? selectedGrade : "ALL";
+}
+
+/** Compare generation timestamps across RFC3339 spellings. */
+export function isSameGeneration(left, right) {
+  if (!left || !right) return false;
+  const leftTime = Date.parse(left);
+  const rightTime = Date.parse(right);
+  return Number.isFinite(leftTime) && Number.isFinite(rightTime) && leftTime === rightTime;
+}
+
+/** Normalize generated records to the fields consumed by the dashboard. */
+export function normalizeProxyRecord(proxy) {
+  const raw = proxy?.raw ?? proxy?.raw_uri ?? "";
+  const latency = proxy?.latency ?? proxy?.ping;
+  return {
+    ...proxy,
+    raw,
+    raw_uri: raw,
+    ping: latency
+  };
+}
+
+/** A network probe is one layer of evidence, not proof of a working proxy. */
+export function getProxyEvidence(proxy = {}) {
+  const kind = String(proxy?.health_evidence || "").toLowerCase();
+  if (kind === "fresh_authenticated_protocol") {
+    const expiry = proxy?.authenticated_probe_expires_at;
+    const age = proxy?.authenticated_probe_age_seconds;
+    const stillVerified = proxy?.probe_kind === "protocol_authenticated"
+      && proxy?.authenticated_probe_ok === true
+      && typeof expiry === "number" && Number.isFinite(expiry) && expiry > Date.now() / 1000
+      && typeof age === "number" && Number.isFinite(age) && age >= 0 && age <= 3600
+      && typeof proxy?.health_grade === "string" && Boolean(PUBLISHED_HEALTH_GRADE_META[proxy.health_grade]);
+    if (stillVerified) {
+      return { id: "authenticated", label: "Protocol checked", detail: "Fresh authenticated HTTPS-through-proxy evidence; availability may change.", terminal: false };
+    }
+    return { id: "unmeasured", label: "HTTPS proof unavailable", detail: "Authenticated-protocol evidence has expired or cannot be verified from this snapshot.", terminal: false };
+  }
+  if (kind === "expired_authenticated_protocol") {
+    return { id: "unmeasured", label: "HTTPS evidence expired", detail: "A previous authenticated HTTPS check succeeded, but its publication evidence has expired. Current proxy health is unknown.", terminal: false };
+  }
+  if (kind === "failed_authenticated_protocol") {
+    return { id: "protocol_failed", label: "Protocol check failed", detail: "Authenticated protocol check failed; this does not imply a permanent failure.", terminal: false };
+  }
+  if (kind === "tcp_connect_only" || (proxy?.probe_ok === true && proxy?.health_evidence === undefined)) {
+    return { id: "tcp", label: "TCP reachable", detail: "TCP connect does not verify proxy authentication.", terminal: false };
+  }
+  if (kind === "tcp_failed_from_publish_vantage" || (proxy?.probe_ok === false && proxy?.health_evidence === undefined)) {
+    return { id: "tcp_failed", label: "TCP check failed", detail: "TCP failed from one publish vantage; this does not establish permanent failure.", terminal: false };
+  }
+  return { id: "unmeasured", label: "Not measured", detail: "No trustworthy proxy-protocol or TCP test available for this snapshot.", terminal: false };
+}
+
+/** A country flag without independently attributed geography is always a hint. */
+export function getRegionPresentation(proxy = {}) {
+  const code = String(proxy?.country || "").trim().toUpperCase();
+  const known = /^[A-Z]{2}$/.test(code) && code !== "ZZ";
+  if (!known) return { code: "ZZ", flag: "🌐", confidence: "unknown", label: "Unknown region", detail: "Location unavailable; no region is assumed." };
+  const flag = getFlagEmoji(code);
+  const confidence = proxy?.geo_verified === true
+    && Boolean(proxy?.geo_source)
+    && !["unknown", "anycast-provider", "unverified_country_hint", "legacy-estimate", "inferred"].includes(String(proxy?.geo_source || "").toLowerCase())
+    ? "provider" : "hint";
+  const label = COUNTRY_NAMES[code] || code;
+  return confidence === "provider"
+    ? { code, flag, confidence, label, detail: "GeoIP provider estimate, not confirmed physical server location." }
+    : { code, flag: flag + "?", confidence, label, detail: "Unverified country hint; not a measured server location." };
+}
+
+/** Published client remarks are the canonical name; never prepend a guessed country. */
+export function displayPublishedName(tag, protocol) {
+  const name = typeof tag === "string" ? tag.trim() : "";
+  return name || `${String(protocol || "proxy").toUpperCase()} · Unnamed`;
+}
+
+/** Counts are computed once per snapshot and shared with the evidence filter. */
+export function countProxyEvidence(proxies) {
+  const counts = { all: 0, authenticated: 0, protocol_failed: 0, tcp: 0, tcp_failed: 0, unmeasured: 0 };
+  for (const proxy of (Array.isArray(proxies) ? proxies : [])) {
+    const state = getProxyEvidence(proxy).id;
+    counts.all += 1;
+    if (Object.hasOwn(counts, state)) counts[state] += 1;
+  }
+  return counts;
+}
+
+/** Keep unresolved geography out of the known-region count and ranking. */
+export function summarizeRegions(proxies) {
+  const counts = new Map();
+  let unknownCount = 0;
+  for (const proxy of proxies || []) {
+    const code = String(proxy?.country || "ZZ").toUpperCase();
+    if (!code || code === "ZZ") {
+      unknownCount += 1;
+      continue;
+    }
+    counts.set(code, (counts.get(code) || 0) + 1);
+  }
+  const countries = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  return { regionCount: countries.length, unknownCount, countries };
+}
+
+export function summarizeEvidence(proxies) {
+  const records = Array.isArray(proxies) ? proxies : [];
+  let authenticated = 0;
+  let unknownGeography = 0;
+  for (const proxy of records) {
+    if (proxy?.health_evidence === "fresh_authenticated_protocol") authenticated += 1;
+    if (getRegionPresentation(proxy).confidence !== "provider") unknownGeography += 1;
+  }
+  return { total: records.length, authenticated,
+    unverified: records.length - authenticated, unknownGeography };
+}
+
+export function proxyEvidencePresentation(node) {
+  switch (node?.health_evidence) {
+    case "fresh_authenticated_protocol":
+      return { level: "authenticated", label: "Auth verified", description: "Fresh authenticated proxy-protocol evidence" };
+    case "failed_authenticated_protocol":
+      return { level: "failed", label: "Auth failed", description: "Authenticated proxy-protocol test failed" };
+    default: {
+      const measured = node?.latency ?? node?.ping;
+      if (measured !== null && measured !== undefined && measured !== "" &&
+          Number.isFinite(Number(measured)) && Number(measured) >= 0) {
+        return { level: "tcp", label: "TCP sampled", description: "TCP or snapshot measurement; proxy authentication unverified" };
+      }
+      return { level: "unverified", label: "Not tested", description: "No authenticated proxy-protocol evidence" };
+    }
+  }
+}
+
+function telemetryKey(node) {
+  const raw = node?.raw ?? node?.raw_uri ?? "";
+  if (raw) return `raw:${raw}`;
+  return [
+    String(node?.protocol || "").toLowerCase(),
+    String(node?.server || node?.address || "").toLowerCase(),
+    String(node?.port || ""),
+    String(node?.user || node?.uuid || node?.password || ""),
+    String(node?.sni || "").toLowerCase(),
+    String(node?.host || "").toLowerCase(),
+    String(node?.transport || "").toLowerCase(),
+    String(node?.security || "").toLowerCase(),
+    String(node?.path || ""),
+    String(node?.pbk || ""),
+    String(node?.sid || ""),
+    String(node?.flow || "").toLowerCase()
+  ].join("|");
+}
+
+function mergeTelemetryRecord(node, telemetry) {
+  if (!telemetry) return normalizeProxyRecord(node);
+  const merged = { ...node };
+  for (const field of [
+    "latency", "probe_ok", "health_grade", "health_status", "health_evidence", "latency_grade",
+    "pca_score", "pca_version", "pca_evidence", "country", "country_name", "flag", "carrier",
+    "org", "city", "latitude", "longitude", "geo_source", "geo_verified",
+    "security_grade"
+  ]) {
+    if (Object.prototype.hasOwnProperty.call(telemetry, field)) merged[field] = telemetry[field];
+  }
+  return normalizeProxyRecord(merged);
+}
+
+function getStoredTheme() {
+  try {
+    return (typeof localStorage !== "undefined" && localStorage.getItem("huntx_theme")) || "dark";
+  } catch (e) {
+    return "dark";
+  }
+}
+
+function setStoredTheme(theme) {
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("huntx_theme", theme);
+    }
+  } catch {
+    // Private browsing and storage-blocked contexts throw on write. The theme
+    // simply does not persist across reloads; the page itself still works.
+  }
+}
+
+// Progressive node reveal: one card per node is the heaviest work on the
+// dashboard, so only the first window is painted and the rest stream in as
+// the container is scrolled. Counts, exports and the raw-URI feed still see
+// the whole filtered list.
+const NODES_INITIAL = 60;
+const NODES_INCREMENT = 60;
+
+export class AppState {
+  constructor() {
+    this.catalog = { files: [], total_files: 0, total_size: 0, total_size_str: "0 B" };
+    this.proxies = [];
+    this.globeHubs = [];
+    this.stats = {};
+    this.searchQuery = "";
+    this.artifactFilter = "ALL";
+    this.artifactSearchQuery = "";
+    this.selectedProtocol = "ALL";
+    this.selectedTransport = "ALL";
+    this.selectedCountry = "ALL";
+    this.selectedOperator = "ALL";
+    this.selectedGrade = "ALL";
+    this.selectedEvidence = "ALL";
+    this.selectedSecurity = "ALL";
+    this.selectedPort = "ALL";
+    this.sortBy = "latency_asc";
+    this.viewMode = "grid"; // 'grid' | 'table' | 'feed'
+    this.converterTab = "inspector"; // 'inspector' | 'converter' | 'dedup' | 'qr_studio'
+    this.activePageTab = this.getInitialPageTab();
+    this.theme = getStoredTheme();
+    this.globeInstance = null;
+    this.lastFocusedElement = null;
+    this.copyFeedbackStates = new WeakMap();
+    this.unmaskedNodes = new Set();
+    this.activeQRNodes = new Set();
+    this.nodeRenderLimit = NODES_INITIAL;
+    this.nodesObserver = null;
+    this.livePings = new Map();
+    this.liveDataState = "idle";
+    this.telemetryState = "unavailable";
+    this.renderDataStatus();
+    this.liveRefreshTimer = null;
+    this.liveRefreshInFlight = false;
+    this.boundVisibilityRefresh = null;
+  }
+
+  getInitialPageTab() {
+    if (typeof window !== "undefined") {
+      const hash = (window.location.hash || "").replace("#", "").toLowerCase();
+      const validTabs = ["radar", "proxies", "studio", "decoder", "artifacts"];
+      if (validTabs.includes(hash)) return hash;
+      try {
+        const stored = localStorage.getItem("huntx_active_tab");
+        if (stored && validTabs.includes(stored)) return stored;
+      } catch {
+        // Storage unavailable. Fall through to the default tab.
+      }
+    }
+    return "radar";
+  }
+
+  switchPageTab(tabTarget, updateHash = true) {
+    const validTabs = ["radar", "proxies", "studio", "decoder", "artifacts"];
+    if (!validTabs.includes(tabTarget)) tabTarget = "radar";
+    this.activePageTab = tabTarget;
+
+    // Update navigation tab buttons
+    if (typeof document !== "undefined") {
+      document.querySelectorAll(".nav-tab-btn").forEach((btn) => {
+        const target = (btn.dataset && btn.dataset.tabTarget) || btn.getAttribute("data-tab-target");
+        const isCurrent = target === tabTarget;
+        btn.classList.toggle("active", isCurrent);
+        btn.setAttribute("aria-selected", isCurrent ? "true" : "false");
+        btn.tabIndex = isCurrent ? 0 : -1;
+        if (isCurrent && typeof btn.scrollIntoView === "function") {
+          try {
+            const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+            btn.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "nearest", inline: "center" });
+          } catch (e) {
+            btn.scrollIntoView();
+          }
+        }
+      });
+
+      // Update tab panels visibility with bulletproof style and attribute enforcement
+      document.querySelectorAll(".tab-panel").forEach((panel) => {
+        panel.classList.add("hidden");
+        panel.setAttribute("hidden", "true");
+        panel.style.setProperty("display", "none", "important");
+      });
+      const targetPanel = document.getElementById("tab-panel-" + tabTarget);
+      if (targetPanel) {
+        targetPanel.classList.remove("hidden");
+        targetPanel.removeAttribute("hidden");
+        targetPanel.style.setProperty("display", "block", "important");
+      }
+
+      // Update badge counts on nav bar
+      const proxiesBadge = document.getElementById("tab-count-proxies") || document.getElementById("tab-proxies-count-badge");
+      if (proxiesBadge) proxiesBadge.textContent = this.proxies.length;
+      const artifactsBadge = document.getElementById("tab-count-artifacts") || document.getElementById("tab-artifacts-count-badge");
+      if (artifactsBadge) artifactsBadge.textContent = this.catalog.files ? this.catalog.files.length : (this.catalog.total_files || 0);
+
+      if (tabTarget === "radar" && this.globeInstance) {
+        setTimeout(() => {
+          this.globeInstance.resize?.();
+        }, 30);
+      }
+    }
+
+    try {
+      localStorage.setItem("huntx_active_tab", tabTarget);
+    } catch {
+      // Storage unavailable. The tab is still switched for this session.
+    }
+
+    if (updateHash && typeof window !== "undefined") {
+      history.replaceState(null, null, "#" + tabTarget);
+    }
+
+    // Dynamic Title Management
+    const titles = {
+      radar: "HUNTX — 3D Telemetry Radar & Diagnostics",
+      proxies: `HUNTX — Published Proxies (${this.proxies.length} Endpoints)`,
+      studio: "HUNTX — Protocol & Subscription Studio",
+      decoder: "HUNTX — Deep Protocol Inspector & In-Browser Parser",
+      artifacts: `HUNTX — Pipeline Artifacts & Feeds (${this.catalog.files ? this.catalog.files.length : (this.catalog.total_files || 0)})`
+    };
+    if (typeof document !== "undefined" && titles[tabTarget]) {
+      document.title = titles[tabTarget];
+    }
+  }
+
+  getDecodedArtifactRecord(catalog = this.catalog) {
+    const files = Array.isArray(catalog?.files) ? catalog.files : [];
+    // The canonical decoded dataset, with the frozen name accepted so a
+    // snapshot published before the rename still resolves.
+    return files.find((file) => (file?.filename === "all_sources.json"
+      || file?.filename === "all_sources_npvt_decoded.json")
+      && typeof file.path === "string"
+      && /^artifacts\/release\/[A-Za-z0-9._/-]+$/.test(file.path)
+      && typeof file.sha256 === "string"
+      && /^[a-f0-9]{64}$/i.test(file.sha256)) || null;
+  }
+
+  async loadVerifiedJsonArtifact(artifact) {
+    if (!artifact || !globalThis.crypto?.subtle) {
+      throw new Error("Web Crypto is required to verify published artifacts");
+    }
+    const response = await fetch(artifact.path, { cache: "no-store" });
+    if (!response.ok) throw new Error(`Artifact request failed: ${response.status}`);
+    const bytes = await response.arrayBuffer();
+    const digest = await crypto.subtle.digest("SHA-256", bytes);
+    const actualHash = Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, "0")).join("");
+    if (actualHash !== artifact.sha256.toLowerCase()) {
+      throw new Error("Published artifact integrity check failed");
+    }
+    return JSON.parse(new TextDecoder().decode(bytes));
+  }
+
+  async loadBundledFallback() {
+    const data = await import("./data.js");
+    this.catalog = data.FALLBACK_CATALOG || this.catalog;
+    this.proxies = (data.SAMPLE_PROXIES || []).map((proxy) => {
+      const rawLatency = proxy?.latency ?? proxy?.ping;
+      const measured = rawLatency === null || rawLatency === undefined || rawLatency === "" ? null : Number(rawLatency);
+      const latency = Number.isFinite(measured) && measured >= 0 ? measured : null;
+      return {
+        ...proxy,
+        latency,
+        ping: latency,
+        raw: proxy.raw ?? proxy.raw_uri ?? "",
+        raw_uri: proxy.raw_uri ?? proxy.raw ?? "",
+        latency_grade: healthForLatency(latency).grade,
+        security_grade: proxy.security_grade || securityGrade(proxy.security),
+        geo_source: proxy.geo_source || "legacy-estimate",
+        geo_verified: Boolean(proxy.geo_verified)
+      };
+    });
+    this.globeHubs = clusterGlobeHubs(this.proxies);
+    this.stats = data.INGEST_STATS || {};
+    this.telemetryState = "bundled";
+  }
+
+  async loadLiveData() {
+    this.liveDataState = "loading";
+    this.renderDataStatus();
+    let catalogCandidate = null;
+    let proxyCandidate = null;
+    let globeCandidate = null;
+    let telemetrySnapshot = null;
+
+    // Keep the catalog and its decoded proxy data as one verified snapshot. A
+    // new catalog must never be rendered beside stale bundled proxy records.
+    try {
+      const res = await fetch("catalog.json", { cache: "no-store" });
+      if (res.ok) {
+        const liveCatalog = await res.json();
+        const hasLiveFiles = Array.isArray(liveCatalog?.files) && liveCatalog.files.length > 0;
+        if (liveCatalog && (liveCatalog.intentional_empty === true || hasLiveFiles)) {
+          catalogCandidate = liveCatalog;
+        }
+      }
+    } catch {
+      // The live catalog is optional. A fetch or parse failure leaves the
+      // previously resolved candidate in place so the dashboard degrades to
+      // the bundled snapshot instead of rendering nothing.
+    }
+
+    // The telemetry sidecar is usable only when it was generated for this
+    // catalog. A stale or mismatched generation must stay explicitly
+    // unmeasured instead of being silently merged into a newer snapshot.
+    try {
+      const bundled = await import(telemetryModuleUrl(catalogCandidate?.generated_at));
+      const bundledGeneration = bundled.INGEST_STATS?.generated_at || "";
+      if (isSameGeneration(bundledGeneration, catalogCandidate?.generated_at)) {
+        telemetrySnapshot = bundled.SAMPLE_PROXIES || [];
+        this.telemetryState = "same-generation";
+      } else {
+        this.telemetryState = "unavailable";
+      }
+    } catch {
+      this.telemetryState = "unavailable";
+    }
+
+    // Published release data is authoritative even when smaller than the demo bundle.
+    try {
+      const decodedArtifact = this.getDecodedArtifactRecord(catalogCandidate);
+      if (decodedArtifact) {
+        const decodedData = await this.loadVerifiedJsonArtifact(decodedArtifact);
+        if (decodedData && Array.isArray(decodedData.entries)) {
+          const telemetryByKey = new Map((telemetrySnapshot || []).map((record) => [telemetryKey(record), record]));
+          proxyCandidate = decodedData.entries.map((entry, idx) => {
+            const normalized = normalizeDecodedProxyInput(entry, idx);
+            if (!normalized) return null;
+            const { proto, tag, host, port, params, user, defaultSecurity, defaultTransport } = normalized;
+            const sni = params.sni || "";
+            const hostHeader = params.host || "";
+            const transport = params.type || params.network || defaultTransport;
+            const security = params.security || (
+              params.sni || params.alpn ? "tls" : defaultSecurity
+            );
+            const raw = entry.raw || "";
+
+            const geo = resolveGeoAndCarrier(host, sni, hostHeader);
+
+            const rawLatency = entry.latency_ms ?? entry.latency ?? entry.ping;
+            const measuredLatency = rawLatency === null || rawLatency === undefined || rawLatency === "" ? null : Number(rawLatency);
+            const latency = Number.isFinite(measuredLatency) && measuredLatency >= 0 ? measuredLatency : null;
+
+            const liveNode = {
+              id: `px-${String(idx + 1).padStart(4, "0")}`,
+              protocol: proto,
+              name: displayPublishedName(tag, proto),
+              server: host,
+              port: port,
+              uuid: user,
+              password: String(entry.password || user),
+              security: security,
+              transport: transport,
+              sni: sni,
+              host: hostHeader,
+              path: params.path || "",
+              pbk: params.pbk || "",
+              sid: params.sid || "",
+              flow: params.flow || "",
+              country: geo.country,
+              country_name: geo.country_name,
+              flag: geo.flag,
+              carrier: geo.carrier,
+              org: geo.org,
+              city: geo.city,
+              latitude: geo.latitude,
+              longitude: geo.longitude,
+              geo_source: geo.geo_source,
+              geo_verified: geo.geo_verified,
+              security_grade: securityGrade(security),
+              latency_grade: healthForLatency(latency).grade,
+              latency,
+              ping: latency,
+              raw_uri: raw,
+              raw: raw
+            };
+            return mergeTelemetryRecord(liveNode, telemetryByKey.get(telemetryKey(liveNode)));
+          }).filter(Boolean);
+
+          globeCandidate = clusterGlobeHubs(proxyCandidate);
+        }
+      }
+    } catch (e) {
+      this.liveDataState = "integrity-error";
+      this.renderDataStatus();
+    }
+
+    const liveCatalogFiles = Array.isArray(catalogCandidate?.files) ? catalogCandidate.files : [];
+    if (catalogCandidate?.intentional_empty === true && liveCatalogFiles.length === 0) {
+      // A verified empty release publishes zero nodes on purpose; never
+      // substitute the bundled sample data for it.
+      proxyCandidate = [];
+      globeCandidate = [];
+    }
+
+    if (catalogCandidate && proxyCandidate) {
+      this.catalog = catalogCandidate;
+      this.proxies = proxyCandidate;
+      this.globeHubs = globeCandidate;
+      this.liveDataState = "ready";
+      this.renderDataStatus();
+    } else {
+      await this.loadBundledFallback();
+      if (this.liveDataState === "loading") this.liveDataState = "stale";
+      this.renderDataStatus();
+    }
+  }
+
+  renderDataStatus() {
+    const pill = document.getElementById("data-status-pill");
+    if (!pill) return;
+    const when = escapeHTML(this.catalog?.generated_at || "");
+    // Artifact integrity is independent of publication freshness. In
+    // particular, a week-old checksum-valid feed must not look like an
+    // up-to-date authenticated proxy snapshot.
+    let freshness = "unknown";
+    if (this.liveDataState === "ready") {
+      try {
+        freshness = summarizeCatalog(this.catalog).freshness;
+      } catch {
+        freshness = "unknown";
+      }
+    }
+    const displayState = this.liveDataState === "ready" && freshness !== "recent"
+      ? "outdated" : this.liveDataState;
+    const map = {
+      ready: {
+        cls: "data-status-ready",
+        text: this.telemetryState === "same-generation"
+          ? `Artifact integrity verified · snapshot telemetry available${when ? " · " + when : ""}`
+          : `Artifact integrity verified · telemetry unavailable${when ? " · " + when : ""}`
+      },
+      outdated: {
+        cls: "data-status-stale",
+        text: freshness === "stale"
+          ? `Published snapshot is outdated · artifact integrity verified, proxy health not current${when ? " · " + when : ""}`
+          : `Artifact integrity verified · publication timestamp missing, invalid or in the future · freshness unverified${when ? " · " + when : ""}`
+      },
+      stale: { cls: "data-status-stale", text: "Bundled snapshot — published data unavailable" },
+      "integrity-error": { cls: "data-status-stale", text: "Integrity check failed — bundled snapshot shown" },
+      loading: { cls: "data-status-loading", text: "Verifying published snapshot…" },
+      idle: { cls: "data-status-loading", text: "Bundled snapshot" }
+    };
+    const info = map[displayState] || map.idle;
+    pill.className = `data-status ${info.cls}`;
+    pill.textContent = info.text;
+
+    const pipelineBadge = document.getElementById("pipeline-state-badge");
+    if (pipelineBadge) {
+      const states = {
+        ready: { dot: "bg-emerald-500", glow: "", text: "SNAPSHOT VERIFIED", tone: "text-emerald-400", frame: "bg-emerald-950/50 border-emerald-800/40" },
+        outdated: { dot: "bg-amber-500", glow: "", text: "OUTDATED SNAPSHOT", tone: "text-amber-400", frame: "bg-amber-950/40 border-amber-800/40" },
+        stale: { dot: "bg-amber-500", glow: "", text: "BUNDLED SNAPSHOT", tone: "text-amber-400", frame: "bg-amber-950/40 border-amber-800/40" },
+        "integrity-error": { dot: "bg-rose-500", glow: "", text: "INTEGRITY CHECK FAILED", tone: "text-rose-400", frame: "bg-rose-950/40 border-rose-800/40" },
+        loading: { dot: "bg-slate-400", glow: "", text: "SYNCING", tone: "text-slate-300", frame: "bg-slate-900/60 border-slate-700/50" },
+        idle: { dot: "bg-slate-400", glow: "", text: "BUNDLED SNAPSHOT", tone: "text-slate-300", frame: "bg-slate-900/60 border-slate-700/50" }
+      };
+      const s = states[displayState] || states.idle;
+      pipelineBadge.className = `hidden lg:flex items-center gap-2 px-3 py-1.5 ${s.frame} rounded-full`;
+      pipelineBadge.innerHTML = `
+        <span class="relative flex h-2 w-2">
+          ${s.glow ? `<span class="animate-ping absolute inline-flex h-full w-full rounded-full ${s.glow}"></span>` : ""}
+          <span class="relative inline-flex rounded-full h-2 w-2 ${s.dot}"></span>
+        </span>
+        <span class="font-mono text-xs font-semibold ${s.tone}">${s.text}</span>`;
+    }
+
+    const radarBadge = document.getElementById("radar-live-badge");
+    if (radarBadge) {
+      const live = displayState === "ready";
+      radarBadge.textContent = live ? "CATALOG OK"
+        : displayState === "outdated" ? "CATALOG STALE" : "BUNDLED";
+      radarBadge.className = `px-1.5 py-0.5 text-xs font-bold rounded border ${
+        live
+          ? "bg-cyan-950/80 text-cyan-300 border-cyan-800/60"
+          : "bg-amber-950/80 text-amber-300 border-amber-800/60"
+      }`;
+    }
+  }
+
+  getPublishedDataFingerprint() {
+    const catalog = this.catalog || {};
+    const files = Array.isArray(catalog.files) ? catalog.files : [];
+    return [
+      catalog.generated_at || "",
+      catalog.release_manifest || "",
+      catalog.total_files || files.length,
+      catalog.total_size || ""
+    ].join("|");
+  }
+
+  syncGlobeTouchControl(active) {
+    const touchBtn = document.getElementById("btn-globe-touch-toggle");
+    const label = document.getElementById("globe-touch-label");
+    if (!touchBtn) return;
+    const enabled = Boolean(active);
+    touchBtn.setAttribute("aria-pressed", enabled ? "true" : "false");
+    if (label) label.textContent = enabled ? "Exit 3D Mode" : "Explore 3D Globe";
+    touchBtn.classList.toggle("bg-cyan-500", enabled);
+    touchBtn.classList.toggle("text-gray-950", enabled);
+    touchBtn.classList.toggle("border-cyan-400", enabled);
+    touchBtn.classList.toggle("bg-gray-950/90", !enabled);
+    touchBtn.classList.toggle("text-cyan-300", !enabled);
+  }
+
+  mountGlobe() {
+    this.globeInstance?.destroy?.();
+    this.globeInstance = initTelemetryGlobe("telemetry-globe-canvas", (hub) => {
+      this.selectedCountry = hub.code;
+      this.renderFilterBar();
+      this.renderNodes();
+      this.switchPageTab("proxies", true);
+      this.showToast(`Filtered by ${escapeHTML(hub.name)} (${escapeHTML(hub.code)})`);
+    }, this.globeHubs, {
+      onTouchModeChange: (active) => this.syncGlobeTouchControl(active)
+    });
+    this.syncGlobeTouchControl(this.globeInstance?.isTouchInteractive?.() || false);
+  }
+
+  async refreshPublishedData({ notify = true } = {}) {
+    if (this.liveRefreshInFlight) return false;
+    this.liveRefreshInFlight = true;
+    const previousFingerprint = this.getPublishedDataFingerprint();
+    try {
+      await this.loadLiveData();
+      if (previousFingerprint === this.getPublishedDataFingerprint()) return false;
+      this.renderHeader();
+      this.renderHero();
+      this.renderRadarDiagnostics();
+      this.renderFilterBar();
+      this.renderNodes();
+      this.renderArtifacts();
+      this.renderRuleStudio();
+      this.renderFooter();
+      this.switchPageTab(this.activePageTab, false);
+      this.mountGlobe();
+      if (notify) this.showToast("Published snapshot updated");
+      return true;
+    } finally {
+      this.liveRefreshInFlight = false;
+    }
+  }
+
+  startPublishedDataRefresh() {
+    const MIN_REFRESH_INTERVAL_MS = 300000;
+    let lastRefreshAt = Date.now();
+    const refreshWhenVisible = () => {
+      if (document.hidden) return;
+      if (Date.now() - lastRefreshAt < MIN_REFRESH_INTERVAL_MS) return;
+      lastRefreshAt = Date.now();
+      this.refreshPublishedData();
+    };
+    this.boundVisibilityRefresh = refreshWhenVisible;
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    this.liveRefreshTimer = window.setInterval(refreshWhenVisible, MIN_REFRESH_INTERVAL_MS);
+  }
+
+  async init() {
+    this.applyTheme(this.theme);
+    await this.loadLiveData();
+
+    this.renderHeader();
+    this.renderHero();
+    this.renderRadarDiagnostics();
+    this.renderFilterBar();
+    this.renderNodes();
+    this.renderArtifacts();
+    this.renderRuleStudio();
+    this.renderDecoderSection();
+    this.renderFooter();
+    this.switchPageTab(this.activePageTab, false);
+    this.bindGlobalEvents();
+
+    setTimeout(() => this.mountGlobe(), 100);
+    this.startPublishedDataRefresh();
+  }
+
+  inferCountryFromTagOrHost(tag, host) {
+    const upperTag = (tag || "").toUpperCase();
+    const matches = Object.keys(COUNTRY_NAMES);
+    for (const code of matches) {
+      if (upperTag.includes(code) || upperTag.startsWith(code + "-") || upperTag.includes(`[${code}]`) || upperTag.includes(`(${code})`)) return code;
+    }
+    const resolved = resolveGeoAndCarrier(host, "", tag);
+    return resolved.country;
+  }
+
+  inferCountryName(tag, host) {
+    const code = this.inferCountryFromTagOrHost(tag, host);
+    return COUNTRY_NAMES[code] || code;
+  }
+
+  getCountryFlag(code) {
+    return getFlagEmoji(code);
+  }
+
+  detectOperator(host, sni, tag) {
+    const resolved = resolveGeoAndCarrier(host, sni, tag);
+    return resolved.carrier;
+  }
+
+  getHealthScore(nodeOrPing) {
+    const node = nodeOrPing && typeof nodeOrPing === "object" ? nodeOrPing : null;
+    const publishedGrade = node?.health_grade;
+    const authenticated = getProxyEvidence(node).id === "authenticated";
+    if (node && authenticated && typeof publishedGrade === "string"
+      && PUBLISHED_HEALTH_GRADE_META[publishedGrade]) {
+      const rawScore = node.pca_score === null || node.pca_score === undefined || node.pca_score === ""
+        ? null
+        : Number(node.pca_score);
+      const score = rawScore !== null && Number.isFinite(rawScore) ? Math.round(rawScore * 100) : null;
+      return { score, grade: publishedGrade, ...PUBLISHED_HEALTH_GRADE_META[publishedGrade] };
+    }
+    const estimate = healthForLatency(node ? this.getLatency(node) : nodeOrPing);
+    if (node?.health_evidence === "expired_authenticated_protocol") {
+      return { ...estimate, label: "Previous authenticated HTTPS evidence expired; current proxy health unverified" };
+    }
+    if (node) {
+      return { ...estimate, label: estimate.score === null
+        ? "Proxy unverified; TCP unmeasured"
+        : "TCP latency estimate; proxy authentication unverified" };
+    }
+    return estimate;
+  }
+
+  getLatency(node) {
+    const raw = node?.latency ?? node?.ping;
+    if (raw === null || raw === undefined || raw === "") return null;
+    const value = Number(raw);
+    return Number.isFinite(value) && value >= 0 ? value : null;
+  }
+
+  getHealthSortValue(node) {
+    const level = getProxyEvidence(node).id;
+    const score = this.getHealthScore(node).score ?? 0;
+    if (level === "authenticated") return 3000000 + score;
+    if (level === "tcp") return 2000000 + score;
+    if (level === "protocol_failed") return 1000000;
+    if (level === "tcp_failed") return 500000;
+    return 0;
+  }
+
+  refreshProxyWorkspace() {
+    // The toolbar is rebuilt after each filter change. Preserve the exact
+    // control and input selection rather than only preserving quick search:
+    // otherwise keyboard and switch users lose their place on every select
+    // or grid/table toggle.
+    const toolbar = typeof document === "undefined" ? null : document.getElementById("filter-bar");
+    const focused = typeof document === "undefined" ? null : document.activeElement;
+    const preserve = Boolean(toolbar?.contains(focused));
+    const id = preserve ? focused.id : "";
+    const keys = [
+      ["btn-proto-tab", "protocol"],
+      ["btn-evidence-filter", "evidence"]
+    ];
+    const matched = preserve ? keys.find(([className]) => focused.classList.contains(className)) : null;
+    const dataValue = matched ? focused.dataset[matched[1]] : null;
+    const start = preserve && typeof focused.selectionStart === "number" ? focused.selectionStart : null;
+    const end = preserve && typeof focused.selectionEnd === "number" ? focused.selectionEnd : null;
+    const filtered = this.getFilteredProxies();
+    this.renderFilterBar(filtered);
+    this.renderNodes(filtered);
+    if (preserve) {
+      const next = id ? document.getElementById(id) : matched
+        ? Array.from(toolbar.querySelectorAll(`.${matched[0]}`))
+          .find((button) => button.dataset[matched[1]] === dataValue)
+        : null;
+      const target = next || (focused.closest?.("#active-filter-chips") ? document.getElementById("node-quick-search") : null);
+      target?.focus({ preventScroll: true });
+      if (target && start !== null && end !== null && typeof target.setSelectionRange === "function") {
+        target.setSelectionRange(start, end);
+      }
+    }
+  }
+
+  resetProxyFilters({ focusSearch = false } = {}) {
+    this.selectedProtocol = "ALL";
+    this.selectedTransport = "ALL";
+    this.selectedCountry = "ALL";
+    this.selectedOperator = "ALL";
+    this.selectedGrade = "ALL";
+    this.selectedEvidence = "ALL";
+    this.selectedSecurity = "ALL";
+    this.selectedPort = "ALL";
+    this.searchQuery = "";
+    for (const id of ["node-quick-search", "global-search-input"]) {
+      const input = document.getElementById(id);
+      if (input) input.value = "";
+    }
+    this.refreshProxyWorkspace();
+    if (focusSearch) {
+      document.getElementById("node-quick-search")?.focus();
+    }
+  }
+
+  applyTheme(t) {
+    this.theme = t;
+    setStoredTheme(t);
+    if (typeof document !== "undefined" && document.documentElement) {
+      const root = document.documentElement;
+      if (t === "dark") {
+        root.classList.add("dark");
+        root.classList.remove("light");
+      } else {
+        root.classList.remove("dark");
+        root.classList.add("light");
+      }
+    }
+  }
+
+  toggleTheme() {
+    this.applyTheme(this.theme === "dark" ? "light" : "dark");
+    this.renderHeader();
+  }
+
+  getFilteredProxies({ ignoreEvidence = false } = {}) {
+    let result = [...this.proxies];
+
+    if (this.selectedProtocol !== "ALL") {
+      result = result.filter(p => (p.protocol || "").toLowerCase() === this.selectedProtocol.toLowerCase());
+    }
+
+    if (this.selectedTransport !== "ALL") {
+      result = result.filter(p => (p.transport || "").toLowerCase().includes(this.selectedTransport.toLowerCase()));
+    }
+
+    if (this.selectedCountry !== "ALL") {
+      result = result.filter(p => (p.country || "").toUpperCase() === this.selectedCountry.toUpperCase());
+    }
+
+    if (this.selectedOperator !== "ALL") {
+      result = result.filter(p => {
+        const op = (p.carrier || p.org || this.detectOperator(p.server, p.sni, p.name) || "").toLowerCase();
+        const sel = this.selectedOperator.toLowerCase();
+        return op.includes(sel) || (p.name || "").toLowerCase().includes(sel) || (p.sni || "").toLowerCase().includes(sel);
+      });
+    }
+
+    if (this.selectedGrade !== "ALL") {
+      result = result.filter(p => {
+        const kind = getProxyEvidence(p).id;
+        if (this.selectedGrade === "UNMEASURED") return !["authenticated", "tcp"].includes(kind);
+        if (this.selectedGrade.startsWith("AUTH:")) return kind === "authenticated" && p.health_grade === this.selectedGrade.slice(5);
+        if (this.selectedGrade.startsWith("TCP:")) return kind === "tcp" && healthForLatency(this.getLatency(p)).grade === this.selectedGrade.slice(4);
+        return false;
+      });
+    }
+
+    if (!ignoreEvidence && this.selectedEvidence && this.selectedEvidence !== "ALL") {
+      result = result.filter(node => getProxyEvidence(node).id === this.selectedEvidence);
+    }
+
+    if (this.selectedSecurity !== "ALL") {
+      result = result.filter(p => {
+        const sec = (p.security || "none").toLowerCase();
+        if (this.selectedSecurity === "Reality") return sec === "reality";
+        if (this.selectedSecurity === "TLS") return sec === "tls";
+        if (this.selectedSecurity === "None") return sec === "none" || !sec;
+        return true;
+      });
+    }
+
+    if (this.selectedPort !== "ALL") {
+      result = result.filter(p => {
+        const port = Number(p.port);
+        if (this.selectedPort === "443") return port === 443;
+        if (this.selectedPort === "80") return port === 80;
+        if (this.selectedPort === "8080_8443") return port === 8080 || port === 8443;
+        if (this.selectedPort === "custom") return port !== 443 && port !== 80 && port !== 8080 && port !== 8443;
+        return true;
+      });
+    }
+
+    if (this.searchQuery.trim()) {
+      const q = this.searchQuery.toLowerCase().trim();
+      result = result.filter(p =>
+        (p.name || "").toLowerCase().includes(q) ||
+        (p.server || "").toLowerCase().includes(q) ||
+        String(p.port || "").includes(q) ||
+        (p.protocol || "").toLowerCase().includes(q) ||
+        (p.country_name || p.countryName || "").toLowerCase().includes(q) ||
+        (p.country || "").toLowerCase().includes(q) ||
+        (p.carrier || p.org || "").toLowerCase().includes(q) ||
+        (p.transport || "").toLowerCase().includes(q) ||
+        (p.sni && p.sni.toLowerCase().includes(q))
+      );
+    }
+
+    result.sort((a, b) => {
+      const pingA = this.getLatency(a) ?? Number.POSITIVE_INFINITY;
+      const pingB = this.getLatency(b) ?? Number.POSITIVE_INFINITY;
+      if (this.sortBy === "latency_asc") return pingA - pingB;
+      if (this.sortBy === "score_desc") return this.getHealthSortValue(b) - this.getHealthSortValue(a);
+      if (this.sortBy === "name_asc") return (a.name || "").localeCompare(b.name || "");
+      if (this.sortBy === "country_asc") return (a.country || "").localeCompare(b.country || "");
+      if (this.sortBy === "port_asc") return (a.port || 0) - (b.port || 0);
+      return 0;
+    });
+
+    return result;
+  }
+
+  getFilteredArtifacts() {
+    let list = this.catalog.files || [];
+    const filter = this.artifactFilter;
+
+    if (filter === "RELEASE") {
+      list = list.filter(f => f.category === "release" || f.section === "release" || (f.tags && f.tags.includes("release")));
+    } else if (filter === "DEV") {
+      list = list.filter(f => f.category === "dev" || f.section === "dev" || (f.tags && f.tags.includes("dev")));
+    } else if (filter === "SUBSCRIPTIONS") {
+      list = list.filter(f => f.type === "B64SUB" || f.ext === "B64SUB" || f.type === "NPVT" || f.ext === "NPVT" || (f.tags && f.tags.includes("subscription")));
+    } else if (filter === "CONFIGS") {
+      list = list.filter(f => {
+        const tags = Array.isArray(f.tags) ? f.tags : [];
+        if (tags.includes("subscription")) return false;
+        return ["SINGBOX", "XRAY", "OVPN", "WARP", "CLASH"].includes(f.type || f.ext)
+          || tags.some(tag => ["singbox", "xray", "openvpn", "clash"].includes(tag));
+      });
+    } else if (filter === "CHUNKS") {
+      list = list.filter(f => f.type === "CHUNK" || f.ext === "CHUNK" || (f.filename || f.name || "").includes("chunk_") || (f.tags && f.tags.includes("chunk")));
+    }
+
+    if (this.artifactSearchQuery.trim()) {
+      const q = this.artifactSearchQuery.toLowerCase().trim();
+      list = list.filter(f =>
+        (f.filename || f.name || "").toLowerCase().includes(q) ||
+        (f.description && f.description.toLowerCase().includes(q)) ||
+        ((f.ext || f.type) && (f.ext || f.type).toLowerCase().includes(q)) ||
+        (f.tags && f.tags.some(t => t.toLowerCase().includes(q)))
+      );
+    }
+
+    return list;
+  }
+
+  showToast(msg, type = "success") {
+    if (typeof document === "undefined") return;
+    const container = document.getElementById("toast-container");
+    if (!container) return;
+
+    const el = document.createElement("div");
+    el.className = `toast-pill flex items-center gap-2.5 px-4 py-3 rounded-2xl border backdrop-blur-xl shadow-2xl text-xs font-mono font-semibold transition-all duration-300 transform translate-y-4 opacity-0 ${
+      type === "success"
+        ? "bg-gray-950/95 text-emerald-300 border-emerald-500/40 shadow-emerald-950/50"
+        : "bg-gray-950/95 text-cyan-300 border-cyan-500/40 shadow-cyan-950/50"
+    }`;
+    el.innerHTML = `
+      <div class="w-2 h-2 rounded-full ${type === 'success' ? 'bg-emerald-400' : 'bg-cyan-400'} animate-pulse shrink-0"></div>
+      <span class="truncate max-w-[280px]">${escapeHTML(i18n.translate(msg))}</span>
+    `;
+
+    container.appendChild(el);
+    requestAnimationFrame(() => {
+      el.classList.remove("translate-y-4", "opacity-0");
+      el.classList.add("translate-y-0", "opacity-100");
+    });
+
+    setTimeout(() => {
+      el.classList.remove("translate-y-0", "opacity-100");
+      el.classList.add("translate-y-4", "opacity-0");
+      setTimeout(() => el.remove(), 300);
+    }, 2800);
+  }
+
+  showCopyFeedback(label, triggerBtn) {
+    this.showToast(label);
+    if (!triggerBtn || !triggerBtn.classList) return;
+
+    const activeFeedback = this.copyFeedbackStates.get(triggerBtn);
+    if (activeFeedback) clearTimeout(activeFeedback.timeoutId);
+
+    const feedback = {
+      originalHtml: activeFeedback ? activeFeedback.originalHtml : triggerBtn.innerHTML,
+      timeoutId: null
+    };
+    triggerBtn.innerHTML = `✓ Copied!`;
+    triggerBtn.classList.add("!bg-emerald-500", "!text-gray-950", "!border-emerald-400");
+    feedback.timeoutId = setTimeout(() => {
+      if (this.copyFeedbackStates.get(triggerBtn) !== feedback) return;
+      triggerBtn.innerHTML = feedback.originalHtml;
+      triggerBtn.classList.remove("!bg-emerald-500", "!text-gray-950", "!border-emerald-400");
+      this.copyFeedbackStates.delete(triggerBtn);
+    }, 1400);
+    this.copyFeedbackStates.set(triggerBtn, feedback);
+  }
+
+  copyText(text, label = "Copied to clipboard", triggerBtn = null) {
+    const applyFeedback = () => this.showCopyFeedback(label, triggerBtn);
+
+    if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(applyFeedback).catch(() => {
+        this.fallbackCopy(text, label, triggerBtn);
+      });
+    } else {
+      this.fallbackCopy(text, label, triggerBtn);
+    }
+  }
+
+  fallbackCopy(text, label, triggerBtn = null) {
+    if (typeof document === "undefined") return;
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand("copy");
+      this.showCopyFeedback(label, triggerBtn);
+    } catch (e) {
+      this.showToast("Failed to copy", "error");
+    }
+    document.body.removeChild(ta);
+  }
+
+  trapFocus(modalEl, onClose = () => this.closeModal()) {
+    const focusable = modalEl.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    if (focusable.length === 0) return () => {};
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    if (!this.lastFocusedElement && !modalEl.contains(document.activeElement)) {
+      this.lastFocusedElement = document.activeElement;
+    }
+    first.focus();
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+        return;
+      }
+      if (e.key === "Tab") {
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
+    };
+
+    modalEl.addEventListener("keydown", handleKeyDown);
+    return () => modalEl.removeEventListener("keydown", handleKeyDown);
+  }
+
+  closeModal() {
+    const modalContainer = document.getElementById("modal-overlay");
+    if (modalContainer) {
+      modalContainer.classList.add("hidden");
+      modalContainer.innerHTML = "";
+    }
+    if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === "function") {
+      this.lastFocusedElement.focus();
+      this.lastFocusedElement = null;
+    }
+  }
+
+  renderHeader() {
+    if (typeof document === "undefined") return;
+    const header = document.getElementById("main-header");
+    if (!header) return;
+
+    header.innerHTML = `
+      <div class="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-4">
+        <a href="#" class="flex shrink-0 items-center gap-2 group focus-ring rounded-xl p-1" aria-label="HUNTX Home">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 via-blue-600 to-indigo-700 p-0.5 shadow-lg shadow-cyan-500/20 group-hover:scale-105 transition-transform duration-200">
+            <div class="w-full h-full bg-gray-950 rounded-[10px] flex items-center justify-center">
+              <svg class="w-5 h-5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                <polyline points="2 17 12 22 22 17"></polyline>
+                <polyline points="2 12 12 17 22 12"></polyline>
+              </svg>
+            </div>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-mono text-base font-bold tracking-tight text-white">HUNT<span class="text-cyan-400">X</span></span>
+            </div>
+            <span class="text-xs text-gray-400 font-mono tracking-wider hidden sm:block">NETWORK CONTROL ROOM</span>
+          </div>
+        </a>
+
+        <div class="header-global-search flex-1 max-w-md hidden md:block">
+          <div class="relative group">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500 group-focus-within:text-cyan-400">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            </div>
+            <input
+              id="global-search-input"
+              type="text"
+              class="w-full pl-9 pr-12 py-2.5 min-h-[44px] bg-gray-900/80 border border-gray-800 focus:border-cyan-500/60 rounded-xl text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 transition-all focus-ring"
+              placeholder="Search nodes, protocols, SNI, country..."
+              value="${escapeHTML(this.searchQuery)}"
+              aria-label="Global Search"
+            />
+            <div class="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none">
+              <kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 text-xs font-mono text-gray-400 rounded">/</kbd>
+            </div>
+          </div>
+        </div>
+
+        <div class="relative shrink-0 flex items-center gap-1 sm:gap-2.5">
+          <div id="pipeline-state-badge" class="hidden xl:flex items-center gap-2 px-3 py-1.5 bg-slate-900/60 border border-slate-700/50 rounded-full">
+            <span class="relative flex h-2 w-2">
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-slate-400"></span>
+            </span>
+            <span class="font-mono text-xs font-semibold text-slate-300">SYNCING</span>
+          </div>
+
+          <label class="sr-only" for="language-selector">${i18n.translate("Language")}</label>
+          <select
+            id="language-selector"
+            data-i18n-ignore
+            dir="ltr"
+            class="min-h-[44px] w-[64px] sm:w-[92px] px-1.5 sm:px-2 bg-gray-900 border border-gray-700 text-gray-200 text-xs font-mono rounded-xl focus-ring cursor-pointer"
+            aria-label="${i18n.translate("Language")}"
+            title="${i18n.translate("Language")}"
+          >
+            <option value="en" ${i18n.getLocale() === "en" ? "selected" : ""}>English</option>
+            <option value="fa" ${i18n.getLocale() === "fa" ? "selected" : ""}>فارسی</option>
+            <option value="zh-CN" ${i18n.getLocale() === "zh-CN" ? "selected" : ""}>中文</option>
+            <option value="ru" ${i18n.getLocale() === "ru" ? "selected" : ""}>Русский</option>
+          </select>
+
+          <button
+            id="btn-open-scanner"
+            class="hidden 2xl:flex items-center justify-center gap-1.5 p-2 sm:px-3.5 sm:py-2 min-h-[44px] min-w-[44px] bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/30 hover:border-emerald-400 text-emerald-300 text-xs font-mono font-medium rounded-xl transition-all shadow-sm focus-ring cursor-pointer"
+            title="Open Clean IP Scanner (Press S)"
+            aria-label="Open Clean IP Scanner"
+          >
+            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+            <span class="hidden sm:inline">IP Scanner</span>
+          </button>
+
+          <button
+            id="btn-open-builder"
+            class="hidden 2xl:flex items-center justify-center gap-1.5 p-2 sm:px-3.5 sm:py-2 min-h-[44px] min-w-[44px] bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 hover:border-cyan-400 text-cyan-300 text-xs font-mono font-medium rounded-xl transition-all shadow-sm focus-ring cursor-pointer"
+            title="Open Subscription Builder"
+            aria-label="Open Subscription Builder"
+          >
+            <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+            <span class="hidden sm:inline">Sub Builder</span>
+          </button>
+
+          <button
+            id="btn-open-decoder"
+            class="hidden 2xl:flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 text-gray-200 text-xs font-mono font-medium rounded-xl transition-all focus-ring cursor-pointer"
+            title="Open Protocol Decoder (Press D)"
+            aria-label="Open Protocol Decoder"
+          >
+            <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+            <span class="hidden sm:inline">Decoder</span>
+          </button>
+
+          <button
+            id="btn-open-mobile-search"
+            type="button"
+            class="header-mobile-search min-h-[44px] min-w-[44px] items-center justify-center bg-gray-900 border border-gray-800 text-cyan-300 rounded-xl focus-ring"
+            title="Search published proxies"
+            aria-label="Search published proxies"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+          </button>
+
+          <button
+            id="btn-toggle-theme"
+            class="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-cyan-500/40 text-gray-400 hover:text-cyan-300 rounded-xl transition-all focus-ring cursor-pointer"
+            title="Toggle Light / Dark Theme"
+            aria-label="Toggle Theme"
+          >
+            ${this.theme === 'dark' ? `
+              <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+            ` : `
+              <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+            `}
+          </button>
+
+          <a
+            href="architecture.html"
+            target="_blank"
+            class="hidden 2xl:flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 text-gray-300 hover:text-white text-xs font-mono rounded-xl transition-all focus-ring"
+            title="Open Interactive System Architecture"
+            aria-label="Open Interactive System Architecture"
+          >
+            <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+            <span class="hidden md:inline">Architecture</span>
+          </a>
+
+          <a
+            href="https://github.com/AmirrezaFarnamTaheri/HUNTX"
+            target="_blank"
+            class="hidden 2xl:flex p-2 min-h-[44px] min-w-[44px] items-center justify-center bg-gray-900 hover:bg-gray-800 border border-gray-800 text-gray-400 hover:text-white rounded-xl transition-all focus-ring"
+            title="GitHub Repository"
+            aria-label="GitHub Repository"
+          >
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"></path></svg>
+          </a>
+
+
+          <button
+            id="btn-header-tools"
+            class="2xl:hidden p-2 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-cyan-500/40 text-gray-300 hover:text-cyan-300 rounded-xl transition-all focus-ring cursor-pointer"
+            title="${i18n.translate("Tools")}"
+            aria-label="${i18n.translate("Tools")}"
+            aria-haspopup="menu"
+            aria-expanded="false"
+            aria-controls="header-tools-menu"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+          </button>
+
+          <div
+            id="header-tools-menu"
+            class="hidden absolute top-[52px] right-0 z-[70] w-56 p-2 bg-gray-950/98 backdrop-blur-xl border border-gray-700 rounded-2xl shadow-2xl shadow-black/40"
+            role="menu"
+            aria-label="${i18n.translate("Tools")}"
+          >
+            <button id="menu-open-scanner" role="menuitem" class="w-full min-h-[44px] px-3 py-2 text-left text-xs font-mono text-emerald-300 hover:bg-gray-900 rounded-xl focus-ring">${i18n.translate("IP Scanner")}</button>
+            <button id="menu-open-builder" role="menuitem" class="w-full min-h-[44px] px-3 py-2 text-left text-xs font-mono text-cyan-300 hover:bg-gray-900 rounded-xl focus-ring">${i18n.translate("Sub Builder")}</button>
+            <button id="menu-open-search" role="menuitem" class="w-full min-h-[44px] px-3 py-2 text-left text-xs font-mono text-cyan-300 hover:bg-gray-900 rounded-xl focus-ring">Search proxies</button>
+            <button id="menu-toggle-theme" role="menuitem" class="w-full min-h-[44px] px-3 py-2 text-left text-xs font-mono text-gray-200 hover:bg-gray-900 rounded-xl focus-ring">Toggle appearance</button>
+            <button id="menu-open-decoder" role="menuitem" class="w-full min-h-[44px] px-3 py-2 text-left text-xs font-mono text-gray-200 hover:bg-gray-900 rounded-xl focus-ring">${i18n.translate("Decoder")}</button>
+            <a href="architecture.html" target="_blank" role="menuitem" class="flex items-center min-h-[44px] px-3 py-2 text-xs font-mono text-indigo-300 hover:bg-gray-900 rounded-xl focus-ring">${i18n.translate("Architecture")}</a>
+            <a href="https://github.com/AmirrezaFarnamTaheri/HUNTX" target="_blank" rel="noopener noreferrer" role="menuitem" class="flex items-center min-h-[44px] px-3 py-2 text-xs font-mono text-gray-300 hover:bg-gray-900 rounded-xl focus-ring">GitHub</a>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const debouncedSearch = debounce((val) => {
+      this.searchQuery = val;
+      this.refreshProxyWorkspace();
+    }, 120);
+
+    document.getElementById("global-search-input")?.addEventListener("input", (e) => {
+      debouncedSearch(e.target.value);
+    });
+
+    const openProxySearch = () => {
+      this.switchPageTab("proxies", true);
+      document.getElementById("node-quick-search")?.focus();
+    };
+    document.getElementById("btn-open-mobile-search")?.addEventListener("click", openProxySearch);
+
+    document.getElementById("btn-open-scanner")?.addEventListener("click", (e) => {
+      this.lastFocusedElement = e.currentTarget;
+      this.openCleanIPScannerModal();
+    });
+
+    document.getElementById("btn-open-decoder")?.addEventListener("click", (e) => {
+      this.lastFocusedElement = e.currentTarget;
+      this.openDecoderModal();
+    });
+
+    document.getElementById("btn-open-builder")?.addEventListener("click", (e) => {
+      this.lastFocusedElement = e.currentTarget;
+      this.openSubscriptionBuilderModal();
+    });
+
+    document.getElementById("btn-toggle-theme")?.addEventListener("click", () => {
+      this.toggleTheme();
+    });
+
+    const toolsButton = document.getElementById("btn-header-tools");
+    const toolsMenu = document.getElementById("header-tools-menu");
+    const setToolsOpen = (open) => {
+      if (!toolsButton || !toolsMenu) return;
+      const expanded = Boolean(open);
+      toolsButton.setAttribute("aria-expanded", expanded ? "true" : "false");
+      toolsMenu.classList.toggle("hidden", !expanded);
+      if (expanded) toolsMenu.querySelector('[role="menuitem"]')?.focus();
+    };
+    toolsButton?.addEventListener("click", () => setToolsOpen(toolsButton.getAttribute("aria-expanded") !== "true"));
+    header.onkeydown = (event) => {
+      if (event.key === "Escape" && toolsButton?.getAttribute("aria-expanded") === "true") {
+        setToolsOpen(false);
+        toolsButton.focus();
+      }
+    };
+    document.getElementById("menu-open-scanner")?.addEventListener("click", () => {
+      this.lastFocusedElement = toolsButton;
+      setToolsOpen(false);
+      this.openCleanIPScannerModal();
+    });
+    document.getElementById("menu-open-search")?.addEventListener("click", () => {
+      setToolsOpen(false);
+      openProxySearch();
+    });
+    document.getElementById("menu-toggle-theme")?.addEventListener("click", () => {
+      setToolsOpen(false);
+      this.toggleTheme();
+    });
+    document.getElementById("menu-open-builder")?.addEventListener("click", () => {
+      this.lastFocusedElement = toolsButton;
+      setToolsOpen(false);
+      this.openSubscriptionBuilderModal();
+    });
+    document.getElementById("menu-open-decoder")?.addEventListener("click", () => {
+      this.lastFocusedElement = toolsButton;
+      setToolsOpen(false);
+      this.openDecoderModal();
+    });
+    toolsMenu?.querySelectorAll("a").forEach((link) => link.addEventListener("click", () => setToolsOpen(false)));
+
+    document.getElementById("language-selector")?.addEventListener("change", (event) => {
+      i18n.setLocale(event.target.value);
+      const selector = document.getElementById("language-selector");
+      const localizedLabel = i18n.translate("Language");
+      selector?.setAttribute("aria-label", localizedLabel);
+      selector?.setAttribute("title", localizedLabel);
+      toolsButton?.setAttribute("aria-label", i18n.translate("Tools"));
+      toolsButton?.setAttribute("title", i18n.translate("Tools"));
+      toolsMenu?.setAttribute("aria-label", i18n.translate("Tools"));
+    });
+  }
+
+  renderHero() {
+    if (typeof document === "undefined") return;
+    const hero = document.getElementById("hero-section");
+    if (!hero) return;
+
+    const activeCount = this.proxies.length;
+    const regionSummary = summarizeRegions(this.proxies);
+    const regionCount = regionSummary.regionCount;
+    const measuredLatencies = this.proxies
+      .map((proxy) => this.getLatency(proxy))
+      .filter((value) => Number.isFinite(value) && value > 0);
+    const avgLatencyNum = measuredLatencies.length
+      ? Math.round(measuredLatencies.reduce((sum, latency) => sum + latency, 0) / measuredLatencies.length)
+      : null;
+    const minLatencyNum = measuredLatencies.length ? Math.min(...measuredLatencies) : null;
+    const totalFiles = this.catalog.total_files || (this.catalog.files ? this.catalog.files.length : "—");
+    const totalSize = this.catalog.total_size_str || "Not published";
+    const observedSources = this.stats?.observed_sources_count;
+    const enabledSources = this.stats?.enabled_sources_count ?? this.stats?.active_sources_count;
+    const configuredSources = this.stats?.configured_sources_count ?? enabledSources;
+    const sourcesCount = observedSources ?? enabledSources ?? "—";
+    const sourcesCaption = observedSources == null
+      ? `${enabledSources ?? "—"} enabled of ${configuredSources ?? "—"} configured`
+      : `${observedSources} observed · ${enabledSources ?? "—"} enabled`;
+
+    hero.innerHTML = `
+      <div class="radar-overview">
+        <div class="radar-summary">
+          <span class="section-eyebrow">HUNTX / Observatory</span>
+          <h2>Published network snapshot <span>and its evidence gaps</span></h2>
+          <p class="radar-description">Browse the loaded snapshot, compare recorded measurements, and inspect configurations. Artifact checksums do not verify connectivity.</p>
+          <dl class="radar-metrics">
+            <div><dt>Published nodes</dt><dd>${activeCount.toLocaleString("en-US")}</dd><span>${regionCount} reported regions${regionSummary.unknownCount ? ` · ${regionSummary.unknownCount} unresolved` : ""}</span></div>
+            <div><dt>Source observations</dt><dd>${sourcesCount}</dd><span>${sourcesCaption}</span></div>
+            <div><dt>Catalog products</dt><dd>${totalFiles}</dd><span>${escapeHTML(totalSize)} · aliases excluded</span></div>
+            <div><dt>Recorded latency</dt><dd>${avgLatencyNum === null ? "—" : `${avgLatencyNum}ms`}</dd><span>${minLatencyNum === null ? "Not measured" : `Lowest: ${minLatencyNum}ms · not auth proof`}</span></div>
+          </dl>
+
+          <div class="hero-actions flex flex-wrap gap-2.5 pt-2">
+            <button
+              id="hero-copy-sub"
+              class="px-4 py-2.5 min-h-[44px] bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-gray-950 font-mono font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/25 transition-all focus-ring cursor-pointer flex items-center gap-2"
+              aria-label="Copy Multi-Node Subscription URL"
+            >
+              <svg class="w-4 h-4 text-gray-950" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+              Copy subscription URL
+            </button>
+
+            <a
+              id="hero-download-singbox"
+              data-artifact="all_sources_singbox.json"
+              href="artifacts/release/all_sources_singbox.json"
+              download
+              class="px-3.5 py-2.5 min-h-[44px] bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 hover:border-cyan-400 text-cyan-300 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-1.5"
+              aria-label="Download Sing-box node subscription JSON"
+            >
+              <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+              Sing-box Subscription
+            </a>
+
+            <a
+              id="hero-download-xray"
+              data-artifact="all_sources_xray.json"
+              href="artifacts/release/all_sources_xray.json"
+              download
+              class="px-3.5 py-2.5 min-h-[44px] bg-indigo-950/60 hover:bg-indigo-900/60 border border-indigo-500/30 hover:border-indigo-400 text-indigo-300 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-1.5"
+              aria-label="Download Xray node subscription JSON"
+            >
+              <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+              Xray Subscription
+            </a>
+
+            <details class="hero-more">
+              <summary class="hero-more-trigger">More tools</summary>
+              <div class="hero-more-menu">
+            <button
+              id="hero-open-scanner"
+              class="px-3.5 py-2.5 min-h-[44px] bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/30 hover:border-emerald-400 text-emerald-300 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-1.5"
+              aria-label="Scan Clean Cloudflare IPs"
+            >
+              <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+              IP Scanner
+            </button>
+
+            <a
+              id="hero-download-json"
+              data-artifact="proxies.json"
+              href="artifacts/dev/proxies.json"
+              download
+              class="px-3.5 py-2.5 min-h-[44px] bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-cyan-500/40 text-gray-200 font-mono font-semibold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center gap-1.5"
+              aria-label="Download Full proxies.json"
+            >
+              <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+              Cumulative JSON
+            </a>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <div class="radar-globe flex flex-col items-center justify-center relative">
+          <div class="radar-globe-frame relative w-full aspect-square overflow-hidden flex items-center justify-center group">
+            <canvas id="telemetry-globe-canvas" class="w-full h-full cursor-grab active:cursor-grabbing block" aria-label="3D Telemetry Globe Radar"></canvas>
+
+            <div class="absolute top-4 left-4 pointer-events-none">
+              <span class="px-2.5 py-1 bg-gray-950/80 border border-cyan-500/30 rounded-lg text-xs font-mono text-cyan-300 backdrop-blur-md flex items-center gap-1.5">
+
+                <span>Snapshot geography</span>
+              </span>
+            </div>
+
+            <!-- Mobile Touch Interaction Gate Bar -->
+            <div id="globe-touch-gate" class="absolute bottom-3 left-3 right-3 z-10 hidden items-center justify-between pointer-events-auto">
+              <button
+                id="btn-globe-touch-toggle"
+                type="button"
+                class="min-h-[44px] px-3.5 py-2 bg-gray-950/90 hover:bg-cyan-950 border border-cyan-500/40 hover:border-cyan-400 text-cyan-300 font-mono text-xs font-semibold rounded-xl shadow-lg backdrop-blur-md flex items-center gap-2 transition-all active:scale-95 focus-ring cursor-pointer"
+                aria-label="Toggle Interactive 3D Mode"
+                aria-pressed="false"
+              >
+                <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                <span id="globe-touch-label">Explore 3D Globe</span>
+              </button>
+              <span class="text-xs font-mono text-gray-400 bg-gray-950/80 px-2.5 py-1.5 rounded-lg border border-gray-800 pointer-events-none">TAP HUB</span>
+            </div>
+
+            <div class="hidden md:block absolute bottom-3 right-4 pointer-events-none text-right">
+              <span class="text-xs font-mono text-gray-500 block">CLICK HUB TO FILTER</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const touchGate = document.getElementById("globe-touch-gate");
+    const touchBtn = document.getElementById("btn-globe-touch-toggle");
+    const hasCoarsePointer = typeof window !== "undefined" && window.matchMedia?.("(any-pointer: coarse)")?.matches;
+    if (touchGate) touchGate.classList.toggle("hidden", !hasCoarsePointer);
+    touchBtn?.addEventListener("click", () => {
+      if (!this.globeInstance) return;
+      this.globeInstance.setTouchInteractive?.(!this.globeInstance.isTouchInteractive?.());
+    });
+    this.syncGlobeTouchControl(this.globeInstance?.isTouchInteractive?.() || false);
+
+    document.getElementById("hero-copy-sub")?.addEventListener("click", (e) => {
+      const sub = this.resolveSubscriptionArtifact();
+      if (!sub) {
+        this.showToast("No node subscription feed in this snapshot", "error");
+        return;
+      }
+      this.copyText(resolveArtifactUrl(sub.path), isHostedDashboard()
+        ? `${sub.label} subscription URL copied to clipboard`
+        : "Portable artifact path copied — deploy or serve over HTTPS before importing", e.currentTarget);
+    });
+
+    document.getElementById("hero-open-scanner")?.addEventListener("click", (e) => {
+      this.lastFocusedElement = e.currentTarget;
+      this.openCleanIPScannerModal();
+    });
+
+    this.reconcileArtifactLinks(hero);
+  }
+
+  // The hero action selects the highest-ranked multi-node subscription from the
+  // published catalog. Sing-box/Xray JSON are eligible because their release
+  // derivatives are intentionally outbounds-only node feeds.
+  resolveSubscriptionArtifact(catalog = this.catalog) {
+    return pickSubscriptionArtifact(Array.isArray(catalog?.files) ? catalog.files : []);
+  }
+
+  // Hero download buttons must never 404: resolve every data-artifact anchor
+  // against the published catalog and hide buttons whose file is absent.
+  reconcileArtifactLinks(root = document) {
+    if (typeof document === "undefined") return;
+    const files = Array.isArray(this.catalog?.files) ? this.catalog.files : [];
+    const byName = new Map(files.map((file) => [file.filename, file]));
+    root.querySelectorAll("a[data-artifact]").forEach((anchor) => {
+      const entry = byName.get(anchor.dataset.artifact);
+      if (!entry || typeof entry.path !== "string") {
+        anchor.hidden = true;
+        anchor.setAttribute("aria-hidden", "true");
+        anchor.removeAttribute("href");
+        return;
+      }
+      anchor.hidden = false;
+      anchor.removeAttribute("aria-hidden");
+      anchor.setAttribute("href", entry.path);
+    });
+  }
+
+  // One pasted subscription link expands to every node it carries. The batch
+  // converter is the only place a multi-node feed becomes a client config or a
+  // subscription body, so that is where the payload is handed.
+  renderSubscriptionInspect(decoded, out) {
+    const payload = decoded.raw || decoded.lines.join("\n");
+    const uris = extractAllURIs(payload);
+    const byProtocol = {};
+    for (const uri of uris) {
+      const scheme = uri.split("://")[0].toLowerCase();
+      byProtocol[scheme] = (byProtocol[scheme] || 0) + 1;
+    }
+    const breakdown = Object.entries(byProtocol)
+      .sort((a, z) => z[1] - a[1])
+      .map(([scheme, count]) =>
+        `<span class="px-1.5 py-0.5 rounded text-[12px] bg-gray-900 text-gray-300 border border-gray-800">${escapeHTML(scheme)} ${count}</span>`
+      ).join(" ");
+
+    out.innerHTML = `
+      <div class="bg-gray-950 border border-cyan-900/60 rounded-2xl p-5 space-y-4 font-mono text-xs">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-800/80 pb-3">
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded uppercase font-bold text-xs bg-cyan-950 text-cyan-300 border border-cyan-800">subscription</span>
+            <span class="font-bold text-gray-100">${uris.length} nodes found</span>
+          </div>
+          <button id="btn-subscription-convert" class="px-3.5 py-2 min-h-[44px] inline-flex items-center justify-center bg-cyan-600 hover:bg-cyan-500 text-gray-950 font-bold rounded-xl text-xs font-mono font-medium cursor-pointer focus-ring">Import all ${uris.length} nodes</button>
+        </div>
+        <p class="text-gray-400 leading-relaxed">This is a multi-node subscription, not a single proxy link. Import all of them to build a full client config or a subscription body for your app.</p>
+        <div class="flex flex-wrap gap-1.5">${breakdown || `<span class="text-gray-500">No supported share links in this payload</span>`}</div>
+      </div>
+    `;
+
+    document.getElementById("btn-subscription-convert")?.addEventListener("click", () => {
+      // switchPageTab only reveals the page; the converter textarea is
+      // created by renderDecoderSection, so it has to be rendered before
+      // the payload can be handed to it.
+      this.converterTab = "converter";
+      this.switchPageTab("decoder", true);
+      this.renderDecoderSection();
+      const field = document.getElementById("converter-input-text");
+      if (!field) return;
+      field.value = payload;
+      document.getElementById("btn-run-convert")?.click();
+    });
+  }
+
+  // A share link the decoder cannot model is reported as such. Rendering it as
+  // a node would print undefined cells and offer a conversion that emits an
+  // outbound of an invented type, which no client can load.
+  renderUnsupportedInspect(decoded, out) {
+    const scheme = String(decoded.protocol || "unknown").toLowerCase();
+    out.innerHTML = `
+      <div class="bg-gray-950 border border-amber-900/60 rounded-2xl p-5 space-y-3 font-mono text-xs">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="px-2 py-0.5 rounded uppercase font-bold text-xs bg-amber-950 text-amber-300 border border-amber-800">${escapeHTML(scheme)}</span>
+          <span class="font-bold text-gray-100">${escapeHTML(decoded.name || "Unrecognized link")}</span>
+        </div>
+        <p class="text-gray-400 leading-relaxed">
+          This link parsed as a valid <span class="text-amber-300">${escapeHTML(scheme)}://</span> share link, but the dashboard does not model that protocol yet,
+          so there are no connection parameters to inspect and no Sing-box or Clash definition to export.
+          The link is preserved exactly as published below.
+        </p>
+        <div class="flex flex-wrap gap-2">
+          <button id="btn-unsupported-copy" class="px-3.5 py-2 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-xl text-xs font-mono font-medium cursor-pointer focus-ring">Copy link</button>
+        </div>
+        <p class="text-gray-600 break-all">${escapeHTML(decoded.raw || "")}</p>
+      </div>
+    `;
+    document.getElementById("btn-unsupported-copy")?.addEventListener("click", () => {
+      this.copyText(decoded.raw || "", "Proxy link copied to clipboard");
+    });
+  }
+
+  renderRadarDiagnostics() {
+    if (typeof document === "undefined") return;
+    const container = document.getElementById("radar-diagnostics");
+    if (!container) return;
+
+    // 1. Dynamic Carrier Probes computed directly from loaded proxies
+    // Operator strings originate in published data, not trusted code. A Map
+    // avoids special keys such as "__proto__" colliding with Object.prototype.
+    const carrierMap = new Map();
+    for (const p of this.proxies) {
+      const cName = String(p.carrier || p.org || this.detectOperator(p.server, p.sni, p.name) || "Unattributed");
+      if (!carrierMap.has(cName)) {
+        carrierMap.set(cName, { name: cName, count: 0, pings: [] });
+      }
+      const carrier = carrierMap.get(cName);
+      carrier.count += 1;
+      const measured = typeof p.latency === "number" && Number.isFinite(p.latency) && p.latency > 0 ? p.latency : null;
+      if (measured !== null) carrier.pings.push(measured);
+    }
+
+    const sortedCarriers = [...carrierMap.values()].sort((a, b) => b.count - a.count);
+    const operators = sortedCarriers.slice(0, 8).map(carrier => {
+      const samples = carrier.pings.slice().sort((a, b) => a - b);
+      const mid = Math.floor(samples.length / 2);
+      const median = samples.length
+        ? Math.round(samples.length % 2 ? samples[mid] : (samples[mid - 1] + samples[mid]) / 2)
+        : null;
+      return {
+        name: carrier.name,
+        tag: carrier.name,
+        median: median === null ? null : `${median}ms`,
+        samples: samples.length,
+        count: carrier.count
+      };
+    });
+
+    // 2. Known regions only; unresolved geography is reported separately.
+    const regionSummary = summarizeRegions(this.proxies);
+    const sortedCountries = regionSummary.countries.slice(0, 8);
+
+    const maxCount = sortedCountries.length > 0 ? sortedCountries[0][1] : 1;
+    const evidence = summarizeEvidence(this.proxies);
+
+    container.innerHTML = `
+      <div class="section-eyebrow">Evidence at a glance</div>
+      <div id="evidence-strip" aria-label="Snapshot evidence summary">
+        <div class="evidence-stat" data-tone="good">
+          <span class="evidence-label">Authenticated</span>
+          <div class="evidence-value" data-evidence-count>${evidence.authenticated.toLocaleString("en-US")}</div>
+          <p class="evidence-detail">Fresh proxy-protocol evidence</p>
+        </div>
+        <div class="evidence-stat" data-tone="caution">
+          <span class="evidence-label">Unverified</span>
+          <div class="evidence-value" data-evidence-count>${evidence.unverified.toLocaleString("en-US")}</div>
+          <p class="evidence-detail">Not proven by proxy authentication</p>
+        </div>
+        <div class="evidence-stat">
+          <span class="evidence-label">Unattributed location</span>
+          <div class="evidence-value" data-evidence-count>${evidence.unknownGeography.toLocaleString("en-US")}</div>
+          <p class="evidence-detail">No reliable geographical attribution</p>
+        </div>
+        <p class="evidence-note"><strong>Evidence boundary.</strong> Country hints, IP reachability and TLS handshakes do not validate an authenticated proxy session. Counts describe the loaded snapshot.</p>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 my-8">
+        <!-- Network operator observations -->
+        <div class="lg:col-span-7 cyber-card p-6 bg-gray-900/60 border border-gray-800/80 hover:border-cyan-500/40 rounded-3xl backdrop-blur-md">
+          <div class="flex items-center justify-between pb-4 border-b border-gray-800 mb-4">
+            <div>
+              <h2 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
+                Network operators
+                <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">${this.telemetryState === "same-generation" ? "SNAPSHOT TELEMETRY" : "NO SNAPSHOT TELEMETRY"}</span>
+              </h2>
+              <p class="text-xs text-gray-400 font-sans mt-0.5">Reported operators and median recorded endpoint latency (${this.proxies.length} nodes in snapshot; not a proxy-auth test)</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            ${operators.map(op => `
+              <button type="button" class="operator-card p-3 rounded-2xl bg-gray-950/80 border border-gray-800/80 hover:border-cyan-500/50 cursor-pointer transition-all flex flex-col justify-between group" data-operator="${escapeHTML(op.tag)}" aria-label="Filter by operator ${escapeHTML(op.name)}" title="Filter snapshot by ${escapeHTML(op.name)}">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-xs font-mono font-bold text-gray-200 group-hover:text-cyan-300 transition-colors truncate">${escapeHTML(op.name)}</span>
+                  <span class="text-xs font-mono text-gray-400 shrink-0">${op.samples} samples</span>
+                </div>
+                <div class="flex items-baseline justify-between gap-2 mt-2">
+                  <span class="font-mono text-base font-extrabold text-emerald-400">${op.median === null ? "Not measured" : `p50 ${op.median}`}</span>
+                  <span class="text-xs font-mono text-gray-400">${op.count} nodes</span>
+                </div>
+              </button>
+            `).join("")}
+          </div>
+        </div>
+
+        <!-- Geo Density Distribution -->
+        <div class="lg:col-span-5 cyber-card p-6 bg-gray-900/60 border border-gray-800/80 hover:border-cyan-500/40 rounded-3xl backdrop-blur-md">
+          <div class="flex items-center justify-between pb-4 border-b border-gray-800 mb-4">
+            <div>
+              <h2 class="text-base font-mono font-bold text-gray-100 flex items-center gap-2">
+                Node distribution
+                <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">${sortedCountries.length} REGIONS</span>
+              </h2>
+              <p class="text-xs text-gray-400 font-sans mt-0.5">Reported geography from the loaded snapshot; unknown locations are excluded</p>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            ${sortedCountries.map(([code, count]) => {
+              const pct = Math.round((count / (this.proxies.length || 1)) * 100);
+              const name = COUNTRY_NAMES[code] || code;
+              return `
+                <button type="button" class="geo-density-row cursor-pointer group" data-country="${escapeHTML(code)}" aria-label="Filter by reported region ${escapeHTML(name)}" title="Filter snapshot by ${escapeHTML(name)}">
+                  <div class="flex items-center justify-between text-xs font-mono mb-1">
+                    <span class="font-bold text-gray-200 group-hover:text-cyan-300 transition-colors flex items-center gap-1.5">
+                      <span>${escapeHTML(this.getCountryFlag(code))}</span> ${escapeHTML(name)} (${escapeHTML(code)})
+                    </span>
+                    <span class="text-cyan-400 font-bold">${count} nodes <span class="text-gray-500 font-normal">(${pct}%)</span></span>
+                  </div>
+                  <div class="h-2 w-full bg-gray-950 rounded-full overflow-hidden border border-gray-800">
+                    <div class="h-full bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-full transition-all duration-300 group-hover:from-cyan-400 group-hover:to-indigo-400" style="width:${Math.min(100, Math.round((count / maxCount) * 100))}%"></div>
+                  </div>
+                </button>
+              `;
+            }).join("")}
+            ${regionSummary.unknownCount ? `
+              <div class="text-xs font-mono text-gray-400 border-t border-gray-800 pt-3">
+                Unresolved geography: ${regionSummary.unknownCount} nodes (excluded from region ranking)
+              </div>
+            ` : ""}
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Action Callout Banner -->
+      <div class="cyber-card p-6 bg-gradient-to-r from-cyan-950/40 via-gray-900/60 to-indigo-950/40 border border-cyan-500/30 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
+        <div class="space-y-1">
+          <h2 class="text-base font-mono font-bold text-white flex items-center gap-2">
+            Loaded snapshot
+          </h2>
+          <p class="text-xs font-sans text-gray-300">
+            ${this.proxies.length} loaded endpoints. Inspect configurations before importing; connectivity is not verified here.
+          </p>
+        </div>
+        <button id="btn-explore-live-proxies" class="px-5 py-3 min-h-[44px] bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-gray-950 font-mono font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/25 transition-all cursor-pointer shrink-0 focus-ring">
+          Browse Proxies (${this.proxies.length}) →
+        </button>
+      </div>
+    `;
+
+    container.querySelectorAll(".operator-card").forEach((card) => {
+      card.addEventListener("click", () => {
+        const op = card.dataset.operator;
+        this.selectedOperator = op;
+        this.renderFilterBar();
+        this.renderNodes();
+        this.switchPageTab("proxies", true);
+        this.showToast(`Filtered proxies for operator: ${op}`);
+      });
+    });
+
+    container.querySelectorAll(".geo-density-row").forEach((row) => {
+      row.addEventListener("click", () => {
+        const c = row.dataset.country;
+        this.selectedCountry = c;
+        this.renderFilterBar();
+        this.renderNodes();
+        this.switchPageTab("proxies", true);
+        this.showToast(`Filtered proxies for country: ${c}`);
+      });
+    });
+
+    document.getElementById("btn-explore-live-proxies")?.addEventListener("click", () => {
+      this.switchPageTab("proxies", true);
+    });
+  }
+
+  renderFilterBar(precomputed = null) {
+    if (typeof document === "undefined") return;
+    const filterContainer = document.getElementById("filter-bar") || document.getElementById("filter-section");
+    if (!filterContainer) return;
+
+    const allProxies = this.proxies || [];
+
+    // Derive available protocols from actual data
+    const activeProtocols = Array.from(new Set(allProxies.map(p => (p.protocol || "vless").toUpperCase())));
+    const protocols = ["ALL", ...activeProtocols];
+
+    // Derive available transports
+    const activeTransports = Array.from(new Set(allProxies.map(p => p.transport || "tcp").filter(Boolean)));
+    const transports = ["ALL", ...activeTransports];
+
+    // Derive available countries
+    const activeCountries = Array.from(new Set(allProxies.map(p => p.country || "ZZ"))).sort();
+    const countries = [
+      { code: "ALL", label: "All Regions" },
+      ...activeCountries.map(code => ({
+        code: code,
+        label: `${getFlagEmoji(code)} ${COUNTRY_NAMES[code] || code} (${code})`
+      }))
+    ];
+
+    // Derive available operators/carriers
+    const activeOperators = Array.from(new Set(allProxies.map(p => p.carrier || p.org || this.detectOperator(p.server, p.sni, p.name)).filter(Boolean))).sort();
+    const operators = [
+      { id: "ALL", label: "All Operators" },
+      ...activeOperators.map(op => ({
+        id: op,
+        label: `Network operator: ${op}`
+      }))
+    ];
+
+    const publishedGrades = [...new Set(allProxies.filter(p => getProxyEvidence(p).id === "authenticated")
+      .map(p => p.health_grade))].sort();
+    const tcpBands = [...new Set(allProxies.filter(p => getProxyEvidence(p).id === "tcp")
+      .map(p => healthForLatency(this.getLatency(p)).grade))].filter(v => v !== "—").sort();
+    const gradeOptions = [
+      ...publishedGrades.map(id => ({ id: `AUTH:${id}`, label: `Protocol grade ${id}` })),
+      ...tcpBands.map(id => ({ id: `TCP:${id}`, label: `TCP band ${id} (not proxy health)` }))
+    ];
+    this.selectedGrade = reconcileGradeSelection(this.selectedGrade, gradeOptions);
+    const grades = [
+      { id: "ALL", label: "All measurement bands" },
+      ...gradeOptions,
+      { id: "UNMEASURED", label: "No successful test" }
+    ];
+
+    const securities = [
+      { id: "ALL", label: "All Security Types" },
+      { id: "Reality", label: "VLESS Reality (uTLS)" },
+      { id: "TLS", label: "Standard TLS / HTTPS" },
+      { id: "None", label: "Plain / Direct" }
+    ];
+
+    const filtered = precomputed || this.getFilteredProxies();
+    // Keep advanced filters expanded across toolbar rerenders, including
+    // changes made by a focused select inside the disclosure.
+    const oldAdvanced = filterContainer.querySelector("#advanced-filters");
+    if (oldAdvanced) this.advancedFiltersOpen = oldAdvanced.open;
+
+    const activeFilters = [
+      { key: "selectedProtocol", label: "Protocol", value: this.selectedProtocol },
+      { key: "selectedTransport", label: "Transport", value: this.selectedTransport },
+      { key: "selectedCountry", label: "Region", value: this.selectedCountry },
+      { key: "selectedOperator", label: "Operator", value: this.selectedOperator },
+      { key: "selectedGrade", label: "Grade", value: this.selectedGrade },
+      { key: "selectedEvidence", label: "Evidence", value: this.selectedEvidence },
+      { key: "selectedPort", label: "Port", value: this.selectedPort },
+      { key: "selectedSecurity", label: "Security", value: this.selectedSecurity },
+      { key: "searchQuery", label: "Search", value: this.searchQuery }
+    ].filter(item => item.value && item.value !== "ALL");
+
+    const evidenceCounts = countProxyEvidence(this.getFilteredProxies({ ignoreEvidence: true }));
+    const evidenceOptions = [
+      { id: "ALL", label: "All evidence", count: evidenceCounts.all },
+      { id: "authenticated", label: "Protocol checked", count: evidenceCounts.authenticated },
+      { id: "protocol_failed", label: "Protocol failed", count: evidenceCounts.protocol_failed },
+      { id: "tcp", label: "TCP reachable", count: evidenceCounts.tcp },
+      { id: "tcp_failed", label: "TCP failed", count: evidenceCounts.tcp_failed },
+      { id: "unmeasured", label: "Not measured", count: evidenceCounts.unmeasured }
+    ];
+
+    filterContainer.innerHTML = `
+      <div class="proxy-workspace space-y-4 py-6">
+        <div class="workspace-intro">
+          <span class="catalog-kicker">Published endpoints · candidate inventory, not live local health</span>
+          <span class="workspace-total">${allProxies.length.toLocaleString("en-US")} entries</span>
+        </div>
+        <section id="evidence-overview" class="measurement-bar" aria-label="Proxy measurement evidence">
+          <div class="measurement-head">
+            <div class="measurement-heading"><strong>Evidence quality</strong><span class="measurement-context">Publisher measurements · TCP is not proxy authentication</span></div>
+            <a href="ENDPOINT_EVIDENCE.md" target="_blank" rel="noopener noreferrer" class="focus-ring">${i18n.translate("Evidence guide")} ↗</a>
+          </div>
+          <div class="measurement-pills" role="group" aria-label="Filter by measurement evidence">
+            ${evidenceOptions.map(option => `
+              <button
+                type="button"
+                class="btn-evidence-filter min-h-[44px] px-3.5 py-2 rounded-xl border text-xs font-mono font-semibold focus-ring transition-all ${this.selectedEvidence === option.id ? "bg-cyan-950/60 text-cyan-300 border-cyan-500/60" : "bg-gray-900 text-gray-300 border-gray-800 hover:border-cyan-500/50"}"
+                data-evidence="${option.id}"
+                aria-pressed="${this.selectedEvidence === option.id}"
+              >
+                ${escapeHTML(i18n.translate(option.label))}
+                <span class="evidence-count">${option.count.toLocaleString()}</span>
+              </button>`).join("")}
+          </div>
+        </section>
+        <!-- Top Toolbar: Protocol Pills + View Mode Switcher + Search -->
+        <div class="protocol-toolbar">
+          <!-- Protocol Tabs -->
+          <div class="protocol-pills" role="group" aria-label="Protocol Filter">
+            <span class="protocol-pills-label text-xs font-mono font-bold text-gray-400 uppercase tracking-wider mr-1.5 flex items-center gap-1">
+              <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
+              Protocol:
+            </span>
+            ${protocols.map(proto => {
+              const count = proto === "ALL"
+                ? allProxies.length
+                : allProxies.filter(p => (p.protocol || "").toLowerCase() === proto.toLowerCase()).length;
+              if (count === 0 && proto !== "ALL") return "";
+              return `
+                <button
+                  class="btn-proto-tab px-3.5 py-2 min-h-[44px] rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer flex items-center gap-1.5 ${
+                    this.selectedProtocol === proto
+                      ? "bg-cyan-500 text-gray-950 shadow-md shadow-cyan-500/30 font-bold"
+                      : "bg-gray-900 text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-gray-800"
+                  }"
+                  data-protocol="${escapeHTML(proto)}"
+                  aria-pressed="${this.selectedProtocol === proto}"
+                >
+                  <span>${escapeHTML(proto)}</span>
+                  <span class="px-1.5 py-0.5 text-xs rounded-md ${this.selectedProtocol === proto ? 'bg-gray-950 text-cyan-300' : 'bg-gray-950 text-gray-400'}">${count}</span>
+                </button>
+              `;
+            }).join("")}
+          </div>
+
+          <!-- View Mode Switcher & Quick Search -->
+          <div class="filter-primary-controls">
+            <!-- View Mode Switcher -->
+            <div class="filter-view-toggle" role="group" aria-label="Proxy result view">
+              <button
+                id="btn-view-grid"
+                aria-pressed="${this.viewMode === 'grid'}"
+                class="px-3 py-2 min-h-[44px] rounded-lg text-xs font-mono font-semibold transition-all flex items-center gap-1 cursor-pointer focus-ring ${this.viewMode === 'grid' ? 'bg-cyan-500 text-gray-950 font-bold' : 'text-gray-400 hover:text-gray-200'}"
+                title="Grid Cards View (Press V)"
+                aria-label="Grid Cards View"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                <span class="hidden sm:inline">Cards</span>
+              </button>
+              <button
+                id="btn-view-table"
+                aria-pressed="${this.viewMode === 'table'}"
+                class="px-3 py-2 min-h-[44px] rounded-lg text-xs font-mono font-semibold transition-all flex items-center gap-1 cursor-pointer focus-ring ${this.viewMode === 'table' ? 'bg-cyan-500 text-gray-950 font-bold' : 'text-gray-400 hover:text-gray-200'}"
+                title="Dense Data Table View (Press V)"
+                aria-label="Dense Table View"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                <span class="hidden sm:inline">Table</span>
+              </button>
+              <button
+                id="btn-view-feed"
+                aria-pressed="${this.viewMode === 'feed'}"
+                class="px-3 py-2 min-h-[44px] rounded-lg text-xs font-mono font-semibold transition-all flex items-center gap-1 cursor-pointer focus-ring ${this.viewMode === 'feed' ? 'bg-cyan-500 text-gray-950 font-bold' : 'text-gray-400 hover:text-gray-200'}"
+                title="Raw Text / Feed View"
+                aria-label="Raw Text Feed View"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <span class="hidden sm:inline">Raw Feed</span>
+              </button>
+            </div>
+
+            <!-- Quick Search Input -->
+            <div class="filter-search">
+              <input
+                id="node-quick-search"
+                type="text"
+                aria-label="Filter proxies by name, IP, or SNI"
+                class="w-full px-3.5 py-2.5 min-h-[44px] bg-gray-900 border border-gray-800 focus:border-cyan-500 rounded-xl text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus-ring"
+                placeholder="Filter name, IP, SNI..."
+                value="${escapeHTML(this.searchQuery)}"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Secondary dimensions are available without occupying the first viewport. -->
+        <details id="advanced-filters" class="filter-more" ${this.advancedFiltersOpen ? "open" : ""}>
+          <summary>Advanced filters <span class="filter-advanced-summary">Region, operator, transport, security, measurements &amp; sort</span></summary>
+          <div class="filter-advanced-inner">
+          <div class="filter-select-grid">
+          <!-- Operator Dropdown -->
+          <div class="relative">
+            <label class="block text-xs font-mono text-gray-400 mb-1">Network operator / ASN</label>
+            <select
+              id="select-operator"
+              class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
+              aria-label="Filter by Operator"
+            >
+              ${operators.map(op => `<option value="${escapeHTML(op.id)}" ${this.selectedOperator === op.id ? "selected" : ""}>${escapeHTML(op.label)}</option>`).join("")}
+            </select>
+          </div>
+
+          <!-- Transport Dropdown -->
+          <div class="relative">
+            <label class="block text-xs font-mono text-gray-400 mb-1">Transport Layer</label>
+            <select
+              id="select-transport"
+              class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
+              aria-label="Filter by Transport"
+            >
+              ${transports.map(t => `<option value="${escapeHTML(t)}" ${this.selectedTransport === t ? "selected" : ""}>Transport: ${escapeHTML(t)}</option>`).join("")}
+            </select>
+          </div>
+
+          <!-- Region Dropdown -->
+          <div class="relative">
+            <label class="block text-xs font-mono text-gray-400 mb-1">Geo Location</label>
+            <select
+              id="select-country"
+              class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
+              aria-label="Filter by Region"
+            >
+              ${countries.map(c => `<option value="${escapeHTML(c.code)}" ${this.selectedCountry === c.code ? "selected" : ""}>${escapeHTML(c.label)}</option>`).join("")}
+            </select>
+          </div>
+
+          <!-- Health Grade Dropdown -->
+          <div class="relative">
+            <label class="block text-xs font-mono text-gray-400 mb-1">Measurement type / band</label>
+            <select
+              id="select-grade"
+              class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
+              aria-label="Filter by Health Grade"
+            >
+              ${grades.map(g => `<option value="${escapeHTML(g.id)}" ${this.selectedGrade === g.id ? "selected" : ""}>${escapeHTML(g.label)}</option>`).join("")}
+            </select>
+          </div>
+
+          <!-- Security Type Dropdown -->
+          <div class="relative">
+            <label class="block text-xs font-mono text-gray-400 mb-1">Security / TLS</label>
+            <select
+              id="select-security"
+              class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
+              aria-label="Filter by Security"
+            >
+              ${securities.map(s => `<option value="${escapeHTML(s.id)}" ${this.selectedSecurity === s.id ? "selected" : ""}>${escapeHTML(s.label)}</option>`).join("")}
+            </select>
+          </div>
+
+          <!-- Telemetry Sorting Dropdown -->
+          <div class="relative">
+            <label class="block text-xs font-mono text-gray-400 mb-1">Telemetry Sorting</label>
+            <select
+              id="select-sort"
+              class="w-full bg-gray-900 border border-gray-800 hover:border-cyan-500/50 text-gray-300 text-xs font-mono rounded-xl px-3 py-2 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
+              aria-label="Sort Order"
+            >
+              <option value="latency_asc" ${this.sortBy === "latency_asc" ? "selected" : ""}>Lowest observed TCP latency</option>
+              <option value="score_desc" ${this.sortBy === "score_desc" ? "selected" : ""}>Authenticated grade, then TCP band</option>
+              <option value="name_asc" ${this.sortBy === "name_asc" ? "selected" : ""}>Name (A-Z)</option>
+              <option value="country_asc" ${this.sortBy === "country_asc" ? "selected" : ""}>Country (A-Z)</option>
+              <option value="port_asc" ${this.sortBy === "port_asc" ? "selected" : ""}>Port (Low-High)</option>
+            </select>
+          </div>
+          </div>
+        </details>
+
+        <!-- Filter Summary & Batch Actions Bar -->
+        <div class="catalog-results-bar">
+          <div class="flex items-center gap-2 text-gray-300">
+            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+            <span id="filter-result-count" role="status" aria-live="polite">${i18n.translate("Showing")} <strong class="text-cyan-400 tabular-nums">${filtered.length.toLocaleString()}</strong> / ${allProxies.length.toLocaleString()} ${i18n.translate("nodes")}</span>
+            ${this.selectedCountry !== "ALL" ? `<span class="px-2 py-0.5 bg-gray-900 border border-gray-800 rounded text-xs text-cyan-300">${this.selectedCountry}</span>` : ''}
+            ${this.selectedOperator !== "ALL" ? `<span class="px-2 py-0.5 bg-gray-900 border border-gray-800 rounded text-xs text-blue-300">${this.selectedOperator}</span>` : ''}
+          </div>
+
+          <div class="catalog-results-actions">
+            <button id="btn-batch-copy-filtered" class="px-3.5 py-2 min-h-[44px] bg-cyan-950 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-300 rounded-xl text-xs font-semibold cursor-pointer focus-ring transition-all flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+              Copy Filtered (${filtered.length})
+            </button>
+            <button id="btn-batch-export-singbox" class="px-3.5 py-2 min-h-[44px] bg-gray-900 hover:bg-gray-800 border border-gray-700 text-emerald-300 rounded-xl text-xs font-semibold cursor-pointer focus-ring transition-all">
+              Sing-box JSON
+            </button>
+            <button id="btn-batch-export-clash" class="px-3.5 py-2 min-h-[44px] bg-gray-900 hover:bg-gray-800 border border-gray-700 text-amber-300 rounded-xl text-xs font-semibold cursor-pointer focus-ring transition-all">
+              Clash YAML
+            </button>
+            <button id="btn-reset-all-filters" class="px-3.5 py-2 min-h-[44px] bg-gray-900 hover:bg-rose-950 text-gray-400 hover:text-rose-300 border border-gray-800 rounded-xl text-xs cursor-pointer focus-ring transition-all">
+              Reset Filters
+            </button>
+          </div>
+        </div>
+        <div id="active-filter-chips" aria-label="Active filters">
+          ${activeFilters.map(item => `
+            <button type="button" class="filter-chip focus-ring"
+              data-filter-key="${item.key}"
+              aria-label="Remove ${item.label.toLowerCase()} filter">
+              <span>${escapeHTML(item.label)}: ${escapeHTML(item.value)}</span>
+              <span aria-hidden="true">×</span>
+            </button>
+          `).join("")}
+        </div>
+      </div>
+    `;
+
+    filterContainer.querySelector("#advanced-filters")?.addEventListener("toggle", (event) => {
+      this.advancedFiltersOpen = event.currentTarget.open;
+    });
+
+    filterContainer.querySelectorAll(".filter-chip").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset.filterKey;
+        const permitted = new Set([
+          "selectedProtocol", "selectedTransport", "selectedCountry",
+          "selectedOperator", "selectedGrade", "selectedEvidence", "selectedPort", "selectedSecurity", "searchQuery"
+        ]);
+        if (!permitted.has(key)) return;
+        this[key] = key === "searchQuery" ? "" : "ALL";
+        if (key === "searchQuery") {
+          const global = document.getElementById("global-search-input");
+          if (global) global.value = "";
+        }
+        this.refreshProxyWorkspace();
+      });
+    });
+
+    filterContainer.querySelectorAll(".btn-evidence-filter").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const selected = btn.dataset.evidence;
+        if (!["ALL", "authenticated", "protocol_failed", "tcp", "tcp_failed", "unmeasured"].includes(selected)) return;
+        this.selectedEvidence = selected;
+        this.refreshProxyWorkspace();
+        // The toolbar is re-rendered when filtering; restore focus to the
+        // corresponding control for keyboard and switch-access users.
+        document.querySelector(`.btn-evidence-filter[data-evidence="${selected}"]`)?.focus({ preventScroll: true });
+      });
+    });
+
+    filterContainer.querySelectorAll(".btn-proto-tab").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        this.selectedProtocol = e.currentTarget.dataset.protocol;
+        this.refreshProxyWorkspace();
+      });
+    });
+
+    document.getElementById("btn-view-grid")?.addEventListener("click", () => {
+      this.viewMode = "grid";
+      this.refreshProxyWorkspace();
+    });
+
+    document.getElementById("btn-view-table")?.addEventListener("click", () => {
+      this.viewMode = "table";
+      this.refreshProxyWorkspace();
+    });
+
+    document.getElementById("btn-view-feed")?.addEventListener("click", () => {
+      this.viewMode = "feed";
+      this.refreshProxyWorkspace();
+    });
+
+    document.getElementById("select-operator")?.addEventListener("change", (e) => {
+      this.selectedOperator = e.target.value;
+      this.refreshProxyWorkspace();
+    });
+
+    document.getElementById("select-transport")?.addEventListener("change", (e) => {
+      this.selectedTransport = e.target.value;
+      this.refreshProxyWorkspace();
+    });
+
+    document.getElementById("select-country")?.addEventListener("change", (e) => {
+      this.selectedCountry = e.target.value;
+      this.refreshProxyWorkspace();
+    });
+
+    document.getElementById("select-grade")?.addEventListener("change", (e) => {
+      this.selectedGrade = e.target.value;
+      this.refreshProxyWorkspace();
+    });
+
+    document.getElementById("select-security")?.addEventListener("change", (e) => {
+      this.selectedSecurity = e.target.value;
+      this.refreshProxyWorkspace();
+    });
+
+    document.getElementById("select-sort")?.addEventListener("change", (e) => {
+      this.sortBy = e.target.value;
+      this.refreshProxyWorkspace();
+    });
+
+    document.getElementById("btn-batch-copy-filtered")?.addEventListener("click", (e) => {
+      const uris = filtered.map(p => p.raw).filter(Boolean).join("\n");
+      if (uris) {
+        this.copyText(uris, `Copied ${filtered.length} filtered proxy URIs`, e.currentTarget);
+      } else {
+        this.showToast("No active nodes to copy", "error");
+      }
+    });
+
+    document.getElementById("btn-batch-export-singbox")?.addEventListener("click", (e) => {
+      try {
+        const config = buildSingboxConfig(filtered.map(p => {
+          try { return decodeProxyURI(p.raw); } catch { return p; }
+        }));
+        this.copyText(JSON.stringify(config, null, 2), `Sing-box profile for ${filtered.length} nodes copied`, e.currentTarget);
+      } catch (err) {
+        this.showToast(`Export failed: ${err.message}`, "error");
+      }
+    });
+
+    document.getElementById("btn-batch-export-clash")?.addEventListener("click", (e) => {
+      try {
+        const yaml = buildClashMetaYAML(filtered.map(p => {
+          try { return decodeProxyURI(p.raw); } catch { return p; }
+        }));
+        this.copyText(yaml, `Clash Meta profile for ${filtered.length} nodes copied`, e.currentTarget);
+      } catch (err) {
+        this.showToast(`Export failed: ${err.message}`, "error");
+      }
+    });
+
+    document.getElementById("btn-reset-all-filters")?.addEventListener("click", () => {
+      this.resetProxyFilters();
+    });
+
+    const debouncedSearch = debounce((val) => {
+      this.searchQuery = val;
+      this.refreshProxyWorkspace();
+    }, 120);
+
+    document.getElementById("node-quick-search")?.addEventListener("input", (e) => {
+      debouncedSearch(e.target.value);
+    });
+  }
+
+  renderNodes(precomputed = null, { keepLimit = false } = {}) {
+    if (typeof document === "undefined") return;
+    const nodesContainer = document.getElementById("nodes-grid");
+    if (!nodesContainer) return;
+
+    const filtered = precomputed || this.getFilteredProxies();
+
+    if (filtered.length === 0) {
+      nodesContainer.className = "col-span-full";
+      nodesContainer.innerHTML = `
+        <div class="py-14 text-center bg-gray-900/40 border border-gray-800 rounded-3xl p-8 backdrop-blur-md">
+          <svg class="w-12 h-12 text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <span class="font-mono text-sm text-gray-300 font-bold block">No proxy endpoints match these filters</span>
+          <p class="font-mono text-xs text-gray-500 mt-1">Try clearing the search, protocol, region or network-operator filters</p>
+          <button id="btn-reset-filters-empty" class="mt-4 px-5 py-2.5 min-h-[44px] bg-cyan-500 text-gray-950 text-xs font-mono font-bold rounded-xl focus-ring cursor-pointer transition-all shadow-md shadow-cyan-500/20">Reset All Filters</button>
+        </div>
+      `;
+      document.getElementById("btn-reset-filters-empty")?.addEventListener("click", () => {
+        this.resetProxyFilters();
+      });
+      return;
+    }
+
+    // Progressive reveal: only the first window of nodes is painted; the
+    // rest stream in as the container is scrolled.
+    if (!keepLimit || this.nodeRenderLimit > filtered.length) {
+      this.nodeRenderLimit = NODES_INITIAL;
+    }
+    this.disconnectNodesObserver();
+
+    // 1. Grid Cards View
+    if (this.viewMode === "grid") {
+      nodesContainer.className = "proxy-node-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4";
+      nodesContainer.innerHTML = this.visibleNodes(filtered)
+        .map((node) => this.nodeCardHTML(node)).join("")
+        + this.nodesSentinelHTML(filtered.length - this.nodeRenderLimit);
+      this.bindNodeActions(nodesContainer);
+      this.observeNodesSentinel(filtered);
+    }
+
+    // 2. Compact Table View
+    else if (this.viewMode === "table") {
+      nodesContainer.className = "col-span-full";
+      nodesContainer.innerHTML = `
+        <div class="bg-gray-950 border border-gray-800 rounded-2xl overflow-hidden shadow-xl">
+          <div class="overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
+            <table class="w-full text-left font-mono text-xs">
+              <thead class="bg-gray-900/90 text-gray-400 border-b border-gray-800 text-xs uppercase tracking-wider">
+                <tr>
+                  <th class="p-3.5">Region</th>
+                  <th class="p-3.5">Protocol</th>
+                  <th class="p-3.5">Remark / Name</th>
+                  <th class="p-3.5">Endpoint (Host:Port)</th>
+                  <th class="p-3.5">Transport &amp; TLS</th>
+                  <th class="p-3.5">Network operator</th>
+                  <th class="p-3.5">Probe evidence</th>
+                  <th class="p-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="nodes-table-body" class="divide-y divide-gray-800/60"></tbody>
+            </table>
+          </div>
+        </div>
+      ` + this.nodesSentinelHTML(filtered.length - this.nodeRenderLimit);
+      const tbody = document.getElementById("nodes-table-body");
+      if (tbody) {
+        tbody.innerHTML = this.visibleNodes(filtered)
+          .map((node) => this.nodeRowHTML(node)).join("");
+      }
+      this.bindNodeActions(nodesContainer);
+      this.observeNodesSentinel(filtered);
+    }
+
+    // 3. Raw Text / Feed View
+    else if (this.viewMode === "feed") {
+      const feedURIs = filtered.map(p => p.raw).filter(Boolean).join("\n");
+      nodesContainer.className = "col-span-full";
+      nodesContainer.innerHTML = `
+        <div class="p-5 bg-gray-950 border border-gray-800 rounded-2xl space-y-3 font-mono text-xs shadow-xl">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <span class="text-cyan-400 font-bold flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+              Raw URI Stream (${filtered.length} matching nodes)
+            </span>
+            <div class="flex gap-2">
+              <button id="btn-copy-feed-box" class="px-4 py-2.5 min-h-[44px] bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold rounded-xl focus-ring cursor-pointer shadow-md shadow-cyan-500/20 transition-all">Copy Plain URIs</button>
+              <button id="btn-copy-feed-b64" class="px-4 py-2.5 min-h-[44px] bg-gray-800 hover:bg-gray-700 text-cyan-300 rounded-xl focus-ring cursor-pointer transition-all">Copy Base64 Feed</button>
+            </div>
+          </div>
+          <textarea rows="14" readonly aria-label="Raw URI stream" class="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-xl text-xs font-mono text-cyan-200 select-all focus:outline-none">${escapeHTML(feedURIs)}</textarea>
+        </div>
+      `;
+
+      document.getElementById("btn-copy-feed-box")?.addEventListener("click", () => {
+        this.copyText(feedURIs, `${filtered.length} plain URIs copied to clipboard`);
+      });
+
+      document.getElementById("btn-copy-feed-b64")?.addEventListener("click", () => {
+        const b64 = buildBase64Sub(filtered.map(p => p.raw));
+        this.copyText(b64, "Base64 subscription feed copied to clipboard");
+      });
+    }
+
+  }
+
+  // One node's compact card. Extracted so the initial window and the
+  // progressive appends render nodes through exactly one code path.
+    nodeCardHTML(node) {
+        const region = getRegionPresentation(node);
+        const flag = region.flag;
+        const evidence = getProxyEvidence(node);
+        const op = node.carrier || node.org || this.detectOperator(node.server, node.sni, node.name);
+        const latency = this.getLatency(node);
+        const { grade, label: healthLabel, color: healthColor } = this.getHealthScore(node);
+        const gradeColor = evidence.id === "authenticated" ? healthColor
+          : "text-sky-300 border-sky-800/70 bg-sky-950/40";
+        const gradeDisplay = evidence.id === "authenticated" ? `Protocol grade ${grade}`
+          : evidence.id === "tcp" ? "TCP only" : "No grade";
+        const isUnmasked = this.unmaskedNodes.has(node.id);
+        const isQRVisible = this.activeQRNodes.has(node.id);
+
+        const protoColor = {
+          vless: "bg-emerald-950 text-emerald-300 border-emerald-700/80 shadow-sm shadow-emerald-950",
+          vmess: "bg-amber-950 text-amber-300 border-amber-700/80 shadow-sm shadow-amber-950",
+          trojan: "bg-purple-950 text-purple-300 border-purple-700/80 shadow-sm shadow-purple-950",
+          shadowsocks: "bg-sky-950 text-sky-300 border-sky-700/80 shadow-sm shadow-sky-950",
+          hysteria2: "bg-rose-950 text-rose-300 border-rose-700/80 shadow-sm shadow-rose-950",
+          tuic: "bg-teal-950 text-teal-300 border-teal-700/80 shadow-sm shadow-teal-950",
+          socks: "bg-indigo-950 text-indigo-300 border-indigo-700/80 shadow-sm shadow-indigo-950"
+        }[node.protocol.toLowerCase()] || "bg-gray-800 text-gray-300 border-gray-700";
+
+        const opBadgeColor = {
+          MCI: "bg-blue-950/80 text-blue-300 border-blue-800",
+          MTN: "bg-yellow-950/80 text-yellow-300 border-yellow-800",
+          RTL: "bg-fuchsia-950/80 text-fuchsia-300 border-fuchsia-800",
+          CF: "bg-orange-950/80 text-orange-300 border-orange-800",
+          Hetzner: "bg-red-950/80 text-red-300 border-red-800",
+          DigitalOcean: "bg-cyan-950/80 text-cyan-300 border-cyan-800",
+          OVH: "bg-violet-950/80 text-violet-300 border-violet-800",
+          Arvan: "bg-teal-950/80 text-teal-300 border-teal-800"
+        }[op] || "bg-gray-950 text-gray-400 border-gray-800";
+
+        // Credentials are parsed once at load time; re-decoding every
+        // node's URI on each render was the hottest call in this path. An
+        // undecodable node still renders from its normalized fields and
+        // only the credential preview falls back to the placeholder.
+        const uuid = node.uuid || node.password || "";
+        const displayUUID = !uuid ? "Not available" : isUnmasked ? uuid
+          : `${uuid.slice(0, 4)}••••${uuid.slice(-4)}`;
+
+        return `
+          <article class="proxy-card p-4 flex flex-col justify-between group relative" data-evidence-kind="${evidence.id}">
+            <div>
+              <!-- Header Row: Flags, Protocol, Operator, Health Grade -->
+              <div class="proxy-card-header flex items-center justify-between mb-2.5">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="text-base" title="${escapeHTML(region.label)} — ${escapeHTML(region.detail)}" aria-label="${escapeHTML(region.detail)}">${escapeHTML(flag)}</span>
+                  <span class="px-2 py-0.5 text-xs font-mono font-bold uppercase rounded border ${protoColor}">
+                    ${escapeHTML(node.protocol)}
+                  </span>
+                  <span class="proxy-secondary-tag px-1.5 py-0.5 text-xs font-mono ${opBadgeColor}">
+                    ${escapeHTML(op)}
+                  </span>
+                  <span class="proxy-secondary-tag px-1.5 py-0.5 text-xs font-mono text-gray-400">
+                    ${escapeHTML(node.transport)}
+                  </span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <span class="proxy-grade-badge px-2 py-0.5 text-xs font-mono font-bold rounded border ${gradeColor}" data-evidence-kind="${evidence.id}" title="${escapeHTML(healthLabel)} — ${escapeHTML(evidence.detail)}">
+                    ${escapeHTML(gradeDisplay)}
+                  </span>
+                  <div class="flex items-center gap-1 text-xs font-mono font-semibold ${latency === null ? 'text-gray-500' : latency < 60 ? 'text-emerald-400' : latency < 120 ? 'text-amber-400' : 'text-rose-400'}">
+                    <span class="w-1.5 h-1.5 rounded-full ${latency === null ? 'bg-gray-600' : latency < 60 ? 'bg-emerald-400' : latency < 120 ? 'bg-amber-400' : 'bg-rose-400'}"></span>
+                    <span>${latency === null ? 'Unmeasured' : `${Math.round(latency)}ms`}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Node Title / Remark -->
+              <h3 class="text-sm font-mono font-semibold text-gray-100 truncate group-hover:text-cyan-300 transition-colors flex items-center justify-between" title="${escapeHTML(node.name)}">
+                <span class="truncate">${escapeHTML(node.name)}</span>
+              </h3>
+              <p class="mt-2 flex flex-wrap items-center gap-2 text-xs font-mono">
+                <span class="px-2 py-1 rounded-md border ${evidence.id === "authenticated" ? "bg-emerald-950/50 text-emerald-300 border-emerald-800/40" : evidence.id === "protocol_failed" ? "bg-amber-950/40 text-amber-300 border-amber-800/40" : evidence.id === "tcp" ? "bg-cyan-950/60 text-cyan-300 border-cyan-500/30" : evidence.id === "tcp_failed" ? "bg-amber-950/40 text-amber-300 border-amber-800/40" : "bg-gray-900 text-gray-400 border-gray-800"}">${escapeHTML(i18n.translate(evidence.label))}</span>
+                <span class="text-gray-400" title="${escapeHTML(evidence.detail)}">${escapeHTML(evidence.id === "authenticated" ? "Snapshot protocol test" : evidence.id === "tcp" ? "TCP only — proxy unverified" : evidence.id === "unmeasured" ? "No published test" : "Not permanently failed")}</span>
+              </p>
+
+              <!-- Specs Grid -->
+              <div class="proxy-specs mt-2.5 space-y-1.5 text-xs font-mono">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-gray-400">Endpoint:</span>
+                  <span class="technical-ltr text-gray-300 truncate max-w-[170px] select-all">${escapeHTML(node.server)}:${node.port}</span>
+                </div>
+
+                ${node.sni ? `
+                  <div class="flex items-center justify-between text-xs">
+                    <span class="text-gray-400">SNI / Host:</span>
+                    <span class="technical-ltr text-cyan-300 truncate max-w-[170px] select-all">${escapeHTML(node.sni)}</span>
+                  </div>
+                ` : ''}
+
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-gray-400">Credential:</span>
+                  <div class="flex items-center gap-1">
+                    <span class="technical-ltr text-gray-400 font-mono text-xs">${escapeHTML(displayUUID)}</span>
+                    <button
+                      class="btn-toggle-mask text-gray-400 hover:text-cyan-400 cursor-pointer p-2 min-h-[44px] min-w-[44px] flex items-center justify-center focus-ring rounded-lg transition-colors"
+                      data-node-id="${node.id}"
+                      title="${isUnmasked ? 'Mask Credential' : 'Reveal Credential'}"
+                      aria-label="${isUnmasked ? 'Mask credential' : 'Reveal credential'}"
+                      aria-pressed="${isUnmasked}"
+                    >
+                      ${isUnmasked
+                        ? `<svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>`
+                        : `<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>`
+                      }
+                    </button>
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between text-xs pt-1 border-t border-gray-800/40">
+                  <span class="text-gray-400">Country &amp; network:</span>
+                  <span class="text-gray-300 font-semibold">${escapeHTML(region.flag)} ${escapeHTML(region.label)} • ${escapeHTML(op)} <span class="text-xs text-gray-500" title="${escapeHTML(region.detail)}">(${region.confidence === "provider" ? "GeoIP estimate" : region.confidence === "hint" ? "unverified hint" : "unknown"})</span></span>
+                </div>
+              </div>
+
+              <!-- Inline QR Code Accordion (if expanded) -->
+              ${isQRVisible ? `
+                <div class="mt-3 p-3 bg-white rounded-xl flex flex-col items-center justify-center animate-fade-in shadow-md">
+                  ${renderQRCodeSVG(node.raw, 160, "#070a0f", "#ffffff")}
+                  <span class="text-xs font-mono text-gray-800 mt-1 font-bold">Scan with v2rayNG / Sing-box</span>
+                </div>
+              ` : ''}
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="mt-3 pt-2.5 border-t border-gray-800/80 flex items-center justify-between gap-1.5">
+              <button
+                class="btn-copy-node flex-1 py-2.5 min-h-[44px] bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 text-cyan-300 text-xs font-mono font-medium rounded-xl transition-all focus-ring cursor-pointer flex items-center justify-center gap-1.5"
+                data-raw="${encodeURIComponent(node.raw)}"
+                aria-label="Copy ${escapeHTML(node.name)} URI"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                Copy URI
+              </button>
+              <button
+                class="btn-toggle-inline-qr p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center ${isQRVisible ? 'bg-indigo-600 text-white' : 'bg-gray-800 hover:bg-gray-700 text-indigo-400'} rounded-xl transition-all focus-ring cursor-pointer"
+                data-node-id="${node.id}"
+                title="Toggle Inline QR Code"
+                aria-label="Toggle QR for ${escapeHTML(node.name)}"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+              </button>
+              <button
+                class="btn-inspect-node p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-cyan-400 rounded-xl transition-all focus-ring cursor-pointer"
+                data-raw="${encodeURIComponent(node.raw)}"
+                title="Inspect Protocol Parameters"
+                aria-label="Inspect ${escapeHTML(node.name)}"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+              </button>
+              <button
+                class="btn-export-snippet p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-amber-400 rounded-xl transition-all focus-ring cursor-pointer"
+                data-raw="${encodeURIComponent(node.raw)}"
+                title="Export Sing-box Outbound Snippet"
+                aria-label="Export Snippet for ${escapeHTML(node.name)}"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+              </button>
+            </div>
+          </article>
+        `;
+    }
+
+  // One node's table row, sharing the reveal window with the card view.
+    nodeRowHTML(node) {
+                  const region = getRegionPresentation(node);
+                  const evidence = getProxyEvidence(node);
+                  const flag = region.flag;
+                  const op = node.carrier || node.org || this.detectOperator(node.server, node.sni, node.name);
+                  const latency = this.getLatency(node);
+                  const { grade } = this.getHealthScore(node);
+                  return `
+                    <tr class="hover:bg-gray-900/50 transition-colors">
+                      <td class="p-3.5 font-bold text-sm" title="${escapeHTML(region.detail)}">${escapeHTML(flag)} <span class="text-xs text-gray-400">${escapeHTML(region.code)}</span></td>
+                      <td class="p-3.5"><span class="px-2 py-0.5 rounded text-xs uppercase font-bold bg-cyan-950 text-cyan-300 border border-cyan-800">${escapeHTML(node.protocol)}</span></td>
+                      <td class="p-3.5 font-semibold text-gray-200 truncate max-w-[200px]" title="${escapeHTML(node.name)}">${escapeHTML(node.name)}</td>
+                      <td class="p-3.5 text-cyan-300 select-all">${escapeHTML(node.server)}:${node.port}</td>
+                      <td class="p-3.5 text-gray-400">${escapeHTML(node.transport)} ${node.sni ? `(${escapeHTML(node.sni)})` : ''}</td>
+                      <td class="p-3.5"><span class="px-2 py-0.5 bg-gray-900 rounded border border-gray-800 text-gray-300 text-xs">${escapeHTML(op)}</span></td>
+                      <td class="p-3.5">
+                        <span class="font-bold ${latency === null ? 'text-gray-500' : latency < 60 ? 'text-emerald-400' : 'text-amber-400'}">${latency === null ? 'Unmeasured' : `${Math.round(latency)}ms`}</span>
+                        <span class="block text-xs text-gray-400 mt-1" title="${escapeHTML(evidence.detail)}">${escapeHTML(i18n.translate(evidence.label))} · ${evidence.id === "authenticated" ? "Protocol grade " + grade : evidence.id === "tcp" ? "TCP only" : "Unverified"}</span>
+                      </td>
+                      <td class="p-3.5 text-right space-x-1 whitespace-nowrap">
+                        <button class="btn-copy-node px-3 py-2 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 text-cyan-300 rounded-xl text-xs font-mono font-medium focus-ring cursor-pointer transition-all" data-raw="${encodeURIComponent(node.raw)}">Copy</button>
+                        <button class="btn-open-qr-modal px-3 py-2 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-indigo-600 text-indigo-300 hover:text-white rounded-xl text-xs font-mono font-medium focus-ring cursor-pointer transition-all" data-raw="${encodeURIComponent(node.raw)}" data-name="${escapeHTML(node.name)}">QR</button>
+                      </td>
+                    </tr>
+                  `;
+    }
+
+  // Bind the per-node action buttons for the rendered window and for every
+  // progressive append, so a node that scrolls in is never inert.
+  bindNodeActions(scope) {
+    scope.querySelectorAll(".btn-copy-node").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const raw = decodeURIComponent(e.currentTarget.dataset.raw);
+        this.copyText(raw, "Node URI copied to clipboard", e.currentTarget);
+      });
+    });
+
+    scope.querySelectorAll(".btn-toggle-mask").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const nodeId = e.currentTarget.dataset.nodeId;
+        if (this.unmaskedNodes.has(nodeId)) {
+          this.unmaskedNodes.delete(nodeId);
+        } else {
+          this.unmaskedNodes.add(nodeId);
+        }
+        this.renderNodes(undefined, { keepLimit: true });
+      });
+    });
+
+    scope.querySelectorAll(".btn-toggle-inline-qr").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const nodeId = e.currentTarget.dataset.nodeId;
+        if (this.activeQRNodes.has(nodeId)) {
+          this.activeQRNodes.delete(nodeId);
+        } else {
+          this.activeQRNodes.add(nodeId);
+        }
+        this.renderNodes(undefined, { keepLimit: true });
+      });
+    });
+
+    scope.querySelectorAll(".btn-open-qr-modal").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const raw = decodeURIComponent(e.currentTarget.dataset.raw);
+        const name = e.currentTarget.dataset.name || "Proxy Node";
+        this.openQRModal(raw, name);
+      });
+    });
+
+    scope.querySelectorAll(".btn-inspect-node").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        this.lastFocusedElement = e.currentTarget;
+        const raw = decodeURIComponent(e.currentTarget.dataset.raw);
+        this.converterTab = "inspector";
+        this.switchPageTab("decoder", true);
+        this.renderDecoderSection();
+        const input = document.getElementById("decoder-single-input");
+        if (input) {
+          input.value = raw;
+          document.getElementById("btn-run-inspect")?.click();
+        }
+      });
+    });
+
+    scope.querySelectorAll(".btn-export-snippet").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const raw = decodeURIComponent(e.currentTarget.dataset.raw);
+        try {
+          const decoded = decodeProxyURI(raw);
+          if (decoded && decoded.supported === false) {
+            // There is no faithful Sing-box outbound for a protocol this
+            // decoder does not model; copy the link rather than an invented one.
+            this.copyText(raw, "Proxy link copied (no Sing-box definition for this protocol)");
+            return;
+          }
+          const outbound = nodeToSingboxOutbound(decoded);
+          this.copyText(JSON.stringify(outbound, null, 2), "Sing-box outbound JSON copied to clipboard");
+        } catch {
+          this.copyText(raw, "Proxy URI copied to clipboard");
+        }
+      });
+    });
+  }
+
+  // The slice of the filtered list that is currently allowed to render.
+  visibleNodes(filtered) {
+    return filtered.slice(0, this.nodeRenderLimit);
+  }
+
+  // Marker at the end of the rendered window; empty when every node is
+  // already on screen.
+  nodesSentinelHTML(remaining) {
+    if (remaining <= 0) return "";
+    return `<div id="nodes-grid-sentinel" class="col-span-full py-3 text-center text-xs font-mono text-gray-400" aria-hidden="true">Scroll for ${remaining} more nodes</div>`;
+  }
+
+  observeNodesSentinel(filtered) {
+    this.disconnectNodesObserver();
+    if (this.nodeRenderLimit >= filtered.length) return;
+    const sentinel = document.getElementById("nodes-grid-sentinel");
+    if (!sentinel || typeof IntersectionObserver === "undefined") return;
+    this.nodesObserver = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          this.appendNextNodeWindow(filtered);
+        }
+      },
+      { rootMargin: "400px" }
+    );
+    this.nodesObserver.observe(sentinel);
+  }
+
+  disconnectNodesObserver() {
+    this.nodesObserver?.disconnect?.();
+    this.nodesObserver = null;
+  }
+
+  // Append the next window without re-parsing the nodes already on screen:
+  // the HTML is built in a scratch element and bound there, then the nodes
+  // are moved into place so the grid keeps card children and the table
+  // keeps row children.
+  appendNextNodeWindow(filtered) {
+    const nodesContainer = document.getElementById("nodes-grid");
+    if (!nodesContainer) return;
+    const start = Math.min(this.nodeRenderLimit, filtered.length);
+    const end = Math.min(start + NODES_INCREMENT, filtered.length);
+    if (start >= end) {
+      this.disconnectNodesObserver();
+      document.getElementById("nodes-grid-sentinel")?.remove();
+      return;
+    }
+    this.nodeRenderLimit = end;
+    // A <tbody> holder parses <tr> children; a <div> context would drop them.
+    const holder = document.createElement(this.viewMode === "table" ? "tbody" : "div");
+    if (this.viewMode === "table") {
+      holder.innerHTML = filtered.slice(start, end)
+        .map((node) => this.nodeRowHTML(node)).join("");
+      this.bindNodeActions(holder);
+      document.getElementById("nodes-table-body")?.append(...holder.childNodes);
+    } else if (this.viewMode === "grid") {
+      holder.innerHTML = filtered.slice(start, end)
+        .map((node) => this.nodeCardHTML(node)).join("");
+      this.bindNodeActions(holder);
+      const sentinel = document.getElementById("nodes-grid-sentinel");
+      if (sentinel) sentinel.before(...holder.childNodes);
+      else nodesContainer.append(...holder.childNodes);
+    } else {
+      // The feed view has no per-node DOM to reveal.
+      return;
+    }
+    if (this.nodeRenderLimit >= filtered.length) {
+      this.disconnectNodesObserver();
+      document.getElementById("nodes-grid-sentinel")?.remove();
+    }
+  }
+
+  renderArtifacts() {
+    if (typeof document === "undefined") return;
+    const artifactSection = document.getElementById("artifacts-section") || document.getElementById("artifact-section");
+    if (!artifactSection) return;
+
+    const filtered = this.getFilteredArtifacts();
+    const allFiles = this.catalog.files || [];
+    const linkMode = getArtifactLinkModel("catalog.json");
+    const releaseCount = allFiles.filter(f => f.category === "release" || f.section === "release").length;
+    const devCount = allFiles.filter(f => f.category === "dev" || f.section === "dev").length;
+    const subsCount = allFiles.filter(f => f.type === "B64SUB" || f.ext === "B64SUB" || f.type === "NPVT" || f.ext === "NPVT" || (f.tags && f.tags.includes("subscription"))).length;
+    const configsCount = allFiles.filter(f => {
+      const tags = Array.isArray(f.tags) ? f.tags : [];
+      if (tags.includes("subscription")) return false;
+      return ["SINGBOX", "XRAY", "OVPN", "WARP", "CLASH"].includes(f.type || f.ext)
+        || tags.some(tag => ["singbox", "xray", "openvpn", "clash"].includes(tag));
+    }).length;
+    const chunksCount = allFiles.filter(f => f.type === "CHUNK" || f.ext === "CHUNK" || (f.filename || f.name || "").includes("chunk_")).length;
+
+    const categories = [
+      { id: "ALL", label: `ALL (${allFiles.length})` },
+      { id: "RELEASE", label: `PRODUCTION RELEASES (${releaseCount})` },
+      { id: "DEV", label: `CUMULATIVE DEV (${devCount})` },
+      { id: "SUBSCRIPTIONS", label: `SUBSCRIPTIONS (${subsCount})` },
+      { id: "CONFIGS", label: `CORE CONFIGS (${configsCount})` },
+      { id: "CHUNKS", label: `SPLIT CHUNKS (${chunksCount})` }
+    ].filter((category) => category.id === "ALL" || !category.label.endsWith("(0)"));
+
+    artifactSection.innerHTML = `
+      <div class="artifacts-workspace py-8">
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-bold font-mono text-white flex items-center gap-2">
+              <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+              Subscriptions &amp; published files
+            </h2>
+            <p class="text-xs font-mono text-gray-400 mt-1">Direct access to all ${allFiles.length} generated releases, cumulative datasets, split chunks, and client profiles</p>
+            <p class="text-xs font-mono text-gray-500 mt-2">
+              Link mode: <span class="text-cyan-300">${escapeHTML(linkMode.sourceLabel)}</span>${linkMode.isAbsolute ? "" : " for local previews. Serve over HTTP(S) or configure a public base URL for import-ready absolute links."}
+            </p>
+          </div>
+          <div class="flex items-center gap-2 text-xs font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-3.5 py-2 rounded-xl">
+            <span>Total Storage: ${escapeHTML(this.catalog.total_size_str || "0 B")}</span>
+          </div>
+        </div>
+
+        <div class="space-y-4 mb-6">
+          <div class="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+            <div class="flex flex-wrap gap-1.5" role="group" aria-label="Artifact categories">
+              ${categories.map(c => `
+                <button
+                  class="btn-artifact-tab px-3.5 py-2.5 min-h-[44px] rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${
+                    this.artifactFilter === c.id
+                      ? "bg-cyan-500 text-gray-950 shadow-md shadow-cyan-500/30"
+                      : "bg-gray-900 text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-gray-800"
+                  }"
+                  data-filter="${c.id}"
+                  aria-pressed="${this.artifactFilter === c.id}"
+                >
+                  ${c.label}
+                </button>
+              `).join("")}
+            </div>
+
+            <div class="relative max-w-xs w-full">
+              <input
+                id="artifact-search-input"
+                type="text"
+                aria-label="Search artifacts"
+                class="w-full px-3.5 py-2.5 min-h-[44px] bg-gray-900 border border-gray-800 focus:border-cyan-500 rounded-xl text-xs font-mono text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus-ring"
+                placeholder="Search artifacts..."
+                value="${escapeHTML(this.artifactSearchQuery)}"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          ${filtered.length === 0 ? `
+            <div class="sm:col-span-2 lg:col-span-3 p-8 bg-gray-900/60 border border-gray-800 rounded-3xl text-center space-y-2">
+              <div class="text-sm font-mono font-bold text-gray-200">No artifacts match the current filter set</div>
+              <p class="text-xs text-gray-400">Clear the artifact search or switch categories to inspect another release surface.</p>
+              <button id="btn-reset-artifact-filters" class="inline-flex items-center justify-center px-4 py-2.5 min-h-[44px] bg-cyan-500 text-gray-950 font-mono font-bold text-xs rounded-xl focus-ring cursor-pointer">Reset Artifact Filters</button>
+            </div>
+          ` : filtered.map(file => {
+            const link = getArtifactLinkModel(file.path);
+            const badgeColor = {
+              SINGBOX: "bg-cyan-950 text-cyan-300 border-cyan-700",
+              XRAY: "bg-indigo-950 text-indigo-300 border-indigo-700",
+              OVPN: "bg-amber-950 text-amber-300 border-amber-700",
+              B64SUB: "bg-emerald-950 text-emerald-300 border-emerald-700",
+              NPVT: "bg-purple-950 text-purple-300 border-purple-700",
+              CHUNK: "bg-sky-950 text-sky-300 border-sky-800",
+              JSON: "bg-blue-950 text-blue-300 border-blue-800",
+              TXT: "bg-slate-900 text-slate-300 border-slate-700",
+              MANIFEST: "bg-teal-950 text-teal-300 border-teal-800",
+              MD: "bg-gray-900 text-gray-400 border-gray-800"
+            }[file.ext || file.type] || "bg-gray-800 text-gray-300 border-gray-700";
+
+            return `
+              <div class="artifact-card bg-gray-900/60 hover:bg-gray-900 border border-gray-800 hover:border-cyan-500/40 rounded-2xl p-4 transition-all duration-200 flex flex-col justify-between group shadow-lg shadow-black/30">
+                <div>
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="px-2 py-0.5 text-xs font-mono font-bold uppercase rounded border ${badgeColor}">
+                      ${escapeHTML(file.ext || file.type)}
+                    </span>
+                    <span class="text-xs font-mono text-cyan-400 font-semibold">${escapeHTML(file.size_str)}</span>
+                  </div>
+
+                  <h3 class="text-sm font-mono font-bold text-gray-100 truncate group-hover:text-cyan-300 transition-colors" title="${escapeHTML(file.filename)}">
+                    ${escapeHTML(file.filename)}
+                  </h3>
+
+                  <p class="text-xs font-sans text-gray-400 mt-1 line-clamp-2 leading-relaxed">
+                    ${escapeHTML(file.description || file.filename)}
+                  </p>
+
+                  <div class="mt-2 text-xs font-mono text-gray-500 truncate" title="${escapeHTML(link.display)}">
+                    ${escapeHTML(link.display)}
+                  </div>
+
+                  <div class="mt-2.5 flex flex-wrap gap-1">
+                    ${(file.tags || []).map(t => `<span class="text-xs font-mono text-gray-400 px-1.5 py-0.5 bg-gray-950 border border-gray-800 rounded">${escapeHTML(t)}</span>`).join("")}
+                  </div>
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-gray-800 flex items-center gap-1.5">
+                  <a
+                    href="${escapeHTML(link.path)}"
+                    download
+                    class="flex-1 py-2.5 min-h-[44px] bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 border border-gray-700 text-gray-200 text-xs font-mono font-semibold rounded-xl text-center transition-all focus-ring cursor-pointer flex items-center justify-center gap-1.5"
+                    aria-label="Download ${escapeHTML(file.filename)}"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    Download
+                  </a>
+                  <button
+                    class="btn-artifact-qr p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-800 hover:bg-cyan-950/60 border border-gray-700 hover:border-cyan-500/40 text-cyan-400 hover:text-cyan-300 rounded-xl transition-all focus-ring cursor-pointer"
+                    data-filename="${escapeHTML(file.filename)}"
+                    data-path="${escapeHTML(file.path)}"
+                    data-type="${escapeHTML(file.ext || file.type)}"
+                    data-size="${escapeHTML(file.size_str)}"
+                    data-desc="${escapeHTML(file.description || file.filename)}"
+                    data-hash="${escapeHTML(file.sha256 || file.hash || '')}"
+                    title="QR Code for ${escapeHTML(file.filename)}"
+                    aria-label="QR Code for ${escapeHTML(file.filename)}"
+                  >
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
+                      <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
+                      <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
+                      <rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
+                      <circle cx="6.5" cy="6.5" r="1" fill="currentColor"></circle>
+                      <circle cx="17.5" cy="6.5" r="1" fill="currentColor"></circle>
+                      <circle cx="6.5" cy="17.5" r="1" fill="currentColor"></circle>
+                      <circle cx="17.5" cy="17.5" r="1" fill="currentColor"></circle>
+                    </svg>
+                  </button>
+                  <button
+                    class="btn-copy-artifact-link p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-800 hover:bg-gray-700 border border-gray-700 text-cyan-400 rounded-xl transition-all focus-ring cursor-pointer"
+                    data-path="${escapeHTML(file.path)}"
+                    title="Copy Direct Link"
+                    aria-label="Copy Direct Link to ${escapeHTML(file.filename)}"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      </div>
+    `;
+
+    artifactSection.querySelectorAll(".btn-artifact-tab").forEach(btn => {
+      btn.addEventListener("click", (event) => {
+        const selected = event.currentTarget.dataset.filter;
+        this.artifactFilter = selected;
+        this.renderArtifacts();
+        Array.from(artifactSection.querySelectorAll(".btn-artifact-tab"))
+          .find((button) => button.dataset.filter === selected)?.focus({ preventScroll: true });
+      });
+    });
+
+    const debouncedArtifactSearch = debounce((val) => {
+      this.artifactSearchQuery = val;
+      const previous = document.getElementById("artifact-search-input");
+      const focused = document.activeElement === previous;
+      const start = previous?.selectionStart;
+      const end = previous?.selectionEnd;
+      this.renderArtifacts();
+      if (focused) {
+        const next = document.getElementById("artifact-search-input");
+        next?.focus({ preventScroll: true });
+        if (next && Number.isInteger(start) && Number.isInteger(end)) {
+          next.setSelectionRange(start, end);
+        }
+      }
+    }, 120);
+
+    const searchInput = document.getElementById("artifact-search-input");
+    searchInput?.addEventListener("input", (e) => {
+      debouncedArtifactSearch(e.target.value);
+    });
+
+    document.getElementById("btn-reset-artifact-filters")?.addEventListener("click", () => {
+      this.artifactFilter = "ALL";
+      this.artifactSearchQuery = "";
+      this.renderArtifacts();
+    });
+
+    artifactSection.querySelectorAll(".btn-copy-artifact-link").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const p = e.currentTarget.dataset.path;
+        const artifactUrl = resolveArtifactUrl(p);
+        this.copyText(artifactUrl, isHostedDashboard()
+          ? "Artifact URL copied to clipboard"
+          : "Portable artifact path copied — deploy or serve over HTTPS before importing");
+      });
+    });
+
+    artifactSection.querySelectorAll(".btn-artifact-qr").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const ds = e.currentTarget.dataset;
+        this.openArtifactQRModal({
+          filename: ds.filename,
+          path: ds.path,
+          type: ds.type,
+          size_str: ds.size,
+          description: ds.desc,
+          hash: ds.hash
+        });
+      });
+    });
+  }
+
+  openArtifactQRModal(file) {
+    const link = getArtifactLinkModel(file.path);
+    const qrTargetUrl = link.isAbsolute ? link.url : "";
+    const qrPanel = qrTargetUrl
+      ? `
+            <div class="p-2 bg-gray-950 border border-cyan-500/40 rounded-2xl shadow-lg shadow-cyan-950/30 flex items-center justify-center">
+              ${renderQRCodeSVG(qrTargetUrl, 240, "#00d2ff", "#020617")}
+            </div>
+            <p class="text-xs font-mono text-cyan-400 mt-2.5 text-center">
+              Scan to import from the hosted dashboard
+            </p>
+        `
+      : `
+            <div class="w-full p-5 bg-gray-950 border border-dashed border-gray-700 rounded-2xl text-center space-y-2">
+              <div class="text-sm font-mono font-bold text-gray-200">QR unavailable in local preview</div>
+              <p class="text-xs font-mono text-gray-400">Serve the dashboard over HTTP(S) or configure a public base URL before generating scannable feed QR codes.</p>
+            </div>
+        `;
+
+    const modalHTML = `
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" id="artifact-qr-modal-container">
+        <div class="relative w-full max-w-md bg-gray-900 border border-cyan-500/40 rounded-3xl p-6 shadow-2xl shadow-cyan-950/60 space-y-5 max-h-[90vh] max-h-[90dvh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="artifact-qr-title">
+          <div class="flex items-center justify-between pb-3 border-b border-gray-800">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 text-xs font-mono font-bold uppercase rounded border bg-cyan-950 text-cyan-300 border-cyan-700">
+                ${escapeHTML(file.type || "FEED")}
+              </span>
+              <h3 id="artifact-qr-title" class="text-sm font-mono font-bold text-white truncate max-w-[220px]" title="${escapeHTML(file.filename)}">
+                ${escapeHTML(file.filename)}
+              </h3>
+            </div>
+            <button id="btn-close-artifact-qr" class="min-h-[44px] min-w-[44px] p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 transition-colors focus-ring cursor-pointer" aria-label="Close QR Modal">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+          </div>
+
+          <div class="flex flex-col items-center justify-center py-1">
+            ${qrPanel}
+          </div>
+
+          <div class="bg-gray-950/80 border border-gray-800 rounded-xl p-3.5 space-y-2">
+            <div class="flex items-center justify-between text-xs font-mono">
+              <span class="text-gray-400">File Size:</span>
+              <span class="text-emerald-400 font-bold">${escapeHTML(file.size_str || "")}</span>
+            </div>
+            <div class="flex items-center justify-between text-xs font-mono">
+              <span class="text-gray-400">Link:</span>
+              <span class="text-cyan-300 truncate max-w-[220px] font-mono" title="${escapeHTML(link.display)}">${escapeHTML(link.display)}</span>
+            </div>
+            ${file.hash ? `
+              <div class="flex items-center justify-between text-xs font-mono">
+                <span class="text-gray-500">SHA-256:</span>
+                <span class="technical-ltr text-gray-400 font-mono truncate max-w-[220px]">${escapeHTML(file.hash.slice(0, 16))}...</span>
+              </div>
+            ` : ""}
+            <p class="text-xs font-sans text-gray-400 pt-1.5 border-t border-gray-800/60 leading-relaxed">
+              ${escapeHTML(file.description || "")}
+            </p>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2.5 pt-1">
+            <button id="btn-copy-artifact-qr-url" class="py-2.5 px-3 min-h-[44px] bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-gray-950 font-mono font-bold text-xs rounded-xl shadow-md transition-all focus-ring cursor-pointer flex items-center justify-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+              Copy Link
+            </button>
+            <a href="${escapeHTML(link.path)}" download class="py-2.5 px-3 min-h-[44px] bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-200 font-mono font-bold text-xs rounded-xl transition-all focus-ring cursor-pointer flex items-center justify-center gap-1.5 text-center">
+              <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+              Download File
+            </a>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const overlay = document.getElementById("modal-overlay");
+    if (overlay) {
+      overlay.innerHTML = modalHTML;
+      overlay.classList.remove("hidden");
+      const dialog = overlay.querySelector('[role="dialog"]');
+      const closeModal = () => this.closeModal();
+      if (dialog) this.trapFocus(dialog);
+
+      document.getElementById("btn-close-artifact-qr")?.addEventListener("click", closeModal);
+      document.getElementById("btn-copy-artifact-qr-url")?.addEventListener("click", () => {
+        this.copyText(link.copyValue, link.isAbsolute
+          ? `Copied artifact URL for ${file.filename}`
+          : `Copied portable artifact path for ${file.filename}`);
+      });
+
+    }
+  }
+
+
+  renderRuleStudio() {
+    if (typeof document === "undefined") return;
+    const container = document.getElementById("rule-studio-section");
+    if (!container) return;
+    const previous = container.querySelector("#studio-routing-reference");
+    if (previous) this.studioReferenceOpen = previous.open;
+
+    // The studio uses the actual publication catalog rather than pretending
+    // example routing rules are a generated, downloadable client profile.
+    const files = Array.isArray(this.catalog?.files) ? this.catalog.files : [];
+    const feeds = [
+      { filename: "all_sources_base64.txt", label: "Universal subscription", format: "BASE64", description: "A compact, client-friendly subscription that expands to individual proxies.", note: "Recommended starting point" },
+      { filename: "all_sources_clash.yaml", label: "Clash / Mihomo", format: "YAML", description: "Proxy entries for Clash-compatible clients. Import and refresh as a subscription.", note: "Node feed · no routing policy" },
+      { filename: "all_sources_singbox_nodes.json", label: "Sing-box nodes", format: "JSON", description: "Outbounds-only node list for subscription-capable Sing-box clients.", note: "Nodes only · no inbound / DNS" },
+      { filename: "all_sources_xray_nodes.json", label: "Xray nodes", format: "JSON", description: "Independent outbounds for compatible Xray/V2Ray subscription importers.", note: "Nodes only · no inbound / DNS" },
+      { filename: "all_sources.txt", label: "Raw proxy links", format: "URI", description: "One complete share link per line for clients supporting raw subscriptions.", note: "Raw source" },
+      { filename: "all_sources_singbox_profile.json", label: "Sing-box runnable profile", format: "PROFILE", description: "A separate complete example with inbounds, DNS and routing included.", note: "Full profile · not a node feed" }
+    ];
+    const feedMarkup = feeds.map((item) => {
+      const file = files.find(f => (f.filename || f.name) === item.filename);
+      if (!file || typeof file.path !== "string") return "";
+      const link = getArtifactLinkModel(file.path);
+      return `
+        <a class="studio-feed-card focus-ring" data-artifact="${escapeHTML(item.filename)}"
+           href="${escapeHTML(link.copyValue)}" ${item.format === "PROFILE" ? "download" : `data-copy-url="${escapeHTML(link.copyValue)}"`}>
+          <span class="studio-feed-top">
+            <span class="studio-feed-type">${escapeHTML(item.format)}</span>
+            <span class="studio-feed-arrow" aria-hidden="true">${item.format === "PROFILE" ? "↓" : "⧉"}</span>
+          </span>
+          <strong>${escapeHTML(item.label)}</strong>
+          <p>${escapeHTML(item.description)}</p>
+          <span class="studio-feed-note">${escapeHTML(item.note)}</span>
+        </a>
+      `;
+    }).filter(Boolean).join("");
+
+    const rules = [
+      { target: "geosite:category-ads-all", action: "BLOCK" },
+      { target: "geosite:cn", action: "DIRECT" },
+      { target: "geoip:cn", action: "DIRECT" },
+      { target: "openai.com", action: "PROXY-US" },
+      { target: "github.com", action: "AUTO-BEST" },
+      { target: "MATCH (Final)", action: "PROXY-AUTO" }
+    ];
+    const ruleMarkup = rules.map((rule, index) => `
+      <div class="studio-reference-rule">
+        <code>${index + 1}. ${escapeHTML(rule.target)}</code>
+        <span>${escapeHTML(rule.action)}</span>
+      </div>
+    `).join("");
+
+    container.innerHTML = `
+      <section class="studio-launch" aria-labelledby="studio-launch-title">
+        <div class="studio-launch-head">
+          <div>
+            <span class="studio-overline">Subscription workspace / Start here</span>
+            <h2 id="studio-launch-title">Choose a format. Keep the nodes independent.</h2>
+            <p>Get a published feed or open the subscription chooser. These are publication artifacts — not proof of a working proxy on your network.</p>
+          </div>
+          <div class="studio-action-bar">
+            <button id="studio-start-builder" type="button" class="studio-primary focus-ring">Choose subscription format <span aria-hidden="true">↗</span></button>
+            <button id="studio-open-converter" type="button" class="focus-ring">Convert local input</button>
+          </div>
+        </div>
+        <div id="studio-feed-options" class="studio-feed-grid" aria-label="Available subscription formats">
+          ${feedMarkup || '<p class="studio-empty-feeds">No published subscriptions in this snapshot. Check the artifacts workspace for publication status.</p>'}
+        </div>
+        <div class="studio-help-line">
+          <span aria-hidden="true">ⓘ</span>
+          <span><strong>Subscription versus profile:</strong> Node feeds import independent proxies; a full profile also contains routing, DNS and inbound settings. Use the format your client expects.</span>
+        </div>
+      </section>
+
+      <details id="studio-routing-reference" class="studio-routing-reference" ${this.studioReferenceOpen ? "open" : ""}>
+        <summary>Routing reference <span class="routing-description">Examples only · not included in node subscriptions</span></summary>
+        <div class="studio-reference-inner">
+          <p>Examples only. These rules are not applied to any published feed. Client routing is configured separately and may require geosite/geoip databases.</p>
+          <div class="studio-reference-grid">
+            <div class="studio-reference-rules">${ruleMarkup}</div>
+            <div class="studio-reference-path">
+              <strong>Illustrative evaluation order</strong>
+              <ol>
+                <li>Inbound request reaches the local client</li>
+                <li>DNS and rule evaluation select a matching action</li>
+                <li>The client chooses DIRECT, BLOCK, or a configured proxy outbound</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </details>
+    `;
+
+    container.querySelectorAll(".studio-feed-card[data-copy-url]").forEach(card => {
+      card.addEventListener("click", event => {
+        event.preventDefault();
+        this.copyText(event.currentTarget.dataset.copyUrl,
+          isHostedDashboard() ? "Subscription URL copied to clipboard" : "Portable artifact path copied — serve over HTTPS before importing",
+          event.currentTarget);
+      });
+    });
+    container.querySelector("#studio-routing-reference")?.addEventListener("toggle", event => {
+      this.studioReferenceOpen = event.currentTarget.open;
+    });
+    container.querySelector("#studio-start-builder")?.addEventListener("click", event => {
+      this.lastFocusedElement = event.currentTarget;
+      this.openSubscriptionBuilderModal();
+    });
+    container.querySelector("#studio-open-converter")?.addEventListener("click", () => {
+      this.converterTab = "converter";
+      this.switchPageTab("decoder", true);
+      this.renderDecoderSection();
+      document.getElementById("converter-input-text")?.focus({ preventScroll: true });
+    });
+  }
+
+  renderDecoderSection() {
+    if (typeof document === "undefined") return;
+    const decoderSection = document.getElementById("decoder-section") || document.getElementById("inline-decoder-section");
+    if (!decoderSection) return;
+
+    const currentTab = this.converterTab || "inspector";
+
+    decoderSection.innerHTML = `
+      <div class="inspector-workspace my-10 p-6 sm:p-8 bg-gray-900/80 border border-cyan-500/20 rounded-3xl backdrop-blur-md shadow-xl">
+        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-800">
+          <div>
+            <h3 class="text-lg font-mono font-bold text-white flex items-center gap-2">
+              <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+              Protocol Converter &amp; Inspection Studio
+            </h3>
+            <p class="text-xs font-mono text-gray-400 mt-0.5">Local inspection and conversion for Sing-box, Mihomo, Xray JSON, Base64 and QR codes</p>
+          </div>
+
+          <!-- Studio Tabs Header -->
+          <div class="flex flex-wrap gap-2" role="tablist" aria-label="Protocol tools">
+            <button
+              class="btn-studio-tab px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${currentTab === 'inspector' ? 'bg-cyan-500 text-gray-950 font-bold shadow-md shadow-cyan-500/30' : 'bg-gray-950 text-gray-400 hover:text-gray-200 border border-gray-800'}"
+              data-tab="inspector"
+              id="studio-tab-inspector"
+              role="tab"
+              aria-controls="studio-tab-content"
+              aria-selected="${currentTab === 'inspector'}"
+              tabindex="${currentTab === 'inspector' ? '0' : '-1'}"
+            >
+              <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+              <span>Protocol Inspector</span>
+            </button>
+            <button
+              class="btn-studio-tab px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${currentTab === 'converter' ? 'bg-cyan-500 text-gray-950 font-bold shadow-md shadow-cyan-500/30' : 'bg-gray-950 text-gray-400 hover:text-gray-200 border border-gray-800'}"
+              data-tab="converter"
+              id="studio-tab-converter"
+              role="tab"
+              aria-controls="studio-tab-content"
+              aria-selected="${currentTab === 'converter'}"
+              tabindex="${currentTab === 'converter' ? '0' : '-1'}"
+            >
+              <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+              <span>Universal Converter</span>
+            </button>
+            <button
+              class="btn-studio-tab px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${currentTab === 'dedup' ? 'bg-cyan-500 text-gray-950 font-bold shadow-md shadow-cyan-500/30' : 'bg-gray-950 text-gray-400 hover:text-gray-200 border border-gray-800'}"
+              data-tab="dedup"
+              id="studio-tab-dedup"
+              role="tab"
+              aria-controls="studio-tab-content"
+              aria-selected="${currentTab === 'dedup'}"
+              tabindex="${currentTab === 'dedup' ? '0' : '-1'}"
+            >
+              <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+              <span>Bulk Deduplicator</span>
+            </button>
+            <button
+              class="btn-studio-tab px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl text-xs font-mono font-semibold transition-all focus-ring cursor-pointer ${currentTab === 'qr_studio' ? 'bg-cyan-500 text-gray-950 font-bold shadow-md shadow-cyan-500/30' : 'bg-gray-950 text-gray-400 hover:text-gray-200 border border-gray-800'}"
+              data-tab="qr_studio"
+              id="studio-tab-qr_studio"
+              role="tab"
+              aria-controls="studio-tab-content"
+              aria-selected="${currentTab === 'qr_studio'}"
+              tabindex="${currentTab === 'qr_studio' ? '0' : '-1'}"
+            >
+              <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+              <span>QR Code Studio</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Tab Content Container -->
+        <div id="studio-tab-content" role="tabpanel" aria-labelledby="studio-tab-${currentTab}" tabindex="0">
+        </div>
+      </div>
+    `;
+
+    this.renderStudioTabContent();
+
+    const activateStudioTab = (tab, focus = false) => {
+      this.converterTab = tab;
+      this.renderDecoderSection();
+      if (focus) decoderSection.querySelector(`.btn-studio-tab[data-tab="${tab}"]`)?.focus({ preventScroll: true });
+    };
+    decoderSection.querySelectorAll(".btn-studio-tab").forEach(btn => {
+      btn.addEventListener("click", (event) => {
+        activateStudioTab(event.currentTarget.dataset.tab, true);
+      });
+      btn.addEventListener("keydown", (event) => {
+        const tabs = Array.from(decoderSection.querySelectorAll(".btn-studio-tab"));
+        const index = tabs.indexOf(event.currentTarget);
+        const rtl = document.documentElement.dir === "rtl";
+        let nextIndex = -1;
+        if (event.key === (rtl ? "ArrowLeft" : "ArrowRight")) nextIndex = (index + 1) % tabs.length;
+        if (event.key === (rtl ? "ArrowRight" : "ArrowLeft")) nextIndex = (index - 1 + tabs.length) % tabs.length;
+        if (event.key === "Home") nextIndex = 0;
+        if (event.key === "End") nextIndex = tabs.length - 1;
+        if (nextIndex < 0) return;
+        event.preventDefault();
+        activateStudioTab(tabs[nextIndex].dataset.tab, true);
+      });
+    });
+  }
+
+  renderStudioTabContent() {
+    const container = document.getElementById("studio-tab-content");
+    if (!container) return;
+    const currentTab = this.converterTab || "inspector";
+
+    if (currentTab === "inspector") {
+      const defaultUri = ""; // Never prefill a real credential or an invented demonstration endpoint.
+      container.innerHTML = `
+        <div class="space-y-4">
+          <div class="flex flex-col sm:flex-row gap-2">
+            <input
+              id="decoder-single-input"
+              type="text"
+              aria-label="Proxy URI to inspect"
+              class="flex-1 px-4 py-2.5 min-h-[44px] bg-gray-950 border border-gray-800 focus:border-cyan-500 rounded-xl text-xs font-mono text-cyan-300 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus-ring"
+              placeholder="Paste raw vless://, vmess://, trojan://, ss://, hysteria2://..."
+              value="${escapeHTML(defaultUri)}"
+            />
+            <button
+              id="btn-run-inspect"
+              class="px-5 py-2.5 min-h-[44px] bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-mono font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/20 transition-all cursor-pointer focus-ring"
+            >
+              Inspect Parameters
+            </button>
+          </div>
+
+          <div id="inspector-output" class="mt-4"></div>
+        </div>
+      `;
+
+      const runInspect = () => {
+        const inputVal = (document.getElementById("decoder-single-input")?.value || "").trim();
+        const out = document.getElementById("inspector-output");
+        if (!out) return;
+        if (!inputVal) {
+          out.innerHTML = `<span class="text-gray-500 font-mono text-xs">Enter a proxy link above</span>`;
+          return;
+        }
+        try {
+          const decoded = decodeProxyURI(inputVal);
+
+          // A pasted subscription link is not one node. decodeProxyURI already
+          // expands a base64 feed into its lines, so report what was found and
+          // hand the whole payload to the batch converter instead of printing
+          // a node card whose server, port and uuid are all undefined.
+          if (decoded && decoded.protocol === "subscription" && Array.isArray(decoded.lines)) {
+            this.renderSubscriptionInspect(decoded, out);
+            return;
+          }
+
+          // A share link whose protocol this decoder does not model yet has no
+          // server, port or credential to show. Say so instead of rendering a
+          // node card full of "undefined" and offering a conversion that would
+          // produce a config the client cannot load.
+          if (decoded && decoded.supported === false) {
+            this.renderUnsupportedInspect(decoded, out);
+            return;
+          }
+
+          const flag = this.getCountryFlag(this.inferCountryFromTagOrHost(decoded.name, decoded.server));
+          const op = this.detectOperator(decoded.server, decoded.sni || decoded.host, decoded.name);
+          const singboxOutbound = nodeToSingboxOutbound(decoded);
+          const clashProxy = nodeToClashProxy(decoded);
+
+          out.innerHTML = `
+            <div class="bg-gray-950 border border-gray-800 rounded-2xl p-5 space-y-4 font-mono text-xs">
+              <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-800/80 pb-3">
+                <div class="flex items-center gap-2">
+                  <span class="text-lg">${flag}</span>
+                  <span class="px-2 py-0.5 rounded uppercase font-bold text-xs bg-cyan-950 text-cyan-300 border border-cyan-800">${escapeHTML(decoded.protocol)}</span>
+                  <span class="px-1.5 py-0.5 rounded text-xs bg-gray-900 text-gray-300 border border-gray-800">${escapeHTML(op)}</span>
+                  <span class="font-bold text-gray-200 truncate max-w-xs">${escapeHTML(decoded.name || 'Node')}</span>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  <button id="btn-copy-node-json" class="px-3.5 py-2 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-cyan-300 rounded-xl text-xs font-mono font-medium cursor-pointer focus-ring">Copy JSON</button>
+                  <button id="btn-copy-node-singbox" class="px-3.5 py-2 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-emerald-300 rounded-xl text-xs font-mono font-medium cursor-pointer focus-ring">Copy Sing-box</button>
+                  <button id="btn-copy-node-clash" class="px-3.5 py-2 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-amber-300 rounded-xl text-xs font-mono font-medium cursor-pointer focus-ring">Copy Clash</button>
+                </div>
+              </div>
+
+              <!-- Parameter Grid -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                <div class="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800/60">
+                  <span class="text-xs text-gray-500 block">Server Address</span>
+                  <span class="text-cyan-300 font-semibold select-all">${escapeHTML(decoded.server)}</span>
+                </div>
+                <div class="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800/60">
+                  <span class="text-xs text-gray-500 block">Port</span>
+                  <span class="text-gray-200 select-all">${escapeHTML(decoded.port)}</span>
+                </div>
+                <div class="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800/60">
+                  <span class="text-xs text-gray-500 block">Credential / UUID</span>
+                  <span class="text-gray-300 select-all">${escapeHTML(decoded.uuid || decoded.password || "N/A")}</span>
+                </div>
+                <div class="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800/60">
+                  <span class="text-xs text-gray-500 block">Security / TLS</span>
+                  <span class="text-indigo-300">${escapeHTML(decoded.security || "none")}</span>
+                </div>
+                <div class="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800/60">
+                  <span class="text-xs text-gray-500 block">SNI / ServerName</span>
+                  <span class="text-cyan-300 select-all">${escapeHTML(decoded.sni || decoded.host || "None")}</span>
+                </div>
+                <div class="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800/60">
+                  <span class="text-xs text-gray-500 block">Transport Network</span>
+                  <span class="text-emerald-300">${escapeHTML(decoded.transport || "tcp")}</span>
+                </div>
+                ${decoded.publicKey ? `
+                  <div class="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800/60">
+                    <span class="text-xs text-gray-500 block">Reality Public Key (pbk)</span>
+                    <span class="text-amber-300 select-all">${escapeHTML(decoded.publicKey)}</span>
+                  </div>
+                ` : ''}
+                ${decoded.shortId ? `
+                  <div class="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800/60">
+                    <span class="text-xs text-gray-500 block">Short ID (sid)</span>
+                    <span class="text-amber-300 select-all">${escapeHTML(decoded.shortId)}</span>
+                  </div>
+                ` : ''}
+                ${decoded.serviceName ? `
+                  <div class="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800/60">
+                    <span class="text-xs text-gray-500 block">gRPC ServiceName</span>
+                    <span class="text-cyan-300 select-all">${escapeHTML(decoded.serviceName)}</span>
+                  </div>
+                ` : ''}
+              </div>
+
+              <!-- Full JSON Representation -->
+              <div class="mt-2">
+                <span class="text-xs text-gray-400 block mb-1 font-bold">Sing-box Outbound Object:</span>
+                <pre class="p-3 bg-gray-900/80 rounded-xl border border-gray-800 overflow-x-auto text-xs text-gray-300">${escapeHTML(JSON.stringify(singboxOutbound, null, 2))}</pre>
+              </div>
+            </div>
+          `;
+
+          document.getElementById("btn-copy-node-json")?.addEventListener("click", () => {
+            this.copyText(JSON.stringify(decoded, null, 2), "Decoded JSON copied");
+          });
+          document.getElementById("btn-copy-node-singbox")?.addEventListener("click", () => {
+            this.copyText(JSON.stringify(singboxOutbound, null, 2), "Sing-box outbound JSON copied");
+          });
+          document.getElementById("btn-copy-node-clash")?.addEventListener("click", () => {
+            // Clash profiles are YAML. Emit the same entry the full profile
+            // builder produces, so what is copied can be pasted straight under
+            // a `proxies:` key rather than needing manual conversion.
+            this.copyText(clashProxyToYAML(clashProxy), "Clash Meta definition copied");
+          });
+        } catch (err) {
+          out.innerHTML = `<div class="p-4 bg-rose-950/40 border border-rose-800 rounded-xl text-rose-300 font-mono text-xs">Error inspecting link: ${escapeHTML(err.message)}</div>`;
+        }
+      };
+
+      document.getElementById("btn-run-inspect")?.addEventListener("click", runInspect);
+      document.getElementById("decoder-single-input")?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") runInspect();
+      });
+      runInspect();
+    } else if (currentTab === "converter") {
+      const sampleURIs = this.proxies.slice(0, 5).map(p => p.raw).filter(Boolean).join("\n");
+      container.innerHTML = `
+        <div class="space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="sm:col-span-2">
+              <label for="converter-format-select" class="block text-xs font-mono text-gray-400 mb-1">Target Client / Engine Format</label>
+              <select
+                id="converter-format-select"
+                class="w-full bg-gray-950 border border-gray-800 text-cyan-300 text-xs font-mono rounded-xl px-4 py-2.5 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
+              >
+                <option value="singbox">Sing-box 1.10+ Complete Client Config (JSON)</option>
+                <option value="clash">Clash Meta / Mihomo Complete Profile (YAML)</option>
+                <option value="xray">Xray-Core Complete Client Config (JSON)</option>
+                <option value="surge">Surge 5 Proxy Config (.conf)</option>
+                <option value="loon">Loon Proxy Client Config (.conf)</option>
+                <option value="qx">Quantumult X Server Directives (.conf)</option>
+                <option value="b64sub">Base64 Subscription Feed (v2rayNG / Streisand)</option>
+                <option value="npvt">NPVT Clean Remark Text List (NekoBox / Hiddify)</option>
+              </select>
+            </div>
+            <div class="flex items-end gap-2">
+              <button
+                id="btn-load-active-nodes"
+                class="flex-1 px-3 py-2.5 min-h-[44px] bg-gray-800 hover:bg-gray-700 text-gray-200 font-mono text-xs rounded-xl focus-ring cursor-pointer transition-all"
+              >
+                Load Active Nodes (${this.proxies.length})
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label for="converter-input-text" class="block text-xs font-mono text-gray-400 mb-1">Source Proxy URIs / Base64 Subscription:</label>
+            <textarea
+              id="converter-input-text"
+              rows="4"
+              class="w-full px-4 py-3 bg-gray-950 border border-gray-800 focus:border-cyan-500 rounded-xl text-xs font-mono text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus-ring"
+              placeholder="Paste proxy URIs (one per line) or Base64 subscription string..."
+            >${escapeHTML(sampleURIs)}</textarea>
+          </div>
+
+          <div class="flex justify-between items-center">
+            <button
+              id="btn-run-convert"
+              class="px-6 py-2.5 min-h-[44px] bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-mono font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/20 transition-all cursor-pointer focus-ring"
+            >
+              Convert All Nodes
+            </button>
+            <span id="converter-status" class="text-xs font-mono text-gray-400"></span>
+          </div>
+
+          <div id="converter-output-container" class="hidden mt-4 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono font-bold text-cyan-400">Converted Output Result:</span>
+              <div class="flex flex-wrap gap-2">
+                <button id="btn-copy-converted" class="px-4 py-2.5 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 text-cyan-300 font-mono text-xs rounded-xl focus-ring cursor-pointer transition-all">Copy Output</button>
+                <button id="btn-download-converted" class="px-4 py-2.5 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-gray-200 font-mono text-xs rounded-xl focus-ring cursor-pointer transition-all">Download File</button>
+              </div>
+            </div>
+            <textarea
+              id="converter-output-text"
+              rows="8"
+              aria-label="Converted client configuration output"
+              readonly
+              class="w-full px-4 py-3 bg-gray-950 border border-gray-800 rounded-xl text-xs font-mono text-gray-300 focus:outline-none select-all"
+            ></textarea>
+          </div>
+        </div>
+      `;
+
+      document.getElementById("btn-load-active-nodes")?.addEventListener("click", () => {
+        const text = this.proxies.map(p => p.raw).filter(Boolean).join("\n");
+        const ta = document.getElementById("converter-input-text");
+        if (ta) ta.value = text;
+        this.showToast(`Loaded ${this.proxies.length} active nodes into converter`);
+      });
+
+      document.getElementById("btn-run-convert")?.addEventListener("click", () => {
+        const inputVal = (document.getElementById("converter-input-text")?.value || "").trim();
+        const format = document.getElementById("converter-format-select")?.value;
+        const outBox = document.getElementById("converter-output-container");
+        const outText = document.getElementById("converter-output-text");
+        const status = document.getElementById("converter-status");
+
+        if (!inputVal) {
+          this.showToast("Please enter proxy URIs to convert", "error");
+          return;
+        }
+
+        try {
+          const converted = convertProxyBatch(inputVal, format);
+          outBox?.classList.remove("hidden");
+          if (outText) outText.value = converted;
+          if (status) status.textContent = `Conversion complete (${format.toUpperCase()})`;
+          this.showToast("Batch conversion complete");
+        } catch (err) {
+          this.showToast(`Conversion failed: ${err.message}`, "error");
+        }
+      });
+
+      document.getElementById("btn-copy-converted")?.addEventListener("click", () => {
+        const text = document.getElementById("converter-output-text")?.value;
+        if (text) this.copyText(text, "Converted output copied to clipboard");
+      });
+
+      document.getElementById("btn-download-converted")?.addEventListener("click", () => {
+        const text = document.getElementById("converter-output-text")?.value;
+        const format = document.getElementById("converter-format-select")?.value;
+        if (!text) return;
+        const filenames = {
+          singbox: "singbox_config.json",
+          clash: "clash_meta_config.yaml",
+          xray: "xray_config.json",
+          surge: "surge_config.conf",
+          loon: "loon_config.conf",
+          qx: "quantumult_x_config.conf",
+          b64sub: "subscription.b64sub",
+          npvt: "nodes_npvt.txt"
+        };
+        const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filenames[format] || "config.txt";
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+    } else if (currentTab === "dedup") {
+      container.innerHTML = `
+        <div class="space-y-4">
+          <p class="text-xs font-mono text-gray-400">Paste bulk proxies from multiple sources to eliminate duplicates, strip tracking queries, and generate clean identities.</p>
+
+          <textarea
+            id="dedup-input-text"
+            rows="4"
+            aria-label="Bulk proxy input for deduplication"
+            class="w-full px-4 py-3 bg-gray-950 border border-gray-800 focus:border-cyan-500 rounded-xl text-xs font-mono text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus-ring"
+            placeholder="Paste raw proxy URIs..."
+          >${escapeHTML(this.proxies.map(p => p.raw).join("\n"))}</textarea>
+
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-4 text-xs font-mono text-gray-300">
+              <label class="flex items-center gap-1.5 cursor-pointer">
+                <input id="chk-clean-remarks" type="checkbox" checked class="rounded bg-gray-950 border-gray-800 text-cyan-500 focus:ring-0">
+                <span>Sanitize Remarks</span>
+              </label>
+              <label class="flex items-center gap-1.5 cursor-pointer">
+                <input id="chk-enrich-operator" type="checkbox" checked class="rounded bg-gray-950 border-gray-800 text-cyan-500 focus:ring-0">
+                <span>Enrich Operators</span>
+              </label>
+            </div>
+
+            <button
+              id="btn-run-dedup"
+              class="px-6 py-2.5 min-h-[44px] bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-mono font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/20 transition-all cursor-pointer focus-ring"
+            >
+              Run SHA-256 Deduplication
+            </button>
+          </div>
+
+          <div id="dedup-result-box" class="hidden space-y-3 pt-2">
+            <div class="grid grid-cols-3 gap-3 font-mono text-xs">
+              <div class="p-3 bg-gray-950 border border-gray-800 rounded-xl text-center">
+                <span class="text-gray-500 text-xs block">Ingested</span>
+                <span id="stat-ingested" class="text-gray-200 font-bold text-sm">0</span>
+              </div>
+              <div class="p-3 bg-gray-950 border border-gray-800 rounded-xl text-center">
+                <span class="text-gray-500 text-xs block">Unique Nodes</span>
+                <span id="stat-unique" class="text-emerald-400 font-bold text-sm">0</span>
+              </div>
+              <div class="p-3 bg-gray-950 border border-gray-800 rounded-xl text-center">
+                <span class="text-gray-500 text-xs block">Duplicates Purged</span>
+                <span id="stat-purged" class="text-rose-400 font-bold text-sm">0</span>
+              </div>
+            </div>
+
+            <div class="flex justify-end gap-2">
+              <button id="btn-copy-dedup-result" class="px-4 py-2.5 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 text-cyan-300 font-mono text-xs rounded-xl focus-ring cursor-pointer transition-all">Copy Unique URIs</button>
+            </div>
+
+            <textarea
+              id="dedup-output-text"
+              rows="6"
+              aria-label="Deduplicated output"
+              readonly
+              class="w-full px-4 py-3 bg-gray-950 border border-gray-800 rounded-xl text-xs font-mono text-gray-300 focus:outline-none select-all"
+            ></textarea>
+          </div>
+        </div>
+      `;
+
+      document.getElementById("btn-run-dedup")?.addEventListener("click", () => {
+        const text = document.getElementById("dedup-input-text")?.value || "";
+        const uris = extractAllURIs(text);
+        const seen = new Set();
+        const unique = [];
+
+        uris.forEach(u => {
+          try {
+            const dec = decodeProxyURI(u);
+            const key = `${dec.protocol}://${dec.address}:${dec.port}/${dec.uuid || dec.password || ''}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              unique.push(u);
+            }
+          } catch {
+            if (!seen.has(u)) {
+              seen.add(u);
+              unique.push(u);
+            }
+          }
+        });
+
+        document.getElementById("dedup-result-box")?.classList.remove("hidden");
+        document.getElementById("stat-ingested").textContent = uris.length;
+        document.getElementById("stat-unique").textContent = unique.length;
+        document.getElementById("stat-purged").textContent = uris.length - unique.length;
+        document.getElementById("dedup-output-text").value = unique.join("\n");
+        this.showToast(`Deduplication complete: ${unique.length} unique nodes.`);
+      });
+
+      document.getElementById("btn-copy-dedup-result")?.addEventListener("click", () => {
+        const res = document.getElementById("dedup-output-text")?.value;
+        if (res) this.copyText(res, "Unique nodes copied to clipboard");
+      });
+    } else if (currentTab === "qr_studio") {
+      const defaultQrText = (this.proxies[0] && this.proxies[0].raw) || "vless://8f7b3c2a-9e1d-4a5b-b2c3-d4e5f6a7b8c9@104.21.45.88:443?security=reality&sni=speed.cloudflare.com&fp=chrome&pbk=abc123def456&sid=0123456789abcdef&type=grpc#DE-CF";
+      container.innerHTML = `
+        <div class="space-y-4">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            <div class="lg:col-span-7 space-y-3">
+              <label for="qr-studio-input" class="block text-xs font-mono text-gray-400">Content / Proxy URI to Encode:</label>
+              <textarea
+                id="qr-studio-input"
+                rows="4"
+                class="w-full px-4 py-3 bg-gray-950 border border-gray-800 focus:border-cyan-500 rounded-xl text-xs font-mono text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus-ring"
+                placeholder="Paste link or text to generate scannable ISO/IEC 18004 QR Code..."
+              >${escapeHTML(defaultQrText)}</textarea>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label for="qr-studio-color-preset" class="block text-xs font-mono text-gray-400 mb-1">Color Preset:</label>
+                  <select
+                    id="qr-studio-color-preset"
+                    class="w-full bg-gray-950 border border-gray-800 text-gray-300 text-xs font-mono rounded-xl px-3 py-2.5 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
+                  >
+                    <option value="cyber">Cyber Cyan &amp; Dark (#070a0f / #ffffff)</option>
+                    <option value="mono_dark">High-Contrast Pure B&amp;W (#000000 / #ffffff)</option>
+                    <option value="emerald">Matrix Emerald (#022c22 / #6ee7b7)</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="qr-studio-ecc" class="block text-xs font-mono text-gray-400 mb-1">Error Correction (ECC):</label>
+                  <select
+                    id="qr-studio-ecc"
+                    class="w-full bg-gray-950 border border-gray-800 text-gray-300 text-xs font-mono rounded-xl px-3 py-2.5 min-h-[44px] focus:border-cyan-500 focus:outline-none cursor-pointer focus-ring"
+                  >
+                    <option value="M" selected>Level M (15% Recovery - Standard)</option>
+                    <option value="L">Level L (7% Recovery - Dense)</option>
+                    <option value="Q">Level Q (25% Recovery - Robust)</option>
+                    <option value="H">Level H (30% Recovery - Maximum)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="lg:col-span-5 flex flex-col items-center justify-center p-6 bg-gray-950 border border-gray-800 rounded-2xl space-y-3">
+              <div id="qr-studio-render-target" class="p-3 bg-white rounded-2xl shadow-lg flex items-center justify-center min-h-[220px] min-w-[220px]">
+              </div>
+
+              <div class="flex flex-wrap gap-2 w-full">
+                <button id="btn-download-qr-svg" class="flex-1 py-2.5 px-4 min-h-[44px] inline-flex items-center justify-center bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-mono font-bold text-xs rounded-xl focus-ring cursor-pointer transition-all shadow-md shadow-cyan-500/20">Download SVG</button>
+                <button id="btn-copy-qr-svg" class="py-2.5 px-4 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-cyan-300 font-mono text-xs rounded-xl focus-ring cursor-pointer transition-all">Copy SVG</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const refreshQR = () => {
+        const text = (document.getElementById("qr-studio-input")?.value || "").trim() || defaultQrText;
+        const preset = document.getElementById("qr-studio-color-preset")?.value || "cyber";
+        const ecc = document.getElementById("qr-studio-ecc")?.value || "M";
+        const target = document.getElementById("qr-studio-render-target");
+        if (!target) return;
+
+        let dark = "#070a0f";
+        let light = "#ffffff";
+        if (preset === "cyber") {
+          dark = "#070a0f";
+          light = "#ffffff";
+        } else if (preset === "mono_dark") {
+          dark = "#000000";
+          light = "#ffffff";
+        } else if (preset === "emerald") {
+          dark = "#022c22";
+          light = "#6ee7b7";
+        }
+
+        target.innerHTML = renderQRCodeSVG(text, 200, dark, light, ecc);
+      };
+
+      document.getElementById("qr-studio-input")?.addEventListener("input", refreshQR);
+      document.getElementById("qr-studio-color-preset")?.addEventListener("change", refreshQR);
+      document.getElementById("qr-studio-ecc")?.addEventListener("change", refreshQR);
+      refreshQR();
+
+      document.getElementById("btn-download-qr-svg")?.addEventListener("click", () => {
+        const svgContent = document.getElementById("qr-studio-render-target")?.innerHTML;
+        if (!svgContent) return;
+        const blob = new Blob([svgContent], { type: "image/svg+xml;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "proxy_qrcode.svg";
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+
+      document.getElementById("btn-copy-qr-svg")?.addEventListener("click", () => {
+        const svgContent = document.getElementById("qr-studio-render-target")?.innerHTML;
+        if (svgContent) this.copyText(svgContent, "QR Code SVG XML copied to clipboard");
+      });
+    }
+  }
+
+  openDecoderModal(initialUri = "") {
+    if (typeof document === "undefined") return;
+    const modalContainer = document.getElementById("modal-overlay");
+    if (!modalContainer) return;
+
+    const defaultVal = initialUri || (this.proxies[0] && this.proxies[0].raw) || "";
+    let decodedRes = null;
+    try {
+      decodedRes = decodeProxyURI(defaultVal);
+    } catch {
+      // The modal opens with an empty result panel and waits for the user to
+      // paste something decodable.
+    }
+
+    modalContainer.innerHTML = `
+      <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="modal-decoder-title">
+        <div id="modal-box" class="relative w-full max-w-2xl bg-gray-900 border border-cyan-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-cyan-950/50 space-y-6 max-h-[90vh] max-h-[90dvh] overflow-y-auto">
+          <div class="flex items-center justify-between border-b border-gray-800 pb-4">
+            <div class="flex items-center gap-2">
+              <span class="p-2 bg-cyan-950 text-cyan-400 rounded-xl">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+              </span>
+              <h3 id="modal-decoder-title" class="text-lg font-mono font-bold text-white">Proxy Protocol Inspector</h3>
+            </div>
+            <button id="btn-close-modal" class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-xl focus-ring cursor-pointer" aria-label="Close modal">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+          </div>
+
+          <div class="space-y-3">
+            <label for="modal-decoder-textarea" class="block text-xs font-mono text-gray-400">Raw Proxy URI / Subscription Payload:</label>
+            <textarea
+              id="modal-decoder-textarea"
+              rows="3"
+              class="w-full px-3 py-2 bg-gray-950 border border-gray-800 focus:border-cyan-500 rounded-xl text-xs font-mono text-gray-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus-ring"
+            >${escapeHTML(defaultVal)}</textarea>
+          </div>
+
+          <div id="modal-decoder-output" class="technical-ltr p-4 bg-gray-950 border border-gray-800 rounded-2xl max-h-[300px] overflow-y-auto font-mono text-xs">
+            ${decodedRes ? `<pre class="text-gray-300 text-xs">${escapeHTML(JSON.stringify(decodedRes, null, 2))}</pre>` : `<span class="text-gray-500">Click parse to inspect</span>`}
+          </div>
+
+          <div class="flex flex-wrap justify-end gap-3 pt-2">
+            <button id="modal-btn-copy-raw" class="px-4 py-2.5 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-gray-200 font-mono text-xs rounded-xl focus-ring cursor-pointer" aria-label="Copy raw proxy URI">Copy Raw</button>
+            <button id="modal-btn-copy-json" class="px-4 py-2.5 min-h-[44px] inline-flex items-center justify-center bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-mono font-bold text-xs rounded-xl focus-ring cursor-pointer" aria-label="Copy decoded parameters JSON">Copy Decoded JSON</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    modalContainer.classList.remove("hidden");
+    const box = document.getElementById("modal-box");
+    if (box) this.trapFocus(box);
+
+    document.getElementById("btn-close-modal")?.addEventListener("click", () => {
+      this.closeModal();
+    });
+
+    const ta = document.getElementById("modal-decoder-textarea");
+    ta?.addEventListener("input", (e) => {
+      try {
+        const parsed = decodeProxyURI(e.target.value);
+        document.getElementById("modal-decoder-output").innerHTML = `<pre class="text-gray-300 text-xs">${escapeHTML(JSON.stringify(parsed, null, 2))}</pre>`;
+      } catch (err) {
+        document.getElementById("modal-decoder-output").innerHTML = `<span class="text-rose-400">${escapeHTML(err.message)}</span>`;
+      }
+    });
+
+    document.getElementById("modal-btn-copy-raw")?.addEventListener("click", () => {
+      this.copyText(ta.value, "Raw URI copied");
+    });
+
+    document.getElementById("modal-btn-copy-json")?.addEventListener("click", () => {
+      try {
+        const parsed = decodeProxyURI(ta.value);
+        this.copyText(JSON.stringify(parsed, null, 2), "JSON parameters copied");
+      } catch {
+        this.showToast("Cannot copy invalid JSON", "error");
+      }
+    });
+  }
+
+  openSubscriptionBuilderModal() {
+    if (typeof document === "undefined") return;
+    const modalContainer = document.getElementById("modal-overlay");
+    if (!modalContainer) return;
+
+    const hosted = isHostedDashboard();
+    const publicBase = getConfiguredPublicBase();
+    const files = Array.isArray(this.catalog?.files) ? this.catalog.files : [];
+    const findArtifact = (filename) => files.find((file) => (file.filename || file.name) === filename);
+    // Every entry here is a real node subscription. JSON generators omit
+    // inbound/DNS/route profile policy specifically so an update expands nodes
+    // instead of creating one custom full-config item.
+    const subscriptionFeeds = [
+      ["all_sources_base64.txt", "Base64 subscription", "Recommended lossless subscription: the complete one-node-per-line URI list encoded as one Base64 body. Decoding preserves the node list 1:1.", "cyan", true],
+      ["all_sources.txt", "Raw URI subscription", "One node per line, unencoded. Use this when the client accepts raw share-link subscriptions.", "emerald", false],
+      ["all_sources_singbox_nodes.json", "Sing-box JSON subscription", "Outbounds-only JSON. Compatible subscription updaters expand the contained proxies into independent entries.", "sky", false],
+      ["all_sources_xray_nodes.json", "Xray JSON subscription", "Outbounds-only Xray/V2Ray JSON. Current v2rayN imports the contained outbounds as independent subscription items.", "indigo", false],
+      ["all_sources_clash.yaml", "Clash / Mihomo subscription", "Proxy-provider YAML containing only independent entries under proxies. Refreshing the provider updates the node list without importing a full profile.", "violet", false],
+      ["all_sources_nekobox.json", "NekoBox JSON subscription", "Top-level JSON array of standalone NekoBox proxy nodes; each entry imports independently without full-profile routing/DNS.", "amber", false],
+    ].map(([filename, label, description, color, recommended]) => ({ filename, label, description, color, recommended, file: findArtifact(filename) }));
+    const profileDownloads = [
+      ["all_sources_singbox_profile.json", "Sing-box full profile", "Complete runnable Sing-box configuration with inbound, DNS, routing and selector policy.", "sky"],
+      ["all_sources_xray_profile.json", "Xray full profile", "Complete runnable Xray configuration with local inbound and full configuration envelope.", "indigo"],
+    ].map(([filename, label, description, color]) => ({ filename, label, description, color, file: findArtifact(filename) }));
+    const feedCard = ({ label, description, file, recommended, copyLabel }) => {
+      if (!file) return "";
+      const link = getArtifactLinkModel(file.path);
+      const action = copyLabel || "Copy Node Subscription URL";
+      return `
+      <div class="p-3.5 ${recommended ? "bg-cyan-950/40 border-cyan-500/40" : "bg-gray-950 border-gray-800"} border rounded-xl font-mono text-xs flex flex-col justify-between">
+        <div>
+          <span class="text-gray-200 font-bold block">${escapeHTML(label)}${recommended ? `<span class="ml-2 align-middle px-1.5 py-0.5 rounded bg-cyan-500 text-gray-950 text-[12px] font-bold uppercase">recommended</span>` : ""}</span>
+          <span class="text-xs text-gray-500 block mt-0.5">${escapeHTML(description)}</span>
+        </div>
+        <div class="mt-3 rounded-lg border border-gray-800 bg-black/20 px-2.5 py-2">
+          <div class="text-xs uppercase tracking-wider text-gray-500 mb-1">${escapeHTML(link.sourceLabel)}</div>
+          <div class="text-xs text-cyan-300 break-all">${escapeHTML(link.display)}</div>
+        </div>
+        <div class="mt-3 flex items-center justify-end gap-2">
+          <button class="btn-copy-custom px-3 py-1.5 min-h-[44px] bg-cyan-500 text-gray-950 font-bold rounded-lg text-xs cursor-pointer focus-ring" data-url="${escapeHTML(link.copyValue)}" data-absolute="${link.isAbsolute}" data-copy-message="Node subscription URL copied">${escapeHTML(action)}</button>
+        </div>
+      </div>`;
+    };
+    const profileCard = ({ label, description, file }) => {
+      if (!file) return "";
+      const link = getArtifactLinkModel(file.path);
+      return `
+      <div class="p-3.5 bg-gray-950 border border-gray-800 rounded-xl font-mono text-xs flex flex-col justify-between">
+        <div>
+          <span class="text-gray-200 font-bold block">${escapeHTML(label)}</span>
+          <span class="text-xs text-gray-500 block mt-0.5">${escapeHTML(description)}</span>
+        </div>
+        <div class="mt-3 rounded-lg border border-gray-800 bg-black/20 px-2.5 py-2">
+          <div class="text-xs uppercase tracking-wider text-gray-500 mb-1">${escapeHTML(link.sourceLabel)}</div>
+          <div class="text-xs text-cyan-300 break-all">${escapeHTML(link.display)}</div>
+        </div>
+        <div class="mt-3 flex items-center justify-end gap-2">
+          <a class="btn-download-profile px-3 py-1.5 min-h-[44px] inline-flex items-center bg-gray-800 hover:bg-cyan-500 hover:text-gray-950 text-gray-200 font-bold rounded-lg text-xs cursor-pointer focus-ring" href="${escapeHTML(link.copyValue)}" download>Download Full Profile</a>
+        </div>
+      </div>`;
+    };
+    modalContainer.innerHTML = `
+      <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="modal-sub-title">
+        <div id="modal-box" class="relative w-full max-w-2xl bg-gray-900 border border-cyan-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-cyan-950/50 space-y-5 max-h-[90vh] max-h-[90dvh] overflow-y-auto">
+          <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+            <h3 id="modal-sub-title" class="text-base font-mono font-bold text-white flex items-center gap-2">
+              <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+              Subscription Links
+            </h3>
+            <button id="btn-close-sub" class="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-800 text-gray-400 hover:text-white rounded-lg cursor-pointer focus-ring" aria-label="Close Subscription Builder Modal">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+          </div>
+
+          <p class="text-xs font-mono text-gray-400"><strong>These are standalone node feeds, not complete client profiles.</strong> Sing-box/Xray feeds are intentionally outbounds-only, and Clash/Mihomo is proxies-only, so updating a subscription refreshes its nodes instead of creating one custom profile.</p>
+          ${hosted || publicBase ? "" : `<div class="rounded-xl border border-amber-500/30 bg-amber-950/30 px-3.5 py-3 text-xs leading-relaxed text-amber-200"><strong>Local preview:</strong> copy actions use portable relative paths. Serve or deploy this dashboard over HTTPS, or configure <code>HUNTX_PUBLIC_BASE_URL</code> / <code>&lt;meta name="huntx-public-base-url"&gt;</code>, before importing a subscription on another device.</div>`}
+
+          <div class="space-y-4">
+            <!-- Node subscriptions: expand into separate proxy entries -->
+            <div>
+              <span class="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider block mb-1">1. Node subscriptions (separate entries)</span>
+              <p class="text-xs text-gray-500 mb-2">Choose the feed your client supports. Configure Clash/Mihomo YAML as a proxy provider, not as a complete profile.</p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                ${subscriptionFeeds.map(feedCard).join("") || `<p class="col-span-full rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-xs text-amber-200">No node subscription feeds are available in this published catalog.</p>`}
+              </div>
+            </div>
+
+            <!-- Full profiles remain separate from subscription URLs. -->
+            <div>
+              <span class="text-xs font-mono font-bold text-amber-400 uppercase tracking-wider block mb-1">2. Full runnable profiles (download only)</span>
+              <p class="text-xs text-gray-500 mb-2">Use these only when you want one complete client configuration. They are not the URLs used for independent-node subscription updates.</p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                ${profileDownloads.map(profileCard).join("") || `<p class="col-span-full rounded-xl border border-gray-800 bg-gray-950 p-3 text-xs text-gray-500">No full-profile downloads are in this published catalog.</p>`}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    `;
+
+    modalContainer.classList.remove("hidden");
+    const box = document.getElementById("modal-box");
+    if (box) this.trapFocus(box);
+
+    document.getElementById("btn-close-sub")?.addEventListener("click", () => {
+      this.closeModal();
+    });
+
+    modalContainer.querySelectorAll(".btn-copy-custom").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const url = e.currentTarget.dataset.url;
+        const isAbsolute = e.currentTarget.dataset.absolute === "true";
+        const copyMessage = e.currentTarget.dataset.copyMessage || "Subscription URL copied";
+        this.copyText(url, isAbsolute
+          ? copyMessage
+          : "Portable artifact path copied — configure a public base URL for direct client import");
+      });
+    });
+  }
+
+  openCleanIPScannerModal() {
+    if (typeof document === "undefined") return;
+    const modalContainer = document.getElementById("modal-overlay");
+    if (!modalContainer) return;
+
+    modalContainer.innerHTML = `
+      <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="modal-scanner-title">
+        <div id="modal-box" class="relative w-full max-w-3xl bg-gray-900 border border-emerald-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-emerald-950/50 space-y-5 max-h-[90vh] max-h-[90dvh] overflow-y-auto">
+          <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+            <div class="flex items-center gap-2">
+              <span class="p-2 bg-emerald-950 text-emerald-400 rounded-xl">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+              </span>
+              <div>
+                <h3 id="modal-scanner-title" class="text-base font-mono font-bold text-white">Cloudflare Clean IP Scanner</h3>
+                <span class="text-xs font-mono text-gray-400">In-Browser Bitshift CIDR Expansion &amp; Latency Speedtest</span>
+              </div>
+            </div>
+            <button id="btn-close-scanner" class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-800 text-gray-400 hover:text-white rounded-xl cursor-pointer focus-ring" aria-label="Close Clean IP Scanner Modal">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+          </div>
+
+          <!-- Controls -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-gray-950 border border-gray-800 rounded-2xl">
+            <div>
+              <label for="scanner-cidr-select" class="block text-xs font-mono text-gray-400 mb-1">Target CIDR Subnet:</label>
+              <select id="scanner-cidr-select" class="w-full px-3 py-2.5 min-h-[44px] bg-gray-900 border border-gray-800 focus:border-emerald-500 rounded-xl text-xs font-mono text-gray-200 focus-ring cursor-pointer">
+                <option value="104.16.0.0/12">104.16.0.0/12 (CDN Core 1)</option>
+                <option value="172.64.0.0/13">172.64.0.0/13 (CDN Core 2)</option>
+                <option value="162.158.0.0/15">162.158.0.0/15 (CDN Core 3)</option>
+                <option value="198.41.128.0/17">198.41.128.0/17 (Global Edge)</option>
+                <option value="108.162.192.0/18">108.162.192.0/18 (Regional Edge)</option>
+                <option value="173.245.48.0/20">173.245.48.0/20 (Specialized)</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="scanner-count-input" class="block text-xs font-mono text-gray-400 mb-1">Sample Count:</label>
+              <input type="number" id="scanner-count-input" value="12" min="3" max="50" class="w-full px-3 py-2.5 min-h-[44px] bg-gray-900 border border-gray-800 focus:border-emerald-500 rounded-xl text-xs font-mono text-gray-200 focus-ring" />
+            </div>
+
+            <div class="flex items-end">
+              <button id="scanner-btn-start" class="w-full py-2.5 min-h-[44px] bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-mono font-bold text-xs rounded-xl transition-all shadow-md shadow-emerald-950/50 flex items-center justify-center gap-2 focus-ring cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span>Start Speedtest</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Status Banner -->
+          <div id="scanner-status-banner" class="flex items-center justify-between px-4 py-2.5 bg-gray-950 border border-gray-800 rounded-xl text-xs font-mono text-gray-400">
+            <span id="scanner-status-text">Ready to scan. Select range and start speedtest.</span>
+            <span id="scanner-progress-pill" class="hidden px-2 py-0.5 bg-emerald-950 text-emerald-400 rounded text-xs font-bold">0 / 0</span>
+          </div>
+
+          <!-- Results Grid -->
+          <div class="border border-gray-800 rounded-2xl overflow-hidden bg-gray-950">
+            <div class="max-h-[260px] overflow-y-auto">
+              <table class="w-full text-left font-mono text-xs">
+                <thead class="bg-gray-900/80 sticky top-0 text-xs text-gray-500 uppercase tracking-wider border-b border-gray-800">
+                  <tr>
+                    <th class="p-3">#</th>
+                    <th class="p-3">Target IP</th>
+                    <th class="p-3">Latency (RTT)</th>
+                    <th class="p-3">Status</th>
+                    <th class="p-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="scanner-results-tbody" class="divide-y divide-gray-800/60">
+                  <tr>
+                    <td colspan="5" class="p-6 text-center text-gray-600 font-mono text-xs">No scan performed yet.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Footer Actions -->
+          <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+            <div class="flex items-center gap-2">
+              <button id="scanner-btn-copy-best" class="px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-emerald-300 font-mono text-xs rounded-xl focus-ring cursor-pointer disabled:opacity-40" disabled>Copy Best IP</button>
+              <button id="scanner-btn-copy-all" class="px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-gray-200 font-mono text-xs rounded-xl focus-ring cursor-pointer disabled:opacity-40" disabled>Copy All Clean</button>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="scanner-btn-export-csv" class="px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-xs rounded-xl focus-ring cursor-pointer disabled:opacity-40" disabled>Export CSV</button>
+              <button id="scanner-btn-export-json" class="px-3.5 py-2.5 min-h-[44px] inline-flex items-center justify-center bg-emerald-950 text-emerald-300 border border-emerald-800/60 font-mono text-xs rounded-xl focus-ring cursor-pointer disabled:opacity-40" disabled>Export JSON</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    modalContainer.classList.remove("hidden");
+    const box = document.getElementById("modal-box");
+    if (box) this.trapFocus(box);
+
+    document.getElementById("btn-close-scanner")?.addEventListener("click", () => {
+      this.closeModal();
+    });
+
+    let scanResults = [];
+
+    const generateSampleIPs = (cidr, count) => {
+      const parts = cidr.split("/");
+      const baseIp = parts[0];
+      const mask = parseInt(parts[1], 10);
+      const octets = baseIp.split(".").map(Number);
+      const startInt = ((octets[0] << 24) >>> 0) + ((octets[1] << 16) >>> 0) + ((octets[2] << 8) >>> 0) + (octets[3] >>> 0);
+      const totalIps = 1 << (32 - mask);
+      const sampled = new Set();
+      const ips = [];
+      const actualCount = Math.min(count, totalIps - 2);
+      while (ips.length < actualCount) {
+        const offset = Math.floor(Math.random() * (totalIps - 2)) + 1;
+        if (!sampled.has(offset)) {
+          sampled.add(offset);
+          const ipInt = (startInt + offset) >>> 0;
+          ips.push([
+            (ipInt >>> 24) & 255,
+            (ipInt >>> 16) & 255,
+            (ipInt >>> 8) & 255,
+            ipInt & 255
+          ].join("."));
+        }
+      }
+      return ips;
+    };
+
+    const pingTest = async (ip, timeoutMs = 1800) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      const t0 = performance.now();
+      try {
+        await fetch(`https://${ip}/__cf_speedtest?rnd=${Math.random()}`, {
+          mode: "no-cors",
+          cache: "no-store",
+          signal: controller.signal
+        });
+        clearTimeout(timer);
+        return { ok: true, latency: Math.round(performance.now() - t0) };
+      } catch (err) {
+        clearTimeout(timer);
+        const elapsed = Math.round(performance.now() - t0);
+        return { ok: false, latency: elapsed, timeout: err?.name === "AbortError", error: err?.name || "network failure" };
+      }
+    };
+
+    const renderTable = () => {
+      const tbody = document.getElementById("scanner-results-tbody");
+      if (!tbody) return;
+      if (scanResults.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-gray-600 font-mono text-xs">No results.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = scanResults.map((r, idx) => `
+        <tr class="hover:bg-gray-900/60 transition-colors">
+          <td class="p-3 text-gray-500 font-mono text-xs">${idx + 1}</td>
+          <td class="p-3 font-mono font-semibold ${r.ok ? 'text-white' : 'text-gray-500'}">${escapeHTML(r.ip)}</td>
+          <td class="p-3 font-mono">
+            ${r.ok ? `
+              <span class="${r.latency < 250 ? 'text-emerald-400' : r.latency < 600 ? 'text-amber-400' : 'text-orange-400'} font-bold">
+                ${r.latency} ms
+              </span>
+            ` : `<span class="text-rose-400 text-xs">Timeout</span>`}
+          </td>
+          <td class="p-3">
+            <span class="px-2 py-0.5 text-xs font-mono font-bold rounded ${r.ok ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/50' : 'bg-rose-950 text-rose-400 border border-rose-800/50'}">
+              ${r.ok ? 'CLEAN' : 'TIMEOUT'}
+            </span>
+          </td>
+          <td class="p-3 text-right">
+            <button class="btn-copy-scanned-ip px-3 py-2 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-cyan-300 rounded-xl text-xs font-mono focus-ring cursor-pointer" data-ip="${escapeHTML(r.ip)}">Copy</button>
+          </td>
+        </tr>
+      `).join("");
+
+      tbody.querySelectorAll(".btn-copy-scanned-ip").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          this.copyText(e.currentTarget.dataset.ip, `IP ${e.currentTarget.dataset.ip} copied`);
+        });
+      });
+    };
+
+    const startBtn = document.getElementById("scanner-btn-start");
+    startBtn?.addEventListener("click", async () => {
+      const cidr = document.getElementById("scanner-cidr-select").value;
+      const count = parseInt(document.getElementById("scanner-count-input").value, 10) || 12;
+      const statusText = document.getElementById("scanner-status-text");
+      const progressPill = document.getElementById("scanner-progress-pill");
+
+      startBtn.disabled = true;
+      startBtn.innerHTML = `
+        <svg class="w-4 h-4 animate-spin text-gray-950" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        <span>Scanning...</span>
+      `;
+      progressPill.classList.remove("hidden");
+      scanResults = [];
+      renderTable();
+
+      const candidateIps = generateSampleIPs(cidr, count);
+      let completed = 0;
+
+      for (const ip of candidateIps) {
+        statusText.textContent = `Probing candidate: ${ip}...`;
+        progressPill.textContent = `${completed + 1} / ${candidateIps.length}`;
+        const res = await pingTest(ip);
+        scanResults.push({ ip, ...res });
+        completed++;
+        scanResults.sort((a, b) => (a.ok === b.ok ? a.latency - b.latency : a.ok ? -1 : 1));
+        renderTable();
+      }
+
+      startBtn.disabled = false;
+      startBtn.innerHTML = `
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+        <span>Rescan Subnet</span>
+      `;
+      const cleanCount = scanResults.filter(r => r.ok).length;
+      statusText.textContent = `Scan complete! ${cleanCount} browser requests completed; proxy usability remains unverified.`;
+      progressPill.textContent = `${cleanCount} Completed`;
+
+      const bestIp = scanResults.find(r => r.ok);
+      if (bestIp) {
+        document.getElementById("scanner-btn-copy-best").disabled = false;
+        document.getElementById("scanner-btn-copy-all").disabled = false;
+        document.getElementById("scanner-btn-export-csv").disabled = false;
+        document.getElementById("scanner-btn-export-json").disabled = false;
+      }
+    });
+
+    document.getElementById("scanner-btn-copy-best")?.addEventListener("click", () => {
+      const best = scanResults.find(r => r.ok);
+      if (best) this.copyText(best.ip, `Fastest browser-completed request: ${best.ip} (${best.latency}ms) copied`);
+    });
+
+    document.getElementById("scanner-btn-copy-all")?.addEventListener("click", () => {
+      const cleanIps = scanResults.filter(r => r.ok).map(r => r.ip).join("\n");
+      if (cleanIps) this.copyText(cleanIps, "All browser-completed IPs copied to clipboard");
+    });
+
+    document.getElementById("scanner-btn-export-csv")?.addEventListener("click", () => {
+      const header = "IP,Latency_ms,Status\n";
+      const rows = scanResults.map(r => `${r.ip},${r.latency},${r.ok ? 'CLEAN' : 'TIMEOUT'}`).join("\n");
+      const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `cloudflare_clean_ips_${Date.now()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      this.showToast("Clean IPs exported as CSV");
+    });
+
+    document.getElementById("scanner-btn-export-json")?.addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(scanResults, null, 2)], { type: "application/json;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `cloudflare_clean_ips_${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      this.showToast("Clean IPs exported as JSON");
+    });
+  }
+
+  renderFooter() {
+    if (typeof document === "undefined") return;
+    const footer = document.getElementById("main-footer");
+    if (!footer) return;
+
+    footer.innerHTML = `
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-800/80 text-xs font-mono text-gray-500">
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+          <span>HUNTX • Snapshot catalog • ${this.catalog.total_files || 0} files</span>
+        </div>
+        <div class="flex items-center gap-4">
+          <a href="DEVELOPMENT.md" class="hover:text-gray-300 transition-colors focus-ring rounded p-1">Dev Specs</a>
+          <a href="USER_GUIDE.md" class="hover:text-gray-300 transition-colors focus-ring rounded p-1">User Guide</a>
+          <a href="architecture.html" target="_blank" class="text-cyan-400 hover:underline focus-ring rounded p-1">3D Architecture Map</a>
+          <a href="https://github.com/AmirrezaFarnamTaheri/HUNTX" target="_blank" class="hover:text-gray-300 transition-colors focus-ring rounded p-1">GitHub</a>
+        </div>
+      </div>
+    `;
+  }
+
+  openQRModal(uri, name = "Proxy Node") {
+    if (typeof document === "undefined") return;
+    const modalContainer = document.getElementById("modal-overlay");
+    if (!modalContainer) return;
+
+    modalContainer.innerHTML = `
+      <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="modal-qr-title">
+        <div id="modal-box" class="relative w-full max-w-md bg-gray-900 border border-cyan-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-cyan-950/50 space-y-5 text-center max-h-[90vh] max-h-[90dvh] overflow-y-auto">
+          <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+            <h3 id="modal-qr-title" class="text-sm font-mono font-bold text-gray-100 truncate">${escapeHTML(name)}</h3>
+            <button id="btn-close-qr-modal" class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-800 text-gray-400 hover:text-white rounded-xl cursor-pointer focus-ring" aria-label="Close QR Modal">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+          </div>
+
+          <div class="p-4 bg-white rounded-2xl flex items-center justify-center shadow-lg">
+            ${renderQRCodeSVG(uri, 220, "#070a0f", "#ffffff", "M")}
+          </div>
+
+          <p class="text-xs font-mono text-gray-400">Scan using v2rayNG, Sing-box, NekoBox, Hiddify, or Streisand</p>
+
+          <div class="flex flex-wrap gap-2">
+            <button id="btn-copy-qr-uri" class="flex-1 py-2.5 px-4 min-h-[44px] inline-flex items-center justify-center bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-mono font-bold text-xs rounded-xl focus-ring cursor-pointer transition-all shadow-md shadow-cyan-500/20">
+              Copy Node URI
+            </button>
+            <button id="btn-download-qr-modal-svg" class="py-2.5 px-4 min-h-[44px] inline-flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-cyan-300 font-mono text-xs rounded-xl focus-ring cursor-pointer transition-all">
+              Save SVG
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    modalContainer.classList.remove("hidden");
+    const box = document.getElementById("modal-box");
+    if (box) this.trapFocus(box);
+
+    document.getElementById("btn-close-qr-modal")?.addEventListener("click", () => this.closeModal());
+    document.getElementById("btn-copy-qr-uri")?.addEventListener("click", () => {
+      this.copyText(uri, "Proxy URI copied to clipboard");
+    });
+    document.getElementById("btn-download-qr-modal-svg")?.addEventListener("click", () => {
+      const svg = renderQRCodeSVG(uri, 240, "#070a0f", "#ffffff", "M");
+      const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `huntx_qr_${Date.now()}.svg`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  openShortcutsModal() {
+    if (typeof document === "undefined") return;
+    const modalContainer = document.getElementById("modal-overlay");
+    if (!modalContainer) return;
+
+    const shortcuts = [
+      { key: "1 - 5", desc: "Switch Tab (Radar / Proxies / Studio / Decoder / Artifacts)" },
+      { key: "/", desc: "Focus global search filter" },
+      { key: "V", desc: "Toggle View Mode (Cards / Table / Feed)" },
+      { key: "D", desc: "Open Protocol Decoder & Inspection Modal" },
+      { key: "S", desc: "Open Cloudflare Clean IP Scanner" },
+      { key: "B", desc: "Open Custom Subscription Builder" },
+      { key: "T", desc: "Toggle Light / Dark Obsidian Theme" },
+      { key: "R", desc: "Reset all dimensional filters" },
+      { key: "? or K", desc: "Show this Keyboard Shortcuts cheat-sheet" },
+      { key: "Esc", desc: "Close any active modal dialog" }
+    ];
+
+    modalContainer.innerHTML = `
+      <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="modal-shortcuts-title">
+        <div id="modal-box" class="relative w-full max-w-md bg-gray-900 border border-cyan-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-cyan-950/50 space-y-5 max-h-[90vh] max-h-[90dvh] overflow-y-auto">
+          <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+            <div class="flex items-center gap-2">
+              <span class="p-2 bg-cyan-950 text-cyan-400 rounded-xl">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+              </span>
+              <div>
+                <h3 id="modal-shortcuts-title" class="text-base font-mono font-bold text-white">Keyboard Navigation</h3>
+                <span class="text-xs font-mono text-gray-400">Power-user keybindings for HUNTX</span>
+              </div>
+            </div>
+            <button id="btn-close-shortcuts" class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-800 text-gray-400 hover:text-white rounded-xl cursor-pointer focus-ring" aria-label="Close Shortcuts Modal">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+          </div>
+
+          <div class="space-y-2 font-mono text-xs">
+            ${shortcuts.map(s => `
+              <div class="flex items-center justify-between p-2.5 bg-gray-950 border border-gray-800/80 rounded-xl">
+                <span class="text-gray-300">${escapeHTML(s.desc)}</span>
+                <kbd class="px-2.5 py-1 bg-gray-900 border border-gray-700 text-cyan-300 font-bold rounded-lg text-xs shadow-sm">${escapeHTML(s.key)}</kbd>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      </div>
+    `;
+
+    modalContainer.classList.remove("hidden");
+    const box = document.getElementById("modal-box");
+    if (box) this.trapFocus(box);
+
+    document.getElementById("btn-close-shortcuts")?.addEventListener("click", () => this.closeModal());
+  }
+
+  bindGlobalEvents() {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+
+    // 1. Browser Hash History Navigation
+    window.addEventListener("hashchange", () => {
+      const hash = (window.location.hash || "").replace("#", "").toLowerCase();
+      const validTabs = ["radar", "proxies", "studio", "decoder", "artifacts"];
+      if (validTabs.includes(hash) && hash !== this.activePageTab) {
+        this.switchPageTab(hash, false);
+      }
+    });
+
+    // 2. Navigation Tab Button Listeners
+    document.querySelectorAll(".nav-tab-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        const current = e.currentTarget || btn;
+        const tabTarget = (current.dataset && current.dataset.tabTarget) || current.getAttribute("data-tab-target");
+        if (tabTarget) {
+          this.switchPageTab(tabTarget, true);
+        }
+      });
+      btn.addEventListener("keydown", (e) => {
+        const tabs = Array.from(document.querySelectorAll(".nav-tab-btn"));
+        const index = tabs.indexOf(e.currentTarget);
+        if (index < 0) return;
+        let nextIndex = null;
+        if (e.key === "ArrowRight") nextIndex = (index + 1) % tabs.length;
+        if (e.key === "ArrowLeft") nextIndex = (index - 1 + tabs.length) % tabs.length;
+        if (e.key === "Home") nextIndex = 0;
+        if (e.key === "End") nextIndex = tabs.length - 1;
+        if (nextIndex === null) return;
+        e.preventDefault();
+        const next = tabs[nextIndex];
+        this.switchPageTab(next.dataset.tabTarget, true);
+        next.focus();
+      });
+    });
+
+    // 3. Global Keyboard Shortcuts
+    window.addEventListener("keydown", (e) => {
+      if (document.querySelector('[role="dialog"]') || document.querySelector('[aria-modal="true"]')) return;
+      const isInput = document.activeElement && (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA" || document.activeElement.tagName === "SELECT");
+
+      if (e.key === "/" && !(e.ctrlKey || e.metaKey || e.altKey)) {
+        const s = document.getElementById("node-quick-search") || document.getElementById("global-search-input");
+        if (s && document.activeElement !== s) {
+          e.preventDefault();
+          this.switchPageTab("proxies", true);
+          setTimeout(() => {
+            const searchInput = document.getElementById("node-quick-search");
+            if (searchInput) searchInput.focus();
+          }, 50);
+        }
+      }
+
+      if (!isInput && !(e.ctrlKey || e.metaKey || e.altKey)) {
+        // Number Keys 1-5 for Tab Navigation
+        if (["1", "2", "3", "4", "5"].includes(e.key)) {
+          const tabs = ["radar", "proxies", "studio", "decoder", "artifacts"];
+          const target = tabs[parseInt(e.key, 10) - 1];
+          if (target) {
+            e.preventDefault();
+            this.switchPageTab(target, true);
+            this.showToast(`Switched to tab: ${target.toUpperCase()}`);
+            return;
+          }
+        }
+
+        if (e.key === "d" || e.key === "D") {
+          e.preventDefault();
+          this.openDecoderModal();
+        } else if (e.key === "s" || e.key === "S") {
+          e.preventDefault();
+          this.openCleanIPScannerModal();
+        } else if (e.key === "b" || e.key === "B") {
+          e.preventDefault();
+          this.openSubscriptionBuilderModal();
+        } else if (e.key === "t" || e.key === "T") {
+          e.preventDefault();
+          this.toggleTheme();
+        } else if (e.key === "v" || e.key === "V") {
+          e.preventDefault();
+          this.viewMode = this.viewMode === "grid" ? "table" : this.viewMode === "table" ? "feed" : "grid";
+          this.refreshProxyWorkspace();
+          this.showToast(`View mode: ${this.viewMode.toUpperCase()}`);
+        } else if (e.key === "r" || e.key === "R") {
+          e.preventDefault();
+          this.resetProxyFilters();
+          this.showToast("All filters reset");
+        } else if (e.key === "?" || e.key === "k" || e.key === "K") {
+          e.preventDefault();
+          this.openShortcutsModal();
+        }
+      }
+
+      if (e.key === "Escape") {
+        this.closeModal();
+      }
+    });
+
+    document.getElementById("modal-overlay")?.addEventListener("click", (e) => {
+      if (e.target.id === "modal-overlay" || e.target.closest("#modal-overlay > div") === e.target) {
+        this.closeModal();
+      }
+    });
+  }
+}
+
+if (typeof window !== "undefined" && typeof document !== "undefined") {
+  const app = new AppState();
+  window.AppState = AppState;
+  window.huntxApp = app;
+  if (document.readyState === "loading") {
+    window.addEventListener("DOMContentLoaded", () => app.init());
+  } else {
+    app.init();
+  }
+}

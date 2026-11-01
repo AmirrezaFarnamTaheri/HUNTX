@@ -1,9 +1,5 @@
 {
   "files": {
-    "all_sources.conf_lines": {
-      "format": "conf_lines",
-      "route": "all_sources"
-    },
     "all_sources.dark": {
       "format": "dark",
       "route": "all_sources"
@@ -12,16 +8,8 @@
       "format": "ehi",
       "route": "all_sources"
     },
-    "all_sources.hc": {
-      "format": "hc",
-      "route": "all_sources"
-    },
     "all_sources.json": {
       "format": "npvt.decoded.json",
-      "route": "all_sources"
-    },
-    "all_sources.nm": {
-      "format": "nm",
       "route": "all_sources"
     },
     "all_sources.npvt": {
@@ -60,10 +48,6 @@
       "format": "ovpn",
       "route": "all_sources"
     },
-    "all_sources.sip": {
-      "format": "sip",
-      "route": "all_sources"
-    },
     "all_sources.txt": {
       "format": "npvt",
       "route": "all_sources"
@@ -74,6 +58,18 @@
     },
     "all_sources_clash.yaml": {
       "format": "npvt.clash.yaml",
+      "route": "all_sources"
+    },
+    "all_sources_coverage.json": {
+      "format": "npvt.coverage.json",
+      "route": "all_sources"
+    },
+    "all_sources_gate.json": {
+      "format": "npvt.gate.json",
+      "route": "all_sources"
+    },
+    "all_sources_health.json": {
+      "format": "npvt.health.json",
       "route": "all_sources"
     },
     "all_sources_nekobox.json": {
@@ -152,6 +148,18 @@
       "format": "npvtsub.clash.yaml",
       "route": "all_sources"
     },
+    "all_sources_sub_coverage.json": {
+      "format": "npvtsub.coverage.json",
+      "route": "all_sources"
+    },
+    "all_sources_sub_gate.json": {
+      "format": "npvtsub.gate.json",
+      "route": "all_sources"
+    },
+    "all_sources_sub_health.json": {
+      "format": "npvtsub.health.json",
+      "route": "all_sources"
+    },
     "all_sources_sub_nekobox.json": {
       "format": "npvtsub.nekobox.json",
       "route": "all_sources"
@@ -193,7 +201,7 @@
       "route": "all_sources"
     }
   },
-  "generated_at": "2026-10-24T11:27:48.754488+00:00",
-  "min_ingested_at": "2026-10-21T11:05:14+00:00",
+  "generated_at": "2026-11-01T09:20:52.305111+00:00",
+  "min_ingested_at": "2026-10-29T08:57:03+00:00",
   "schema_version": 1
 }

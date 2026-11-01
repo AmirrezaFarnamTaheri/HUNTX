@@ -1,0 +1,178 @@
+# HUNTX Development & Architecture Guide
+
+## 1. System Overview
+
+HUNTX (GatherX) is composed of three core subsystems:
+
+1. **Go diagnostics CLI (`cmd/huntx-engine`)**: Stream parser, GeoRoute helper, benchmark runner, chain synthesizer, and TLS inspector. It does not replace the Python production orchestrator.
+2. **Python Ingestion & Bot Pipeline (`src/huntx/`)**: MTProto/Bot API connectors, format normalization, and GatherX Telegram bot.
+3. **Static Dashboard (`docs/`)**: Published-artifact dashboard, protocol decoder, and artifact manifest. Treat displayed node metrics as snapshot metadata unless a deployed telemetry receiver supplies measured values.
+
+---
+
+## 2. Directory Layout
+
+```
+HUNTX/
+├── cmd/
+│   ├── huntx-engine/          # High-performance Go ingestion & stream engine
+│   │   ├── benchmark/         # TCP/TLS latency & jitter benchmarker
+│   │   ├── georoute/          # IP & GeoIP regional classification engine
+│   │   ├── healing/           # Proactive node recovery daemon
+│   │   ├── internal/parse/    # Protocol grammar parsers (VLESS, VMess, Trojan, SS, Hy2)
+│   │   ├── stream/            # Stream tokenizer and payload isolator
+│   │   └── main.go            # Engine CLI entrypoint
+│   └── huntx-tools/           # Administrative utilities and manifest verifiers
+│   ├── huntx-daemon/          # Authenticated PAC/control HTTP service
+│   └── huntx-probe/           # Scheduled TCP probe reporter
+├── src/huntx/                 # Python pipeline & GatherX bot
+│   ├── bot/                   # GatherX Telegram bot (interactive commands)
+│   ├── cli/                   # Python CLI entry points
+│   ├── config/                # YAML configuration loader & validator
+│   ├── connectors/            # Telegram Bot API & MTProto connectors
+│   ├── core/                  # Orchestration, locking, and routing
+│   ├── formats/               # Format handlers (npvt, ovpn, conf_lines, etc.)
+│   ├── pipeline/              # Ingest, transform, build, and publish stages
+│   └── state/                 # SQLite WAL state database repository
+├── docs/                      # GitHub Pages static dashboard & documentation
+│   ├── index.html             # Master pre-rendered cyber telemetry dashboard
+│   ├── C4_ARCHITECTURE.md     # Pointer to the canonical C4 model (README#architecture)
+
+│   ├── architecture.html      # Interactive archify visualization (3D Architecture Map)
+
+│   ├── DEVELOPMENT.md         # This development guide
+│   ├── USER_GUIDE.md          # Comprehensive user manual & bot commands
+│   ├── catalog.json           # SHA-256 verified artifact manifest
+│   ├── artifacts/dev/         # Published proxy bundles (JSON, TXT, Base64 Sub)
+│   └── assets/js/
+
+│       ├── app.js             # Reactive UI state controller & ARIA modal manager
+│       ├── data.js            # Node dataset, hub coordinates & catalog fallback
+│       ├── decoder.js         # Multi-protocol client-side URI parser
+│       ├── globe.js           # 3D WebGL Canvas radar engine
+│       ├── qrcode.js          # Standalone SVG QR code matrix generator
+│       ├── i18n.js            # Language packs & translation registry
+│       ├── rule-studio.js     # Rule composition studio & export preview
+│       ├── telemetry-stream.js# Live telemetry canvas data feed
+│       ├── wasm_exec.js       # Go WASM bridge & module bootstrap
+│       └── wasm-worker.js     # Off-main-thread WASM runtime worker
+
+├── configs/                   # Production & development YAML configurations
+├── data/                      # Local cache, raw inboxes, and persistent state
+└── internal/                  # Shared Go packages (output verification, release manifests)
+```
+
+---
+
+## 3. Development Setup & Verification
+
+### Go Engine Setup
+
+```bash
+# Verify the Go version declared in go.mod
+go version
+
+# Run all Go unit and integration tests
+go test ./...
+
+# Build Go engine and tools
+go build -o bin/huntx-engine ./cmd/huntx-engine
+go build -o bin/huntx-tools ./cmd/huntx-tools
+```
+
+### Python Pipeline Setup
+
+```bash
+python -m venv .venv
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+pip install -e ".[dev]"
+
+# Run Python test suite (perf benchmarks are excluded, matching CI)
+pytest -m "not perf" --strict-markers
+
+# Run linting and type checks
+flake8 src/huntx tests scripts
+mypy src/huntx
+```
+
+### Frontend Telemetry SPA Verification
+
+```bash
+# Rebuild the generated page after editing source modules.
+python scripts/update_frontend.py
+
+# Fail if the retired standalone bundle has been checked in again.
+python scripts/update_frontend.py --check
+
+# Run the frontend module tests (Node) and syntax-check the entrypoint.
+node --test tests/frontend_runtime.test.mjs
+
+# Test local web server
+python -m http.server 8000 --directory docs
+```
+
+---
+
+## 4. Architectural Invariants
+
+1. **Frontend delivery contract**: `docs/index.html` is generated by `scripts/update_frontend.py` from the native modules in `docs/assets/js/`; the page loads `app.js`, `data.js`, and `decoder.js` directly. A standalone `bundle.js` is retired and must not be checked in: `update_frontend.py --check` fails the build if it reappears. Edit the source modules, rerun the script, then review the generated diff. The current dashboard uses CDN fonts/utility CSS, so HTTP serving is the supported delivery mode until those assets are vendored.
+2. **Deterministic SHA-256 Content Hashing**: Duplicate proxy configurations from multiple channels are identified and collapsed using cryptographic fingerprinting of normalized parameters.
+3. **Strict output sanitization**: Any external string, node label, or URL query parameter rendered to the DOM must pass through `escapeHTML()`.
+4. **Resilience Dispositions**: Execution outcomes follow the formal tri-state health model: `success`, `degraded`, or `fatal` (see [`RUN_HEALTH.md`](RUN_HEALTH.md)).
+5. **Atomic storage**: All artifact and SQLite disk writes use atomic temporary-file replacement (`os.replace`) to prevent state corruption during process interruption.
+
+---
+
+## 5. Adding New Features
+
+### Adding a New Proxy Protocol
+1. **Frontend Decoder**: Update [`docs/assets/js/decoder.js`](assets/js/decoder.js) with parser logic and safe fallback handling.
+2. **Go Protocol Parser**: Update [`cmd/huntx-engine/internal/parse/parse.go`](../cmd/huntx-engine/internal/parse/parse.go) with grammar rules.
+3. **Python pipeline**: Add the scheme to the relevant parser/format compiler under `src/huntx/formats/` and add a regression test. Do not claim a client compiler supports a scheme unless it produces a valid configuration.
+4. **Regenerate the page**: Rerun `scripts/update_frontend.py` and run the frontend module tests (`node --test tests/frontend_runtime.test.mjs`).
+
+### Adding a New Source Connector
+1. Implement the `SourceConnector` protocol in `src/huntx/connectors/base.py`.
+2. Register configuration schema in `src/huntx/config/schema.py`.
+3. Add worker lifecycle handling in `src/huntx/core/orchestrator.py`.
+4. Add unit test coverage in the connector's corresponding `tests/test_*.py` module.
+
+## 6. Fleet deployment boundary
+
+`deploy/docker-compose.fleet.yml` starts a local daemon and three probes. It
+does not provide a telemetry receiver: `HUNTX_ORCHESTRATOR_URL` must name a
+service outside this repository that implements the report contract expected by
+your deployment. If that receiver enforces bearer auth, set
+`HUNTX_ORCHESTRATOR_BEARER_TOKEN`.
+
+For Compose, provide the three required values in an untracked environment
+file, then start the fleet:
+
+```bash
+HUNTX_DAEMON_CONTROL_TOKEN=replace-with-a-long-random-token
+HUNTX_ORCHESTRATOR_URL=https://telemetry.example.internal/api/vantage/report
+HUNTX_ORCHESTRATOR_BEARER_TOKEN=optional-bearer-token
+HUNTX_PROBE_TARGETS=1.1.1.1:443,example.com:443
+```
+
+```bash
+docker compose --env-file .env.fleet -f deploy/docker-compose.fleet.yml up --build
+```
+
+The Compose mapping publishes the daemon only on loopback. The Helm chart
+requires `daemon.controlToken`, `orchestratorUrl`, and `probeTargets`; render it before applying
+it and use a private ClusterIP service or policy for the daemon control API.
+
+## Frontend CSS build
+
+`npm run build:css` uses the official Tailwind CSS v3.4.19 standalone CLI.
+The first invocation downloads a platform-specific executable into
+`~/.cache/huntx/tailwind/v3.4.19/` and validates it against a pinned SHA256
+from the upstream release. Later builds reuse the verified binary. The source
+input is `docs/assets/css/input.css`, and the generated file
+`docs/assets/css/tailwind.css` is checked into the repository. CI rebuilds
+that file and rejects changes. Node/npm are still used for ESLint and browser
+tests, but not for compiling Tailwind CSS; this removes Tailwind's vulnerable
+`braces` dependency graph from the npm installation. The official standalone
+binary is still build tooling, never served to dashboard users; only authored
+Tailwind content globs in `tailwind.config.cjs` are passed to it.
