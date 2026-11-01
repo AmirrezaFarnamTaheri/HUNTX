@@ -189,12 +189,13 @@ def verified_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     if binary is None:
         raise RuntimeError('Authenticated publication checks require the sing-box engine')
     _verify_engine(binary)
-    workers = int(_bounded('HUNTX_HEALTH_WORKERS', 16, 1, 32))
-    timeout = _bounded('HUNTX_HEALTH_TIMEOUT', 8, 1, 30)
-    budget = _bounded('HUNTX_HEALTH_BUDGET', 900, 1, 1800)
+    workers = int(_bounded('HUNTX_HEALTH_WORKERS', 24, 1, 64))
+    timeout = _bounded('HUNTX_HEALTH_TIMEOUT', 25, 1, 30)
+    budget = _bounded('HUNTX_HEALTH_BUDGET', 1500, 1, 2400)
     results: dict[str, dict[str, Any]] = {}
     reasons: Counter[str] = Counter()
-    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=workers)
+    try:
         futures = {pool.submit(check_proxy, line, binary, timeout=timeout): key
                    for key, (line, _) in candidates.items()}
         try:
@@ -230,8 +231,15 @@ def verified_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
         finally:
             for future in futures:
                 future.cancel()
+    finally:
+        # The context-manager shutdown(wait=True) waited for every queued
+        # probe even after the sweep budget was exhausted. Cancel pending
+        # work and let in-flight node watchdogs end within their own timeout.
+        # Deadline/expired candidates stay explicitly deferred, not dead.
+        pool.shutdown(wait=False, cancel_futures=True)
     accepted = []
     expired_successes = 0
+    historical_authenticated_successes: dict[str, dict[str, float]] = {}
     # These counts describe the post-check admission stage. A successful
     # HTTPS attempt does not become publication proof once its TTL expires.
     for key, (_, fields) in candidates.items():
@@ -242,6 +250,14 @@ def verified_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if time.time() - accepted_result['checked_at'] > 300:
             expired_successes += 1
             outcomes[key] = 'success_expired_before_publication'
+            # Credential-free, source-independent evidence for future retests.
+            # It must NEVER be used to admit this expired proxy to a release.
+            digest = hashlib.sha256(key.encode('utf-8')).hexdigest()
+            historical_authenticated_successes[digest] = {
+                'checked_at': float(accepted_result['checked_at']),
+                'expires_at': float(accepted_result['checked_at'] + 300),
+                'duration_ms': float(accepted_result['latency_ms']),
+            }
             continue
         outcomes[key] = 'admitted'
         result = accepted_result
@@ -263,6 +279,7 @@ def verified_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
         'candidates': len(candidates), 'admitted': len(accepted),
         'rejected': len(candidates) - len(accepted),
         'reasons': dict(sorted(dispositions.items())),
+        'historical_authenticated_successes': historical_authenticated_successes,
         'identities': {
             hashlib.sha256(key.encode('utf-8')).hexdigest(): outcomes[key]
             for key in sorted(candidates)
