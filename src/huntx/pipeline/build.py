@@ -350,6 +350,20 @@ class BuildPipeline:
             deadline.raise_if_expired("build")
         fetch_start = time.monotonic()
         historical_retests: dict[str, list[dict[str, Any]]] = {}
+        # Release receipts must distinguish zero eligible old identities from
+        # a scheduler that was disabled or never consulted. All values here are
+        # credential-free audit labels, never authenticated health evidence.
+        retest_selection_status = "not_applicable"
+        governed_retest_route = (
+            isinstance(self.state_repo, StateRepo)
+            and route_name in {"all_sources", "all_sources_sub"}
+            and os.getenv("HUNTX_REQUIRE_PROXY_HEALTH", "0") == "1"
+        )
+        if governed_retest_route:
+            if records is not None:
+                retest_selection_status = "provided_records"
+            elif min_ingested_at is None or min_seen_file_id is not None:
+                retest_selection_status = "missing_window_or_delta_build"
         if records is None:
             records = self.state_repo.get_records_for_build(
                 formats, allowed_source_ids, min_seen_file_id=min_seen_file_id,
@@ -361,9 +375,7 @@ class BuildPipeline:
             # When the health gate is disabled, this branch is unreachable:
             # stale historical evidence must never become a working feed.
             if (
-                isinstance(self.state_repo, StateRepo)
-                and route_name in {"all_sources", "all_sources_sub"}
-                and os.getenv("HUNTX_REQUIRE_PROXY_HEALTH", "0") == "1"
+                governed_retest_route
                 and min_ingested_at is not None
                 and min_seen_file_id is None
             ):
@@ -374,6 +386,9 @@ class BuildPipeline:
                     raise ValueError("invalid historical proxy retest limit") from exc
                 if not 0 <= retest_limit <= 256:
                     raise ValueError("historical proxy retest limit exceeds 256")
+                retest_selection_status = (
+                    "performed" if retest_limit else "disabled_by_config"
+                )
                 if retest_limit:
                     selected: list[dict[str, Any]] = []
                     for fmt in formats:
@@ -390,10 +405,13 @@ class BuildPipeline:
                         # Put reserved retests *first* so a saturated sweep
                         # cannot indefinitely starve history behind new feeds.
                         records = [*selected, *records]
-                        logger.info(
-                            "[Build] route=%s historical_retests_scheduled=%d",
-                            route_name, len(selected),
-                        )
+                logger.info(
+                    "[Build] route=%s historical_retest_selection=%s scheduled=%d "
+                    "by_format=%s",
+                    route_name, retest_selection_status,
+                    sum(len(batch) for batch in historical_retests.values()),
+                    {fmt: len(batch) for fmt, batch in historical_retests.items()},
+                )
         if deadline is not None:
             deadline.raise_if_expired("build")
         fetch_duration = time.monotonic() - fetch_start
@@ -457,10 +475,15 @@ class BuildPipeline:
                 build_duration = time.monotonic() - build_start
                 total_build_seconds += build_duration
                 scheduled_rows = historical_retests.get(format_id, [])
-                if scheduled_rows:
-                    # Keep every retest's credential-free disposition in the
-                    # existing published gate, including budget-deferred
-                    # candidates. This is never a freshness or ranking claim.
+                if (
+                    governed_retest_route
+                    and retest_selection_status != "not_applicable"
+                    and format_id in _DERIVED_PROXY_FORMATS
+                ):
+                    # An explicit zero-sized receipt proves the selector ran
+                    # and found no eligible history. A disabled/skipped state
+                    # is separately reported; neither asserts current health.
+                    # Existing accepted identities and TTL remain unchanged.
                     if not isinstance(publication_gate, bytes) or not publication_gate:
                         raise ValueError("missing HTTPS gate for historical retests")
                     from ..formats.npvt import canonical_proxy_identity
@@ -482,6 +505,7 @@ class BuildPipeline:
                     )
                     deferred = status_counts.get("not_completed", 0)
                     gate_report["historical_retests"] = {
+                        "selection_status": retest_selection_status,
                         "scheduled": len(scheduled_digests),
                         "attempted": len(scheduled_digests) - deferred,
                         "deferred": deferred,

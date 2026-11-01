@@ -188,6 +188,7 @@ def test_build_retests_expired_history_only_through_new_https_gate(
         payload for c in artifacts.save_output.call_args_list
         if c.args[1] == "npvt.gate.json" for payload in [json.loads(c.args[2])]
     )
+    assert gate["historical_retests"]["selection_status"] == "performed"
     assert gate["historical_retests"]["scheduled"] == 1
     assert gate["historical_retests"]["authenticated_admitted"] == 1
     assert gate["historical_retests"]["identity_digests"] == [_digest(due)]
@@ -340,3 +341,113 @@ def test_actual_source_refresh_does_not_destroy_authenticated_retest_history(
     assert repo.get_records_for_build(
         ["npvt"], ["approved"], min_ingested_at=CUTOFF,
     ) == []
+
+
+def test_fresh_only_release_explicitly_proves_zero_historical_candidates(
+    tmp_path, monkeypatch
+):
+    repo = StateRepo(open_db(tmp_path / "fresh-only.db"))
+    fresh = _seed(repo, 10501, old=False, authenticated=True)
+    monkeypatch.setenv("HUNTX_REQUIRE_PROXY_HEALTH", "1")
+    monkeypatch.setenv("HUNTX_HISTORICAL_RETEST_PER_FORMAT", "64")
+    monkeypatch.setenv("HUNTX_REMARK_STYLE", "legacy")
+
+    def current_https(rows):
+        assert [item["data"]["line"] for item in rows] == [fresh]
+        now = time.time()
+        accepted = [{
+            "data": {
+                "line": fresh,
+                "probe_kind": "protocol_authenticated",
+                "probe_authenticated": True,
+                "probe_checked_at": now,
+                "probe_expires_at": now + 300,
+                "latency_ms": 19000,
+            }
+        }]
+        return CheckedRecords(accepted, {
+            "schema_version": 1,
+            "scope": "single_authenticated_https_sweep",
+            "candidates": 1,
+            "admitted": 1,
+            "rejected": 0,
+            "identities": {_digest(fresh): "admitted"},
+            "reasons": {"admitted": 1},
+            "historical_authenticated_successes": {},
+        })
+
+    monkeypatch.setattr("huntx.core.proxy_health.verified_records", current_https)
+    registry = Mock()
+    registry.get.return_value = NpvtHandler()
+    artifacts = Mock()
+    artifacts.save_artifact.return_value = "f" * 64
+    route = {
+        "name": "all_sources", "from_sources": ["approved"],
+        "formats": ["npvt"], "min_ingested_at": CUTOFF,
+    }
+    assert BuildPipeline(repo, artifacts, registry).run(route)
+    gate = next(
+        json.loads(call.args[2]) for call in artifacts.save_output.call_args_list
+        if call.args[1] == "npvt.gate.json"
+    )
+    retest = gate["historical_retests"]
+    assert retest["selection_status"] == "performed"
+    assert retest["scheduled"] == 0
+    assert retest["attempted"] == 0
+    assert retest["deferred"] == 0
+    assert retest["authenticated_admitted"] == 0
+    assert retest["identity_digests"] == []
+    assert retest["dispositions"] == {}
+    with repo.db.connect() as conn:
+        assert conn.execute(
+            "SELECT COUNT(*) FROM proxy_retest_schedule"
+        ).fetchone()[0] == 0
+
+
+def test_explicit_zero_retest_budget_is_distinct_from_empty_candidate_pool(
+    tmp_path, monkeypatch
+):
+    repo = StateRepo(open_db(tmp_path / "disabled-retest.db"))
+    fresh = _seed(repo, 10502, old=False, authenticated=True)
+    _seed(repo, 10503)
+    monkeypatch.setenv("HUNTX_REQUIRE_PROXY_HEALTH", "1")
+    monkeypatch.setenv("HUNTX_HISTORICAL_RETEST_PER_FORMAT", "0")
+    monkeypatch.setenv("HUNTX_REMARK_STYLE", "legacy")
+
+    def current_https(rows):
+        assert [item["data"]["line"] for item in rows] == [fresh]
+        now = time.time()
+        return CheckedRecords([{
+            "data": {
+                "line": fresh, "probe_kind": "protocol_authenticated",
+                "probe_authenticated": True, "probe_checked_at": now,
+                "probe_expires_at": now + 300, "latency_ms": 19000,
+            }
+        }], {
+            "schema_version": 1, "scope": "single_authenticated_https_sweep",
+            "candidates": 1, "admitted": 1, "rejected": 0,
+            "identities": {_digest(fresh): "admitted"},
+            "reasons": {"admitted": 1},
+            "historical_authenticated_successes": {},
+        })
+    monkeypatch.setattr("huntx.core.proxy_health.verified_records", current_https)
+    registry = Mock()
+    registry.get.return_value = NpvtHandler()
+    artifacts = Mock()
+    artifacts.save_artifact.return_value = "f" * 64
+    assert BuildPipeline(repo, artifacts, registry).run({
+        "name": "all_sources", "from_sources": ["approved"],
+        "formats": ["npvt"], "min_ingested_at": CUTOFF,
+    })
+    gate = next(
+        json.loads(call.args[2]) for call in artifacts.save_output.call_args_list
+        if call.args[1] == "npvt.gate.json"
+    )
+    assert gate["historical_retests"]["selection_status"] == "disabled_by_config"
+    assert gate["historical_retests"]["scheduled"] == 0
+    assert gate["historical_retests"]["identity_digests"] == []
+    assert b":10503" not in artifacts.save_artifact.call_args_list[0].args[2]
+    with repo.db.connect() as conn:
+        assert conn.execute(
+            "SELECT COUNT(*) FROM proxy_retest_schedule"
+        ).fetchone()[0] == 0
