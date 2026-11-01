@@ -163,3 +163,30 @@ def test_http_priority_preserves_telegram_order_and_explores_oldest_source():
     assert ordered[2].id == "http_good"
     assert ordered[4].id == "http_old"
     assert {source.id for source in ordered} == {source.id for source in sources}
+
+
+def test_all_approved_http_sources_eventually_get_first_slot_under_budget_pressure():
+    from types import SimpleNamespace
+    from huntx.core.source_reliability import prioritize_http_sources
+
+    # Even if the per-run budget permits only ONE HTTP source attempt,
+    # its durable checked_at must move it behind every never-attempted feed.
+    now = 1_800_000_000
+    sources = [
+        SimpleNamespace(id=f"approved-{number:03d}", type="http_subscription")
+        for number in range(40)
+    ]
+    states = {}
+    attempted = []
+    for step in range(len(sources)):
+        ordered = prioritize_http_sources(sources, states, now=now + step)
+        assert {source.id for source in ordered} == {source.id for source in sources}
+        first = ordered[0].id
+        assert first not in attempted
+        attempted.append(first)
+        states[first] = {
+            "checked_at": now + step,
+            "last_failed_at": now + step,
+            "total_failures": 1,
+        }
+    assert set(attempted) == {source.id for source in sources}

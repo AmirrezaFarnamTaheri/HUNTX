@@ -5,9 +5,10 @@ import base64
 import hashlib
 import json
 import logging
+import os
 import threading
 import time
-from collections import defaultdict
+from collections import Counter, defaultdict
 from typing import Any, Optional
 from urllib.parse import parse_qs, unquote, urlparse
 from ..formats.common.clash import build_clash_subscription_bytes
@@ -348,11 +349,51 @@ class BuildPipeline:
         if deadline is not None:
             deadline.raise_if_expired("build")
         fetch_start = time.monotonic()
+        historical_retests: dict[str, list[dict[str, Any]]] = {}
         if records is None:
             records = self.state_repo.get_records_for_build(
                 formats, allowed_source_ids, min_seen_file_id=min_seen_file_id,
                 **({"min_ingested_at": min_ingested_at} if min_ingested_at is not None else {}),
             )
+            # A verified success tied only to a 72-hour-old source observation
+            # is no longer in the ordinary build set. Reserve a fair bounded
+            # slice for NEW authenticated HTTPS checks, not direct admission.
+            # When the health gate is disabled, this branch is unreachable:
+            # stale historical evidence must never become a working feed.
+            if (
+                isinstance(self.state_repo, StateRepo)
+                and route_name in {"all_sources", "all_sources_sub"}
+                and os.getenv("HUNTX_REQUIRE_PROXY_HEALTH", "0") == "1"
+                and min_ingested_at is not None
+                and min_seen_file_id is None
+            ):
+                raw_limit = os.getenv("HUNTX_HISTORICAL_RETEST_PER_FORMAT", "64")
+                try:
+                    retest_limit = int(raw_limit)
+                except ValueError as exc:
+                    raise ValueError("invalid historical proxy retest limit") from exc
+                if not 0 <= retest_limit <= 256:
+                    raise ValueError("historical proxy retest limit exceeds 256")
+                if retest_limit:
+                    selected: list[dict[str, Any]] = []
+                    for fmt in formats:
+                        if fmt not in _DERIVED_PROXY_FORMATS:
+                            continue
+                        batch = self.state_repo.schedule_historical_retests(
+                            [fmt], allowed_source_ids,
+                            min_ingested_at=str(min_ingested_at),
+                            limit=retest_limit,
+                        )
+                        historical_retests[fmt] = batch
+                        selected.extend(batch)
+                    if selected:
+                        # Put reserved retests *first* so a saturated sweep
+                        # cannot indefinitely starve history behind new feeds.
+                        records = [*selected, *records]
+                        logger.info(
+                            "[Build] route=%s historical_retests_scheduled=%d",
+                            route_name, len(selected),
+                        )
         if deadline is not None:
             deadline.raise_if_expired("build")
         fetch_duration = time.monotonic() - fetch_start
@@ -415,6 +456,47 @@ class BuildPipeline:
                         format_lock.release()
                 build_duration = time.monotonic() - build_start
                 total_build_seconds += build_duration
+                scheduled_rows = historical_retests.get(format_id, [])
+                if scheduled_rows:
+                    # Keep every retest's credential-free disposition in the
+                    # existing published gate, including budget-deferred
+                    # candidates. This is never a freshness or ranking claim.
+                    if not isinstance(publication_gate, bytes) or not publication_gate:
+                        raise ValueError("missing HTTPS gate for historical retests")
+                    from ..formats.npvt import canonical_proxy_identity
+
+                    gate_report = json.loads(publication_gate)
+                    identities = gate_report.get("identities")
+                    if not isinstance(identities, dict):
+                        raise ValueError("missing historical HTTPS gate identities")
+                    scheduled_digests = sorted({
+                        hashlib.sha256(
+                            canonical_proxy_identity(item["data"]["line"]).encode("utf-8")
+                        ).hexdigest()
+                        for item in scheduled_rows
+                    })
+                    if not set(scheduled_digests).issubset(identities):
+                        raise ValueError("historical retest identity missing from HTTPS gate")
+                    status_counts = Counter(
+                        identities[digest] for digest in scheduled_digests
+                    )
+                    deferred = status_counts.get("not_completed", 0)
+                    gate_report["historical_retests"] = {
+                        "scheduled": len(scheduled_digests),
+                        "attempted": len(scheduled_digests) - deferred,
+                        "deferred": deferred,
+                        "authenticated_admitted": status_counts.get("admitted", 0),
+                        "expired_success_retain": status_counts.get(
+                            "success_expired_before_publication", 0
+                        ),
+                        "identity_digests": scheduled_digests,
+                        "dispositions": {
+                            digest: identities[digest] for digest in scheduled_digests
+                        },
+                    }
+                    publication_gate = json.dumps(
+                        gate_report, sort_keys=True, separators=(",", ":")
+                    ).encode("utf-8")
                 # A real HTTPS success may have expired during the sweep and
                 # must NOT be admitted to the canonical feed, but it is still
                 # durable evidence that this candidate deserves future retest.
