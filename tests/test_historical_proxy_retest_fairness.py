@@ -409,7 +409,7 @@ def test_explicit_zero_retest_budget_is_distinct_from_empty_candidate_pool(
 ):
     repo = StateRepo(open_db(tmp_path / "disabled-retest.db"))
     fresh = _seed(repo, 10502, old=False, authenticated=True)
-    old = _seed(repo, 10503)
+    _seed(repo, 10503)
     monkeypatch.setenv("HUNTX_REQUIRE_PROXY_HEALTH", "1")
     monkeypatch.setenv("HUNTX_HISTORICAL_RETEST_PER_FORMAT", "0")
     monkeypatch.setenv("HUNTX_REMARK_STYLE", "legacy")
