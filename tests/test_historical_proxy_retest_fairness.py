@@ -98,14 +98,14 @@ def test_historical_retests_respect_approved_provenance_and_lifecycle(tmp_path):
     _seed(repo, 10102, source="unapproved")
     _seed(repo, 10103, authenticated=False)
     _seed(repo, 10104, revoked=True)
-    _seed(repo, 10105, inactive=True)
+    superseded = _seed(repo, 10105, inactive=True)
     _seed(repo, 10106, old=False)
     _seed(repo, 10107, kind="npvtsub")
 
     rows = repo.schedule_historical_retests(
         ["npvt"], ["approved"], min_ingested_at=CUTOFF, limit=32,
     )
-    assert {r["data"]["line"] for r in rows} == {due}
+    assert {r["data"]["line"] for r in rows} == {due, superseded}
     assert repo.schedule_historical_retests(
         ["npvt"], ["not-an-approved-source"], min_ingested_at=CUTOFF, limit=32
     ) == []
@@ -312,3 +312,31 @@ def test_thousands_of_distinct_old_successes_are_bounded_not_discarded(tmp_path)
             "SELECT COUNT(*) FROM proxy_retest_schedule"
         ).fetchone()[0] == 128
         assert conn.execute("SELECT COUNT(*) FROM records").fetchone()[0] == 1024
+
+
+def test_actual_source_refresh_does_not_destroy_authenticated_retest_history(
+    tmp_path
+):
+    repo = StateRepo(open_db(tmp_path / "refresh.db"))
+    uri = _seed(repo, 10250)
+    # A refresh of the very same source observation deactivates the old row
+    # and replaces the seen_files timestamp; neither is a proxy revocation.
+    repo.record_file(
+        "approved", "message-10250", "f" * 64, 55, "new-feed.txt",
+        status="processed",
+    )
+    with repo.db.connect() as conn:
+        row = conn.execute(
+            "SELECT r.is_active, s.ingested_at FROM records r "
+            "JOIN seen_files s ON s.id = r.source_observation_id "
+            "WHERE r.unique_hash = ?", (_digest(uri),)
+        ).fetchone()
+        assert row["is_active"] == 0
+        assert row["ingested_at"] >= CUTOFF
+    assert {r["data"]["line"] for r in repo.schedule_historical_retests(
+        ["npvt"], ["approved"], min_ingested_at=CUTOFF, limit=4,
+    )} == {uri}
+    # The normal fresh build remains unchanged: no stale working claim.
+    assert repo.get_records_for_build(
+        ["npvt"], ["approved"], min_ingested_at=CUTOFF,
+    ) == []
