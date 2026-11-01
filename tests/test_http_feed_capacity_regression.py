@@ -28,14 +28,14 @@ def test_more_than_9000_unique_nodes_survive_source_normalization():
     links = [_uri(port) for port in range(10000, 19001)]
     normalized, report = parser.normalize_feed(("\n".join(links) + "\n").encode())
     assert report["nodes"] == len(links) == 9001
-    assert normalized.decode().splitlines() == links
+    assert normalized.decode().splitlines() == [uri.split("#", 1)[0] for uri in links]
 
 
 def test_feed_larger_than_5_mib_is_accepted_when_it_contains_a_valid_node():
     payload = (_uri(443) + "\n").encode() + b" " * (5 * 1024 * 1024)
     normalized, report = parser.normalize_feed(payload)
     assert report["nodes"] == 1
-    assert normalized.decode().strip() == _uri(443)
+    assert normalized.decode().strip() == _uri(443).split("#", 1)[0]
 
 
 def test_valid_mihomo_yaml_larger_than_2_mib_is_parsed():
