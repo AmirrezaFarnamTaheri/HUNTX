@@ -73,6 +73,9 @@ def test_expired_success_keeps_credential_free_proof_in_health_gate(monkeypatch)
         seen += 1
         return now if seen <= 2 else now + 305
 
+    # A genuinely working 18.5s path must be tested under the expanded
+    # 25s per-node budget; the five-minute proof TTL remains unchanged.
+    monkeypatch.setenv("HUNTX_HEALTH_TIMEOUT", "25")
     monkeypatch.setattr(proxy_health.shutil, "which", lambda _: "/fake/engine")
     monkeypatch.setattr(proxy_health, "_verify_engine", lambda _: None)
     monkeypatch.setattr(proxy_health, "check_proxy", lambda *_args, **_kw: {
