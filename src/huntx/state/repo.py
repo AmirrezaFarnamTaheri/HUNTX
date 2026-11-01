@@ -479,6 +479,139 @@ class StateRepo:
             with self.db.connect() as c:
                 c.executemany(sql, updates)
 
+    def schedule_historical_retests(
+        self,
+        record_types: List[str],
+        allowed_source_ids: List[str],
+        *,
+        min_ingested_at: str,
+        limit: int = 64,
+    ) -> List[Dict[str, Any]]:
+        """Reserve a bounded fair slice of formerly authenticated proxies.
+
+        The normal source-window query is unchanged. These rows are only
+        *candidates* for an entirely new HTTPS check, never working proxies.
+        Selection is persisted atomically across runs so a retained historical
+        identity cannot be perpetually hidden behind earlier source records.
+        Only approved observation provenance, active records, genuine past
+        authenticated success and nonterminal lifecycle states qualify.
+        """
+        import hashlib
+        from datetime import datetime
+        from ..formats.npvt import canonical_proxy_identity
+        from ..formats.proxy_uri_validator import validate_proxy_uri
+
+        if type(limit) is not int or not 1 <= limit <= 256:
+            raise ValueError("historical retest limit must be an integer from 1 to 256")
+        types = list(dict.fromkeys(record_types))
+        if any(kind not in ("npvt", "npvtsub") for kind in types):
+            raise ValueError("historical retesting is only for canonical proxy formats")
+        sources = list(dict.fromkeys(allowed_source_ids))
+        if not types or not sources:
+            return []
+        if any(not isinstance(source, str) or not source for source in sources):
+            raise ValueError("historical retests require approved source IDs")
+        if not isinstance(min_ingested_at, str):
+            raise ValueError("historical retests require an ingestion cutoff")
+        try:
+            datetime.strptime(min_ingested_at, "%Y-%m-%d %H:%M:%S")
+        except ValueError as exc:
+            raise ValueError("invalid historical retest ingestion cutoff") from exc
+
+        type_slots = ",".join("?" for _ in types)
+        source_slots = ",".join("?" for _ in sources)
+        # A valid fresh observation is already in get_records_for_build().
+        # Only add old candidates, or suppressed recent candidates that the
+        # normal query excludes. Suppressed does not mean permanently dead.
+        query = f"""
+            WITH eligible AS (
+                SELECT r.record_type, r.unique_hash, MAX(r.id) AS record_id
+                FROM records AS r
+                JOIN seen_files AS s ON s.id = r.source_observation_id
+                JOIN proxy_lifecycle AS l
+                  ON l.record_type = r.record_type AND l.unique_hash = r.unique_hash
+                WHERE r.record_type IN ({type_slots})
+                  AND s.source_id IN ({source_slots})
+                  AND r.is_active = 1
+                  AND l.authenticated_successes > 0
+                  AND l.last_success_at IS NOT NULL
+                  AND l.lifecycle_status NOT IN ('dead', 'revoked', 'archived')
+                  AND (s.ingested_at < ? OR l.lifecycle_status = 'suspect')
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM records AS recent
+                      JOIN seen_files AS fresh
+                        ON fresh.id = recent.source_observation_id
+                      WHERE recent.record_type = r.record_type
+                        AND recent.unique_hash = r.unique_hash
+                        AND recent.is_active = 1
+                        AND fresh.source_id IN ({source_slots})
+                        AND fresh.ingested_at >= ?
+                        AND NOT EXISTS (
+                            SELECT 1 FROM proxy_lifecycle AS p
+                            WHERE p.unique_hash = recent.unique_hash
+                              AND p.record_type = recent.record_type
+                              AND ({PROXY_UNPUBLISHABLE_SQL})
+                        )
+                  )
+                GROUP BY r.record_type, r.unique_hash
+            )
+            SELECT r.record_type, r.unique_hash, r.data_json
+            FROM eligible AS e
+            JOIN records AS r ON r.id = e.record_id
+            LEFT JOIN proxy_retest_schedule AS q
+              ON q.record_type = r.record_type AND q.unique_hash = r.unique_hash
+            JOIN proxy_lifecycle AS l
+              ON l.record_type = r.record_type AND l.unique_hash = r.unique_hash
+            ORDER BY COALESCE(q.selection_count, 0),
+                     COALESCE(q.last_selected_at, 0),
+                     COALESCE(l.last_probe_at, 0), r.id
+            LIMIT ?
+        """
+        args: List[Any] = [
+            *types, *sources, min_ingested_at,
+            *sources, min_ingested_at, limit,
+        ]
+        with self.db.connect() as conn:
+            # BEGIN IMMEDIATE serializes concurrent route selectors. Reserve
+            # only after validating *every* selected URI; on failure the
+            # connection rolls back and no position is silently consumed.
+            conn.execute("BEGIN IMMEDIATE")
+            rows = conn.execute(query, args).fetchall()
+            candidates: List[Dict[str, Any]] = []
+            for row in rows:
+                data = json.loads(row["data_json"])
+                line = data.get("line") if isinstance(data, dict) else None
+                if not isinstance(line, str) or not validate_proxy_uri(line):
+                    raise ValueError("historical proxy retest has invalid record data")
+                digest = hashlib.sha256(
+                    canonical_proxy_identity(line).encode("utf-8")
+                ).hexdigest()
+                if digest != row["unique_hash"]:
+                    raise ValueError("historical proxy retest has mismatched identity")
+                candidates.append({
+                    "record_type": row["record_type"],
+                    "data": data,
+                    "historical_retest": True,
+                })
+            if rows:
+                clock = time.time()
+                conn.executemany(
+                    """
+                    INSERT INTO proxy_retest_schedule(
+                        record_type, unique_hash, last_selected_at, selection_count
+                    ) VALUES (?, ?, ?, 1)
+                    ON CONFLICT(record_type, unique_hash) DO UPDATE SET
+                        last_selected_at = excluded.last_selected_at,
+                        selection_count = proxy_retest_schedule.selection_count + 1
+                    """,
+                    [
+                        (row["record_type"], row["unique_hash"], clock)
+                        for row in rows
+                    ],
+                )
+        return candidates
+
     def get_records_for_build(
         self,
         record_types: List[str],
