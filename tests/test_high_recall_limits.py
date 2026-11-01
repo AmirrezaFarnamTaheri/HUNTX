@@ -8,8 +8,6 @@ import concurrent.futures
 import threading
 import time
 
-import pytest
-
 from huntx.core import proxy_health as health
 from huntx.pipeline import transform
 
