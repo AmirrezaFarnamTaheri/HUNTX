@@ -157,17 +157,27 @@ def test_build_retests_expired_history_only_through_new_https_gate(
         checked.extend(x["data"]["line"] for x in rows)
         now = time.time()
         digest = _digest(due)
-        return CheckedRecords(
-            [{"data": {"line": due, "probe_kind": "protocol_authenticated",
-                        "probe_authenticated": True,
-                        "probe_checked_at": now,
-                        "probe_expires_at": now + 300,
-                        "latency_ms": 18000}}],
-            {"schema_version": 1, "scope": "single_authenticated_https_sweep",
-             "candidates": 1, "admitted": 1, "rejected": 0,
-             "identities": {digest: "admitted"}, "reasons": {"admitted": 1},
-             "historical_authenticated_successes": {}},
-        )
+        accepted = [{
+            "data": {
+                "line": due,
+                "probe_kind": "protocol_authenticated",
+                "probe_authenticated": True,
+                "probe_checked_at": now,
+                "probe_expires_at": now + 300,
+                "latency_ms": 18000,
+            }
+        }]
+        ledger = {
+            "schema_version": 1,
+            "scope": "single_authenticated_https_sweep",
+            "candidates": 1,
+            "admitted": 1,
+            "rejected": 0,
+            "identities": {digest: "admitted"},
+            "reasons": {"admitted": 1},
+            "historical_authenticated_successes": {},
+        }
+        return CheckedRecords(accepted, ledger)
 
     monkeypatch.setenv("HUNTX_REQUIRE_PROXY_HEALTH", "1")
     monkeypatch.setattr("huntx.core.proxy_health.verified_records", new_https_gate)
