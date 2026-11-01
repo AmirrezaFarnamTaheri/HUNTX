@@ -709,16 +709,77 @@ def write_main_sync_inventory(destination: Path) -> None:
     )
 
 
-def write_snapshot_digest(destination: Path) -> None:
+def _snapshot_checksum(root: Path) -> str:
+    """One canonical digest over the exact present snapshot paths and bytes."""
     digest = hashlib.sha256()
-    for path in sorted(destination.rglob("*")):
+    for path in sorted(root.rglob("*")):
         if path.is_file() and path.name != "SHA256SUMS":
-            digest.update(path.relative_to(destination).as_posix().encode())
-            digest.update(path.read_bytes())
-    (destination / "manifests" / "SHA256SUMS").write_text(
-        digest.hexdigest() + "\n",
-        encoding="utf-8",
-    )
+            digest.update(path.relative_to(root).as_posix().encode())
+            with path.open("rb") as handle:
+                for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                    digest.update(chunk)
+    return digest.hexdigest()
+
+
+def write_snapshot_digest(destination: Path) -> None:
+    """Seal the current tree, not a promised future subset of that tree."""
+    checksum = _snapshot_checksum(destination)
+    path = destination / "manifests" / "SHA256SUMS"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(checksum + "\n", encoding="utf-8")
+
+
+def verify_snapshot_digest(destination: Path) -> bool:
+    """Fail closed when any present/absent file differs from the sealed tree."""
+    path = destination / "manifests" / "SHA256SUMS"
+    try:
+        expected = path.read_text(encoding="utf-8").strip()
+    except (OSError, UnicodeError) as exc:
+        raise ValueError("missing snapshot SHA256SUMS integrity receipt") from exc
+    if len(expected) != 64 or any(c not in "0123456789abcdef" for c in expected):
+        raise ValueError("invalid snapshot SHA256SUMS digest")
+    if expected != _snapshot_checksum(destination):
+        raise ValueError("snapshot SHA256SUMS digest mismatch")
+    return True
+
+
+_GIT_ONLY_OMISSIONS = (
+    "outputs_dev/_manifest.json",
+    "outputs_dev/proxies.json",
+    "outputs_dev/proxies.txt",
+    "outputs_dev/proxies_b64sub.txt",
+    "docs/artifacts/dev/proxies.json",
+    "docs/artifacts/dev/proxies.txt",
+    "docs/artifacts/dev/proxies_b64sub.txt",
+)
+
+
+def prepare_repository_snapshot(source_root: Path, git_root: Path) -> None:
+    """Copy and reseal the EXACT generated-outputs branch tree.
+
+    Pages still receives its original complete snapshot and original digest.
+    The Git branch deliberately omits redundant huge plaintext historical
+    outputs but must have a *different* digest over only the kept files.
+    """
+    source = source_root.resolve()
+    target = git_root.resolve()
+    if source == target or source in target.parents or target in source.parents:
+        raise ValueError("snapshot source and Git destination must be separate trees")
+    verify_snapshot_digest(source)
+    if target.exists():
+        if target.is_symlink() or not target.is_dir():
+            raise ValueError("unsafe generated snapshot destination")
+        shutil.rmtree(target)
+    try:
+        shutil.copytree(source, target)
+        for relative in _GIT_ONLY_OMISSIONS:
+            (target / relative).unlink(missing_ok=True)
+        write_snapshot_digest(target)
+        verify_snapshot_digest(target)
+    except Exception:
+        if target.is_dir():
+            shutil.rmtree(target)
+        raise
 
 
 def assemble_snapshot(

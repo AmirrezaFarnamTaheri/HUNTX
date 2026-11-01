@@ -30,6 +30,21 @@ def _digest(uri: str) -> str:
     return hashlib.sha256(canonical_proxy_identity(uri).encode("utf-8")).hexdigest()
 
 
+def _seal_snapshot_digest(root: Path) -> None:
+    """Load the sibling digest verifier in both script and package modes.
+
+    GitHub Actions executes this file directly with PYTHONPATH=src, where
+    scripts/ rather than the repository root is the Python import root.
+    Unit tests import scripts.publisher_live_attestation as a package.
+    Both entry modes must use the same strict snapshot hash implementation.
+    """
+    if __package__:
+        from .assemble_generated_snapshot import write_snapshot_digest
+    else:
+        from assemble_generated_snapshot import write_snapshot_digest
+    write_snapshot_digest(root)
+
+
 def _source_coordinates(root: Path) -> dict[str, Any]:
     path = root / "manifests" / "publication.json"
     try:
@@ -344,8 +359,7 @@ def main() -> int:
         )
         path.write_text(json.dumps(report, sort_keys=True, indent=2) + "\n",
                         encoding="utf-8")
-        from scripts.assemble_generated_snapshot import write_snapshot_digest
-        write_snapshot_digest(root)
+        _seal_snapshot_digest(root)
         print(f"Publisher HTTPS recheck: candidates={report['candidate_count']} "
               f"fresh={report['fresh_authenticated_count']} receipt={path.name}")
     else:
@@ -354,8 +368,7 @@ def main() -> int:
             report = finalize_attestation(root, report)
             path.write_text(json.dumps(report, sort_keys=True, indent=2) + "\n",
                             encoding="utf-8")
-            from scripts.assemble_generated_snapshot import write_snapshot_digest
-            write_snapshot_digest(root)
+            _seal_snapshot_digest(root)
         else:
             verify_attestation(root, report)
         print(f"Publisher authentication remains fresh: {report['fresh_authenticated_count']}")
