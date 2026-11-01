@@ -8,7 +8,7 @@ on:
       max_workers:
         description: "Parallel ingestion workers (1-16)"
         required: false
-        default: "2"
+        default: "4"
       msg_fresh_hours:
         description: "First-run text lookback hours"
         required: false
@@ -47,7 +47,7 @@ defaults:
     shell: bash
 
 env:
-  MAX_WORKERS: ${{ github.event.inputs.max_workers || '2' }}
+  MAX_WORKERS: ${{ github.event.inputs.max_workers || '4' }}
   MSG_FRESH_HOURS: ${{ github.event.inputs.msg_fresh_hours || '2' }}
   FILE_FRESH_HOURS: ${{ github.event.inputs.file_fresh_hours || '48' }}
   MSG_SUBSEQUENT_HOURS: ${{ github.event.inputs.msg_subsequent_hours || '0' }}
@@ -484,9 +484,9 @@ jobs:
           HUNTX_MAX_WORKERS: ${{ env.MAX_WORKERS }}
           HUNTX_REMARK_STYLE: evidence
           HUNTX_REQUIRE_PROXY_HEALTH: '1'
-          HUNTX_HEALTH_WORKERS: '16'
-          HUNTX_HEALTH_TIMEOUT: '8'
-          HUNTX_HEALTH_BUDGET: '900'
+          HUNTX_HEALTH_WORKERS: '32'
+          HUNTX_HEALTH_TIMEOUT: '25'
+          HUNTX_HEALTH_BUDGET: '1800'
           # Country dataset paths arrive through GITHUB_ENV from the
           # checksum-verified prepare_geoip_data.py step; do not shadow them.
           # Time-bounded, public-IP-only DNS/TCP measurements; not speed or auth verification.
