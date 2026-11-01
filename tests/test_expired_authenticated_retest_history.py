@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
@@ -21,8 +22,8 @@ from huntx.state.proxy_lifecycle import record_authenticated_probe, terminalize_
 from huntx.state.repo import StateRepo
 
 
-FRESH = "trojan://fast-credential@198.51.100.2:443?security=tls#fast"
-EXPIRED = "trojan://slow-credential@198.51.100.3:443?security=tls#slow"
+FRESH = "trojan://fast-credential@5.5.5.5:443?security=tls#fast"
+EXPIRED = "trojan://slow-credential@5.5.5.6:443?security=tls#slow"
 
 
 def digest(uri: str) -> str:
@@ -78,7 +79,7 @@ def test_expired_success_keeps_credential_free_proof_in_health_gate(monkeypatch)
         "ok": True, "checked_at": now, "latency_ms": 18500,
         "reason": "authenticated_https",
     })
-    monkeypatch.setattr(proxy_health.time, "time", clock)
+    monkeypatch.setattr(proxy_health, "time", SimpleNamespace(time=clock))
     result = proxy_health.verified_records([{"data": {"line": EXPIRED}}])
     assert result == []
     key = digest(EXPIRED)
