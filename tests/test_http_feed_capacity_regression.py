@@ -71,3 +71,18 @@ def test_node_ceiling_still_rejects_whole_input_without_truncating():
     payload = json.dumps([_uri(443)] * (parser.MAX_FEED_NODES + 1)).encode()
     with pytest.raises(ValueError, match="node limit"):
         parser.normalize_feed(payload)
+
+
+def test_base64_expansion_cannot_bypass_feed_byte_cap():
+    import base64
+
+    # Encoded body is within the fetch limit, but decoded content exceeds it.
+    expanded = b"x" * (parser.MAX_FEED_BYTES + 1)
+    encoded = base64.b64encode(expanded)
+    if len(encoded) <= parser.MAX_FEED_BYTES:
+        with pytest.raises(ValueError, match="decoded feed exceeds bounded size"):
+            parser.normalize_feed(encoded)
+    else:
+        # The raw transfer cap rejects this even before decoding.
+        with pytest.raises(ValueError, match="oversized"):
+            parser.normalize_feed(encoded)
