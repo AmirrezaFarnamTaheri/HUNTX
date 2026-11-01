@@ -958,6 +958,114 @@ class StateRepo:
             persisted += int(inserted)
         return persisted
 
+    def persist_expired_authenticated_gate_evidence(
+        self, record_type: str, candidates: list[Any], report: dict[str, Any],
+    ) -> int:
+        """Keep earlier real HTTPS success for retesting, never publication.
+
+        Validate every canonical candidate digest against the completed gate
+        first. Only status 'success_expired_before_publication' qualifies:
+        budget exhaustion, a refused connection or a TCP-only observation
+        cannot create a working-history receipt. Keep all secrets out of the
+        evidence ledger; monotonic probe ordering blocks stale resurrection.
+        """
+        import hashlib
+        import math
+
+        from ..formats.npvt import canonical_proxy_identity
+        from .proxy_lifecycle import record_authenticated_probe
+
+        if record_type not in {"npvt", "npvtsub"} or not isinstance(report, dict):
+            raise ValueError("invalid authenticated history gate")
+        if (
+            report.get("schema_version") != 1
+            or report.get("scope") != "single_authenticated_https_sweep"
+        ):
+            raise ValueError("invalid authenticated history gate schema")
+        dispositions = report.get("identities")
+        history = report.get("historical_authenticated_successes", {})
+        if not isinstance(dispositions, dict) or not isinstance(history, dict):
+            raise ValueError("invalid authenticated history evidence")
+
+        observed: set[str] = set()
+        for item in candidates:
+            fields = item.get("data", item) if isinstance(item, dict) else item
+            line = fields.get("line") if isinstance(fields, dict) else fields
+            if not isinstance(line, str) or not line.strip():
+                raise ValueError("invalid authenticated history candidate")
+            digest = hashlib.sha256(
+                canonical_proxy_identity(line).encode("utf-8")
+            ).hexdigest()
+            observed.add(digest)
+        if (
+            not observed
+            or set(dispositions) != observed
+            or type(report.get("candidates")) is not int
+            or report["candidates"] != len(observed)
+            or type(report.get("admitted")) is not int
+            or type(report.get("rejected")) is not int
+            or report["admitted"] + report["rejected"] != len(observed)
+        ):
+            raise ValueError("authenticated history candidate identity mismatch")
+        if any(
+            not isinstance(value, str) for value in dispositions.values()
+        ):
+            raise ValueError("invalid authenticated history dispositions")
+        for digest in history:
+            if dispositions.get(digest) != "success_expired_before_publication":
+                raise ValueError("expired HTTPS proof identity/status mismatch")
+
+        now = time.time()
+        validated: list[tuple[str, int, float]] = []
+        for digest in sorted(history):
+            details = history[digest]
+            if not isinstance(details, dict) or set(details) != {
+                "checked_at", "expires_at", "duration_ms",
+            }:
+                raise ValueError("invalid historical authenticated proof")
+            checked = details["checked_at"]
+            expires = details["expires_at"]
+            duration = details["duration_ms"]
+            if any(
+                type(value) not in (int, float) or not math.isfinite(value)
+                for value in (checked, expires, duration)
+            ):
+                raise ValueError("invalid historical authenticated proof measurements")
+            if (
+                not 0 < checked < expires <= now
+                or not 0 < expires - checked <= 300.001
+                or now - checked > 10800
+                or not 0 <= duration <= 30000
+            ):
+                raise ValueError("invalid historical authenticated proof window")
+            validated.append((digest, int(checked), float(duration)))
+
+        added = 0
+        for digest, checked, latency_ms in validated:
+            with self.db.connect() as conn:
+                lifecycle = conn.execute(
+                    "SELECT lifecycle_status, last_probe_at FROM proxy_lifecycle "
+                    "WHERE unique_hash = ? AND record_type = ?",
+                    (digest, record_type),
+                ).fetchone()
+            if lifecycle is not None and (
+                lifecycle["lifecycle_status"] in ("dead", "revoked", "archived")
+                or (
+                    lifecycle["last_probe_at"] is not None
+                    and int(lifecycle["last_probe_at"]) > checked
+                )
+            ):
+                # Preserve terminal policy and newer negative observations.
+                continue
+            inserted = record_authenticated_probe(
+                self.db, unique_hash=digest, record_type=record_type,
+                probe_id=f"expired-build:{record_type}:{digest}:{checked * 1000}",
+                vantage_id="producer-isolated-https", success=True,
+                latency_ms=latency_ms, checked_at=checked,
+            )
+            added += int(inserted)
+        return added
+
     def prune_old_data(self, days: int) -> Dict[str, Any]:
         """Purge seen_files, records, and published_artifacts older than N days.
         Returns a dict summarizing the counts of pruned entries and deleted raw_hashes."""
