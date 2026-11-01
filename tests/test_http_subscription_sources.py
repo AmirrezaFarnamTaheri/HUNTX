@@ -90,13 +90,14 @@ def test_mihomo_remote_yaml_denies_alias_expansion_and_oversized_input():
     repeated = "proxies: &entries\n  - name: a\n    type: direct\nshadow: *entries\n"
     with pytest.raises(ValueError, match="aliases"):
         normalize_feed(repeated.encode())
-    oversized = b"proxies:\n" + (b" " * (2 * 1024 * 1024))
+    oversized = b"proxies:\n" + (b" " * (8 * 1024 * 1024))
     with pytest.raises(ValueError, match="size limit"):
         normalize_feed(oversized)
 
 
 def test_mihomo_json_proxy_count_is_bounded_before_conversion():
-    too_many = {"proxies": [{"type": "direct"}] * 9001}
+    from huntx.connectors.http_subscription.parser import MAX_FEED_NODES
+    too_many = {"proxies": [{"type": "direct"}] * (MAX_FEED_NODES + 1)}
     with pytest.raises(ValueError, match="node limit"):
         normalize_feed(json.dumps(too_many).encode())
 
