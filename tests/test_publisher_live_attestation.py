@@ -153,3 +153,37 @@ def test_finalization_blocks_release_when_all_publisher_proof_expires(tmp_path):
     report = build(root)
     with pytest.raises(ValueError, match="(fresh|expired|authentication)"):
         finalize_attestation(root, report, now=CLOCK + 301)
+
+
+def test_publisher_script_finalizes_with_production_src_only_pythonpath(
+    tmp_path, monkeypatch
+):
+    """Actual Actions invocation must load snapshot-digest code after recheck."""
+    import os
+    from pathlib import Path
+    import subprocess
+    import sys
+    import time
+
+    root = snapshot(tmp_path)
+    now = time.time()
+    monkeypatch.setattr(sys.modules[__name__], "CLOCK", now)
+    report = build(root, now=now)
+    (root / "manifests" / "publisher-authentication.json").write_text(
+        json.dumps(report), encoding="utf-8"
+    )
+    project = Path(__file__).resolve().parents[1]
+    env = os.environ.copy()
+    # Reproduce GitHub Actions' PYTHONPATH: src. Direct script execution
+    # places scripts/ in sys.path, not the project's parent directory.
+    env["PYTHONPATH"] = "src"
+    ran = subprocess.run(
+        [
+            sys.executable, "scripts/publisher_live_attestation.py",
+            "finalize", "--snapshot-root", str(root),
+        ],
+        cwd=project, env=env, text=True, capture_output=True,
+        check=False, timeout=20,
+    )
+    assert ran.returncode == 0, ran.stderr[-2000:]
+    assert (root / "manifests" / "SHA256SUMS").exists()
