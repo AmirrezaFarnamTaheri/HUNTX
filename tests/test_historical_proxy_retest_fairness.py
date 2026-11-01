@@ -192,3 +192,123 @@ def test_build_retests_expired_history_only_through_new_https_gate(
     assert gate["historical_retests"]["authenticated_admitted"] == 1
     assert gate["historical_retests"]["identity_digests"] == [_digest(due)]
     assert "history-secret" not in json.dumps(gate)
+
+
+def test_deferred_historical_retests_never_enter_current_working_feed(
+    tmp_path, monkeypatch
+):
+    repo = StateRepo(open_db(tmp_path / "deferred.db"))
+    old = _seed(repo, 10401)
+    fresh = _seed(repo, 10402, old=False, authenticated=False)
+    monkeypatch.setenv("HUNTX_REMARK_STYLE", "legacy")
+    monkeypatch.setenv("HUNTX_REQUIRE_PROXY_HEALTH", "1")
+    monkeypatch.setenv("HUNTX_HISTORICAL_RETEST_PER_FORMAT", "1")
+
+    observed = []
+
+    def verify(rows):
+        observed.extend(x["data"]["line"] for x in rows)
+        now = time.time()
+        accepted = [{
+            "data": {
+                "line": fresh,
+                "probe_kind": "protocol_authenticated",
+                "probe_authenticated": True,
+                "probe_checked_at": now,
+                "probe_expires_at": now + 300,
+                "latency_ms": 18500,
+            }
+        }]
+        return CheckedRecords(accepted, {
+            "schema_version": 1,
+            "scope": "single_authenticated_https_sweep",
+            "candidates": 2,
+            "admitted": 1,
+            "rejected": 1,
+            "identities": {_digest(old): "not_completed", _digest(fresh): "admitted"},
+            "reasons": {"not_completed": 1, "admitted": 1},
+            "historical_authenticated_successes": {},
+        })
+
+    monkeypatch.setattr("huntx.core.proxy_health.verified_records", verify)
+    registry = Mock()
+    registry.get.return_value = NpvtHandler()
+    artifacts = Mock()
+    artifacts.save_artifact.return_value = "f" * 64
+    build = BuildPipeline(repo, artifacts, registry)
+    assert build.run({
+        "name": "all_sources", "from_sources": ["approved"],
+        "formats": ["npvt"], "min_ingested_at": CUTOFF,
+    })
+    assert observed == [old, fresh]
+    canonical = artifacts.save_artifact.call_args_list[0].args[2].decode()
+    assert "10402" in canonical
+    assert "10401" not in canonical
+    ledger = next(
+        json.loads(c.args[2]) for c in artifacts.save_output.call_args_list
+        if c.args[1] == "npvt.gate.json"
+    )
+    assert ledger["historical_retests"]["scheduled"] == 1
+    assert ledger["historical_retests"]["attempted"] == 0
+    assert ledger["historical_retests"]["deferred"] == 1
+    assert ledger["historical_retests"]["authenticated_admitted"] == 0
+    assert ledger["historical_retests"]["dispositions"] == {
+        _digest(old): "not_completed",
+    }
+    with repo.db.connect() as conn:
+        historical = conn.execute(
+            "SELECT authenticated_successes, last_probe_at FROM proxy_lifecycle "
+            "WHERE record_type = 'npvt' AND unique_hash = ?", (_digest(old),)
+        ).fetchone()
+        assert historical["authenticated_successes"] == 1
+        assert historical["last_probe_at"] < int(time.time()) - 300
+
+
+def test_thousands_of_distinct_old_successes_are_bounded_not_discarded(tmp_path):
+    repo = StateRepo(open_db(tmp_path / "thousands.db"))
+    observation = repo.record_file(
+        "approved", "big-sub", "a" * 64, 100, "large.txt", status="processed",
+    )
+    uris = [_uri(port) for port in range(21000, 22024)]
+    now = int(time.time())
+    with repo.db.connect() as conn:
+        conn.executemany(
+            "INSERT INTO records(source_file_hash, source_observation_id, "
+            "record_type, unique_hash, data_json, created_at) "
+            "VALUES (?, ?, 'npvt', ?, ?, '2000-01-01 00:00:00')",
+            [
+                ("a" * 64, observation, _digest(uri), json.dumps({"line": uri}))
+                for uri in uris
+            ],
+        )
+        conn.executemany(
+            "INSERT INTO proxy_lifecycle("
+            "unique_hash, record_type, first_seen_at, last_seen_at, "
+            "last_success_at, authenticated_successes, last_probe_at"
+            ") VALUES (?, 'npvt', ?, ?, ?, 1, ?)",
+            [(_digest(uri), now - 900, now - 900, now - 900, now - 900)
+             for uri in uris],
+        )
+        conn.execute(
+            "UPDATE seen_files SET ingested_at = '2000-01-01 00:00:00' "
+            "WHERE id = ?", (observation,),
+        )
+
+    repo.prune_old_data(1)
+    with repo.db.connect() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM records").fetchone()[0] == 1024
+    first = repo.schedule_historical_retests(
+        ["npvt"], ["approved"], min_ingested_at=CUTOFF, limit=64
+    )
+    second = repo.schedule_historical_retests(
+        ["npvt"], ["approved"], min_ingested_at=CUTOFF, limit=64
+    )
+    first_ids = {_digest(x["data"]["line"]) for x in first}
+    second_ids = {_digest(x["data"]["line"]) for x in second}
+    assert len(first_ids) == len(second_ids) == 64
+    assert first_ids.isdisjoint(second_ids)
+    with repo.db.connect() as conn:
+        assert conn.execute(
+            "SELECT COUNT(*) FROM proxy_retest_schedule"
+        ).fetchone()[0] == 128
+        assert conn.execute("SELECT COUNT(*) FROM records").fetchone()[0] == 1024
