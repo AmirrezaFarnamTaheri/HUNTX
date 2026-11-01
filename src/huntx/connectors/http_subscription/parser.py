@@ -16,8 +16,10 @@ import yaml
 
 from ...formats.npvt import NpvtHandler
 
-MAX_FEED_BYTES = 5 * 1024 * 1024
-MAX_FEED_NODES = 9_000
+MAX_FEED_BYTES = 16 * 1024 * 1024
+MAX_FEED_NODES = 30_000
+# Independently bound YAML tree construction even when the overall feed fits.
+MAX_MIHOMO_YAML_BYTES = 8 * 1024 * 1024
 _B64 = re.compile(r"^[A-Za-z0-9+/_=-]+$")
 _PROXY_TYPES = frozenset({
     "vless", "vmess", "trojan", "ss", "hysteria2", "hy2", "tuic",
@@ -336,7 +338,7 @@ def normalize_feed(payload: bytes, mode: str = "auto") -> tuple[bytes, dict[str,
         else:
             raise ValueError("full JSON profiles are not independent share-link feeds")
     elif text.startswith("proxies:") or text.startswith("---\nproxies:"):
-        if len(payload) > 2 * 1024 * 1024:
+        if len(payload) > MAX_MIHOMO_YAML_BYTES:
             raise ValueError("Mihomo YAML exceeds conservative size limit")
         try:
             data = yaml.load(text, Loader=_BoundedMihomoLoader)
@@ -360,6 +362,8 @@ def normalize_feed(payload: bytes, mode: str = "auto") -> tuple[bytes, dict[str,
             decoded = base64.b64decode(
                 compact + "=" * (-len(compact) % 4), altchars=b"-_", validate=True
             )
+            if len(decoded) > MAX_FEED_BYTES:
+                raise ValueError("decoded feed exceeds bounded size")
             text = decoded.decode("utf-8-sig")
         except (ValueError, UnicodeDecodeError, binascii.Error) as exc:
             raise ValueError("malformed base64 feed") from exc

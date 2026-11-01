@@ -77,3 +77,10 @@ func TestSingleFetchClientBoundsHeadersAndDisablesIdleConnections(t *testing.T) 
 		t.Fatalf("unbounded or proxy-redirectable HTTP fetch transport: %+v", tr)
 	}
 }
+
+// A larger bounded fetch must keep the response-body limit finite.
+func TestExpandedSourceFetchBodyLimit(t *testing.T) {
+	if MaxBodyBytes != 16*1024*1024 {
+		t.Fatalf("unexpected public feed body ceiling: %d", MaxBodyBytes)
+	}
+}

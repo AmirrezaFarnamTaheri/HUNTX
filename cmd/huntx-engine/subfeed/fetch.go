@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-const MaxBodyBytes = 5 * 1024 * 1024
+const MaxBodyBytes = 16 * 1024 * 1024
 
 var hostAllowlist = map[string]bool{
 	"raw.githubusercontent.com": true,
