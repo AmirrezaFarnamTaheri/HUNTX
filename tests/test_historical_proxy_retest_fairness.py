@@ -24,7 +24,7 @@ CUTOFF = "2026-10-30 00:00:00"
 
 
 def _uri(port: int) -> str:
-    return f"trojan://history-secret@198.51.100.2:{port}?security=tls#historical"
+    return f"trojan://history-secret@5.5.5.5:{port}?security=tls#historical"
 
 
 def _digest(uri: str) -> str:
