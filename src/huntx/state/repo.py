@@ -493,8 +493,9 @@ class StateRepo:
         *candidates* for an entirely new HTTPS check, never working proxies.
         Selection is persisted atomically across runs so a retained historical
         identity cannot be perpetually hidden behind earlier source records.
-        Only approved observation provenance, active records, genuine past
-        authenticated success and nonterminal lifecycle states qualify.
+        Only approved observation provenance, genuine past authentication
+        and nonterminal lifecycle states qualify. Source refresh may mark an
+        old record inactive without revoking that independently tested URI.
         """
         import hashlib
         from datetime import datetime
@@ -532,11 +533,14 @@ class StateRepo:
                   ON l.record_type = r.record_type AND l.unique_hash = r.unique_hash
                 WHERE r.record_type IN ({type_slots})
                   AND s.source_id IN ({source_slots})
-                  AND r.is_active = 1
                   AND l.authenticated_successes > 0
                   AND l.last_success_at IS NOT NULL
                   AND l.lifecycle_status NOT IN ('dead', 'revoked', 'archived')
-                  AND (s.ingested_at < ? OR l.lifecycle_status = 'suspect')
+                  AND (
+                      s.ingested_at < ?
+                      OR r.is_active = 0
+                      OR l.lifecycle_status = 'suspect'
+                  )
                   AND NOT EXISTS (
                       SELECT 1
                       FROM records AS recent
