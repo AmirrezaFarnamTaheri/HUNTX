@@ -415,6 +415,20 @@ class BuildPipeline:
                         format_lock.release()
                 build_duration = time.monotonic() - build_start
                 total_build_seconds += build_duration
+                # A real HTTPS success may have expired during the sweep and
+                # must NOT be admitted to the canonical feed, but it is still
+                # durable evidence that this candidate deserves future retest.
+                # Persist the credential-free, identity-matched historical
+                # facts before an empty current feed fails closed.
+                if (
+                    format_id in _DERIVED_PROXY_FORMATS
+                    and isinstance(publication_gate, bytes) and publication_gate
+                    and isinstance(self.state_repo, StateRepo)
+                ):
+                    gate_report = json.loads(publication_gate)
+                    self.state_repo.persist_expired_authenticated_gate_evidence(
+                        format_id, format_records, gate_report,
+                    )
                 if not artifact_bytes:
                     raise ValueError(
                         f'Nonempty record set produced an empty artifact for {format_id}'
