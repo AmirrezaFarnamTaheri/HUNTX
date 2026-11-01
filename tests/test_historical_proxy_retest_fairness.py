@@ -445,7 +445,7 @@ def test_explicit_zero_retest_budget_is_distinct_from_empty_candidate_pool(
     assert gate["historical_retests"]["selection_status"] == "disabled_by_config"
     assert gate["historical_retests"]["scheduled"] == 0
     assert gate["historical_retests"]["identity_digests"] == []
-    assert old not in json.dumps(artifacts.save_artifact.call_args_list)
+    assert old.encode("utf-8") not in artifacts.save_artifact.call_args_list[0].args[2]
     with repo.db.connect() as conn:
         assert conn.execute(
             "SELECT COUNT(*) FROM proxy_retest_schedule"
