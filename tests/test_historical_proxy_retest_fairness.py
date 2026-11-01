@@ -188,6 +188,7 @@ def test_build_retests_expired_history_only_through_new_https_gate(
         payload for c in artifacts.save_output.call_args_list
         if c.args[1] == "npvt.gate.json" for payload in [json.loads(c.args[2])]
     )
+    assert gate["historical_retests"]["selection_status"] == "performed"
     assert gate["historical_retests"]["scheduled"] == 1
     assert gate["historical_retests"]["authenticated_admitted"] == 1
     assert gate["historical_retests"]["identity_digests"] == [_digest(due)]
@@ -445,7 +446,7 @@ def test_explicit_zero_retest_budget_is_distinct_from_empty_candidate_pool(
     assert gate["historical_retests"]["selection_status"] == "disabled_by_config"
     assert gate["historical_retests"]["scheduled"] == 0
     assert gate["historical_retests"]["identity_digests"] == []
-    assert old.encode("utf-8") not in artifacts.save_artifact.call_args_list[0].args[2]
+    assert b":10503" not in artifacts.save_artifact.call_args_list[0].args[2]
     with repo.db.connect() as conn:
         assert conn.execute(
             "SELECT COUNT(*) FROM proxy_retest_schedule"
