@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import json
 import os
 import re
 import sys
@@ -19,6 +20,8 @@ import urllib.request
 from pathlib import Path
 
 _BASE = "https://github.com/sapics/ip-location-db/releases/download"
+_RELEASE_API = "https://api.github.com/repos/sapics/ip-location-db/releases/latest"
+_METADATA_MAX_BYTES = 1024 * 1024
 _USER_AGENT = "HUNTX-geolocation-publisher/1.0"
 _MAX_BYTES = 96 * 1024 * 1024
 _ENTRIES = {
@@ -59,33 +62,93 @@ def _valid_csv(payload: bytes, expected_columns: int) -> bool:
     return len(first) == expected_columns and len(payload) >= 100
 
 
+def _release_assets(selected: dict[str, str]) -> dict[str, tuple[str, str, int]]:
+    """Tie the expected digest to each file in the SAME GitHub release.
+
+    The upstream 'checksum' release is updated independently of 'latest'.
+    Comparing those two releases incorrectly rejects valid CSVs whenever
+    their scheduled publication times diverge. A GitHub-computed asset digest
+    is authoritative for the corresponding asset in the 'latest' release.
+    """
+    raw = _retrieve(_RELEASE_API, limit=_METADATA_MAX_BYTES)
+    try:
+        metadata = json.loads(raw)
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise ValueError("Invalid upstream release metadata") from exc
+    if (
+        not isinstance(metadata, dict)
+        or metadata.get("tag_name") != "latest"
+        or not isinstance(metadata.get("assets"), list)
+    ):
+        raise ValueError("Invalid upstream latest release metadata")
+
+    assets = metadata["assets"]
+    verified: dict[str, tuple[str, str, int]] = {}
+    for filename in selected.values():
+        matches = [
+            asset for asset in assets
+            if isinstance(asset, dict) and asset.get("name") == filename
+        ]
+        if len(matches) != 1:
+            raise ValueError(f"Missing or ambiguous release asset for {filename}")
+        asset = matches[0]
+        url = f"{_BASE}/latest/{filename}"
+        # Never let untrusted release JSON redirect data ingestion to another
+        # host or to a different mutable asset. The digest is checked AGAIN
+        # against actual downloaded bytes; no trust bypass is possible.
+        if asset.get("browser_download_url") != url:
+            raise ValueError(f"Invalid release asset URL for {filename}")
+        digest = asset.get("digest")
+        if not isinstance(digest, str) or re.fullmatch(
+            r"sha256:[a-f0-9]{64}", digest,
+        ) is None:
+            raise ValueError(f"Missing or malformed release asset digest for {filename}")
+        size = asset.get("size")
+        if type(size) is not int or not 100 <= size <= _MAX_BYTES:
+            raise ValueError(f"Invalid release asset size for {filename}")
+        verified[filename] = (url, digest[7:], size)
+    return verified
+
+
 def prepare_tables(destination: Path, *, include_asn: bool = True) -> dict[str, Path]:
-    """Fetch country/ASN CSVs and validate every upstream digest before use."""
+    """Stage complete, same-release SHA-256-verified country/ASN datasets."""
     destination.mkdir(parents=True, exist_ok=True)
     selected = {
         key: filename for key, filename in _ENTRIES.items()
         if include_asn or key.startswith("HUNTX_GEOIP_")
     }
-    results: dict[str, Path] = {}
+    release_assets = _release_assets(selected)
+    verified_bytes: dict[str, bytes] = {}
+    # Verify ALL files before activating any. An upstream refresh during this
+    # run must fail closed without corrupting the last validated local data.
     for key, filename in selected.items():
-        checksums = _retrieve(f"{_BASE}/checksum/{filename}.sha256", limit=4096)
-        matches = re.findall(rb"(?<![a-f0-9])[a-f0-9]{64}(?![a-f0-9])", checksums.lower())
-        if len(matches) != 1:
-            raise ValueError(f"Upstream checksum is missing or ambiguous for {filename}")
-        payload = _retrieve(f"{_BASE}/latest/{filename}")
+        url, expected_digest, expected_size = release_assets[filename]
+        payload = _retrieve(url)
         digest = hashlib.sha256(payload).hexdigest()
-        if digest != matches[0].decode("ascii"):
+        if digest != expected_digest:
             raise ValueError(f"Upstream SHA-256 mismatch for {filename}")
+        if len(payload) != expected_size:
+            raise ValueError(f"Upstream asset size mismatch for {filename}")
         if not _valid_csv(payload, expected_columns=4 if "ASN_" in key else 3):
             raise ValueError(f"Invalid IP attribution CSV for {filename}")
-        target = destination / filename
-        temporary = destination / (filename + ".tmp")
-        temporary.write_bytes(payload)
-        os.replace(temporary, target)
-        results[key] = target.resolve()
+        verified_bytes[filename] = payload
         print(f"[geo] Verified {filename}: {len(payload)} bytes, sha256={digest[:12]}")
-    return results
 
+    prepared: list[tuple[Path, Path]] = []
+    results: dict[str, Path] = {}
+    try:
+        for filename, payload in verified_bytes.items():
+            temporary = destination / (filename + ".tmp")
+            temporary.write_bytes(payload)
+            prepared.append((temporary, destination / filename))
+        for temporary, target in prepared:
+            os.replace(temporary, target)
+        for key, filename in selected.items():
+            results[key] = (destination / filename).resolve()
+    finally:
+        for temporary, _ in prepared:
+            temporary.unlink(missing_ok=True)
+    return results
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
