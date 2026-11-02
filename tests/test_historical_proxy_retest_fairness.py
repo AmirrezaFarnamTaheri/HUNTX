@@ -510,8 +510,12 @@ def test_actual_governed_route_retests_old_history_with_new_https_evidence(
     })
     assert observed == [old_uri, fresh_uri]
     canonical = artifacts.save_artifact.call_args_list[0].args[2]
-    assert old_uri.encode() in canonical
-    assert fresh_uri.encode() not in canonical
+    # The serializer may rewrite the display remark, but never connection
+    # identity. Assert the real canonical membership, not a cosmetic suffix.
+    assert {
+        canonical_proxy_identity(line)
+        for line in canonical.decode("utf-8").splitlines() if line.strip()
+    } == {canonical_proxy_identity(old_uri)}
     receipt = next(
         json.loads(call.args[2]) for call in artifacts.save_output.call_args_list
         if call.args[1] == "npvt.gate.json"
