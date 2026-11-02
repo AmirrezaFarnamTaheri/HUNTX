@@ -150,6 +150,7 @@ def prepare_tables(destination: Path, *, include_asn: bool = True) -> dict[str, 
             temporary.unlink(missing_ok=True)
     return results
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", required=True, type=Path)
