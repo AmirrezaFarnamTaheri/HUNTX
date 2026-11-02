@@ -15,6 +15,7 @@ import pytest
 from huntx.core.proxy_health import CheckedRecords
 from huntx.formats.npvt import NpvtHandler, canonical_proxy_identity
 from huntx.pipeline.build import BuildPipeline
+from huntx.pipeline.governed_build import GovernedBuildPipeline
 from huntx.state.db import open_db
 from huntx.state.proxy_lifecycle import record_authenticated_probe, terminalize_proxy
 from huntx.state.repo import StateRepo
@@ -451,3 +452,135 @@ def test_explicit_zero_retest_budget_is_distinct_from_empty_candidate_pool(
         assert conn.execute(
             "SELECT COUNT(*) FROM proxy_retest_schedule"
         ).fetchone()[0] == 0
+
+
+def test_actual_governed_route_retests_old_history_with_new_https_evidence(
+    tmp_path, monkeypatch
+):
+    """The production facade, not only a standalone BuildPipeline, must retest."""
+    repo = StateRepo(open_db(tmp_path / "governed-retest.db"))
+    old_uri = _seed(repo, 10601)
+    fresh_uri = _seed(repo, 10602, old=False, authenticated=False)
+    monkeypatch.setenv("HUNTX_REQUIRE_PROXY_HEALTH", "1")
+    monkeypatch.setenv("HUNTX_HISTORICAL_RETEST_PER_FORMAT", "1")
+    monkeypatch.setenv("HUNTX_REMARK_STYLE", "legacy")
+    observed = []
+
+    def current_https(rows):
+        observed.extend(row["data"]["line"] for row in rows)
+        now = time.time()
+        accepted = [{
+            "data": {
+                "line": old_uri,
+                "probe_kind": "protocol_authenticated",
+                "probe_authenticated": True,
+                "probe_checked_at": now,
+                "probe_expires_at": now + 300,
+                "latency_ms": 17000,
+            },
+        }]
+        return CheckedRecords(accepted, {
+            "schema_version": 1,
+            "scope": "single_authenticated_https_sweep",
+            "candidates": 2,
+            "admitted": 1,
+            "rejected": 1,
+            "identities": {
+                _digest(old_uri): "admitted",
+                _digest(fresh_uri): "handshake_failed",
+            },
+            "reasons": {"admitted": 1, "handshake_failed": 1},
+            "historical_authenticated_successes": {},
+        })
+
+    monkeypatch.setattr("huntx.core.proxy_health.verified_records", current_https)
+    registry = Mock()
+    registry.get.return_value = NpvtHandler()
+    artifacts = Mock()
+    artifacts.save_artifact.return_value = "f" * 64
+    governed = GovernedBuildPipeline(
+        repo, artifacts, registry,
+        {"all_sources": ("compatible", False)},
+    )
+    assert governed.run({
+        "name": "all_sources",
+        "from_sources": ["approved"],
+        "formats": ["npvt"],
+        "min_ingested_at": CUTOFF,
+    })
+    assert observed == [old_uri, fresh_uri]
+    canonical = artifacts.save_artifact.call_args_list[0].args[2]
+    # The serializer may rewrite the display remark, but never connection
+    # identity. Assert the real canonical membership, not a cosmetic suffix.
+    assert {
+        canonical_proxy_identity(line)
+        for line in canonical.decode("utf-8").splitlines() if line.strip()
+    } == {canonical_proxy_identity(old_uri)}
+    receipt = next(
+        json.loads(call.args[2]) for call in artifacts.save_output.call_args_list
+        if call.args[1] == "npvt.gate.json"
+    )
+    retest = receipt["historical_retests"]
+    assert retest["selection_status"] == "performed"
+    assert retest["scheduled"] == 1
+    assert retest["attempted"] == 1
+    assert retest["authenticated_admitted"] == 1
+    assert retest["identity_digests"] == [_digest(old_uri)]
+    with repo.db.connect() as conn:
+        scheduled = conn.execute(
+            "SELECT selection_count FROM proxy_retest_schedule "
+            "WHERE record_type = 'npvt' AND unique_hash = ?",
+            (_digest(old_uri),),
+        ).fetchone()
+        assert scheduled["selection_count"] == 1
+
+
+def test_governed_fresh_only_route_still_proves_selection_was_performed(
+    tmp_path, monkeypatch
+):
+    repo = StateRepo(open_db(tmp_path / "governed-empty-retest.db"))
+    fresh_uri = _seed(repo, 10603, old=False, authenticated=False)
+    monkeypatch.setenv("HUNTX_REQUIRE_PROXY_HEALTH", "1")
+    monkeypatch.setenv("HUNTX_HISTORICAL_RETEST_PER_FORMAT", "1")
+    monkeypatch.setenv("HUNTX_REMARK_STYLE", "legacy")
+
+    def current_https(rows):
+        assert [row["data"]["line"] for row in rows] == [fresh_uri]
+        now = time.time()
+        return CheckedRecords([{
+            "data": {
+                "line": fresh_uri,
+                "probe_kind": "protocol_authenticated",
+                "probe_authenticated": True,
+                "probe_checked_at": now,
+                "probe_expires_at": now + 300,
+                "latency_ms": 17000,
+            }
+        }], {
+            "schema_version": 1, "scope": "single_authenticated_https_sweep",
+            "candidates": 1, "admitted": 1, "rejected": 0,
+            "identities": {_digest(fresh_uri): "admitted"},
+            "reasons": {"admitted": 1},
+            "historical_authenticated_successes": {},
+        })
+
+    monkeypatch.setattr("huntx.core.proxy_health.verified_records", current_https)
+    registry = Mock()
+    registry.get.return_value = NpvtHandler()
+    artifacts = Mock()
+    artifacts.save_artifact.return_value = "f" * 64
+    pipeline = GovernedBuildPipeline(
+        repo, artifacts, registry, {"all_sources": ("compatible", False)}
+    )
+    assert pipeline.run({
+        "name": "all_sources",
+        "from_sources": ["approved"],
+        "formats": ["npvt"],
+        "min_ingested_at": CUTOFF,
+    })
+    receipt = next(
+        json.loads(call.args[2]) for call in artifacts.save_output.call_args_list
+        if call.args[1] == "npvt.gate.json"
+    )
+    assert receipt["historical_retests"]["selection_status"] == "performed"
+    assert receipt["historical_retests"]["scheduled"] == 0

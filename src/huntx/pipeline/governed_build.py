@@ -22,10 +22,12 @@ class _GovernedRepoProxy(StateRepo):
         *,
         publication_tier: str,
         require_fresh_probe: bool,
+        prefetched_records: Optional[_RecordList] = None,
     ) -> None:
         super().__init__(repo.db)
         self._publication_tier = publication_tier
         self._require_fresh_probe = require_fresh_probe
+        self._prefetched_records = prefetched_records
 
     def get_records_for_build(
         self,
@@ -34,6 +36,11 @@ class _GovernedRepoProxy(StateRepo):
         min_seen_file_id: Optional[int] = None,
         min_ingested_at: Optional[str] = None,
     ) -> list[dict[str, Any]]:
+        if self._prefetched_records is not None:
+            # The caller already performed the policy-filtered, single-flight
+            # query for this exact route. Leave records=None at BuildPipeline
+            # so its historical scheduler still runs and writes true receipts.
+            return list(self._prefetched_records)
         return get_records_for_governed_build(
             self.db,
             record_types,
@@ -122,6 +129,7 @@ class GovernedBuildPipeline(BuildPipeline):
     ) -> list[dict[str, Any]]:
         if deadline is not None:
             deadline.raise_if_expired("build")
+        route_repo: StateRepo = self.state_repo
         if records is None:
             route_name = str(route_config["name"])
             tier, require_fresh_probe = self._route_policies.get(route_name, ("compatible", False))
@@ -130,10 +138,24 @@ class GovernedBuildPipeline(BuildPipeline):
                 tier=tier,
                 require_fresh_probe=require_fresh_probe,
             )
+            if route_name in {"all_sources", "all_sources_sub"}:
+                # Real production uses GovernedBuildPipeline. Previously it
+                # passed records= unconditionally, bypassing BuildPipeline's
+                # source-independent historical retest selector. Retain the
+                # single-flight governed query but let the canonical builder
+                # obtain the prefetched fresh records through a StateRepo
+                # facade, then schedule old genuine successes for NEW HTTPS.
+                route_repo = _GovernedRepoProxy(
+                    self.state_repo,
+                    publication_tier=tier,
+                    require_fresh_probe=require_fresh_probe,
+                    prefetched_records=records,
+                )
+                records = None
         if deadline is not None:
             deadline.raise_if_expired("build")
         route_pipeline = BuildPipeline(
-            self.state_repo,
+            route_repo,
             self.artifact_store,
             self.registry,
             format_locks=self._format_locks,
