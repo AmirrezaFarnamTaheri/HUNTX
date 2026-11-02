@@ -9,7 +9,7 @@ requires-python = ">=3.11"
 dependencies = [
   "PyYAML>=6.0",
   "telethon>=1.45.0,<2",
-  "pydantic>=2.14.0",
+  "pydantic>=2.14.2",
   "pyaes>=1.6.1",
   "rsa>=4.9.1",
   "pyasn1>=0.6.5",
@@ -18,8 +18,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-  "pytest>=8",
-  "pytest-asyncio>=0.24",
+  "pytest>=9.2.0",
+  "pytest-asyncio>=1.4.1",
   "black",
   "flake8",
   "mypy",
