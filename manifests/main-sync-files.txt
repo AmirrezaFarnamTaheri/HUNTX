@@ -1,5 +1,4 @@
 outputs/.huntx-output-ownership.json
-outputs/all_sources.dark
 outputs/all_sources.json
 outputs/all_sources.npvt
 outputs/all_sources.npvt.b64sub
@@ -75,7 +74,6 @@ docs/USER_GUIDE.md
 docs/architecture.html
 docs/artifacts/manifest.json
 docs/artifacts/quality/proxy-churn.json
-docs/artifacts/release/all_sources.dark
 docs/artifacts/release/all_sources.json
 docs/artifacts/release/all_sources.npvt
 docs/artifacts/release/all_sources.npvt.b64sub
