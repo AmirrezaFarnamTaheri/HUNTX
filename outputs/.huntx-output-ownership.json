@@ -1,5 +1,9 @@
 {
   "files": {
+    "all_sources.conf_lines": {
+      "format": "conf_lines",
+      "route": "all_sources"
+    },
     "all_sources.json": {
       "format": "npvt.decoded.json",
       "route": "all_sources"
@@ -193,7 +197,7 @@
       "route": "all_sources"
     }
   },
-  "generated_at": "2026-11-09T10:14:38.650116+00:00",
-  "min_ingested_at": "2026-11-06T09:52:54+00:00",
+  "generated_at": "2026-11-09T18:33:43.297651+00:00",
+  "min_ingested_at": "2026-11-06T17:56:05+00:00",
   "schema_version": 1
 }
