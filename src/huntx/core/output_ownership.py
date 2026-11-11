@@ -50,6 +50,7 @@ _EMPTY_RELEASE_PAYLOAD = {
 # npvtsub one, so the two families stay distinct and conventional.
 _CANONICAL_BASE_SUFFIX = {"npvt": ".txt", "npvtsub": "_sub.txt"}
 _DERIVED_STEM = {"npvt": "", "npvtsub": "_sub"}
+_PUBLIC_PROTOCOLS = frozenset({'vless', 'vmess', 'hysteria', 'hysteria2', 'shadowsocks', 'shadowsocksr', 'trojan', 'socks', 'http', 'anytls', 'tuic', 'wireguard', 'ssh', 'shadowtls', 'naive', 'juicity', 'mieru', 'warp', 'dns', 'dnstt'})
 _DERIVED_CANONICAL_SUFFIX = {
     ".b64sub": "_base64.txt",
     ".decoded.json": ".json",
@@ -95,6 +96,12 @@ def output_filename(route: str, fmt: str) -> str:
     therefore produce ten distinct files rather than five colliding pairs.
     """
     safe_route = safe_component(route, default="route")
+    for owner in ("npvt", "npvtsub"):
+        prefix = f"{owner}.protocol."
+        if fmt.startswith(prefix) and fmt.endswith(".txt"):
+            protocol = fmt[len(prefix):-4]
+            if protocol in _PUBLIC_PROTOCOLS:
+                return f"{safe_route}{_DERIVED_STEM[owner]}_{protocol}.txt"
     base = _CANONICAL_BASE_SUFFIX.get(fmt)
     if base is not None:
         return f"{safe_route}{base}"

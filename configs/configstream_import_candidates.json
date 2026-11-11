@@ -1,0 +1,929 @@
+{
+  "provenance": "ConfigStream 17 batches",
+  "candidates": [
+    {
+      "url": "https://raw.githubusercontent.com/jetkai/proxy-list/main/archive/txt/proxies.txt",
+      "batch": 1
+    },
+    {
+      "url": "https://raw.githubusercontent.com/jetkai/proxy-list/main/online-proxies/txt/proxies.txt",
+      "batch": 2
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ebrasha/free-v2ray-public-list/main/V2Ray-Config-By-EbraSha-All-Type.txt",
+      "batch": 3
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ebrasha/free-v2ray-public-list/refs/heads/main/V2Ray-Config-By-EbraSha.txt",
+      "batch": 4
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/all_sub.txt",
+      "batch": 5
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ndsphonemy/proxy-sub/refs/heads/main/speed.txt",
+      "batch": 6
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ndsphonemy/proxy-sub/main/default.txt",
+      "batch": 7
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub23.txt",
+      "batch": 8
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ndsphonemy/proxy-sub/refs/heads/main/mobile.txt",
+      "batch": 9
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub13.txt",
+      "batch": 10
+    },
+    {
+      "url": "https://raw.githubusercontent.com/coldwater-10/V2Hub1/main/Split/Base64/vmess",
+      "batch": 11
+    },
+    {
+      "url": "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks4.txt",
+      "batch": 12
+    },
+    {
+      "url": "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks5.txt",
+      "batch": 13
+    },
+    {
+      "url": "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/main/http.txt",
+      "batch": 14
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ebrasha/free-v2ray-public-list/refs/heads/main/all_extracted_configs.txt",
+      "batch": 16
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/filtered/subs/hysteria2.txt",
+      "batch": 1
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub1.txt",
+      "batch": 2
+    },
+    {
+      "url": "https://raw.githubusercontent.com/F0rc3Run/F0rc3Run/main/splitted-by-protocol/vless.txt",
+      "batch": 3
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub24.txt",
+      "batch": 4
+    },
+    {
+      "url": "https://raw.githubusercontent.com/B4RC0DE-TM/proxy-list/main/SOCKS5.txt",
+      "batch": 5
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub19.txt",
+      "batch": 6
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Kwinshadow/TelegramV2rayCollector/main/sublinks/mix.txt",
+      "batch": 7
+    },
+    {
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-config/main/Sub5.txt",
+      "batch": 8
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub27.txt",
+      "batch": 9
+    },
+    {
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-config/main/Sub8.txt",
+      "batch": 10
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ndsphonemy/proxy-sub/main/hys-tuic.txt",
+      "batch": 11
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub34.txt",
+      "batch": 12
+    },
+    {
+      "url": "https://raw.githubusercontent.com/coldwater-10/V2Hub1/main/Split/Base64/vless",
+      "batch": 13
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub5.txt",
+      "batch": 15
+    },
+    {
+      "url": "https://raw.githubusercontent.com/F0rc3Run/F0rc3Run/main/splitted-by-protocol/shadowsocks.txt",
+      "batch": 16
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ndsphonemy/proxy-sub/main/wg.txt",
+      "batch": 17
+    },
+    {
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-config/main/Sub6.txt",
+      "batch": 1
+    },
+    {
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-config/main/All_Configs_base64_Sub.txt",
+      "batch": 2
+    },
+    {
+      "url": "https://raw.githubusercontent.com/coldwater-10/V2Hub1/main/Split/Base64/trojan",
+      "batch": 3
+    },
+    {
+      "url": "https://raw.githubusercontent.com/taheri79/V2rayCollector/main/sub/normal/reality",
+      "batch": 4
+    },
+    {
+      "url": "https://raw.githubusercontent.com/mahdibland/V2RayAggregator/master/sub/sub_merge.txt",
+      "batch": 5
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/filtered/subs/vmess.txt",
+      "batch": 6
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub15.txt",
+      "batch": 7
+    },
+    {
+      "url": "https://raw.githubusercontent.com/zengfr/free-vpn-subscribe/main/vpn_sub_shadowsocks.txt",
+      "batch": 8
+    },
+    {
+      "url": "https://raw.githubusercontent.com/taheri79/V2rayCollector/main/sub/normal/vmess",
+      "batch": 9
+    },
+    {
+      "url": "https://raw.githubusercontent.com/zengfr/free-vpn-subscribe/main/vpn_sub_vmess.txt",
+      "batch": 10
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub25.txt",
+      "batch": 11
+    },
+    {
+      "url": "https://raw.githubusercontent.com/mahdibland/V2RayAggregator/master/sub/splitted/trojan.txt",
+      "batch": 12
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ndsphonemy/proxy-sub/main/my.txt",
+      "batch": 13
+    },
+    {
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-config/main/Sub4.txt",
+      "batch": 15
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MuRongPIG/Proxy-Master/main/socks4.txt",
+      "batch": 16
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub3.txt",
+      "batch": 17
+    },
+    {
+      "url": "https://raw.githubusercontent.com/zengfr/free-vpn-subscribe/main/vpn_sub_raw_vmess.txt",
+      "batch": 1
+    },
+    {
+      "url": "https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/all/data.txt",
+      "batch": 2
+    },
+    {
+      "url": "https://raw.githubusercontent.com/hamedcode/port-based-v2ray-configs/main/sub/vmess.txt",
+      "batch": 4
+    },
+    {
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-config/main/Splitted-By-Protocol/vless.txt",
+      "batch": 5
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub12.txt",
+      "batch": 6
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub38.txt",
+      "batch": 7
+    },
+    {
+      "url": "https://raw.githubusercontent.com/vpei/free-node-1/refs/heads/main/res/nod-1.txt",
+      "batch": 8
+    },
+    {
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-config/main/Sub7.txt",
+      "batch": 9
+    },
+    {
+      "url": "https://raw.githubusercontent.com/vpei/free-node-1/refs/heads/main/res/nod-3.txt",
+      "batch": 10
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub14.txt",
+      "batch": 11
+    },
+    {
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-config/main/Splitted-By-Protocol/vmess.txt",
+      "batch": 12
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Kwinshadow/TelegramV2rayCollector/main/sublinks/b64mix.txt",
+      "batch": 13
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub36.txt",
+      "batch": 14
+    },
+    {
+      "url": "https://raw.githubusercontent.com/zengfr/free-vpn-subscribe/main/vpn_sub_vless.txt",
+      "batch": 15
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub31.txt",
+      "batch": 16
+    },
+    {
+      "url": "https://raw.githubusercontent.com/taheri79/V2rayCollector/main/sub/normal/trojan",
+      "batch": 17
+    },
+    {
+      "url": "https://raw.githubusercontent.com/vpei/free-node-1/refs/heads/main/res/nod-9.txt",
+      "batch": 1
+    },
+    {
+      "url": "https://raw.githubusercontent.com/zengfr/free-vpn-subscribe/main/vpn_sub_raw_vless.txt",
+      "batch": 2
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub16.txt",
+      "batch": 3
+    },
+    {
+      "url": "https://raw.githubusercontent.com/LonUp/NodeList/main/V2RAY/NodeList.txt",
+      "batch": 4
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/socks4.txt",
+      "batch": 5
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub35.txt",
+      "batch": 6
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub20.txt",
+      "batch": 7
+    },
+    {
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-Config/main/Splitted-By-Protocol/trojan.txt",
+      "batch": 8
+    },
+    {
+      "url": "https://raw.githubusercontent.com/zengfr/free-vpn-subscribe/main/vpn_sub_raw_trojan.txt",
+      "batch": 9
+    },
+    {
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-Config/main/Splitted-By-Protocol/vless.txt",
+      "batch": 10
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub9.txt",
+      "batch": 11
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/socks5.txt",
+      "batch": 12
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub37.txt",
+      "batch": 13
+    },
+    {
+      "url": "https://raw.githubusercontent.com/taheri79/V2rayCollector/main/sub/normal/vless",
+      "batch": 14
+    },
+    {
+      "url": "https://raw.githubusercontent.com/vpei/free-node-1/refs/heads/main/res/nod-8.txt",
+      "batch": 15
+    },
+    {
+      "url": "https://raw.githubusercontent.com/10ium/ScrapeAndCategorize/refs/heads/main/output_configs/Vless.txt",
+      "batch": 16
+    },
+    {
+      "url": "https://raw.githubusercontent.com/hamedcode/port-based-v2ray-configs/main/sub/ss.txt",
+      "batch": 17
+    },
+    {
+      "url": "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/BLACK_VLESS_RUS_mobile.txt",
+      "batch": 1
+    },
+    {
+      "url": "https://raw.githubusercontent.com/vpei/free-node-1/refs/heads/main/res/nod-5.txt",
+      "batch": 2
+    },
+    {
+      "url": "https://raw.githubusercontent.com/taheri79/V2rayCollector/main/sub/normal/mix",
+      "batch": 3
+    },
+    {
+      "url": "https://raw.githubusercontent.com/AvenCores/goida-vpn-configs/refs/heads/main/githubmirror/1.txt",
+      "batch": 4
+    },
+    {
+      "url": "https://raw.githubusercontent.com/zengfr/free-vpn-subscribe/main/vpn_sub_trojan.txt",
+      "batch": 5
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub17.txt",
+      "batch": 6
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub6.txt",
+      "batch": 7
+    },
+    {
+      "url": "https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/main/mfc.txt",
+      "batch": 8
+    },
+    {
+      "url": "https://raw.githubusercontent.com/vpei/free-node-1/refs/heads/main/res/nod-2.txt",
+      "batch": 9
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ircfspace/tvc/main/sub/mix",
+      "batch": 10
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub39.txt",
+      "batch": 11
+    },
+    {
+      "url": "https://raw.githubusercontent.com/zengfr/free-vpn-subscribe/main/vpn_sub_raw_.txt",
+      "batch": 12
+    },
+    {
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-config/main/Sub1.txt",
+      "batch": 13
+    },
+    {
+      "url": "https://raw.githubusercontent.com/mahdibland/V2RayAggregator/master/sub/splitted/vmess.txt",
+      "batch": 14
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Stinsonysm/GO_V2rayCollector/main/trojan_iran.txt",
+      "batch": 15
+    },
+    {
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-config/main/All_Configs_Sub.txt",
+      "batch": 16
+    },
+    {
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-config/main/Sub2.txt",
+      "batch": 17
+    },
+    {
+      "url": "https://raw.githubusercontent.com/nscl5/5/refs/heads/main/configs/all.txt",
+      "batch": 1
+    },
+    {
+      "url": "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/Vless-Reality-White-Lists-Rus-Mobile-2.txt",
+      "batch": 2
+    },
+    {
+      "url": "https://raw.githubusercontent.com/hamedcode/port-based-v2ray-configs/main/sub/vless.txt",
+      "batch": 3
+    },
+    {
+      "url": "https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/main/mtn/sub_4.txt",
+      "batch": 4
+    },
+    {
+      "url": "https://raw.githubusercontent.com/vpei/free-node-1/main/o/proxies.txt",
+      "batch": 5
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub21.txt",
+      "batch": 6
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub30.txt",
+      "batch": 7
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Farid-Karimi/Config-Collector/main/mixed_iran.txt",
+      "batch": 8
+    },
+    {
+      "url": "https://raw.githubusercontent.com/R3ZARAHIMI/7/main/Config_jo.txt",
+      "batch": 9
+    },
+    {
+      "url": "https://raw.githubusercontent.com/AvenCores/goida-vpn-configs/main/githubmirror/10.txt",
+      "batch": 10
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub22.txt",
+      "batch": 11
+    },
+    {
+      "url": "https://raw.githubusercontent.com/vpei/free-node-1/refs/heads/main/res/nod-4.txt",
+      "batch": 12
+    },
+    {
+      "url": "https://raw.githubusercontent.com/vpei/free-node-1/refs/heads/main/res/nod-0.txt",
+      "batch": 13
+    },
+    {
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-config/main/Sub3.txt",
+      "batch": 14
+    },
+    {
+      "url": "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/BLACK_SS+All_RUS.txt",
+      "batch": 15
+    },
+    {
+      "url": "https://raw.githubusercontent.com/LonUp/NodeList/main/V2RAY/Latest_base64.txt",
+      "batch": 16
+    },
+    {
+      "url": "https://raw.githubusercontent.com/zengfr/free-vpn-subscribe/main/vpn_sub_raw_shadowsocks.txt",
+      "batch": 17
+    },
+    {
+      "url": "https://raw.githubusercontent.com/SoliSpirit/v2ray-configs/main/Protocols/vless.txt",
+      "batch": 1
+    },
+    {
+      "url": "https://raw.githubusercontent.com/4n0nymou3/multi-proxy-config-fetcher/refs/heads/main/configs/proxy_configs.txt",
+      "batch": 2
+    },
+    {
+      "url": "https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mci/sub_4.txt",
+      "batch": 3
+    },
+    {
+      "url": "https://raw.githubusercontent.com/youfoundamin/V2rayCollector/main/ss_iran.txt",
+      "batch": 4
+    },
+    {
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-Config/main/Splitted-By-Protocol/ss.txt",
+      "batch": 5
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/super-sub.txt",
+      "batch": 6
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/filtered/subs/trojan.txt",
+      "batch": 7
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ZY-404/v2ray/main/v2ray.txt",
+      "batch": 8
+    },
+    {
+      "url": "https://raw.githubusercontent.com/LonUp/NodeList/main/V2RAY/V2RAY.txt",
+      "batch": 9
+    },
+    {
+      "url": "https://raw.githubusercontent.com/prxchk/proxy-list/main/socks4.txt",
+      "batch": 10
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub7.txt",
+      "batch": 11
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Stinsonysm/GO_V2rayCollector/refs/heads/main/mixed_iran.txt",
+      "batch": 12
+    },
+    {
+      "url": "https://raw.githubusercontent.com/shabane/kamaji/master/hub/b64/vmess.txt",
+      "batch": 13
+    },
+    {
+      "url": "https://raw.githubusercontent.com/zengfr/free-vpn-subscribe/main/vpn_sub_.txt",
+      "batch": 14
+    },
+    {
+      "url": "https://raw.githubusercontent.com/SoliSpirit/v2ray-configs/main/Protocols/vmess.txt",
+      "batch": 15
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Huibq/TrojanLinks/master/links/vmess",
+      "batch": 16
+    },
+    {
+      "url": "https://raw.githubusercontent.com/vpei/free-node-1/refs/heads/main/res/nod-7.txt",
+      "batch": 17
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Mosifree/-FREE2CONFIG/main/Vless",
+      "batch": 1
+    },
+    {
+      "url": "https://raw.githubusercontent.com/AzadNetCH/Clash/main/V2Ray.txt",
+      "batch": 2
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MhdiTaheri/V2rayCollector/main/sub/mix",
+      "batch": 3
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MhdiTaheri/V2rayCollector/refs/heads/main/sub/trojan",
+      "batch": 4
+    },
+    {
+      "url": "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/Vless-Reality-White-Lists-Rus-Mobile.txt",
+      "batch": 5
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub2.txt",
+      "batch": 6
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/filtered/subs/vless.txt",
+      "batch": 7
+    },
+    {
+      "url": "https://raw.githubusercontent.com/igeekshare/GeekshareFreeNode/main/v2ray/Geekshare.txt",
+      "batch": 8
+    },
+    {
+      "url": "https://raw.githubusercontent.com/NiREvil/vless/refs/heads/main/sub/husi-wg.txt",
+      "batch": 9
+    },
+    {
+      "url": "https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/main/mtn/sub_1.txt",
+      "batch": 10
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub10.txt",
+      "batch": 11
+    },
+    {
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-Config/main/Splitted-By-Protocol/vmess.txt",
+      "batch": 12
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Mosifree/-FREE2CONFIG/refs/heads/main/Reality",
+      "batch": 13
+    },
+    {
+      "url": "https://raw.githubusercontent.com/vpei/free-node-1/refs/heads/main/res/nod-6.txt",
+      "batch": 14
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ALIILAPRO/Proxy/main/socks5.txt",
+      "batch": 15
+    },
+    {
+      "url": "https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mci/sub_1.txt",
+      "batch": 16
+    },
+    {
+      "url": "https://raw.githubusercontent.com/shabane/kamaji/master/hub/b64/trojan.txt",
+      "batch": 17
+    },
+    {
+      "url": "https://raw.githubusercontent.com/NiREvil/vless/refs/heads/main/sub/nekobox-wg.txt",
+      "batch": 1
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Epodonios/v2ray-configs/main/All_Configs_Sub.txt",
+      "batch": 2
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Argh94/V2RayAutoConfig/main/configs/Vmess.txt",
+      "batch": 3
+    },
+    {
+      "url": "https://raw.githubusercontent.com/mahdibland/ShadowsocksAggregator/master/sub/sub_merge.txt",
+      "batch": 4
+    },
+    {
+      "url": "https://raw.githubusercontent.com/SoliSpirit/v2ray-configs/main/Protocols/ss.txt",
+      "batch": 5
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub32.txt",
+      "batch": 6
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub18.txt",
+      "batch": 7
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Surfboardv2ray/TGParse/main/python/trojan",
+      "batch": 8
+    },
+    {
+      "url": "https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/main/mtn/sub_2.txt",
+      "batch": 9
+    },
+    {
+      "url": "https://raw.githubusercontent.com/youfoundamin/V2rayCollector/main/mixed_iran.txt",
+      "batch": 10
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub11.txt",
+      "batch": 11
+    },
+    {
+      "url": "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/BLACK_VLESS_RUS.txt",
+      "batch": 12
+    },
+    {
+      "url": "https://raw.githubusercontent.com/NiREvil/vless/main/sub/v2rayng-wg.txt",
+      "batch": 13
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Epodonios/v2ray-configs/main/Splitted-By-Protocol/hysteria2.txt",
+      "batch": 15
+    },
+    {
+      "url": "https://raw.githubusercontent.com/itsyebekhe/PSG/main/config.txt",
+      "batch": 16
+    },
+    {
+      "url": "https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt",
+      "batch": 17
+    },
+    {
+      "url": "https://raw.githubusercontent.com/NiREvil/vless/main/sub/exclave-wg.txt",
+      "batch": 1
+    },
+    {
+      "url": "https://raw.githubusercontent.com/mheidari98/.proxy/refs/heads/main/trojan",
+      "batch": 3
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ALIILAPRO/v2rayNG-Config/main/sub.txt",
+      "batch": 4
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ALIILAPRO/Proxy/main/socks4.txt",
+      "batch": 5
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub4.txt",
+      "batch": 6
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub29.txt",
+      "batch": 7
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Kolandone/v2raycollector/refs/heads/main/ss.txt",
+      "batch": 8
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MhdiTaheri/V2rayCollector/refs/heads/main/sub/vless",
+      "batch": 10
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub8.txt",
+      "batch": 11
+    },
+    {
+      "url": "https://raw.githubusercontent.com/SoliSpirit/v2ray-configs/refs/heads/main/all_configs.txt",
+      "batch": 12
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Epodonios/v2ray-configs/main/All_Configs_base64_Sub.txt",
+      "batch": 14
+    },
+    {
+      "url": "https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mci/sub_2.txt",
+      "batch": 15
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Surfboardv2ray/TGParse/main/python/vmess",
+      "batch": 16
+    },
+    {
+      "url": "https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/mtn/sub_3.txt",
+      "batch": 17
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Huibq/TrojanLinks/master/links/trojan",
+      "batch": 1
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ermaozi/get_subscribe/main/subscribe/v2ray.txt",
+      "batch": 2
+    },
+    {
+      "url": "https://raw.githubusercontent.com/V2RayRoot/V2RayConfig/refs/heads/main/Config/vless.txt",
+      "batch": 3
+    },
+    {
+      "url": "https://raw.githubusercontent.com/rango-cfs/NewCollector/main/v2ray_links.txt",
+      "batch": 4
+    },
+    {
+      "url": "https://raw.githubusercontent.com/AvenCores/goida-vpn-configs/refs/heads/main/githubmirror/4.txt",
+      "batch": 5
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub26.txt",
+      "batch": 6
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub33.txt",
+      "batch": 7
+    },
+    {
+      "url": "https://raw.githubusercontent.com/eQnz/configs-collector-v2ray/refs/heads/main/sub/splitted/mixed_1.txt",
+      "batch": 8
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Argh94/V2RayAutoConfig/main/configs/Shadowsocks.txt",
+      "batch": 9
+    },
+    {
+      "url": "https://raw.githubusercontent.com/mahdibland/ShadowsocksAggregator/master/Eternity.txt",
+      "batch": 10
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub28.txt",
+      "batch": 11
+    },
+    {
+      "url": "https://raw.githubusercontent.com/CidVpn/cid-vpn-config/refs/heads/main/general.txt",
+      "batch": 12
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Argh94/V2RayAutoConfig/main/configs/Germany.txt",
+      "batch": 15
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Kolandone/v2raycollector/refs/heads/main/vless.txt",
+      "batch": 16
+    },
+    {
+      "url": "https://raw.githubusercontent.com/iboxz/free-v2ray-collector/main/main/mix",
+      "batch": 17
+    },
+    {
+      "url": "https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/main/mci/sub_3.txt",
+      "batch": 1
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ALIILAPRO/v2rayNG-Config/main/server.txt",
+      "batch": 2
+    },
+    {
+      "url": "https://raw.githubusercontent.com/DiDiten/multi-proxy-config-fetcher/refs/heads/main/configs/proxy_configs.txt",
+      "batch": 3
+    },
+    {
+      "url": "https://raw.githubusercontent.com/V2RayRoot/V2RayConfig/main/Config/shadowsocks.txt",
+      "batch": 4
+    },
+    {
+      "url": "https://raw.githubusercontent.com/prxchk/proxy-list/main/socks5.txt",
+      "batch": 5
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/all.txt",
+      "batch": 6
+    },
+    {
+      "url": "https://raw.githubusercontent.com/dalazhi/v2ray/master/V2RAY.txt",
+      "batch": 9
+    },
+    {
+      "url": "https://raw.githubusercontent.com/DiDiten/HiN-VPN/refs/heads/main/subscription/hiddify/mix",
+      "batch": 10
+    },
+    {
+      "url": "https://raw.githubusercontent.com/taheri79/V2rayCollector/main/sub/base64/mix",
+      "batch": 11
+    },
+    {
+      "url": "https://raw.githubusercontent.com/UptimerBot/proxy-list/main/proxies/socks5.txt",
+      "batch": 16
+    },
+    {
+      "url": "https://raw.githubusercontent.com/SamanValipour1/My-v2ray-configs/main/MySub.txt",
+      "batch": 17
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MhdiTaheri/V2rayCollector_Py/main/sub/Mix/mix.txt",
+      "batch": 1
+    },
+    {
+      "url": "https://raw.githubusercontent.com/rasool083/v2ray-sub/refs/heads/main/sub.txt",
+      "batch": 2
+    },
+    {
+      "url": "https://raw.githubusercontent.com/zieng2/wl/main/vless_universal.txt",
+      "batch": 3
+    },
+    {
+      "url": "https://raw.githubusercontent.com/mohamadfg-dev/telegram-v2ray-configs-collector/main/category/xhttp.txt",
+      "batch": 4
+    },
+    {
+      "url": "https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/main/app/sub.txt",
+      "batch": 5
+    },
+    {
+      "url": "https://raw.githubusercontent.com/B4RC0DE-TM/proxy-list/main/SOCKS4.txt",
+      "batch": 6
+    },
+    {
+      "url": "https://raw.githubusercontent.com/wiki/gfpcom/free-proxy-list/lists/vless.txt",
+      "batch": 9
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Argh94/V2RayAutoConfig/main/configs/Vless.txt",
+      "batch": 10
+    },
+    {
+      "url": "https://raw.githubusercontent.com/youfoundamin/V2rayCollector/main/trojan_iran.txt",
+      "batch": 14
+    },
+    {
+      "url": "https://raw.githubusercontent.com/V2RayRoot/V2RayConfig/main/Config/trojan.txt",
+      "batch": 15
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Ai123999/HiddifySubs-Notorgamers/refs/heads/main/4vless_@Notorgamers.txt",
+      "batch": 16
+    },
+    {
+      "url": "https://raw.githubusercontent.com/wiki/gfpcom/free-proxy-list/lists/vmess.txt",
+      "batch": 17
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Argh94/V2RayAutoConfig/main/configs/Trojan.txt",
+      "batch": 1
+    },
+    {
+      "url": "https://raw.githubusercontent.com/theGreatPeter/v2rayNodes/main/nodes.txt",
+      "batch": 2
+    },
+    {
+      "url": "https://raw.githubusercontent.com/wiki/gfpcom/free-proxy-list/lists/hy.txt",
+      "batch": 3
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Mahdi0024/ProxyCollector/master/sub/proxies.txt",
+      "batch": 4
+    },
+    {
+      "url": "https://raw.githubusercontent.com/iboxz/free-v2ray-collector/main/main/mix.txt",
+      "batch": 5
+    },
+    {
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-config/main/Splitted-By-Protocol/ss.txt",
+      "batch": 6
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Argh94/V2RayAutoConfig/refs/heads/main/configs/Hysteria2.txt",
+      "batch": 7
+    },
+    {
+      "url": "https://raw.githubusercontent.com/YasserDivaR/pr0xy/main/ShadowSocks2021.txt",
+      "batch": 9
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Danialsamadi/v2go/main/All_Configs_Sub.txt",
+      "batch": 10
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Huibq/TrojanLinks/master/links/vless",
+      "batch": 11
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Pasimand/v2ray-config-agg/main/config.txt",
+      "batch": 12
+    },
+    {
+      "url": "https://raw.githubusercontent.com/youfoundamin/V2rayCollector/main/vmess_iran.txt",
+      "batch": 13
+    },
+    {
+      "url": "https://raw.githubusercontent.com/HosseinKoofi/GO_V2rayCollector/main/mixed_iran.txt",
+      "batch": 15
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MOnday9907/v2ray/main/v2ray.txt",
+      "batch": 16
+    },
+    {
+      "url": "https://raw.githubusercontent.com/JieErJingFu/FreeNodesV2RayorTrojan_20210113-/main/EncryptedFreeNodes.txt",
+      "batch": 17
+    }
+  ]
+}

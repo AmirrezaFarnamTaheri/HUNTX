@@ -1,6 +1,6 @@
 module github.com/AmirrezaFarnamTaheri/HUNTX
 
-go 1.26.10
+go 1.26.11
 
 require (
 	github.com/vmihailenco/msgpack v4.0.4+incompatible

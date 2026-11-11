@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "observed_at": "2026-10-12",
-  "total": 38,
-  "notes": "User-reported and independently discovered public subscription URLs. Validation of content is not evidence of live proxy reachability. Disabled sources remain auditable without fetch attempts.",
+  "total": 142,
+  "notes": "User-reported and independently discovered public subscription URLs. Validation of content is not evidence of live proxy reachability. Disabled sources remain auditable without fetch attempts. ConfigStream imports are unverified candidates; feed and proxy reachability must be independently checked.",
   "sources": [
     {
       "id": "src_http_mosi_temporary",
@@ -307,6 +307,838 @@
       "enabled": true,
       "source": "independently_found",
       "note": "Public repository feed checked 2026-10-12 (base64 subscription); not verified proxy connectivity."
+    },
+    {
+      "id": "src_http_cs_44f953fe",
+      "url": "https://raw.githubusercontent.com/jetkai/proxy-list/main/archive/txt/proxies.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_1.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_2ec880de",
+      "url": "https://raw.githubusercontent.com/jetkai/proxy-list/main/online-proxies/txt/proxies.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_2.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_8e40985c",
+      "url": "https://raw.githubusercontent.com/ebrasha/free-v2ray-public-list/main/V2Ray-Config-By-EbraSha-All-Type.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_3.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_002de4f0",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/all_sub.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_5.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_c8de0d51",
+      "url": "https://raw.githubusercontent.com/ndsphonemy/proxy-sub/refs/heads/main/speed.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_6.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_90fa5da6",
+      "url": "https://raw.githubusercontent.com/ndsphonemy/proxy-sub/main/default.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_7.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_cd4f4ceb",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub23.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_8.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_6bfafdb0",
+      "url": "https://raw.githubusercontent.com/ndsphonemy/proxy-sub/refs/heads/main/mobile.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_9.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_6d6332c4",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub13.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_10.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_89895c49",
+      "url": "https://raw.githubusercontent.com/coldwater-10/V2Hub1/main/Split/Base64/vmess",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_11.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_f6df84ac",
+      "url": "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks4.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_12.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_7285ff5b",
+      "url": "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks5.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_13.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_c15e8d1a",
+      "url": "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/main/http.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_14.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_7452c7a6",
+      "url": "https://raw.githubusercontent.com/ebrasha/free-v2ray-public-list/refs/heads/main/all_extracted_configs.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_16.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_e344849c",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/filtered/subs/hysteria2.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_1.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_bb256723",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub1.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_2.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_56e7ca47",
+      "url": "https://raw.githubusercontent.com/F0rc3Run/F0rc3Run/main/splitted-by-protocol/vless.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_3.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_2b87d9de",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub24.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_4.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_0121b0ee",
+      "url": "https://raw.githubusercontent.com/B4RC0DE-TM/proxy-list/main/SOCKS5.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_5.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_18e48442",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub19.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_6.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_dd4b3928",
+      "url": "https://raw.githubusercontent.com/Kwinshadow/TelegramV2rayCollector/main/sublinks/mix.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_7.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_0c40f7a7",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub27.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_9.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_5ccd519c",
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-config/main/Sub8.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_10.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_a9964dd9",
+      "url": "https://raw.githubusercontent.com/ndsphonemy/proxy-sub/main/hys-tuic.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_11.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_1e1b3d57",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub34.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_12.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_80afb944",
+      "url": "https://raw.githubusercontent.com/coldwater-10/V2Hub1/main/Split/Base64/vless",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_13.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_79eac5bf",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub5.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_15.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_d1c6b251",
+      "url": "https://raw.githubusercontent.com/F0rc3Run/F0rc3Run/main/splitted-by-protocol/shadowsocks.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_16.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_9a2684f3",
+      "url": "https://raw.githubusercontent.com/ndsphonemy/proxy-sub/main/wg.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_17.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_c737d4c6",
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-config/main/Sub6.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_1.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_785a9474",
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-config/main/All_Configs_base64_Sub.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_2.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_6dd9fd85",
+      "url": "https://raw.githubusercontent.com/coldwater-10/V2Hub1/main/Split/Base64/trojan",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_3.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_5f9cdb20",
+      "url": "https://raw.githubusercontent.com/taheri79/V2rayCollector/main/sub/normal/reality",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_4.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_71c006df",
+      "url": "https://raw.githubusercontent.com/mahdibland/V2RayAggregator/master/sub/sub_merge.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_5.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_d128ac87",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/filtered/subs/vmess.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_6.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_ab6abb66",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub15.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_7.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_f90f67f8",
+      "url": "https://raw.githubusercontent.com/zengfr/free-vpn-subscribe/main/vpn_sub_shadowsocks.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_8.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_95fc93ae",
+      "url": "https://raw.githubusercontent.com/taheri79/V2rayCollector/main/sub/normal/vmess",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_9.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_5f2a6da7",
+      "url": "https://raw.githubusercontent.com/zengfr/free-vpn-subscribe/main/vpn_sub_vmess.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_10.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_66fd819d",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub25.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_11.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_b51275d0",
+      "url": "https://raw.githubusercontent.com/mahdibland/V2RayAggregator/master/sub/splitted/trojan.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_12.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_0b7e76e3",
+      "url": "https://raw.githubusercontent.com/ndsphonemy/proxy-sub/main/my.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_13.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_ceda5d67",
+      "url": "https://raw.githubusercontent.com/MuRongPIG/Proxy-Master/main/socks4.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_16.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_fa1ad319",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub3.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_17.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_85d1113e",
+      "url": "https://raw.githubusercontent.com/zengfr/free-vpn-subscribe/main/vpn_sub_raw_vmess.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_1.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_f1c32f1b",
+      "url": "https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/all/data.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_2.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_b5dedad2",
+      "url": "https://raw.githubusercontent.com/hamedcode/port-based-v2ray-configs/main/sub/vmess.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_4.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_d57e656a",
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-config/main/Splitted-By-Protocol/vless.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_5.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_afbcc613",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub12.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_6.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_ffe43dc3",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub38.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_7.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_d531abcf",
+      "url": "https://raw.githubusercontent.com/vpei/free-node-1/refs/heads/main/res/nod-1.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_8.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_65923f65",
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-config/main/Sub7.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_9.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_ada018e5",
+      "url": "https://raw.githubusercontent.com/vpei/free-node-1/refs/heads/main/res/nod-3.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_10.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_4697f985",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub14.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_11.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_1af05287",
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-config/main/Splitted-By-Protocol/vmess.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_12.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_acb5aa1c",
+      "url": "https://raw.githubusercontent.com/Kwinshadow/TelegramV2rayCollector/main/sublinks/b64mix.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_13.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_5d6ad48d",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub36.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_14.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_6fb0798a",
+      "url": "https://raw.githubusercontent.com/zengfr/free-vpn-subscribe/main/vpn_sub_vless.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_15.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_7a5563ec",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub31.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_16.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_8f69af74",
+      "url": "https://raw.githubusercontent.com/taheri79/V2rayCollector/main/sub/normal/trojan",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_17.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_4b7598c7",
+      "url": "https://raw.githubusercontent.com/vpei/free-node-1/refs/heads/main/res/nod-9.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_1.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_bd42b3ab",
+      "url": "https://raw.githubusercontent.com/zengfr/free-vpn-subscribe/main/vpn_sub_raw_vless.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_2.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_7156b8ef",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub16.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_3.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_8d40ba46",
+      "url": "https://raw.githubusercontent.com/LonUp/NodeList/main/V2RAY/NodeList.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_4.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_1fbb22f3",
+      "url": "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/socks4.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_5.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_65a4e2f8",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub35.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_6.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_29e5b682",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub20.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_7.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_a9f31bab",
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-Config/main/Splitted-By-Protocol/trojan.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_8.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_ff4c63d8",
+      "url": "https://raw.githubusercontent.com/zengfr/free-vpn-subscribe/main/vpn_sub_raw_trojan.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_9.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_e26a898a",
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-Config/main/Splitted-By-Protocol/vless.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_10.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_b13d07fb",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub9.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_11.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_c414daa4",
+      "url": "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/socks5.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_12.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_3d621f8e",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub37.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_13.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_5f7865d3",
+      "url": "https://raw.githubusercontent.com/taheri79/V2rayCollector/main/sub/normal/vless",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_14.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_8fd211e8",
+      "url": "https://raw.githubusercontent.com/vpei/free-node-1/refs/heads/main/res/nod-8.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_15.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_e4eb1f53",
+      "url": "https://raw.githubusercontent.com/10ium/ScrapeAndCategorize/refs/heads/main/output_configs/Vless.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_16.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_a9449852",
+      "url": "https://raw.githubusercontent.com/hamedcode/port-based-v2ray-configs/main/sub/ss.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_17.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_2ce46df3",
+      "url": "https://raw.githubusercontent.com/vpei/free-node-1/refs/heads/main/res/nod-5.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_2.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_6c24e83e",
+      "url": "https://raw.githubusercontent.com/taheri79/V2rayCollector/main/sub/normal/mix",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_3.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_d655d19f",
+      "url": "https://raw.githubusercontent.com/AvenCores/goida-vpn-configs/refs/heads/main/githubmirror/1.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_4.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_0f0bebab",
+      "url": "https://raw.githubusercontent.com/zengfr/free-vpn-subscribe/main/vpn_sub_trojan.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_5.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_ec490350",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub17.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_6.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_9d86a776",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub6.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_7.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_66ebcca2",
+      "url": "https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/main/mfc.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_8.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_0f45ae46",
+      "url": "https://raw.githubusercontent.com/vpei/free-node-1/refs/heads/main/res/nod-2.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_9.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_d8f2f529",
+      "url": "https://raw.githubusercontent.com/ircfspace/tvc/main/sub/mix",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_10.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_8dc5d4b4",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub39.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_11.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_9afae82c",
+      "url": "https://raw.githubusercontent.com/zengfr/free-vpn-subscribe/main/vpn_sub_raw_.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_12.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_fd27ab06",
+      "url": "https://raw.githubusercontent.com/mahdibland/V2RayAggregator/master/sub/splitted/vmess.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_14.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_786e4d7f",
+      "url": "https://raw.githubusercontent.com/Stinsonysm/GO_V2rayCollector/main/trojan_iran.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_15.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_8fe98abc",
+      "url": "https://raw.githubusercontent.com/barry-far/V2ray-config/main/All_Configs_Sub.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_16.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_76bba3f3",
+      "url": "https://raw.githubusercontent.com/nscl5/5/refs/heads/main/configs/all.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_1.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_4939aa0f",
+      "url": "https://raw.githubusercontent.com/hamedcode/port-based-v2ray-configs/main/sub/vless.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_3.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_09455c5c",
+      "url": "https://raw.githubusercontent.com/vpei/free-node-1/main/o/proxies.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_5.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_a5bdba01",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub21.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_6.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_dcaf299b",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub30.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_7.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_845deea1",
+      "url": "https://raw.githubusercontent.com/Farid-Karimi/Config-Collector/main/mixed_iran.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_8.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_d4d8517a",
+      "url": "https://raw.githubusercontent.com/R3ZARAHIMI/7/main/Config_jo.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_9.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_243e91b6",
+      "url": "https://raw.githubusercontent.com/AvenCores/goida-vpn-configs/main/githubmirror/10.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_10.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_52016a7c",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/subs/sub22.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_11.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_d13e25a4",
+      "url": "https://raw.githubusercontent.com/vpei/free-node-1/refs/heads/main/res/nod-4.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_12.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_cs_378871b0",
+      "url": "https://raw.githubusercontent.com/vpei/free-node-1/refs/heads/main/res/nod-0.txt",
+      "mode": "auto",
+      "enabled": true,
+      "source": "configstream",
+      "note": "From ConfigStream sources/batch_13.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_ermao_net",
+      "url": "https://www.ermao.net/sub/v2ray/ermao.net",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": "Added 2026-11-11 by user request; feed contents and connectivity unverified."
+    },
+    {
+      "id": "src_http_darkpx_all",
+      "url": "https://sub.darkpx.workers.dev/all",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": "Added 2026-11-11 by user request; feed contents and connectivity unverified."
     }
   ]
 }

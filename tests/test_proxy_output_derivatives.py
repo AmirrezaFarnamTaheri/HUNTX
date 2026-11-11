@@ -66,6 +66,10 @@ def test_proxy_build_emits_raw_xray_and_nekobox_derivatives():
     assert by_format["npvt"]["data"] == proxy_text
     assert "npvt.raw.txt" not in by_format
 
+    # Publishing creates separate, exact URI subscriptions by protocol.
+    assert by_format["npvt.protocol.vless.txt"]["data"] == proxy_text.splitlines(keepends=True)[0]
+    assert by_format["npvt.protocol.trojan.txt"]["data"] == proxy_text.splitlines(keepends=True)[1]
+
     # The universal subscription is a lossless 1:1 encoding of the raw node
     # list: N source lines must decode back to N independent subscription lines.
     decoded_subscription = base64.b64decode(by_format["npvt.b64sub"]["data"]).decode("utf-8")
@@ -159,6 +163,33 @@ def test_xray_derivative_is_omitted_when_no_node_is_faithfully_representable():
     assert "npvt.singbox.json" in formats
     assert "npvt.nekobox.json" in formats
     assert "npvt.xray.json" not in formats
+
+
+def test_per_protocol_subscriptions_preserve_exact_share_links():
+    pipeline = BuildPipeline(Mock(), Mock(), Mock())
+    mixed = (
+        "vless://user@example.com:443#vless\n"
+        "vmess://e30=#vmess\n"
+        "hy2://secret@example.com:443#hy2\n"
+        "ss://YWVzLTI1Ni1nY206cGFzcw@example.com:443#ss\n"
+        "trojan://pass@example.com:443#trojan\n"
+        "socks5://user:pass@example.com:1080#socks\n"
+        "https://user:pass@example.com:443#http\n"
+        "anytls://pass@example.com:443#anytls\n"
+        "invalid line\n"
+    ).encode()
+    feeds = pipeline._protocol_subscriptions(mixed)
+    assert set(feeds) == {"vless", "vmess", "hysteria2", "shadowsocks", "trojan", "socks", "http", "anytls"}
+    assert feeds["hysteria2"] == b"hy2://secret@example.com:443#hy2\n"
+    assert feeds["socks"] == b"socks5://user:pass@example.com:1080#socks\n"
+    assert all(value.endswith(b"\n") for value in feeds.values())
+
+
+def test_protocol_files_have_stable_distinct_names():
+    assert output_filename("all_sources", "npvt.protocol.vless.txt") == "all_sources_vless.txt"
+    assert output_filename("all_sources", "npvt.protocol.hysteria2.txt") == "all_sources_hysteria2.txt"
+    assert output_filename("all_sources", "npvt.protocol.anytls.txt") == "all_sources_anytls.txt"
+    assert output_filename("all_sources", "npvtsub.protocol.vless.txt") == "all_sources_sub_vless.txt"
 
 
 def test_new_derivatives_have_canonical_output_filenames():

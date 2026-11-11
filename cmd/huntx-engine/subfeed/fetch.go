@@ -25,6 +25,8 @@ var hostAllowlist = map[string]bool{
 	"sub.iampedi5.live":         true,
 	"sub.whitedns.one":          true,
 	"key.zarazaex.xyz":          true,
+	"www.ermao.net":             true,
+	"sub.darkpx.workers.dev":    true,
 }
 
 var unsafeNetworks = []netip.Prefix{

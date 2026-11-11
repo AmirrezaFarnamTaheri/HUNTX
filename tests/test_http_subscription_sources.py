@@ -127,6 +127,14 @@ def test_malformed_feeds_are_rejected_without_replacing_last_good(payload):
 
 
 @pytest.mark.parametrize("url", [
+    "https://www.ermao.net/sub/v2ray/ermao.net",
+    "https://sub.darkpx.workers.dev/all",
+])
+def test_explicitly_approved_public_subscription_hosts(url):
+    assert validate_public_feed_url(url) == url
+
+
+@pytest.mark.parametrize("url", [
     "http://raw.githubusercontent.com/a/b",
     "https://localhost/sub",
     "https://127.0.0.1/sub",
@@ -177,7 +185,8 @@ def test_registry_matches_production_sources_and_tracks_all_user_urls():
         source["id"]: source for source in config["sources"]
         if source["type"] == "http_subscription"
     }
-    assert len(registry["sources"]) == registry["total"] == len(sources) == 38
+    assert len(registry["sources"]) == registry["total"] == len(sources)
+    assert len(sources) > 38
     assert sum(not value["enabled"] for value in registry["sources"]) == 6
     for entry in registry["sources"]:
         source = sources[entry["id"]]

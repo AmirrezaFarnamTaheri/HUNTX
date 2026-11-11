@@ -55,6 +55,66 @@
     ],
     "all_sources_sub_gate.json": [
       "all_sources_sub_gate.json"
+    ],
+    "all_sources_vless.txt": [
+      "all_sources_vless.txt"
+    ],
+    "all_sources_vmess.txt": [
+      "all_sources_vmess.txt"
+    ],
+    "all_sources_hysteria.txt": [
+      "all_sources_hysteria.txt"
+    ],
+    "all_sources_hysteria2.txt": [
+      "all_sources_hysteria2.txt"
+    ],
+    "all_sources_shadowsocks.txt": [
+      "all_sources_shadowsocks.txt"
+    ],
+    "all_sources_shadowsocksr.txt": [
+      "all_sources_shadowsocksr.txt"
+    ],
+    "all_sources_trojan.txt": [
+      "all_sources_trojan.txt"
+    ],
+    "all_sources_socks.txt": [
+      "all_sources_socks.txt"
+    ],
+    "all_sources_http.txt": [
+      "all_sources_http.txt"
+    ],
+    "all_sources_anytls.txt": [
+      "all_sources_anytls.txt"
+    ],
+    "all_sources_tuic.txt": [
+      "all_sources_tuic.txt"
+    ],
+    "all_sources_wireguard.txt": [
+      "all_sources_wireguard.txt"
+    ],
+    "all_sources_ssh.txt": [
+      "all_sources_ssh.txt"
+    ],
+    "all_sources_shadowtls.txt": [
+      "all_sources_shadowtls.txt"
+    ],
+    "all_sources_naive.txt": [
+      "all_sources_naive.txt"
+    ],
+    "all_sources_juicity.txt": [
+      "all_sources_juicity.txt"
+    ],
+    "all_sources_mieru.txt": [
+      "all_sources_mieru.txt"
+    ],
+    "all_sources_warp.txt": [
+      "all_sources_warp.txt"
+    ],
+    "all_sources_dns.txt": [
+      "all_sources_dns.txt"
+    ],
+    "all_sources_dnstt.txt": [
+      "all_sources_dnstt.txt"
     ]
   },
   "sections": {
@@ -67,11 +127,52 @@
       "rules": [
         {
           "match": {
+            "kind": "endswith_any",
+            "value": [
+              "_vless.txt",
+              "_vmess.txt",
+              "_hysteria.txt",
+              "_hysteria2.txt",
+              "_shadowsocks.txt",
+              "_shadowsocksr.txt",
+              "_trojan.txt",
+              "_socks.txt",
+              "_http.txt",
+              "_anytls.txt",
+              "_tuic.txt",
+              "_wireguard.txt",
+              "_ssh.txt",
+              "_shadowtls.txt",
+              "_naive.txt",
+              "_juicity.txt",
+              "_mieru.txt",
+              "_warp.txt",
+              "_dns.txt",
+              "_dnstt.txt"
+            ]
+          },
+          "type": "PROTOCOL",
+          "tags": [
+            "release",
+            "subscription",
+            "protocol",
+            "uri-feed",
+            "multi-node"
+          ],
+          "description": "Per-protocol raw URI subscription. Only populated protocol families are published; node connectivity is not guaranteed."
+        },
+        {
+          "match": {
             "kind": "contains",
             "value": "_gate.json"
           },
           "type": "GATE",
-          "tags": ["release", "quality", "proxy-health", "rejections"],
+          "tags": [
+            "release",
+            "quality",
+            "proxy-health",
+            "rejections"
+          ],
           "description": "Sanitized authenticated HTTPS candidate admission and failure reasons; not proof of permanent proxy death."
         },
         {
@@ -80,7 +181,12 @@
             "value": "_coverage.json"
           },
           "type": "COVERAGE",
-          "tags": ["release", "quality", "conversion", "node-coverage"],
+          "tags": [
+            "release",
+            "quality",
+            "conversion",
+            "node-coverage"
+          ],
           "description": "Credential-free reconciliation of admitted connections and per-client representability, with identity-digest omission reasons."
         },
         {

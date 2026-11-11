@@ -475,25 +475,20 @@ def format_evidence_remark(uri: str, metadata: dict | None = None) -> str:
             if value is not None and value <= 100000:
                 details.append(f'{display}:{value:.1f}Mb/s')
 
-    # Join the icon and protocol as one visual unit: 🌐 TROJAN-WS.
-    components = [f'{location} {label}']
-    if target:
-        components.append(target)
-    # No fabricated ping/speed. An unmeasured proxy still has protocol and
-    # destination, which are useful discriminators in a client dropdown.
-    components.extend(details)
+    # Keep the endpoint at the very end so country/protocol and measured
+    # evidence stay readable first. Reserve endpoint space before adding details.
+    components = [f'{location} {label}', *details]
     index = fields.get('_remark_ordinal')
-    display_name = components[0]
+    if type(index) is int and index > 1:
+        components.append(f'No.{index}')
+    suffix = f' | {target}' if target else ''
+    available = max(0, 110 - len(suffix))
+    display_name = components[0][:available]
     for detail in components[1:]:
-        if len(display_name) + len(detail) + 3 > 110:
+        if len(display_name) + len(detail) + 3 > available:
             continue
         display_name += ' | ' + detail
-    if type(index) is int and index > 1:
-        # A numeric collision marker is last and reserved; unlike a cut-off
-        # SHA digest it is not presented as diagnostic information.
-        suffix = f' | No.{index}'
-        display_name = display_name[:110 - len(suffix)].rstrip(' |') + suffix
-    return display_name[:110]
+    return display_name + suffix
 
 
 def add_clean_remark(uri: str, counter: dict, metadata: dict | None = None) -> str:

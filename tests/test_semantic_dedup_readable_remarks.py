@@ -64,7 +64,8 @@ def test_hy2_alias_and_shadowsocks_encoding_use_one_semantic_identity():
 def test_names_show_useful_safe_endpoint_details_instead_of_zz_hash():
     uri = BASE + "?security=tls&type=ws#anything"
     label = format_evidence_remark(uri)
-    assert label.startswith("🌐 VLESS-WS-TLS | edge.example.com:443")
+    assert label.startswith("🌐 VLESS-WS-TLS")
+    assert label.endswith(" | edge.example.com:443")
     assert "ZZ" not in label and "UNVERIFIED" not in label.upper()
     assert ID not in label
     assert len(label) <= 110
@@ -111,6 +112,7 @@ def test_dns_latency_and_speed_are_visible_only_when_measured_fresh_and_proven(m
         "speed_checked_at": 1_800_000_000, "speed_expires_at": 1_800_000_300,
     }
     tag = format_evidence_remark(uri, authenticated)
+    assert tag.endswith(" | edge.example.com:443")
     assert "DL:54.2Mb/s" in tag
     assert "UL:17.8Mb/s" in tag
     expired = {**authenticated, "speed_expires_at": 1_800_000_001,
