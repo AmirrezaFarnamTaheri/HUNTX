@@ -2708,6 +2708,34 @@ sources:
   http_subscription:
     url: 'https://raw.githubusercontent.com/vpei/free-node-1/refs/heads/main/res/nod-0.txt'
     mode: auto
+- id: src_http_ermao_net
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-11-11'
+  approval_evidence:
+    - 'Explicitly supplied by user; endpoint content and connectivity not verified'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://www.ermao.net/sub/v2ray/ermao.net'
+    mode: auto
+- id: src_http_darkpx_all
+  type: http_subscription
+  required: false
+  trust_state: approved
+  discovered_from: 'user_provided_list_2026-11-11'
+  approval_evidence:
+    - 'Explicitly supplied by user; endpoint content and connectivity not verified'
+  selector:
+    include_formats:
+      - npvt
+      - npvtsub
+  http_subscription:
+    url: 'https://sub.darkpx.workers.dev/all'
+    mode: auto
 publishing:
   routes:
   - name: all_sources
@@ -2933,6 +2961,8 @@ publishing:
     - src_http_cs_52016a7c
     - src_http_cs_d13e25a4
     - src_http_cs_378871b0
+    - src_http_ermao_net
+    - src_http_darkpx_all
     formats:
     - npvt
     - npvtsub
