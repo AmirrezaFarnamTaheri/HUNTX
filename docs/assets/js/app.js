@@ -2994,6 +2994,28 @@ export class AppState {
       { id: "CHUNKS", label: `SPLIT CHUNKS (${chunksCount})` }
     ].filter((category) => category.id === "ALL" || !category.label.endsWith("(0)"));
 
+    // Only show real protocol files from the verified release catalog.
+    const protocolFiles = allFiles.filter(file =>
+      (file.category === "release" || file.section === "release")
+      && /^all_sources_(vless|vmess|hysteria|hysteria2|shadowsocks|shadowsocksr|trojan|socks|http|anytls|tuic|wireguard|ssh|shadowtls|naive|juicity|mieru|warp|dns|dnstt)\\.txt$/.test(file.filename || "")
+      && typeof file.path === "string"
+    );
+    const protocolLinks = protocolFiles.map(file => {
+      const protocol = file.filename.slice("all_sources_".length, -".txt".length);
+      const link = getArtifactLinkModel(file.path);
+      return `
+        <div class="rounded-xl border border-gray-700 bg-gray-900/70 p-3 flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <strong class="text-sm font-mono text-white">${escapeHTML(protocol.toUpperCase())}</strong>
+            <p class="text-xs text-gray-400 truncate">${escapeHTML(file.filename)}</p>
+          </div>
+          <div class="flex gap-2">
+            <a href="${escapeHTML(link.path)}" download class="px-3 py-2.5 min-h-[44px] rounded-lg bg-gray-800 border border-gray-700 text-cyan-300 text-xs font-bold focus-ring">Download</a>
+            <button type="button" data-path="${escapeHTML(file.path)}" class="btn-copy-artifact-link px-3 py-2.5 min-h-[44px] rounded-lg bg-gray-800 border border-gray-700 text-cyan-300 text-xs font-bold focus-ring">Copy link</button>
+          </div>
+        </div>`;
+    }).join("");
+
     artifactSection.innerHTML = `
       <div class="artifacts-workspace py-8">
         <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
@@ -3011,6 +3033,12 @@ export class AppState {
             <span>Total Storage: ${escapeHTML(this.catalog.total_size_str || "0 B")}</span>
           </div>
         </div>
+
+        <section class="mb-8" aria-label="Subscriptions by proxy protocol">
+          <h3 class="text-lg font-bold font-mono text-white mb-2">Download by protocol</h3>
+          <p class="text-xs text-gray-400 mb-4">Raw share links grouped by protocol. Only protocols present in this published snapshot are shown; availability does not imply connectivity.</p>
+          ${protocolLinks ? `<div class="grid grid-cols-1 lg:grid-cols-2 gap-3">${protocolLinks}</div>` : `<p class="text-xs text-gray-500">No per-protocol subscriptions have been published in this snapshot.</p>`}
+        </section>
 
         <div class="space-y-4 mb-6">
           <div class="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
