@@ -118,7 +118,8 @@ def test_legacy_records_receive_fresh_offline_evidence_during_build(monkeypatch,
     monkeypatch.setenv("HUNTX_NETWORK_INTELLIGENCE_PATH", str(intel))
     stored_legacy = [{"data": {"line": URI.split("#")[0]}}]
     tag = unquote(urlsplit(NpvtHandler().build(stored_legacy).decode()).fragment)
-    assert tag.startswith("🇩🇪 VLESS-WS-TLS | 1.1.1.1:443")
+    assert tag.startswith("🇩🇪 VLESS-WS-TLS | AS13335")
+    assert tag.endswith(" | 1.1.1.1:443")
     assert "🇩🇪 DE" not in tag
     assert "AS13335" in tag
     assert "VLESS-WS-TLS" in tag
