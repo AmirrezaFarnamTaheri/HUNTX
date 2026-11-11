@@ -168,21 +168,21 @@ def test_xray_derivative_is_omitted_when_no_node_is_faithfully_representable():
 def test_per_protocol_subscriptions_preserve_exact_share_links():
     pipeline = BuildPipeline(Mock(), Mock(), Mock())
     mixed = (
-        "vless://user@example.com:443#vless\\n"
-        "vmess://e30=#vmess\\n"
-        "hy2://secret@example.com:443#hy2\\n"
-        "ss://YWVzLTI1Ni1nY206cGFzcw@example.com:443#ss\\n"
-        "trojan://pass@example.com:443#trojan\\n"
-        "socks5://user:pass@example.com:1080#socks\\n"
-        "https://user:pass@example.com:443#http\\n"
-        "anytls://pass@example.com:443#anytls\\n"
-        "invalid line\\n"
+        "vless://user@example.com:443#vless\n"
+        "vmess://e30=#vmess\n"
+        "hy2://secret@example.com:443#hy2\n"
+        "ss://YWVzLTI1Ni1nY206cGFzcw@example.com:443#ss\n"
+        "trojan://pass@example.com:443#trojan\n"
+        "socks5://user:pass@example.com:1080#socks\n"
+        "https://user:pass@example.com:443#http\n"
+        "anytls://pass@example.com:443#anytls\n"
+        "invalid line\n"
     ).encode()
     feeds = pipeline._protocol_subscriptions(mixed)
     assert set(feeds) == {"vless", "vmess", "hysteria2", "shadowsocks", "trojan", "socks", "http", "anytls"}
-    assert feeds["hysteria2"] == b"hy2://secret@example.com:443#hy2\\n"
-    assert feeds["socks"] == b"socks5://user:pass@example.com:1080#socks\\n"
-    assert all(value.endswith(b"\\n") for value in feeds.values())
+    assert feeds["hysteria2"] == b"hy2://secret@example.com:443#hy2\n"
+    assert feeds["socks"] == b"socks5://user:pass@example.com:1080#socks\n"
+    assert all(value.endswith(b"\n") for value in feeds.values())
 
 
 def test_protocol_files_have_stable_distinct_names():
