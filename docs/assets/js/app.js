@@ -2997,7 +2997,7 @@ export class AppState {
     // Only show real protocol files from the verified release catalog.
     const protocolFiles = allFiles.filter(file =>
       (file.category === "release" || file.section === "release")
-      && /^all_sources_(vless|vmess|hysteria|hysteria2|shadowsocks|shadowsocksr|trojan|socks|http|anytls|tuic|wireguard|ssh|shadowtls|naive|juicity|mieru|warp|dns|dnstt)\\.txt$/.test(file.filename || "")
+      && /^all_sources_(vless|vmess|hysteria|hysteria2|shadowsocks|shadowsocksr|trojan|socks|http|anytls|tuic|wireguard|ssh|shadowtls|naive|juicity|mieru|warp|dns|dnstt)\.txt$/.test(file.filename || "")
       && typeof file.path === "string"
     );
     const protocolLinks = protocolFiles.map(file => {
