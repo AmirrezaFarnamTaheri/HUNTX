@@ -263,7 +263,7 @@ class BuildPipeline:
                 seen[protocol].add(line)
                 grouped[protocol].append(line)
         return {
-            proto: ('\\n'.join(lines) + '\\n').encode('utf-8')
+            proto: ('\n'.join(lines) + '\n').encode('utf-8')
             for proto, lines in grouped.items() if lines
         }
 
