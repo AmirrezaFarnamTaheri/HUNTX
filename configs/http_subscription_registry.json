@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "observed_at": "2026-10-12",
-  "total": 140,
+  "total": 142,
   "notes": "User-reported and independently discovered public subscription URLs. Validation of content is not evidence of live proxy reachability. Disabled sources remain auditable without fetch attempts. ConfigStream imports are unverified candidates; feed and proxy reachability must be independently checked.",
   "sources": [
     {
@@ -1123,6 +1123,22 @@
       "enabled": true,
       "source": "configstream",
       "note": "From ConfigStream sources/batch_13.txt on 2026-11-11; not live-verified."
+    },
+    {
+      "id": "src_http_ermao_net",
+      "url": "https://www.ermao.net/sub/v2ray/ermao.net",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": "Added 2026-11-11 by user request; feed contents and connectivity unverified."
+    },
+    {
+      "id": "src_http_darkpx_all",
+      "url": "https://sub.darkpx.workers.dev/all",
+      "mode": "auto",
+      "enabled": true,
+      "source": "user_supplied",
+      "note": "Added 2026-11-11 by user request; feed contents and connectivity unverified."
     }
   ]
 }
