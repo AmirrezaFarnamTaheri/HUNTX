@@ -26,6 +26,8 @@ ALLOWED_FEED_HOSTS = frozenset({
     "sub.iampedi5.live",
     "sub.whitedns.one",
     "key.zarazaex.xyz",
+    "www.ermao.net",
+    "sub.darkpx.workers.dev",
 })
 
 
