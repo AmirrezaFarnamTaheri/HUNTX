@@ -127,6 +127,14 @@ def test_malformed_feeds_are_rejected_without_replacing_last_good(payload):
 
 
 @pytest.mark.parametrize("url", [
+    "https://www.ermao.net/sub/v2ray/ermao.net",
+    "https://sub.darkpx.workers.dev/all",
+])
+def test_explicitly_approved_public_subscription_hosts(url):
+    assert validate_public_feed_url(url) == url
+
+
+@pytest.mark.parametrize("url", [
     "http://raw.githubusercontent.com/a/b",
     "https://localhost/sub",
     "https://127.0.0.1/sub",
