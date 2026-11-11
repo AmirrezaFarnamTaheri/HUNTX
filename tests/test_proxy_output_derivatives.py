@@ -66,6 +66,10 @@ def test_proxy_build_emits_raw_xray_and_nekobox_derivatives():
     assert by_format["npvt"]["data"] == proxy_text
     assert "npvt.raw.txt" not in by_format
 
+    # Publishing creates separate, exact URI subscriptions by protocol.
+    assert by_format["npvt.protocol.vless.txt"]["data"] == proxy_text.splitlines(keepends=True)[0]
+    assert by_format["npvt.protocol.trojan.txt"]["data"] == proxy_text.splitlines(keepends=True)[1]
+
     # The universal subscription is a lossless 1:1 encoding of the raw node
     # list: N source lines must decode back to N independent subscription lines.
     decoded_subscription = base64.b64decode(by_format["npvt.b64sub"]["data"]).decode("utf-8")
