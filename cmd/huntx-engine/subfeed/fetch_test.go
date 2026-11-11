@@ -12,6 +12,8 @@ func TestPublicSourceURLRestrictions(t *testing.T) {
 	good := []string{
 		"https://raw.githubusercontent.com/owner/repo/main/configs.txt",
 		"https://sub.whitedns.one/sub/mihomo.yaml",
+		"https://www.ermao.net/sub/v2ray/ermao.net",
+		"https://sub.darkpx.workers.dev/all",
 	}
 	bad := []string{
 		"http://raw.githubusercontent.com/a/b",
