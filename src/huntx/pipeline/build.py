@@ -29,6 +29,7 @@ from ..store.artifact_store import ArtifactStore
 logger = logging.getLogger(__name__)
 _STANDARD_PROTOCOLS = {'vless': 'vless', 'trojan': 'trojan', 'hysteria2': 'hysteria2', 'hy2': 'hysteria2', 'hysteria2+realm': 'hysteria2', 'hysteria2+realm+http': 'hysteria2', 'hysteria': 'hysteria', 'tuic': 'tuic', 'wireguard': 'wireguard', 'wg': 'wireguard', 'socks': 'socks', 'socks5': 'socks', 'socks4': 'socks', 'socks4a': 'socks', 'http': 'http', 'https': 'http', 'ssh': 'ssh', 'shadowtls': 'shadowtls', 'naive+https': 'naive', 'naive+quic': 'naive', 'anytls': 'anytls', 'juicity': 'juicity', 'mierus': 'mieru', 'warp': 'warp', 'dns': 'dns', 'dnstt': 'dnstt'}
 _DERIVED_PROXY_FORMATS = frozenset({'npvt', 'npvtsub'})
+_PROTOCOL_FEED_NAMES = frozenset(set(_STANDARD_PROTOCOLS.values()) | {'vmess', 'shadowsocks', 'shadowsocksr', 'mieru'})
 
 
 class BuildPipeline:
@@ -238,6 +239,33 @@ class BuildPipeline:
         except (AttributeError, UnicodeDecodeError):
             return b''
         return base64.b64encode(text.encode('utf-8')) if text else b''
+
+    def _protocol_subscriptions(self, artifact_bytes: bytes) -> dict[str, bytes]:
+        """Group valid existing URI records by decoded protocol; preserve exact URIs.
+
+        URI scheme aliases (hy2/hysteria2, socks4/socks5, https/http)
+        share one feed. Only emit nonempty feeds; never mistake a transport
+        parameter such as 'type=http' for the URI protocol.
+        """
+        grouped: dict[str, list[str]] = defaultdict(list)
+        seen: dict[str, set[str]] = defaultdict(set)
+        for raw in artifact_bytes.decode('utf-8', errors='replace').splitlines():
+            line = raw.strip()
+            if not line:
+                continue
+            entry = self._decode_single_line(line)
+            if entry is None:
+                continue
+            protocol = str(entry.get('protocol', '')).lower()
+            if not protocol or protocol not in _PROTOCOL_FEED_NAMES:
+                continue
+            if line not in seen[protocol]:
+                seen[protocol].add(line)
+                grouped[protocol].append(line)
+        return {
+            proto: ('\\n'.join(lines) + '\\n').encode('utf-8')
+            for proto, lines in grouped.items() if lines
+        }
 
     def _proxy_derivatives(
         self,
@@ -593,6 +621,19 @@ class BuildPipeline:
                         singbox_profile,
                         xray_profile,
                     ) = self._proxy_derivatives(artifact_bytes)
+                    # Export per-protocol URI subscriptions only for the canonical
+                    # npvt feed, not the overlapping npvtsub representation.
+                    if format_id == 'npvt':
+                        for protocol, feed in self._protocol_subscriptions(artifact_bytes).items():
+                            derived_format = f'{format_id}.protocol.{protocol}.txt'
+                            if not defer_output:
+                                self.artifact_store.save_output(route_name, derived_format, feed)
+                            results.append({
+                                'route_name': route_name, 'format': derived_format,
+                                'unique_id': f'{route_name}:{derived_format}',
+                                'artifact_hash': hashlib.sha256(feed).hexdigest(),
+                                'data': feed, 'count': len(feed.splitlines()),
+                            })
                     coverage = build_client_coverage_report(
                         artifact_bytes.decode('utf-8'),
                         singbox=singbox, xray=xray, nekobox=nekobox, clash=clash,
