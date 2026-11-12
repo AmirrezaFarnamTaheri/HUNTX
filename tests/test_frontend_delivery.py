@@ -579,14 +579,20 @@ def test_dashboard_only_generator_reuses_the_verified_catalog(tmp_path: Path) ->
     assert '"generated_at":"2026-09-25T00:00:00+00:00"' in generated
 
 
-def test_primary_pages_workflow_generates_telemetry_before_upload() -> None:
-    workflow = (ROOT / ".github" / "workflows" / "huntx.yml").read_text(encoding="utf-8")
-    package = workflow.split("          try_package() {", 1)[1].split("          restore_previous_outputs()", 1)[0]
-    telemetry_index = package.index("generate_dashboard_data")
-    upload_index = workflow.index("actions/upload-pages-artifact")
-    assert telemetry_index < upload_index
+def test_verified_pages_publisher_generates_telemetry_before_upload() -> None:
+    producer = (ROOT / ".github" / "workflows" / "huntx.yml").read_text(encoding="utf-8")
+    package = producer.split("          try_package() {", 1)[1].split("          restore_previous_outputs()", 1)[0]
+    assert "generate_dashboard_data" in package
     assert 'test -s "$candidate_dir/assets/js/data.js"' in package
     assert 'HUNTX_GENERATED_AT="$generated_at"' in package
+    assert "actions/upload-pages-artifact" not in producer
+
+    publisher = (ROOT / ".github" / "workflows" / "publish-generated-outputs.yml").read_text(encoding="utf-8")
+    build_index = publisher.index("- name: Build verified dashboard data from release dist")
+    assemble_index = publisher.index("- name: Assemble and verify publication snapshot")
+    upload_index = publisher.index("- name: Upload cumulative dashboard to Pages")
+    assert build_index < assemble_index < upload_index
+    assert "actions/upload-pages-artifact@" in publisher
 
 
 def test_publish_workflow_uses_telemetry_only_entry_point() -> None:
