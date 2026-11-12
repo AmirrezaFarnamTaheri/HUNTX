@@ -52,7 +52,7 @@ class _GovernedRepoProxy(StateRepo):
             min_ingested_at=min_ingested_at,
             publication_tier=self._publication_tier,
             require_fresh_probe=self._require_fresh_probe,
-            **({"deadline": deadline} if deadline is not None else {}),
+            deadline=deadline,
         )
 
 
@@ -117,8 +117,8 @@ class GovernedBuildPipeline(BuildPipeline):
                     list(key[2]),
                     list(key[3]),
                     min_seen_file_id=key[4],
-                    **({"min_ingested_at": key[5]} if key[5] is not None else {}),
-                    **({"deadline": deadline} if deadline is not None else {}),
+                    min_ingested_at=key[5],
+                    deadline=deadline,
                 )
                 future.set_result(records)
             except Exception as exc:
