@@ -171,6 +171,8 @@ jobs:
           PUBLISH_ID: ${{ steps.downstream.outputs.publish_id }}
           INVESTIGATION_ID: ${{ steps.downstream.outputs.investigation_id }}
           TELEGRAM_ID: ${{ steps.downstream.outputs.telegram_id }}
+          SOURCE_RUN_ID: ${{ steps.production.outputs.run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ steps.production_result.outputs.run_attempt }}
         run: |
           set -euo pipefail
 
@@ -197,7 +199,32 @@ jobs:
             done
 
             if (( complete == 3 )); then
+              # A green producer can deliberately withhold its release and a
+              # green publisher can skip Pages. Require both real outcomes.
+              source_artifacts="$(gh api "repos/${GH_REPO}/actions/runs/${SOURCE_RUN_ID}/artifacts?per_page=100")"
+              output_name="huntx-output-${SOURCE_RUN_ID}-${SOURCE_RUN_ATTEMPT}"
+              if ! jq -e --arg output "$output_name" '
+                [.artifacts[] | select(.name == $output and .expired == false)]
+                | length == 1
+              ' <<<"$source_artifacts" >/dev/null; then
+                echo "::error title=No eligible production release::Recovery did not restore a fresh publication; producer ${SOURCE_RUN_ID}/${SOURCE_RUN_ATTEMPT} withheld its distributable output."
+                exit 1
+              fi
+
+              publisher_jobs="$(gh api "repos/${GH_REPO}/actions/runs/${PUBLISH_ID}/jobs?per_page=100")"
+              if ! jq -e '
+                [.jobs[]
+                  | select(.name == "Publish verified generated snapshot")
+                  | .steps[]?
+                  | select(.name == "Deploy cumulative dashboard to Pages" and .conclusion == "success")]
+                | length == 1
+              ' <<<"$publisher_jobs" >/dev/null; then
+                echo "::error title=Publisher skipped Pages deployment::Recovery did not restore a fresh publication; publisher ${PUBLISH_ID} completed without a successful Pages deployment."
+                exit 1
+              fi
+
               echo "All explicit recovery downstream consumers completed successfully."
+              echo "Eligible producer output and actual Pages deployment both verified."
               exit 0
             fi
             sleep 20
