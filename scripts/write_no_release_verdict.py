@@ -19,6 +19,14 @@ _STAGES = frozenset({
     "ingestion", "transformation", "build", "publishing",
     "export", "cleanup",
 })
+_REASON_CODES = frozenset({
+    "deadline_exhausted_after_recoverable_progress",
+    "optional_source_failures",
+    "build_work_pending",
+    "no_new_artifacts",
+    "telegram_retry_wait_nonblocking",
+    "ingestion_budget_exhausted",
+})
 
 
 def _counter(value: Any) -> int:
@@ -53,7 +61,18 @@ def write_verdict(
     if package_source not in {"current", "restored", "none"}:
         raise ValueError("invalid package source")
     status = summary.get("status")
-    stage = summary.get("timed_out_stage")
+    detail = summary.get("summary")
+    details = detail if isinstance(detail, dict) else {}
+    metrics = summary.get("metrics")
+    measurements = metrics if isinstance(metrics, dict) else {}
+    stage = details.get("timed_out_stage") or measurements.get(
+        "timed_out_stage"
+    ) or summary.get("timed_out_stage")
+    reasons = summary.get("reasons")
+    safe_reasons = (
+        sorted({value for value in reasons if type(value) is str and value in _REASON_CODES})
+        if isinstance(reasons, list) else []
+    )
     return {
         "schema_version": 1,
         "run_id": run_id,
@@ -65,10 +84,15 @@ def write_verdict(
         "package_source": package_source,
         "checkpoint_ready": checkpoint_ready,
         "runtime_exit_code": runtime_exit_code,
-        "run_status": status if status in _STATUS else "unknown",
-        "timed_out_stage": stage if stage in _STAGES else None,
-        "build_pending": _counter(summary.get("build_pending")),
-        "degraded_source_failures": _counter(summary.get("degraded_source_failures")),
+        "run_status": status if type(status) is str and status in _STATUS else "unknown",
+        "timed_out_stage": stage if type(stage) is str and stage in _STAGES else None,
+        "build_pending": _counter(details.get("build_pending", measurements.get(
+            "build_pending", summary.get("build_pending")
+        ))),
+        "degraded_source_failures": _counter(details.get(
+            "degraded_source_failures", summary.get("degraded_source_failures")
+        )),
+        "reasons": safe_reasons,
     }
 
 
