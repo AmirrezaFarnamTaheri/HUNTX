@@ -129,3 +129,16 @@ def test_publisher_rechecks_main_before_last_mile_pages_deploy():
     assert workflow.index("- name: Revalidate main before Pages deployment") < workflow.index(
         "- name: Deploy cumulative dashboard to Pages"
     ) < workflow.index("- name: Commit atomic generated-only snapshot")
+
+
+def test_main_revision_is_revalidated_before_generated_branch_is_pushed():
+    """A checked source can become stale during snapshot validation."""
+    workflow = _workflow()
+    commit = workflow.split("- name: Commit atomic generated-only snapshot", 1)[1]
+    commit = commit.split("- name: Revalidate main before Pages deployment", 1)[0]
+    assert "SOURCE_MAIN_SHA: ${{ steps.source.outputs.main_sha }}" in commit
+    assert "git ls-remote --heads origin refs/heads/main" in commit
+    assert "Main changed before generated snapshot push" in commit
+    assert commit.index("git ls-remote --heads origin refs/heads/main") < commit.index(
+        "git push origin HEAD:refs/heads/generated-outputs"
+    )
