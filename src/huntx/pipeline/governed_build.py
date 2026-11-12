@@ -5,7 +5,7 @@ import threading
 from typing import Any, Optional
 
 from .build import BuildPipeline
-from ..core.deadline import Deadline
+from ..core.deadline import Deadline, DeadlineExceeded
 from ..state.repo import StateRepo
 from ..state.verdict_store import get_records_for_governed_build
 
@@ -35,12 +35,18 @@ class _GovernedRepoProxy(StateRepo):
         allowed_source_ids: list[str],
         min_seen_file_id: Optional[int] = None,
         min_ingested_at: Optional[str] = None,
+        deadline: Optional[Deadline] = None,
     ) -> list[dict[str, Any]]:
+        if deadline is not None:
+            deadline.raise_if_expired("governed build query")
         if self._prefetched_records is not None:
             # The caller already performed the policy-filtered, single-flight
             # query for this exact route. Leave records=None at BuildPipeline
             # so its historical scheduler still runs and writes true receipts.
             return list(self._prefetched_records)
+        options: dict[str, Any] = {}
+        if deadline is not None:
+            options["deadline"] = deadline
         return get_records_for_governed_build(
             self.db,
             record_types,
@@ -49,6 +55,7 @@ class _GovernedRepoProxy(StateRepo):
             min_ingested_at=min_ingested_at,
             publication_tier=self._publication_tier,
             require_fresh_probe=self._require_fresh_probe,
+            **options,
         )
 
 
@@ -89,7 +96,10 @@ class GovernedBuildPipeline(BuildPipeline):
         *,
         tier: str,
         require_fresh_probe: bool,
+        deadline: Deadline | None = None,
     ) -> _RecordList:
+        if deadline is not None:
+            deadline.raise_if_expired("governed build query")
         key = self._query_key(tier, require_fresh_probe, route_config)
         owner = False
         with self._query_lock:
@@ -110,7 +120,8 @@ class GovernedBuildPipeline(BuildPipeline):
                     list(key[2]),
                     list(key[3]),
                     min_seen_file_id=key[4],
-                    **({"min_ingested_at": key[5]} if key[5] is not None else {}),
+                    min_ingested_at=key[5],
+                    deadline=deadline,
                 )
                 future.set_result(records)
             except Exception as exc:
@@ -118,7 +129,14 @@ class GovernedBuildPipeline(BuildPipeline):
                 with self._query_lock:
                     self._query_futures.pop(key, None)
                 raise
-        return future.result()
+        if deadline is None:
+            return future.result()
+        try:
+            return future.result(timeout=deadline.clamp_timeout(3600.0))
+        except concurrent.futures.TimeoutError as exc:
+            raise DeadlineExceeded(
+                "Global deadline exhausted waiting for governed build query"
+            ) from exc
 
     def run(  # type: ignore[override]
         self,
@@ -137,6 +155,7 @@ class GovernedBuildPipeline(BuildPipeline):
                 route_config,
                 tier=tier,
                 require_fresh_probe=require_fresh_probe,
+                deadline=deadline,
             )
             if route_name in {"all_sources", "all_sources_sub"}:
                 # Real production uses GovernedBuildPipeline. Previously it

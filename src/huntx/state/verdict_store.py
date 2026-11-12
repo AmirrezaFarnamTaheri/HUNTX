@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 import time
 from typing import Any, Iterable, Optional
 
+from ..core.deadline import Deadline, DeadlineExceeded
 from .proxy_retirement import PROXY_UNPUBLISHABLE_SQL
 
 
@@ -71,7 +73,10 @@ def get_records_for_governed_build(
     publication_tier: str = "compatible",
     require_fresh_probe: bool = False,
     now_epoch: Optional[float] = None,
+    deadline: Optional[Deadline] = None,
 ) -> list[dict[str, Any]]:
+    if deadline is not None:
+        deadline.raise_if_expired("governed build query")
     if not record_types or not allowed_source_ids:
         return []
     type_marks = ",".join("?" for _ in record_types)
@@ -134,12 +139,28 @@ def get_records_for_governed_build(
         ORDER BY f.id ASC
     """
     with db.connect() as conn:
-        rows = conn.execute(query, args).fetchall()
-    return [
-        {
+        if deadline is not None:
+            conn.set_progress_handler(lambda: int(deadline.expired()), 1000)
+        try:
+            rows = conn.execute(query, args).fetchall()
+        except sqlite3.OperationalError as exc:
+            if deadline is not None and deadline.expired():
+                raise DeadlineExceeded(
+                    "Global deadline exhausted during governed build query"
+                ) from exc
+            raise
+        finally:
+            if deadline is not None:
+                conn.set_progress_handler(None, 0)
+    records: list[dict[str, Any]] = []
+    for index, row in enumerate(rows):
+        if deadline is not None and index % 256 == 0:
+            deadline.raise_if_expired("governed build query")
+        records.append({
             "record_type": row["record_type"],
             "unique_hash": row["unique_hash"],
             "data": json.loads(row["data_json"]),
-        }
-        for row in rows
-    ]
+        })
+    if deadline is not None:
+        deadline.raise_if_expired("governed build query")
+    return records
