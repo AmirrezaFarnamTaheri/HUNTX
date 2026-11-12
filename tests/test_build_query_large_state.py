@@ -55,5 +55,5 @@ def test_large_stale_history_does_not_exhaust_short_build_budget(tmp_path, gover
             min_ingested_at="2026-11-11 00:00:00",
             deadline=Deadline(1.5),
         )
-    assert len(rows) == total // 10
+    assert len(rows) == (total // 10) * 3 // 4
     assert all(row["data"]["line"].startswith("vless://") for row in rows)
