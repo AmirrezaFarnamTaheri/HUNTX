@@ -37,11 +37,16 @@ def _run(tmp_path, summary):
 
 def test_no_release_receipt_preserves_bounded_failure_diagnostics(tmp_path):
     data = _run(tmp_path, {
-        "status": "timed_out", "timed_out_stage": "build",
-        "release_eligible": False, "build_pending": 1,
-        "degraded_source_failures": 28,
+        "status": "timed_out",
+        "release_eligible": False,
+        "metrics": {"timed_out_stage": "build", "build_pending": 1},
+        "summary": {
+            "timed_out_stage": "build", "build_pending": 1,
+            "degraded_source_failures": 28,
+        },
+        "reasons": ["deadline_exhausted_after_recoverable_progress",
+                    "DO_NOT_LEAK_ANYTHING_ELSE"],
         "secret": "SHOULD NEVER LEAK",
-        "stage_seconds": {"build": 4946.13},
     })
     assert data["schema_version"] == 1
     assert data["run_id"] == "123"
@@ -56,6 +61,8 @@ def test_no_release_receipt_preserves_bounded_failure_diagnostics(tmp_path):
     assert data["build_pending"] == 1
     assert data["degraded_source_failures"] == 28
     assert "SHOULD NEVER LEAK" not in json.dumps(data)
+    assert "DO_NOT_LEAK_ANYTHING_ELSE" not in json.dumps(data)
+    assert "deadline_exhausted_after_recoverable_progress" in data["reasons"]
 
 
 def test_no_release_receipt_fails_closed_without_runtime_summary(tmp_path):
