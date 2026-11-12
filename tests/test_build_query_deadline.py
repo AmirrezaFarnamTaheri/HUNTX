@@ -27,7 +27,7 @@ def test_build_query_interrupts_after_sql_started(tmp_path):
     repo = StateRepo(open_db(tmp_path / "state.db"))
     with repo.db.connect() as conn:
         rows = [
-            (f"approved", f"file-{n}", f"{n:064x}", "processed")
+            ("approved", f"file-{n}", f"{n:064x}", "processed")
             for n in range(1600)
         ]
         conn.executemany(
