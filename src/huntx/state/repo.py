@@ -5,6 +5,7 @@ import sqlite3
 import time
 import uuid
 
+from ..core.deadline import Deadline, DeadlineExceeded
 from .proxy_lifecycle import observe_record_identities
 from .proxy_retirement import PROXY_UNPUBLISHABLE_SQL
 
@@ -622,7 +623,10 @@ class StateRepo:
         allowed_source_ids: List[str],
         min_seen_file_id: Optional[int] = None,
         min_ingested_at: Optional[str] = None,
+        deadline: Optional[Deadline] = None,
     ) -> List[Dict[str, Any]]:
+        if deadline is not None:
+            deadline.raise_if_expired("build query")
         if not record_types or not allowed_source_ids:
             return []
 
@@ -667,12 +671,39 @@ class StateRepo:
                 ORDER BY f.id ASC
             """
 
+            # sqlite3 releases the GIL while scanning large tables, so the
+            # worker may be blocked inside execute()/fetchall() for minutes.
+            # A progress handler interrupts that exact SQL statement at the
+            # shared release deadline without turning interruption into an
+            # apparently successful empty result.
             with self.db.connect() as conn:
-                cursor = conn.execute(query, args)
-                return [
-                    {"record_type": row["record_type"], "data": json.loads(row["data_json"])}
-                    for row in cursor.fetchall()
-                ]
+                if deadline is not None:
+                    conn.set_progress_handler(
+                        lambda: int(deadline.expired()), 1000
+                    )
+                try:
+                    cursor = conn.execute(query, args)
+                    rows = cursor.fetchall()
+                except sqlite3.OperationalError as exc:
+                    if deadline is not None and deadline.expired():
+                        raise DeadlineExceeded(
+                            "Global deadline exhausted during build query"
+                        ) from exc
+                    raise
+                finally:
+                    if deadline is not None:
+                        conn.set_progress_handler(None, 0)
+            records: List[Dict[str, Any]] = []
+            for index, row in enumerate(rows):
+                if deadline is not None and index % 256 == 0:
+                    deadline.raise_if_expired("build query")
+                records.append({
+                    "record_type": row["record_type"],
+                    "data": json.loads(row["data_json"]),
+                })
+            if deadline is not None:
+                deadline.raise_if_expired("build query")
+            return records
         except Exception as e:
             logger.error(f"Failed to get records for build (types={record_types}): {e}")
             raise
