@@ -600,6 +600,20 @@ jobs:
             --producer-receipt "$SOURCE_ROOT/logs/release-receipt.json"
           test -s "$SOURCE_ROOT/snapshot/manifests/SHA256SUMS"
 
+      # Seal publisher authentication and SHA256SUMS BEFORE uploading Pages.
+      # A later Git-only commit must not alter the bytes already uploaded.
+      - name: Finalize publisher proof before upload
+        if: steps.release.outputs.ready == 'true'
+        env:
+          SOURCE_ROOT: ${{ runner.temp }}/huntx-publication
+          PYTHONPATH: src
+        run: |
+          set -euo pipefail
+          python scripts/publisher_live_attestation.py finalize \
+            --snapshot-root "$SOURCE_ROOT/snapshot" \
+            --producer-receipt "$SOURCE_ROOT/logs/release-receipt.json"
+          test -s "$SOURCE_ROOT/snapshot/manifests/SHA256SUMS"
+
       - name: Configure Pages deployment
         if: steps.release.outputs.ready == 'true'
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
@@ -610,8 +624,36 @@ jobs:
         with:
           path: ${{ runner.temp }}/huntx-publication/snapshot/docs
 
-      - name: Commit atomic generated-only snapshot
+      - name: Revalidate main before Pages deployment
         if: steps.release.outputs.ready == 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          EXPECTED_MAIN_SHA: ${{ steps.source.outputs.main_sha }}
+        with:
+          script: |
+            const expected = process.env.EXPECTED_MAIN_SHA;
+            if (!/^[a-f0-9]{40}$/.test(expected || '')) {
+              core.setFailed('Missing validated main revision before Pages deployment');
+              return;
+            }
+            const { data } = await github.rest.repos.getBranch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              branch: 'main',
+            });
+            if (data.commit.sha !== expected) {
+              core.setFailed(
+                `Branch changed during publisher assembly: expected ${expected}, actual ${data.commit.sha}. Refusing stale Pages deployment.`,
+              );
+            }
+
+      - name: Deploy cumulative dashboard to Pages
+        if: steps.release.outputs.ready == 'true'
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+      - name: Commit atomic generated-only snapshot
+        if: steps.release.outputs.ready == 'true' && steps.deployment.outcome == 'success'
         env:
           SNAPSHOT_ROOT: ${{ runner.temp }}/huntx-publication/snapshot
           SOURCE_ROOT: ${{ runner.temp }}/huntx-publication
@@ -622,11 +664,6 @@ jobs:
           RESTORED_SHA: ${{ steps.previous.outputs.sha }}
         run: |
           set -euo pipefail
-          # Retire expired publisher claims immediately before committing,
-          # never dropping their identities from the immutable public feed.
-          python scripts/publisher_live_attestation.py finalize \
-            --snapshot-root "$SNAPSHOT_ROOT" \
-            --producer-receipt "$SOURCE_ROOT/logs/release-receipt.json"
           # Pages publishes the full sealed snapshot, but generated-outputs
           # deliberately omits seven redundant cumulative-history files.
           # Seal a SECOND digest over the exact Git tree BEFORE checkout
@@ -690,34 +727,6 @@ jobs:
           else
             git push origin HEAD:refs/heads/generated-outputs
           fi
-
-      - name: Revalidate main before Pages deployment
-        if: steps.release.outputs.ready == 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        env:
-          EXPECTED_MAIN_SHA: ${{ steps.source.outputs.main_sha }}
-        with:
-          script: |
-            const expected = process.env.EXPECTED_MAIN_SHA;
-            if (!/^[a-f0-9]{40}$/.test(expected || '')) {
-              core.setFailed('Missing validated main revision before Pages deployment');
-              return;
-            }
-            const { data } = await github.rest.repos.getBranch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              branch: 'main',
-            });
-            if (data.commit.sha !== expected) {
-              core.setFailed(
-                `Branch changed during publisher assembly: expected ${expected}, actual ${data.commit.sha}. Refusing stale Pages deployment.`,
-              );
-            }
-
-      - name: Deploy cumulative dashboard to Pages
-        if: steps.release.outputs.ready == 'true'
-        id: deployment
-        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
 
       - name: Summarize publication
         if: always()

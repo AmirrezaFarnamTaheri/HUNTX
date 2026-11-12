@@ -126,6 +126,6 @@ def test_publisher_rechecks_main_before_last_mile_pages_deploy():
     assert "- name: Revalidate main before Pages deployment" in workflow
     assert "EXPECTED_MAIN_SHA: ${{ steps.source.outputs.main_sha }}" in workflow
     assert "Branch changed during publisher assembly" in workflow
-    assert workflow.index("- name: Commit atomic generated-only snapshot") < workflow.index(
-        "- name: Revalidate main before Pages deployment"
-    ) < workflow.index("- name: Deploy cumulative dashboard to Pages")
+    assert workflow.index("- name: Revalidate main before Pages deployment") < workflow.index(
+        "- name: Deploy cumulative dashboard to Pages"
+    ) < workflow.index("- name: Commit atomic generated-only snapshot")
