@@ -1,6 +1,8 @@
 import asyncio
 import concurrent.futures
+import faulthandler
 import logging
+import sys
 import time
 from typing import Any, Optional
 
@@ -266,7 +268,37 @@ class HardenedOrchestrator(Orchestrator):
                     done: set[concurrent.futures.Future[Any]] = set()
                     not_done = set(build_futures)
                 else:
-                    done, not_done = concurrent.futures.wait(build_futures, timeout=left)
+                    # A single slow route previously silenced the production
+                    # log for the entire remaining budget. Keep the parent
+                    # observable even when a governed query or format handler
+                    # never returns. This does NOT extend the deadline.
+                    done = set()
+                    not_done = set(build_futures)
+                    interval = max(
+                        0.01, float(getattr(
+                            self, "_build_progress_interval_seconds", 30.0
+                        ))
+                    )
+                    while not_done:
+                        left = remaining()
+                        if left is not None and left <= 0:
+                            mark_timeout("build")
+                            break
+                        completed, not_done = concurrent.futures.wait(
+                            not_done,
+                            timeout=min(interval, left) if left is not None else interval,
+                            return_when=concurrent.futures.FIRST_COMPLETED,
+                        )
+                        done.update(completed)
+                        if not_done and not completed:
+                            logger.warning(
+                                "[Orchestrator] Build still running "
+                                "elapsed_seconds=%.1f pending_routes=%s "
+                                "remaining_seconds=%s",
+                                time.monotonic() - build_start,
+                                sorted(build_futures[item] for item in not_done),
+                                round(left, 2) if left is not None else "unbounded",
+                            )
 
                 for completed_build in done:
                     route_name = build_futures[completed_build]
@@ -286,6 +318,19 @@ class HardenedOrchestrator(Orchestrator):
                 if not_done:
                     mark_timeout("build")
                     build_pending = len(not_done)
+                    logger.error(
+                        "[Orchestrator] Build timed out elapsed_seconds=%.1f "
+                        "pending_routes=%s; capturing worker thread stacks",
+                        time.monotonic() - build_start,
+                        sorted(build_futures[item] for item in not_done),
+                    )
+                    # Include stack frames, not local values / proxy URIs.
+                    # This identifies SQLite, authentication, or format
+                    # handlers blocking a worker without awaiting that worker.
+                    try:
+                        faulthandler.dump_traceback(file=sys.stderr, all_threads=True)
+                    except (OSError, RuntimeError, ValueError):
+                        logger.exception("[Orchestrator] Failed to capture thread stacks")
                     for pending_build in not_done:
                         if pending_build.cancel():
                             build_cancelled += 1
