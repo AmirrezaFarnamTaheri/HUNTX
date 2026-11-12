@@ -291,6 +291,7 @@ jobs:
               return;
             }
 
+            core.setOutput('main_sha', currentMainSHA);
             core.setOutput('ready', 'true');
             core.setOutput('run_id', String(runId));
             core.setOutput('run_attempt', String(run.run_attempt));
@@ -689,6 +690,29 @@ jobs:
           else
             git push origin HEAD:refs/heads/generated-outputs
           fi
+
+      - name: Revalidate main before Pages deployment
+        if: steps.release.outputs.ready == 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          EXPECTED_MAIN_SHA: ${{ steps.source.outputs.main_sha }}
+        with:
+          script: |
+            const expected = process.env.EXPECTED_MAIN_SHA;
+            if (!/^[a-f0-9]{40}$/.test(expected || '')) {
+              core.setFailed('Missing validated main revision before Pages deployment');
+              return;
+            }
+            const { data } = await github.rest.repos.getBranch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              branch: 'main',
+            });
+            if (data.commit.sha !== expected) {
+              core.setFailed(
+                `Branch changed during publisher assembly: expected ${expected}, actual ${data.commit.sha}. Refusing stale Pages deployment.`,
+              );
+            }
 
       - name: Deploy cumulative dashboard to Pages
         if: steps.release.outputs.ready == 'true'
