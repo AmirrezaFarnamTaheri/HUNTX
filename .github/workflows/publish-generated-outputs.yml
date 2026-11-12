@@ -662,6 +662,7 @@ jobs:
           SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
           SOURCE_RUN_ATTEMPT: ${{ steps.source.outputs.run_attempt }}
           RESTORED_SHA: ${{ steps.previous.outputs.sha }}
+          SOURCE_MAIN_SHA: ${{ steps.source.outputs.main_sha }}
         run: |
           set -euo pipefail
           # Pages publishes the full sealed snapshot, but generated-outputs
@@ -720,6 +721,14 @@ jobs:
             exit 0
           fi
           git commit -m "Publish HUNTX outputs from run ${SOURCE_RUN_ID}/${SOURCE_RUN_ATTEMPT}"
+
+          # Pages already succeeded. Never advance the generated ledger
+          # if control-plane source has moved since its validation.
+          current_main_sha="$(git ls-remote --heads origin refs/heads/main | awk '{print $1}')"
+          if [[ "$current_main_sha" != "$SOURCE_MAIN_SHA" ]]; then
+            echo "::error title=Main changed before generated snapshot push::Expected $SOURCE_MAIN_SHA, observed $current_main_sha. Refusing stale generated-outputs ledger."
+            exit 1
+          fi
 
           if [[ -n "$remote_sha" ]]; then
             git push origin HEAD:refs/heads/generated-outputs \
