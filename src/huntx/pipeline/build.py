@@ -393,9 +393,15 @@ class BuildPipeline:
             elif min_ingested_at is None or min_seen_file_id is not None:
                 retest_selection_status = "missing_window_or_delta_build"
         if records is None:
+            query_options: dict[str, Any] = {}
+            if min_ingested_at is not None:
+                query_options["min_ingested_at"] = min_ingested_at
+            if deadline is not None:
+                query_options["deadline"] = deadline
             records = self.state_repo.get_records_for_build(
-                formats, allowed_source_ids, min_seen_file_id=min_seen_file_id,
-                **({"min_ingested_at": min_ingested_at} if min_ingested_at is not None else {}),
+                formats, allowed_source_ids,
+                min_seen_file_id=min_seen_file_id,
+                **query_options,
             )
             # A verified success tied only to a 72-hour-old source observation
             # is no longer in the ordinary build set. Reserve a fair bounded
