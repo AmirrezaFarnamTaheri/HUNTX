@@ -707,17 +707,14 @@ jobs:
         if: ${{ always() && steps.package.outputs.ready != 'true' }}
         run: |
           set -euo pipefail
-          mkdir -p no-release-verdict
-          cat > no-release-verdict/no-release.json <<'HUNTX_NO_RELEASE'
-          {
-            "schema_version": 1,
-            "run_id": "${{ github.run_id }}",
-            "run_attempt": "${{ github.run_attempt }}",
-            "release_published": false,
-            "package_ready": false,
-            "package_source": "${{ steps.package.outputs.source }}"
-          }
-          HUNTX_NO_RELEASE
+          python scripts/record_no_release_verdict.py \
+            --summary "$HUNTX_RUN_SUMMARY_PATH" \
+            --output no-release-verdict/no-release.json \
+            --run-id "${{ github.run_id }}" \
+            --attempt "${{ github.run_attempt }}" \
+            --source-commit "${{ github.sha }}" \
+            --package-source "${{ steps.package.outputs.source }}" \
+            --runtime-exit-code "${{ steps.runtime.outputs.exit_code || '1' }}"
 
       - name: Publish explicit no-release verdict
         if: ${{ always() && steps.package.outputs.ready != 'true' }}
@@ -726,7 +723,7 @@ jobs:
           name: huntx-no-release-${{ github.run_id }}-${{ github.run_attempt }}
           path: no-release-verdict/
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30
           compression-level: 0
 
       - name: Upload checkpoint handoff
