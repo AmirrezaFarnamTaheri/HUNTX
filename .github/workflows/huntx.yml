@@ -707,17 +707,15 @@ jobs:
         if: ${{ always() && steps.package.outputs.ready != 'true' }}
         run: |
           set -euo pipefail
-          mkdir -p no-release-verdict
-          cat > no-release-verdict/no-release.json <<'HUNTX_NO_RELEASE'
-          {
-            "schema_version": 1,
-            "run_id": "${{ github.run_id }}",
-            "run_attempt": "${{ github.run_attempt }}",
-            "release_published": false,
-            "package_ready": false,
-            "package_source": "${{ steps.package.outputs.source }}"
-          }
-          HUNTX_NO_RELEASE
+          python scripts/write_no_release_verdict.py \
+            --summary "$HUNTX_RUN_SUMMARY_PATH" \
+            --output no-release-verdict/no-release.json \
+            --run-id "${{ github.run_id }}" \
+            --run-attempt "${{ github.run_attempt }}" \
+            --source-commit "${{ github.sha }}" \
+            --runtime-exit-code "${{ steps.runtime.outputs.exit_code || '1' }}" \
+            --package-source "${{ steps.package.outputs.source || 'none' }}" \
+            --checkpoint-ready "${{ steps.checkpoint.outputs.ready || 'false' }}"
 
       - name: Publish explicit no-release verdict
         if: ${{ always() && steps.package.outputs.ready != 'true' }}
