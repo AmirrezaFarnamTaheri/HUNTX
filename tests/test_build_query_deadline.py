@@ -80,3 +80,13 @@ def test_build_pipeline_propagates_deadline_to_sql_query():
     state_repo.get_records_for_build.assert_called_once_with(
         ["npvt"], ["approved"], deadline=deadline
     )
+
+
+def test_expired_governed_query_fails_closed(tmp_path):
+    from huntx.state.verdict_store import get_records_for_governed_build
+
+    repo = StateRepo(open_db(tmp_path / "state.db"))
+    with pytest.raises(DeadlineExceeded, match="build"):
+        get_records_for_governed_build(
+            repo.db, ["npvt"], ["approved"], deadline=Deadline(0)
+        )
