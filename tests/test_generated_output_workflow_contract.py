@@ -118,6 +118,7 @@ def test_new_local_generated_output_payloads_are_ignored_by_git():
         )
         assert result.returncode == 0, relative
 
+
 def test_publisher_rechecks_main_before_last_mile_pages_deploy():
     """A source validated at job start can become stale during assembly."""
     workflow = _workflow()
