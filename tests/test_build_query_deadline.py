@@ -78,7 +78,7 @@ def test_build_pipeline_propagates_deadline_to_sql_query():
         "from_sources": ["approved"],
     }, deadline=deadline) == []
     state_repo.get_records_for_build.assert_called_once_with(
-        ["npvt"], ["approved"], deadline=deadline
+        ["npvt"], ["approved"], min_seen_file_id=None, deadline=deadline
     )
 
 
