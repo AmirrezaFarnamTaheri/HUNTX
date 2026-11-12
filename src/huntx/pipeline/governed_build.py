@@ -44,6 +44,9 @@ class _GovernedRepoProxy(StateRepo):
             # query for this exact route. Leave records=None at BuildPipeline
             # so its historical scheduler still runs and writes true receipts.
             return list(self._prefetched_records)
+        options: dict[str, Any] = {}
+        if deadline is not None:
+            options["deadline"] = deadline
         return get_records_for_governed_build(
             self.db,
             record_types,
@@ -52,7 +55,7 @@ class _GovernedRepoProxy(StateRepo):
             min_ingested_at=min_ingested_at,
             publication_tier=self._publication_tier,
             require_fresh_probe=self._require_fresh_probe,
-            deadline=deadline,
+            **options,
         )
 
 
