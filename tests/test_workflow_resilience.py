@@ -61,13 +61,19 @@ def test_production_workflow_has_last_known_good_release_safenet():
     assert "Package source:" in workflow
 
 
-def test_production_workflow_packages_and_deploys_only_verified_output():
+def test_production_packages_only_verified_output_and_publisher_owns_pages():
     workflow = Path(".github/workflows/huntx.yml").read_text()
+    publisher = Path(".github/workflows/publish-generated-outputs.yml").read_text()
     assert "package_ready: ${{ steps.package.outputs.ready }}" in workflow
     assert "if: steps.package.outputs.ready == 'true'" in workflow
-    assert "needs.run.outputs.package_ready == 'true'" in workflow
     assert "No packageable output" in workflow
     assert "Current output degraded" in workflow
+    assert "actions/upload-pages-artifact" not in workflow
+    assert "actions/deploy-pages" not in workflow
+    assert "scripts/check_release_eligibility.py" in publisher
+    assert "--verify-receipt" in publisher
+    assert "if: steps.release.outputs.ready == 'true'" in publisher
+    assert "actions/deploy-pages@" in publisher
 
 
 def test_pull_request_workflow_has_no_oidc_permission():
