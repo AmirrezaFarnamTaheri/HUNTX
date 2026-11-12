@@ -53,6 +53,7 @@ env:
   MSG_SUBSEQUENT_HOURS: ${{ github.event.inputs.msg_subsequent_hours || '0' }}
   FILE_SUBSEQUENT_HOURS: ${{ github.event.inputs.file_subsequent_hours || '0' }}
   HUNTX_RUN_TIMEOUT: "5400"
+  HUNTX_SHUTDOWN_GRACE_SECONDS: "90"
   HUNTX_COMPLETION_BUFFER: "900"
   HUNTX_CANONICAL_RESOLVE_TIMEOUT: "20"
   HUNTX_TELEGRAM_CLEANUP_TIMEOUT: "10"
@@ -499,15 +500,20 @@ jobs:
             mv "$HUNTX_RUN_SUMMARY_PATH" "${HUNTX_RUN_SUMMARY_PATH}.previous"
           fi
           set +e
-          # Enforce the same run-wide deadline at the OS boundary. The five
-          # minute allowance covers CLI shutdown and checkpoint handoff;
-          # non-cooperative children receive a forced termination after 30s.
+          # The application owns its 5400s deadline. Permit at most 90s for
+          # a graceful process shutdown; checkpoint packaging and persistence
+          # run in subsequent steps with always() once the process exits.
+          # A non-cooperative worker is SIGKILLed after another 20 seconds.
           if [[ ! "$HUNTX_RUN_TIMEOUT" =~ ^[1-9][0-9]*$ ]]; then
             echo "::error title=Invalid runtime timeout::HUNTX_RUN_TIMEOUT must be a positive integer in seconds"
             exit 1
           fi
-          watchdog_budget_seconds=$((HUNTX_RUN_TIMEOUT + 300))
-          timeout --signal=TERM --kill-after=30s "${watchdog_budget_seconds}s" \
+          if [[ ! "$HUNTX_SHUTDOWN_GRACE_SECONDS" =~ ^[1-9][0-9]*$ ]] || (( HUNTX_SHUTDOWN_GRACE_SECONDS > 90 )); then
+            echo "::error title=Invalid shutdown grace::HUNTX_SHUTDOWN_GRACE_SECONDS must be a positive integer no greater than 90"
+            exit 1
+          fi
+          watchdog_budget_seconds=$((HUNTX_RUN_TIMEOUT + HUNTX_SHUTDOWN_GRACE_SECONDS))
+          timeout --signal=TERM --kill-after=20s "${watchdog_budget_seconds}s" \
             huntx \
               --config configs/config.prod.yaml \
               --data-dir persist/data \

@@ -13,8 +13,8 @@ def test_production_workflow_uses_verified_atomic_generations():
     assert "HUNTX_ALLOW_PARTIAL_SUCCESS" not in workflow
     assert 'HUNTX_ALLOW_PARTIAL_EXPORT: "true"' in workflow
     assert 'HUNTX_RUN_SUMMARY_PATH: "persist/data/logs/run-summary.json"' in workflow
-    assert 'watchdog_budget_seconds=$((HUNTX_RUN_TIMEOUT + 300))' in workflow
-    assert 'timeout --signal=TERM --kill-after=30s "${watchdog_budget_seconds}s"' in workflow
+    assert 'watchdog_budget_seconds=$((HUNTX_RUN_TIMEOUT + HUNTX_SHUTDOWN_GRACE_SECONDS))' in workflow
+    assert 'timeout --signal=TERM --kill-after=20s "${watchdog_budget_seconds}s"' in workflow
     assert "scripts/checkpoint_runtime_state.py" in workflow
     assert "scripts/report_runtime_health.py" in workflow
     assert "huntx-tools runtime-generation" in workflow
@@ -153,6 +153,6 @@ def test_production_checkpoint_persists_after_runtime_failures_but_not_workflow_
 def test_runtime_watchdog_is_derived_from_application_timeout():
     """The OS kill watchdog must not silently overrun the configured budget."""
     workflow = Path(".github/workflows/huntx.yml").read_text()
-    assert 'watchdog_budget_seconds=$((HUNTX_RUN_TIMEOUT + 300))' in workflow
-    assert 'timeout --signal=TERM --kill-after=30s "${watchdog_budget_seconds}s"' in workflow
+    assert 'watchdog_budget_seconds=$((HUNTX_RUN_TIMEOUT + HUNTX_SHUTDOWN_GRACE_SECONDS))' in workflow
+    assert 'timeout --signal=TERM --kill-after=20s "${watchdog_budget_seconds}s"' in workflow
     assert '105m' not in workflow
