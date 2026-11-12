@@ -613,6 +613,14 @@ jobs:
             --snapshot-root "$SOURCE_ROOT/snapshot" \
             --producer-receipt "$SOURCE_ROOT/logs/release-receipt.json"
           test -s "$SOURCE_ROOT/snapshot/manifests/SHA256SUMS"
+          # Reject an incomplete historical or release package BEFORE upload.
+          python - "$SOURCE_ROOT/snapshot/docs" <<'PY'
+          from pathlib import Path
+          from sys import argv
+          from scripts.verify_deployed_pages import expected_public_paths
+          paths = expected_public_paths(Path(argv[1]))
+          print(f"Prepared Pages package with {len(paths)} verified downloadable paths")
+          PY
 
       - name: Configure Pages deployment
         if: steps.release.outputs.ready == 'true'
@@ -652,8 +660,27 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
 
-      - name: Commit atomic generated-only snapshot
+      - name: Verify public Pages snapshot integrity
         if: steps.release.outputs.ready == 'true' && steps.deployment.outcome == 'success'
+        id: live
+        timeout-minutes: 12
+        env:
+          PAGES_URL: ${{ steps.deployment.outputs.page_url }}
+          SNAPSHOT_DOCS: ${{ runner.temp }}/huntx-publication/snapshot/docs
+        run: |
+          set -euo pipefail
+          # deploy-pages completion alone does not establish that the CDN
+          # serves the new catalog or the five historical cumulative URLs.
+          python scripts/verify_deployed_pages.py \
+            --snapshot-root "$SNAPSHOT_DOCS" \
+            --page-url "$PAGES_URL" \
+            --attempts 12 \
+            --interval 10 \
+            --request-timeout 20 \
+            --max-seconds 600
+
+      - name: Commit atomic generated-only snapshot
+        if: steps.release.outputs.ready == 'true' && steps.deployment.outcome == 'success' && steps.live.outcome == 'success'
         env:
           SNAPSHOT_ROOT: ${{ runner.temp }}/huntx-publication/snapshot
           SOURCE_ROOT: ${{ runner.temp }}/huntx-publication
@@ -755,5 +782,6 @@ jobs:
             echo "- \`outputs/\` scope: source run"
             echo "- \`outputs_dev/\` scope: cumulative across publications and legacy history"
             echo "- Post-publication validation: \`immutable producer receipt + Pages deployment\`"
+            echo "- Live Pages integrity: \`${{ steps.live.outcome || 'skipped' }}\`"
             echo "- Job status: **${{ job.status }}**"
           } >> "$GITHUB_STEP_SUMMARY"
