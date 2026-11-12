@@ -263,7 +263,7 @@ jobs:
           python -m pip install pip-audit==2.10.1
           pip-audit -r requirements.txt --no-deps --disable-pip --strict
           npm ci --ignore-scripts
-          npm audit --audit-level=high
+          npm audit --audit-level=moderate
 
   # Required check. Its name is what branch protection matches, so it must not
   # change. `if: always()` is essential: a skipped or failed dependency would
