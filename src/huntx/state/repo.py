@@ -642,9 +642,9 @@ class StateRepo:
                 where_extra += " AND s.ingested_at >= ?"
                 args.append(min_ingested_at)
 
-            # Start with approved source observations, then seek active records
-            # by observation ID. This avoids scanning unbounded stale history
-            # while preserving exact provenance and retirement exclusions.
+            # Build the exact approved observation-ID list, then seek matching
+            # records through the persisted observation index. This avoids
+            # scanning old history while preserving provenance and retirement.
             query = f"""
                 WITH filtered AS (
                     SELECT r.id, r.record_type, r.unique_hash
