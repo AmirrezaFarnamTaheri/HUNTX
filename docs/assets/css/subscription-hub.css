@@ -291,3 +291,17 @@ html[data-design="ledger"] .direction-options button { border-radius: 2px; }
   .direction-options button[aria-pressed="true"] { border: 2px solid Highlight !important; }
   .capacity-fill, .orbit-core { forced-color-adjust: auto; }
 }
+
+/* The breadcrumb and two utility links must wrap instead of enlarging the
+ * document width on 320–375px devices. Horizontal scrolling belongs only
+ * to the explicitly scrollable navigation strip. */
+@media (max-width: 680px) {
+  .topbar { flex-wrap: wrap; row-gap: 8px; min-width: 0; }
+  .breadcrumb { flex: 1 1 135px; min-width: 0; flex-wrap: wrap; gap: 6px; }
+  .topbar-links { min-width: 0; flex-wrap: wrap; gap: 6px; margin-inline-start: auto; }
+  .topbar-links a { min-width: 0; }
+  .content-frame, .main-content, .page-heading, .direction-panel,
+  .metrics, .master-feed, .protocols-section, .page-footer { min-width: 0; }
+  .protocol-grid, .protocol-card, .master-intro, .direction-options { min-width: 0; max-width: 100%; }
+  .capacity-legend, .library-link { white-space: normal; overflow-wrap: anywhere; }
+}
