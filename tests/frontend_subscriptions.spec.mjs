@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { mkdir } from "node:fs/promises";
 
 const INDEX = {
   schema_version: 1,
@@ -80,8 +81,9 @@ for (const width of [320, 375, 768, 1440]) {
     expect(measurement.document).toBeLessThanOrEqual(measurement.viewport + 1);
     expect(measurement.grid.right).toBeLessThanOrEqual(width + 1);
     if (width === 375) {
+      await mkdir("test-results/ui-review", { recursive: true });
       await page.screenshot({
-        path: "test-results/subscriptions-phone.png", fullPage: true, animations: "disabled"
+        path: "test-results/ui-review/subscriptions-phone.png", fullPage: true, animations: "disabled"
       });
     }
   });
@@ -98,7 +100,8 @@ test("subscription discovery respects light theme and keyboard navigation", asyn
   await page.locator("#subscription-protocol-search").focus();
   await page.keyboard.type("trojan");
   await expect(page.locator(".sub-protocol-card")).toHaveCount(1);
+  await mkdir("test-results/ui-review", { recursive: true });
   await page.screenshot({
-    path: "test-results/subscriptions-light.png", fullPage: true, animations: "disabled"
+    path: "test-results/ui-review/subscriptions-light.png", fullPage: true, animations: "disabled"
   });
 });
