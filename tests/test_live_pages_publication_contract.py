@@ -35,6 +35,7 @@ def test_recovery_requires_verified_live_site_not_just_deploy_success():
         "All explicit recovery downstream consumers completed successfully."
     )
 
+
 def test_latest_subscription_merge_triggers_a_matching_production_run():
     """Publisher won't accept artifacts from older main revisions."""
     workflow = (ROOT / ".github" / "workflows" / "huntx.yml").read_text(
@@ -46,4 +47,3 @@ def test_latest_subscription_merge_triggers_a_matching_production_run():
     assert '      - "src/huntx/formats/latest_subscriptions.py"' in triggers
     assert '      - "scripts/assemble_generated_snapshot.py"' in triggers
     assert '      - "scripts/verify_deployed_pages.py"' in triggers
-
