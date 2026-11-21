@@ -52,6 +52,7 @@ test("new protocol families appear separately, not under an Others group", () =>
     count: 7, file: "reality-layer.txt",
     base64_file: "reality-layer_base64.txt", sha256: "b".repeat(64)
   };
+  index.aggregate.count = 119; // Exact union after the new independent category.
   const directory = normalizeSubscriptionIndex(index);
   assert.equal(directory.categories.at(-1).name, "reality-layer");
   assert.equal(directory.categories.at(-1).count, 7);
@@ -68,6 +69,15 @@ test("rejects path-injection and impossible count metadata", () => {
   const unknownScope = fixture();
   unknownScope.health_status = "live";
   assert.throws(() => normalizeSubscriptionIndex(unknownScope), /historical|invalid/i);
+});
+
+test("rejects aggregate totals that do not equal all selected protocol counts", () => {
+  const undercount = fixture();
+  undercount.aggregate.count = 111;
+  assert.throws(() => normalizeSubscriptionIndex(undercount), /aggregate|count|invalid/i);
+  const overcount = fixture();
+  overcount.aggregate.count = 113;
+  assert.throws(() => normalizeSubscriptionIndex(overcount), /aggregate|count|invalid/i);
 });
 
 test("safe, deterministic URLs cover per-protocol and aggregate formats", () => {
