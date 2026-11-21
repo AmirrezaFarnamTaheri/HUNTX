@@ -76,6 +76,17 @@ def test_build_queries_seek_observation_even_when_planner_stats_are_misleading(
         )
         conn.execute("ANALYZE sqlite_master")
 
+    # Production restores its existing state through open_db(), which must
+    # replace the stale observation-index estimates before querying.
+    repo = StateRepo(open_db(tmp_path / "state.db"))
+    with repo.db.connect() as conn:
+        refreshed = conn.execute(
+            "SELECT stat FROM sqlite_stat1 "
+            "WHERE idx = 'idx_records_observation'"
+        ).fetchone()
+        assert refreshed is not None
+        assert not str(refreshed["stat"]).startswith("500000000 ")
+
     seen_sql = []
     original_connect = repo.db.connect
 
