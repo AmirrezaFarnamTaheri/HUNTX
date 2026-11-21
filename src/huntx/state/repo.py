@@ -642,14 +642,16 @@ class StateRepo:
                 where_extra += " AND s.ingested_at >= ?"
                 args.append(min_ingested_at)
 
-            # source_observation_id binds each normalized record to the exact
-            # seen_files observation whose source identity authorized it.
+            # Start with approved source observations, then seek active records
+            # by observation ID. This avoids scanning unbounded stale history
+            # while preserving exact provenance and retirement exclusions.
             query = f"""
                 WITH filtered AS (
-                    SELECT DISTINCT r.id, r.record_type, r.unique_hash, r.data_json
-                    FROM records r
-                    JOIN seen_files s ON r.source_observation_id = s.id
-                    WHERE r.record_type IN ({placeholders_types})
+                    SELECT r.id, r.record_type, r.unique_hash
+                    FROM seen_files s INDEXED BY idx_seen_files_source_ingested
+                    CROSS JOIN records r INDEXED BY idx_records_observation
+                    WHERE r.source_observation_id = s.id
+                      AND r.record_type IN ({placeholders_types})
                       AND s.source_id IN ({placeholders_sources})
                       AND r.is_active = 1
                       AND NOT EXISTS (
@@ -665,10 +667,10 @@ class StateRepo:
                     FROM filtered
                     GROUP BY record_type, unique_hash
                 )
-                SELECT f.record_type, f.data_json
-                FROM filtered f
-                JOIN dedup d ON d.keep_id = f.id
-                ORDER BY f.id ASC
+                SELECT r.record_type, r.data_json
+                FROM dedup d
+                JOIN records r ON r.id = d.keep_id
+                ORDER BY r.id ASC
             """
 
             # sqlite3 releases the GIL while scanning large tables, so the
