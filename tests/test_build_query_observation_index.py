@@ -45,8 +45,13 @@ def test_build_queries_seek_observation_even_when_planner_stats_are_misleading(
             "INSERT INTO seen_files(source_id, external_id, raw_hash, "
             "ingested_at, status) VALUES (?, ?, ?, ?, 'processed')",
             [
-                ("approved", f"file-{n}", f"sha-{n}", "2026-11-21 12:00:00")
-                for n in range(50)
+                (
+                    "approved" if n % 40 == 0 else "blocked",
+                    f"file-{n}",
+                    f"sha-{n}",
+                    "2026-11-21 12:00:00" if n % 40 == 0 else "2026-10-01 00:00:00",
+                )
+                for n in range(2000)
             ],
         )
         conn.executemany(
@@ -54,11 +59,11 @@ def test_build_queries_seek_observation_even_when_planner_stats_are_misleading(
             "record_type, unique_hash, data_json) VALUES (?, ?, ?, ?, ?)",
             [
                 (f"sha-{n}", n + 1, "npvt", f"identity-{n}", '{"line":"vless://fixture"}')
-                for n in range(50)
+                for n in range(2000)
             ],
         )
         conn.execute("ANALYZE")
-        # Model production's potentially misleading cardinality statistics:
+        # Model production's 2,000 historical records, of which only 50\n        # have approved recent observations, with stale planner statistics.
         # without an explicit seek, SQLite chooses idx_records_build and
         # repeats a type-wide scan for each selected seen_files observation.
         conn.execute(
