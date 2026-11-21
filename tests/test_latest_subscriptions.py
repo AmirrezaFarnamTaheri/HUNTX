@@ -33,9 +33,12 @@ class LatestSubscriptionTests(unittest.TestCase):
             destination = Path(temp) / "latest"
             manifest = {"trojan://p@one.example:443": 1}
             index = write_latest_subscriptions(destination, manifest, "2026-11-21T00:00:00Z")
-            self.assertTrue({"hysteria", "hysteria2", "anytls", "wireguard",
-                             "shadowsocks", "shadowsocksr", "mieru", "vmess",
-                             "socks", "http", "vless", "trojan"} <= set(PROTOCOL_CATEGORIES))
+            self.assertTrue({
+                "vless", "vmess", "trojan", "anytls", "hysteria", "hysteria2",
+                "socks", "http", "shadowsocks", "shadowsocksr", "tuic",
+                "wireguard", "ssh", "shadowtls", "naive", "juicity", "mieru",
+                "warp", "dns", "dnstt",
+            } <= set(PROTOCOL_CATEGORIES))
             self.assertEqual(set(index["protocols"]), set(PROTOCOL_CATEGORIES))
             self.assertNotIn("others", index["protocols"])
             self.assertTrue((destination / "wireguard.txt").exists())
