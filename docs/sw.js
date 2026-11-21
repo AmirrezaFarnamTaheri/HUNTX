@@ -1,23 +1,21 @@
 // HUNTX ServiceWorker — offline fallback with deployment-aware freshness.
-const CACHE_NAME = 'huntx-cache-v6.0';
+const CACHE_NAME = 'huntx-cache-v5.10';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './network-doctor.html',
-  // subscriptions.html is navigation-only. It should use the existing
-  // network-first navigation policy, not block activation of a new SW.
   './architecture.html',
   './catalog.json',
   './assets/css/tailwind.css',
   './assets/css/interface.css',
   './assets/css/control-room.css',
-  './assets/css/subscription-library.css',
   './assets/css/atlas-v2.css',
+  './assets/css/subscription-experience.css',
   './assets/css/network-doctor-room.css',
   './assets/js/boot-guard.js',
   './assets/js/app.js',
   './assets/js/control-room.js',
-  './assets/js/subscription-library.js',
+  './assets/js/subscription-hub.js',
   './assets/js/network-doctor-room.js',
   './assets/js/network-doctor.js',
   './assets/js/network-doctor-memory.js',
@@ -72,10 +70,10 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const path = new URL(event.request.url).pathname;
   // Published feeds and the deployment shell must not lag after a deployment.
-  const freshReleaseData = path.endsWith('/catalog.json')
-    || path.includes('/artifacts/release/')
-    || path.includes('/subscriptions/latest/')
+  const freshReleaseData = path.includes('/subscriptions/latest/')
     || path.includes('/artifacts/dev/latest/')
+    || path.endsWith('/catalog.json')
+    || path.includes('/artifacts/release/')
     // data.js is the bundled telemetry snapshot; serving it cache-first showed
     // returning visitors the previous run's numbers for one whole visit.
     || path.endsWith('/assets/js/data.js');

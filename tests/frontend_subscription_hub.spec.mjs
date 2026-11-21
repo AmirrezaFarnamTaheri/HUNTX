@@ -1,112 +1,117 @@
 import { test, expect } from "@playwright/test";
 
-const sha256 = "a".repeat(64);
-const protocols = Object.fromEntries([
-  ["vless", 100], ["vmess", 12], ["anytls", 1], ["wireguard", 0], ["future-protocol", 2]
-].map(([name, count]) => [
-  name,
-  { count, file: name + ".txt", base64_file: name + "_base64.txt", sha256 }
-]));
-const index = {
-  schema_version: 1,
-  scope: "all_time_cumulative",
-  health_status: "historical_unverified",
-  generated_at: "2026-11-21T10:00:00Z",
-  latest_by: "first_seen",
-  limit_per_protocol: 100,
-  protocols,
-  aggregate: { count: 115, file: "all.txt", base64_file: "all_base64.txt", sha256 }
+const protocols = [
+  "vless", "vmess", "trojan", "anytls", "hysteria", "hysteria2", "socks",
+  "http", "shadowsocks", "shadowsocksr", "tuic", "wireguard", "ssh",
+  "shadowtls", "naive", "juicity", "mieru", "warp", "dns", "dnstt"
+];
+
+const directory = {
+  schema_version: 1, scope: "all_time_cumulative",
+  health_status: "historical_unverified", latest_by: "first_seen",
+  generated_at: "2026-11-21T10:00:00Z", limit_per_protocol: 100,
+  protocols: Object.fromEntries(protocols.map((name) => [name, {
+    count: name === "vless" ? 100 : name === "vmess" ? 24 : 0,
+    file: name + ".txt", base64_file: name + "_base64.txt", sha256: "a".repeat(64)
+  }])),
+  aggregate: {
+    count: 124, file: "all.txt", base64_file: "all_base64.txt",
+    sha256: "a".repeat(64)
+  }
 };
 
-async function localOnly(page, offline = false) {
-  await page.route("**/*", (route) => {
-    const url = new URL(route.request().url());
-    if (!["127.0.0.1", "localhost"].includes(url.hostname)) return route.abort();
-    if (url.pathname.endsWith("/subscriptions/latest/index.json")) {
-      return offline ? route.fulfill({ status: 503, body: "Offline" }) : route.fulfill({
-        status: 200, contentType: "application/json", body: JSON.stringify(index)
-      });
-    }
-    return route.continue();
-  });
+async function mockDirectory(page, status = 200) {
+  await page.route("**/subscriptions/latest/index.json", (route) =>
+    route.fulfill({
+      status, contentType: "application/json",
+      body: status === 200 ? JSON.stringify(directory) : "{}"
+    })
+  );
 }
 
-test("hub renders a truthful aggregate, all categories, and direct subscription downloads", async ({ page }) => {
-  await localOnly(page);
-  await page.goto("/subscriptions.html");
-  await expect(page.getByRole("heading", { name: /subscription library/i })).toBeVisible();
-  await expect(page.locator("#aggregate-count")).toHaveText("115");
-  await expect(page.locator("#protocol-count")).toHaveText("5");
-  await expect(page.locator("#protocol-grid .protocol-card")).toHaveCount(5);
-  await expect(page.locator("#subscription-trust")).toContainText(/historical/i);
-  await expect(page.locator("#master-text-download")).toHaveAttribute("href", "subscriptions/latest/all.txt");
-  await expect(page.locator("#master-base64-download")).toHaveAttribute("href", "subscriptions/latest/all_base64.txt");
-  const vless = page.locator("[data-protocol-card='vless']");
-  await expect(vless).toContainText("100");
-  await expect(vless.getByRole("link", { name: /plain text/i })).toHaveAttribute("href",
-    "subscriptions/latest/vless.txt");
-  await expect(vless.getByRole("link", { name: /base64/i })).toHaveAttribute("href",
-    "subscriptions/latest/vless_base64.txt");
-});
-
-test("search/filter and three visual directions are keyboard operable", async ({ page }) => {
-  await localOnly(page);
-  await page.goto("/subscriptions.html");
-  const search = page.locator("#subscription-search");
-  await search.focus();
-  await page.keyboard.type("wire");
-  await expect(page.locator("#protocol-grid .protocol-card")).toHaveCount(1);
-  await page.getByRole("checkbox", { name: /available only/i }).check();
-  await expect(page.locator("#protocol-grid .protocol-card")).toHaveCount(0);
-  await expect(page.locator("#protocol-result-summary")).toContainText(/no matching/i);
-  await page.locator("#clear-subscription-search").click();
+test("subscription hub exposes all protocols, master feeds, and real counts", async ({ page }) => {
+  await mockDirectory(page);
+  await page.goto("/#artifacts");
+  await expect(page.locator("#subscription-hub")).toBeVisible();
+  await expect(page.locator("#sub-feed-status")).toContainText("published");
+  await expect(page.locator("#sub-stat-total")).toHaveText("124");
+  await expect(page.locator("#sub-stat-types")).toHaveText("20");
+  await expect(page.locator(".sub-protocol-card")).toHaveCount(20);
+  await expect(page.locator("#sub-protocol-vless")).toContainText("100");
+  await expect(page.locator("#sub-protocol-vmess")).toContainText("24");
+  await expect(page.locator("#sub-link-all")).toHaveAttribute(
+    "href", "subscriptions/latest/all.txt"
+  );
+  await expect(page.locator("#sub-link-all-base64")).toHaveAttribute(
+    "href", "subscriptions/latest/all_base64.txt"
+  );
+  await expect(page.locator("#sub-protocol-hysteria2 a").first()).toHaveAttribute(
+    "href", "subscriptions/latest/hysteria2.txt"
+  );
+  await expect(page.locator("#subscription-hub")).toContainText("not a live connectivity");
+  const search = page.locator("#sub-search");
+  await search.fill("shadow");
+  await expect(page.locator(".sub-protocol-card")).toHaveCount(3);
+  await expect(page.locator("#sub-search-clear")).toBeVisible();
+  await page.locator("#sub-search-clear").click();
+  await expect(search).toBeFocused();
   await expect(search).toHaveValue("");
-  await page.getByRole("checkbox", { name: /available only/i }).uncheck();
-
-  const canvas = page.getByRole("button", { name: /canvas/i });
-  await canvas.focus();
-  await page.keyboard.press("Enter");
-  await expect(page.locator("html")).toHaveAttribute("data-design", "canvas");
-  await expect(canvas).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: /ledger/i }).click();
-  await expect(page.locator("html")).toHaveAttribute("data-design", "ledger");
-  await page.getByRole("button", { name: /signal/i }).click();
-  await expect(page.locator("html")).toHaveAttribute("data-design", "signal");
+  await page.locator("#sub-availability").selectOption("available");
+  await expect(page.locator(".sub-protocol-card")).toHaveCount(2);
 });
 
-test("unavailable index is an honest recoverable error, not a fake empty or healthy feed", async ({ page }) => {
-  await localOnly(page, true);
-  await page.goto("/subscriptions.html");
-  await expect(page.locator("#subscription-status")).toContainText(/unavailable/i);
-  await expect(page.locator("#aggregate-count")).toHaveText("—");
-  await expect(page.locator("#protocol-grid .protocol-card")).toHaveCount(0);
-  await expect(page.locator("#subscription-retry")).toBeVisible();
-  await expect(page.locator("#subscription-status")).not.toContainText(/verified live/i);
+test("unavailable metadata is explicit and never fabricates proxy counts", async ({ page }) => {
+  await mockDirectory(page, 404);
+  await page.goto("/#artifacts");
+  await expect(page.locator("#sub-feed-status")).toContainText("unavailable");
+  await expect(page.locator("#sub-stat-total")).toHaveText("—");
+  await expect(page.locator("#sub-stat-types")).toHaveText("—");
+  await expect(page.locator("#sub-link-all")).toHaveAttribute("aria-disabled", "true");
+  await expect(page.locator(".sub-protocol-card")).toHaveCount(20);
+  await expect(page.locator("#sub-protocol-vless")).toContainText("Awaiting publication");
 });
 
-for (const width of [320, 375, 768, 1024, 1440]) {
-  test(`hub remains usable at ${width}px without horizontal page overflow`, async ({ page }) => {
-    await page.setViewportSize({ width, height: 820 });
-    await localOnly(page);
-    await page.goto("/subscriptions.html");
-    await expect(page.locator("#protocol-grid .protocol-card").first()).toBeVisible();
-    const widths = await page.evaluate(() => ({
-      document: document.documentElement.scrollWidth,
-      viewport: document.documentElement.clientWidth
+test("three distinctive visual directions persist without breaking light/dark", async ({ page }) => {
+  await mockDirectory(page);
+  await page.goto("/#artifacts");
+  const select = page.locator("#design-direction-select");
+  await expect(select).toHaveValue("signal");
+  await select.selectOption("ledger");
+  await expect(page.locator("html")).toHaveAttribute("data-huntx-direction", "ledger");
+  const ledgerColor = await page.evaluate(() =>
+    getComputedStyle(document.documentElement).getPropertyValue("--room-action").trim()
+  );
+  await select.selectOption("orbit");
+  await expect(page.locator("html")).toHaveAttribute("data-huntx-direction", "orbit");
+  const orbitColor = await page.evaluate(() =>
+    getComputedStyle(document.documentElement).getPropertyValue("--room-action").trim()
+  );
+  expect(ledgerColor).not.toBe(orbitColor);
+  await page.locator("#btn-toggle-theme").click();
+  await expect(page.locator("html")).toHaveClass(/light/);
+  await expect(page.locator("html")).toHaveAttribute("data-huntx-direction", "orbit");
+  await page.reload();
+  await expect(select).toHaveValue("orbit");
+  await expect(page.locator("html")).toHaveClass(/light/);
+  await expect(page.locator("#tab-panel-artifacts")).toBeVisible();
+});
+
+for (const width of [320, 375, 768, 1440]) {
+  test("subscription cards reflow and navigation stays operable at " + width + "px", async ({ page }) => {
+    await mockDirectory(page);
+    await page.setViewportSize({ width, height: 850 });
+    await page.goto("/#artifacts");
+    await expect(page.locator("#subscription-hub")).toBeVisible();
+    const bounds = await page.evaluate(() => ({
+      scroll: document.documentElement.scrollWidth,
+      client: document.documentElement.clientWidth,
+      card: document.querySelector(".sub-protocol-card")?.getBoundingClientRect().right
     }));
-    expect(widths.document).toBeLessThanOrEqual(widths.viewport + 1);
-    await expect(page.getByRole("link", { name: /dashboard/i }).first()).toBeVisible();
+    expect(bounds.scroll).toBeLessThanOrEqual(bounds.client + 1);
+    expect(bounds.card).toBeLessThanOrEqual(width + 1);
+    await page.locator("#tab-btn-proxies").click();
+    await expect(page.locator("#tab-panel-proxies")).toBeVisible();
+    await page.locator("#tab-btn-artifacts").click();
+    await expect(page.locator("#subscription-hub")).toBeVisible();
   });
 }
-
-test("dashboard exposes a persistent subscription entry without replacing legacy workspaces", async ({ page }) => {
-  await localOnly(page);
-  await page.goto("/");
-  await expect(page.locator("#tab-btn-radar")).toBeVisible();
-  await expect(page.locator("#tab-btn-artifacts")).toBeVisible();
-  const nav = page.getByRole("link", { name: /browse protocol subscriptions/i });
-  await expect(nav).toHaveAttribute("href", "subscriptions.html");
-  await nav.click();
-  await expect(page).toHaveURL(/\/subscriptions\.html$/);
-  await expect(page.getByRole("heading", { name: /subscription library/i })).toBeVisible();
-});

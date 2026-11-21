@@ -1,118 +1,107 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-
 import {
-  REQUIRED_PROTOCOLS,
-  parseSubscriptionIndex,
-  filterProtocols,
-  subscriptionURL
-} from "../docs/assets/js/subscription-library.js";
-
-const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
-const hash = "a".repeat(64);
+  CORE_PROTOCOLS, normalizeDirection, normalizeSubscriptionIndex,
+  subscriptionHref, filterProtocols
+} from "../docs/assets/js/subscription-hub.js";
 
 function fixture() {
+  const hash = "a".repeat(64);
   return {
     schema_version: 1,
     scope: "all_time_cumulative",
     health_status: "historical_unverified",
+    latest_by: "first_seen",
     generated_at: "2026-11-21T10:00:00Z",
     limit_per_protocol: 100,
-    protocols: {
-      vless: { count: 100, file: "vless.txt", base64_file: "vless_base64.txt", sha256: hash },
-      trojan: { count: 8, file: "trojan.txt", base64_file: "trojan_base64.txt", sha256: hash },
-      wireguard: { count: 0, file: "wireguard.txt", base64_file: "wireguard_base64.txt", sha256: hash },
-      "future-protocol": { count: 2, file: "future-protocol.txt", base64_file: "future-protocol_base64.txt", sha256: hash }
-    },
-    aggregate: { count: 110, file: "all.txt", base64_file: "all_base64.txt", sha256: hash }
+    protocols: Object.fromEntries(
+      CORE_PROTOCOLS.map((name) => [name, {
+        count: name === "vless" ? 100 : name === "vmess" ? 12 : 0,
+        file: name + ".txt", base64_file: name + "_base64.txt", sha256: hash
+      }])
+    ),
+    aggregate: { count: 112, file: "all.txt", base64_file: "all_base64.txt", sha256: hash }
   };
 }
 
-test("subscription hub recognises all 20 named protocols without an Others bucket", () => {
-  assert.equal(REQUIRED_PROTOCOLS.length, 20);
-  for (const name of ["vless", "vmess", "trojan", "anytls", "hysteria", "hysteria2",
-    "socks", "http", "shadowsocks", "shadowsocksr", "tuic", "wireguard",
-    "ssh", "shadowtls", "naive", "juicity", "mieru", "warp", "dns", "dnstt"]) {
-    assert.ok(REQUIRED_PROTOCOLS.includes(name), name);
-  }
-  assert.ok(!REQUIRED_PROTOCOLS.includes("others"));
-});
-
-test("read historical manifest safely without implying that proxies are verified", () => {
-  const index = parseSubscriptionIndex(fixture());
-  assert.equal(index.total, 110);
-  assert.equal(index.protocolCount, 4);
-  assert.equal(index.scope, "historical_unverified");
-  assert.equal(index.records[0].name, "vless");
-  assert.equal(index.records.find((record) => record.name === "wireguard").count, 0);
-  assert.equal(index.records.at(-1).name, "future-protocol");
-});
-
-test("search and available-only toggle compose without hiding future protocol categories", () => {
-  const records = parseSubscriptionIndex(fixture()).records;
-  assert.deepEqual(filterProtocols(records, "TROJ", false).map((x) => x.name), ["trojan"]);
-  assert.deepEqual(filterProtocols(records, "wire", true).map((x) => x.name), []);
-  assert.deepEqual(filterProtocols(records, "future", true).map((x) => x.name), ["future-protocol"]);
-  assert.equal(filterProtocols(records, "", false).length, 4);
-});
-
-test("construct absolute same-origin URLs without accepting an untrusted path", () => {
-  const root = "https://example.github.io/HUNTX/subscriptions.html";
-  assert.equal(subscriptionURL("vless", "text", root),
-    "https://example.github.io/HUNTX/subscriptions/latest/vless.txt");
-  assert.equal(subscriptionURL("all", "base64", root),
-    "https://example.github.io/HUNTX/subscriptions/latest/all_base64.txt");
-  assert.equal(subscriptionURL("index", "json", root),
-    "https://example.github.io/HUNTX/subscriptions/latest/index.json");
-  assert.throws(() => subscriptionURL("../private", "text", root), /protocol/i);
-  assert.throws(() => subscriptionURL("vless", "yaml", root), /format/i);
-});
-
-test("reject malformed, mislabeled and impossible feed metadata instead of fabricating counts", () => {
-  const bad = fixture();
-  bad.protocols.vless.count = 101;
-  assert.throws(() => parseSubscriptionIndex(bad), /count/i);
-
-  const foreign = fixture();
-  foreign.protocols["../escape"] = { count: 1 };
-  assert.throws(() => parseSubscriptionIndex(foreign), /protocol/i);
-
-  const stale = fixture();
-  stale.health_status = "verified";
-  assert.throws(() => parseSubscriptionIndex(stale), /historical/i);
-
-  const inconsistent = fixture();
-  inconsistent.aggregate.count = 109;
-  assert.throws(() => parseSubscriptionIndex(inconsistent), /aggregate/i);
-
-  const renamed = fixture();
-  renamed.protocols.vless.file = "redirect.txt";
-  assert.throws(() => parseSubscriptionIndex(renamed), /file/i);
-});
-
-test("dedicated hub is linked from dashboard and preserved generator", async () => {
-  const [page, index, generator, worker] = await Promise.all([
-    read("../docs/subscriptions.html"),
-    read("../docs/index.html"),
-    read("../scripts/update_frontend.py"),
-    read("../docs/sw.js")
+test("every requested proxy protocol has an independent, named subscription", () => {
+  assert.deepEqual(CORE_PROTOCOLS, [
+    "vless", "vmess", "trojan", "anytls", "hysteria", "hysteria2",
+    "socks", "http", "shadowsocks", "shadowsocksr", "tuic",
+    "wireguard", "ssh", "shadowtls", "naive", "juicity",
+    "mieru", "warp", "dns", "dnstt"
   ]);
-  assert.match(page, /data-design="signal"/);
-  assert.match(page, /id="protocol-grid"/);
-  assert.match(page, /id="subscription-search"/);
-  assert.match(page, /assets\/js\/subscription-library\.js/);
-  assert.match(page, /assets\/css\/subscription-library\.css/);
-  assert.match(page, /index\.html#artifacts/);
-  for (const source of [index, generator]) {
-    assert.match(source, /href="subscriptions\.html"/);
-  }
-  for (const asset of ["assets/css/subscription-library.css", "assets/js/subscription-library.js"]) {
-    assert.ok(worker.includes(asset), asset);
-  }
-  // Standalone navigation uses network-first delivery; its HTML is not
-  // hard-preloaded by the test fixture or service-worker install.
-  assert.doesNotMatch(worker, /[\'"]\.\/subscriptions\.html[\'"]/);
-  assert.match(worker, /event\.request\.mode === \'navigate\'/);
-  assert.ok(worker.includes("path.includes('/subscriptions/latest/')"));
+  assert.ok(!CORE_PROTOCOLS.includes("others"));
+});
+
+test("normalizes historical metadata without inventing health or node counts", () => {
+  const directory = normalizeSubscriptionIndex(fixture());
+  assert.equal(directory.aggregate.count, 112);
+  assert.equal(directory.categories.length, 20);
+  assert.equal(directory.categories.find((c) => c.name === "vless").count, 100);
+  assert.equal(directory.categories.find((c) => c.name === "vmess").count, 12);
+  assert.equal(directory.categories.find((c) => c.name === "dns").count, 0);
+  assert.equal(directory.healthStatus, "historical_unverified");
+  assert.equal(directory.latestBy, "first_seen");
+  assert.equal(directory.limit, 100);
+});
+
+test("new protocol families appear separately, not under an Others group", () => {
+  const index = fixture();
+  index.protocols["reality-layer"] = {
+    count: 7, file: "reality-layer.txt",
+    base64_file: "reality-layer_base64.txt", sha256: "b".repeat(64)
+  };
+  index.aggregate.count = 119; // Exact union after the new independent category.
+  const directory = normalizeSubscriptionIndex(index);
+  assert.equal(directory.categories.at(-1).name, "reality-layer");
+  assert.equal(directory.categories.at(-1).count, 7);
+  assert.ok(!directory.categories.some((c) => c.name === "others"));
+});
+
+test("rejects path-injection and impossible count metadata", () => {
+  const wrongPath = fixture();
+  wrongPath.protocols.vless.file = "../../secret.txt";
+  assert.throws(() => normalizeSubscriptionIndex(wrongPath), /file|path|invalid/i);
+  const tooMany = fixture();
+  tooMany.protocols.vmess.count = 101;
+  assert.throws(() => normalizeSubscriptionIndex(tooMany), /count|limit|invalid/i);
+  const unknownScope = fixture();
+  unknownScope.health_status = "live";
+  assert.throws(() => normalizeSubscriptionIndex(unknownScope), /historical|invalid/i);
+});
+
+test("rejects aggregate totals that do not equal all selected protocol counts", () => {
+  const undercount = fixture();
+  undercount.aggregate.count = 111;
+  assert.throws(() => normalizeSubscriptionIndex(undercount), /aggregate|count|invalid/i);
+  const overcount = fixture();
+  overcount.aggregate.count = 113;
+  assert.throws(() => normalizeSubscriptionIndex(overcount), /aggregate|count|invalid/i);
+});
+
+test("safe, deterministic URLs cover per-protocol and aggregate formats", () => {
+  assert.equal(subscriptionHref("vless"), "subscriptions/latest/vless.txt");
+  assert.equal(subscriptionHref("vless", "base64"), "subscriptions/latest/vless_base64.txt");
+  assert.equal(subscriptionHref("all"), "subscriptions/latest/all.txt");
+  assert.equal(subscriptionHref("all", "base64"), "subscriptions/latest/all_base64.txt");
+  assert.equal(subscriptionHref("index", "json"), "subscriptions/latest/index.json");
+  assert.throws(() => subscriptionHref("../secret"), /protocol|invalid/i);
+});
+
+test("search and available-only filtering work without reordering protocols", () => {
+  const categories = normalizeSubscriptionIndex(fixture()).categories;
+  assert.deepEqual(filterProtocols(categories, "v", "all").map((x) => x.name),
+    ["vless", "vmess", "naive"]);
+  assert.deepEqual(filterProtocols(categories, "", "available").map((x) => x.name),
+    ["vless", "vmess"]);
+  assert.equal(filterProtocols(categories, "no-such-protocol", "all").length, 0);
+});
+
+test("three saved visual directions have a safe deterministic default", () => {
+  assert.equal(normalizeDirection("signal"), "signal");
+  assert.equal(normalizeDirection("ledger"), "ledger");
+  assert.equal(normalizeDirection("orbit"), "orbit");
+  assert.equal(normalizeDirection("<script>"), "signal");
+  assert.equal(normalizeDirection(null), "signal");
 });
