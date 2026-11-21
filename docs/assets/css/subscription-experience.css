@@ -520,8 +520,8 @@ html #sub-search::placeholder { color: var(--room-subtle); opacity: 1; }
 html #sub-search-clear {
   position: absolute;
   inset-inline-end: 4px;
-  inset-block-start: 4px;
-  height: 38px;
+  inset-block-start: 1px;
+  height: 44px;
   min-width: 54px;
   padding: 0 8px;
   color: var(--room-muted);
