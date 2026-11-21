@@ -73,6 +73,8 @@ self.addEventListener('fetch', (event) => {
   // Published feeds and the deployment shell must not lag after a deployment.
   const freshReleaseData = path.endsWith('/catalog.json')
     || path.includes('/artifacts/release/')
+    || path.includes('/subscriptions/latest/')
+    || path.includes('/artifacts/dev/latest/')
     // data.js is the bundled telemetry snapshot; serving it cache-first showed
     // returning visitors the previous run's numbers for one whole visit.
     || path.endsWith('/assets/js/data.js');
