@@ -49,6 +49,17 @@ class DBConnection:
                 raise
 
             self._check_migrations(conn)
+            # Legacy v0 databases may not have ingested_at. Do not create
+            # an index on a column that is absent during schema migration.
+            # Already-versioned restored databases also receive this index.
+            seen_columns = {
+                row["name"] for row in conn.execute("PRAGMA table_info(seen_files)")
+            }
+            if {"id", "source_id", "ingested_at"}.issubset(seen_columns):
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_seen_files_source_ingested "
+                    "ON seen_files(source_id, ingested_at, id)"
+                )
             conn.execute("PRAGMA optimize;")
 
     def _check_migrations(self, conn: sqlite3.Connection) -> None:

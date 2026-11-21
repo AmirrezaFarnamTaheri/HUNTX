@@ -133,9 +133,17 @@ export function wcagAuditInPage() {
     const hi = Math.max(la, lb), lo = Math.min(la, lb);
     return (hi + 0.05) / (lo + 0.05);
   };
-  const accessibleName = (el) =>
-    (el.getAttribute && (el.getAttribute("aria-label") || el.getAttribute("aria-labelledby") || el.getAttribute("title"))) ||
-    (el.textContent || "").trim();
+  const accessibleName = (el) => {
+    // Native associated <label> text is an accessible name, not an ARIA
+    // violation. Check the browser's HTMLLabelElement association before
+    // falling back to visible text, so explicitly unlabeled controls still fail.
+    const explicit = el.getAttribute &&
+      (el.getAttribute("aria-label") || el.getAttribute("aria-labelledby") || el.getAttribute("title"));
+    if (explicit) return explicit;
+    const labels = el.labels ? [...el.labels] : [];
+    const nativeLabel = labels.map((label) => (label.textContent || "").trim()).filter(Boolean).join(" ");
+    return nativeLabel || (el.textContent || "").trim();
+  };
 
   const INTERACTIVE = 'a[href], button:not([disabled]), input, select, textarea, [role="button"], [role="tab"], [role="link"], summary, [tabindex]';
 

@@ -166,6 +166,18 @@ h1 { font: 800 clamp(32px,4.4vw,63px)/1.06 var(--heading-font); letter-spacing: 
 .action-copy { width: 100%; text-align: left; }
 .manifest-link { text-align: center; min-height: 40px; display: grid; place-items: center; font-size: 12px; font-weight: 750; text-decoration: underline; text-underline-offset: 3px; }
 .manifest-link:hover { color: var(--accent); }
+/* An index that is missing or invalid must never look like a downloadable feed. */
+.master-actions a[aria-disabled="true"] {
+  opacity: .48;
+  cursor: not-allowed;
+  text-decoration: none;
+  pointer-events: none;
+}
+.master-actions a[aria-disabled="true"]:hover {
+  color: inherit;
+  border-color: var(--line);
+  filter: none;
+}
 .trust-notice { display: flex; gap: 12px; align-items: flex-start; padding: 17px 20px; margin: 16px 0 43px; border: 1px solid var(--line); border-radius: 10px; background: var(--accent-wash); }
 .trust-icon { display: grid; place-items: center; flex: 0 0 21px; width: 21px; height: 21px; border: 1px solid var(--accent); color: var(--accent); border-radius: 50%; font: 800 13px/1 Georgia, serif; }
 .trust-notice p { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.7; }

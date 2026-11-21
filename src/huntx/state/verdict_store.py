@@ -110,14 +110,18 @@ def get_records_for_governed_build(
         args.append(float(now_epoch if now_epoch is not None else time.time()))
         if require_fresh_probe:
             verdict_where += " AND v.probe_status = 'pass'"
-    # Exact observation provenance preserves the configured source trust boundary.
+    # Start from source-filtered, recently ingested observations. The CROSS JOIN
+    # prevents SQLite from choosing a full historical records scan instead.
+    # Only fetch large JSON payloads after de-duplicating exact identities.
+    # The identity, policy and lifecycle exclusion gates are unchanged.
     query = f"""
         WITH filtered AS (
-            SELECT DISTINCT r.id, r.record_type, r.unique_hash, r.data_json
-            FROM records r
-            JOIN seen_files s ON r.source_observation_id = s.id
+            SELECT r.id, r.record_type, r.unique_hash
+            FROM seen_files s
+            CROSS JOIN records r
             {verdict_join}
-            WHERE r.record_type IN ({type_marks})
+            WHERE r.source_observation_id = s.id
+              AND r.record_type IN ({type_marks})
               AND s.source_id IN ({source_marks})
               AND r.is_active = 1
               AND NOT EXISTS (
@@ -133,10 +137,10 @@ def get_records_for_governed_build(
             FROM filtered
             GROUP BY record_type, unique_hash
         )
-        SELECT f.record_type, f.unique_hash, f.data_json
-        FROM filtered f
-        JOIN dedup d ON d.keep_id = f.id
-        ORDER BY f.id ASC
+        SELECT r.record_type, r.unique_hash, r.data_json
+        FROM dedup d
+        JOIN records r ON r.id = d.keep_id
+        ORDER BY r.id ASC
     """
     with db.connect() as conn:
         if deadline is not None:
