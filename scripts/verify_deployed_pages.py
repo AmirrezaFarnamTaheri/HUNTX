@@ -35,7 +35,7 @@ _HISTORICAL_PATHS = (
 _BOOTSTRAP = ("catalog.json", "artifacts/release/manifest.json")
 _CORE = (
     "index.html", "subscriptions.html", "assets/js/data.js",
-    "assets/css/subscription-hub.css", "assets/js/subscription-hub.js",
+    "assets/css/subscription-library.css", "assets/js/subscription-library.js",
     *_BOOTSTRAP, *_HISTORICAL_PATHS,
 )
 _DIGEST = re.compile(r"[0-9a-f]{64}\Z")

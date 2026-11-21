@@ -7,7 +7,7 @@ import {
   parseSubscriptionIndex,
   filterProtocols,
   subscriptionURL
-} from "../docs/assets/js/subscription-hub.js";
+} from "../docs/assets/js/subscription-library.js";
 
 const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
 const hash = "a".repeat(64);
@@ -106,7 +106,7 @@ test("dedicated hub is linked from dashboard and preserved generator", async () 
   for (const source of [index, generator]) {
     assert.match(source, /href="subscriptions\.html"/);
   }
-  for (const asset of ["subscriptions.html", "assets/css/subscription-hub.css", "assets/js/subscription-hub.js"]) {
+  for (const asset of ["subscriptions.html", "assets/css/subscription-library.css", "assets/js/subscription-library.js"]) {
     assert.ok(worker.includes(asset), asset);
   }
   assert.ok(worker.includes("path.includes('/subscriptions/latest/')"));

@@ -7,7 +7,7 @@
   <meta name="description" content="Browse HUNTX's per-protocol historical latest-100 proxy subscriptions, combined aggregate, and download formats.">
   <title>Subscriptions · HUNTX</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="assets/css/subscription-hub.css">
+  <link rel="stylesheet" href="assets/css/subscription-library.css">
 </head>
 <body>
   <a class="skip-link" href="#subscription-main">Skip to subscriptions</a>
@@ -139,7 +139,7 @@
       </main>
     </div>
   </div>
-  <script type="module" src="assets/js/subscription-hub.js"></script>
+  <script type="module" src="assets/js/subscription-library.js"></script>
   <script>
     if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
       window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
