@@ -740,3 +740,48 @@ html #radar-diagnostics .operator-card:hover {
   background: var(--room-soft) !important;
   border-color: var(--room-action) !important;
 }
+
+/* The latest-100 library is a first-class product destination, not another tab.
+   Keep existing five hash workspaces and keyboard numbering unchanged. */
+html #page-tabs-nav .subscription-hub-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 10px 14px;
+  border: 1px solid var(--room-action);
+  border-radius: 10px;
+  background: var(--room-soft);
+  color: var(--room-ink);
+  font: 750 13px/1.4 "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: border-color .16s ease, background-color .16s ease;
+}
+html #page-tabs-nav .subscription-hub-link:hover {
+  background: var(--room-panel-raised);
+  border-color: var(--room-action);
+}
+html #page-tabs-nav .subscription-hub-link > span:first-child {
+  color: var(--room-action);
+  font-size: 20px;
+}
+@media (min-width: 1120px) {
+  html #page-tabs-nav .subscription-hub-link {
+    order: 2;
+    width: 100%;
+    justify-content: flex-start;
+    margin-block-start: 14px;
+  }
+  html #page-tabs-nav a[href="network-doctor.html"] { margin-block-start: 0; }
+}
+@media (max-width: 1119px) {
+  html #page-tabs-nav .subscription-hub-link { flex: 0 0 auto; order: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html #page-tabs-nav .subscription-hub-link { transition: none; }
+}
+@media (forced-colors: active) {
+  html #page-tabs-nav .subscription-hub-link { border-color: Highlight; }
+}
