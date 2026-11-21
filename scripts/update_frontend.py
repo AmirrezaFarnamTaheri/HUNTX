@@ -1208,7 +1208,7 @@ INDEX_HTML = """<!DOCTYPE html>
           <div class="sub-field">
             <label for="sub-search">Protocol name</label>
             <div class="sub-search-wrap">
-              <input id="sub-search" type="search" aria-label="Search protocol subscriptions" placeholder="VLESS, AnyTLS, WireGuard…" autocomplete="off" aria-controls="sub-protocol-list" />
+              <input id="sub-search" type="search" placeholder="VLESS, AnyTLS, WireGuard…" autocomplete="off" aria-controls="sub-protocol-list" />
               <button id="sub-search-clear" type="button" aria-label="Clear protocol search" hidden>Clear</button>
             </div>
           </div>

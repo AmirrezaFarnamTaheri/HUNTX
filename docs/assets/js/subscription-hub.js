@@ -96,7 +96,7 @@ export function normalizeSubscriptionIndex(payload) {
     const meta = entry === undefined
       ? { count: null, published: false }
       : checkEntry(name, entry);
-    return { name, label: LABELS[name] || name, ...meta };
+    return { name, label: Object.hasOwn(LABELS, name) ? LABELS[name] : name, ...meta };
   });
   const sum = categories.reduce((acc, item) => acc + (item.count || 0), 0);
   if (aggregate.count !== sum) {

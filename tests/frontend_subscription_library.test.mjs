@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { runInNewContext } from "node:vm";
 
 import {
   REQUIRED_PROTOCOLS,
@@ -17,6 +18,7 @@ function fixture() {
     schema_version: 1,
     scope: "all_time_cumulative",
     health_status: "historical_unverified",
+    latest_by: "first_seen",
     generated_at: "2026-11-21T10:00:00Z",
     limit_per_protocol: 100,
     protocols: {
@@ -47,6 +49,15 @@ test("read historical manifest safely without implying that proxies are verified
   assert.equal(index.records[0].name, "vless");
   assert.equal(index.records.find((record) => record.name === "wireguard").count, 0);
   assert.equal(index.records.at(-1).name, "future-protocol");
+});
+
+test("rejects missing or mismatched first-seen ordering metadata", () => {
+  const wrong = fixture();
+  wrong.latest_by = "last_seen";
+  assert.throws(() => parseSubscriptionIndex(wrong), /historical|invalid/i);
+  const missing = fixture();
+  delete missing.latest_by;
+  assert.throws(() => parseSubscriptionIndex(missing), /historical|invalid/i);
 });
 
 test("search and available-only toggle compose without hiding future protocol categories", () => {
@@ -110,9 +121,45 @@ test("dedicated hub is linked from dashboard and preserved generator", async () 
   for (const asset of ["assets/css/subscription-library.css", "assets/js/subscription-library.js"]) {
     assert.ok(worker.includes(asset), asset);
   }
-  // Standalone navigation uses network-first delivery; its HTML is not
-  // hard-preloaded by the test fixture or service-worker install.
-  assert.doesNotMatch(worker, /[\'"]\.\/subscriptions\.html[\'"]/);
-  assert.match(worker, /event\.request\.mode === \'navigate\'/);
+  // Standalone HTML is an offline-capable shell, while the metadata is network-only.
+  assert.match(worker, /['"]\.\/subscriptions\.html['"]/);
+  assert.match(worker, /event\.request\.mode === 'navigate'/);
   assert.ok(worker.includes("path.includes('/subscriptions/latest/')"));
+});
+
+test("service worker does not accept cached metadata as an online subscription index", async () => {
+  const worker = await read("../docs/sw.js");
+  const handlers = new Map();
+  const cached = new Response(JSON.stringify(fixture()), {
+    status: 200, headers: { "content-type": "application/json" }
+  });
+  let online = true;
+  let cacheWrites = 0;
+  runInNewContext(worker, {
+    self: { addEventListener(name, callback) { handlers.set(name, callback); } },
+    caches: {
+      match: async () => cached.clone(),
+      open: async () => ({
+        put: async () => { cacheWrites += 1; }
+      })
+    },
+    fetch: async () => {
+      if (!online) throw new TypeError("Offline");
+      return new Response(JSON.stringify(fixture()), { status: 200 });
+    },
+    Response, URL
+  });
+
+  const request = new Request("https://example.invalid/HUNTX/subscriptions/latest/index.json");
+  const simulateFetch = async () => {
+    let result;
+    handlers.get("fetch")({ request, respondWith(response) { result = response; } });
+    return result;
+  };
+
+  assert.equal((await simulateFetch()).status, 200, "Online metadata should remain readable");
+  assert.equal(cacheWrites, 0, "Historical index is not cached as fresh data");
+  online = false;
+  const response = await simulateFetch();
+  assert.equal(response.status, 503, "Cached index must not be used after network failure");
 });

@@ -269,6 +269,8 @@ html[data-design="ledger"] .direction-options button { border-radius: 2px; }
   .trust-notice { margin-bottom: 33px; }
   .protocols-header { align-items: flex-start; flex-direction: column; }
   .filter-bar { align-items: stretch; flex-direction: column; }
+  /* iOS Safari does not zoom focused form controls with a 16px font. */
+  .search-box input { font-size: 16px; }
   .available-toggle { align-self: flex-start; }
   .page-footer { flex-direction: column; align-items: flex-start; }
 }

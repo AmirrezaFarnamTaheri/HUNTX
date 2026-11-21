@@ -105,3 +105,19 @@ test("three saved visual directions have a safe deterministic default", () => {
   assert.equal(normalizeDirection("<script>"), "signal");
   assert.equal(normalizeDirection(null), "signal");
 });
+
+test("extension labels cannot resolve inherited Object.prototype properties", () => {
+  const data = fixture();
+  data.protocols.constructor = {
+    count: 1,
+    file: "constructor.txt",
+    base64_file: "constructor_base64.txt",
+    sha256: "c".repeat(64)
+  };
+  data.aggregate.count += 1;
+  const categories = normalizeSubscriptionIndex(data).categories;
+  const extension = categories.find((item) => item.name === "constructor");
+  assert.equal(extension.label, "constructor");
+  assert.deepEqual(filterProtocols(categories, "constructor").map((item) => item.name),
+    ["constructor"]);
+});

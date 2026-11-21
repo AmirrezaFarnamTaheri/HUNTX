@@ -1,10 +1,11 @@
 // HUNTX ServiceWorker — offline fallback with deployment-aware freshness.
-const CACHE_NAME = 'huntx-cache-v5.11';
+const CACHE_NAME = 'huntx-cache-v5.12';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './network-doctor.html',
   './architecture.html',
+  './subscriptions.html',
   './catalog.json',
   './assets/css/tailwind.css',
   './assets/css/interface.css',
@@ -71,6 +72,9 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const path = new URL(event.request.url).pathname;
+  // Never present an offline cached historical index as newly loaded data:
+  // counts and publication time are authoritative only after network fetch.
+  const isSubscriptionIndex = /\/subscriptions\/latest\/index\.json$/.test(path);
   // Published feeds and the deployment shell must not lag after a deployment.
   const freshReleaseData = path.includes('/subscriptions/latest/')
     || path.includes('/artifacts/dev/latest/')
@@ -92,12 +96,12 @@ self.addEventListener('fetch', (event) => {
     || path.endsWith('/sw.js')
     || /\/assets\/(js|css)\/[^/]+\.(js|css)$/.test(path);
   const networkFirst = (request) => fetch(request).then(async (response) => {
-    if (response && response.ok) {
+    if (response && response.ok && !isSubscriptionIndex) {
       const cache = await caches.open(CACHE_NAME);
       await cache.put(request, response.clone());
     }
     return response;
-  }).catch(() => caches.match(request));
+  }).catch(() => isSubscriptionIndex ? undefined : caches.match(request));
   event.respondWith(
     (freshReleaseData || deploymentShell) ? networkFirst(event.request).then((response) => {
       if (response) return response;

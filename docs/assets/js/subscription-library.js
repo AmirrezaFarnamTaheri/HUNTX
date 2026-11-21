@@ -39,6 +39,7 @@ export function parseSubscriptionIndex(raw) {
       || raw.schema_version !== 1 || raw.scope !== "all_time_cumulative"
       || raw.health_status !== "historical_unverified"
       || raw.limit_per_protocol !== 100
+      || raw.latest_by !== "first_seen"
       || !raw.protocols || typeof raw.protocols !== "object" || Array.isArray(raw.protocols)) {
     throw new TypeError("Invalid historical subscription index");
   }
