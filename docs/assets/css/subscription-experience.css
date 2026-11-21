@@ -730,3 +730,26 @@ html[dir="rtl"] .sub-card-code { text-align: end; }
   .sub-card-count, .sub-card-title { color: CanvasText !important; }
   .sub-action[aria-disabled="true"] { color: GrayText; }
 }
+
+/* Preserve logical active-rail emphasis and iOS input stability. */
+html[dir="rtl"][data-huntx-direction="ledger"] #page-tabs-nav .nav-tab-btn.active {
+  box-shadow: inset -3px 0 var(--room-action) !important;
+}
+html[dir="rtl"][data-huntx-direction="orbit"] #page-tabs-nav .nav-tab-btn.active {
+  box-shadow: inset -3px 0 var(--room-action), 0 0 0 1px var(--sub-accent-strong) !important;
+}
+@media (max-width: 1119px) {
+  html[data-huntx-direction="ledger"] #page-tabs-nav .nav-tab-btn.active,
+  html[data-huntx-direction="orbit"] #page-tabs-nav .nav-tab-btn.active,
+  html[dir="rtl"][data-huntx-direction="ledger"] #page-tabs-nav .nav-tab-btn.active,
+  html[dir="rtl"][data-huntx-direction="orbit"] #page-tabs-nav .nav-tab-btn.active {
+    box-shadow: inset 0 -2px var(--room-action) !important;
+  }
+}
+@media (max-width: 760px) {
+  html #design-direction-select,
+  html #sub-search,
+  html #sub-availability {
+    font-size: 16px;
+  }
+}
