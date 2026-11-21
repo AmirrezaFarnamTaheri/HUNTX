@@ -63,9 +63,9 @@ def test_build_queries_seek_observation_even_when_planner_stats_are_misleading(
             ],
         )
         conn.execute("ANALYZE")
-        # Model production's 2,000 historical records, of which only 50\n        # have approved recent observations, with stale planner statistics.
-        # without an explicit seek, SQLite chooses idx_records_build and
-        # repeats a type-wide scan for each selected seen_files observation.
+        # Only 50 of 2,000 historical records have an approved recent
+        # observation. Even with skewed statistics, the real build must
+        # seek those IDs rather than scan the cumulative record inventory.
         conn.execute(
             "UPDATE sqlite_stat1 SET stat = '500000000 500000000 500000000' "
             "WHERE idx = 'idx_records_observation'"
