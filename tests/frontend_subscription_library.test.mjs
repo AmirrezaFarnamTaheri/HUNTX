@@ -172,6 +172,8 @@ test("master download actions start unavailable until the historical index valid
     assert.doesNotMatch(html, new RegExp('id="' + id + '"[^>]*href='));
   }
   assert.match(html, /data-master-copy="text"[^>]*disabled/);
+  const stylesheet = await read("../docs/assets/css/subscription-library.css");
+  assert.match(stylesheet, /\\[aria-disabled="true"\\]/);
   const js = await read("../docs/assets/js/subscription-library.js");
   assert.match(js, /setMasterAvailability\(false\)/);
   assert.match(js, /setMasterAvailability\(true\)/);
