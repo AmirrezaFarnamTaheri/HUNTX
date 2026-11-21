@@ -359,3 +359,32 @@ Use borders to indicate grouping, surface elevation to indicate hierarchy, and s
 ### 10.5 Verification
 
 Use the repository's unit, lint, frontend generation, Playwright and PWA gates. Visual QA captures at desktop and phone widths, Persian RTL, and dark/light themes are part of the PR review. Claims of full WCAG 2.2 AA compliance require browser and assistive-technology evidence rather than a design-system declaration.
+
+---
+
+## 11. Subscriptions Library — Three Opt-in Visual Directions (2026-11-21)
+
+The dedicated `docs/subscriptions.html` route serves the simple job of **finding a
+feed by protocol**, without loading the telemetry globe or replacing the five
+dashboard workspaces. Its three selectable design directions are deliberate
+route-level alternatives, not a rewrite of the incumbent cyber control room.
+
+- **Signal** (default): navy/cyan operations shell, precise counters and technical
+  hierarchy; carries HUNTX's visual identity forward.
+- **Canvas**: blue-on-bright spacious cards for a lower-density import workflow.
+- **Ledger**: muted chalk/ink and typographic data hierarchy for archive research.
+
+**Runtime token owner:** `docs/assets/css/subscription-hub.css` owns semantic
+`--bg`, `--rail`, `--panel`, `--text`, `--muted`, `--line`, `--accent`,
+and `--accent-ink` for this standalone route, scoped to
+`html[data-design="signal|canvas|ledger"]`. Existing dashboard variables
+`--room-*`, `--nd-*` and the authoritative §2 tokens remain unchanged.
+A selection affects only presentation; it does not persist, alter proxy
+identity, or change any subscription URL. No new network dependency or
+user-tracking mechanism is introduced.
+
+The master feed surface receives the strongest visual emphasis because
+it represents the union of all protocol-limited feeds. Protocol cards
+show real metadata and explain that historical discovery is not current
+health evidence. Failure to fetch the index displays unknown counts and a
+recovery action, never example numbers or a green health indicator.
