@@ -514,7 +514,7 @@ def catalog_latest_subscriptions(docs_dir: Path) -> None:
     catalog["total_files"] = len(entries)
     catalog["total_size"] = sum(int(item["size"]) for item in entries)
     catalog["total_size_str"] = _format_size(catalog["total_size"])
-    catalog_path.write_text(json.dumps(catalog, sort_keys=True, indent=2) + "\\n", encoding="utf-8")
+    catalog_path.write_text(json.dumps(catalog, sort_keys=True, indent=2) + "\n", encoding="utf-8")
 
 
 def _proxy_hashes(
