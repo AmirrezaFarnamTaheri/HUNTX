@@ -223,8 +223,19 @@ jobs:
                 exit 1
               fi
 
+              if ! jq -e '
+                [.jobs[]
+                  | select(.name == "Publish verified generated snapshot")
+                  | .steps[]?
+                  | select(.name == "Verify public Pages snapshot integrity" and .conclusion == "success")]
+                | length == 1
+              ' <<<"$publisher_jobs" >/dev/null; then
+                echo "::error title=Publisher did not verify live Pages::Recovery did not restore a fresh publication; publisher ${PUBLISH_ID} did not attest current catalog, release manifest, or cumulative downloads on the public CDN."
+                exit 1
+              fi
+
               echo "All explicit recovery downstream consumers completed successfully."
-              echo "Eligible producer output and actual Pages deployment both verified."
+              echo "Eligible producer output, actual Pages deployment and live CDN bytes verified."
               exit 0
             fi
             sleep 20

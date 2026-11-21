@@ -313,6 +313,45 @@ def _verify_dashboard_feed_parity(root: Path) -> None:
         )
 
 
+def _verify_latest_subscriptions(root: Path) -> None:
+    """Validate the historical feeds and both stable public URL locations."""
+    published = root / "subscriptions" / "latest"
+    artifact = root / "artifacts" / "dev" / "latest"
+    if not published.exists() and not artifact.exists():
+        # Historical Pages packages predate the latest-100 feature.
+        return
+    if not published.is_dir() or not artifact.is_dir():
+        raise ValueError("latest subscriptions missing one required public location")
+
+    import sys
+    source = str(Path(__file__).resolve().parents[1] / "src")
+    if source not in sys.path:
+        sys.path.insert(0, source)
+    from huntx.formats.latest_subscriptions import validate_latest_subscriptions
+
+    validate_latest_subscriptions(published)
+    validate_latest_subscriptions(artifact)
+    from_first = {item.name for item in published.iterdir()}
+    from_second = {item.name for item in artifact.iterdir()}
+    if from_first != from_second:
+        raise ValueError("latest subscription mirror inventory mismatch")
+    for name in sorted(from_first):
+        if (published / name).read_bytes() != (artifact / name).read_bytes():
+            raise ValueError("latest subscription mirror bytes mismatch")
+
+    catalog_path = root / "catalog.json"
+    if not catalog_path.is_file():
+        raise ValueError("latest subscriptions require an artifact catalog")
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    entries = catalog.get("files") if isinstance(catalog, dict) else None
+    if not isinstance(entries, list):
+        raise ValueError("latest subscriptions require catalog entries")
+    indexed = {entry.get("path") for entry in entries if isinstance(entry, dict)}
+    expected = {"artifacts/dev/latest/" + name for name in from_first}
+    if not expected <= indexed:
+        raise ValueError("latest subscription artifact not cataloged")
+
+
 def validate_pages_package(root: Path) -> dict[str, object]:
     """Fail closed on missing local files and paths that escape the static root.
 
@@ -349,6 +388,7 @@ def validate_pages_package(root: Path) -> dict[str, object]:
     if missing:
         raise ValueError("Missing Pages assets: " + ", ".join(sorted(missing)[:25]))
     _verify_publication_artifacts(root)
+    _verify_latest_subscriptions(root)
     _verify_authenticated_feed_conservation(root)
     _verify_dashboard_feed_parity(root)
     return {"files_checked": scanned, "missing": []}

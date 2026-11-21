@@ -1,5 +1,44 @@
 # Subscription feeds, full profiles, and compatibility
 
+## Persistent latest-100 subscriptions (historical, not verified live)
+
+New static GitHub Pages subscriptions are published under
+`/HUNTX/subscriptions/latest/` (relative to the Pages project root). They
+are rebuilt only on an accepted producer publication. The publisher maintains
+an all-time cumulative history separately from the verified release files.
+
+- `<protocol>.txt` contains up to **100 newest-discovered unique URI
+  connections** of that protocol. There is **no time-to-live or age cutoff**.
+  Old entries are only displaced when more recent entries enter that category.
+- `<protocol>_base64.txt` encodes that exact feed as Base64, including its
+  terminating newline. Empty categories have empty plaintext and Base64 feeds.
+- `all.txt` contains the **full union** of all individual top-100 categories,
+  ordered newest first; the total is not capped at 100.
+- `all_base64.txt` is the Base64 representation of `all.txt`.
+- `index.json` publishes the per-category counts, content hashes, the
+  generated timestamp and the aggregate count. Empty categories are listed too.
+
+Every router-supported proxy URI protocol receives a distinct category unless
+it is an alias within the same protocol family: e.g. `hy2` →
+`hysteria2`, `socks4`/`socks5` → `socks`, `ss` →
+`shadowsocks`, and `https` → `http`. There is **no Others category**.
+Unknown URI schemes and unvalidated ordinary web links are not accepted as
+proxy subscriptions. Binary/opaque configuration formats are intentionally
+not forced into invalid URI subscriptions.
+
+The canonical published files are also mirrored at
+`/HUNTX/artifacts/dev/latest/`, where every file is included in the
+download catalog and aggregate artifact manifest. The generated branch stores
+a third copy at `outputs_dev/latest/`.
+
+The historical timestamp is the first-discovery timestamp from the cumulative
+manifest (not the most recent successful health probe). These files are marked
+`historical_unverified`: old/failed/revoked nodes can remain in the historical
+archive, and a retained URI does **not** imply that it works today. The
+existing `artifacts/release/` feeds retain their separate authenticated,
+current-run acceptance criteria.
+
+
 HUNTX publishes independent-node feeds and complete client configurations.
 These are distinct import contracts.
 
