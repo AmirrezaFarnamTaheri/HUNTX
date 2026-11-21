@@ -1,9 +1,11 @@
-"""Guard the exact observation-key seek required by production-scale builds.
+"""Regression coverage for the large restored-state observation join.
 
-The source-first CROSS JOIN is correct only when record observations can be
-looked up via a persistent index. An automatic/temporary index on multi-GB
-historical state can cost longer than the global release deadline.
+A 13+ database can lack the v5 index when imported/restored from a schema
+snapshot, and stale SQLite planner estimates may choose an expensive type
+index over an exact observation lookup. Both paths must remain safe.
 """
+
+from contextlib import contextmanager
 
 import pytest
 
@@ -12,7 +14,7 @@ from huntx.state.repo import StateRepo
 from huntx.state.verdict_store import get_records_for_governed_build
 
 
-def test_records_have_persistent_observation_seek_index_on_restored_state(tmp_path):
+def test_restored_versioned_database_reinstalls_observation_seek_index(tmp_path):
     path = tmp_path / "state.db"
     db = open_db(path)
     with db.connect() as conn:
@@ -22,7 +24,7 @@ def test_records_have_persistent_observation_seek_index_on_restored_state(tmp_pa
             row["name"] for row in conn.execute("PRAGMA index_info(idx_records_observation)")
         ]
         assert columns[:2] == ["source_observation_id", "is_active"]
-        # Simulate a persisted database produced before the index existed.
+        # Simulate a valid already-versioned restored DB missing its v5 index.
         conn.execute("DROP INDEX idx_records_observation")
 
     reopened = open_db(path)
@@ -34,10 +36,11 @@ def test_records_have_persistent_observation_seek_index_on_restored_state(tmp_pa
 
 
 @pytest.mark.parametrize("governed", [False, True])
-def test_build_queries_seek_exact_observations_without_autoindex(tmp_path, governed):
+def test_build_queries_seek_observation_even_when_planner_stats_are_misleading(
+    tmp_path, monkeypatch, governed
+):
     repo = StateRepo(open_db(tmp_path / "state.db"))
     with repo.db.connect() as conn:
-        conn.execute("PRAGMA automatic_index=OFF")
         conn.executemany(
             "INSERT INTO seen_files(source_id, external_id, raw_hash, "
             "ingested_at, status) VALUES (?, ?, ?, ?, 'processed')",
@@ -54,19 +57,35 @@ def test_build_queries_seek_exact_observations_without_autoindex(tmp_path, gover
                 for n in range(50)
             ],
         )
-        plan = conn.execute(
-            "EXPLAIN QUERY PLAN SELECT r.id FROM seen_files s "
-            "CROSS JOIN records r INDEXED BY idx_records_observation "
-            "WHERE s.source_id = ? AND s.ingested_at >= ? "
-            "AND r.source_observation_id = s.id "
-            "AND r.record_type = ? AND r.is_active = 1",
-            ("approved", "2026-11-20 00:00:00", "npvt"),
-        ).fetchall()
-        assert any(
-            "SEARCH r" in row["detail"] and "idx_records_observation" in row["detail"]
-            for row in plan
-        ), [row["detail"] for row in plan]
+        conn.execute("ANALYZE")
+        # Model production's potentially misleading cardinality statistics:
+        # without an explicit seek, SQLite chooses idx_records_build and
+        # repeats a type-wide scan for each selected seen_files observation.
+        conn.execute(
+            "UPDATE sqlite_stat1 SET stat = '500000000 500000000 500000000' "
+            "WHERE idx = 'idx_records_observation'"
+        )
+        conn.execute(
+            "UPDATE sqlite_stat1 SET stat = '500000000 1 1 1 1 1' "
+            "WHERE idx = 'idx_records_build'"
+        )
+        conn.execute("ANALYZE sqlite_master")
 
+    seen_sql = []
+    original_connect = repo.db.connect
+
+    @contextmanager
+    def tracing_connect():
+        with original_connect() as conn:
+            conn.set_trace_callback(
+                lambda sql: seen_sql.append(sql) if "WITH filtered AS" in sql else None
+            )
+            try:
+                yield conn
+            finally:
+                conn.set_trace_callback(None)
+
+    monkeypatch.setattr(repo.db, "connect", tracing_connect)
     if governed:
         result = get_records_for_governed_build(
             repo.db, ["npvt"], ["approved"], min_ingested_at="2026-11-20 00:00:00"
@@ -76,3 +95,11 @@ def test_build_queries_seek_exact_observations_without_autoindex(tmp_path, gover
             ["npvt"], ["approved"], min_ingested_at="2026-11-20 00:00:00"
         )
     assert len(result) == 50
+    assert seen_sql, "The production query must be captured for plan validation"
+    with original_connect() as conn:
+        plan = conn.execute("EXPLAIN QUERY PLAN " + seen_sql[-1]).fetchall()
+    details = [row["detail"] for row in plan]
+    assert any(
+        "SEARCH r" in detail and "idx_records_observation" in detail
+        for detail in details
+    ), details
