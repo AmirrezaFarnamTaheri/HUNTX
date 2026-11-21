@@ -5,8 +5,6 @@ looked up via a persistent index. An automatic/temporary index on multi-GB
 historical state can cost longer than the global release deadline.
 """
 
-import sqlite3
-
 import pytest
 
 from huntx.state.db import open_db
@@ -23,7 +21,7 @@ def test_records_have_persistent_observation_seek_index_on_restored_state(tmp_pa
         columns = [
             row["name"] for row in conn.execute("PRAGMA index_info(idx_records_observation)")
         ]
-        assert columns[:3] == ["source_observation_id", "record_type", "is_active"]
+        assert columns[:2] == ["source_observation_id", "is_active"]
         # Simulate a persisted database produced before the index existed.
         conn.execute("DROP INDEX idx_records_observation")
 
