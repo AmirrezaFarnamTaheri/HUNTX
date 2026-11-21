@@ -121,7 +121,7 @@ class LatestSubscriptionTests(unittest.TestCase):
             destination = Path(temp) / "latest"
             write_latest_subscriptions(destination, {_vless(1): 100}, "2026-11-21T00:00:00Z")
             (destination / "all.txt").write_text(_vless(2) + "\n", encoding="utf-8")
-            with self.assertRaisesRegex(ValueError, "checksum|aggregate|digest"):
+            with self.assertRaisesRegex(ValueError, "checksum|aggregate|digest|base64"):
                 validate_latest_subscriptions(destination)
 
             write_latest_subscriptions(destination, {_vless(1): 100}, "2026-11-21T00:00:00Z")
