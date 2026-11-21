@@ -18,8 +18,12 @@ def source(path: str) -> str:
 def test_source_authorization_uses_exact_observation_only() -> None:
     repo = source("src/huntx/state/repo.py")
     verdict = source("src/huntx/state/verdict_store.py")
-    assert "JOIN seen_files s ON r.source_observation_id = s.id" in repo
-    assert "JOIN seen_files s ON r.source_observation_id = s.id" in verdict
+    # Both join orders require exact, approved observation provenance.
+    # Source-first CROSS JOIN avoids scanning stale records on large state.
+    for query_source in (repo, verdict):
+        assert "r.source_observation_id = s.id" in query_source
+        assert "s.source_id IN (" in query_source
+        assert "CROSS JOIN records r" in query_source
     assert "r.source_file_hash = s.raw_hash" not in repo[repo.index("def get_records_for_build"):repo.index("def is_artifact_published")]
     assert "r.source_file_hash = s.raw_hash" not in verdict[verdict.index("def get_records_for_governed_build"):]
 
