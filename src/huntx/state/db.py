@@ -49,6 +49,13 @@ class DBConnection:
                 raise
 
             self._check_migrations(conn)
+            # v5 creates this index only when crossing that migration. A
+            # restored already-versioned database may lack it: source-first
+            # governed builds require a persistent exact-observation seek.
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_records_observation "
+                "ON records(source_observation_id, is_active)"
+            )
             # Legacy v0 databases may not have ingested_at. Do not create
             # an index on a column that is absent during schema migration.
             # Already-versioned restored databases also receive this index.
