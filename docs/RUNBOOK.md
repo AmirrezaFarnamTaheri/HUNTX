@@ -101,6 +101,26 @@ helm template huntx-fleet deploy/helm/huntx-fleet \
 Then inspect the generated resource names, image tags, and required probe
 environment before using `helm upgrade --install` in the intended namespace.
 
+## Historical latest-100 subscription publication
+
+The per-protocol feeds and uncapped aggregate are generated into the Pages
+snapshot only after the producer supplies an eligible distributable release.
+A successful GitHub Actions job alone does not imply a release or a Pages deploy.
+
+If `subscriptions/latest/index.json` responds with 404 or the UI shows
+"unavailable", inspect the latest `huntx-production` run first. A build-stage
+deadline with `all_sources` pending and `package_ready=false` must be treated
+as **no release**; do not bypass the gate or copy stale generated files into
+Pages. Check governed SQL read diagnostics and source/observation index
+availability, fix the underlying bottleneck, and obtain a fresh eligible run.
+
+Then require the publisher's deploy and live Pages integrity steps to actually
+succeed (not be skipped). Verify HTTP 200 for `subscriptions/latest/index.json`,
+`all.txt`, `all_base64.txt`, and the per-protocol paths listed in the index.
+Also check that each protocol has at most 100 distinct historical identities,
+the aggregate equals their exact union, and the artifact mirrors and checksums
+agree. Historical selection is **not** a working-proxy health assertion.
+
 ## Validation boundary
 
 Repository checks can validate unit behavior, generated assets, and Helm
