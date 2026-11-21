@@ -167,12 +167,25 @@ HUNTX includes a static dashboard located at [`docs/index.html`](index.html).
 4. **Subscription Feed Generator**: Generate Base64 subscription URLs (`proxies_b64sub.txt`) or plain text config feeds (`proxies.txt`).
 5. **Architecture (C4)**: Explore the system data flow in the [unified C4 model](https://github.com/AmirrezaFarnamTaheri/HUNTX#architecture).
 
+### Per-protocol subscription library
+
+Open the [Subscriptions Library](subscriptions.html) from the dashboard's
+**Subscriptions** navigation link. It presents real historical feed counts from
+`subscriptions/latest/index.json`, one plain-text and one Base64 URL for
+each protocol, plus the complete `all.txt` and `all_base64.txt` aggregate.
+Search for a protocol or select **Available only** to hide empty categories.
+Use Signal, Canvas or Ledger to change the presentation without changing URLs.
+
+The latest 100 per protocol are ordered by **first discovery** with **no age
+cutoff**. They are historical/unverified connections and may no longer work.
+For current publisher evidence, use **Artifacts & Feeds**.
+
 ### Offline / Local Use
 
-The page and its native ES modules can open directly, but the checked-in page uses
-CDN fonts and utility CSS. Use a local HTTP server for the supported preview;
-for a truly offline deployment, vendor those external assets before making that
-claim.
+The static dashboard, subscriptions library and native ES modules are
+self-hosted and use system-font fallbacks, without third-party font CDNs.
+Use a local HTTP server for the supported preview; when disconnected, the
+subscription index will report unavailable rather than fabricating counts.
 
 ```bash
 python -m http.server 8000 --directory docs
