@@ -248,8 +248,8 @@
 }
 #subscription-hub .sub-search input:focus-visible { outline: none; }
 #subscription-hub .sub-search button {
-  min-width: 42px;
-  min-height: 42px;
+  min-width: 44px;
+  min-height: 44px;
   display: inline-grid;
   place-items: center;
   padding: 0;
@@ -301,7 +301,7 @@
 }
 #subscription-hub .sub-protocol-actions { gap: 7px; }
 #subscription-hub .sub-protocol-actions .sub-link {
-  min-height: 41px;
+  min-height: 44px;
   padding-inline: 11px;
   font-size: 11px;
 }
