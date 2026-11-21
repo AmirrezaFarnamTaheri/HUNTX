@@ -1,5 +1,5 @@
 // HUNTX ServiceWorker — offline fallback with deployment-aware freshness.
-const CACHE_NAME = 'huntx-cache-v5.9';
+const CACHE_NAME = 'huntx-cache-v5.10';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -9,11 +9,13 @@ const ASSETS_TO_CACHE = [
   './assets/css/tailwind.css',
   './assets/css/interface.css',
   './assets/css/control-room.css',
+  './assets/css/subscription-hub.css',
   './assets/css/atlas-v2.css',
   './assets/css/network-doctor-room.css',
   './assets/js/boot-guard.js',
   './assets/js/app.js',
   './assets/js/control-room.js',
+  './assets/js/subscription-hub.js',
   './assets/js/network-doctor-room.js',
   './assets/js/network-doctor.js',
   './assets/js/network-doctor-memory.js',
@@ -70,6 +72,8 @@ self.addEventListener('fetch', (event) => {
   // Published feeds and the deployment shell must not lag after a deployment.
   const freshReleaseData = path.endsWith('/catalog.json')
     || path.includes('/artifacts/release/')
+    || path.includes('/subscriptions/latest/')
+    || path.includes('/artifacts/dev/latest/')
     // data.js is the bundled telemetry snapshot; serving it cache-first showed
     // returning visitors the previous run's numbers for one whole visit.
     || path.endsWith('/assets/js/data.js');
