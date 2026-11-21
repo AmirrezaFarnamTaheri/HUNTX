@@ -140,10 +140,10 @@ def test_direct_latest_subscriptions_are_verified_on_live_pages(tmp_path, monkey
     """Cataloged latest feeds must also be available under the public URL."""
     stored = _snapshot(tmp_path)
     latest = {
-        "vless.txt": b"vless://unit.example:443\\n",
-        "all.txt": b"vless://unit.example:443\\n",
-        "all_base64.txt": b"dmxlc3M6Ly91bml0LmV4YW1wbGU6NDQzCg==\\n",
-        "index.json": b'{"schema_version":1}\\n',
+        "vless.txt": b"vless://unit.example:443\n",
+        "all.txt": b"vless://unit.example:443\n",
+        "all_base64.txt": b"dmxlc3M6Ly91bml0LmV4YW1wbGU6NDQzCg==\n",
+        "index.json": b'{"schema_version":1}\n',
     }
     catalog = json.loads(stored["catalog.json"])
     aggregate = json.loads(stored["artifacts/manifest.json"])
@@ -167,7 +167,7 @@ def test_direct_latest_subscriptions_are_verified_on_live_pages(tmp_path, monkey
     for relative, document in (
         ("catalog.json", catalog), ("artifacts/manifest.json", aggregate)
     ):
-        stored[relative] = (json.dumps(document, sort_keys=True) + "\\n").encode()
+        stored[relative] = (json.dumps(document, sort_keys=True) + "\n").encode()
         (tmp_path / relative).write_bytes(stored[relative])
 
     requested = _site(monkeypatch, stored)
