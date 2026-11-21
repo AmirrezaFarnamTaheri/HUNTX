@@ -51,7 +51,7 @@
           <div>
             <p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span> HUNTX / SUBSCRIPTION LIBRARY</p>
             <h1>Subscription library<span class="heading-dot">.</span></h1>
-            <p class="lead">One place for every protocol. Browse the latest <strong>100 discovered proxies per protocol</strong>, or take the full combined collection.</p>
+            <p class="lead">One place for every protocol. Browse up to <strong>100 newest discovered proxies per protocol</strong>, or take the full combined collection once the historical index is published.</p>
           </div>
           <div class="heading-aside" aria-label="Subscription history note">
             <span class="aside-marker" aria-hidden="true">↗</span>
@@ -88,10 +88,10 @@
             </div>
           </div>
           <div class="master-actions">
-            <a class="action-button action-primary" id="master-text-download" href="subscriptions/latest/all.txt" download="all.txt">Download all.txt <span aria-hidden="true">↗</span></a>
-            <a class="action-button action-secondary" id="master-base64-download" href="subscriptions/latest/all_base64.txt" download="all_base64.txt">Download Base64 <span aria-hidden="true">↓</span></a>
-            <button type="button" class="action-button action-copy" data-master-copy="text">Copy aggregate URL</button>
-            <a class="manifest-link" href="subscriptions/latest/index.json">Inspect index.json <span aria-hidden="true">↗</span></a>
+            <a class="action-button action-primary" id="master-text-download" aria-disabled="true" download="all.txt">Download all.txt <span aria-hidden="true">↗</span></a>
+            <a class="action-button action-secondary" id="master-base64-download" aria-disabled="true" download="all_base64.txt">Download Base64 <span aria-hidden="true">↓</span></a>
+            <button type="button" class="action-button action-copy" data-master-copy="text" disabled>Copy aggregate URL</button>
+            <a class="manifest-link" id="master-index-link" aria-disabled="true">Inspect index.json <span aria-hidden="true">↗</span></a>
           </div>
         </section>
 
@@ -105,7 +105,7 @@
             <div>
               <p class="eyebrow eyebrow-small">EXPLORE BY TYPE</p>
               <h2 id="protocols-title">Protocol subscriptions</h2>
-              <p>Each protocol has its own plain-text and Base64 download.</p>
+              <p>Once the verified historical index is published, each protocol has its own plain-text and Base64 download. Until then, counts and download links remain unavailable.</p>
             </div>
             <a href="index.html#artifacts" class="library-link">Browse all artifacts <span aria-hidden="true">↗</span></a>
           </div>
