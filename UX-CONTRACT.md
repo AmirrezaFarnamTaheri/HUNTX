@@ -65,3 +65,30 @@ Review source and generated markup together whenever changing the dashboard. The
 Network Doctor offers an optional **Remember this manual result** action only after the user reports that the original node or a replacement worked, without disabling TLS verification. It is never automatic and is never described as protocol-native verification. Stored records are limited to device category, manually selected Wi-Fi/mobile category, symptom, reported-original/reported-alternative outcome and timestamp. No proxy identity, URI, credentials, SSID, IP address, browsing target, or actual network fingerprint is stored or transmitted.
 
 The user can review and forget each category separately. Notes expire after 30 days and are purged when the browser next visits Network Doctor. Corrupt, forged or oversized storage entries are ignored, and blocked/private storage does not break the wizard. A note about a previous network category is historical context, not proof that a connection still works.
+
+## Historical subscriptions within Artifacts
+
+The existing five workspace IDs, hash links and keyboard shortcuts remain unchanged.
+The Artifacts workspace begins with a subscription directory backed by
+`subscriptions/latest/index.json`, followed by the existing downloads and
+publication registry. The dashboard masthead has a separate Subscriptions
+shortcut that activates the Artifacts workspace without changing the routing
+contract. Search is local, case-insensitive and immediate; clear returns focus
+to its input. Feed cards link to the actual static plain and Base64 files and
+provide a copy-URL action with accessible feedback.
+
+The index is loaded network-first with no synthetic counts or guessed protocol
+availability. It must advertise `all_time_cumulative` and
+`historical_unverified`, counts 0–100 per protocol, and an aggregate count
+matching exactly the category counts. File names are generated from safe
+protocol identifiers, never trusted as remote redirects. A missing, malformed
+or unpublished index shows a neutral error and Retry; the legacy catalog
+remains usable. Historical does not mean live-tested, and the master feed is
+not globally capped at 100. The verified release-download entry is separate
+and clearly labelled. No credentials or proxy URLs are fetched or stored by
+the subscription directory itself.
+
+The visual owner is `docs/assets/css/subscription-hub.css`, using the existing
+`--room-*` tokens for dark, light and RTL consistency. The JS owner is
+`docs/assets/js/subscription-hub.js`; no new framework, external font or
+analytics integration is permitted.
