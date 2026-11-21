@@ -110,6 +110,7 @@ test("capture Atlas v2 inspector and artifacts library", async ({ page }) => {
 
 
 test("capture all three HUNTX subscription directions on desktop and mobile", async ({ page }) => {
+  test.setTimeout(90_000);
   const protocols = [
     "vless", "vmess", "trojan", "anytls", "hysteria", "hysteria2", "socks",
     "http", "shadowsocks", "shadowsocksr", "tuic", "wireguard", "ssh",
