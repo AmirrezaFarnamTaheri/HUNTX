@@ -482,3 +482,18 @@ test("node grid reveals progressively and keeps appended cards interactive", asy
 
   expect(errors).toEqual([]);
 });
+
+test("subscription search native label is audited as an accessible name", async ({ page }) => {
+  await isolateLocalPage(page);
+  await page.route("**/catalog.json", (route) => route.fulfill({ json: { files: [] } }));
+  await page.goto("/#artifacts");
+  const search = page.locator("#sub-search");
+  await expect(search).toBeVisible();
+  await expect(page.locator('label[for="sub-search"]')).toHaveText("Protocol name");
+  const problems = async () => (await page.evaluate(wcagAuditInPage)).findings.filter(
+    (finding) => finding.selector.startsWith("input#sub-search")
+      && finding.criterion === "4.1.2 Name, Role, Value");
+  expect(await problems()).toEqual([]);
+  await page.locator('label[for="sub-search"]').evaluate((label) => label.remove());
+  expect((await problems()).length).toBe(1, "Removing the name must remain a serious failure");
+});
