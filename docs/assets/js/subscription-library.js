@@ -152,6 +152,26 @@ export function mountSubscriptionHub(root = document, fetchIndex = fetch) {
   const copyStatus = find("copy-status");
   const state = { index: null, controller: null };
   const clearSearch = find("clear-subscription-search");
+  const masterLinks = [
+    [find("master-text-download"), "all", "text"],
+    [find("master-base64-download"), "all", "base64"],
+    [find("master-index-link"), "index", "json"]
+  ];
+  const masterCopy = root.querySelectorAll("[data-master-copy]");
+
+  function setMasterAvailability(ready) {
+    for (const [link, slug, format] of masterLinks) {
+      if (!link) continue;
+      if (ready) {
+        link.setAttribute("href", subscriptionURL(slug, format, root.baseURI));
+        link.removeAttribute("aria-disabled");
+      } else {
+        link.removeAttribute("href");
+        link.setAttribute("aria-disabled", "true");
+      }
+    }
+    masterCopy.forEach((button) => { button.disabled = !ready; });
+  }
 
   function render() {
     grid.replaceChildren();
@@ -197,6 +217,7 @@ export function mountSubscriptionHub(root = document, fetchIndex = fetch) {
   });
   root.querySelectorAll("[data-master-copy]").forEach((button) => {
     button.addEventListener("click", async () => {
+      if (!state.index) return;
       try {
         await navigator.clipboard.writeText(subscriptionURL("all", button.dataset.masterCopy));
         copyStatus.textContent = "Copied aggregate subscription URL";
@@ -210,7 +231,8 @@ export function mountSubscriptionHub(root = document, fetchIndex = fetch) {
     if (state.controller) state.controller.abort();
     const controller = new AbortController();
     state.controller = controller;
-    feedback.textContent = "Loading published subscription metadata…";
+    setMasterAvailability(false);
+    feedback.textContent = "Checking whether historical subscriptions have been published…";
     retry.hidden = true;
     try {
       const response = await fetchIndex("subscriptions/latest/index.json", {
@@ -227,21 +249,24 @@ export function mountSubscriptionHub(root = document, fetchIndex = fetch) {
         dateStyle: "medium", timeStyle: "short", timeZone: "UTC"
       }).format(date) + " UTC";
       feedback.textContent = "Historical subscription index loaded. These URLs are not verified live proxies.";
+      setMasterAvailability(true);
       render();
     } catch (error) {
       if (controller.signal.aborted || state.controller !== controller) return;
       state.index = null;
+      setMasterAvailability(false);
       grid.replaceChildren();
       find("aggregate-count").textContent = "—";
       find("protocol-count").textContent = "—";
       find("published-at").textContent = "Not available";
       summary.textContent = "No protocol counts are available.";
-      feedback.textContent = "Subscription index unavailable. Retry, or browse the published artifacts.";
+      feedback.textContent = "Historical subscription index is unavailable; downloads have not been confirmed published. Retry or browse the existing verified release artifacts.";
       retry.hidden = false;
     }
   }
   retry.addEventListener("click", load);
   setDesign("signal");
+  setMasterAvailability(false);
   load();
   return { load, setDesign };
 }
