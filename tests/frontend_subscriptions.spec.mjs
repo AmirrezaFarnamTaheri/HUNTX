@@ -1,4 +1,8 @@
 import { test, expect } from "@playwright/test";
+
+// The fixture routes its synthetic index; a controlling PWA service worker
+// would bypass page.route() and make Retry depend on the real publisher.
+test.use({ serviceWorkers: "block" });
 import { mkdir } from "node:fs/promises";
 
 const INDEX = {
