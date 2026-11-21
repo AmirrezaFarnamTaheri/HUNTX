@@ -106,7 +106,8 @@ function renderAggregate(root, data) {
   buttons.append(
     link("Plain-text feed", paths.plain, "sub-link sub-primary-link"),
     link("Base64 feed", paths.base64),
-    copyAction("Copy master URL", paths.plain, "master aggregate")
+    copyAction("Copy master URL", paths.plain, "master aggregate"),
+    link("Publication index", "subscriptions/latest/index.json")
   );
   master.append(eyebrow, title, summary, buttons);
   const live = node("article", "sub-feature sub-feature-release");
@@ -228,7 +229,7 @@ export function mountSubscriptionHub(root = document) {
       await navigator.clipboard.writeText(new URL(path, root.baseURI).href);
       announce(hub, "Subscription URL copied.");
     } catch {
-      announce(hub, "Copy unavailable. Open the feed and copy its URL from the browser.");
+      announce(hub, "Copy unavailable. Right-click or long-press a feed link to copy its address.");
     }
   };
 
