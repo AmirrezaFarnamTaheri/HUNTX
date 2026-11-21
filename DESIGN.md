@@ -359,3 +359,37 @@ Use borders to indicate grouping, surface elevation to indicate hierarchy, and s
 ### 10.5 Verification
 
 Use the repository's unit, lint, frontend generation, Playwright and PWA gates. Visual QA captures at desktop and phone widths, Persian RTL, and dark/light themes are part of the PR review. Claims of full WCAG 2.2 AA compliance require browser and assistive-technology evidence rather than a design-system declaration.
+
+
+## Historical Subscription Directory — Signal Atlas Extension (2026-11-21)
+
+The five-workspace Control Room (§8) remains the authoritative shell. The
+historical subscription directory extends the existing Artifacts workspace,
+and **does not** replace the Telemetry Radar, Proxies, Studio, Decoder, or
+Network Doctor workflows.
+
+- **North star:** an evidence-first network field instrument. Make the next
+  user action unmistakable without presenting archived discoveries as live.
+- **Master feed signature:** “One link. Every protocol.” receives the dominant
+  feature panel. Current verified release downloads are visually separate.
+- **Palette owner:** `docs/assets/css/control-room.css` defines the existing
+  `--room-canvas`, `--room-panel`, `--room-panel-raised`, `--room-line`,
+  `--room-ink`, `--room-muted`, `--room-action` and
+  `--room-warning` tokens in dark and light. The new
+  `docs/assets/css/subscription-hub.css` references them via `--sub-*`
+  semantic aliases and does not introduce a parallel application theme.
+- **Typography:** existing Plus Jakarta Sans/system stack for display text;
+  local monospace for protocol IDs, counts and technical overlines.
+- **Shape:** 17–19px content panels and 9–12px action/row radii, matching
+  existing Control Room geometry. Desktop grid three-up, tablet two-up,
+  phone one-up. No hidden horizontal panel scrolling.
+- **States:** search/loading/error/retry, zero-count categories and copy
+  feedback remain legible without color. Transitions are restrained and
+  disabled for reduced-motion preferences.
+- **Content:** “Historical · not live-verified” accompanies all-time feeds.
+  A successful catalog download is never described as proof of reachability.
+
+The comparative visual alternatives and source-grounded audit are maintained
+in `docs/design/2026-11-21-frontend-audit-and-directions.md`. This section
+records the implemented A/Signal Atlas extension only; alternatives B and C
+are proposals and do not override existing design-system tokens.
