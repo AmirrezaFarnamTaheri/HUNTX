@@ -342,3 +342,8 @@ html[dir="rtl"] #subscription-hub .sub-feature-primary::after { content: "↖"; 
   #subscription-hub .sub-link:focus-visible { outline: 3px solid Highlight; }
   #subscription-hub .sub-primary-link { forced-color-adjust: auto; }
 }
+
+/* On narrow phones keep Browse proxies and Network Doctor on the first row. */
+@media (max-width: 480px) {
+  html .workspace-actions [aria-label="Browse subscriptions and downloads"] { grid-column: 1 / -1; }
+}
