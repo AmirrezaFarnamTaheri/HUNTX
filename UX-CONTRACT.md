@@ -66,29 +66,36 @@ Network Doctor offers an optional **Remember this manual result** action only af
 
 The user can review and forget each category separately. Notes expire after 30 days and are purged when the browser next visits Network Doctor. Corrupt, forged or oversized storage entries are ignored, and blocked/private storage does not break the wizard. A note about a previous network category is historical context, not proof that a connection still works.
 
-## Historical subscriptions within Artifacts
 
-The existing five workspace IDs, hash links and keyboard shortcuts remain unchanged.
-The Artifacts workspace begins with a subscription directory backed by
-`subscriptions/latest/index.json`, followed by the existing downloads and
-publication registry. The dashboard masthead has a separate Subscriptions
-shortcut that activates the Artifacts workspace without changing the routing
-contract. Search is local, case-insensitive and immediate; clear returns focus
-to its input. Feed cards link to the actual static plain and Base64 files and
-provide a copy-URL action with accessible feedback.
+## Historical subscription directory and appearance directions (2026-11-21)
 
-The index is loaded network-first with no synthetic counts or guessed protocol
-availability. It must advertise `all_time_cumulative` and
-`historical_unverified`, counts 0–100 per protocol, and an aggregate count
-matching exactly the category counts. File names are generated from safe
-protocol identifiers, never trusted as remote redirects. A missing, malformed
-or unpublished index shows a neutral error and Retry; the legacy catalog
-remains usable. Historical does not mean live-tested, and the master feed is
-not globally capped at 100. The verified release-download entry is separate
-and clearly labelled. No credentials or proxy URLs are fetched or stored by
-the subscription directory itself.
+The existing five workspaces, hash links and 1–5 keyboard shortcuts stay.
+The artifacts workspace begins with a subscription directory, while retaining
+the original artifact browser, release downloads, QR tools and copy controls
+below. The shortcut bar offers Statistics, Proxy Explorer and
+Subscriptions/Downloads everywhere.
 
-The visual owner is `docs/assets/css/subscription-hub.css`, using the existing
-`--room-*` tokens for dark, light and RTL consistency. The JS owner is
-`docs/assets/js/subscription-hub.js`; no new framework, external font or
-analytics integration is permitted.
+Data is loaded only from the same-origin subscriptions/latest/index.json.
+Each supported protocol family has a separate plaintext and Base64 feed;
+all.txt and all_base64.txt contain their uncapped union of up to 100 per
+category. Old nodes are retained in the archive, not claimed as live.
+Counts and timestamps are shown only after validating schema_version,
+scope, health_status, latest_by, limit_per_protocol, checksums, filenames and
+count bounds. Missing/malformed metadata produces unknown counts and Retry;
+an empty published feed correctly shows zero because its file exists.
+
+Local search supports immediate clear and availability filtering. URLs are
+project-relative and never constructed from untrusted JSON-provided paths.
+Copy failures produce recoverable, accessible status messages.
+
+The three visual directions Signal, Ledger and Orbit use one native labeled
+control. Only an allowlisted style string persists under
+huntx_visual_direction, subject to storage availability; no proxy content
+or network state is stored. The existing dark/light preference is separate.
+Network Doctor remains on its standalone route with its privacy invariants.
+
+Required responsive and accessibility behavior: no horizontal page overflow
+at 320/375/768/1024/1440px, 44px touch actions, native semantic controls,
+visible focus, live status/errors, keyboard operation, reduced-motion and
+forced-color support, correct locale/RTL with technical content LTR.
+Automated checks are not a WCAG certification.

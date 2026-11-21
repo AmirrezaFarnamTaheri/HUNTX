@@ -107,3 +107,51 @@ test("capture Atlas v2 inspector and artifacts library", async ({ page }) => {
   await capture(page, "/#artifacts", "atlas-artifacts-desktop-dark.png", 1440);
   await capture(page, "/#artifacts", "atlas-artifacts-phone-dark.png", 375, 812);
 });
+
+
+test("capture all three HUNTX subscription directions on desktop and mobile", async ({ page }) => {
+  test.setTimeout(90_000);
+  const protocols = [
+    "vless", "vmess", "trojan", "anytls", "hysteria", "hysteria2", "socks",
+    "http", "shadowsocks", "shadowsocksr", "tuic", "wireguard", "ssh",
+    "shadowtls", "naive", "juicity", "mieru", "warp", "dns", "dnstt"
+  ];
+  const index = {
+    schema_version: 1, scope: "all_time_cumulative",
+    health_status: "historical_unverified", latest_by: "first_seen",
+    generated_at: "2026-11-21T10:00:00Z", limit_per_protocol: 100,
+    protocols: Object.fromEntries(protocols.map((name) => [name, {
+      count: ["vless", "vmess", "trojan", "anytls", "hysteria2"].includes(name) ? 100 : 0,
+      file: name + ".txt", base64_file: name + "_base64.txt", sha256: "a".repeat(64)
+    }])),
+    aggregate: { count: 500, file: "all.txt", base64_file: "all_base64.txt", sha256: "a".repeat(64) }
+  };
+  await page.route("**/*", async (request) => {
+    const host = new URL(request.request().url()).hostname;
+    return ["127.0.0.1", "localhost"].includes(host)
+      ? request.continue() : request.abort();
+  });
+  await page.route("**/subscriptions/latest/index.json", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(index) })
+  );
+  await mkdir(output, { recursive: true });
+  await page.goto("/#artifacts");
+  await expect(page.locator("#sub-stat-total")).toHaveText("500");
+  for (const width of [1440, 375]) {
+    await page.setViewportSize({ width, height: width === 375 ? 812 : 900 });
+    for (const direction of ["signal", "ledger", "orbit"]) {
+      await page.locator("#design-direction-select").selectOption(direction);
+      const theme = direction === "ledger" ? "light" : "dark";
+      const current = await page.locator("html").getAttribute("class");
+      if ((current || "").includes("light") !== (theme === "light")) {
+        await page.locator("#btn-toggle-theme").click();
+      }
+      await expect(page.locator("#subscription-hub")).toBeVisible();
+      await page.screenshot({
+        path: path.join(output, "subscription-" + direction + "-" + theme + "-" +
+          (width === 375 ? "mobile" : "desktop") + ".png"),
+        fullPage: true, animations: "disabled"
+      });
+    }
+  }
+});

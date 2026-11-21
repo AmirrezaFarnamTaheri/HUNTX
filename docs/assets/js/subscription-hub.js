@@ -1,249 +1,368 @@
 /**
- * Historical subscriptions within the existing HUNTX Artifacts workspace.
- *
- * Metadata-only: this component never downloads, parses or stores proxy URIs.
- * Each link is generated from a validated protocol slug on the current site.
+ * HUNTX historical subscription directory and visual direction chooser.
+ * Independent of the existing telemetry, converter and artifact renderer.
+ * The metadata is untrusted until the expected publisher schema is checked.
  */
-const PRIORITY = [
+export const CORE_PROTOCOLS = Object.freeze([
   "vless", "vmess", "trojan", "anytls", "hysteria", "hysteria2",
   "socks", "http", "shadowsocks", "shadowsocksr", "tuic",
-  "wireguard", "ssh", "shadowtls", "naive", "juicity", "mieru",
-  "warp", "dns", "dnstt"
-];
-const SLUG = /^[a-z][a-z0-9-]{0,50}$/;
+  "wireguard", "ssh", "shadowtls", "naive", "juicity",
+  "mieru", "warp", "dns", "dnstt"
+]);
 
-export function subscriptionPaths(name) {
-  if (typeof name !== "string" || !SLUG.test(name)) {
-    throw new TypeError("Invalid subscription protocol name");
-  }
-  return Object.freeze({
-    plain: `subscriptions/latest/${name}.txt`,
-    base64: `subscriptions/latest/${name}_base64.txt`
-  });
+const PROTOCOL_NAME = /^[a-z][a-z0-9-]{0,39}$/;
+const DIGEST = /^[a-f0-9]{64}$/;
+const VISUAL_DIRECTIONS = new Set(["signal", "ledger", "orbit"]);
+const STORAGE_KEY = "huntx_visual_direction";
+const LABELS = Object.freeze({
+  vless: "VLESS",
+  vmess: "VMess",
+  trojan: "Trojan",
+  anytls: "AnyTLS",
+  hysteria: "Hysteria",
+  hysteria2: "Hysteria 2",
+  socks: "SOCKS",
+  http: "HTTP(S)",
+  shadowsocks: "Shadowsocks",
+  shadowsocksr: "ShadowsocksR",
+  tuic: "TUIC",
+  wireguard: "WireGuard",
+  ssh: "SSH",
+  shadowtls: "ShadowTLS",
+  naive: "Naive",
+  juicity: "Juicity",
+  mieru: "Mieru",
+  warp: "WARP",
+  dns: "DNS",
+  dnstt: "DNSTT"
+});
+
+export function normalizeDirection(value) {
+  return VISUAL_DIRECTIONS.has(value) ? value : "signal";
 }
 
-export function normalizeSubscriptionIndex(raw) {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)
-      || raw.schema_version !== 1 || raw.scope !== "all_time_cumulative"
-      || raw.health_status !== "historical_unverified"
-      || raw.limit_per_protocol !== 100
-      || !raw.protocols || typeof raw.protocols !== "object"
-      || Array.isArray(raw.protocols)
-      || !raw.aggregate || typeof raw.aggregate !== "object") {
-    throw new TypeError("Unrecognized historical subscription index");
+export function subscriptionHref(name, format = "plain") {
+  if (name === "index" && format === "json") return "subscriptions/latest/index.json";
+  if (!PROTOCOL_NAME.test(name) || name === "index" || name === "others") {
+    throw new Error("Invalid subscription protocol");
   }
-  const names = Object.keys(raw.protocols);
-  if (!names.length || names.length > 100) {
-    throw new TypeError("Missing or excessive subscription categories");
+  if (format === "plain") return "subscriptions/latest/" + name + ".txt";
+  if (format === "base64") return "subscriptions/latest/" + name + "_base64.txt";
+  throw new Error("Invalid subscription format");
+}
+
+function checkEntry(name, entry, isAggregate = false) {
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+    throw new Error("Invalid subscription entry");
   }
-  const entries = names.map((name) => {
-    const row = raw.protocols[name];
-    const paths = subscriptionPaths(name);
-    if (!row || typeof row !== "object" || !Number.isSafeInteger(row.count)
-        || row.count < 0 || row.count > 100
-        || row.file !== `${name}.txt`
-        || row.base64_file !== `${name}_base64.txt`) {
-      throw new TypeError("Invalid protocol count or filename");
-    }
-    return { name, count: row.count, ...paths };
+  const expectedFile = name + ".txt";
+  const expectedBase64 = name + "_base64.txt";
+  if (
+    entry.file !== expectedFile || entry.base64_file !== expectedBase64 ||
+    !Number.isSafeInteger(entry.count) || entry.count < 0 ||
+    (!isAggregate && entry.count > 100) ||
+    typeof entry.sha256 !== "string" || !DIGEST.test(entry.sha256)
+  ) {
+    throw new Error("Invalid subscription count, file or checksum");
+  }
+  return { count: entry.count, published: true };
+}
+
+export function normalizeSubscriptionIndex(payload) {
+  if (
+    !payload || typeof payload !== "object" || Array.isArray(payload) ||
+    payload.schema_version !== 1 ||
+    payload.scope !== "all_time_cumulative" ||
+    payload.health_status !== "historical_unverified" ||
+    payload.latest_by !== "first_seen" ||
+    payload.limit_per_protocol !== 100 ||
+    typeof payload.generated_at !== "string" ||
+    !Number.isFinite(Date.parse(payload.generated_at)) ||
+    !payload.protocols || typeof payload.protocols !== "object" ||
+    Array.isArray(payload.protocols)
+  ) {
+    throw new Error("Invalid historical subscription index");
+  }
+  const keys = Object.keys(payload.protocols);
+  if (keys.length > 128 || keys.some((name) =>
+    !PROTOCOL_NAME.test(name) || name === "others" || name === "all" || name === "index"
+  )) {
+    throw new Error("Invalid subscription protocol category");
+  }
+  const aggregate = checkEntry("all", payload.aggregate, true);
+  const extra = keys.filter((key) => !CORE_PROTOCOLS.includes(key)).sort();
+  const categories = [...CORE_PROTOCOLS, ...extra].map((name) => {
+    const entry = payload.protocols[name];
+    const meta = entry === undefined
+      ? { count: null, published: false }
+      : checkEntry(name, entry);
+    return { name, label: LABELS[name] || name, ...meta };
   });
-  const sum = entries.reduce((acc, item) => acc + item.count, 0);
-  if (!Number.isSafeInteger(raw.aggregate.count)
-      || raw.aggregate.count !== sum
-      || raw.aggregate.file !== "all.txt"
-      || raw.aggregate.base64_file !== "all_base64.txt") {
-    throw new TypeError("Aggregate does not match protocol subscriptions");
+  const sum = categories.reduce((acc, item) => acc + (item.count || 0), 0);
+  if (aggregate.count !== sum) {
+    throw new Error("Invalid aggregate count");
   }
-  const order = (name) => {
-    const index = PRIORITY.indexOf(name);
-    return index < 0 ? PRIORITY.length : index;
-  };
-  entries.sort((a, b) => order(a.name) - order(b.name) || a.name.localeCompare(b.name, "en"));
   return {
-    entries, total: sum, limit: 100, trust: "historical_unverified",
-    generatedAt: typeof raw.generated_at === "string" ? raw.generated_at : null
+    categories,
+    aggregate,
+    generatedAt: payload.generated_at,
+    healthStatus: payload.health_status,
+    latestBy: payload.latest_by,
+    limit: payload.limit_per_protocol
   };
 }
 
-export function filterProtocolEntries(entries, search) {
-  const query = String(search ?? "").trim().toLocaleLowerCase("en");
-  return entries.filter((row) => row.name.toLocaleLowerCase("en").includes(query));
+export function filterProtocols(categories, query = "", availability = "all") {
+  const needle = String(query).trim().toLocaleLowerCase();
+  return categories.filter((category) => {
+    if (availability === "available" && (!category.published || category.count === 0)) return false;
+    if (availability === "empty" && (!category.published || category.count !== 0)) return false;
+    return !needle ||
+      category.label.toLocaleLowerCase().includes(needle) ||
+      category.name.toLocaleLowerCase().includes(needle);
+  });
 }
 
-function node(tag, className, content) {
-  const element = document.createElement(tag);
-  if (className) element.className = className;
-  if (content !== undefined) element.textContent = String(content);
-  return element;
+function element(doc, tag, className, value) {
+  const node = doc.createElement(tag);
+  if (className) node.className = className;
+  if (value !== undefined) node.textContent = value;
+  return node;
 }
 
-function link(label, file, className = "sub-link") {
-  const anchor = node("a", className, label);
-  // Relative URLs resolve under the same Pages project root (including /HUNTX/).
-  anchor.href = new URL(file, document.baseURI).href;
+function createAction(doc, name, label, format) {
+  const anchor = element(doc, "a", "sub-action", label);
+  anchor.href = subscriptionHref(name, format);
   anchor.setAttribute("download", "");
+  anchor.setAttribute("aria-label", "Download " + name + " " + label + " subscription");
   return anchor;
 }
 
-function copyAction(label, file, description = label) {
-  const button = node("button", "sub-link sub-copy", label);
-  button.type = "button";
-  button.dataset.copySubscription = file;
-  button.setAttribute("aria-label", `Copy URL for ${description}`);
-  return button;
-}
+function createProtocolCard(doc, category) {
+  const card = element(doc, "article", "sub-protocol-card");
+  card.id = "sub-protocol-" + category.name;
 
-function renderAggregate(root, data) {
-  const zone = root.querySelector("#subscription-featured");
-  if (!zone) return;
-  zone.replaceChildren();
-  const master = node("article", "sub-feature sub-feature-primary");
-  const eyebrow = node("span", "sub-eyebrow", "HISTORICAL / ALL PROTOCOLS");
-  const title = node("h3", "", "One link. Every protocol.");
-  const summary = node("p", "", `${data.total.toLocaleString()} unique historical configurations, selected from up to 100 per protocol. Never capped at 100 overall.`);
-  const buttons = node("div", "sub-actions");
-  const paths = subscriptionPaths("all");
-  buttons.append(
-    link("Plain-text feed", paths.plain, "sub-link sub-primary-link"),
-    link("Base64 feed", paths.base64),
-    copyAction("Copy master URL", paths.plain, "master aggregate"),
-    link("Publication index", "subscriptions/latest/index.json")
-  );
-  master.append(eyebrow, title, summary, buttons);
-  const live = node("article", "sub-feature sub-feature-release");
-  live.append(
-    node("span", "sub-eyebrow", "CURRENT RELEASE / SEPARATE"),
-    node("h3", "", "Looking for verified releases?"),
-    node("p", "", "The current-run release artifacts use separate acceptance checks. Historical subscriptions do not imply current reachability.")
-  );
-  const releaseLink = link(
-    "Download current release (Base64)", "artifacts/release/all_sources_base64.txt"
-  );
-  live.append(releaseLink);
-  zone.append(master, live);
-}
+  const header = element(doc, "div", "sub-card-head");
+  const code = element(doc, "span", "sub-card-code", category.name + "://");
+  const count = element(doc, "span", "sub-card-count", category.published
+    ? String(category.count) : "—");
+  count.setAttribute("aria-label", category.published
+    ? String(category.count) + " historical connections" : "Count unavailable");
+  header.append(code, count);
 
-function renderProtocols(root, entries) {
-  const grid = root.querySelector("#subscription-protocol-grid");
-  const empty = root.querySelector("#subscription-search-empty");
-  if (!grid || !empty) return;
-  grid.replaceChildren();
-  empty.hidden = entries.length !== 0;
-  for (const item of entries) {
-    const card = node("article", "sub-protocol-card");
-    const top = node("div", "sub-protocol-top");
-    const label = node("h4", "sub-protocol-name", item.name);
-    const count = node("span", "sub-protocol-count", `${item.count} / 100`);
-    count.setAttribute("aria-label", `${item.count} of up to 100 historical proxies`);
-    top.append(label, count);
-    const note = node(
-      "p", "sub-protocol-detail",
-      item.count === 0 ? "No archived connections in this category yet." : "Latest discovered · no age expiry"
+  const title = element(doc, "h3", "sub-card-title", category.label);
+  const subtitle = element(doc, "p", "sub-card-description",
+    category.published
+      ? category.count + " of 100 newest discoveries"
+      : "Awaiting publication");
+  const controls = element(doc, "div", "sub-card-actions");
+
+  if (category.published) {
+    controls.append(
+      createAction(doc, category.name, "Plain text", "plain"),
+      createAction(doc, category.name, "Base64", "base64")
     );
-    const buttons = node("div", "sub-protocol-actions");
-    buttons.append(
-      link("TXT", item.plain),
-      link("Base64", item.base64),
-      copyAction("Copy URL", item.plain, item.name)
-    );
-    card.append(top, note, buttons);
-    grid.append(card);
-  }
-}
-
-function updateStatus(root, text, kind) {
-  const status = root.querySelector("#subscription-hub-status");
-  if (!status) return;
-  status.textContent = text;
-  status.dataset.state = kind;
-}
-
-function announce(root, message) {
-  const live = root.querySelector("#subscription-action-status");
-  if (live) live.textContent = message;
-}
-
-export function mountSubscriptionHub(root = document) {
-  const hub = root.querySelector("#subscription-hub");
-  if (!hub) return () => {};
-  const search = hub.querySelector("#subscription-protocol-search");
-  const clear = hub.querySelector("#subscription-search-clear");
-  const retry = hub.querySelector("#subscription-hub-retry");
-  const list = hub.querySelector("#subscription-protocols");
-  const meta = hub.querySelector("#subscription-summary");
-  const controller = { active: null, generation: 0 };
-  let entries = [];
-
-  function applySearch() {
-    const query = search.value;
-    clear.hidden = query.length === 0;
-    renderProtocols(hub, filterProtocolEntries(entries, query));
+    const copy = element(doc, "button", "sub-action sub-action-copy", "Copy URL");
+    copy.type = "button";
+    copy.dataset.subCopy = category.name;
+    copy.setAttribute("aria-label", "Copy " + category.label + " subscription URL");
+    controls.append(copy);
+  } else {
+    const unavailable = element(doc, "span", "sub-card-unavailable",
+      "Download links appear after a verified publication");
+    controls.append(unavailable);
   }
 
-  async function load() {
-    controller.active?.abort();
-    const request = new AbortController();
-    controller.active = request;
-    const generation = ++controller.generation;
-    retry.disabled = true;
-    retry.hidden = true;
-    list.hidden = true;
-    updateStatus(hub, "Loading historical subscription index…", "loading");
+  card.append(header, title, subtitle, controls);
+  return card;
+}
+
+export function mountSubscriptionHub(doc = document) {
+  const hub = doc.getElementById("subscription-hub");
+  const selector = doc.getElementById("design-direction-select");
+  if (!hub || !selector) return () => {};
+  const html = doc.documentElement;
+  const view = doc.defaultView;
+  let savedDirection;
+  try {
+    savedDirection = view?.localStorage.getItem(STORAGE_KEY);
+  } catch {
+    // Browser storage can be disabled. The design remains selectable for this visit.
+  }
+  const initialDirection = normalizeDirection(savedDirection);
+  html.dataset.huntxDirection = initialDirection;
+  selector.value = initialDirection;
+  const changeDirection = () => {
+    const direction = normalizeDirection(selector.value);
+    html.dataset.huntxDirection = direction;
     try {
-      const response = await fetch(new URL("subscriptions/latest/index.json", root.baseURI), {
-        cache: "no-store", signal: request.signal
-      });
-      if (!response.ok) throw new Error("Subscription index was not published");
-      const data = normalizeSubscriptionIndex(await response.json());
-      if (generation !== controller.generation) return;
-      entries = data.entries;
-      renderAggregate(hub, data);
-      meta.textContent = `${data.entries.length} protocol feeds · ${data.total.toLocaleString()} archived configurations · up to 100 per protocol`;
-      list.hidden = false;
-      applySearch();
-      const stamp = data.generatedAt && Number.isFinite(Date.parse(data.generatedAt))
-        ? new Date(data.generatedAt).toLocaleString()
-        : "timestamp unavailable";
-      updateStatus(hub, `Archive published ${stamp}. Discovery is not a live connectivity test.`, "ready");
+      view?.localStorage.setItem(STORAGE_KEY, direction);
     } catch {
-      if (request.signal.aborted || generation !== controller.generation) return;
-      entries = [];
-      list.hidden = true;
-      updateStatus(hub, "Historical subscriptions are not available in this publication. Existing downloads remain below.", "error");
-      retry.hidden = false;
-    } finally {
-      if (generation === controller.generation) retry.disabled = false;
+      // Never block a visual switch because preference storage is unavailable.
     }
-  }
+  };
+  selector.addEventListener("change", changeDirection);
 
-  const onSearch = () => applySearch();
-  const onClear = () => { search.value = ""; applySearch(); search.focus(); };
-  const onRetry = () => { void load(); };
-  const onCopy = async (event) => {
-    const target = event.target.closest?.("[data-copy-subscription]");
-    if (!target || !hub.contains(target)) return;
-    const path = target.dataset.copySubscription;
-    if (!path || !/^subscriptions\/latest\/[a-z][a-z0-9-]*\.txt$/.test(path)) return;
+  const status = doc.getElementById("sub-feed-status");
+  const total = doc.getElementById("sub-stat-total");
+  const types = doc.getElementById("sub-stat-types");
+  const updated = doc.getElementById("sub-stat-updated");
+  const list = doc.getElementById("sub-protocol-list");
+  const search = doc.getElementById("sub-search");
+  const clear = doc.getElementById("sub-search-clear");
+  const availability = doc.getElementById("sub-availability");
+  const empty = doc.getElementById("sub-no-results");
+  const retry = doc.getElementById("sub-retry");
+  const announce = doc.getElementById("sub-action-status");
+  const masterLinks = [
+    [doc.getElementById("sub-link-all"), "all", "plain"],
+    [doc.getElementById("sub-link-all-base64"), "all", "base64"],
+    [doc.getElementById("sub-link-index"), "index", "json"]
+  ];
+  const copyMaster = doc.getElementById("sub-copy-all");
+  let directory = null;
+  let pending = null;
+  let closed = false;
+
+  const setMasterAvailable = (ready) => {
+    for (const [anchor, name, format] of masterLinks) {
+      if (!anchor) continue;
+      if (ready) {
+        anchor.setAttribute("href", subscriptionHref(name, format));
+        anchor.removeAttribute("aria-disabled");
+      } else {
+        anchor.removeAttribute("href");
+        anchor.setAttribute("aria-disabled", "true");
+      }
+    }
+    if (copyMaster) copyMaster.disabled = !ready;
+  };
+
+  const fallback = CORE_PROTOCOLS.map((name) => ({
+    name, label: LABELS[name], published: false, count: null
+  }));
+
+  const render = () => {
+    if (!list) return;
+    const categories = directory?.categories || fallback;
+    const visible = filterProtocols(categories, search?.value || "", availability?.value || "all");
+    const fragment = doc.createDocumentFragment();
+    for (const category of visible) {
+      fragment.append(createProtocolCard(doc, category));
+    }
+    list.replaceChildren(fragment);
+    if (empty) empty.hidden = visible.length > 0;
+    if (clear) clear.hidden = !search?.value;
+  };
+
+  const setLoading = () => {
+    if (status) status.textContent = "Checking published subscription index…";
+    if (retry) retry.hidden = true;
+    setMasterAvailable(false);
+  };
+
+  const loadIndex = async () => {
+    if (pending) pending.abort();
+    const controller = new AbortController();
+    pending = controller;
+    const timeout = view?.setTimeout(() => controller.abort(), 8000);
+    setLoading();
     try {
-      if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
-      await navigator.clipboard.writeText(new URL(path, root.baseURI).href);
-      announce(hub, "Subscription URL copied.");
+      const response = await fetch(subscriptionHref("index", "json"), {
+        signal: controller.signal, cache: "no-store",
+        headers: { Accept: "application/json" }
+      });
+      if (!response.ok) throw new Error("subscription index HTTP " + response.status);
+      const payload = await response.json();
+      const next = normalizeSubscriptionIndex(payload);
+      if (closed || pending !== controller) return;
+      directory = next;
+      if (total) total.textContent = next.aggregate.count.toLocaleString();
+      if (types) types.textContent =
+        String(next.categories.filter((category) => category.published).length);
+      if (updated) updated.textContent = new Date(next.generatedAt).toLocaleDateString();
+      if (status) status.textContent = "Historical feeds published · " + next.generatedAt.slice(0, 10);
+      if (retry) retry.hidden = true;
+      setMasterAvailable(true);
     } catch {
-      announce(hub, "Copy unavailable. Right-click or long-press a feed link to copy its address.");
+      if (closed || pending !== controller) return;
+      directory = null;
+      if (total) total.textContent = "—";
+      if (types) types.textContent = "—";
+      if (updated) updated.textContent = "—";
+      if (status) status.textContent =
+        "Subscription index unavailable. Existing release downloads remain accessible below.";
+      if (retry) retry.hidden = false;
+      setMasterAvailable(false);
+    } finally {
+      if (timeout !== undefined) view?.clearTimeout(timeout);
+      if (pending === controller) pending = null;
+      if (!closed) render();
     }
   };
 
-  search.addEventListener("input", onSearch);
-  clear.addEventListener("click", onClear);
-  retry.addEventListener("click", onRetry);
-  hub.addEventListener("click", onCopy);
-  void load();
+  const onSearch = () => render();
+  const onClear = () => {
+    if (search) {
+      search.value = "";
+      search.focus();
+    }
+    render();
+  };
+  const onAvailability = () => render();
+
+  const copyUrl = async (name) => {
+    if (!view?.navigator?.clipboard?.writeText) {
+      if (announce) announce.textContent = "Clipboard unavailable. Use the direct download link.";
+      return;
+    }
+    try {
+      const url = new URL(subscriptionHref(name), doc.baseURI).href;
+      await view.navigator.clipboard.writeText(url);
+      if (announce) announce.textContent = "Copied " + name + " subscription URL.";
+    } catch {
+      if (announce) announce.textContent =
+        "Unable to copy. Use the direct download link instead.";
+    }
+  };
+
+  const onCardClick = (event) => {
+    const copy = event.target.closest?.("button[data-sub-copy]");
+    if (!copy || !list?.contains(copy) || !directory) return;
+    const name = copy.dataset.subCopy;
+    if (directory.categories.some((c) => c.name === name && c.published)) {
+      void copyUrl(name);
+    }
+  };
+  const onMasterClick = () => {
+    if (directory) void copyUrl("all");
+  };
+  const onDownloads = () => {
+    doc.getElementById("artifacts-section")?.scrollIntoView({ behavior: "auto" });
+  };
+
+  search?.addEventListener("input", onSearch);
+  clear?.addEventListener("click", onClear);
+  availability?.addEventListener("change", onAvailability);
+  list?.addEventListener("click", onCardClick);
+  retry?.addEventListener("click", loadIndex);
+  copyMaster?.addEventListener("click", onMasterClick);
+  doc.getElementById("sub-view-downloads")?.addEventListener("click", onDownloads);
+  setMasterAvailable(false);
+  render();
+  void loadIndex();
+
   return () => {
-    controller.active?.abort();
-    search.removeEventListener("input", onSearch);
-    clear.removeEventListener("click", onClear);
-    retry.removeEventListener("click", onRetry);
-    hub.removeEventListener("click", onCopy);
+    closed = true;
+    pending?.abort();
+    selector.removeEventListener("change", changeDirection);
+    search?.removeEventListener("input", onSearch);
+    clear?.removeEventListener("click", onClear);
+    availability?.removeEventListener("change", onAvailability);
+    list?.removeEventListener("click", onCardClick);
+    retry?.removeEventListener("click", loadIndex);
+    copyMaster?.removeEventListener("click", onMasterClick);
+    doc.getElementById("sub-view-downloads")?.removeEventListener("click", onDownloads);
   };
 }
 

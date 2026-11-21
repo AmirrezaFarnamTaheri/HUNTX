@@ -9,8 +9,8 @@ const ASSETS_TO_CACHE = [
   './assets/css/tailwind.css',
   './assets/css/interface.css',
   './assets/css/control-room.css',
-  './assets/css/subscription-hub.css',
   './assets/css/atlas-v2.css',
+  './assets/css/subscription-experience.css',
   './assets/css/network-doctor-room.css',
   './assets/js/boot-guard.js',
   './assets/js/app.js',
@@ -70,10 +70,10 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const path = new URL(event.request.url).pathname;
   // Published feeds and the deployment shell must not lag after a deployment.
-  const freshReleaseData = path.endsWith('/catalog.json')
-    || path.includes('/artifacts/release/')
-    || path.includes('/subscriptions/latest/')
+  const freshReleaseData = path.includes('/subscriptions/latest/')
     || path.includes('/artifacts/dev/latest/')
+    || path.endsWith('/catalog.json')
+    || path.includes('/artifacts/release/')
     // data.js is the bundled telemetry snapshot; serving it cache-first showed
     // returning visitors the previous run's numbers for one whole visit.
     || path.endsWith('/assets/js/data.js');
