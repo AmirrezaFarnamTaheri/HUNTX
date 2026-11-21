@@ -85,11 +85,11 @@ function link(label, file, className = "sub-link") {
   return anchor;
 }
 
-function copyAction(label, file) {
+function copyAction(label, file, description = label) {
   const button = node("button", "sub-link sub-copy", label);
   button.type = "button";
   button.dataset.copySubscription = file;
-  button.setAttribute("aria-label", `Copy URL for ${label.toLowerCase()}`);
+  button.setAttribute("aria-label", `Copy URL for ${description}`);
   return button;
 }
 
@@ -106,7 +106,7 @@ function renderAggregate(root, data) {
   buttons.append(
     link("Plain-text feed", paths.plain, "sub-link sub-primary-link"),
     link("Base64 feed", paths.base64),
-    copyAction("Copy master URL", paths.plain)
+    copyAction("Copy master URL", paths.plain, "master aggregate")
   );
   master.append(eyebrow, title, summary, buttons);
   const live = node("article", "sub-feature sub-feature-release");
@@ -143,7 +143,7 @@ function renderProtocols(root, entries) {
     buttons.append(
       link("TXT", item.plain),
       link("Base64", item.base64),
-      copyAction(`${item.name} feed`, item.plain)
+      copyAction("Copy URL", item.plain, item.name)
     );
     card.append(top, note, buttons);
     grid.append(card);
