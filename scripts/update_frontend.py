@@ -872,6 +872,7 @@ INDEX_HTML = """<!DOCTYPE html>
 
   </style>
   <link rel="stylesheet" href="assets/css/control-room.css">
+  <link rel="stylesheet" href="assets/css/subscription-hub.css">
   <link rel="stylesheet" href="assets/css/atlas-v2.css">
 
 </head>
@@ -1091,6 +1092,7 @@ INDEX_HTML = """<!DOCTYPE html>
       </div>
       <div class="workspace-actions">
         <button type="button" id="workspace-action" class="workspace-primary" data-workspace-target="proxies">Browse proxies</button>
+        <button type="button" data-workspace-target="artifacts" aria-label="Browse subscriptions and downloads">Subscriptions</button>
         <a href="network-doctor.html" aria-label="Open Network Doctor">Network Doctor</a>
       </div>
     </div>
@@ -1130,6 +1132,39 @@ INDEX_HTML = """<!DOCTYPE html>
 
     <!-- TAB 5 PANEL: Pipeline Artifacts & Subscriptions Registry -->
     <div id="tab-panel-artifacts" class="tab-panel hidden space-y-8" role="tabpanel" aria-labelledby="tab-btn-artifacts" hidden style="display: none !important;">
+      <section id="subscription-hub" aria-labelledby="subscription-hub-title">
+        <div class="sub-intro">
+          <div class="sub-intro-top">
+            <div>
+              <span class="sub-kicker">SUBSCRIPTION DIRECTORY / HISTORICAL ARCHIVE</span>
+              <h2 id="subscription-hub-title" class="sub-title">Find your protocol. Take the feed.</h2>
+              <p class="sub-subtitle">Up to 100 newest-discovered proxy configurations per protocol, with no age-based expiration. Copy a subscription URL, download its plain-text or Base64 feed, or use the combined master subscription.</p>
+            </div>
+            <span class="sub-trust">Historical · not live-verified</span>
+          </div>
+          <p id="subscription-hub-status" role="status" aria-live="polite" data-state="loading">Loading historical subscription index…</p>
+          <button id="subscription-hub-retry" type="button" hidden>Retry loading subscriptions</button>
+        </div>
+        <div id="subscription-protocols" hidden>
+          <div id="subscription-featured" class="sub-feature-grid" aria-label="Master and release subscription links"></div>
+          <div class="sub-directory">
+            <div class="sub-directory-header">
+              <div>
+                <h3 class="sub-directory-title">Subscriptions by protocol</h3>
+                <p id="subscription-summary">Historical protocol feeds</p>
+              </div>
+              <div class="sub-search">
+                <label class="sr-only" for="subscription-protocol-search">Search subscription protocols</label>
+                <input id="subscription-protocol-search" type="search" placeholder="Find a protocol…" autocomplete="off" spellcheck="false" aria-controls="subscription-protocol-grid">
+                <button id="subscription-search-clear" type="button" aria-label="Clear protocol search" hidden>✕</button>
+              </div>
+            </div>
+            <div id="subscription-protocol-grid" class="sub-protocol-grid"></div>
+            <p id="subscription-search-empty" hidden>No protocols match this search. Clear the search to see every available feed.</p>
+          </div>
+        </div>
+        <p id="subscription-action-status" role="status" aria-live="polite"></p>
+      </section>
       <section id="artifacts-section"></section>
       <section id="artifact-section"></section>
     </div>
@@ -1151,6 +1186,7 @@ INDEX_HTML = """<!DOCTYPE html>
   <script src="assets/js/boot-guard.js"></script>
   <script type="module" src="assets/js/app.js"></script>
   <script type="module" src="assets/js/control-room.js"></script>
+  <script type="module" src="assets/js/subscription-hub.js"></script>
 
   <!-- Progressive Web App (PWA) Offline ServiceWorker Registration -->
   <script>
