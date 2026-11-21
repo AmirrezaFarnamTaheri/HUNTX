@@ -99,3 +99,34 @@ at 320/375/768/1024/1440px, 44px touch actions, native semantic controls,
 visible focus, live status/errors, keyboard operation, reduced-motion and
 forced-color support, correct locale/RTL with technical content LTR.
 Automated checks are not a WCAG certification.
+
+## Latest-100 Subscriptions Library
+
+The optional `subscriptions.html` route is a first-class **Subscriptions**
+destination linked from the existing dashboard operation rail and narrow tab
+bar. It does **not** change the five dashboard tab IDs, numbering shortcuts,
+hash deep links, or Network Doctor route.
+
+The page reads metadata from `subscriptions/latest/index.json` only.
+It validates the cumulative-history schema and each safe protocol filename,
+count (0–100), SHA-256 and aggregate equality before displaying a figure.
+An unavailable, stale or malformed index must show unavailable counts,
+plain-language retry guidance and links to the existing artifact browser,
+without claiming proxies are working. Historical feeds are not health-verified.
+Never fetch raw proxy URI contents into this UI or interpolate untrusted
+metadata into HTML.
+
+The page offers direct per-protocol TXT/Base64 downloads, an uncapped
+`all.txt` / `all_base64.txt` master aggregate, an index.json link,
+search, available-only filtering, clear and accessible copy URL feedback.
+Each new protocol is listed by its own validated name; an "Others" category
+is not created. The three visual directions (Signal, Canvas and Ledger)
+share all semantics and functionality. Visual preference is deliberately
+session-only and does not conflict with `huntx_theme`.
+
+All controls retain native keyboard semantics, visible focus, good contrast,
+reduced-motion and forced-colors compatibility. The product page is an offline
+PWA shell, but latest metadata and feeds must be fetched network-first to
+avoid presenting superseded publication bytes. Deployment verifies the new
+page, CSS and ES module against the committed static snapshot. Playwright
+covers search, filters, URLs, states, keyboard and 320–1440px reflow.
