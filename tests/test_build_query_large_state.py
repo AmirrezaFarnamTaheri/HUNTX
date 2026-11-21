@@ -58,6 +58,7 @@ def test_large_stale_history_does_not_exhaust_short_build_budget(tmp_path, gover
     assert len(rows) == (total // 10) * 3 // 4
     assert all(row["data"]["line"].startswith("vless://") for row in rows)
 
+
 @pytest.mark.parametrize("governed", [False, True])
 def test_recent_governed_reads_do_not_scan_stale_history(tmp_path, monkeypatch, governed):
     """Bound SQLite VM work, independent of runner CPU speed or wall-clock jitter.
