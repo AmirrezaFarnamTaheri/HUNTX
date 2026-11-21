@@ -128,6 +128,49 @@ class LatestSubscriptionTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 validate_latest_subscriptions(destination)
 
+    def test_pages_validation_rejects_mirror_tampering(self):
+        import hashlib
+        import importlib.util
+        import shutil
+
+        spec = importlib.util.spec_from_file_location(
+            "validate_pages_package",
+            ROOT / "scripts" / "validate_pages_package.py",
+        )
+        assert spec is not None and spec.loader is not None
+        validator = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(validator)
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "docs"
+            root.mkdir()
+            (root / "index.html").write_text("<html><body>HUNTX</body></html>")
+            public = root / "subscriptions" / "latest"
+            write_latest_subscriptions(public, {_vless(1): 1}, "2026-11-21T00:00:00Z")
+            mirror = root / "artifacts" / "dev" / "latest"
+            shutil.copytree(public, mirror)
+            files = []
+            for item in mirror.iterdir():
+                contents = item.read_bytes()
+                files.append({
+                    "path": f"artifacts/dev/latest/{item.name}",
+                    "size": len(contents),
+                    "sha256": hashlib.sha256(contents).hexdigest(),
+                })
+            (root / "catalog.json").write_text(
+                json.dumps({"files": files}), encoding="utf-8"
+            )
+            validator.validate_pages_package(root)
+
+            (public / "vless.txt").write_bytes(b"modified\\n")
+            with self.assertRaises(ValueError):
+                validator.validate_pages_package(root)
+
+            shutil.copy2(mirror / "vless.txt", public / "vless.txt")
+            (mirror / "vless.txt").write_bytes(b"modified\\n")
+            with self.assertRaises(ValueError):
+                validator.validate_pages_package(root)
+
     def test_repeated_publish_is_byte_for_byte_deterministic(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
