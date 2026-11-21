@@ -233,8 +233,21 @@ class TestDashboardDataWiring(unittest.TestCase):
 
             staged_catalog = json.loads((destination / "docs" / "catalog.json").read_text())
             dev_entries = [f for f in staged_catalog["files"] if f.get("section") == "dev"]
-            assert [f["filename"] for f in dev_entries] == ["proxies.json"]
-            assert staged_catalog["total_files"] == 3
+            assert "proxies.json" in [f["filename"] for f in dev_entries]
+            latest = [f for f in dev_entries if f["path"].startswith("artifacts/dev/latest/")]
+            assert any(f["filename"] == "all.txt" for f in latest)
+            assert any(f["filename"] == "vless.txt" for f in latest)
+            from huntx.formats.latest_subscriptions import validate_latest_subscriptions
+            public = destination / "docs" / "subscriptions" / "latest"
+            mirror = destination / "docs" / "artifacts" / "dev" / "latest"
+            index = validate_latest_subscriptions(public)
+            validate_latest_subscriptions(mirror)
+            assert index["limit_per_protocol"] == 100
+            assert index["health_status"] == "historical_unverified"
+            for published in public.iterdir():
+                assert published.read_bytes() == (mirror / published.name).read_bytes()
+            assert {f["filename"] for f in latest} == {p.name for p in public.iterdir()}
+            assert staged_catalog["total_files"] == 3 + len(latest)
             quality = [item for item in staged_catalog["files"]
                        if item.get("section") == "quality"]
             assert [item["filename"] for item in quality] == ["proxy-churn.json"]

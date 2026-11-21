@@ -111,7 +111,16 @@ def expected_public_paths(root: Path) -> dict[str, tuple[str, int]]:
     for item in catalog_rows:
         if not isinstance(item, dict):
             raise LivePagesError("Invalid catalog file entry")
-        add_entry(item.get("path"), item)
+        path = item.get("path")
+        add_entry(path, item)
+        # Each latest URI subscription is published twice: a cataloged
+        # downloadable artifact and the stable, client-facing subscription URL.
+        # Both URLs must serve the exact SHA-256 and size from one catalog row.
+        if isinstance(path, str) and path.startswith("artifacts/dev/latest/"):
+            filename = path.removeprefix("artifacts/dev/latest/")
+            if not filename or "/" in filename:
+                raise LivePagesError("Invalid latest subscription filename")
+            add_entry("subscriptions/latest/" + filename, item)
     for item in release_rows:
         if not isinstance(item, dict):
             raise LivePagesError("Invalid release file entry")

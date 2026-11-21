@@ -34,3 +34,16 @@ def test_recovery_requires_verified_live_site_not_just_deploy_success():
     assert block.index("Publisher did not verify live Pages") < block.index(
         "All explicit recovery downstream consumers completed successfully."
     )
+
+
+def test_latest_subscription_merge_triggers_a_matching_production_run():
+    """Publisher won't accept artifacts from older main revisions."""
+    workflow = (ROOT / ".github" / "workflows" / "huntx.yml").read_text(
+        encoding="utf-8"
+    )
+    triggers = workflow.split("on:\n", 1)[1].split("permissions:", 1)[0]
+    assert "  push:" in triggers
+    assert "      - main" in triggers
+    assert '      - "src/huntx/formats/latest_subscriptions.py"' in triggers
+    assert '      - "scripts/assemble_generated_snapshot.py"' in triggers
+    assert '      - "scripts/verify_deployed_pages.py"' in triggers
