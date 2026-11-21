@@ -204,7 +204,7 @@ export function mountSubscriptionHub(root = document) {
         ? new Date(data.generatedAt).toLocaleString()
         : "timestamp unavailable";
       updateStatus(hub, `Archive published ${stamp}. Discovery is not a live connectivity test.`, "ready");
-    } catch (error) {
+    } catch {
       if (request.signal.aborted || generation !== controller.generation) return;
       entries = [];
       list.hidden = true;
