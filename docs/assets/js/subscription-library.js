@@ -163,7 +163,9 @@ export function mountSubscriptionHub(root = document, fetchIndex = fetch) {
     for (const [link, slug, format] of masterLinks) {
       if (!link) continue;
       if (ready) {
-        link.setAttribute("href", subscriptionURL(slug, format, root.baseURI));
+        const filename = format === "json" ? "index.json"
+          : slug + (format === "base64" ? "_base64" : "") + ".txt";
+        link.setAttribute("href", "subscriptions/latest/" + filename);
         link.removeAttribute("aria-disabled");
       } else {
         link.removeAttribute("href");
