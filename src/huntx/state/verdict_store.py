@@ -113,10 +113,10 @@ def get_records_for_governed_build(
         args.append(float(now_epoch if now_epoch is not None else time.time()))
         if require_fresh_probe:
             verdict_where += " AND v.probe_status = 'pass'"
-    # Start from source-filtered, recently ingested observations. The CROSS JOIN
-    # prevents SQLite from choosing a full historical records scan instead.
-    # Only fetch large JSON payloads after de-duplicating exact identities.
-    # The identity, policy and lifecycle exclusion gates are unchanged.
+    # Drive the record lookup from exact approved observation IDs. A CROSS JOIN
+    # can still scan the entire historical index when SQLite planner statistics
+    # are skewed; the IN-list form forces observation-key seeks instead.
+    # Read JSON only after deduplication; preserve all verdict/lifecycle gates.
     query = f"""
         WITH filtered AS (
             SELECT r.id, r.record_type, r.unique_hash
