@@ -1,6 +1,6 @@
 # HUNTX (GatherX) — Cyber Telemetry & Sovereign Ingestion Engine
 
-[![Go Tests](https://github.com/AmirrezaFarnamTaheri/HUNTX/actions/workflows/pr-validation.yml/badge.svg)](https://github.com/AmirrezaFarnamTaheri/HUNTX/actions)
+[![Unified CI validation](https://github.com/AmirrezaFarnamTaheri/HUNTX/actions/workflows/pr-validation.yml/badge.svg)](https://github.com/AmirrezaFarnamTaheri/HUNTX/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-blue)](https://github.com/AmirrezaFarnamTaheri/HUNTX)
 [![Architecture: C4 Model](https://img.shields.io/badge/Architecture-C4%20Model-cyan)](#architecture)
@@ -18,6 +18,12 @@
 - **GeoRoute Intelligence (`georoute`)**: Automatic GeoIP/CIDR resolution mapping nodes to ISO-3166 alpha-2 regional telemetry hubs (DE, NL, FI, SG, GB, US, TR, JP).
 - **Proactive Node Healing (`healing`)**: Automated failure detection, jitter analysis, and fallback route restoration.
 - **CI/CD Zero-Budget Automation**: Fully automated GitHub Actions workflow scheduled every 2 hours with atomic GitHub Pages deployment.
+
+## Unified change validation
+
+[**pull-request-validation**](https://github.com/AmirrezaFarnamTaheri/HUNTX/actions/workflows/pr-validation.yml) is the single GitHub Actions **validation run** for pull requests, relevant updates to `main`, manual dispatches, and the daily 05:23 UTC security/fixture audit. Its parallel jobs verify all workflow YAML, root and nested Go module tests/race/vet/vulnerability checks, Docker/Helm manifests, frontend lint/unit/browser/asset integrity, Python lint/type/tests, dependency vulnerabilities, and regenerated development-output telemetry and parity.
+
+The unchanged required **`quality-gate`** check succeeds only if every validation job succeeds. Production ingestion, publication, runtime evidence checks, and recovery/watchdog workflows remain separate operational workflows, because their events and write permissions must not be mixed into pull-request validation.
 
 ---
 
