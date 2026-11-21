@@ -1096,7 +1096,7 @@ INDEX_HTML = """<!DOCTYPE html>
       </div>
     </div>
     <!-- Quick workspace entry points and visual direction chooser. -->
-    <div class="experience-toolbar" aria-label="Workspace shortcuts">
+    <div class="experience-toolbar" role="group" aria-label="Workspace shortcuts">
       <div class="experience-shortcuts">
         <span class="experience-label">Jump to</span>
         <button type="button" class="experience-shortcut" data-workspace-target="radar">Statistics</button>
@@ -1217,7 +1217,7 @@ INDEX_HTML = """<!DOCTYPE html>
             </select>
           </div>
         </div>
-        <div id="sub-protocol-list" class="sub-protocol-grid" aria-labelledby="sub-library-title"></div>
+        <div id="sub-protocol-list" class="sub-protocol-grid" role="group" aria-labelledby="sub-library-title"></div>
         <p id="sub-no-results" class="sub-no-results" hidden>No protocols match. Clear the search or switch availability.</p>
         <div class="sub-bottom">
           <p>Historical, not a live connectivity guarantee. Old connections remain archived until newer ones displace them; verify an imported connection in your own client.</p>
