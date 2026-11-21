@@ -393,3 +393,20 @@ test("new design preserves viewport fit on narrow and RTL screens", async ({ pag
   expect(await page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(321);
 });
+
+
+test("subscription shortcut preserves primary phone actions and enters Artifacts", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await localOnly(page);
+  await page.goto("/");
+  const primary = await page.locator("#workspace-action").boundingBox();
+  const doctor = await page.locator('.workspace-actions a[href="network-doctor.html"]').boundingBox();
+  expect(primary).toBeTruthy();
+  expect(doctor).toBeTruthy();
+  expect(Math.abs(primary.y - doctor.y)).toBeLessThan(2);
+  const shortcut = page.getByRole("button", { name: "Browse subscriptions and downloads" });
+  await expect(shortcut).toBeVisible();
+  await shortcut.click();
+  await expect(page.locator("#tab-btn-artifacts")).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("#subscription-hub")).toBeVisible();
+});

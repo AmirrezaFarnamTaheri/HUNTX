@@ -24,6 +24,9 @@ HISTORY = (
 def _snapshot(root: Path) -> dict[str, bytes]:
     binary = {
         "index.html": b"<!doctype html><title>HUNTX</title>",
+        "subscriptions.html": b"<!doctype html><title>Subscriptions</title>",
+        "assets/css/subscription-hub.css": b".hub { color: black; }\\n",
+        "assets/js/subscription-hub.js": b"export const hub = true;\\n",
         "assets/js/data.js": b"export const generated = true;\n",
         "artifacts/release/all_sources.txt": b"vless://unit.example\n",
         "artifacts/dev/proxies.json": b'{"nodes": []}\n',

@@ -873,6 +873,7 @@ INDEX_HTML = """<!DOCTYPE html>
   </style>
   <link rel="stylesheet" href="assets/css/control-room.css">
   <link rel="stylesheet" href="assets/css/atlas-v2.css">
+<link rel="stylesheet" href="assets/css/subscription-experience.css">
 
 </head>
 <body class="bg-cyber-mesh min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-black">
@@ -990,6 +991,9 @@ INDEX_HTML = """<!DOCTYPE html>
   <nav id="page-tabs-nav" class="sticky top-16 z-40 bg-[#070a0f]/90 backdrop-blur-md border-b border-[#1d2638] py-2 px-4 sm:px-6 lg:px-8">
     <div class="max-w-7xl mx-auto flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
       <div class="rail-intro"><strong>Workspaces</strong><p>Connection data and tools, together.</p></div>
+      <a href="subscriptions.html" class="subscription-hub-link" aria-label="Browse protocol subscriptions">
+        <span aria-hidden="true">↗</span><span>Subscriptions</span>
+      </a>
       <a href="network-doctor.html" class="px-3.5 py-2 rounded-xl text-xs font-mono font-semibold border border-cyan-700 text-cyan-300 hover:text-white focus-ring" style="white-space:nowrap">Fix connection ↗</a>
       <div class="flex items-center gap-1.5 sm:gap-2" role="tablist" aria-label="HUNTX Dashboard Tabs">
         <!-- Tab 1: Radar -->
@@ -1092,6 +1096,7 @@ INDEX_HTML = """<!DOCTYPE html>
       <div class="workspace-actions">
         <button type="button" id="workspace-action" class="workspace-primary" data-workspace-target="proxies">Browse proxies</button>
         <a href="network-doctor.html" aria-label="Open Network Doctor">Network Doctor</a>
+        <button type="button" data-workspace-target="artifacts" aria-label="Browse subscriptions and downloads">Subscriptions</button>
       </div>
     </div>
     <!-- TAB 1 PANEL: Telemetry Radar & 3D Globe -->
@@ -1130,6 +1135,100 @@ INDEX_HTML = """<!DOCTYPE html>
 
     <!-- TAB 5 PANEL: Pipeline Artifacts & Subscriptions Registry -->
     <div id="tab-panel-artifacts" class="tab-panel hidden space-y-8" role="tabpanel" aria-labelledby="tab-btn-artifacts" hidden style="display: none !important;">
+    <!-- Quick workspace entry points and visual direction chooser. -->
+    <div class="experience-toolbar" role="group" aria-label="Workspace shortcuts">
+      <div class="experience-shortcuts">
+        <span class="experience-label">Jump to</span>
+        <button type="button" class="experience-shortcut" data-workspace-target="radar">Statistics</button>
+        <button type="button" class="experience-shortcut" data-workspace-target="proxies">Proxy explorer</button>
+        <button type="button" class="experience-shortcut" data-workspace-target="artifacts">Subscriptions &amp; downloads</button>
+      </div>
+      <div class="experience-chooser">
+        <label for="design-direction-select">Interface style</label>
+        <select id="design-direction-select" aria-label="Interface style">
+          <option value="signal">Signal · Operational</option>
+          <option value="ledger">Ledger · Editorial</option>
+          <option value="orbit">Orbit · Spectral</option>
+        </select>
+      </div>
+    </div>
+      <!-- Published historical subscriptions: counts are resolved from index.json, never fabricated. -->
+      <section id="subscription-hub" aria-labelledby="subscription-hub-title">
+        <div class="sub-hero">
+          <div class="sub-hero-copy">
+            <p class="sub-eyebrow">Subscription directory / Historical archive</p>
+            <h2 id="subscription-hub-title">100 per protocol. One master feed.</h2>
+            <p>Direct links for every published protocol family, plus a master feed that combines the selected entries without a global 100-node limit.</p>
+          </div>
+          <div class="sub-hero-aside">
+            <strong>Discovery-first archive</strong>
+            <span>Separate protocols · No age cutoff · No Others category</span>
+          </div>
+        </div>
+
+        <div class="sub-feed-health">
+          <p id="sub-feed-status" role="status" aria-live="polite">Checking published subscription index…</p>
+          <button id="sub-retry" type="button" class="sub-button" hidden>Retry index</button>
+        </div>
+
+        <div class="sub-overview" role="group" aria-label="Historical subscription statistics">
+          <div class="sub-stat">
+            <span class="sub-stat-label">Master feed entries</span>
+            <strong id="sub-stat-total" aria-label="Entries in master aggregate">—</strong>
+          </div>
+          <div class="sub-stat">
+            <span class="sub-stat-label">Protocol feeds</span>
+            <strong id="sub-stat-types" aria-label="Published protocol categories">—</strong>
+          </div>
+          <div class="sub-stat">
+            <span class="sub-stat-label">Last published</span>
+            <strong id="sub-stat-updated" class="sub-stat-date">—</strong>
+          </div>
+        </div>
+
+        <div class="sub-master">
+          <div>
+            <span class="sub-master-eyebrow">Universal subscription / uncapped union</span>
+            <h3>Everything, in one link.</h3>
+            <p>Exactly the union of the most recent 100 per protocol. Plain text for inspection; Base64 for compatible clients. These are historical configurations, not a live-health guarantee.</p>
+          </div>
+          <div class="sub-master-actions">
+            <a id="sub-link-all" class="sub-action" aria-disabled="true">Plain text</a>
+            <a id="sub-link-all-base64" class="sub-action" aria-disabled="true">Base64</a>
+            <button type="button" id="sub-copy-all" class="sub-button" disabled>Copy master URL</button>
+            <a id="sub-link-index" class="sub-action" aria-disabled="true">Index JSON</a>
+          </div>
+        </div>
+
+        <div class="sub-library-head">
+          <h3 id="sub-library-title">Browse by protocol</h3>
+          <p>Newest first-seen · 100 maximum per category</p>
+        </div>
+        <div class="sub-controls" role="search" aria-label="Find proxy protocol subscriptions">
+          <div class="sub-field">
+            <label for="sub-search">Protocol name</label>
+            <div class="sub-search-wrap">
+              <input id="sub-search" type="search" aria-label="Search protocol subscriptions" placeholder="VLESS, AnyTLS, WireGuard…" autocomplete="off" aria-controls="sub-protocol-list" />
+              <button id="sub-search-clear" type="button" aria-label="Clear protocol search" hidden>Clear</button>
+            </div>
+          </div>
+          <div class="sub-field">
+            <label for="sub-availability">Availability</label>
+            <select id="sub-availability" aria-controls="sub-protocol-list">
+              <option value="all">All protocols</option>
+              <option value="available">With entries</option>
+              <option value="empty">Empty feeds</option>
+            </select>
+          </div>
+        </div>
+        <div id="sub-protocol-list" class="sub-protocol-grid" role="group" aria-labelledby="sub-library-title"></div>
+        <p id="sub-no-results" class="sub-no-results" hidden>No protocols match. Clear the search or switch availability.</p>
+        <div class="sub-bottom">
+          <p>Historical, not a live connectivity guarantee. Old connections remain archived until newer ones displace them; verify an imported connection in your own client.</p>
+          <button type="button" id="sub-view-downloads" class="sub-button">View all release downloads</button>
+        </div>
+        <p id="sub-action-status" role="status" aria-live="polite"></p>
+      </section>
       <section id="artifacts-section"></section>
       <section id="artifact-section"></section>
     </div>
@@ -1151,6 +1250,7 @@ INDEX_HTML = """<!DOCTYPE html>
   <script src="assets/js/boot-guard.js"></script>
   <script type="module" src="assets/js/app.js"></script>
   <script type="module" src="assets/js/control-room.js"></script>
+<script type="module" src="assets/js/subscription-hub.js"></script>
 
   <!-- Progressive Web App (PWA) Offline ServiceWorker Registration -->
   <script>

@@ -107,3 +107,44 @@ test("capture Atlas v2 inspector and artifacts library", async ({ page }) => {
   await capture(page, "/#artifacts", "atlas-artifacts-desktop-dark.png", 1440);
   await capture(page, "/#artifacts", "atlas-artifacts-phone-dark.png", 375, 812);
 });
+
+test("capture all three subscription-library directions with a metadata fixture", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const digest = "a".repeat(64);
+  const counts = { vless: 100, vmess: 40, trojan: 8, anytls: 1, wireguard: 0 };
+  const protocols = Object.fromEntries(Object.entries(counts).map(([name, count]) => [
+    name, { count, file: name + ".txt", base64_file: name + "_base64.txt", sha256: digest }
+  ]));
+  await page.route("**/*", (route) => {
+    const url = new URL(route.request().url());
+    if (!["localhost", "127.0.0.1"].includes(url.hostname)) return route.abort();
+    if (url.pathname.endsWith("/subscriptions/latest/index.json")) return route.fulfill({
+      contentType: "application/json", status: 200,
+      body: JSON.stringify({
+        schema_version: 1, scope: "all_time_cumulative",
+        health_status: "historical_unverified",
+        generated_at: "2026-11-21T10:00:00Z", latest_by: "first_seen",
+        limit_per_protocol: 100, protocols,
+        aggregate: { count: 149, file: "all.txt", base64_file: "all_base64.txt", sha256: digest }
+      })
+    });
+    return route.continue();
+  });
+
+  await page.goto("/subscriptions.html");
+  await expect(page.locator("#protocol-grid .protocol-card")).toHaveCount(5);
+  await mkdir(output, { recursive: true });
+  for (const design of ["signal", "canvas", "ledger"]) {
+    await page.locator(`[data-design-option="${design}"]`).click();
+    await expect(page.locator("html")).toHaveAttribute("data-design", design);
+    await page.screenshot({
+      path: path.join(output, `subscription-library-${design}-desktop.png`),
+      fullPage: true, animations: "disabled"
+    });
+  }
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.screenshot({
+    path: path.join(output, "subscription-library-ledger-mobile.png"),
+    fullPage: true, animations: "disabled"
+  });
+});
