@@ -116,7 +116,7 @@ function renderAggregate(root, data) {
     node("p", "", "The current-run release artifacts use separate acceptance checks. Historical subscriptions do not imply current reachability.")
   );
   const releaseLink = link(
-    "Browse release downloads", "artifacts/release/all_sources_base64.txt"
+    "Download current release (Base64)", "artifacts/release/all_sources_base64.txt"
   );
   live.append(releaseLink);
   zone.append(master, live);
