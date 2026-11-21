@@ -1095,23 +1095,6 @@ INDEX_HTML = """<!DOCTYPE html>
         <a href="network-doctor.html" aria-label="Open Network Doctor">Network Doctor</a>
       </div>
     </div>
-    <!-- Quick workspace entry points and visual direction chooser. -->
-    <div class="experience-toolbar" role="group" aria-label="Workspace shortcuts">
-      <div class="experience-shortcuts">
-        <span class="experience-label">Jump to</span>
-        <button type="button" class="experience-shortcut" data-workspace-target="radar">Statistics</button>
-        <button type="button" class="experience-shortcut" data-workspace-target="proxies">Proxy explorer</button>
-        <button type="button" class="experience-shortcut" data-workspace-target="artifacts">Subscriptions &amp; downloads</button>
-      </div>
-      <div class="experience-chooser">
-        <label for="design-direction-select">Interface style</label>
-        <select id="design-direction-select" aria-label="Interface style">
-          <option value="signal">Signal · Operational</option>
-          <option value="ledger">Ledger · Editorial</option>
-          <option value="orbit">Orbit · Spectral</option>
-        </select>
-      </div>
-    </div>
     <!-- TAB 1 PANEL: Telemetry Radar & 3D Globe -->
     <div id="tab-panel-radar" class="tab-panel animate-fade-in space-y-8" role="tabpanel" aria-labelledby="tab-btn-radar" style="display: block;">
       <section id="hero-section">
@@ -1148,6 +1131,23 @@ INDEX_HTML = """<!DOCTYPE html>
 
     <!-- TAB 5 PANEL: Pipeline Artifacts & Subscriptions Registry -->
     <div id="tab-panel-artifacts" class="tab-panel hidden space-y-8" role="tabpanel" aria-labelledby="tab-btn-artifacts" hidden style="display: none !important;">
+    <!-- Quick workspace entry points and visual direction chooser. -->
+    <div class="experience-toolbar" role="group" aria-label="Workspace shortcuts">
+      <div class="experience-shortcuts">
+        <span class="experience-label">Jump to</span>
+        <button type="button" class="experience-shortcut" data-workspace-target="radar">Statistics</button>
+        <button type="button" class="experience-shortcut" data-workspace-target="proxies">Proxy explorer</button>
+        <button type="button" class="experience-shortcut" data-workspace-target="artifacts">Subscriptions &amp; downloads</button>
+      </div>
+      <div class="experience-chooser">
+        <label for="design-direction-select">Interface style</label>
+        <select id="design-direction-select" aria-label="Interface style">
+          <option value="signal">Signal · Operational</option>
+          <option value="ledger">Ledger · Editorial</option>
+          <option value="orbit">Orbit · Spectral</option>
+        </select>
+      </div>
+    </div>
       <!-- Published historical subscriptions: counts are resolved from index.json, never fabricated. -->
       <section id="subscription-hub" aria-labelledby="subscription-hub-title">
         <div class="sub-hero">
@@ -1204,7 +1204,7 @@ INDEX_HTML = """<!DOCTYPE html>
           <div class="sub-field">
             <label for="sub-search">Protocol name</label>
             <div class="sub-search-wrap">
-              <input id="sub-search" type="search" placeholder="VLESS, AnyTLS, WireGuard…" autocomplete="off" aria-controls="sub-protocol-list" />
+              <input id="sub-search" type="search" aria-label="Search protocol subscriptions" placeholder="VLESS, AnyTLS, WireGuard…" autocomplete="off" aria-controls="sub-protocol-list" />
               <button id="sub-search-clear" type="button" aria-label="Clear protocol search" hidden>Clear</button>
             </div>
           </div>
