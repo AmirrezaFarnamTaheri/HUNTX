@@ -1,6 +1,15 @@
 name: huntx-production
 
 on:
+  # A subscription publishing change needs a producer run on the merged
+  # revision. Without it the publisher intentionally rejects stale artifacts.
+  push:
+    branches:
+      - main
+    paths:
+      - "src/huntx/formats/latest_subscriptions.py"
+      - "scripts/assemble_generated_snapshot.py"
+      - "scripts/verify_deployed_pages.py"
   schedule:
     - cron: "17 */2 * * *"
   workflow_dispatch:
