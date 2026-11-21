@@ -67,6 +67,12 @@ class DBConnection:
                     "CREATE INDEX IF NOT EXISTS idx_seen_files_source_ingested "
                     "ON seen_files(source_id, ingested_at, id)"
                 )
+            # Restored multi-GB states can carry stale sqlite_stat1 estimates
+            # that cause a full records-index scan rather than one indexed
+            # seek per eligible observation. Re-sample only this index with a
+            # bounded analysis limit before creating release build workers.
+            conn.execute("PRAGMA analysis_limit=1000;")
+            conn.execute("ANALYZE idx_records_observation;")
             conn.execute("PRAGMA optimize;")
 
     def _check_migrations(self, conn: sqlite3.Connection) -> None:
