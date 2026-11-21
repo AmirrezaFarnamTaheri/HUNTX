@@ -163,3 +163,17 @@ test("service worker does not accept cached metadata as an online subscription i
   const response = await simulateFetch();
   assert.equal(response.status, 503, "Cached index must not be used after network failure");
 });
+
+
+test("master download actions start unavailable until the historical index validates", async () => {
+  const html = await read("../docs/subscriptions.html");
+  for (const id of ["master-text-download", "master-base64-download", "master-index-link"]) {
+    assert.match(html, new RegExp('id="' + id + '"[^>]*aria-disabled="true"'));
+    assert.doesNotMatch(html, new RegExp('id="' + id + '"[^>]*href='));
+  }
+  assert.match(html, /data-master-copy="text"[^>]*disabled/);
+  const js = await read("../docs/assets/js/subscription-library.js");
+  assert.match(js, /setMasterAvailability\(false\)/);
+  assert.match(js, /setMasterAvailability\(true\)/);
+  assert.match(js, /subscription index is unavailable/i);
+});
