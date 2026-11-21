@@ -120,12 +120,14 @@ def get_records_for_governed_build(
     query = f"""
         WITH filtered AS (
             SELECT r.id, r.record_type, r.unique_hash
-            FROM seen_files s
-            CROSS JOIN records r INDEXED BY idx_records_observation
+            FROM records r INDEXED BY idx_records_observation
             {verdict_join}
-            WHERE r.source_observation_id = s.id
-              AND r.record_type IN ({type_marks})
-              AND s.source_id IN ({source_marks})
+            WHERE r.record_type IN ({type_marks})
+              AND r.source_observation_id IN (
+                  SELECT s.id FROM seen_files s
+                  WHERE s.source_id IN ({source_marks})
+                  {extra}
+              )
               AND r.is_active = 1
               AND NOT EXISTS (
                   SELECT 1 FROM proxy_lifecycle p
@@ -133,7 +135,6 @@ def get_records_for_governed_build(
                     AND p.record_type = r.record_type
                     AND {PROXY_UNPUBLISHABLE_SQL}
               )
-              {extra}
               {verdict_where}
         ), dedup AS (
             SELECT record_type, unique_hash, MAX(id) AS keep_id
