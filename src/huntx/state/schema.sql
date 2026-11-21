@@ -271,10 +271,6 @@ CREATE INDEX IF NOT EXISTS idx_seen_files_hash ON seen_files(raw_hash);
 CREATE INDEX IF NOT EXISTS idx_seen_files_status ON seen_files(status);
 CREATE INDEX IF NOT EXISTS idx_seen_files_pending ON seen_files(status, id);
 CREATE INDEX IF NOT EXISTS idx_seen_files_source_hash ON seen_files(source_id, raw_hash, id);
--- Drive recent publication reads from eligible source observations, not the
--- unbounded historical records table. Kept on persisted state across restarts.
-CREATE INDEX IF NOT EXISTS idx_seen_files_source_ingested
-    ON seen_files(source_id, ingested_at, id);
 CREATE INDEX IF NOT EXISTS idx_source_lifecycle_trust ON source_lifecycle(trust_state);
 CREATE INDEX IF NOT EXISTS idx_ingestion_work_lifo
     ON ingestion_work_items(status, window_end_ts DESC, rotation_seq ASC, id ASC);
