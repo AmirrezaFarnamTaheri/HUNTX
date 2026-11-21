@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 import time
 from typing import Any, Iterable, Optional
 
 from ..core.deadline import Deadline, DeadlineExceeded
 from .proxy_retirement import PROXY_UNPUBLISHABLE_SQL
+
+logger = logging.getLogger(__name__)
 
 
 def upsert_record_verdict(
@@ -146,6 +149,15 @@ def get_records_for_governed_build(
         if deadline is not None:
             conn.set_progress_handler(lambda: int(deadline.expired()), 1000)
         try:
+            # Emit the actual optimizer plan without source IDs or proxy data.
+            # This lets production diagnose large-state regressions from its
+            # sanitized runtime logs without exporting the restored database.
+            if logger.isEnabledFor(logging.INFO):
+                plan = conn.execute("EXPLAIN QUERY PLAN " + query, args).fetchall()
+                logger.info(
+                    "Governed build observation query plan: %s",
+                    "; ".join(str(row["detail"]) for row in plan),
+                )
             rows = conn.execute(query, args).fetchall()
         except sqlite3.OperationalError as exc:
             if deadline is not None and deadline.expired():
