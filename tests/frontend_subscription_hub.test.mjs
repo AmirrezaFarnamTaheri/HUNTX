@@ -109,4 +109,5 @@ test("dedicated hub is linked from dashboard and preserved generator", async () 
   for (const asset of ["subscriptions.html", "assets/css/subscription-hub.css", "assets/js/subscription-hub.js"]) {
     assert.ok(worker.includes(asset), asset);
   }
+  assert.ok(worker.includes("path.includes('/subscriptions/latest/')"));
 });
