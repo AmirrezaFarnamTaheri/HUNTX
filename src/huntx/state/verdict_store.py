@@ -118,7 +118,7 @@ def get_records_for_governed_build(
         WITH filtered AS (
             SELECT r.id, r.record_type, r.unique_hash
             FROM seen_files s
-            CROSS JOIN records r
+            CROSS JOIN records r INDEXED BY idx_records_observation
             {verdict_join}
             WHERE r.source_observation_id = s.id
               AND r.record_type IN ({type_marks})
