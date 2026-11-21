@@ -649,7 +649,7 @@ class StateRepo:
                 WITH filtered AS (
                     SELECT r.id, r.record_type, r.unique_hash
                     FROM seen_files s
-                    CROSS JOIN records r
+                    CROSS JOIN records r INDEXED BY idx_records_observation
                     WHERE r.source_observation_id = s.id
                       AND r.record_type IN ({placeholders_types})
                       AND s.source_id IN ({placeholders_sources})
