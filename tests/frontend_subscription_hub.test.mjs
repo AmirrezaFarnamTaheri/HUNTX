@@ -101,13 +101,18 @@ test("dedicated hub is linked from dashboard and preserved generator", async () 
   assert.match(page, /data-design="signal"/);
   assert.match(page, /id="protocol-grid"/);
   assert.match(page, /id="subscription-search"/);
-  assert.match(page, /assets\/js\/subscription-hub\.js/);
+  assert.match(page, /assets\/js\/subscription-library\.js/);
+  assert.match(page, /assets\/css\/subscription-library\.css/);
   assert.match(page, /index\.html#artifacts/);
   for (const source of [index, generator]) {
     assert.match(source, /href="subscriptions\.html"/);
   }
-  for (const asset of ["subscriptions.html", "assets/css/subscription-library.css", "assets/js/subscription-library.js"]) {
+  for (const asset of ["assets/css/subscription-library.css", "assets/js/subscription-library.js"]) {
     assert.ok(worker.includes(asset), asset);
   }
+  // Standalone navigation uses network-first delivery; its HTML is not
+  // hard-preloaded by the test fixture or service-worker install.
+  assert.doesNotMatch(worker, /[\'"]\.\/subscriptions\.html[\'"]/);
+  assert.match(worker, /event\.request\.mode === \'navigate\'/);
   assert.ok(worker.includes("path.includes('/subscriptions/latest/')"));
 });
