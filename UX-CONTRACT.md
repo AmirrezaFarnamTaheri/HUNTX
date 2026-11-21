@@ -65,3 +65,37 @@ Review source and generated markup together whenever changing the dashboard. The
 Network Doctor offers an optional **Remember this manual result** action only after the user reports that the original node or a replacement worked, without disabling TLS verification. It is never automatic and is never described as protocol-native verification. Stored records are limited to device category, manually selected Wi-Fi/mobile category, symptom, reported-original/reported-alternative outcome and timestamp. No proxy identity, URI, credentials, SSID, IP address, browsing target, or actual network fingerprint is stored or transmitted.
 
 The user can review and forget each category separately. Notes expire after 30 days and are purged when the browser next visits Network Doctor. Corrupt, forged or oversized storage entries are ignored, and blocked/private storage does not break the wizard. A note about a previous network category is historical context, not proof that a connection still works.
+
+
+## Historical subscription directory and appearance directions (2026-11-21)
+
+The existing five workspaces, hash links and 1–5 keyboard shortcuts stay.
+The artifacts workspace begins with a subscription directory, while retaining
+the original artifact browser, release downloads, QR tools and copy controls
+below. The shortcut bar offers Statistics, Proxy Explorer and
+Subscriptions/Downloads everywhere.
+
+Data is loaded only from the same-origin subscriptions/latest/index.json.
+Each supported protocol family has a separate plaintext and Base64 feed;
+all.txt and all_base64.txt contain their uncapped union of up to 100 per
+category. Old nodes are retained in the archive, not claimed as live.
+Counts and timestamps are shown only after validating schema_version,
+scope, health_status, latest_by, limit_per_protocol, checksums, filenames and
+count bounds. Missing/malformed metadata produces unknown counts and Retry;
+an empty published feed correctly shows zero because its file exists.
+
+Local search supports immediate clear and availability filtering. URLs are
+project-relative and never constructed from untrusted JSON-provided paths.
+Copy failures produce recoverable, accessible status messages.
+
+The three visual directions Signal, Ledger and Orbit use one native labeled
+control. Only an allowlisted style string persists under
+huntx_visual_direction, subject to storage availability; no proxy content
+or network state is stored. The existing dark/light preference is separate.
+Network Doctor remains on its standalone route with its privacy invariants.
+
+Required responsive and accessibility behavior: no horizontal page overflow
+at 320/375/768/1024/1440px, 44px touch actions, native semantic controls,
+visible focus, live status/errors, keyboard operation, reduced-motion and
+forced-color support, correct locale/RTL with technical content LTR.
+Automated checks are not a WCAG certification.
