@@ -24,6 +24,7 @@ if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from huntx.core.output_ownership import output_filename  # noqa: E402
+from huntx.formats.latest_subscriptions import write_latest_subscriptions  # noqa: E402
 from huntx.formats.npvt import (  # noqa: E402
     strip_proxy_remark, canonical_proxy_identity, add_clean_remark,
 )
@@ -406,6 +407,11 @@ def write_dev_outputs(
     )
 
 
+def write_latest_dev_outputs(dev_dir: Path, manifest: dict[str, ManifestValue], source_created_at: str) -> None:
+    """Build history-backed per-protocol and aggregate subscriptions."""
+    write_latest_subscriptions(dev_dir / "latest", manifest, source_created_at)
+
+
 def require_nonempty_tree(path: Path | None, label: str) -> Path:
     if path is None or not path.is_dir():
         raise ValueError(f"missing required {label} directory")
@@ -474,6 +480,41 @@ def _catalog_dev_trio(docs_dir: Path, dev_dir: Path) -> None:
     catalog["total_size"] = total_size
     catalog["total_size_str"] = _format_size(total_size)
     catalog_path.write_text(json.dumps(catalog, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def catalog_latest_subscriptions(docs_dir: Path) -> None:
+    """Register every published latest subscription with size and checksum."""
+    catalog_path = docs_dir / "catalog.json"
+    if not catalog_path.is_file():
+        return
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    entries = catalog.get("files")
+    if not isinstance(entries, list):
+        raise ValueError("Dashboard catalog is missing its entries")
+    prefix = "artifacts/dev/latest/"
+    entries[:] = [item for item in entries if not str(item.get("path", "")).startswith(prefix)]
+    latest_dir = docs_dir / "artifacts" / "dev" / "latest"
+    for file in sorted(latest_dir.iterdir()):
+        if not file.is_file():
+            raise ValueError("unexpected latest subscription entry")
+        payload = file.read_bytes()
+        is_json = file.suffix == ".json"
+        entries.append({
+            "filename": file.name, "path": prefix + file.name,
+            "size": len(payload), "size_str": _format_size(len(payload)),
+            "sha256": hashlib.sha256(payload).hexdigest(),
+            "media_type": "application/json" if is_json else "text/plain",
+            "tags": ["dev", "latest", "historical_unverified", "subscription"],
+            "section": "dev",
+            "type": "JSON" if is_json else "SUBSCRIPTION",
+            "ext": "JSON" if is_json else "TXT",
+            "description": "All-time historical latest-100 subscription; not health verified",
+        })
+    catalog["files"] = entries
+    catalog["total_files"] = len(entries)
+    catalog["total_size"] = sum(int(item["size"]) for item in entries)
+    catalog["total_size_str"] = _format_size(catalog["total_size"])
+    catalog_path.write_text(json.dumps(catalog, sort_keys=True, indent=2) + "\\n", encoding="utf-8")
 
 
 def _proxy_hashes(
@@ -827,6 +868,7 @@ def assemble_snapshot(
     cumulative_manifest = seed_missing_identities(previous_manifest, legacy_manifest)
     cumulative_manifest = merge_dev_manifests(cumulative_manifest, current_manifest)
     write_dev_outputs(destination / "outputs_dev", cumulative_manifest, source_created_at)
+    write_latest_dev_outputs(destination / "outputs_dev", cumulative_manifest, source_created_at)
 
     dashboard_file_count = 0
     if dashboard_root is not None:
@@ -854,7 +896,11 @@ def assemble_snapshot(
             # telemetry. Dashboard data.js is produced from this run and
             # later reconciled to the appended cumulative catalog.
             (destination / "docs" / "assets" / "js" / "bundle.js").unlink(missing_ok=True)
+        latest = destination / "outputs_dev" / "latest"
+        copy_tree(latest, destination / "docs" / "subscriptions" / "latest")
+        copy_tree(latest, destination / "docs" / "artifacts" / "dev" / "latest")
         _catalog_dev_trio(destination / "docs", destination / "docs" / "artifacts" / "dev")
+        catalog_latest_subscriptions(destination / "docs")
         catalog_proxy_churn(destination / "docs", churn_report)
         rebuild_aggregate_artifact_manifest(destination / "docs")
         sync_dashboard_fallback_catalog(destination / "docs")
