@@ -1146,7 +1146,7 @@ INDEX_HTML = """<!DOCTYPE html>
           <button id="subscription-hub-retry" type="button" hidden>Retry loading subscriptions</button>
         </div>
         <div id="subscription-protocols" hidden>
-          <div id="subscription-featured" class="sub-feature-grid" aria-label="Master and release subscription links"></div>
+          <div id="subscription-featured" class="sub-feature-grid" role="group" aria-label="Master and release subscription links"></div>
           <div class="sub-directory">
             <div class="sub-directory-header">
               <div>
