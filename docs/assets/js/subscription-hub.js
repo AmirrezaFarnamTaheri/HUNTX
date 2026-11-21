@@ -99,7 +99,7 @@ export function normalizeSubscriptionIndex(payload) {
     return { name, label: LABELS[name] || name, ...meta };
   });
   const sum = categories.reduce((acc, item) => acc + (item.count || 0), 0);
-  if (aggregate.count > sum) {
+  if (aggregate.count !== sum) {
     throw new Error("Invalid aggregate count");
   }
   return {
