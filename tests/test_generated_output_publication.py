@@ -233,8 +233,11 @@ class TestDashboardDataWiring(unittest.TestCase):
 
             staged_catalog = json.loads((destination / "docs" / "catalog.json").read_text())
             dev_entries = [f for f in staged_catalog["files"] if f.get("section") == "dev"]
-            assert [f["filename"] for f in dev_entries] == ["proxies.json"]
-            assert staged_catalog["total_files"] == 3
+            assert "proxies.json" in [f["filename"] for f in dev_entries]
+            latest = [f for f in dev_entries if f["path"].startswith("artifacts/dev/latest/")]
+            assert any(f["filename"] == "all.txt" for f in latest)
+            assert any(f["filename"] == "vless.txt" for f in latest)
+            assert staged_catalog["total_files"] == 3 + len(latest)
             quality = [item for item in staged_catalog["files"]
                        if item.get("section") == "quality"]
             assert [item["filename"] for item in quality] == ["proxy-churn.json"]
