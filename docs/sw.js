@@ -4,7 +4,8 @@ const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './network-doctor.html',
-  './subscriptions.html',
+  // subscriptions.html is navigation-only. It should use the existing
+  // network-first navigation policy, not block activation of a new SW.
   './architecture.html',
   './catalog.json',
   './assets/css/tailwind.css',
