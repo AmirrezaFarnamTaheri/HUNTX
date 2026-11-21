@@ -136,6 +136,60 @@ def test_retries_stale_catalog_until_exact_snapshot_is_served(tmp_path, monkeypa
     assert report["verified_files"] == len(stored)
 
 
+def test_direct_latest_subscriptions_are_verified_on_live_pages(tmp_path, monkeypatch):
+    """Cataloged latest feeds must also be available under the public URL."""
+    stored = _snapshot(tmp_path)
+    latest = {
+        "vless.txt": b"vless://unit.example:443\\n",
+        "all.txt": b"vless://unit.example:443\\n",
+        "all_base64.txt": b"dmxlc3M6Ly91bml0LmV4YW1wbGU6NDQzCg==\\n",
+        "index.json": b'{"schema_version":1}\\n',
+    }
+    catalog = json.loads(stored["catalog.json"])
+    aggregate = json.loads(stored["artifacts/manifest.json"])
+    for name, payload in latest.items():
+        public = "subscriptions/latest/" + name
+        mirrored = "artifacts/dev/latest/" + name
+        for relative in (public, mirrored):
+            (tmp_path / relative).parent.mkdir(parents=True, exist_ok=True)
+            (tmp_path / relative).write_bytes(payload)
+            stored[relative] = payload
+        entry = {
+            "path": mirrored, "size": len(payload),
+            "sha256": hashlib.sha256(payload).hexdigest(),
+        }
+        catalog["files"].append(entry)
+        aggregate["artifacts"].append({
+            **entry, "path": "dev/latest/" + name,
+        })
+    catalog["total_files"] = len(catalog["files"])
+    aggregate["artifact_count"] = len(aggregate["artifacts"])
+    for relative, document in (
+        ("catalog.json", catalog), ("artifacts/manifest.json", aggregate)
+    ):
+        stored[relative] = (json.dumps(document, sort_keys=True) + "\\n").encode()
+        (tmp_path / relative).write_bytes(stored[relative])
+
+    requested = _site(monkeypatch, stored)
+    report = pages.verify_live_publication(
+        tmp_path, "https://owner.github.io/HUNTX/",
+        attempts=2, interval=0, request_timeout=1, max_seconds=10,
+    )
+    for name in latest:
+        assert "subscriptions/latest/" + name in requested
+    assert report["verified_files"] == len(stored)
+
+    public = "subscriptions/latest/vless.txt"
+    missing = HTTPError("https://owner.github.io/HUNTX/" + public,
+                        404, "Not Found", None, None)
+    _site(monkeypatch, stored, {public: missing})
+    with pytest.raises(pages.LivePagesError, match="subscriptions/latest/vless.txt"):
+        pages.verify_live_publication(
+            tmp_path, "https://owner.github.io/HUNTX/",
+            attempts=2, interval=0, request_timeout=1, max_seconds=10,
+        )
+
+
 def test_missing_public_historical_file_is_never_declared_published(tmp_path, monkeypatch):
     stored = _snapshot(tmp_path)
     path = HISTORY[0]
