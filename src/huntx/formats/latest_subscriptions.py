@@ -9,6 +9,7 @@ import base64
 import hashlib
 import json
 from collections import defaultdict
+from heapq import heapify, heappop, heappush
 from pathlib import Path
 from typing import Any
 
@@ -93,6 +94,84 @@ def _base64_bytes(plain: bytes) -> bytes:
     return base64.b64encode(plain) + b"\n" if plain else b""
 
 
+class _ReverseLex:
+    """Order text reversely, so lexically larger ties are evicted first."""
+
+    __slots__ = ("value",)
+
+    def __init__(self, value: str) -> None:
+        self.value = value
+
+    def __lt__(self, other: "_ReverseLex") -> bool:
+        return self.value > other.value
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, _ReverseLex) and self.value == other.value
+
+
+def _bounded_recent(
+    manifest: dict[str, float | int | str],
+) -> dict[str, list[tuple[str, float | int | str]]]:
+    """Keep only newest per-family identities rather than sorting all history.
+
+    Each family retains at most its limit, with a lazy-deletion min heap for
+    deduplicated identities. Rebuild stale heap entries periodically to bound
+    memory even if one identity has been rediscovered many times.
+    """
+    # (discovery rank, reversed-lexical URI, identity, URI, first_seen)
+    chosen: dict[str, dict[str, tuple[Any, ...]]] = defaultdict(dict)
+    heaps: dict[str, list[tuple[Any, ...]]] = defaultdict(list)
+
+    for candidate, first_seen in manifest.items():
+        uri = strip_proxy_remark(candidate)
+        category = protocol_for_uri(uri)
+        if category is None:
+            continue
+
+        fingerprint = _identity(uri)
+        capacity = _limit_for_protocol(category)
+        winners = chosen[category]
+        heap = heaps[category]
+        age_rank = _newest_key(first_seen)
+        prior = winners.get(fingerprint)
+        if prior is not None:
+            # Historical identity preference: newest representative; for
+            # equal times, lexically greatest *representative* URI wins.
+            if (age_rank, uri) <= (prior[0], prior[3]):
+                continue
+            entry = (age_rank, _ReverseLex(uri), fingerprint, uri, first_seen)
+            winners[fingerprint] = entry
+            heappush(heap, entry)
+        elif len(winners) < capacity:
+            entry = (age_rank, _ReverseLex(uri), fingerprint, uri, first_seen)
+            winners[fingerprint] = entry
+            heappush(heap, entry)
+        else:
+            while heap and winners.get(heap[0][2]) is not heap[0]:
+                heappop(heap)
+            if not heap:
+                raise AssertionError("bounded latest heap lost live identities")
+            bottom = heap[0]
+            entry = (age_rank, _ReverseLex(uri), fingerprint, uri, first_seen)
+            # Across distinct identities, equal-time ties favor lexically
+            # smaller URIs, matching the historical stable two-sort behavior.
+            if (entry[0], entry[1]) <= (bottom[0], bottom[1]):
+                continue
+            heappop(heap)
+            del winners[bottom[2]]
+            winners[fingerprint] = entry
+            heappush(heap, entry)
+
+        if len(heap) > capacity * 4:
+            heap[:] = list(winners.values())
+            heapify(heap)
+
+    return {
+        category: [(entry[3], entry[4]) for entry in winners.values()]
+        for category, winners in chosen.items()
+    }
+
+
 def write_latest_subscriptions(
     destination: Path,
     manifest: dict[str, float | int | str],
@@ -114,22 +193,7 @@ def write_latest_subscriptions(
             raise ValueError("unexpected file in latest-subscription directory")
         stale.unlink()
 
-    grouped: dict[str, dict[str, tuple[str, float | int | str]]] = defaultdict(dict)
-    for candidate, first_seen in sorted(manifest.items()):
-        uri = strip_proxy_remark(candidate)
-        category = protocol_for_uri(uri)
-        if category is None:
-            continue
-        fingerprint = _identity(uri)
-        previous = grouped[category].get(fingerprint)
-        if previous is None:
-            grouped[category][fingerprint] = (uri, first_seen)
-        else:
-            old_uri, old_seen = previous
-            # Equivalent spellings retain first-seen history, but publish the
-            # newest-discovered representative for latest-N selection.
-            if (_newest_key(first_seen), uri) > (_newest_key(old_seen), old_uri):
-                grouped[category][fingerprint] = (uri, first_seen)
+    grouped = _bounded_recent(manifest)
 
     index: dict[str, Any] = {
         "schema_version": 1,
@@ -143,7 +207,7 @@ def write_latest_subscriptions(
     }
     selected: list[tuple[str, float | int | str]] = []
     for category in PROTOCOL_CATEGORIES:
-        records = list(grouped[category].values())
+        records = list(grouped.get(category, []))
         # Stable lexical order is a tie-breaker, not the primary ranking.
         records.sort(key=lambda row: row[0])
         records.sort(key=lambda row: _newest_key(row[1]), reverse=True)
