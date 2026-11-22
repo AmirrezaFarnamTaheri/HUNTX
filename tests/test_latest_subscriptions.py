@@ -191,3 +191,75 @@ class LatestSubscriptionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SlipNetAndAllFamiliesTests(unittest.TestCase):
+    @staticmethod
+    def _slipnet(index: int) -> str:
+        # SlipNet's own exporter serializes a v30 pipe-delimited profile
+        # and base64-encodes it after the slipnet:// prefix.
+        fields = [
+            "30", "dnstt", f"Public {index}", f"node{index}.example",
+            "1.1.1.1:53:0", "0", "5000", "bbr", "443",
+            f"node{index}.example", "0",
+        ] + [""] * 73
+        encoded = base64.b64encode("|".join(fields).encode("utf-8")).decode("ascii")
+        return "slipnet://" + encoded
+
+    def test_plain_slipnet_profiles_are_validated_and_ingested(self):
+        from huntx.core.router import decide_format
+        from huntx.formats.npvt import NpvtHandler
+        from huntx.formats.proxy_uri_validator import validate_proxy_uri
+
+        valid = self._slipnet(1)
+        self.assertTrue(validate_proxy_uri(valid))
+        self.assertEqual(protocol_for_uri(valid), "slipnet")
+        self.assertEqual(decide_format("public-profiles.txt", valid.encode()), "npvt")
+        records = NpvtHandler().parse(valid.encode(), {})
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["data"]["line"], valid)
+
+        for invalid in (
+            "slipnet://not-base64",
+            "slipnet://"+base64.b64encode(b"abc").decode(),
+            "slipnet://"+base64.b64encode(b"31|dnstt|profile|host.example").decode(),
+            "slipnet-enc://"+valid.split("://", 1)[1],
+            "slipnet-bundle-enc://"+valid.split("://", 1)[1],
+        ):
+            self.assertIsNone(protocol_for_uri(invalid))
+
+    def test_requested_families_publish_independently_and_aggregate_exact_union(self):
+        variants = [
+            "trojan://pw@trojan.example:443",
+            "socks4://socks.example:1080",
+            "socks5://socks.example:1081",
+            "hysteria://hysteria.example:443?auth=pw",
+            "hysteria2://pw@hysteria2.example:443",
+            "anytls://pw@anytls.example:443",
+            "dns://dns.example:53",
+            "dnstt://dnstt.example:53",
+            "http://user:pw@proxy.example:8080",
+            "https://user:pw@proxy.example:8443",
+            self._slipnet(1),
+        ]
+        with tempfile.TemporaryDirectory() as temp:
+            dest = Path(temp) / "latest"
+            idx = write_latest_subscriptions(
+                dest, {uri: n + 1 for n, uri in enumerate(variants)},
+                "2026-11-22T00:00:00Z",
+            )
+            expected = {
+                "trojan": 1, "socks": 2, "hysteria": 1,
+                "hysteria2": 1, "anytls": 1, "dns": 1,
+                "dnstt": 1, "http": 2, "slipnet": 1,
+            }
+            self.assertTrue(set(expected) <= set(PROTOCOL_CATEGORIES))
+            for family, count in expected.items():
+                self.assertEqual(idx["protocols"][family]["count"], count, family)
+                plain = (dest / f"{family}.txt").read_bytes()
+                decoded = base64.b64decode((dest / f"{family}_base64.txt").read_bytes())
+                self.assertEqual(decoded, plain, family)
+            aggregate = (dest / "all.txt").read_text().splitlines()
+            self.assertEqual(len(aggregate), len(variants))
+            self.assertEqual(set(aggregate), set(variants))
+            validate_latest_subscriptions(dest)
