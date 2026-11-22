@@ -4,7 +4,7 @@ import hashlib
 from typing import AsyncIterator, Dict, Any, List, Optional
 
 
-_BASE64_ALPHABET = frozenset(b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=")
+_BASE64_ALPHABET = frozenset(b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=-_")
 
 
 class StreamingChunkParser:
@@ -54,7 +54,7 @@ class StreamingChunkParser:
         sample_len = len(compact) - (len(compact) % 4)
         if sample_len >= 8:
             try:
-                decoded = base64.b64decode(compact[:sample_len], validate=True)
+                decoded = base64.b64decode(compact[:sample_len], altchars=b'-_', validate=True)
                 sample = decoded.decode("utf-8")
             except (ValueError, UnicodeDecodeError):
                 sample = ""
@@ -108,7 +108,7 @@ class StreamingChunkParser:
             encoded = combined[:complete_len]
             b64_remainder = combined[complete_len:]
             try:
-                return base64.b64decode(encoded, validate=True)
+                return base64.b64decode(encoded, altchars=b'-_', validate=True)
             except ValueError:
                 return b""
 
@@ -137,7 +137,7 @@ class StreamingChunkParser:
         if mode == "base64" and b64_remainder:
             padded = b64_remainder + (b"=" * (-len(b64_remainder) % 4))
             try:
-                decoded_bytes += base64.b64decode(padded, validate=True)
+                decoded_bytes += base64.b64decode(padded, altchars=b'-_', validate=True)
             except ValueError:
                 pass
             b64_remainder = b""
@@ -155,9 +155,16 @@ class StreamingChunkParser:
     def parse_bytes(self, raw_bytes: bytes, source_info: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """Parse a complete raw or Base64-encoded byte payload into records."""
         try:
-            decoded = base64.b64decode(raw_bytes.strip(), validate=True)
+            # Standard/URL-safe Base64 may be unpadded or line-wrapped.
+            # Keep malformed text on the ordinary raw-input path.
+            compact = self._compact_base64(raw_bytes)
+            decoded = base64.b64decode(
+                compact + b"=" * (-len(compact) % 4),
+                altchars=b"-_",
+                validate=True,
+            )
             text = decoded.decode("utf-8", errors="ignore")
-        except Exception:
+        except (ValueError, UnicodeDecodeError):
             text = raw_bytes.decode("utf-8", errors="ignore")
 
         records = []
