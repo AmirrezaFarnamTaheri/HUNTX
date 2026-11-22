@@ -31,11 +31,11 @@ function fixture() {
   };
 }
 
-test("subscription hub recognises all 20 named protocols without an Others bucket", () => {
-  assert.equal(REQUIRED_PROTOCOLS.length, 20);
+test("subscription hub recognises all 21 named protocols without an Others bucket", () => {
+  assert.equal(REQUIRED_PROTOCOLS.length, 21);
   for (const name of ["vless", "vmess", "trojan", "anytls", "hysteria", "hysteria2",
     "socks", "http", "shadowsocks", "shadowsocksr", "tuic", "wireguard",
-    "ssh", "shadowtls", "naive", "juicity", "mieru", "warp", "dns", "dnstt"]) {
+    "ssh", "shadowtls", "naive", "juicity", "mieru", "warp", "dns", "dnstt", "slipnet"]) {
     assert.ok(REQUIRED_PROTOCOLS.includes(name), name);
   }
   assert.ok(!REQUIRED_PROTOCOLS.includes("others"));
