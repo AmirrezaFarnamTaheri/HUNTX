@@ -78,7 +78,8 @@ def test_historical_feeds_publish_from_unchanged_verified_cumulative_history(tmp
     assert index["scope"] == "all_time_cumulative"
     assert index["generated_at"] == ARCHIVED_AT
     assert index["health_status"] == "historical_unverified"
-    assert index["limit_per_protocol"] == 100
+    assert index["limit_per_protocol"] == 200
+    assert index["protocol_limits"] == {"vless": 150, "shadowsocks": 150}
     assert index["protocols"]["trojan"]["count"] == 1
     assert index["protocols"]["socks"]["count"] == 1
     assert index["protocols"]["slipnet"]["count"] == 0
