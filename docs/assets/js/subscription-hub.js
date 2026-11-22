@@ -88,6 +88,8 @@ export function normalizeSubscriptionIndex(payload) {
   ) {
     throw new Error("Invalid historical subscription index");
   }
+  const categoryLimit = (name) => Object.hasOwn(payload.protocol_limits, name)
+    ? payload.protocol_limits[name] : payload.limit_per_protocol;
   const keys = Object.keys(payload.protocols);
   if (keys.length > 128 || keys.some((name) =>
     !PROTOCOL_NAME.test(name) || name === "others" || name === "all" || name === "index"
@@ -100,7 +102,7 @@ export function normalizeSubscriptionIndex(payload) {
     const entry = payload.protocols[name];
     const meta = entry === undefined
       ? { count: null, published: false }
-      : checkEntry(name, entry, false, payload.protocol_limits[name] ?? payload.limit_per_protocol);
+      : checkEntry(name, entry, false, categoryLimit(name));
     return { name, label: Object.hasOwn(LABELS, name) ? LABELS[name] : name,
       limit: payload.protocol_limits[name] ?? payload.limit_per_protocol, ...meta };
   });
