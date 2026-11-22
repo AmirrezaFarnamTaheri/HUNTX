@@ -24,7 +24,18 @@ it is an alias within the same protocol family: e.g. `hy2` →
 `shadowsocks`, and `https` → `http`. There is **no Others category**.
 Unknown URI schemes and unvalidated ordinary web links are not accepted as
 proxy subscriptions. Binary/opaque configuration formats are intentionally
-not forced into invalid URI subscriptions.
+not forced into invalid URI subscriptions. Supported named families include
+Trojan, SOCKS4/5, Hysteria 1/2, AnyTLS, DNS, DNSTT, HTTP(S), and the
+SlipNet cleartext share format. These share categories are dynamically
+derived from the router registry, and the client UI appends new categories
+found in the signed publication index.
+
+SlipNet's `slipnet://` link is a **base64-encoded, pipe-delimited profile**,
+not an ordinary host:port proxy URI. Only syntactically validated plain share
+profiles from the existing public discovery pipeline are considered. Private
+`slipnet-enc://` single-recipient shares and
+`slipnet-bundle-enc://` encrypted backups are **excluded**. Do not publish
+private SlipNet credentials: base64 encoding does not protect secrets.
 
 The canonical published files are also mirrored at
 `/HUNTX/artifacts/dev/latest/`, where every file is included in the
