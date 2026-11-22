@@ -253,11 +253,21 @@ class BuildPipeline:
             line = raw.strip()
             if not line:
                 continue
-            entry = self._decode_single_line(line)
-            if entry is None:
+            # This is a routing-only pass. Do not base64/JSON-decode VMess,
+            # SSR or Shadowsocks, nor parse URI query parameters again: the
+            # derivative/validation stages own that work. A simple scheme
+            # lookup is sufficient to select the unchanged subscription line.
+            scheme, separator, _ = line.partition('://')
+            if not separator:
                 continue
-            protocol = str(entry.get('protocol', '')).lower()
-            if not protocol or protocol not in _PROTOCOL_FEED_NAMES:
+            normalized = scheme.lower()
+            protocol = {
+                'vmess': 'vmess',
+                'ss': 'shadowsocks',
+                'ssr': 'shadowsocksr',
+                'mieru': 'mieru',
+            }.get(normalized) or _STANDARD_PROTOCOLS.get(normalized)
+            if protocol not in _PROTOCOL_FEED_NAMES:
                 continue
             if line not in seen[protocol]:
                 seen[protocol].add(line)
