@@ -21,6 +21,7 @@ import threading
 import tempfile
 import time
 from time import monotonic as _clock_monotonic
+from time import time as _wall_time
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -227,7 +228,7 @@ def verified_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     budget = _sweep_budget_seconds()
     cutoff = _clock_monotonic() + budget
     ordered = iter(_probe_order(
-        list(candidates), historical, int(time.time() // 7200),
+        list(candidates), historical, int(_wall_time() // 7200),
     ))
     results: dict[str, dict[str, Any]] = {}
     reasons: Counter[str] = Counter()
