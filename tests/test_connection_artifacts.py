@@ -83,3 +83,18 @@ def test_parser_rejects_unbounded_inputs_without_allocating_typed_records():
         assert False, "oversized input must be rejected"
     except ValueError:
         pass
+
+
+def test_typed_artifacts_cannot_be_published_as_generic_proxy_feeds():
+    from huntx.formats.registry import FormatRegistry
+
+    registry = FormatRegistry()
+    handler = ConnectionArtifactsHandler()
+    registry.register(handler)
+    assert registry.get("connection_artifacts") is handler
+    assert not registry.can_build("connection_artifacts")
+    try:
+        handler.build([])
+        assert False, "raw credential-bearing artifacts must not be published"
+    except NotImplementedError:
+        pass
