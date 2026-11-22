@@ -25,6 +25,8 @@ _RELEASE_TAG_API = "https://api.github.com/repos/sapics/ip-location-db/releases/
 _METADATA_MAX_BYTES = 1024 * 1024
 _USER_AGENT = "HUNTX-geolocation-publisher/1.0"
 _MAX_BYTES = 96 * 1024 * 1024
+
+
 class GeoIPUnavailableError(RuntimeError):
     """Verified upstream data could not be retrieved over the network."""
 
