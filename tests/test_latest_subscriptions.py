@@ -1,4 +1,4 @@
-"""Regression tests for the persistent latest-100 URI subscriptions."""
+"""Regression tests for the persistent latest per-protocol URI subscriptions."""
 from __future__ import annotations
 
 import base64
@@ -51,18 +51,18 @@ class LatestSubscriptionTests(unittest.TestCase):
     def test_per_type_limit_keeps_newest_even_when_old_records_have_no_ttl(self):
         with tempfile.TemporaryDirectory() as temp:
             destination = Path(temp) / "latest"
-            manifest = {_vless(i): i + 1 for i in range(105)}
+            manifest = {_vless(i): i + 1 for i in range(205)}
             manifest["trojan://password@old.example:443"] = 1
             index = write_latest_subscriptions(destination, manifest, "2026-11-21T00:00:00Z")
             vless = (destination / "vless.txt").read_text().splitlines()
-            self.assertEqual(len(vless), 100)
-            self.assertEqual(vless[0], _vless(104))
-            self.assertEqual(vless[-1], _vless(5))
-            self.assertNotIn(_vless(4), vless)
+            self.assertEqual(len(vless), 150)
+            self.assertEqual(vless[0], _vless(204))
+            self.assertEqual(vless[-1], _vless(55))
+            self.assertNotIn(_vless(54), vless)
             self.assertEqual((destination / "trojan.txt").read_text().splitlines(),
                              ["trojan://password@old.example:443"])
-            self.assertEqual(index["aggregate"]["count"], 101)
-            self.assertEqual(len((destination / "all.txt").read_text().splitlines()), 101)
+            self.assertEqual(index["aggregate"]["count"], 151)
+            self.assertEqual(len((destination / "all.txt").read_text().splitlines()), 151)
             validate_latest_subscriptions(destination)
 
     def test_protocol_specific_capacity_200_except_vless_and_shadowsocks_150(self):
