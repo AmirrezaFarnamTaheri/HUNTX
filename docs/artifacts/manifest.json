@@ -1,6 +1,276 @@
 {
-  "artifact_count": 17,
+  "artifact_count": 62,
   "artifacts": [
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/all.txt",
+      "sha256": "4890f3ebfe169076935383b487e08bd2b8cbe836e53f78eca2908b9b1d859627",
+      "size": 132797
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/all_base64.txt",
+      "sha256": "850cb5bfe944a1829ac01806e8c4afa4d6c3ef12b7c3669a58f477d37dc22abe",
+      "size": 177065
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/anytls.txt",
+      "sha256": "5f6cc65f39e8de52b7c1c754050676ff9c1903f2975275422d8cb9da791d297d",
+      "size": 3027
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/anytls_base64.txt",
+      "sha256": "6ed469904914aa2f56a8aceb12ca7e2d119c43222634e63dd49ee6a4ec4a922f",
+      "size": 4037
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/dns.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/dns_base64.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/dnstt.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/dnstt_base64.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/http.txt",
+      "sha256": "c1398d6a1a7320b24c38477bdaa51e055b4adde4d277a3c5d157d6810834c3fe",
+      "size": 4884
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/http_base64.txt",
+      "sha256": "11fe56176ff3203508f681e63f5dbff5e71e4769117fc2d1e42123a60a2301d7",
+      "size": 6513
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/hysteria.txt",
+      "sha256": "197cc198714926b4c1b9e9fa656c3997e933bbd4e471585f7d3ddb1b98626954",
+      "size": 1182
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/hysteria2.txt",
+      "sha256": "b6f1173ba26106b2e147bab2c8fff40a24f72ae74935756e2c3f7c32ffffe90f",
+      "size": 11969
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/hysteria2_base64.txt",
+      "sha256": "4cd262aae3e03bacc8118f0c9b7757f2130ad3520cc9cba4eb9e35e2b3d20a13",
+      "size": 15961
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/hysteria_base64.txt",
+      "sha256": "c4309488445fd74e737cd734d38844938ed91977ca6480eb79c932e097b02539",
+      "size": 1577
+    },
+    {
+      "media_type": "application/json",
+      "path": "dev/latest/index.json",
+      "sha256": "9a20e43ea2133f107417c492c62f358713279ea96111d453ab3e1ef7c3513015",
+      "size": 4530
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/juicity.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/juicity_base64.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/mieru.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/mieru_base64.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/naive.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/naive_base64.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/shadowsocks.txt",
+      "sha256": "2d625149ec3144086ea321dd496e735b722dfec52f681c273dff2f046a8f0120",
+      "size": 12022
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/shadowsocks_base64.txt",
+      "sha256": "e7800360667096b8c36062c97c71f8147277bd5a47afd8ed9bfaaf3ce72602e2",
+      "size": 16033
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/shadowsocksr.txt",
+      "sha256": "3d7f35b43c840c13d490fce36cd49be1b6c943dfe5576549085212d675e5667d",
+      "size": 7062
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/shadowsocksr_base64.txt",
+      "sha256": "5811962f45fc4f80f26f44dddf1b23b95cf6a9b91241cfff969a74241ed9abce",
+      "size": 9417
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/shadowtls.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/shadowtls_base64.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/slipnet.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/slipnet_base64.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/socks.txt",
+      "sha256": "ce048c2e851c5108c4042ccffa6494a99900cea83e191314f58b2831f34355e8",
+      "size": 3238
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/socks_base64.txt",
+      "sha256": "2b67379879e62d9bd458683d785c734a6070c35c3bacf12816b58b50d0ce17f6",
+      "size": 4321
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/ssh.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/ssh_base64.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/trojan.txt",
+      "sha256": "d9328436da2b31ddf8680d2f55d276a6b84cbf30bec93fd49296b6f70082f5b8",
+      "size": 14905
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/trojan_base64.txt",
+      "sha256": "49d8133a6e61cab43b6ac3ccb436e409d33e1fa6dc2c98ebc363049a1068613c",
+      "size": 19877
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/tuic.txt",
+      "sha256": "a99791e1659022eb7409cbb3b73042f2deb4fd196c7ae530e04776345335a6b8",
+      "size": 2352
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/tuic_base64.txt",
+      "sha256": "78543147223b18a0cfa6578b2a484f3c6ff44609eb63419cc868b4928f7d2ba9",
+      "size": 3137
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/vless.txt",
+      "sha256": "80d015b4257ae81fc6bfbbcd765dc848f3e6386db997853bbbd205e8eb61f3c7",
+      "size": 19436
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/vless_base64.txt",
+      "sha256": "affe1ead103ed7d1afb750076bd0daac0c7a951ae6deba58c58dba17acbe1366",
+      "size": 25917
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/vmess.txt",
+      "sha256": "635dd021aeab1cd5b9865df54262530680d3f821f3a7a74f3fe67404ee7a7c65",
+      "size": 34988
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/vmess_base64.txt",
+      "sha256": "1106b482acb992735422be3373165001392fa159a36f63c27f7eca6108a91bb2",
+      "size": 46653
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/warp.txt",
+      "sha256": "925a2fc5f1227857773bda102ceb8f912043c1c213e47efd00dc1c54ceedd822",
+      "size": 1053
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/warp_base64.txt",
+      "sha256": "db703f08784317a10ae33e6d1759c74e4bc7fa1fcc7590a53c0c48287a1907e4",
+      "size": 1405
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/wireguard.txt",
+      "sha256": "edcd048451a64cc01875fa48e91024bacd47871abbd87ee4bb259a1314c2b719",
+      "size": 16679
+    },
+    {
+      "media_type": "text/plain",
+      "path": "dev/latest/wireguard_base64.txt",
+      "sha256": "53b2994ed80d8e0adbc4160b50ab701eb7bc03583e42f3baf682466c552aa34d",
+      "size": 22241
+    },
     {
       "media_type": "application/json",
       "path": "dev/proxies.json",

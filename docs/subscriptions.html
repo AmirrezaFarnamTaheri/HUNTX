@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en" data-design="signal">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1723">
+  <meta name="description" content="Browse HUNTX's per-protocol historical latest-100 proxy subscriptions, combined aggregate, and download formats.">
+  <title>Subscriptions · HUNTX</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="assets/css/subscription-library.css">
+</head>
+<body>
+  <a class="skip-link" href="#subscription-main">Skip to subscriptions</a>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="HUNTX product navigation">
+      <a class="brand" href="index.html#radar" aria-label="HUNTX Dashboard">
+        <span class="brand-symbol" aria-hidden="true"><span></span><span></span><span></span></span>
+        <span class="brand-type"><strong>HUNT<span>X</span></strong><small>NETWORK INTELLIGENCE</small></span>
+      </a>
+      <p class="sidebar-section-label">WORKSPACE</p>
+      <nav class="side-nav" aria-label="Primary navigation">
+        <a href="index.html#radar"><span class="nav-icon" aria-hidden="true">◉</span><span>Dashboard</span></a>
+        <a href="index.html#proxies"><span class="nav-icon" aria-hidden="true">≋</span><span>Proxy explorer</span></a>
+        <a href="subscriptions.html" aria-current="page"><span class="nav-icon" aria-hidden="true">↗</span><span>Subscriptions</span><span class="nav-current" aria-hidden="true"></span></a>
+        <a href="index.html#artifacts"><span class="nav-icon" aria-hidden="true">▤</span><span>Downloads</span></a>
+        <a href="index.html#studio"><span class="nav-icon" aria-hidden="true">⌘</span><span>Subscription studio</span></a>
+        <a href="index.html#decoder"><span class="nav-icon" aria-hidden="true">⌁</span><span>Protocol inspector</span></a>
+      </nav>
+      <div class="sidebar-section-label tools-label">TOOLS &amp; SUPPORT</div>
+      <nav class="side-nav tools-nav" aria-label="Tools and support">
+        <a href="network-doctor.html"><span class="nav-icon" aria-hidden="true">✳</span><span>Network Doctor</span></a>
+        <a href="architecture.html"><span class="nav-icon" aria-hidden="true">⌬</span><span>Architecture</span></a>
+      </nav>
+      <div class="sidebar-note">
+        <span class="sidebar-note-dot" aria-hidden="true"></span>
+        <p><strong>Historical archive</strong><span>Discovered configurations, not guaranteed active connections.</span></p>
+      </div>
+    </aside>
+
+    <div class="content-frame">
+      <header class="topbar">
+        <div class="breadcrumb" aria-label="Breadcrumb"><a href="index.html#radar">HUNTX</a><span aria-hidden="true">/</span><span>Subscriptions</span></div>
+        <div class="topbar-links">
+          <a href="index.html#radar" class="topbar-back">← <span>Dashboard</span></a>
+          <a href="https://github.com/AmirrezaFarnamTaheri/HUNTX" class="topbar-github" target="_blank" rel="noopener noreferrer">GitHub <span aria-hidden="true">↗</span></a>
+        </div>
+      </header>
+
+      <main id="subscription-main" class="main-content">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span> HUNTX / SUBSCRIPTION LIBRARY</p>
+            <h1>Subscription library<span class="heading-dot">.</span></h1>
+            <p class="lead">One place for every protocol. Browse up to <strong>100 newest discovered proxies per protocol</strong>, or take the full combined collection once the historical index is published. Includes Trojan, SOCKS4/5, Hysteria, AnyTLS, DNS/DNSTT, SlipNet, HTTP(S), and all other validated HUNTX families.</p>
+          </div>
+          <div class="heading-aside" aria-label="Subscription history note">
+            <span class="aside-marker" aria-hidden="true">↗</span>
+            <span>DISCOVERY-BASED<br>NO AGE EXPIRATION</span>
+          </div>
+        </div>
+
+        <section class="direction-panel" aria-labelledby="direction-title">
+          <div class="direction-copy">
+            <p class="eyebrow eyebrow-small">THREE DESIGN DIRECTIONS</p>
+            <h2 id="direction-title">Choose your view</h2>
+            <p id="design-description">Signal · technical control room</p>
+          </div>
+          <div class="direction-options" role="group" aria-label="Visual design directions">
+            <button type="button" data-design-option="signal" aria-pressed="true"><span class="swatch signal-swatch" aria-hidden="true"></span><span>Signal</span></button>
+            <button type="button" data-design-option="canvas" aria-pressed="false"><span class="swatch canvas-swatch" aria-hidden="true"></span><span>Canvas</span></button>
+            <button type="button" data-design-option="ledger" aria-pressed="false"><span class="swatch ledger-swatch" aria-hidden="true"></span><span>Ledger</span></button>
+          </div>
+        </section>
+
+        <section class="metrics" aria-label="Subscription snapshot statistics">
+          <div class="metric-card"><p>In the combined feed</p><strong id="aggregate-count" aria-live="polite">—</strong><span>All per-protocol selections together</span></div>
+          <div class="metric-card"><p>Protocol categories</p><strong id="protocol-count" aria-live="polite">—</strong><span>Separate feeds, no “Others” bucket</span></div>
+          <div class="metric-card published-metric"><p>Last published snapshot</p><strong id="published-at">Not available</strong><span>UTC · historical first-discovery ordering</span></div>
+        </section>
+
+        <section class="master-feed" aria-labelledby="master-title">
+          <div class="master-intro">
+            <div class="master-orbit" aria-hidden="true"><span class="orbit-one"></span><span class="orbit-two"></span><span class="orbit-core">ALL</span></div>
+            <div>
+              <span class="master-tag">MASTER SUBSCRIPTION</span>
+              <h2 id="master-title">Everything, together.</h2>
+              <p>One aggregate built from <em>every</em> protocol's top 100. There is no global 100-proxy cap, and no protocol types are combined into an “Others” category.</p>
+            </div>
+          </div>
+          <div class="master-actions">
+            <a class="action-button action-primary" id="master-text-download" aria-disabled="true" download="all.txt">Download all.txt <span aria-hidden="true">↗</span></a>
+            <a class="action-button action-secondary" id="master-base64-download" aria-disabled="true" download="all_base64.txt">Download Base64 <span aria-hidden="true">↓</span></a>
+            <button type="button" class="action-button action-copy" data-master-copy="text" disabled>Copy aggregate URL</button>
+            <a class="manifest-link" id="master-index-link" aria-disabled="true">Inspect index.json <span aria-hidden="true">↗</span></a>
+          </div>
+        </section>
+
+        <div class="trust-notice" id="subscription-trust">
+          <span class="trust-icon" aria-hidden="true">i</span>
+          <p><strong>Historical, not verified live.</strong> These are discovered connections retained without an age cutoff. A listed proxy may have expired or stopped working. Plain SlipNet profiles may contain credentials: only use links already made public by their owners; private or encrypted SlipNet backups are never included. For current authenticated publication evidence, use <a href="index.html#artifacts">Artifacts &amp; Feeds</a>.</p>
+        </div>
+
+        <section class="protocols-section" aria-labelledby="protocols-title">
+          <div class="protocols-header">
+            <div>
+              <p class="eyebrow eyebrow-small">EXPLORE BY TYPE</p>
+              <h2 id="protocols-title">Protocol subscriptions</h2>
+              <p>Once the verified historical index is published, each protocol has its own plain-text and Base64 download. Until then, counts and download links remain unavailable.</p>
+            </div>
+            <a href="index.html#artifacts" class="library-link">Browse all artifacts <span aria-hidden="true">↗</span></a>
+          </div>
+
+          <div class="filter-bar">
+            <div class="search-field">
+              <label for="subscription-search">Find a protocol</label>
+              <div class="search-box">
+                <span class="search-icon" aria-hidden="true">⌕</span>
+                <input id="subscription-search" type="search" autocomplete="off" spellcheck="false" placeholder="Search VLESS, Trojan, WireGuard…">
+                <button type="button" id="clear-subscription-search" hidden aria-label="Clear protocol search">Clear</button>
+              </div>
+            </div>
+            <label class="available-toggle"><input id="available-subscriptions" type="checkbox"><span>Available only</span></label>
+          </div>
+
+          <div class="results-row">
+            <p id="protocol-result-summary" role="status" aria-live="polite">Loading protocol feed metadata…</p>
+            <span class="capacity-legend"><span aria-hidden="true"></span> Per-type capacity / 100</span>
+          </div>
+          <div id="subscription-status" class="load-status" role="status" aria-live="polite">Loading published subscription metadata…</div>
+          <button type="button" class="retry-button" id="subscription-retry" hidden>Retry loading the index</button>
+          <div id="protocol-grid" class="protocol-grid" aria-live="off"></div>
+          <p id="copy-status" class="copy-status" role="status" aria-live="polite"></p>
+        </section>
+
+        <footer class="page-footer">
+          <p>HUNTX · Open network intelligence, with evidence labels you can trust.</p>
+          <nav aria-label="Footer navigation"><a href="index.html#radar">Dashboard</a><a href="index.html#artifacts">Downloads</a><a href="network-doctor.html">Help</a></nav>
+        </footer>
+      </main>
+    </div>
+  </div>
+  <script type="module" src="assets/js/subscription-library.js"></script>
+  <script>
+    if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+      window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+    }
+  </script>
+</body>
+</html>
