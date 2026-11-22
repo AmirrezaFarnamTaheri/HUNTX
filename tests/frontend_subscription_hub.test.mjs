@@ -121,6 +121,7 @@ test("extension labels cannot resolve inherited Object.prototype properties", ()
   const categories = normalizeSubscriptionIndex(data).categories;
   const extension = categories.find((item) => item.name === "constructor");
   assert.equal(extension.label, "constructor");
+  assert.equal(extension.limit, 200, "prototype properties cannot override caps");
   assert.deepEqual(filterProtocols(categories, "constructor").map((item) => item.name),
     ["constructor"]);
 });
