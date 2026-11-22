@@ -51,6 +51,10 @@ def decide_format(filename: str, content: bytes) -> str:
     text_preview = content[:2048].decode('utf-8', errors='ignore')
     if _contains_proxy_uri(text_preview):
         return 'npvt'
+    # Encrypted SlipNet shares have a dedicated parser and must not be
+    # mistaken for an opaque attachment, even with Telegram text around them.
+    if 'slipnet-enc://' in text_preview.lower():
+        return 'slipnet'
     clean = text_preview.strip()
     if clean and '://' not in clean and (' ' not in clean) and (len(clean) > 20):
         try:
