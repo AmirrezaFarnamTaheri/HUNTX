@@ -40,6 +40,11 @@ _TEXT_BATCH_SIZE = 100
 # Max reconnect retries per pass when connection drops
 _MAX_RECONNECT_RETRIES = 10
 _RECONNECT_DELAYS = (2, 2, 4, 4, 8, 8, 16, 16, 32, 32)  # seconds per retry attempt
+MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024
+_DOWNLOAD_REQUEST_BYTES = 64 * 1024
+_MAX_FLOOD_WAIT_SECONDS = 300
+
+
 def _history_request_kwargs(min_id: int, cutoff: float) -> Dict[str, Any]:
     """Ask Telegram to skip old history on a new source, preserving ID cursors.
 
@@ -54,11 +59,6 @@ def _history_request_kwargs(min_id: int, cutoff: float) -> Dict[str, Any]:
             cutoff - 1, tz=timezone.utc,
         )
     return options
-
-
-MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024
-_DOWNLOAD_REQUEST_BYTES = 64 * 1024
-_MAX_FLOOD_WAIT_SECONDS = 300
 
 
 async def download_media_bounded(client: Any, media: Any) -> Optional[bytes]:
