@@ -58,3 +58,22 @@ def test_vmess_identity_migration_ignores_legacy_fragment():
     ).decode()
     assert canonical == expected
     assert hashlib.sha256(canonical.encode()).hexdigest() == hashlib.sha256(expected.encode()).hexdigest()
+
+
+def test_restored_versioned_db_reinstalls_lifecycle_build_lookup_index(tmp_path):
+    """Old 13+ state snapshots must receive the hot-path index on reopen."""
+    path = tmp_path / "restored.db"
+    db = open_db(path)
+    with db.connect() as conn:
+        rows = conn.execute("PRAGMA index_info(idx_proxy_lifecycle_build_lookup)").fetchall()
+        assert [row["name"] for row in rows][:3] == [
+            "unique_hash", "record_type", "lifecycle_status"
+        ]
+        conn.execute("DROP INDEX idx_proxy_lifecycle_build_lookup")
+        assert conn.execute("PRAGMA user_version").fetchone()[0] >= 13
+    reopened = open_db(path)
+    with reopened.connect() as conn:
+        assert any(
+            row["name"] == "idx_proxy_lifecycle_build_lookup"
+            for row in conn.execute("PRAGMA index_list(proxy_lifecycle)")
+        )
