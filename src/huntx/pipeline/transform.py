@@ -8,6 +8,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from ..config.schema import SourceConfig
 from ..core.router import decide_format
+from ..formats.connection_artifacts import (
+    ConnectionArtifactsHandler,
+    may_contain_connection_artifacts,
+)
 from ..core.endpoint_intelligence import PrefixIntelligence, describe_proxy_endpoint
 from ..formats.registry import FormatRegistry
 from ..state.repo import StateRepo
@@ -139,6 +143,14 @@ class TransformPipeline:
                 )
                 return result
 
+            # Preserve nonstandard Telegram artifacts as distinct typed records.
+            # They must never silently become Xray/sing-box compatible nodes.
+            typed_records = []
+            if fmt_id != "connection_artifacts" and may_contain_connection_artifacts(data):
+                typed_records = ConnectionArtifactsHandler().parse(
+                    data, {"filename": filename, "source_id": source_id}
+                )
+
             record_rows = []
             # The per-file limit bounds each *database write chunk*, not
             # the number of valid configurations in an approved subscription.
@@ -170,6 +182,15 @@ class TransformPipeline:
                         json.dumps(payload, default=str),
                     )
                 )
+
+            for typed in typed_records:
+                record_rows.append((
+                    raw_hash,
+                    observation_id,
+                    "connection_artifacts",
+                    typed["unique_hash"],
+                    json.dumps(typed["data"], default=str),
+                ))
 
             result["record_rows"] = record_rows
             result["records"] = len(record_rows)
