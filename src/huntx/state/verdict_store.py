@@ -133,7 +133,7 @@ def get_records_for_governed_build(
                   SELECT 1 FROM proxy_lifecycle p INDEXED BY idx_proxy_lifecycle_build_lookup
                   WHERE p.unique_hash = r.unique_hash
                     AND p.record_type = r.record_type
-                    AND {PROXY_UNPUBLISHABLE_SQL}
+                    AND ({PROXY_UNPUBLISHABLE_SQL})
               )
               {verdict_where}
         ), dedup AS (
