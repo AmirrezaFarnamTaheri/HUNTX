@@ -318,7 +318,6 @@ def _validate_naive(uri: str) -> bool:
     return len(headers) == 1 and _valid_naive_headers(headers[0])
 
 
-
 # SlipNet's plain share format is *not* an endpoint URL: the official Android
 # exporter base64-encodes a pipe-delimited profile (v1–v30). Treat encrypted
 # single-recipient and bundle backups as different, unsupported schemes.
