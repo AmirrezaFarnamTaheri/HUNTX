@@ -112,6 +112,8 @@ test("dedicated hub is linked from dashboard and preserved generator", async () 
   assert.match(page, /data-design="signal"/);
   assert.match(page, /id="protocol-grid"/);
   assert.match(page, /id="subscription-search"/);
+  assert.match(page, /SlipNet/);
+  assert.match(page, /DNS\/DNSTT/);
   assert.match(page, /assets\/js\/subscription-library\.js/);
   assert.match(page, /assets\/css\/subscription-library\.css/);
   assert.match(page, /index\.html#artifacts/);
