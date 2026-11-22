@@ -278,6 +278,8 @@ def extract_connection_artifacts(text: str) -> list[dict[str, Any]]:
 class ConnectionArtifactsHandler:
     """Parse-only typed records; intentionally no subscription builder."""
 
+    parse_only = True
+
     @property
     def format_id(self) -> str:
         return "connection_artifacts"
@@ -295,3 +297,7 @@ class ConnectionArtifactsHandler:
             {"unique_hash": hashlib.sha256((item["protocol"] + "\0" + item["raw"]).encode("utf-8")).hexdigest(), "data": item}
             for item in extract_connection_artifacts(text)
         ]
+
+    def build(self, records: list[dict[str, Any]]) -> bytes:
+        """Explicitly prohibit accidental publication of extracted secrets."""
+        raise NotImplementedError("connection artifacts are parse-only")
