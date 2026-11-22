@@ -19,4 +19,8 @@ def normalize_text(text: str) -> str:
         return ""
     if text.isascii():
         return text.strip()
+    # Unicode comments sometimes appear on otherwise ASCII proxy URIs.
+    # Avoid caching credential-bearing/large payloads even in that case.
+    if "://" in text or "@" in text or "=" in text or len(text) > 128:
+        return unicodedata.normalize("NFKC", text).strip()
     return _normalize_unicode(text)
