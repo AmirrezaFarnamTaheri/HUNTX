@@ -36,7 +36,7 @@ def test_peer_source_candidates_are_deduplicated_and_not_production_ingested():
         and source["telegram_user"]["peer"].startswith("@")
     }
     assert not production.intersection(names)
-    for handle in ("whitedns", "whitedns_group", "v2cnf", "ConfigWireguard", "V2ray_Alpha", "ProxyMTProto"):
+    for handle in ("whitedns", "whitedns_group", "v2cnf", "ConfigWireguard", "V2ray_Alpha", "ProxyMTProto", "abc_vpn_configs", "OnlineVpnConfigs", "v2ray_free_conf", "ConfigOrg"):
         found = next(
             source for source in config["sources"]
             if source["type"] == "telegram_user" and source.get("telegram_user")
