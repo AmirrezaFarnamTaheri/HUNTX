@@ -66,26 +66,48 @@ func (n *NormalizedNode) IdentityKey() string {
 	if authKey == "" {
 		authKey = n.Password
 	}
-	raw := fmt.Sprintf("%s://%s@%s:%d%s?sec=%s&net=%s&sni=%s&cipher=%s&alpn=%s&fp=%s&pbk=%s&sid=%s&spx=%s&host=%s&service=%s&insecure=%t",
-		n.Protocol,
-		authKey,
-		strings.ToLower(n.Host),
-		n.Port,
-		n.Path,
-		n.Security,
-		n.Network,
-		strings.ToLower(n.SNI),
-		n.Cipher,
-		n.ALPN,
-		n.Fingerprint,
-		n.PublicKey,
-		n.ShortID,
-		n.SpiderX,
-		n.HostHeader,
-		n.ServiceName,
-		n.Insecure,
-	)
-	hash := sha256.Sum256([]byte(raw))
+	// Preserve the historical canonical serialization byte-for-byte, but
+	// avoid fmt.Sprintf's per-field boxing and temporary credential string.
+	// Most identity keys fit in this stack buffer; longer paths grow safely.
+	var inline [512]byte
+	key := inline[:0]
+	key = append(key, n.Protocol...)
+	key = append(key, "://"...)
+	key = append(key, authKey...)
+	key = append(key, '@')
+	key = append(key, strings.ToLower(n.Host)...)
+	key = append(key, ':')
+	key = strconv.AppendInt(key, int64(n.Port), 10)
+	key = append(key, n.Path...)
+	key = append(key, "?sec="...)
+	key = append(key, n.Security...)
+	key = append(key, "&net="...)
+	key = append(key, n.Network...)
+	key = append(key, "&sni="...)
+	key = append(key, strings.ToLower(n.SNI)...)
+	key = append(key, "&cipher="...)
+	key = append(key, n.Cipher...)
+	key = append(key, "&alpn="...)
+	key = append(key, n.ALPN...)
+	key = append(key, "&fp="...)
+	key = append(key, n.Fingerprint...)
+	key = append(key, "&pbk="...)
+	key = append(key, n.PublicKey...)
+	key = append(key, "&sid="...)
+	key = append(key, n.ShortID...)
+	key = append(key, "&spx="...)
+	key = append(key, n.SpiderX...)
+	key = append(key, "&host="...)
+	key = append(key, n.HostHeader...)
+	key = append(key, "&service="...)
+	key = append(key, n.ServiceName...)
+	key = append(key, "&insecure="...)
+	if n.Insecure {
+		key = append(key, "true"...)
+	} else {
+		key = append(key, "false"...)
+	}
+	hash := sha256.Sum256(key)
 	return hex.EncodeToString(hash[:])
 }
 
@@ -115,20 +137,24 @@ func NormalizeURI(rawURI string) (NormalizedNode, error) {
 		return NormalizedNode{}, errors.New("stream: empty URI")
 	}
 
-	lower := strings.ToLower(rawURI)
-
-	switch {
-	case strings.HasPrefix(lower, "vmess://"):
+	// Only the scheme needs case folding. Lowercasing a complete URI would
+	// scan and allocate for long mixed-case credentials or query values.
+	schemeEnd := strings.Index(rawURI, "://")
+	if schemeEnd < 0 {
+		return NormalizedNode{}, fmt.Errorf("stream: unsupported protocol in %q", rawURI)
+	}
+	switch strings.ToLower(rawURI[:schemeEnd]) {
+	case "vmess":
 		return parseVMess(rawURI)
-	case strings.HasPrefix(lower, "vless://"):
+	case "vless":
 		return parseVLess(rawURI)
-	case strings.HasPrefix(lower, "trojan://"):
+	case "trojan":
 		return parseTrojan(rawURI)
-	case strings.HasPrefix(lower, "ss://"):
+	case "ss":
 		return parseShadowsocks(rawURI)
-	case strings.HasPrefix(lower, "hysteria2://") || strings.HasPrefix(lower, "hy2://"):
+	case "hysteria2", "hy2":
 		return parseHysteria2(rawURI)
-	case strings.HasPrefix(lower, "tuic://"):
+	case "tuic":
 		return parseTUIC(rawURI)
 	default:
 		return NormalizedNode{}, fmt.Errorf("stream: unsupported protocol in %q", rawURI)

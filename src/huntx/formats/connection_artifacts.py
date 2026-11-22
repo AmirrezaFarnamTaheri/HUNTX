@@ -145,7 +145,7 @@ def _config_blocks(lines: list[str]):
             index += 1
             continue
         interface: dict[str, str] = {}
-        peer: dict[str, str] = {}
+        peers: list[dict[str, str]] = []
         selected = interface
         collected = ["[Interface]"]
         index += 1
@@ -154,7 +154,8 @@ def _config_blocks(lines: list[str]):
             if _WG_START_RE.search(line):
                 break
             if _WG_PEER_RE.fullmatch(line):
-                selected = peer
+                selected = {}
+                peers.append(selected)
                 collected.append("[Peer]")
                 index += 1
                 continue
@@ -162,16 +163,24 @@ def _config_blocks(lines: list[str]):
             if match:
                 key, value = match.groups()
                 selected[key] = value
-                collected.append(f"{key} = {value}")
+                # Preserve duplicate fields and their original ordering in
+                # the normalized raw block, even when the decoded map cannot.
+                collected.append(line)
                 index += 1
                 continue
             if not line or line.startswith("#"):
+                # Comments and blank lines are part of the shared config.
+                collected.append(line)
                 index += 1
                 continue
             break
-        if interface.get("PrivateKey") and peer.get("PublicKey") and peer.get("Endpoint"):
+        # Every peer must have the minimum fields. Never emit a partly parsed
+        # multi-peer configuration as if it were safe to use.
+        if (interface.get("PrivateKey") and peers
+                and all(peer.get("PublicKey") and peer.get("Endpoint") for peer in peers)):
             yield {"protocol": "wireguard", "raw": "\n".join(collected),
-                   "decoded": {"interface": interface, "peer": peer}, "encoding": "ini"}
+                   "decoded": {"interface": interface, "peer": peers[0], "peers": peers},
+                   "encoding": "ini"}
 
 
 def _manual_profiles(lines: list[str]):

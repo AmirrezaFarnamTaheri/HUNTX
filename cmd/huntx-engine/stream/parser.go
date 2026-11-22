@@ -138,7 +138,7 @@ func extractEmbeddedURIs(line string) []string {
 			for start > 0 {
 				ch := token[start-1]
 				if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
-					(ch >= '0' && ch <= '9') || ch == '+' {
+					(ch >= '0' && ch <= '9') || ch == '+' || ch == '-' {
 					start--
 					continue
 				}
@@ -212,9 +212,12 @@ func (sp *StreamParser) parseStream(
 	}
 
 	scanner := bufio.NewScanner(r)
+	maxEncodedBytes := sp.MaxDecodedBytes*2 + 16
 	maxToken := sp.BufSize * 4
-	if maxToken < sp.BufSize {
-		maxToken = sp.BufSize
+	// Long, single-line Base64 subscriptions and bounded sharing profiles
+	// must be accepted even with a small initial scanner allocation.
+	if maxToken < maxEncodedBytes {
+		maxToken = maxEncodedBytes
 	}
 
 	var bufPtr *[]byte
@@ -228,7 +231,6 @@ func (sp *StreamParser) parseStream(
 
 	records := make([]Record, 0, 64)
 	var base64Accumulator strings.Builder
-	maxEncodedBytes := sp.MaxDecodedBytes*2 + 16
 
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())

@@ -318,3 +318,39 @@ func TestEnrichURI(t *testing.T) {
 		t.Errorf("expected old remark replaced, got %q", enriched)
 	}
 }
+
+func TestIdentityKeyPreservesLegacyCanonicalHash(t *testing.T) {
+	node := stream.NormalizedNode{
+		Protocol:    "vless",
+		UUID:        "Synthetic-ID",
+		Host:        "EXAMPLE.org",
+		Port:        443,
+		Path:        "/link",
+		Security:    "reality",
+		Network:     "grpc",
+		SNI:         "SNI.Example.Org",
+		ALPN:        "h2",
+		Fingerprint: "chrome",
+		PublicKey:   "syntheticPBK",
+		ShortID:     "ab",
+		SpiderX:     "/spx",
+		HostHeader:  "front.example.org",
+		ServiceName: "grpc-service",
+		Insecure:    true,
+	}
+	const legacySHA256 = "3a5d5fc94575b59e0da6d40447ce9535c75718d982193543033e44eb8512d69c"
+	if got := node.IdentityKey(); got != legacySHA256 {
+		t.Fatalf("canonical identity changed: got %s, want %s", got, legacySHA256)
+	}
+}
+
+func TestNormalizeURIUppercaseSchemeKeepsCredentialCasing(t *testing.T) {
+	link := "VLESS://Synthetic-ID@EDGE.Example.Org:443?security=tls&pbk=MixedCasePublicKey#Node"
+	node, err := stream.NormalizeURI(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if node.UUID != "Synthetic-ID" || node.PublicKey != "MixedCasePublicKey" {
+		t.Fatalf("case-folded user credentials while normalizing scheme: %#v", node)
+	}
+}
