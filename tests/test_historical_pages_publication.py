@@ -119,12 +119,18 @@ def test_historical_publication_fails_closed_without_history(tmp_path):
 def test_historical_workflow_can_deploy_without_producer_release():
     workflow = (
         Path(__file__).resolve().parents[1]
-        / ".github/workflows/publish-historical-subscriptions.yml"
+        / ".github/workflows/publish-generated-outputs.yml"
     ).read_text(encoding="utf-8")
-    assert "push:" in workflow and "publish-historical-subscriptions.yml" in workflow
-    assert "publish-generated-outputs" in workflow  # Share publisher concurrency lock.
-    assert "upload-pages-artifact@" in workflow
-    assert "deploy-pages@" in workflow
-    assert "verify_deployed_pages.py" in workflow
-    assert workflow.index("verify_deployed_pages.py") < workflow.index("git push")
-    assert "release_eligible=false" not in workflow
+    assert "push:" in workflow
+    assert "scripts/publish_historical_subscriptions.py" in workflow
+    assert "Prepare sealed historical-only snapshot" in workflow
+    assert "python -m scripts.publish_historical_subscriptions" in workflow
+    assert "publish-generated-outputs" in workflow
+    # HUNTX forbids a second Pages uploader/deployer.
+    assert workflow.count("uses: actions/upload-pages-artifact@") == 1
+    assert workflow.count("uses: actions/deploy-pages@") == 1
+    assert "Verify public Pages snapshot integrity" in workflow
+    assert "Commit historical-only snapshot" in workflow
+    assert workflow.index("Verify public Pages snapshot integrity") < workflow.index(
+        "Commit historical-only snapshot"
+    )
