@@ -54,6 +54,8 @@ export function parseSubscriptionIndex(raw) {
     ? raw.protocol_limits[name] : raw.limit_per_protocol;
   let total = 0;
   const records = entries.map(([name, record]) => {
+    const limit = Object.hasOwn(raw.protocol_limits, name)
+      ? raw.protocol_limits[name] : raw.limit_per_protocol;
     if (!validSlug(name) || name === "all") throw new TypeError("Invalid protocol category");
     if (!record || typeof record !== "object"
       || !Number.isInteger(record.count) || record.count < 0 || record.count > (categoryLimit(name))) {
@@ -65,7 +67,7 @@ export function parseSubscriptionIndex(raw) {
       throw new TypeError("Invalid protocol file or checksum");
     }
     total += record.count;
-    return Object.freeze({ name, count: record.count, limit: raw.protocol_limits[name] ?? raw.limit_per_protocol });
+    return Object.freeze({ name, count: record.count, limit });
   });
   const master = raw.aggregate;
   if (!master || !Number.isInteger(master.count) || master.count !== total
