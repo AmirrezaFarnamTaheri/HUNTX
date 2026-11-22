@@ -114,10 +114,12 @@ def _decode_share(scheme: str, raw: str) -> dict[str, Any] | None:
                     "name": unquote(parsed.fragment)}
         if scheme == "lantern" and parsed.netloc == "private-server":
             params = parse_qs(parsed.query, keep_blank_values=True)
-            host, port, token = (params.get(k, [""])[0] for k in ("ip", "port", "token"))
-            if not token or not _endpoint_ok(host, port):
+            lantern_host, lantern_port, token = (
+                params.get(k, [""])[0] for k in ("ip", "port", "token")
+            )
+            if not token or not _endpoint_ok(lantern_host, lantern_port):
                 return None
-            return {"host": host, "port": int(port), "token": token,
+            return {"host": lantern_host, "port": int(lantern_port), "token": token,
                     "exp": params.get("exp", [""])[0],
                     "options": {k: v if len(v) > 1 else v[0] for k, v in params.items()}}
     except (ValueError, TypeError):
