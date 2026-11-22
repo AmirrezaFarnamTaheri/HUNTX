@@ -9,7 +9,8 @@ const protocols = [
 const directory = {
   schema_version: 1, scope: "all_time_cumulative",
   health_status: "historical_unverified", latest_by: "first_seen",
-  generated_at: "2026-11-21T10:00:00Z", limit_per_protocol: 100,
+  generated_at: "2026-11-21T10:00:00Z", limit_per_protocol: 200,
+    protocol_limits: { vless: 150, shadowsocks: 150 },
   protocols: Object.fromEntries(protocols.map((name) => [name, {
     count: name === "vless" ? 100 : name === "vmess" ? 24 : 0,
     file: name + ".txt", base64_file: name + "_base64.txt", sha256: "a".repeat(64)
