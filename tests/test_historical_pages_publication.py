@@ -49,7 +49,7 @@ def _previous_publication(tmp_path: Path) -> tuple[Path, Path]:
         '{"files":[],"total_files":0,"total_size":0}', encoding="utf-8"
     )
     (docs / "index.html").write_text(
-        '<html><nav><a href="network-doctor.html">Fix connection ↗</a></nav></html>',
+        '<html><nav>\n      <a href="network-doctor.html">Fix connection ↗</a>\n</nav></html>',
         encoding="utf-8",
     )
     (docs / "assets" / "js").mkdir(parents=True)
