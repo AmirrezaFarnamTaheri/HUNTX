@@ -16,7 +16,14 @@ def test_peer_source_candidates_are_deduplicated_and_not_production_ingested():
     assert data["status"] == "unverified_research_only"
     assert data["ingestion_enabled"] is False
     assert len(data["channels"]) >= 500
-    assert len(data["sources_examined"]) >= 7
+    assert len(data["sources_examined"]) >= 8
+    assert len(data["numeric_id_candidates"]) >= 25
+    numeric = data["numeric_id_candidates"]
+    assert len({item["peer"] for item in numeric}) == len(numeric)
+    assert all(item["trust_state"] == "candidate" for item in numeric)
+    assert all(item["source"].startswith("https://github.com/fifthidea/sub")
+               for item in numeric)
+
     candidates = data["channels"]
     names = [item["username"].lower() for item in candidates]
     assert len(names) == len(set(names))
@@ -36,6 +43,14 @@ def test_peer_source_candidates_are_deduplicated_and_not_production_ingested():
         and source["telegram_user"]["peer"].startswith("@")
     }
     assert not production.intersection(names)
+    production_numeric = {
+        source["telegram_user"]["peer"]
+        for source in config["sources"]
+        if source["type"] == "telegram_user" and source.get("telegram_user")
+        and source["telegram_user"]["peer"].startswith("-100")
+    }
+    assert not production_numeric.intersection(item["peer"] for item in numeric)
+
     for handle in ("whitedns", "whitedns_group", "v2cnf", "ConfigWireguard", "V2ray_Alpha", "ProxyMTProto", "abc_vpn_configs", "OnlineVpnConfigs", "v2ray_free_conf", "ConfigOrg"):
         found = next(
             source for source in config["sources"]
