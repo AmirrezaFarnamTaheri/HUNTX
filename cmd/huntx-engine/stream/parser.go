@@ -118,27 +118,34 @@ func extractEmbeddedURIs(line string) []string {
 		}
 		// "prefix:vless://..." and "[vless://...](...)" are common
 		// export wrappers. Search for a *supported* scheme, not arbitrary URLs.
-		for start := 0; start < len(token); start++ {
-			if start > 0 && ((token[start-1] >= 'A' && token[start-1] <= 'Z') ||
-				(token[start-1] >= 'a' && token[start-1] <= 'z') ||
-				(token[start-1] >= '0' && token[start-1] <= '9')) {
-				continue
+		offset := 0
+		for offset < len(token) {
+			relative := strings.Index(token[offset:], "://")
+			if relative < 0 {
+				break
 			}
-			for scheme := range supportedSchemes {
-				prefix := scheme + "://"
-				if len(token)-start < len(prefix) || !strings.EqualFold(token[start:start+len(prefix)], prefix) {
+			colon := offset + relative
+			start := colon
+			for start > 0 {
+				ch := token[start-1]
+				if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
+					(ch >= '0' && ch <= '9') || ch == '+' {
+					start--
 					continue
 				}
+				break
+			}
+			if start < colon {
 				end := len(token)
-				if at := strings.IndexAny(token[start:], ")]}>\"',;"); at >= 0 {
-					end = start + at
+				if trailing := strings.IndexAny(token[colon+3:], ")]}>\"',;"); trailing >= 0 {
+					end = colon + 3 + trailing
 				}
 				candidate := token[start:end]
 				if isSupportedProxyURI(candidate) {
 					found = append(found, candidate)
-					break
 				}
 			}
+			offset = colon + 3
 		}
 	}
 	return found
