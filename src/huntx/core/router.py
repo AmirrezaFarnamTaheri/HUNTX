@@ -34,6 +34,8 @@ def _format_by_extension(filename_lower: str) -> str | None:
 
 def _contains_proxy_uri(text: str) -> bool:
     """Return whether text contains a safe proxy endpoint URI."""
+    if "://" not in text:
+        return False
     return any((scheme in text for scheme in _PROXY_URI_PREFIXES)) or bool(_AUTH_HTTP_PROXY_RE.search(text))
 
 
