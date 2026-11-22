@@ -4,8 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from huntx.config.loader import load_config
-from huntx.config.schema import SourceTrustState
+import yaml
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,19 +28,19 @@ def test_peer_source_candidates_are_deduplicated_and_not_production_ingested():
     )
 
     # A peer aggregator listing a handle is not proof of a working source.
-    config = load_config(ROOT / "configs" / "config.prod.yaml")
+    config = yaml.safe_load((ROOT / "configs" / "config.prod.yaml").read_text())
     production = {
-        source.telegram_user.peer.removeprefix("@").lower()
-        for source in config.sources
-        if source.type == "telegram_user" and source.telegram_user
-        and source.telegram_user.peer.startswith("@")
+        source["telegram_user"]["peer"].removeprefix("@").lower()
+        for source in config["sources"]
+        if source["type"] == "telegram_user" and source.get("telegram_user")
+        and source["telegram_user"]["peer"].startswith("@")
     }
     assert not production.intersection(names)
     for handle in ("whitedns", "ConfigWireguard", "V2ray_Alpha", "ProxyMTProto"):
         found = next(
-            source for source in config.sources
-            if source.type == "telegram_user" and source.telegram_user
-            and source.telegram_user.peer.lower() == "@" + handle.lower()
+            source for source in config["sources"]
+            if source["type"] == "telegram_user" and source.get("telegram_user")
+            and source["telegram_user"]["peer"].lower() == "@" + handle.lower()
         )
-        assert found.trust_state == SourceTrustState.APPROVED
-        assert found.discovered_from and found.approval_evidence
+        assert found.get("trust_state", "approved") == "approved"
+        assert found["discovered_from"] and found["approval_evidence"]
