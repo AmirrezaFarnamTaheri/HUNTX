@@ -188,3 +188,47 @@ def test_full_synthetic_telegram_message_recovers_all_32_expected_artifacts():
     assert counts["cottendns_manual"] == 1
     assert counts["soar_manual"] == 1
     assert counts["soar22_manual"] == 1
+def test_multipeer_wireguard_keeps_each_peer_and_original_fields():
+    """A second [Peer] must not silently overwrite the first peer."""
+    message = """[Interface]
+# synthetic interface comment
+PrivateKey = cHJpdmF0ZQ==
+Address = 192.0.2.10/32
+
+[Peer]
+# synthetic first peer
+PublicKey = cHVibGljMQ==
+AllowedIPs = 10.0.0.0/8
+AllowedIPs = 192.168.0.0/16
+Endpoint = peer-one.example.org:51820
+
+[Peer]
+PublicKey = cHVibGljMg==
+Endpoint = peer-two.example.org:51820
+AllowedIPs = 0.0.0.0/0
+"""
+    records = extract_connection_artifacts(message)
+    assert len(records) == 1
+    record = records[0]
+    assert record["protocol"] == "wireguard"
+    assert record["encoding"] == "ini"
+    assert record["client_exportable"] is False
+    assert len(record["decoded"]["peers"]) == 2
+    assert record["decoded"]["peer"]["Endpoint"] == "peer-one.example.org:51820"
+    assert record["decoded"]["peers"][1]["Endpoint"] == "peer-two.example.org:51820"
+    assert "# synthetic interface comment" in record["raw"]
+    assert "# synthetic first peer" in record["raw"]
+    assert record["raw"].count("AllowedIPs =") == 3
+    assert record["raw"].count("[Peer]") == 2
+
+
+def test_partial_multipeer_wireguard_is_not_accepted_as_complete():
+    message = """[Interface]
+PrivateKey = cHJpdmF0ZQ==
+[Peer]
+PublicKey = cHVibGljMQ==
+Endpoint = peer-one.example.org:51820
+[Peer]
+PublicKey = cHVibGljMg==
+"""
+    assert extract_connection_artifacts(message) == []
