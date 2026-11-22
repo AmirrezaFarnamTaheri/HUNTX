@@ -1,14 +1,18 @@
 {
   "aggregate": {
     "base64_file": "all_base64.txt",
-    "count": 848,
+    "count": 1362,
     "file": "all.txt",
-    "sha256": "4890f3ebfe169076935383b487e08bd2b8cbe836e53f78eca2908b9b1d859627"
+    "sha256": "44579fd280e420b12b56a114e2b7039ab6b711c2e91dee3d57117a95ec71f447"
   },
   "generated_at": "2026-11-11T10:45:05.848392+00:00",
   "health_status": "historical_unverified",
   "latest_by": "first_seen",
-  "limit_per_protocol": 100,
+  "limit_per_protocol": 200,
+  "protocol_limits": {
+    "shadowsocks": 150,
+    "vless": 150
+  },
   "protocols": {
     "anytls": {
       "base64_file": "anytls_base64.txt",
@@ -30,9 +34,9 @@
     },
     "http": {
       "base64_file": "http_base64.txt",
-      "count": 100,
+      "count": 114,
       "file": "http.txt",
-      "sha256": "c1398d6a1a7320b24c38477bdaa51e055b4adde4d277a3c5d157d6810834c3fe"
+      "sha256": "6d8f4036cfe68c2fcc28c2f1ee1267b0c0b9fa70b06f3332e159034b570f5f2a"
     },
     "hysteria": {
       "base64_file": "hysteria_base64.txt",
@@ -42,9 +46,9 @@
     },
     "hysteria2": {
       "base64_file": "hysteria2_base64.txt",
-      "count": 100,
+      "count": 200,
       "file": "hysteria2.txt",
-      "sha256": "b6f1173ba26106b2e147bab2c8fff40a24f72ae74935756e2c3f7c32ffffe90f"
+      "sha256": "40b884ec302709a5915279f0f0fdf922540c74827e9beb80952994a83477354a"
     },
     "juicity": {
       "base64_file": "juicity_base64.txt",
@@ -66,9 +70,9 @@
     },
     "shadowsocks": {
       "base64_file": "shadowsocks_base64.txt",
-      "count": 100,
+      "count": 150,
       "file": "shadowsocks.txt",
-      "sha256": "2d625149ec3144086ea321dd496e735b722dfec52f681c273dff2f046a8f0120"
+      "sha256": "92500596757fa03f6dec2b9a1e52c8f99887e8b6a7defb7a01f0d15fa98c54e8"
     },
     "shadowsocksr": {
       "base64_file": "shadowsocksr_base64.txt",
@@ -90,9 +94,9 @@
     },
     "socks": {
       "base64_file": "socks_base64.txt",
-      "count": 100,
+      "count": 200,
       "file": "socks.txt",
-      "sha256": "ce048c2e851c5108c4042ccffa6494a99900cea83e191314f58b2831f34355e8"
+      "sha256": "eb63c0c5abfa014364d5be05f6fe5d76cae2002d16416d8cc3c96e936f78fa39"
     },
     "ssh": {
       "base64_file": "ssh_base64.txt",
@@ -102,9 +106,9 @@
     },
     "trojan": {
       "base64_file": "trojan_base64.txt",
-      "count": 100,
+      "count": 200,
       "file": "trojan.txt",
-      "sha256": "d9328436da2b31ddf8680d2f55d276a6b84cbf30bec93fd49296b6f70082f5b8"
+      "sha256": "7f5eebd6d3a4a41fc13e2a7e7ac0c26c443d7da4bdd1d3c8a231754330b6e97a"
     },
     "tuic": {
       "base64_file": "tuic_base64.txt",
@@ -114,15 +118,15 @@
     },
     "vless": {
       "base64_file": "vless_base64.txt",
-      "count": 100,
+      "count": 150,
       "file": "vless.txt",
-      "sha256": "80d015b4257ae81fc6bfbbcd765dc848f3e6386db997853bbbd205e8eb61f3c7"
+      "sha256": "205fddd0d15e7b552a20f1fb559892611b29634ce44783fc80f95b350c4870ab"
     },
     "vmess": {
       "base64_file": "vmess_base64.txt",
-      "count": 100,
+      "count": 200,
       "file": "vmess.txt",
-      "sha256": "635dd021aeab1cd5b9865df54262530680d3f821f3a7a74f3fe67404ee7a7c65"
+      "sha256": "c2b8846ab02a04d8afc96af7edc08a51859e5b3188c250167cda3bbca2f048fb"
     },
     "warp": {
       "base64_file": "warp_base64.txt",
