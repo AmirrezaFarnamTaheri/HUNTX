@@ -179,3 +179,18 @@ test("master download actions start unavailable until the historical index valid
   assert.match(js, /setMasterAvailability\(true\)/);
   assert.match(js, /subscription index is unavailable/i);
 });
+
+
+test("SlipNet appears as a named protocol in the library, not an Others catch-all", () => {
+  assert.ok(REQUIRED_PROTOCOLS.includes("slipnet"));
+  const data = fixture();
+  data.protocols.slipnet = {
+    count: 1, file: "slipnet.txt", base64_file: "slipnet_base64.txt", sha256: hash
+  };
+  data.aggregate.count += 1;
+  const parsed = parseSubscriptionIndex(data);
+  assert.equal(parsed.records.find((item) => item.name === "slipnet")?.count, 1);
+  assert.equal(filterProtocols(parsed.records, "slip", true)[0]?.name, "slipnet");
+  assert.match(subscriptionURL("slipnet", "base64", "https://example.github.io/HUNTX/subscriptions.html"),
+    /\/subscriptions\/latest\/slipnet_base64\.txt$/);
+});
