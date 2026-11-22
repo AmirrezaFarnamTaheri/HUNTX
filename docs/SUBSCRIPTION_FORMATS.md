@@ -28,7 +28,7 @@ not forced into invalid URI subscriptions. Supported named families include
 Trojan, SOCKS4/5, Hysteria 1/2, AnyTLS, DNS, DNSTT, HTTP(S), and the
 SlipNet cleartext share format. These share categories are dynamically
 derived from the router registry, and the client UI appends new categories
-found in the signed publication index.
+found in the published `index.json` metadata.
 
 SlipNet's `slipnet://` link is a **base64-encoded, pipe-delimited profile**,
 not an ordinary host:port proxy URI. Only syntactically validated plain share
