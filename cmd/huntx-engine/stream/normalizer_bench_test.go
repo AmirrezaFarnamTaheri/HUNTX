@@ -3,6 +3,7 @@
 package stream_test
 
 import (
+	"strings"
 	"bytes"
 	"context"
 	"testing"
@@ -77,5 +78,29 @@ func BenchmarkStreamIngest_1000Nodes(b *testing.B) {
 		}
 		for range errs {
 		}
+	}
+}
+
+func BenchmarkIdentityKey(b *testing.B) {
+	node := stream.NormalizedNode{
+		Protocol: "vless", UUID: "Synthetic-UUID", Host: "EXAMPLE.org",
+		Port: 443, Path: "/api/config", Security: "reality",
+		Network: "grpc", SNI: "front.example.org", PublicKey: "synthetic-key",
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		_ = node.IdentityKey()
+	}
+}
+
+func BenchmarkNormalizeURIUppercaseLongLink(b *testing.B) {
+	raw := "VLESS://Synthetic-ID@EDGE.Example.Org:443?security=tls&pbk=" +
+		strings.Repeat("AbCdEfGhIjKlMnOpQrStUvWxYz", 20)
+	b.ReportAllocs()
+	b.SetBytes(int64(len(raw)))
+	b.ResetTimer()
+	for b.Loop() {
+		_, _ = stream.NormalizeURI(raw)
 	}
 }
