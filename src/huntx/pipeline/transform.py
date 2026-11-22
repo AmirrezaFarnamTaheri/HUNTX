@@ -147,7 +147,8 @@ class TransformPipeline:
             # Preserve nonstandard Telegram artifacts as distinct typed records.
             # They must never silently become Xray/sing-box compatible nodes.
             typed_records = []
-            if fmt_id != "connection_artifacts" and may_contain_connection_artifacts(data):
+            if (fmt_id != "connection_artifacts" and len(data) <= 4 * 1024 * 1024
+                    and may_contain_connection_artifacts(data)):
                 typed_records = ConnectionArtifactsHandler().parse(
                     data, {"filename": filename, "source_id": source_id}
                 )
