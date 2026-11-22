@@ -169,10 +169,11 @@ def test_authenticated_http_proxy_is_detected_and_npvt_parses_it():
 
 def test_telegram_wireguard_markdown_escapes_are_removed_before_proxy_validation():
     canonical = (
-        "wireguard://cHJpdmF0ZQ==@198.51.100.2:51820"
+        "wireguard://cHJpdmF0ZQ==@wg.example.org:51820"
         "?publickey=cHVibGlj&wnoise=random"
     )
     telegram = "Quote Quote " + canonical.replace("@", r"\@").replace("&", r"\&") + chr(92)
+    assert validate_proxy_uri(canonical), "synthetic endpoint must pass normal validation"
     records = NpvtHandler().parse(telegram.encode("utf-8"), {})
     assert len(records) == 1
     assert records[0]["data"]["line"] == canonical
