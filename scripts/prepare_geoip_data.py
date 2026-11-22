@@ -48,7 +48,7 @@ def _retrieve(url: str, limit: int = _MAX_BYTES) -> bytes:
         try:
             headers = {"User-Agent": _USER_AGENT}
             # Authenticate only the two fixed GitHub API metadata URLs. Never
-            # send the Actions token to release download hosts or redirects.
+            # attach the Actions token to direct release-asset requests.
             if url in {_RELEASE_API, _RELEASE_TAG_API}:
                 token = os.environ.get("GITHUB_TOKEN", "").strip()
                 if token:
