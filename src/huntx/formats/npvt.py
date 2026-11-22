@@ -591,6 +591,11 @@ class NpvtHandler(FormatHandler):
             clean = normalize_text(line)
             if not clean:
                 continue
+            # Telegram Markdown can escape the WireGuard authority separator.
+            # Repair it *before* the URI matcher: the matcher treats a literal
+            # backslash as a boundary, so _append_uri is too late for recovery.
+            if '\\' in clean and ('wireguard://' in clean.lower() or 'wg://' in clean.lower()):
+                clean = clean.replace(r'\\@', '@').replace(r'\\&', '&')
             if _is_proxy_line(clean):
                 # Some upstream feeds put multiple share links on a single
                 # line separated by whitespace. Validating that entire line
