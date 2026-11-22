@@ -629,7 +629,7 @@ jobs:
           SOURCE_COMMIT: ${{ steps.source.outputs.head_sha }}
           HUNTX_HEALTH_WORKERS: '48'
           HUNTX_HEALTH_TIMEOUT: '25'
-          HUNTX_HEALTH_BUDGET: '900'
+          HUNTX_HEALTH_BUDGET: '210'
         run: |
           set -euo pipefail
           python scripts/publisher_live_attestation.py build \
