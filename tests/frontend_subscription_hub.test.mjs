@@ -13,7 +13,8 @@ function fixture() {
     health_status: "historical_unverified",
     latest_by: "first_seen",
     generated_at: "2026-11-21T10:00:00Z",
-    limit_per_protocol: 100,
+    limit_per_protocol: 200,
+    protocol_limits: { vless: 150, shadowsocks: 150 },
     protocols: Object.fromEntries(
       CORE_PROTOCOLS.map((name) => [name, {
         count: name === "vless" ? 100 : name === "vmess" ? 12 : 0,
@@ -43,7 +44,9 @@ test("normalizes historical metadata without inventing health or node counts", (
   assert.equal(directory.categories.find((c) => c.name === "dns").count, 0);
   assert.equal(directory.healthStatus, "historical_unverified");
   assert.equal(directory.latestBy, "first_seen");
-  assert.equal(directory.limit, 100);
+  assert.equal(directory.limit, 200);
+  assert.equal(directory.categories.find((c) => c.name === "vless").limit, 150);
+  assert.equal(directory.categories.find((c) => c.name === "vmess").limit, 200);
 });
 
 test("new protocol families appear separately, not under an Others group", () => {
@@ -64,7 +67,7 @@ test("rejects path-injection and impossible count metadata", () => {
   wrongPath.protocols.vless.file = "../../secret.txt";
   assert.throws(() => normalizeSubscriptionIndex(wrongPath), /file|path|invalid/i);
   const tooMany = fixture();
-  tooMany.protocols.vmess.count = 101;
+  tooMany.protocols.vmess.count = 201;
   assert.throws(() => normalizeSubscriptionIndex(tooMany), /count|limit|invalid/i);
   const unknownScope = fixture();
   unknownScope.health_status = "live";
