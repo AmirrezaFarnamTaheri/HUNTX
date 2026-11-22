@@ -203,10 +203,19 @@ def test_every_registered_format_has_a_serializer(generator) -> None:
 
     registry = FormatRegistry()
     register_all_formats(registry, RawStore.__new__(RawStore))
-    registered = {handler.format_id for handler in registry._handlers.values()}
-    # Serializer coverage lives in one module so this gate can prove the claim:
-    # a registered format that never appears there has no build test anywhere
-    # in the suite, and its byte contract can drift unnoticed.
+    registered = {
+        handler.format_id for handler in registry._handlers.values()
+        if not getattr(handler, "parse_only", False)
+    }
+    parse_only = {
+        handler.format_id for handler in registry._handlers.values()
+        if getattr(handler, "parse_only", False)
+    }
+    # A deliberate parse-only adapter must be incapable of building a
+    # public artifact; this is part of the security contract.
+    assert all(not registry.can_build(name) for name in parse_only)
+    assert "connection_artifacts" in parse_only
+    # Serializer coverage still applies to every buildable registered format.
     coverage = (ROOT / "tests" / "test_formats_coverage.py").read_text(encoding="utf-8")
     untested = sorted(registered - {name for name in registered if name in coverage})
     assert not untested, f"registered formats with no serializer test: {untested}"
