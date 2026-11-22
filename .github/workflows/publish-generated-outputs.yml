@@ -804,6 +804,51 @@ jobs:
             git push origin HEAD:refs/heads/generated-outputs
           fi
 
+      - name: Commit historical-only snapshot
+        if: steps.history.outputs.ready == 'true' && steps.deployment.outcome == 'success' && steps.live.outcome == 'success'
+        env:
+          SNAPSHOT_ROOT: ${{ runner.temp }}/huntx-publication/snapshot
+          GIT_SNAPSHOT_ROOT: ${{ runner.temp }}/huntx-publication/git-history-snapshot
+          RESTORED_SHA: ${{ steps.previous.outputs.sha }}
+          SOURCE_MAIN_SHA: ${{ steps.history.outputs.main_sha }}
+          PYTHONPATH: src
+        run: |
+          set -euo pipefail
+          # The Pages tree is now verified live. Re-seal a Git snapshot with
+          # only the seven redundant huge historical outputs omitted.
+          python - "$SNAPSHOT_ROOT" "$GIT_SNAPSHOT_ROOT" <<'PY'
+          from pathlib import Path
+          from sys import argv
+          from scripts.assemble_generated_snapshot import prepare_repository_snapshot
+          prepare_repository_snapshot(Path(argv[1]), Path(argv[2]))
+          PY
+          current_main_sha="$(git ls-remote --heads origin refs/heads/main | awk '{print $1}')"
+          current_generated_sha="$(git ls-remote --heads origin refs/heads/generated-outputs | awk '{print $1}')"
+          if [[ "$current_main_sha" != "$SOURCE_MAIN_SHA" || "$current_generated_sha" != "$RESTORED_SHA" ]]; then
+            echo "::error title=Historical publisher drift::Main or generated snapshot advanced; refusing to overwrite it."
+            exit 1
+          fi
+          git checkout -- .
+          git clean -fdq
+          git fetch --no-tags origin "$RESTORED_SHA"
+          git checkout -B generated-outputs-history "$RESTORED_SHA"
+          git rm -rf . >/dev/null 2>&1 || true
+          git clean -fdx
+          cp -a "$GIT_SNAPSHOT_ROOT"/. .
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add --all
+          git diff --cached --check -- . \
+            ':(exclude)docs/history/MASTER_FORENSIC_COMPENDIUM.md' \
+            ':(exclude)docs/manifest.json'
+          if git diff --cached --quiet; then
+            echo "Historical-only snapshot is already present; no ledger update needed."
+            exit 0
+          fi
+          git commit -m "Publish sealed historical latest-100 protocol subscriptions"
+          git push origin HEAD:refs/heads/generated-outputs \
+            --force-with-lease="refs/heads/generated-outputs:$RESTORED_SHA"
+
       - name: Summarize publication
         if: always()
         run: |
