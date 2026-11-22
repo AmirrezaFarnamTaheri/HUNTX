@@ -676,10 +676,11 @@ jobs:
         if: steps.release.outputs.ready == 'true' || steps.history.outputs.ready == 'true'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
-          EXPECTED_MAIN_SHA: ${{ steps.history.outputs.ready == 'true' && steps.history.outputs.main_sha || steps.source.outputs.main_sha }}
+          EXPECTED_MAIN_SHA: ${{ steps.source.outputs.main_sha }}
+          EXPECTED_HISTORICAL_MAIN_SHA: ${{ steps.history.outputs.main_sha }}
         with:
           script: |
-            const expected = process.env.EXPECTED_MAIN_SHA;
+            const expected = process.env.EXPECTED_HISTORICAL_MAIN_SHA || process.env.EXPECTED_MAIN_SHA;
             if (!/^[a-f0-9]{40}$/.test(expected || '')) {
               core.setFailed('Missing validated main revision before Pages deployment');
               return;
