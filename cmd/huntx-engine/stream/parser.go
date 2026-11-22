@@ -2,6 +2,7 @@ package stream
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -32,8 +33,12 @@ var supportedSchemes = map[string]struct{}{
 	"anytls": {}, "juicity": {}, "mieru": {}, "mierus": {},
 	"warp": {}, "dns": {}, "dnstt": {}, "ssh": {}, "shadowtls": {},
 	"naive+https": {}, "naive+quic": {},
-	"soar": {}, "cottendns": {}, "masterdns": {}, "lantern": {}, "slipnet": {},
+	"soar": {}, "cottendns": {}, "masterdns": {}, "lantern": {}, "slipnet": {}, "slipnet-enc": {},
 }
+
+var telegramMarkdownReplacer = strings.NewReplacer(
+	"\\://", "://", "\\@", "@", "\\&", "&",
+)
 
 var base64Encodings = []*base64.Encoding{
 	base64.StdEncoding,
@@ -110,7 +115,7 @@ func extractEmbeddedURIs(line string) []string {
 		// Strip inline code markers and Telegram-export Markdown escaping.
 		token = strings.Trim(token, string(rune(96)))
 		if strings.Contains(token, "\\://") || strings.Contains(token, "\\@") || strings.Contains(token, "\\&") {
-			token = strings.NewReplacer("\\://", "://", "\\@", "@", "\\&", "&").Replace(token)
+			token = telegramMarkdownReplacer.Replace(token)
 		}
 		candidate := token
 		if closing := strings.IndexAny(candidate, ")]}>"); closing >= 0 {
@@ -288,7 +293,7 @@ func (sp *StreamParser) parseStream(
 		return records, fmt.Errorf("base64 nesting exceeds limit %d", sp.MaxBase64Depth)
 	}
 
-	decodedRecords, err := sp.parseStream(strings.NewReader(string(decoded)), depth+1, seen)
+	decodedRecords, err := sp.parseStream(bytes.NewReader(decoded), depth+1, seen)
 	if err != nil {
 		return records, fmt.Errorf("parse base64 stream payload: %w", err)
 	}
