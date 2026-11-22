@@ -98,3 +98,26 @@ def test_typed_artifacts_cannot_be_published_as_generic_proxy_feeds():
         assert False, "raw credential-bearing artifacts must not be published"
     except NotImplementedError:
         pass
+
+
+def test_telegram_post_with_four_encrypted_slipnet_links_retains_all_ciphertext():
+    from unittest.mock import patch
+
+    from huntx.formats.common.crypto import MissingSecretError
+    from huntx.formats.slipnet import SlipNetHandler
+
+    # Four harmless synthetic ciphertexts, not copied from user credentials.
+    blobs = [
+        base64.b64encode(b"\x01" + bytes([n]) * 44).decode("ascii")
+        for n in range(1, 5)
+    ]
+    links = ["slipnet-enc://" + blob for blob in blobs]
+    post = "Slipnet SSH configurations\n" + "\n\n".join(links)
+    with patch(
+        "huntx.formats.slipnet.decrypt_slipnet_link",
+        side_effect=MissingSecretError("operator key not configured"),
+    ):
+        records = SlipNetHandler().parse(post.encode("utf-8"), {})
+    assert len(records) == 4
+    assert [record["data"]["line"] for record in records] == links
+    assert all("decrypted" not in record["data"] for record in records)
