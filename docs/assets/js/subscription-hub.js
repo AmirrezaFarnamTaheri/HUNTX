@@ -51,7 +51,7 @@ export function subscriptionHref(name, format = "plain") {
   throw new Error("Invalid subscription format");
 }
 
-function checkEntry(name, entry, isAggregate = false) {
+function checkEntry(name, entry, isAggregate = false, limit = 200) {
   if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
     throw new Error("Invalid subscription entry");
   }
@@ -60,7 +60,7 @@ function checkEntry(name, entry, isAggregate = false) {
   if (
     entry.file !== expectedFile || entry.base64_file !== expectedBase64 ||
     !Number.isSafeInteger(entry.count) || entry.count < 0 ||
-    (!isAggregate && entry.count > 100) ||
+    (!isAggregate && entry.count > limit) ||
     typeof entry.sha256 !== "string" || !DIGEST.test(entry.sha256)
   ) {
     throw new Error("Invalid subscription count, file or checksum");
@@ -75,7 +75,12 @@ export function normalizeSubscriptionIndex(payload) {
     payload.scope !== "all_time_cumulative" ||
     payload.health_status !== "historical_unverified" ||
     payload.latest_by !== "first_seen" ||
-    payload.limit_per_protocol !== 100 ||
+    payload.limit_per_protocol !== 200 ||
+    !payload.protocol_limits || typeof payload.protocol_limits !== "object" ||
+    Array.isArray(payload.protocol_limits) ||
+    payload.protocol_limits.vless !== 150 ||
+    payload.protocol_limits.shadowsocks !== 150 ||
+    Object.keys(payload.protocol_limits).length !== 2 ||
     typeof payload.generated_at !== "string" ||
     !Number.isFinite(Date.parse(payload.generated_at)) ||
     !payload.protocols || typeof payload.protocols !== "object" ||
@@ -83,6 +88,8 @@ export function normalizeSubscriptionIndex(payload) {
   ) {
     throw new Error("Invalid historical subscription index");
   }
+  const categoryLimit = (name) => Object.hasOwn(payload.protocol_limits, name)
+    ? payload.protocol_limits[name] : payload.limit_per_protocol;
   const keys = Object.keys(payload.protocols);
   if (keys.length > 128 || keys.some((name) =>
     !PROTOCOL_NAME.test(name) || name === "others" || name === "all" || name === "index"
@@ -93,10 +100,13 @@ export function normalizeSubscriptionIndex(payload) {
   const extra = keys.filter((key) => !CORE_PROTOCOLS.includes(key)).sort();
   const categories = [...CORE_PROTOCOLS, ...extra].map((name) => {
     const entry = payload.protocols[name];
+    const limit = Object.hasOwn(payload.protocol_limits, name)
+      ? payload.protocol_limits[name] : payload.limit_per_protocol;
     const meta = entry === undefined
       ? { count: null, published: false }
-      : checkEntry(name, entry);
-    return { name, label: Object.hasOwn(LABELS, name) ? LABELS[name] : name, ...meta };
+      : checkEntry(name, entry, false, categoryLimit(name));
+    return { name, label: Object.hasOwn(LABELS, name) ? LABELS[name] : name,
+      limit, ...meta };
   });
   const sum = categories.reduce((acc, item) => acc + (item.count || 0), 0);
   if (aggregate.count !== sum) {
@@ -153,7 +163,7 @@ function createProtocolCard(doc, category) {
   const title = element(doc, "h3", "sub-card-title", category.label);
   const subtitle = element(doc, "p", "sub-card-description",
     category.published
-      ? category.count + " of 100 newest discoveries"
+      ? category.count + " of " + category.limit + " newest discoveries"
       : "Awaiting publication");
   const controls = element(doc, "div", "sub-card-actions");
 

@@ -45,4 +45,5 @@ class FormatRegistry:
     def can_build(self, format_id: str) -> bool:
         """Return whether a registered handler exposes a callable builder."""
         handler = self._handlers.get(format_id)
-        return handler is not None and callable(getattr(handler, "build", None))
+        return (handler is not None and not getattr(handler, "parse_only", False)
+                and callable(getattr(handler, "build", None)))

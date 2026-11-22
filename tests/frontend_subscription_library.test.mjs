@@ -20,7 +20,8 @@ function fixture() {
     health_status: "historical_unverified",
     latest_by: "first_seen",
     generated_at: "2026-11-21T10:00:00Z",
-    limit_per_protocol: 100,
+    limit_per_protocol: 200,
+    protocol_limits: { vless: 150, shadowsocks: 150 },
     protocols: {
       vless: { count: 100, file: "vless.txt", base64_file: "vless_base64.txt", sha256: hash },
       trojan: { count: 8, file: "trojan.txt", base64_file: "trojan_base64.txt", sha256: hash },
@@ -47,6 +48,8 @@ test("read historical manifest safely without implying that proxies are verified
   assert.equal(index.protocolCount, 4);
   assert.equal(index.scope, "historical_unverified");
   assert.equal(index.records[0].name, "vless");
+  assert.equal(index.records[0].limit, 150);
+  assert.equal(index.records.find((record) => record.name === "trojan").limit, 200);
   assert.equal(index.records.find((record) => record.name === "wireguard").count, 0);
   assert.equal(index.records.at(-1).name, "future-protocol");
 });
@@ -82,7 +85,7 @@ test("construct absolute same-origin URLs without accepting an untrusted path", 
 
 test("reject malformed, mislabeled and impossible feed metadata instead of fabricating counts", () => {
   const bad = fixture();
-  bad.protocols.vless.count = 101;
+  bad.protocols.vless.count = 151;
   assert.throws(() => parseSubscriptionIndex(bad), /count/i);
 
   const foreign = fixture();

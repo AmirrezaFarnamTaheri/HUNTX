@@ -34,6 +34,8 @@ def _format_by_extension(filename_lower: str) -> str | None:
 
 def _contains_proxy_uri(text: str) -> bool:
     """Return whether text contains a safe proxy endpoint URI."""
+    if "://" not in text:
+        return False
     return any((scheme in text for scheme in _PROXY_URI_PREFIXES)) or bool(_AUTH_HTTP_PROXY_RE.search(text))
 
 
@@ -51,6 +53,10 @@ def decide_format(filename: str, content: bytes) -> str:
     text_preview = content[:2048].decode('utf-8', errors='ignore')
     if _contains_proxy_uri(text_preview):
         return 'npvt'
+    # Encrypted SlipNet shares have a dedicated parser and must not be
+    # mistaken for an opaque attachment, even with Telegram text around them.
+    if 'slipnet-enc://' in text_preview.lower():
+        return 'slipnet'
     clean = text_preview.strip()
     if clean and '://' not in clean and (' ' not in clean) and (len(clean) > 20):
         try:

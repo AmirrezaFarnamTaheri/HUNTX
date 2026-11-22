@@ -13,7 +13,8 @@ const index = {
   health_status: "historical_unverified",
   generated_at: "2026-11-21T10:00:00Z",
   latest_by: "first_seen",
-  limit_per_protocol: 100,
+  limit_per_protocol: 200,
+    protocol_limits: { vless: 150, shadowsocks: 150 },
   protocols,
   aggregate: { count: 115, file: "all.txt", base64_file: "all_base64.txt", sha256 }
 };

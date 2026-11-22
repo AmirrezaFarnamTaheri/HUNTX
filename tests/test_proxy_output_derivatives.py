@@ -185,6 +185,24 @@ def test_per_protocol_subscriptions_preserve_exact_share_links():
     assert all(value.endswith(b"\n") for value in feeds.values())
 
 
+def test_protocol_feed_grouping_does_not_decode_each_uri_twice():
+    pipeline = BuildPipeline(Mock(), Mock(), Mock())
+
+    def unexpected_decode(_line):
+        raise AssertionError("Grouping should only inspect the URI scheme")
+
+    pipeline._decode_single_line = unexpected_decode
+    payload = (
+        "vless://user@node.example.com:443?type=http\\n"
+        "hy2://password@node.example.com:443\\n"
+        "ss://YWVzLTI1Ni1nY206cGFzcw@node.example.com:443\\n"
+    ).replace("\\n", "\n").encode()
+    feeds = pipeline._protocol_subscriptions(payload)
+    assert set(feeds) == {"vless", "hysteria2", "shadowsocks"}
+    assert feeds["vless"].startswith(b"vless://")
+    assert len(feeds["vless"].splitlines()) == 1
+
+
 def test_protocol_files_have_stable_distinct_names():
     assert output_filename("all_sources", "npvt.protocol.vless.txt") == "all_sources_vless.txt"
     assert output_filename("all_sources", "npvt.protocol.hysteria2.txt") == "all_sources_hysteria2.txt"

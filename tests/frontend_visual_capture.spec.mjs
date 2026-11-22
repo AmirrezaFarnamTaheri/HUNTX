@@ -124,7 +124,7 @@ test("capture all three subscription-library directions with a metadata fixture"
         schema_version: 1, scope: "all_time_cumulative",
         health_status: "historical_unverified",
         generated_at: "2026-11-21T10:00:00Z", latest_by: "first_seen",
-        limit_per_protocol: 100, protocols,
+        limit_per_protocol: 200, protocol_limits: { vless: 150, shadowsocks: 150 }, protocols,
         aggregate: { count: 149, file: "all.txt", base64_file: "all_base64.txt", sha256: digest }
       })
     });

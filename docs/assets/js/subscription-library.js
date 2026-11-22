@@ -1,6 +1,6 @@
 /**
  * HUNTX subscription library: a metadata-only, progressive UI for immutable
- * historical latest-100 feeds. Never download, store or render proxy secrets.
+ * historical per-protocol latest feeds. Never download, store or render proxy secrets.
  */
 export const REQUIRED_PROTOCOLS = Object.freeze([
   "vless", "vmess", "trojan", "anytls", "hysteria", "hysteria2",
@@ -38,18 +38,27 @@ export function parseSubscriptionIndex(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)
       || raw.schema_version !== 1 || raw.scope !== "all_time_cumulative"
       || raw.health_status !== "historical_unverified"
-      || raw.limit_per_protocol !== 100
+      || raw.limit_per_protocol !== 200
+      || !raw.protocol_limits || typeof raw.protocol_limits !== "object"
+      || Array.isArray(raw.protocol_limits)
+      || raw.protocol_limits.vless !== 150
+      || raw.protocol_limits.shadowsocks !== 150
+      || Object.keys(raw.protocol_limits).length !== 2
       || raw.latest_by !== "first_seen"
       || !raw.protocols || typeof raw.protocols !== "object" || Array.isArray(raw.protocols)) {
     throw new TypeError("Invalid historical subscription index");
   }
   const entries = Object.entries(raw.protocols);
   if (entries.length > 256) throw new TypeError("Too many protocol categories");
+  const categoryLimit = (name) => Object.hasOwn(raw.protocol_limits, name)
+    ? raw.protocol_limits[name] : raw.limit_per_protocol;
   let total = 0;
   const records = entries.map(([name, record]) => {
+    const limit = Object.hasOwn(raw.protocol_limits, name)
+      ? raw.protocol_limits[name] : raw.limit_per_protocol;
     if (!validSlug(name) || name === "all") throw new TypeError("Invalid protocol category");
     if (!record || typeof record !== "object"
-      || !Number.isInteger(record.count) || record.count < 0 || record.count > 100) {
+      || !Number.isInteger(record.count) || record.count < 0 || record.count > (categoryLimit(name))) {
       throw new TypeError("Invalid protocol count");
     }
     if (record.file !== name + ".txt"
@@ -58,7 +67,7 @@ export function parseSubscriptionIndex(raw) {
       throw new TypeError("Invalid protocol file or checksum");
     }
     total += record.count;
-    return Object.freeze({ name, count: record.count });
+    return Object.freeze({ name, count: record.count, limit });
   });
   const master = raw.aggregate;
   if (!master || !Number.isInteger(master.count) || master.count !== total
@@ -122,10 +131,10 @@ function renderProtocolCard(record) {
   head.append(identity, count);
   const capacity = node("div", "capacity-track");
   const fill = node("span", "capacity-fill");
-  fill.style.width = `${record.count}%`;
+  fill.style.width = `${(record.count / record.limit) * 100}%`;
   capacity.append(fill);
   capacity.setAttribute("aria-hidden", "true");
-  const caption = node("p", "capacity-note", `${record.count} of 100 selected · historical, not live-verified`);
+  const caption = node("p", "capacity-note", `${record.count} of ${record.limit} selected · historical, not live-verified`);
   const links = node("div", "protocol-card-actions");
   addLink(links, "Plain text", record.name, "text", "button-link primary-link");
   addLink(links, "Base64", record.name, "base64", "button-link");

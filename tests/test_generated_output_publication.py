@@ -242,7 +242,8 @@ class TestDashboardDataWiring(unittest.TestCase):
             mirror = destination / "docs" / "artifacts" / "dev" / "latest"
             index = validate_latest_subscriptions(public)
             validate_latest_subscriptions(mirror)
-            assert index["limit_per_protocol"] == 100
+            assert index["limit_per_protocol"] == 200
+            assert index["protocol_limits"] == {"vless": 150, "shadowsocks": 150}
             assert index["health_status"] == "historical_unverified"
             for published in public.iterdir():
                 assert published.read_bytes() == (mirror / published.name).read_bytes()

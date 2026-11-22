@@ -42,6 +42,100 @@ class TestTransformPipeline(unittest.TestCase):
         self.raw_store.get.assert_called_with("hash123")
         handler.parse.assert_called_once()
 
+    def test_mixed_telegram_message_persists_custom_profiles_without_proxy_conversion(self):
+        import base64
+        import json
+
+        white = {
+            "schema": "whitedns.profile", "version": 1,
+            "profile": {
+                "engine": "cottendns",
+                "server": {
+                    "domain": "dns.example.org",
+                    "encryption_key": "ab" * 32,
+                    "encryption_method": 5,
+                },
+            },
+        }
+        link = "cottendns://" + base64.b64encode(
+            json.dumps(white).encode("utf-8")
+        ).decode("ascii")
+        raw = ("vless://11111111-1111-4111-8111-111111111111@node.example.org:443\n"
+               + link + "\n").encode("utf-8")
+        self.raw_store.get.return_value = raw
+        self.registry.get.return_value.parse.return_value = [
+            {"unique_hash": "regular-1", "data": {"line": raw.decode().splitlines()[0]}}
+        ]
+        self.source_configs["src1"].selector.include_formats = ["npvt"]
+        row = {
+            "id": 7, "raw_hash": "hash123", "source_id": "src1",
+            "filename": "message.txt", "file_size": len(raw),
+        }
+        with patch("huntx.pipeline.transform.decide_format", return_value="npvt"):
+            result = self.pipeline._process_single_file(row)
+        assert result["status"] == "ok"
+        assert result["records"] == 2
+        assert [item[2] for item in result["record_rows"]] == [
+            "npvt", "connection_artifacts"
+        ]
+        custom = json.loads(result["record_rows"][1][4])
+        assert custom["protocol"] == "cottendns"
+        assert custom["client_exportable"] is False
+
+    def test_mixed_message_extracts_encrypted_slipnet_without_private_decryption_key(self):
+        from unittest.mock import patch as mock_patch
+
+        raw = (
+            "Quote Quote wireguard://cHJpdmF0ZQ==@198.51.100.2:51820\n"
+            "slipnet-enc://QUJDREVGR0g=\n"
+        ).encode()
+        self.raw_store.get.return_value = raw
+        self.registry.get.return_value.parse.return_value = [
+            {"unique_hash": "wireguard-1", "data": {"line": raw.decode().splitlines()[0]}}
+        ]
+        self.source_configs["src1"].selector.include_formats = ["npvt"]
+        row = {"id": 7, "raw_hash": "hash123", "source_id": "src1",
+               "filename": "telegram-message.txt", "file_size": len(raw)}
+        with mock_patch("huntx.pipeline.transform.decide_format", return_value="npvt"):
+            with mock_patch("huntx.formats.slipnet.decrypt_slipnet_link", return_value=None):
+                result = self.pipeline._process_single_file(row)
+        self.assertEqual(result["status"], "ok")
+        self.assertIn("slipnet", [x[2] for x in result["record_rows"]])
+        slipnet = next(x for x in result["record_rows"] if x[2] == "slipnet")
+        self.assertEqual(
+            __import__("json").loads(slipnet[4])["line"], "slipnet-enc://QUJDREVGR0g="
+        )
+
+    def test_slipnet_only_telegram_text_is_not_routed_to_opaque_bundle(self):
+        from huntx.core.router import decide_format
+
+        self.assertEqual(
+            decide_format("telegram-message.txt", b"Quote Quote slipnet-enc://QUJDREVGR0g="),
+            "slipnet",
+        )
+
+    def test_large_proxy_feed_survives_optional_typed_artifact_size_limit(self):
+        # Conventional feed ingestion is allowed to exceed the 4 MiB ceiling
+        # imposed on optional Telegram artifact decoding.
+        raw = (
+            b"wireguard://synthetic@wg.example.org:51820\\n"
+            + (b"X" * (4 * 1024 * 1024))
+        )
+        self.raw_store.get.return_value = raw
+        self.registry.get.return_value.parse.return_value = [
+            {"unique_hash": "normal-record", "data": "parsed"}
+        ]
+        self.source_configs["src1"].selector.include_formats = ["npvt"]
+        row = {
+            "id": 7, "raw_hash": "hash123", "source_id": "src1",
+            "filename": "large-feed.txt", "file_size": len(raw),
+        }
+        with patch("huntx.pipeline.transform.decide_format", return_value="npvt"):
+            result = self.pipeline._process_single_file(row)
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["records"], 1)
+        self.assertEqual(result["record_rows"][0][2], "npvt")
+
     def test_process_single_file_missing_data(self):
         """Missing raw data should return failed status."""
         row = {"id": 7, "raw_hash": "hash123", "source_id": "src1", "filename": "test.conf", "file_size": 0}

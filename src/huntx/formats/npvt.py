@@ -24,9 +24,13 @@ _PROXY_URI_RE = re.compile(
 )
 
 
+_PROXY_SCHEME_NAMES = frozenset(value[:-3] for value in _PROXY_SCHEMES)
+
+
 def _is_proxy_line(line: str) -> bool:
-    """Return whether a complete line is a supported proxy URI."""
-    if any(line.startswith(s) for s in _PROXY_SCHEMES):
+    """Check a URI's leading scheme in O(1) rather than scanning every prefix."""
+    scheme, separator, _ = line.partition('://')
+    if separator and scheme in _PROXY_SCHEME_NAMES:
         return True
     return line.lower().startswith(('http://', 'https://')) and validate_proxy_uri(line)
 
@@ -541,6 +545,11 @@ class NpvtHandler(FormatHandler):
     ) -> None:
         """Validate, deduplicate, and append one proxy URI record."""
         uri = candidate.strip()
+        # Markdown renderers escape @ and & in WireGuard share URIs.
+        # These backslashes are not part of the WireGuard wire format and
+        # must not reach a client credential or the canonical identity.
+        if uri.lower().startswith(('wireguard://', 'wg://')):
+            uri = uri.replace(r'\@', '@').replace(r'\&', '&').rstrip('\\')
         if not validate_proxy_uri(uri):
             return
         stripped = strip_proxy_remark(uri)
@@ -582,7 +591,19 @@ class NpvtHandler(FormatHandler):
             clean = normalize_text(line)
             if not clean:
                 continue
+            # Telegram Markdown can escape the WireGuard authority separator.
+            # Repair it *before* the URI matcher: the matcher treats a literal
+            # backslash as a boundary, so _append_uri is too late for recovery.
+            if '\\' in clean and ('wireguard://' in clean.lower() or 'wg://' in clean.lower()):
+                clean = clean.replace(r'\@', '@').replace(r'\&', '&')
             if _is_proxy_line(clean):
+                # Most subscriptions are one valid URI per line. Avoid the
+                # full embedded-message regex and duplicate validation for
+                # that dominant path. Mixed or prose-wrapped links still use
+                # the original lossless extraction branch below.
+                if clean.count('://') == 1 and ' ' not in clean and '\t' not in clean:
+                    self._append_uri(records, seen_hashes, clean)
+                    continue
                 # Some upstream feeds put multiple share links on a single
                 # line separated by whitespace. Validating that entire line
                 # as a *single* URI discards every node. Accept a complete

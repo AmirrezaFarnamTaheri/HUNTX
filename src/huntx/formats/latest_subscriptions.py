@@ -1,4 +1,4 @@
-"""Stable, historical latest-100 subscriptions for every supported URI protocol.
+"""Stable, historical latest per-protocol subscriptions for every supported URI protocol.
 
 These are historical discovery feeds, NOT authenticated working-proxy releases.
 The oldest entries do not expire solely because of their age.
@@ -9,6 +9,8 @@ import base64
 import hashlib
 import json
 from collections import defaultdict
+from functools import total_ordering
+from heapq import nlargest
 from pathlib import Path
 from typing import Any
 
@@ -16,7 +18,13 @@ from huntx.core.router import _PROXY_SCHEMES
 from huntx.formats.npvt import canonical_proxy_identity, strip_proxy_remark
 from huntx.formats.proxy_uri_validator import validate_proxy_uri
 
-LATEST_LIMIT = 100
+LATEST_LIMIT = 200
+PROTOCOL_LIMITS = {"vless": 150, "shadowsocks": 150}
+
+
+def _limit_for_protocol(category: str) -> int:
+    return PROTOCOL_LIMITS.get(category, LATEST_LIMIT)
+
 
 # Normalize spelling/versions to user-facing protocol families. This is NOT a
 # generic "others" bucket: every new router-supported scheme gets its own name.
@@ -87,12 +95,64 @@ def _base64_bytes(plain: bytes) -> bytes:
     return base64.b64encode(plain) + b"\n" if plain else b""
 
 
+@total_ordering
+class _ReverseLex:
+    """Order text reversely, so lexically larger ties are evicted first."""
+
+    __slots__ = ("value",)
+
+    def __init__(self, value: str) -> None:
+        self.value = value
+
+    def __lt__(self, other: "_ReverseLex") -> bool:
+        return self.value > other.value
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, _ReverseLex) and self.value == other.value
+
+
+def _bounded_recent(
+    manifest: dict[str, float | int | str],
+) -> dict[str, list[tuple[str, float | int | str]]]:
+    """Select the newest unique identities using bounded top-K sorting.
+
+    The final representative for each identity must be decided *before*
+    selecting the top K: an alias discovered later can change the historical
+    tie-break order. Therefore we keep only the deduplication map (O(unique))
+    and use heapq.nlargest(K) for each protocol (O(unique * log K)),
+    instead of sorting all input and all groups (O(N log N)).
+    """
+    grouped: dict[str, dict[str, tuple[str, float | int | str]]] = defaultdict(dict)
+    for candidate, first_seen in manifest.items():
+        uri = strip_proxy_remark(candidate)
+        category = protocol_for_uri(uri)
+        if category is None:
+            continue
+        fingerprint = _identity(uri)
+        previous = grouped[category].get(fingerprint)
+        if previous is None or (
+            _newest_key(first_seen), uri
+        ) > (
+            _newest_key(previous[1]), previous[0]
+        ):
+            grouped[category][fingerprint] = (uri, first_seen)
+
+    return {
+        category: nlargest(
+            _limit_for_protocol(category),
+            identities.values(),
+            key=lambda record: (_newest_key(record[1]), _ReverseLex(record[0])),
+        )
+        for category, identities in grouped.items()
+    }
+
+
 def write_latest_subscriptions(
     destination: Path,
     manifest: dict[str, float | int | str],
     source_created_at: str,
 ) -> dict[str, Any]:
-    """Publish latest 100 per protocol and their union, with deterministic metadata.
+    """Publish latest per-protocol caps and their union, with deterministic metadata.
 
     No time filter is applied. Newest refers to the immutable first-discovery
     timestamp already stored by HUNTX's cumulative manifest.
@@ -108,22 +168,7 @@ def write_latest_subscriptions(
             raise ValueError("unexpected file in latest-subscription directory")
         stale.unlink()
 
-    grouped: dict[str, dict[str, tuple[str, float | int | str]]] = defaultdict(dict)
-    for candidate, first_seen in sorted(manifest.items()):
-        uri = strip_proxy_remark(candidate)
-        category = protocol_for_uri(uri)
-        if category is None:
-            continue
-        fingerprint = _identity(uri)
-        previous = grouped[category].get(fingerprint)
-        if previous is None:
-            grouped[category][fingerprint] = (uri, first_seen)
-        else:
-            old_uri, old_seen = previous
-            # Equivalent spellings retain first-seen history, but publish the
-            # newest-discovered representative for latest-N selection.
-            if (_newest_key(first_seen), uri) > (_newest_key(old_seen), old_uri):
-                grouped[category][fingerprint] = (uri, first_seen)
+    grouped = _bounded_recent(manifest)
 
     index: dict[str, Any] = {
         "schema_version": 1,
@@ -132,15 +177,16 @@ def write_latest_subscriptions(
         "generated_at": source_created_at,
         "latest_by": "first_seen",
         "limit_per_protocol": LATEST_LIMIT,
+        "protocol_limits": PROTOCOL_LIMITS.copy(),
         "protocols": {},
     }
     selected: list[tuple[str, float | int | str]] = []
     for category in PROTOCOL_CATEGORIES:
-        records = list(grouped[category].values())
+        records = list(grouped.get(category, []))
         # Stable lexical order is a tie-breaker, not the primary ranking.
         records.sort(key=lambda row: row[0])
         records.sort(key=lambda row: _newest_key(row[1]), reverse=True)
-        records = records[:LATEST_LIMIT]
+        records = records[:_limit_for_protocol(category)]
         uris = [row[0] for row in records]
         raw = _plain_bytes(uris)
         (destination / f"{category}.txt").write_bytes(raw)
@@ -185,6 +231,7 @@ def validate_latest_subscriptions(directory: Path) -> dict[str, Any]:
         or index.get("scope") != "all_time_cumulative"
         or index.get("health_status") != "historical_unverified"
         or index.get("limit_per_protocol") != LATEST_LIMIT
+        or index.get("protocol_limits") != PROTOCOL_LIMITS
         or not isinstance(index.get("protocols"), dict)
         or set(index["protocols"]) != set(PROTOCOL_CATEGORIES)
         or not isinstance(index.get("aggregate"), dict)
@@ -217,8 +264,8 @@ def validate_latest_subscriptions(directory: Path) -> dict[str, Any]:
         if type(entry.get("count")) is not int or entry["count"] != len(lines):
             raise ValueError("latest-subscription count mismatch")
         if category != "all":
-            if len(lines) > LATEST_LIMIT:
-                raise ValueError("latest-subscription category exceeds 100")
+            if len(lines) > _limit_for_protocol(category):
+                raise ValueError("latest-subscription category exceeds protocol limit")
             if any(protocol_for_uri(uri) != category for uri in lines):
                 raise ValueError("latest-subscription category contains invalid URI")
         identities = [_identity(uri) for uri in lines]

@@ -2,6 +2,7 @@ package stream
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -32,7 +33,12 @@ var supportedSchemes = map[string]struct{}{
 	"anytls": {}, "juicity": {}, "mieru": {}, "mierus": {},
 	"warp": {}, "dns": {}, "dnstt": {}, "ssh": {}, "shadowtls": {},
 	"naive+https": {}, "naive+quic": {},
+	"soar": {}, "cottendns": {}, "masterdns": {}, "lantern": {}, "slipnet": {}, "slipnet-enc": {},
 }
+
+var telegramMarkdownReplacer = strings.NewReplacer(
+	"\\://", "://", "\\@", "@", "\\&", "&",
+)
 
 var base64Encodings = []*base64.Encoding{
 	base64.StdEncoding,
@@ -93,6 +99,65 @@ func isSupportedProxyURI(line string) bool {
 	protocol := ExtractProtocol(line)
 	_, ok := supportedSchemes[protocol]
 	return ok
+}
+
+// extractEmbeddedURIs recovers bare or Markdown-wrapped URI tokens without
+// mistaking ordinary web links and prose for proxy configurations. The fast
+// path does not allocate when a line contains no URL-like candidate.
+func extractEmbeddedURIs(line string) []string {
+	if !strings.Contains(line, "://") && !strings.Contains(line, "\\://") {
+		return nil
+	}
+	var found []string
+	for _, field := range strings.Fields(line) {
+		token := strings.TrimLeft(field, "([{<\"'")
+		token = strings.TrimRight(token, ")]}>\"',;")
+		// Strip inline code markers and Telegram-export Markdown escaping.
+		token = strings.Trim(token, string(rune(96)))
+		if strings.Contains(token, "\\://") || strings.Contains(token, "\\@") || strings.Contains(token, "\\&") {
+			token = telegramMarkdownReplacer.Replace(token)
+		}
+		candidate := token
+		if closing := strings.IndexAny(candidate, ")]}>"); closing >= 0 {
+			candidate = candidate[:closing]
+		}
+		if isSupportedProxyURI(candidate) {
+			found = append(found, candidate)
+			continue
+		}
+		// "prefix:vless://..." and "[vless://...](...)" are common
+		// export wrappers. Search for a *supported* scheme, not arbitrary URLs.
+		offset := 0
+		for offset < len(token) {
+			relative := strings.Index(token[offset:], "://")
+			if relative < 0 {
+				break
+			}
+			colon := offset + relative
+			start := colon
+			for start > 0 {
+				ch := token[start-1]
+				if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
+					(ch >= '0' && ch <= '9') || ch == '+' {
+					start--
+					continue
+				}
+				break
+			}
+			if start < colon {
+				end := len(token)
+				if trailing := strings.IndexAny(token[colon+3:], ")]}>\"',;"); trailing >= 0 {
+					end = colon + 3 + trailing
+				}
+				candidate := token[start:end]
+				if isSupportedProxyURI(candidate) {
+					found = append(found, candidate)
+				}
+			}
+			offset = colon + 3
+		}
+	}
+	return found
 }
 
 func plausibleBase64Line(line string) bool {
@@ -171,13 +236,27 @@ func (sp *StreamParser) parseStream(
 			continue
 		}
 
-		if isSupportedProxyURI(line) {
+		// Direct feeds are the dominant hot path: avoid field splitting and
+		// Markdown normalization unless a line has surrounding text.
+		if isSupportedProxyURI(line) && !strings.ContainsAny(line, " \t\\") {
 			rec := Record{
 				UniqueHash: HashURI(line),
 				RawURI:     line,
 				Protocol:   ExtractProtocol(line),
 			}
 			records = appendUnique(records, seen, rec)
+			continue
+		}
+		uriCandidates := extractEmbeddedURIs(line)
+		if len(uriCandidates) > 0 {
+			for _, uri := range uriCandidates {
+				rec := Record{
+					UniqueHash: HashURI(uri),
+					RawURI:     uri,
+					Protocol:   ExtractProtocol(uri),
+				}
+				records = appendUnique(records, seen, rec)
+			}
 			continue
 		}
 
@@ -214,7 +293,7 @@ func (sp *StreamParser) parseStream(
 		return records, fmt.Errorf("base64 nesting exceeds limit %d", sp.MaxBase64Depth)
 	}
 
-	decodedRecords, err := sp.parseStream(strings.NewReader(string(decoded)), depth+1, seen)
+	decodedRecords, err := sp.parseStream(bytes.NewReader(decoded), depth+1, seen)
 	if err != nil {
 		return records, fmt.Errorf("parse base64 stream payload: %w", err)
 	}

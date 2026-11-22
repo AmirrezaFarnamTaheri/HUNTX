@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Publish the already-public historical latest-100 feeds without a new release.
+"""Publish the already-public historical per-protocol latest feeds without a new release.
 
 This path never creates a new verified proxy release. It starts from an
 immutable, SHA256-sealed generated-outputs snapshot and its cumulative manifest;
@@ -39,8 +39,8 @@ _NAV_LINK = (
     '      <a href="subscriptions.html" '
     'class="px-3.5 py-2 rounded-xl text-xs font-mono font-semibold '
     'border border-cyan-700 text-cyan-300 hover:text-white focus-ring" '
-    'style="white-space:nowrap" aria-label="Historical latest-100 subscriptions">'
-    'Latest 100 ↗</a>\n'
+    'style="white-space:nowrap" aria-label="Historical latest subscriptions">'
+    'Latest feeds ↗</a>\n'
 )
 _NAV_ANCHOR = '      <a href="network-doctor.html"'
 
@@ -200,6 +200,7 @@ def prepare_historical_pages(
             "verified_release_preserved": True,
             "aggregate_count": index["aggregate"]["count"],
             "limit_per_protocol": index["limit_per_protocol"],
+            "protocol_limits": index["protocol_limits"],
         }
         (target / "manifests" / "historical-subscriptions.json").write_text(
             json.dumps(history_receipt, sort_keys=True, indent=2) + "\n",

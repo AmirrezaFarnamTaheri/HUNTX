@@ -1,0 +1,5802 @@
+{
+  "schema": "huntx.telegram_source_candidates.v1",
+  "discovered_on": "2026-11-22",
+  "status": "unverified_research_only",
+  "ingestion_enabled": false,
+  "notes": "Username-level comparison cannot identify channels already configured under numeric IDs; numeric-ID candidates are separately listed and disabled. Require canonical Telegram entity-ID deduplication, preview/content checks and source governance approval before production promotion. Cross-aggregator source lists are not evidence of live connectivity.",
+  "sources_examined": [
+    {
+      "repository": "Pasimand/v2ray-config-agg",
+      "path": "config.py",
+      "handles": 66
+    },
+    {
+      "repository": "Stinsonysm/GO_V2rayCollector",
+      "path": "channels.csv",
+      "handles": 165
+    },
+    {
+      "repository": "electron-v2ray/Telegram-Config-Dumpr",
+      "path": "config.py",
+      "handles": 39
+    },
+    {
+      "repository": "MohammadBahemmat/V2ray-Collector",
+      "path": "data/channels.txt",
+      "handles": 480
+    },
+    {
+      "repository": "V2RayRoot/V2RayConfig",
+      "path": "telegram_channels.json",
+      "handles": 8
+    },
+    {
+      "repository": "Airuop/config-fetcher",
+      "path": "src/config.py",
+      "handles": 16
+    },
+    {
+      "repository": "0xRadikal/Free-Telegram-Proxy",
+      "path": "tgproxy/sources.py",
+      "handles": 8
+    },
+    {
+      "repository": "fifthidea/sub",
+      "path": "update.py",
+      "handles": 30,
+      "numeric_only": true
+    }
+  ],
+  "channels": [
+    {
+      "peer": "@PrivateVPNs",
+      "username": "PrivateVPNs",
+      "preview": "https://t.me/s/PrivateVPNs",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt",
+        "https://github.com/Airuop/config-fetcher/blob/main/src/config.py"
+      ]
+    },
+    {
+      "peer": "@Awlix_ir",
+      "username": "Awlix_ir",
+      "preview": "https://t.me/s/Awlix_ir",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@Configforvpn01",
+      "username": "Configforvpn01",
+      "preview": "https://t.me/s/Configforvpn01",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@DirectVPN",
+      "username": "DirectVPN",
+      "preview": "https://t.me/s/DirectVPN",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt",
+        "https://github.com/Airuop/config-fetcher/blob/main/src/config.py"
+      ]
+    },
+    {
+      "peer": "@proxy_mtm",
+      "username": "proxy_mtm",
+      "preview": "https://t.me/s/proxy_mtm",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt",
+        "https://github.com/0xRadikal/Free-Telegram-Proxy/blob/main/tgproxy/sources.py"
+      ]
+    },
+    {
+      "peer": "@ShadowsocksM",
+      "username": "ShadowsocksM",
+      "preview": "https://t.me/s/ShadowsocksM",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt",
+        "https://github.com/Airuop/config-fetcher/blob/main/src/config.py"
+      ]
+    },
+    {
+      "peer": "@v2ray_outlineir",
+      "username": "v2ray_outlineir",
+      "preview": "https://t.me/s/v2ray_outlineir",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@V2RAY_VMESS_free",
+      "username": "V2RAY_VMESS_free",
+      "preview": "https://t.me/s/V2RAY_VMESS_free",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2rayngvpn",
+      "username": "v2rayngvpn",
+      "preview": "https://t.me/s/v2rayngvpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py",
+        "https://github.com/Airuop/config-fetcher/blob/main/src/config.py"
+      ]
+    },
+    {
+      "peer": "@VlessConfig",
+      "username": "VlessConfig",
+      "preview": "https://t.me/s/VlessConfig",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt",
+        "https://github.com/Airuop/config-fetcher/blob/main/src/config.py"
+      ]
+    },
+    {
+      "peer": "@VmessProtocol",
+      "username": "VmessProtocol",
+      "preview": "https://t.me/s/VmessProtocol",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py",
+        "https://github.com/Airuop/config-fetcher/blob/main/src/config.py"
+      ]
+    },
+    {
+      "peer": "@vpn_ocean",
+      "username": "vpn_ocean",
+      "preview": "https://t.me/s/vpn_ocean",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@ARv2ray",
+      "username": "ARv2ray",
+      "preview": "https://t.me/s/ARv2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@DeamNet_proxy",
+      "username": "DeamNet_proxy",
+      "preview": "https://t.me/s/DeamNet_proxy",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@flyv2ray",
+      "username": "flyv2ray",
+      "preview": "https://t.me/s/flyv2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@forwardv2ray",
+      "username": "forwardv2ray",
+      "preview": "https://t.me/s/forwardv2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@FOX_VPN66",
+      "username": "FOX_VPN66",
+      "preview": "https://t.me/s/FOX_VPN66",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@FreeV2rays",
+      "username": "FreeV2rays",
+      "preview": "https://t.me/s/FreeV2rays",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt",
+        "https://github.com/Airuop/config-fetcher/blob/main/src/config.py"
+      ]
+    },
+    {
+      "peer": "@kingofilter",
+      "username": "kingofilter",
+      "preview": "https://t.me/s/kingofilter",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@Lockey_vpn",
+      "username": "Lockey_vpn",
+      "preview": "https://t.me/s/Lockey_vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@mehrosaboran",
+      "username": "mehrosaboran",
+      "preview": "https://t.me/s/mehrosaboran",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@mftizi",
+      "username": "mftizi",
+      "preview": "https://t.me/s/mftizi",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@MsV2ray",
+      "username": "MsV2ray",
+      "preview": "https://t.me/s/MsV2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@msv2raynp",
+      "username": "msv2raynp",
+      "preview": "https://t.me/s/msv2raynp",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@Network_442",
+      "username": "Network_442",
+      "preview": "https://t.me/s/Network_442",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@nofiltering2",
+      "username": "nofiltering2",
+      "preview": "https://t.me/s/nofiltering2",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@SafeNet_Server",
+      "username": "SafeNet_Server",
+      "preview": "https://t.me/s/SafeNet_Server",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@Shh_Proxy",
+      "username": "Shh_Proxy",
+      "preview": "https://t.me/s/Shh_Proxy",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2raycollector",
+      "username": "v2raycollector",
+      "preview": "https://t.me/s/v2raycollector",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@V2rayCollectorDonate",
+      "username": "V2rayCollectorDonate",
+      "preview": "https://t.me/s/V2rayCollectorDonate",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@v2rayng_org",
+      "username": "v2rayng_org",
+      "preview": "https://t.me/s/v2rayng_org",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@Capital_NET",
+      "username": "Capital_NET",
+      "preview": "https://t.me/s/Capital_NET",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@ConfigsHUB",
+      "username": "ConfigsHUB",
+      "preview": "https://t.me/s/ConfigsHUB",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@DigiV2ray",
+      "username": "DigiV2ray",
+      "preview": "https://t.me/s/DigiV2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@Easy_Free_VPN",
+      "username": "Easy_Free_VPN",
+      "preview": "https://t.me/s/Easy_Free_VPN",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@eliya_chiter0",
+      "username": "eliya_chiter0",
+      "preview": "https://t.me/s/eliya_chiter0",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@fhkllvjkll",
+      "username": "fhkllvjkll",
+      "preview": "https://t.me/s/fhkllvjkll",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@filterkoshi",
+      "username": "filterkoshi",
+      "preview": "https://t.me/s/filterkoshi",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@FOXNT",
+      "username": "FOXNT",
+      "preview": "https://t.me/s/FOXNT",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@FreakConfig",
+      "username": "FreakConfig",
+      "preview": "https://t.me/s/FreakConfig",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@free1_vpn",
+      "username": "free1_vpn",
+      "preview": "https://t.me/s/free1_vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@free4allVPN",
+      "username": "free4allVPN",
+      "preview": "https://t.me/s/free4allVPN",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@freeland8",
+      "username": "freeland8",
+      "preview": "https://t.me/s/freeland8",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@freeownvpn",
+      "username": "freeownvpn",
+      "preview": "https://t.me/s/freeownvpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@frev2ray",
+      "username": "frev2ray",
+      "preview": "https://t.me/s/frev2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@GH_v2rayng",
+      "username": "GH_v2rayng",
+      "preview": "https://t.me/s/GH_v2rayng",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@God_CONFIG",
+      "username": "God_CONFIG",
+      "preview": "https://t.me/s/God_CONFIG",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@hddify",
+      "username": "hddify",
+      "preview": "https://t.me/s/hddify",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@icv2ray",
+      "username": "icv2ray",
+      "preview": "https://t.me/s/icv2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@iP_CF",
+      "username": "iP_CF",
+      "preview": "https://t.me/s/iP_CF",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@IP_CF_Config",
+      "username": "IP_CF_Config",
+      "preview": "https://t.me/s/IP_CF_Config",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/Airuop/config-fetcher/blob/main/src/config.py"
+      ]
+    },
+    {
+      "peer": "@iran_v2ray1",
+      "username": "iran_v2ray1",
+      "preview": "https://t.me/s/iran_v2ray1",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@IRN_VPN",
+      "username": "IRN_VPN",
+      "preview": "https://t.me/s/IRN_VPN",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@iTV2RAY",
+      "username": "iTV2RAY",
+      "preview": "https://t.me/s/iTV2RAY",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@lrnbymaa",
+      "username": "lrnbymaa",
+      "preview": "https://t.me/s/lrnbymaa",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@MehradLearn",
+      "username": "MehradLearn",
+      "preview": "https://t.me/s/MehradLearn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@meli_proxyy",
+      "username": "meli_proxyy",
+      "preview": "https://t.me/s/meli_proxyy",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/Airuop/config-fetcher/blob/main/src/config.py"
+      ]
+    },
+    {
+      "peer": "@MT_TEAM_IRAN",
+      "username": "MT_TEAM_IRAN",
+      "preview": "https://t.me/s/MT_TEAM_IRAN",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@nufilter",
+      "username": "nufilter",
+      "preview": "https://t.me/s/nufilter",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@outlineOpenKey",
+      "username": "outlineOpenKey",
+      "preview": "https://t.me/s/outlineOpenKey",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@polproxy",
+      "username": "polproxy",
+      "preview": "https://t.me/s/polproxy",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@reality_daily",
+      "username": "reality_daily",
+      "preview": "https://t.me/s/reality_daily",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@ServerNett",
+      "username": "ServerNett",
+      "preview": "https://t.me/s/ServerNett",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@shadow_socks1",
+      "username": "shadow_socks1",
+      "preview": "https://t.me/s/shadow_socks1",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@ShadowSocks_s",
+      "username": "ShadowSocks_s",
+      "preview": "https://t.me/s/ShadowSocks_s",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@socks5tobefree",
+      "username": "socks5tobefree",
+      "preview": "https://t.me/s/socks5tobefree",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@spdnet",
+      "username": "spdnet",
+      "preview": "https://t.me/s/spdnet",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@speedconfig00",
+      "username": "speedconfig00",
+      "preview": "https://t.me/s/speedconfig00",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@V_2rey",
+      "username": "V_2rey",
+      "preview": "https://t.me/s/V_2rey",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2_vmess",
+      "username": "v2_vmess",
+      "preview": "https://t.me/s/v2_vmess",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@V2pedia",
+      "username": "V2pedia",
+      "preview": "https://t.me/s/V2pedia",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@v2ray_for_free",
+      "username": "v2ray_for_free",
+      "preview": "https://t.me/s/v2ray_for_free",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2ray_swhil",
+      "username": "v2ray_swhil",
+      "preview": "https://t.me/s/v2ray_swhil",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@V2rayi_net",
+      "username": "V2rayi_net",
+      "preview": "https://t.me/s/V2rayi_net",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@V2rayNG_account_free",
+      "username": "V2rayNG_account_free",
+      "preview": "https://t.me/s/V2rayNG_account_free",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@V2rayng_Fast",
+      "username": "V2rayng_Fast",
+      "preview": "https://t.me/s/V2rayng_Fast",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2rayng_vpnrog",
+      "username": "v2rayng_vpnrog",
+      "preview": "https://t.me/s/v2rayng_vpnrog",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@V2rayNG3",
+      "username": "V2rayNG3",
+      "preview": "https://t.me/s/V2rayNG3",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@V2rayNGX",
+      "username": "V2rayNGX",
+      "preview": "https://t.me/s/V2rayNGX",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@V2RAYROZ",
+      "username": "V2RAYROZ",
+      "preview": "https://t.me/s/V2RAYROZ",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2rayvpnchannel",
+      "username": "v2rayvpnchannel",
+      "preview": "https://t.me/s/v2rayvpnchannel",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vaddress",
+      "username": "vaddress",
+      "preview": "https://t.me/s/vaddress",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt",
+        "https://github.com/V2RayRoot/V2RayConfig/blob/main/telegram_channels.json"
+      ]
+    },
+    {
+      "peer": "@ViPVpn_v2ray",
+      "username": "ViPVpn_v2ray",
+      "preview": "https://t.me/s/ViPVpn_v2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vless_vmess",
+      "username": "vless_vmess",
+      "preview": "https://t.me/s/vless_vmess",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vmessiran",
+      "username": "vmessiran",
+      "preview": "https://t.me/s/vmessiran",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@vpn_ioss",
+      "username": "vpn_ioss",
+      "preview": "https://t.me/s/vpn_ioss",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vpn_Nv1",
+      "username": "vpn_Nv1",
+      "preview": "https://t.me/s/vpn_Nv1",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@vpn_xw",
+      "username": "vpn_xw",
+      "preview": "https://t.me/s/vpn_xw",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@VPNCUSTOMIZE",
+      "username": "VPNCUSTOMIZE",
+      "preview": "https://t.me/s/VPNCUSTOMIZE",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py",
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@ablnet7",
+      "username": "ablnet7",
+      "preview": "https://t.me/s/ablnet7",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@ada_free_connect",
+      "username": "ada_free_connect",
+      "preview": "https://t.me/s/ada_free_connect",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@ae_proxy",
+      "username": "ae_proxy",
+      "preview": "https://t.me/s/ae_proxy",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@ai_duet",
+      "username": "ai_duet",
+      "preview": "https://t.me/s/ai_duet",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@akhbarforiir24",
+      "username": "akhbarforiir24",
+      "preview": "https://t.me/s/akhbarforiir24",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@alfred_config",
+      "username": "alfred_config",
+      "preview": "https://t.me/s/alfred_config",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@AliAlma_GSM",
+      "username": "AliAlma_GSM",
+      "preview": "https://t.me/s/AliAlma_GSM",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@allnetwork900",
+      "username": "allnetwork900",
+      "preview": "https://t.me/s/allnetwork900",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@alovpnv",
+      "username": "alovpnv",
+      "preview": "https://t.me/s/alovpnv",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@Alpha_V2ray_Iran",
+      "username": "Alpha_V2ray_Iran",
+      "preview": "https://t.me/s/Alpha_V2ray_Iran",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/V2RayRoot/V2RayConfig/blob/main/telegram_channels.json"
+      ]
+    },
+    {
+      "peer": "@alpha_v2rayip",
+      "username": "alpha_v2rayip",
+      "preview": "https://t.me/s/alpha_v2rayip",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@amvng",
+      "username": "amvng",
+      "preview": "https://t.me/s/amvng",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@ange1vpn",
+      "username": "ange1vpn",
+      "preview": "https://t.me/s/ange1vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@anotherme_night",
+      "username": "anotherme_night",
+      "preview": "https://t.me/s/anotherme_night",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@ansooyefilter",
+      "username": "ansooyefilter",
+      "preview": "https://t.me/s/ansooyefilter",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@ap_ir6",
+      "username": "ap_ir6",
+      "preview": "https://t.me/s/ap_ir6",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@appsooner",
+      "username": "appsooner",
+      "preview": "https://t.me/s/appsooner",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@ar14n24b",
+      "username": "ar14n24b",
+      "preview": "https://t.me/s/ar14n24b",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@archive_android",
+      "username": "archive_android",
+      "preview": "https://t.me/s/archive_android",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@arshiavpn12",
+      "username": "arshiavpn12",
+      "preview": "https://t.me/s/arshiavpn12",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@arvand_soul",
+      "username": "arvand_soul",
+      "preview": "https://t.me/s/arvand_soul",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@atlas_v2vpn",
+      "username": "atlas_v2vpn",
+      "preview": "https://t.me/s/atlas_v2vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@atovpn",
+      "username": "atovpn",
+      "preview": "https://t.me/s/atovpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@azadi_az_inja_migzare",
+      "username": "azadi_az_inja_migzare",
+      "preview": "https://t.me/s/azadi_az_inja_migzare",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@azadinet25",
+      "username": "azadinet25",
+      "preview": "https://t.me/s/azadinet25",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@azadinett",
+      "username": "azadinett",
+      "preview": "https://t.me/s/azadinett",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@azadnetpars",
+      "username": "azadnetpars",
+      "preview": "https://t.me/s/azadnetpars",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@azarakhsh_proxy",
+      "username": "azarakhsh_proxy",
+      "preview": "https://t.me/s/azarakhsh_proxy",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@azaranv2ray",
+      "username": "azaranv2ray",
+      "preview": "https://t.me/s/azaranv2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@azarbayjab1",
+      "username": "azarbayjab1",
+      "preview": "https://t.me/s/azarbayjab1",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@b2hub",
+      "username": "b2hub",
+      "preview": "https://t.me/s/b2hub",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@begoo_vpn",
+      "username": "begoo_vpn",
+      "preview": "https://t.me/s/begoo_vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@beshkan",
+      "username": "beshkan",
+      "preview": "https://t.me/s/beshkan",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@beta_v2ray",
+      "username": "beta_v2ray",
+      "preview": "https://t.me/s/beta_v2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@bigavpn",
+      "username": "bigavpn",
+      "preview": "https://t.me/s/bigavpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@bigsmoke_config",
+      "username": "bigsmoke_config",
+      "preview": "https://t.me/s/bigsmoke_config",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@binextify",
+      "username": "binextify",
+      "preview": "https://t.me/s/binextify",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@bird_angry",
+      "username": "bird_angry",
+      "preview": "https://t.me/s/bird_angry",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@bisto4_service",
+      "username": "bisto4_service",
+      "preview": "https://t.me/s/bisto4_service",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@bitconfg",
+      "username": "bitconfg",
+      "preview": "https://t.me/s/bitconfg",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@blue_star_vip",
+      "username": "blue_star_vip",
+      "preview": "https://t.me/s/blue_star_vip",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@bluetunnels",
+      "username": "bluetunnels",
+      "preview": "https://t.me/s/bluetunnels",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@bored_vpn",
+      "username": "bored_vpn",
+      "preview": "https://t.me/s/bored_vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@brayirani",
+      "username": "brayirani",
+      "preview": "https://t.me/s/brayirani",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@bulletin_siah",
+      "username": "bulletin_siah",
+      "preview": "https://t.me/s/bulletin_siah",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@canfigv2ray",
+      "username": "canfigv2ray",
+      "preview": "https://t.me/s/canfigv2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@canfingv2rayng",
+      "username": "canfingv2rayng",
+      "preview": "https://t.me/s/canfingv2rayng",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@cephalon_ala",
+      "username": "cephalon_ala",
+      "preview": "https://t.me/s/cephalon_ala",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@cfox_server",
+      "username": "cfox_server",
+      "preview": "https://t.me/s/cfox_server",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@chejorivasli",
+      "username": "chejorivasli",
+      "preview": "https://t.me/s/chejorivasli",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@chillguy_vpn",
+      "username": "chillguy_vpn",
+      "preview": "https://t.me/s/chillguy_vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@clashv8",
+      "username": "clashv8",
+      "preview": "https://t.me/s/clashv8",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@CloudCityy",
+      "username": "CloudCityy",
+      "preview": "https://t.me/s/CloudCityy",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@cnetvpn",
+      "username": "cnetvpn",
+      "preview": "https://t.me/s/cnetvpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@config_azad",
+      "username": "config_azad",
+      "preview": "https://t.me/s/config_azad",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@config_fre",
+      "username": "config_fre",
+      "preview": "https://t.me/s/config_fre",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@config_qavi",
+      "username": "config_qavi",
+      "preview": "https://t.me/s/config_qavi",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@config_v2ray",
+      "username": "config_v2ray",
+      "preview": "https://t.me/s/config_v2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@config7x",
+      "username": "config7x",
+      "preview": "https://t.me/s/config7x",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@configfori",
+      "username": "configfori",
+      "preview": "https://t.me/s/configfori",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@configforvpn",
+      "username": "configforvpn",
+      "preview": "https://t.me/s/configforvpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@configpluse",
+      "username": "configpluse",
+      "preview": "https://t.me/s/configpluse",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@configprxy",
+      "username": "configprxy",
+      "preview": "https://t.me/s/configprxy",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@configraygan",
+      "username": "configraygan",
+      "preview": "https://t.me/s/configraygan",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@configx2ray",
+      "username": "configx2ray",
+      "preview": "https://t.me/s/configx2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@configx2ray0",
+      "username": "configx2ray0",
+      "preview": "https://t.me/s/configx2ray0",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@confiig_hub",
+      "username": "confiig_hub",
+      "preview": "https://t.me/s/confiig_hub",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@confing_proxi1",
+      "username": "confing_proxi1",
+      "preview": "https://t.me/s/confing_proxi1",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@confing_v2rayy",
+      "username": "confing_v2rayy",
+      "preview": "https://t.me/s/confing_v2rayy",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@confing4",
+      "username": "confing4",
+      "preview": "https://t.me/s/confing4",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@confingfree11",
+      "username": "confingfree11",
+      "preview": "https://t.me/s/confingfree11",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@confingv2raayng",
+      "username": "confingv2raayng",
+      "preview": "https://t.me/s/confingv2raayng",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@Cov2ray",
+      "username": "Cov2ray",
+      "preview": "https://t.me/s/Cov2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@custom_14",
+      "username": "custom_14",
+      "preview": "https://t.me/s/custom_14",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@customv2ray",
+      "username": "customv2ray",
+      "preview": "https://t.me/s/customv2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@customvpnserver",
+      "username": "customvpnserver",
+      "preview": "https://t.me/s/customvpnserver",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@cxrolvpn",
+      "username": "cxrolvpn",
+      "preview": "https://t.me/s/cxrolvpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@daily_free_vpn",
+      "username": "daily_free_vpn",
+      "preview": "https://t.me/s/daily_free_vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@dalton_ping",
+      "username": "dalton_ping",
+      "preview": "https://t.me/s/dalton_ping",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@daredevill_404",
+      "username": "daredevill_404",
+      "preview": "https://t.me/s/daredevill_404",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@DarkTeam_VPN",
+      "username": "DarkTeam_VPN",
+      "preview": "https://t.me/s/DarkTeam_VPN",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@dashbachivasli",
+      "username": "dashbachivasli",
+      "preview": "https://t.me/s/dashbachivasli",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@dnet_vpn",
+      "username": "dnet_vpn",
+      "preview": "https://t.me/s/dnet_vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@dns68",
+      "username": "dns68",
+      "preview": "https://t.me/s/dns68",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@dsr_tm",
+      "username": "dsr_tm",
+      "preview": "https://t.me/s/dsr_tm",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@eag1e_yt",
+      "username": "eag1e_yt",
+      "preview": "https://t.me/s/eag1e_yt",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@efixfree",
+      "username": "efixfree",
+      "preview": "https://t.me/s/efixfree",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@ehsawn8",
+      "username": "ehsawn8",
+      "preview": "https://t.me/s/ehsawn8",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@Eleven_vpn",
+      "username": "Eleven_vpn",
+      "preview": "https://t.me/s/Eleven_vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@eliv2ray",
+      "username": "eliv2ray",
+      "preview": "https://t.me/s/eliv2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@en_vpn",
+      "username": "en_vpn",
+      "preview": "https://t.me/s/en_vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@enzewa_network",
+      "username": "enzewa_network",
+      "preview": "https://t.me/s/enzewa_network",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@erfanandroid",
+      "username": "erfanandroid",
+      "preview": "https://t.me/s/erfanandroid",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@EspinasVPN",
+      "username": "EspinasVPN",
+      "preview": "https://t.me/s/EspinasVPN",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@EuServer",
+      "username": "EuServer",
+      "preview": "https://t.me/s/EuServer",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@evay_vpn",
+      "username": "evay_vpn",
+      "preview": "https://t.me/s/evay_vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@Everyday_VPN",
+      "username": "Everyday_VPN",
+      "preview": "https://t.me/s/Everyday_VPN",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@evonium",
+      "username": "evonium",
+      "preview": "https://t.me/s/evonium",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@express_freevpn",
+      "username": "express_freevpn",
+      "preview": "https://t.me/s/express_freevpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@expressvpn_420",
+      "username": "expressvpn_420",
+      "preview": "https://t.me/s/expressvpn_420",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@FalconPolV2rayNG",
+      "username": "FalconPolV2rayNG",
+      "preview": "https://t.me/s/FalconPolV2rayNG",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@farahvpn",
+      "username": "farahvpn",
+      "preview": "https://t.me/s/farahvpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@farazv2ray",
+      "username": "farazv2ray",
+      "preview": "https://t.me/s/farazv2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@farsiproxi",
+      "username": "farsiproxi",
+      "preview": "https://t.me/s/farsiproxi",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@fast_conect0",
+      "username": "fast_conect0",
+      "preview": "https://t.me/s/fast_conect0",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@fastkanfig",
+      "username": "fastkanfig",
+      "preview": "https://t.me/s/fastkanfig",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@fastnettools",
+      "username": "fastnettools",
+      "preview": "https://t.me/s/fastnettools",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@father_vpn",
+      "username": "father_vpn",
+      "preview": "https://t.me/s/father_vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@filembad",
+      "username": "filembad",
+      "preview": "https://t.me/s/filembad",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@filtermeliii",
+      "username": "filtermeliii",
+      "preview": "https://t.me/s/filtermeliii",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@filtershekan_channel",
+      "username": "filtershekan_channel",
+      "preview": "https://t.me/s/filtershekan_channel",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@fnet00",
+      "username": "fnet00",
+      "preview": "https://t.me/s/fnet00",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@Fr33C0nfig",
+      "username": "Fr33C0nfig",
+      "preview": "https://t.me/s/Fr33C0nfig",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@free_conf_iran",
+      "username": "free_conf_iran",
+      "preview": "https://t.me/s/free_conf_iran",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@Free_HTTPCustom",
+      "username": "Free_HTTPCustom",
+      "preview": "https://t.me/s/Free_HTTPCustom",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@free_nettm",
+      "username": "free_nettm",
+      "preview": "https://t.me/s/free_nettm",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@free_outline_keys",
+      "username": "free_outline_keys",
+      "preview": "https://t.me/s/free_outline_keys",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@free_trower",
+      "username": "free_trower",
+      "preview": "https://t.me/s/free_trower",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@free_v2rayyy",
+      "username": "free_v2rayyy",
+      "preview": "https://t.me/s/free_v2rayyy",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@free_vpn_ch",
+      "username": "free_vpn_ch",
+      "preview": "https://t.me/s/free_vpn_ch",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@free_vpn02",
+      "username": "free_vpn02",
+      "preview": "https://t.me/s/free_vpn02",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@free_world2",
+      "username": "free_world2",
+      "preview": "https://t.me/s/free_world2",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@free1ss",
+      "username": "free1ss",
+      "preview": "https://t.me/s/free1ss",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@freeconffning",
+      "username": "freeconffning",
+      "preview": "https://t.me/s/freeconffning",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@freeconfigforyou",
+      "username": "freeconfigforyou",
+      "preview": "https://t.me/s/freeconfigforyou",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@freedig_italcurrency",
+      "username": "freedig_italcurrency",
+      "preview": "https://t.me/s/freedig_italcurrency",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@freedom_iran_npv",
+      "username": "freedom_iran_npv",
+      "preview": "https://t.me/s/freedom_iran_npv",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@freedomconfigg",
+      "username": "freedomconfigg",
+      "preview": "https://t.me/s/freedomconfigg",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@Freedomnetir",
+      "username": "Freedomnetir",
+      "preview": "https://t.me/s/Freedomnetir",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@freedomofinfor",
+      "username": "freedomofinfor",
+      "preview": "https://t.me/s/freedomofinfor",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@freemelinet",
+      "username": "freemelinet",
+      "preview": "https://t.me/s/freemelinet",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@FreeNet1500",
+      "username": "FreeNet1500",
+      "preview": "https://t.me/s/FreeNet1500",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@freenettir",
+      "username": "freenettir",
+      "preview": "https://t.me/s/freenettir",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@freeonlinevpn",
+      "username": "freeonlinevpn",
+      "preview": "https://t.me/s/freeonlinevpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@freev2rayconfigs",
+      "username": "freev2rayconfigs",
+      "preview": "https://t.me/s/freev2rayconfigs",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@freev2rayssr",
+      "username": "freev2rayssr",
+      "preview": "https://t.me/s/freev2rayssr",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@FreeVlessVpn",
+      "username": "FreeVlessVpn",
+      "preview": "https://t.me/s/FreeVlessVpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@freezeroo",
+      "username": "freezeroo",
+      "preview": "https://t.me/s/freezeroo",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@frev2rayng",
+      "username": "frev2rayng",
+      "preview": "https://t.me/s/frev2rayng",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@frv2ray",
+      "username": "frv2ray",
+      "preview": "https://t.me/s/frv2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@fuckknet",
+      "username": "fuckknet",
+      "preview": "https://t.me/s/fuckknet",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@gangshop_config",
+      "username": "gangshop_config",
+      "preview": "https://t.me/s/gangshop_config",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@gap_ip",
+      "username": "gap_ip",
+      "preview": "https://t.me/s/gap_ip",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@getxconfig",
+      "username": "getxconfig",
+      "preview": "https://t.me/s/getxconfig",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@ghalagyann",
+      "username": "ghalagyann",
+      "preview": "https://t.me/s/ghalagyann",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@ghand_sheken",
+      "username": "ghand_sheken",
+      "preview": "https://t.me/s/ghand_sheken",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@go4free",
+      "username": "go4free",
+      "preview": "https://t.me/s/go4free",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@gozargahazad",
+      "username": "gozargahazad",
+      "preview": "https://t.me/s/gozargahazad",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@gozargahvpn",
+      "username": "gozargahvpn",
+      "preview": "https://t.me/s/gozargahvpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@h110vpn",
+      "username": "h110vpn",
+      "preview": "https://t.me/s/h110vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@hajmvpn_config",
+      "username": "hajmvpn_config",
+      "preview": "https://t.me/s/hajmvpn_config",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@halonetvpn",
+      "username": "halonetvpn",
+      "preview": "https://t.me/s/halonetvpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@hatunnel_vpn",
+      "username": "hatunnel_vpn",
+      "preview": "https://t.me/s/hatunnel_vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@hesarweb",
+      "username": "hesarweb",
+      "preview": "https://t.me/s/hesarweb",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@hex_proxy",
+      "username": "hex_proxy",
+      "preview": "https://t.me/s/hex_proxy",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@hi_proxy_iran",
+      "username": "hi_proxy_iran",
+      "preview": "https://t.me/s/hi_proxy_iran",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@hibyevpnn",
+      "username": "hibyevpnn",
+      "preview": "https://t.me/s/hibyevpnn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@hiddifyv2rayconfigs",
+      "username": "hiddifyv2rayconfigs",
+      "preview": "https://t.me/s/hiddifyv2rayconfigs",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@hollowcon",
+      "username": "hollowcon",
+      "preview": "https://t.me/s/hollowcon",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@hopev2ray",
+      "username": "hopev2ray",
+      "preview": "https://t.me/s/hopev2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@HTTPCustomLand",
+      "username": "HTTPCustomLand",
+      "preview": "https://t.me/s/HTTPCustomLand",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@https_config_injector",
+      "username": "https_config_injector",
+      "preview": "https://t.me/s/https_config_injector",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@hyper_confing",
+      "username": "hyper_confing",
+      "preview": "https://t.me/s/hyper_confing",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@i10vpn",
+      "username": "i10vpn",
+      "preview": "https://t.me/s/i10vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@IBV2RAY",
+      "username": "IBV2RAY",
+      "preview": "https://t.me/s/IBV2RAY",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@iMTProto",
+      "username": "iMTProto",
+      "preview": "https://t.me/s/iMTProto",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/V2RayRoot/V2RayConfig/blob/main/telegram_channels.json"
+      ]
+    },
+    {
+      "peer": "@injastvpn",
+      "username": "injastvpn",
+      "preview": "https://t.me/s/injastvpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@iproxychannel",
+      "username": "iproxychannel",
+      "preview": "https://t.me/s/iproxychannel",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@ipV2Ray",
+      "username": "ipV2Ray",
+      "preview": "https://t.me/s/ipV2Ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@iranconnecting",
+      "username": "iranconnecting",
+      "preview": "https://t.me/s/iranconnecting",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@IraneAzad_Net",
+      "username": "IraneAzad_Net",
+      "preview": "https://t.me/s/IraneAzad_Net",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@iranping24",
+      "username": "iranping24",
+      "preview": "https://t.me/s/iranping24",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@iranv2ray",
+      "username": "iranv2ray",
+      "preview": "https://t.me/s/iranv2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@iranvpnet",
+      "username": "iranvpnet",
+      "preview": "https://t.me/s/iranvpnet",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@IRANVPNNET",
+      "username": "IRANVPNNET",
+      "preview": "https://t.me/s/IRANVPNNET",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@irconfiig",
+      "username": "irconfiig",
+      "preview": "https://t.me/s/irconfiig",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@irdusti",
+      "username": "irdusti",
+      "preview": "https://t.me/s/irdusti",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@irv2rey",
+      "username": "irv2rey",
+      "preview": "https://t.me/s/irv2rey",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@iSeqaro",
+      "username": "iSeqaro",
+      "preview": "https://t.me/s/iSeqaro",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@isvvpn",
+      "username": "isvvpn",
+      "preview": "https://t.me/s/isvvpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@jahan_vpn",
+      "username": "jahan_vpn",
+      "preview": "https://t.me/s/jahan_vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@jeyksatan",
+      "username": "jeyksatan",
+      "preview": "https://t.me/s/jeyksatan",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@jkvpn",
+      "username": "jkvpn",
+      "preview": "https://t.me/s/jkvpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@kafing_2",
+      "username": "kafing_2",
+      "preview": "https://t.me/s/kafing_2",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@kanfingvporocsi",
+      "username": "kanfingvporocsi",
+      "preview": "https://t.me/s/kanfingvporocsi",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@karina_edu",
+      "username": "karina_edu",
+      "preview": "https://t.me/s/karina_edu",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@kasibam1",
+      "username": "kasibam1",
+      "preview": "https://t.me/s/kasibam1",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@keysoutline",
+      "username": "keysoutline",
+      "preview": "https://t.me/s/keysoutline",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@kia_net",
+      "username": "kia_net",
+      "preview": "https://t.me/s/kia_net",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@kian_vpn",
+      "username": "kian_vpn",
+      "preview": "https://t.me/s/kian_vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@kiava",
+      "username": "kiava",
+      "preview": "https://t.me/s/kiava",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@kiavak",
+      "username": "kiavak",
+      "preview": "https://t.me/s/kiavak",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@kurdconfig",
+      "username": "kurdconfig",
+      "preview": "https://t.me/s/kurdconfig",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@Letiranbreath",
+      "username": "Letiranbreath",
+      "preview": "https://t.me/s/Letiranbreath",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/V2RayRoot/V2RayConfig/blob/main/telegram_channels.json"
+      ]
+    },
+    {
+      "peer": "@leviconfigs",
+      "username": "leviconfigs",
+      "preview": "https://t.me/s/leviconfigs",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@lightning6",
+      "username": "lightning6",
+      "preview": "https://t.me/s/lightning6",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@ln2ray",
+      "username": "ln2ray",
+      "preview": "https://t.me/s/ln2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@lonup_m",
+      "username": "lonup_m",
+      "preview": "https://t.me/s/lonup_m",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@loveiran83",
+      "username": "loveiran83",
+      "preview": "https://t.me/s/loveiran83",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@maconnectt",
+      "username": "maconnectt",
+      "preview": "https://t.me/s/maconnectt",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@mahsaamoon1",
+      "username": "mahsaamoon1",
+      "preview": "https://t.me/s/mahsaamoon1",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@mainv2ray",
+      "username": "mainv2ray",
+      "preview": "https://t.me/s/mainv2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@marambashi",
+      "username": "marambashi",
+      "preview": "https://t.me/s/marambashi",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@maramivpn",
+      "username": "maramivpn",
+      "preview": "https://t.me/s/maramivpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@masir_sefid",
+      "username": "masir_sefid",
+      "preview": "https://t.me/s/masir_sefid",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@masterserver1",
+      "username": "masterserver1",
+      "preview": "https://t.me/s/masterserver1",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@maznet",
+      "username": "maznet",
+      "preview": "https://t.me/s/maznet",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@mdvpnsec",
+      "username": "mdvpnsec",
+      "preview": "https://t.me/s/mdvpnsec",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@meliproxyy",
+      "username": "meliproxyy",
+      "preview": "https://t.me/s/meliproxyy",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@melov2ray",
+      "username": "melov2ray",
+      "preview": "https://t.me/s/melov2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@mewonet",
+      "username": "mewonet",
+      "preview": "https://t.me/s/mewonet",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@mochav2ray",
+      "username": "mochav2ray",
+      "preview": "https://t.me/s/mochav2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@moft_vpn",
+      "username": "moft_vpn",
+      "preview": "https://t.me/s/moft_vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@moh3enivx",
+      "username": "moh3enivx",
+      "preview": "https://t.me/s/moh3enivx",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@motaselid",
+      "username": "motaselid",
+      "preview": "https://t.me/s/motaselid",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@MrV2Ray",
+      "username": "MrV2Ray",
+      "preview": "https://t.me/s/MrV2Ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@mrwebvpn",
+      "username": "mrwebvpn",
+      "preview": "https://t.me/s/mrwebvpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@mtmvpn",
+      "username": "mtmvpn",
+      "preview": "https://t.me/s/mtmvpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@mtp4tg",
+      "username": "mtp4tg",
+      "preview": "https://t.me/s/mtp4tg",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/0xRadikal/Free-Telegram-Proxy/blob/main/tgproxy/sources.py"
+      ]
+    },
+    {
+      "peer": "@MTPROTO_MTPROXY_Telegram",
+      "username": "MTPROTO_MTPROXY_Telegram",
+      "preview": "https://t.me/s/MTPROTO_MTPROXY_Telegram",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/0xRadikal/Free-Telegram-Proxy/blob/main/tgproxy/sources.py"
+      ]
+    },
+    {
+      "peer": "@mtproxy_lists",
+      "username": "mtproxy_lists",
+      "preview": "https://t.me/s/mtproxy_lists",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@Myporoxy",
+      "username": "Myporoxy",
+      "preview": "https://t.me/s/Myporoxy",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/0xRadikal/Free-Telegram-Proxy/blob/main/tgproxy/sources.py"
+      ]
+    },
+    {
+      "peer": "@myvless",
+      "username": "myvless",
+      "preview": "https://t.me/s/myvless",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@namazvpn",
+      "username": "namazvpn",
+      "preview": "https://t.me/s/namazvpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@nap_v2ray",
+      "username": "nap_v2ray",
+      "preview": "https://t.me/s/nap_v2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@napsternetv_config",
+      "username": "napsternetv_config",
+      "preview": "https://t.me/s/napsternetv_config",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@napsternetvirani",
+      "username": "napsternetvirani",
+      "preview": "https://t.me/s/napsternetvirani",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@narcod_ping",
+      "username": "narcod_ping",
+      "preview": "https://t.me/s/narcod_ping",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@natrixo",
+      "username": "natrixo",
+      "preview": "https://t.me/s/natrixo",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@net2proxy",
+      "username": "net2proxy",
+      "preview": "https://t.me/s/net2proxy",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@net2ray",
+      "username": "net2ray",
+      "preview": "https://t.me/s/net2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@netazadi",
+      "username": "netazadi",
+      "preview": "https://t.me/s/netazadi",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@netiva_ir",
+      "username": "netiva_ir",
+      "preview": "https://t.me/s/netiva_ir",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@netizo",
+      "username": "netizo",
+      "preview": "https://t.me/s/netizo",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@netmeli_channel",
+      "username": "netmeli_channel",
+      "preview": "https://t.me/s/netmeli_channel",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@netmelinpv",
+      "username": "netmelinpv",
+      "preview": "https://t.me/s/netmelinpv",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@netnewz",
+      "username": "netnewz",
+      "preview": "https://t.me/s/netnewz",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@netshot1",
+      "username": "netshot1",
+      "preview": "https://t.me/s/netshot1",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@nett_plus",
+      "username": "nett_plus",
+      "preview": "https://t.me/s/nett_plus",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@netv2reyng",
+      "username": "netv2reyng",
+      "preview": "https://t.me/s/netv2reyng",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@networld_vpn",
+      "username": "networld_vpn",
+      "preview": "https://t.me/s/networld_vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@netzone_ir",
+      "username": "netzone_ir",
+      "preview": "https://t.me/s/netzone_ir",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@newsdarya",
+      "username": "newsdarya",
+      "preview": "https://t.me/s/newsdarya",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@nexus_nett",
+      "username": "nexus_nett",
+      "preview": "https://t.me/s/nexus_nett",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@nexus_panell",
+      "username": "nexus_panell",
+      "preview": "https://t.me/s/nexus_panell",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@nitrustore",
+      "username": "nitrustore",
+      "preview": "https://t.me/s/nitrustore",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@normanv2rayx",
+      "username": "normanv2rayx",
+      "preview": "https://t.me/s/normanv2rayx",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@novashop33",
+      "username": "novashop33",
+      "preview": "https://t.me/s/novashop33",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@npv_tunnel",
+      "username": "npv_tunnel",
+      "preview": "https://t.me/s/npv_tunnel",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@npv_tunnelorg",
+      "username": "npv_tunnelorg",
+      "preview": "https://t.me/s/npv_tunnelorg",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@nx_v2ray",
+      "username": "nx_v2ray",
+      "preview": "https://t.me/s/nx_v2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@openetvpn",
+      "username": "openetvpn",
+      "preview": "https://t.me/s/openetvpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@orange_vpns",
+      "username": "orange_vpns",
+      "preview": "https://t.me/s/orange_vpns",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@outline_ir",
+      "username": "outline_ir",
+      "preview": "https://t.me/s/outline_ir",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@outline_open_keys",
+      "username": "outline_open_keys",
+      "preview": "https://t.me/s/outline_open_keys",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@OutlineReleasedKey",
+      "username": "OutlineReleasedKey",
+      "preview": "https://t.me/s/OutlineReleasedKey",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Airuop/config-fetcher/blob/main/src/config.py"
+      ]
+    },
+    {
+      "peer": "@OutlineVpnOfficial",
+      "username": "OutlineVpnOfficial",
+      "preview": "https://t.me/s/OutlineVpnOfficial",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@overvpn",
+      "username": "overvpn",
+      "preview": "https://t.me/s/overvpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@Parsashonam",
+      "username": "Parsashonam",
+      "preview": "https://t.me/s/Parsashonam",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@payam_nsi",
+      "username": "payam_nsi",
+      "preview": "https://t.me/s/payam_nsi",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@penguin_npv",
+      "username": "penguin_npv",
+      "preview": "https://t.me/s/penguin_npv",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@pevezavpn",
+      "username": "pevezavpn",
+      "preview": "https://t.me/s/pevezavpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@plankton_vpn",
+      "username": "plankton_vpn",
+      "preview": "https://t.me/s/plankton_vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@ppal03",
+      "username": "ppal03",
+      "preview": "https://t.me/s/ppal03",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@prisonvpnc",
+      "username": "prisonvpnc",
+      "preview": "https://t.me/s/prisonvpnc",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@probabblynot",
+      "username": "probabblynot",
+      "preview": "https://t.me/s/probabblynot",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@proconf1",
+      "username": "proconf1",
+      "preview": "https://t.me/s/proconf1",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@prooxyland0",
+      "username": "prooxyland0",
+      "preview": "https://t.me/s/prooxyland0",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@proxxymeliii",
+      "username": "proxxymeliii",
+      "preview": "https://t.me/s/proxxymeliii",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@proxy_kafee",
+      "username": "proxy_kafee",
+      "preview": "https://t.me/s/proxy_kafee",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@proxy_shadosocks",
+      "username": "proxy_shadosocks",
+      "preview": "https://t.me/s/proxy_shadosocks",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Airuop/config-fetcher/blob/main/src/config.py"
+      ]
+    },
+    {
+      "peer": "@proxy_telegramt",
+      "username": "proxy_telegramt",
+      "preview": "https://t.me/s/proxy_telegramt",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/0xRadikal/Free-Telegram-Proxy/blob/main/tgproxy/sources.py"
+      ]
+    },
+    {
+      "peer": "@proxycaspian",
+      "username": "proxycaspian",
+      "preview": "https://t.me/s/proxycaspian",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@proxydotnet",
+      "username": "proxydotnet",
+      "preview": "https://t.me/s/proxydotnet",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@proxymtalpha",
+      "username": "proxymtalpha",
+      "preview": "https://t.me/s/proxymtalpha",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@proxymthub",
+      "username": "proxymthub",
+      "preview": "https://t.me/s/proxymthub",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@proxyyaar",
+      "username": "proxyyaar",
+      "preview": "https://t.me/s/proxyyaar",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@proxyymeliii",
+      "username": "proxyymeliii",
+      "preview": "https://t.me/s/proxyymeliii",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@qara_atayi",
+      "username": "qara_atayi",
+      "preview": "https://t.me/s/qara_atayi",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@quantumvpn_vip",
+      "username": "quantumvpn_vip",
+      "preview": "https://t.me/s/quantumvpn_vip",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@Qv2rayDONATED",
+      "username": "Qv2rayDONATED",
+      "preview": "https://t.me/s/Qv2rayDONATED",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@rasht_tech_ch",
+      "username": "rasht_tech_ch",
+      "preview": "https://t.me/s/rasht_tech_ch",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@raydikalx",
+      "username": "raydikalx",
+      "preview": "https://t.me/s/raydikalx",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@rayhub_ir",
+      "username": "rayhub_ir",
+      "preview": "https://t.me/s/rayhub_ir",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@rayphoriahub",
+      "username": "rayphoriahub",
+      "preview": "https://t.me/s/rayphoriahub",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@rk_vps",
+      "username": "rk_vps",
+      "preview": "https://t.me/s/rk_vps",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@Romax_VPN",
+      "username": "Romax_VPN",
+      "preview": "https://t.me/s/Romax_VPN",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@rxv2ray",
+      "username": "rxv2ray",
+      "preview": "https://t.me/s/rxv2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@SafeNetIR",
+      "username": "SafeNetIR",
+      "preview": "https://t.me/s/SafeNetIR",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@saghivpnx",
+      "username": "saghivpnx",
+      "preview": "https://t.me/s/saghivpnx",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@savteam",
+      "username": "savteam",
+      "preview": "https://t.me/s/savteam",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@selinc",
+      "username": "selinc",
+      "preview": "https://t.me/s/selinc",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@server_dns",
+      "username": "server_dns",
+      "preview": "https://t.me/s/server_dns",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@servergod2",
+      "username": "servergod2",
+      "preview": "https://t.me/s/servergod2",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@serverstm",
+      "username": "serverstm",
+      "preview": "https://t.me/s/serverstm",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@SEVEN_ping",
+      "username": "SEVEN_ping",
+      "preview": "https://t.me/s/SEVEN_ping",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@Shadowlinkserverr",
+      "username": "Shadowlinkserverr",
+      "preview": "https://t.me/s/Shadowlinkserverr",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@shadownet021",
+      "username": "shadownet021",
+      "preview": "https://t.me/s/shadownet021",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@shadowsocks_phs",
+      "username": "shadowsocks_phs",
+      "preview": "https://t.me/s/shadowsocks_phs",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@shadowsockskeys",
+      "username": "shadowsockskeys",
+      "preview": "https://t.me/s/shadowsockskeys",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@shadowsocksshop",
+      "username": "shadowsocksshop",
+      "preview": "https://t.me/s/shadowsocksshop",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@shahrmafia",
+      "username": "shahrmafia",
+      "preview": "https://t.me/s/shahrmafia",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@shekanyab",
+      "username": "shekanyab",
+      "preview": "https://t.me/s/shekanyab",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@sheriffnet",
+      "username": "sheriffnet",
+      "preview": "https://t.me/s/sheriffnet",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@shirokhorshidvpnn",
+      "username": "shirokhorshidvpnn",
+      "preview": "https://t.me/s/shirokhorshidvpnn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@shopingv2ray",
+      "username": "shopingv2ray",
+      "preview": "https://t.me/s/shopingv2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@siigmavpn",
+      "username": "siigmavpn",
+      "preview": "https://t.me/s/siigmavpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@sil3nt_network",
+      "username": "sil3nt_network",
+      "preview": "https://t.me/s/sil3nt_network",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@simchin_ir",
+      "username": "simchin_ir",
+      "preview": "https://t.me/s/simchin_ir",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@singbox1",
+      "username": "singbox1",
+      "preview": "https://t.me/s/singbox1",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@skivpn",
+      "username": "skivpn",
+      "preview": "https://t.me/s/skivpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@skyliink_vpn",
+      "username": "skyliink_vpn",
+      "preview": "https://t.me/s/skyliink_vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@slipnet_33",
+      "username": "slipnet_33",
+      "preview": "https://t.me/s/slipnet_33",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@soliconf",
+      "username": "soliconf",
+      "preview": "https://t.me/s/soliconf",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@soskeynet",
+      "username": "soskeynet",
+      "preview": "https://t.me/s/soskeynet",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@soskeynets",
+      "username": "soskeynets",
+      "preview": "https://t.me/s/soskeynets",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@sparrk_vpn",
+      "username": "sparrk_vpn",
+      "preview": "https://t.me/s/sparrk_vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@spartan_yt",
+      "username": "spartan_yt",
+      "preview": "https://t.me/s/spartan_yt",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@speedtunnel",
+      "username": "speedtunnel",
+      "preview": "https://t.me/s/speedtunnel",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@spotfyhits",
+      "username": "spotfyhits",
+      "preview": "https://t.me/s/spotfyhits",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@spotify_porteghali",
+      "username": "spotify_porteghali",
+      "preview": "https://t.me/s/spotify_porteghali",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@ssrsub",
+      "username": "ssrsub",
+      "preview": "https://t.me/s/ssrsub",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@stretten",
+      "username": "stretten",
+      "preview": "https://t.me/s/stretten",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@subgift",
+      "username": "subgift",
+      "preview": "https://t.me/s/subgift",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@super_v2ray24",
+      "username": "super_v2ray24",
+      "preview": "https://t.me/s/super_v2ray24",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@surfboardv2ray",
+      "username": "surfboardv2ray",
+      "preview": "https://t.me/s/surfboardv2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@SvnTeam",
+      "username": "SvnTeam",
+      "preview": "https://t.me/s/SvnTeam",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@sylphnet",
+      "username": "sylphnet",
+      "preview": "https://t.me/s/sylphnet",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@tanhanet",
+      "username": "tanhanet",
+      "preview": "https://t.me/s/tanhanet",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@taziyanteam",
+      "username": "taziyanteam",
+      "preview": "https://t.me/s/taziyanteam",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@teamkingo",
+      "username": "teamkingo",
+      "preview": "https://t.me/s/teamkingo",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@techbod",
+      "username": "techbod",
+      "preview": "https://t.me/s/techbod",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@tehranargo",
+      "username": "tehranargo",
+      "preview": "https://t.me/s/tehranargo",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@tel_melli",
+      "username": "tel_melli",
+      "preview": "https://t.me/s/tel_melli",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@TelMTProto",
+      "username": "TelMTProto",
+      "preview": "https://t.me/s/TelMTProto",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/0xRadikal/Free-Telegram-Proxy/blob/main/tgproxy/sources.py"
+      ]
+    },
+    {
+      "peer": "@tester_vpn",
+      "username": "tester_vpn",
+      "preview": "https://t.me/s/tester_vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@tgrvpn",
+      "username": "tgrvpn",
+      "preview": "https://t.me/s/tgrvpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@themob_vpn",
+      "username": "themob_vpn",
+      "preview": "https://t.me/s/themob_vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@thephantom_net",
+      "username": "thephantom_net",
+      "preview": "https://t.me/s/thephantom_net",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@tik7net_vpn",
+      "username": "tik7net_vpn",
+      "preview": "https://t.me/s/tik7net_vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@TLS_v2ray",
+      "username": "TLS_v2ray",
+      "preview": "https://t.me/s/TLS_v2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@tobevasl",
+      "username": "tobevasl",
+      "preview": "https://t.me/s/tobevasl",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@toitan_proxy",
+      "username": "toitan_proxy",
+      "preview": "https://t.me/s/toitan_proxy",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@tootffarangi",
+      "username": "tootffarangi",
+      "preview": "https://t.me/s/tootffarangi",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@tootffarangi2",
+      "username": "tootffarangi2",
+      "preview": "https://t.me/s/tootffarangi2",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@TProxyRU",
+      "username": "TProxyRU",
+      "preview": "https://t.me/s/TProxyRU",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/0xRadikal/Free-Telegram-Proxy/blob/main/tgproxy/sources.py"
+      ]
+    },
+    {
+      "peer": "@trojanconfigs",
+      "username": "trojanconfigs",
+      "preview": "https://t.me/s/trojanconfigs",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@TunelProV2",
+      "username": "TunelProV2",
+      "preview": "https://t.me/s/TunelProV2",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@tunnelonline",
+      "username": "tunnelonline",
+      "preview": "https://t.me/s/tunnelonline",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@turboproxyir",
+      "username": "turboproxyir",
+      "preview": "https://t.me/s/turboproxyir",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@TVCminer",
+      "username": "TVCminer",
+      "preview": "https://t.me/s/TVCminer",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@ukv2ray",
+      "username": "ukv2ray",
+      "preview": "https://t.me/s/ukv2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@ultrasurf_12",
+      "username": "ultrasurf_12",
+      "preview": "https://t.me/s/ultrasurf_12",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@unblocked_ir",
+      "username": "unblocked_ir",
+      "preview": "https://t.me/s/unblocked_ir",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@unlimitconfig",
+      "username": "unlimitconfig",
+      "preview": "https://t.me/s/unlimitconfig",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@UnlimitedDev",
+      "username": "UnlimitedDev",
+      "preview": "https://t.me/s/UnlimitedDev",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@uonvpn",
+      "username": "uonvpn",
+      "preview": "https://t.me/s/uonvpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@V_2rayngVpn",
+      "username": "V_2rayngVpn",
+      "preview": "https://t.me/s/V_2rayngVpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@v2_mod_shop",
+      "username": "v2_mod_shop",
+      "preview": "https://t.me/s/v2_mod_shop",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2all",
+      "username": "v2all",
+      "preview": "https://t.me/s/v2all",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2box",
+      "username": "v2box",
+      "preview": "https://t.me/s/v2box",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2box_iran1",
+      "username": "v2box_iran1",
+      "preview": "https://t.me/s/v2box_iran1",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2box_vpn1",
+      "username": "v2box_vpn1",
+      "preview": "https://t.me/s/v2box_vpn1",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2dark",
+      "username": "v2dark",
+      "preview": "https://t.me/s/v2dark",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2dogs_n",
+      "username": "v2dogs_n",
+      "preview": "https://t.me/s/v2dogs_n",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2freehub",
+      "username": "v2freehub",
+      "preview": "https://t.me/s/v2freehub",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@V2Graphy",
+      "username": "V2Graphy",
+      "preview": "https://t.me/s/V2Graphy",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@v2hubir",
+      "username": "v2hubir",
+      "preview": "https://t.me/s/v2hubir",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2logy",
+      "username": "v2logy",
+      "preview": "https://t.me/s/v2logy",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@v2mystery",
+      "username": "v2mystery",
+      "preview": "https://t.me/s/v2mystery",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2netfree",
+      "username": "v2netfree",
+      "preview": "https://t.me/s/v2netfree",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2ngfast",
+      "username": "v2ngfast",
+      "preview": "https://t.me/s/v2ngfast",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2ngnet",
+      "username": "v2ngnet",
+      "preview": "https://t.me/s/v2ngnet",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2proxypvn",
+      "username": "v2proxypvn",
+      "preview": "https://t.me/s/v2proxypvn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2r_ayorg",
+      "username": "v2r_ayorg",
+      "preview": "https://t.me/s/v2r_ayorg",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2ra_config",
+      "username": "v2ra_config",
+      "preview": "https://t.me/s/v2ra_config",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2ray_ar",
+      "username": "v2ray_ar",
+      "preview": "https://t.me/s/v2ray_ar",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@v2ray_cartel",
+      "username": "v2ray_cartel",
+      "preview": "https://t.me/s/v2ray_cartel",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@v2ray_collector",
+      "username": "v2ray_collector",
+      "preview": "https://t.me/s/v2ray_collector",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2ray_configs",
+      "username": "v2ray_configs",
+      "preview": "https://t.me/s/v2ray_configs",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2ray_configs_pools",
+      "username": "v2ray_configs_pools",
+      "preview": "https://t.me/s/v2ray_configs_pools",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2ray_confiig",
+      "username": "v2ray_confiig",
+      "preview": "https://t.me/s/v2ray_confiig",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2ray_confing3",
+      "username": "v2ray_confing3",
+      "preview": "https://t.me/s/v2ray_confing3",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2ray_confing33",
+      "username": "v2ray_confing33",
+      "preview": "https://t.me/s/v2ray_confing33",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2ray_custom",
+      "username": "v2ray_custom",
+      "preview": "https://t.me/s/v2ray_custom",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@v2ray_dalghak",
+      "username": "v2ray_dalghak",
+      "preview": "https://t.me/s/v2ray_dalghak",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2ray_fark",
+      "username": "v2ray_fark",
+      "preview": "https://t.me/s/v2ray_fark",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@V2Ray_FreedomIran",
+      "username": "V2Ray_FreedomIran",
+      "preview": "https://t.me/s/V2Ray_FreedomIran",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@v2ray_fspeed",
+      "username": "v2ray_fspeed",
+      "preview": "https://t.me/s/v2ray_fspeed",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@V2RAY_NEW",
+      "username": "V2RAY_NEW",
+      "preview": "https://t.me/s/V2RAY_NEW",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@v2ray_ng",
+      "username": "v2ray_ng",
+      "preview": "https://t.me/s/v2ray_ng",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2ray_official",
+      "username": "v2ray_official",
+      "preview": "https://t.me/s/v2ray_official",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2ray_phoenix",
+      "username": "v2ray_phoenix",
+      "preview": "https://t.me/s/v2ray_phoenix",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@V2ray_Team",
+      "username": "V2ray_Team",
+      "preview": "https://t.me/s/V2ray_Team",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@v2ray_tj",
+      "username": "v2ray_tj",
+      "preview": "https://t.me/s/v2ray_tj",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2ray_unit",
+      "username": "v2ray_unit",
+      "preview": "https://t.me/s/v2ray_unit",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2ray26",
+      "username": "v2ray26",
+      "preview": "https://t.me/s/v2ray26",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2ray313",
+      "username": "v2ray313",
+      "preview": "https://t.me/s/v2ray313",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2ray45",
+      "username": "v2ray45",
+      "preview": "https://t.me/s/v2ray45",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2rayan",
+      "username": "v2rayan",
+      "preview": "https://t.me/s/v2rayan",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@v2rayargon",
+      "username": "v2rayargon",
+      "preview": "https://t.me/s/v2rayargon",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2raybaaz",
+      "username": "v2raybaaz",
+      "preview": "https://t.me/s/v2raybaaz",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2raych",
+      "username": "v2raych",
+      "preview": "https://t.me/s/v2raych",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2RayChannel",
+      "username": "v2RayChannel",
+      "preview": "https://t.me/s/v2RayChannel",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@v2rayfree1",
+      "username": "v2rayfree1",
+      "preview": "https://t.me/s/v2rayfree1",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@v2rayfreeserver",
+      "username": "v2rayfreeserver",
+      "preview": "https://t.me/s/v2rayfreeserver",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2raymelliii",
+      "username": "v2raymelliii",
+      "preview": "https://t.me/s/v2raymelliii",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@V2rayN_Free",
+      "username": "V2rayN_Free",
+      "preview": "https://t.me/s/V2rayN_Free",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@v2rayn_server",
+      "username": "v2rayn_server",
+      "preview": "https://t.me/s/v2rayn_server",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@v2rayng_021",
+      "username": "v2rayng_021",
+      "preview": "https://t.me/s/v2rayng_021",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2rayng_1378",
+      "username": "v2rayng_1378",
+      "preview": "https://t.me/s/v2rayng_1378",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2rayng_fars",
+      "username": "v2rayng_fars",
+      "preview": "https://t.me/s/v2rayng_fars",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2rayng_free",
+      "username": "v2rayng_free",
+      "preview": "https://t.me/s/v2rayng_free",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2rayng_v",
+      "username": "v2rayng_v",
+      "preview": "https://t.me/s/v2rayng_v",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@v2rayNG_VPN",
+      "username": "v2rayNG_VPN",
+      "preview": "https://t.me/s/v2rayNG_VPN",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@v2rayng405",
+      "username": "v2rayng405",
+      "preview": "https://t.me/s/v2rayng405",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2rayNgg_iran",
+      "username": "v2rayNgg_iran",
+      "preview": "https://t.me/s/v2rayNgg_iran",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@v2rayngninja",
+      "username": "v2rayngninja",
+      "preview": "https://t.me/s/v2rayngninja",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2rayngseven",
+      "username": "v2rayngseven",
+      "preview": "https://t.me/s/v2rayngseven",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2rayngzendegimamad",
+      "username": "v2rayngzendegimamad",
+      "preview": "https://t.me/s/v2rayngzendegimamad",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@V2RayOxygen",
+      "username": "V2RayOxygen",
+      "preview": "https://t.me/s/V2RayOxygen",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@v2rayproirvpn",
+      "username": "v2rayproirvpn",
+      "preview": "https://t.me/s/v2rayproirvpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2rayrootfree",
+      "username": "v2rayrootfree",
+      "preview": "https://t.me/s/v2rayrootfree",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2raysaman",
+      "username": "v2raysaman",
+      "preview": "https://t.me/s/v2raysaman",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@V2raysFree",
+      "username": "V2raysFree",
+      "preview": "https://t.me/s/V2raysFree",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@V2RayTz",
+      "username": "V2RayTz",
+      "preview": "https://t.me/s/V2RayTz",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@v2rayv2boxx",
+      "username": "v2rayv2boxx",
+      "preview": "https://t.me/s/v2rayv2boxx",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2rayvpn2",
+      "username": "v2rayvpn2",
+      "preview": "https://t.me/s/v2rayvpn2",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@v2rayvpnshop1",
+      "username": "v2rayvpnshop1",
+      "preview": "https://t.me/s/v2rayvpnshop1",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2rayyngvpn",
+      "username": "v2rayyngvpn",
+      "preview": "https://t.me/s/v2rayyngvpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2rez",
+      "username": "v2rez",
+      "preview": "https://t.me/s/v2rez",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2rfa",
+      "username": "v2rfa",
+      "preview": "https://t.me/s/v2rfa",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2ry_proxy",
+      "username": "v2ry_proxy",
+      "preview": "https://t.me/s/v2ry_proxy",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2ryng01",
+      "username": "v2ryng01",
+      "preview": "https://t.me/s/v2ryng01",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2source",
+      "username": "v2source",
+      "preview": "https://t.me/s/v2source",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2xay",
+      "username": "v2xay",
+      "preview": "https://t.me/s/v2xay",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2xnet",
+      "username": "v2xnet",
+      "preview": "https://t.me/s/v2xnet",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@v2ynpv",
+      "username": "v2ynpv",
+      "preview": "https://t.me/s/v2ynpv",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@va3lsho",
+      "username": "va3lsho",
+      "preview": "https://t.me/s/va3lsho",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vaklconfig",
+      "username": "vaklconfig",
+      "preview": "https://t.me/s/vaklconfig",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@varn_net",
+      "username": "varn_net",
+      "preview": "https://t.me/s/varn_net",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vasl_bashim",
+      "username": "vasl_bashim",
+      "preview": "https://t.me/s/vasl_bashim",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vaslbemonim7",
+      "username": "vaslbemonim7",
+      "preview": "https://t.me/s/vaslbemonim7",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vasliazad",
+      "username": "vasliazad",
+      "preview": "https://t.me/s/vasliazad",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vaslvip",
+      "username": "vaslvip",
+      "preview": "https://t.me/s/vaslvip",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vaynora",
+      "username": "vaynora",
+      "preview": "https://t.me/s/vaynora",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vconfig_5",
+      "username": "vconfig_5",
+      "preview": "https://t.me/s/vconfig_5",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vconfing",
+      "username": "vconfing",
+      "preview": "https://t.me/s/vconfing",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vegaas_vpn",
+      "username": "vegaas_vpn",
+      "preview": "https://t.me/s/vegaas_vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vip_vpn_2022",
+      "username": "vip_vpn_2022",
+      "preview": "https://t.me/s/vip_vpn_2022",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@ViraV2ray",
+      "username": "ViraV2ray",
+      "preview": "https://t.me/s/ViraV2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@vistav2ray",
+      "username": "vistav2ray",
+      "preview": "https://t.me/s/vistav2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vitrin_vpn",
+      "username": "vitrin_vpn",
+      "preview": "https://t.me/s/vitrin_vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@viturey",
+      "username": "viturey",
+      "preview": "https://t.me/s/viturey",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vlesskeys",
+      "username": "vlesskeys",
+      "preview": "https://t.me/s/vlesskeys",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vmesc",
+      "username": "vmesc",
+      "preview": "https://t.me/s/vmesc",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vmess_ir",
+      "username": "vmess_ir",
+      "preview": "https://t.me/s/vmess_ir",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vmess_iran",
+      "username": "vmess_iran",
+      "preview": "https://t.me/s/vmess_iran",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@vmess_vless_v2rayng",
+      "username": "vmess_vless_v2rayng",
+      "preview": "https://t.me/s/vmess_vless_v2rayng",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@vmesskhodam",
+      "username": "vmesskhodam",
+      "preview": "https://t.me/s/vmesskhodam",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vmessorg",
+      "username": "vmessorg",
+      "preview": "https://t.me/s/vmessorg",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@vmessq",
+      "username": "vmessq",
+      "preview": "https://t.me/s/vmessq",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@volexproxy",
+      "username": "volexproxy",
+      "preview": "https://t.me/s/volexproxy",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@VorTexIRN",
+      "username": "VorTexIRN",
+      "preview": "https://t.me/s/VorTexIRN",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@VPN_443",
+      "username": "VPN_443",
+      "preview": "https://t.me/s/VPN_443",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@vpn_click",
+      "username": "vpn_click",
+      "preview": "https://t.me/s/vpn_click",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vpn_hubtm",
+      "username": "vpn_hubtm",
+      "preview": "https://t.me/s/vpn_hubtm",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vpn_jet7",
+      "username": "vpn_jet7",
+      "preview": "https://t.me/s/vpn_jet7",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vpn_kurdnet",
+      "username": "vpn_kurdnet",
+      "preview": "https://t.me/s/vpn_kurdnet",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vpn_mafia",
+      "username": "vpn_mafia",
+      "preview": "https://t.me/s/vpn_mafia",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vpn_mikey",
+      "username": "vpn_mikey",
+      "preview": "https://t.me/s/vpn_mikey",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vpn_naji",
+      "username": "vpn_naji",
+      "preview": "https://t.me/s/vpn_naji",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vpn_news_iran",
+      "username": "vpn_news_iran",
+      "preview": "https://t.me/s/vpn_news_iran",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vpn_proxy_custom",
+      "username": "vpn_proxy_custom",
+      "preview": "https://t.me/s/vpn_proxy_custom",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@VPN_SOLVE",
+      "username": "VPN_SOLVE",
+      "preview": "https://t.me/s/VPN_SOLVE",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@vpn_tehran",
+      "username": "vpn_tehran",
+      "preview": "https://t.me/s/vpn_tehran",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vpnaloo",
+      "username": "vpnaloo",
+      "preview": "https://t.me/s/vpnaloo",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vpnbaz",
+      "username": "vpnbaz",
+      "preview": "https://t.me/s/vpnbaz",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vpncostumer",
+      "username": "vpncostumer",
+      "preview": "https://t.me/s/vpncostumer",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vpnfail_v2ray",
+      "username": "vpnfail_v2ray",
+      "preview": "https://t.me/s/vpnfail_v2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vpnfast2ray",
+      "username": "vpnfast2ray",
+      "preview": "https://t.me/s/vpnfast2ray",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vpnfredom",
+      "username": "vpnfredom",
+      "preview": "https://t.me/s/vpnfredom",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vpnine1",
+      "username": "vpnine1",
+      "preview": "https://t.me/s/vpnine1",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vpnjey",
+      "username": "vpnjey",
+      "preview": "https://t.me/s/vpnjey",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vpnmasi",
+      "username": "vpnmasi",
+      "preview": "https://t.me/s/vpnmasi",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@vpnod",
+      "username": "vpnod",
+      "preview": "https://t.me/s/vpnod",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@VpnOrgSec",
+      "username": "VpnOrgSec",
+      "preview": "https://t.me/s/VpnOrgSec",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Pasimand/v2ray-config-agg/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@VpnProsecc",
+      "username": "VpnProsecc",
+      "preview": "https://t.me/s/VpnProsecc",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@vpnserverrr",
+      "username": "vpnserverrr",
+      "preview": "https://t.me/s/vpnserverrr",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vpnshop666",
+      "username": "vpnshop666",
+      "preview": "https://t.me/s/vpnshop666",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vpnsshocean",
+      "username": "vpnsshocean",
+      "preview": "https://t.me/s/vpnsshocean",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@vpnv2box_4x",
+      "username": "vpnv2box_4x",
+      "preview": "https://t.me/s/vpnv2box_4x",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@vpnv2rayngv",
+      "username": "vpnv2rayngv",
+      "preview": "https://t.me/s/vpnv2rayngv",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@VPNwedbaz",
+      "username": "VPNwedbaz",
+      "preview": "https://t.me/s/VPNwedbaz",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@vpnx44",
+      "username": "vpnx44",
+      "preview": "https://t.me/s/vpnx44",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@webshecan",
+      "username": "webshecan",
+      "preview": "https://t.me/s/webshecan",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@WeePeeN",
+      "username": "WeePeeN",
+      "preview": "https://t.me/s/WeePeeN",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@wetconfig",
+      "username": "wetconfig",
+      "preview": "https://t.me/s/wetconfig",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@wexitevpn",
+      "username": "wexitevpn",
+      "preview": "https://t.me/s/wexitevpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@xgvpn",
+      "username": "xgvpn",
+      "preview": "https://t.me/s/xgvpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/V2RayRoot/V2RayConfig/blob/main/telegram_channels.json"
+      ]
+    },
+    {
+      "peer": "@XpnTeam",
+      "username": "XpnTeam",
+      "preview": "https://t.me/s/XpnTeam",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@yaney_01",
+      "username": "yaney_01",
+      "preview": "https://t.me/s/yaney_01",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@YtTe3la",
+      "username": "YtTe3la",
+      "preview": "https://t.me/s/YtTe3la",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv"
+      ]
+    },
+    {
+      "peer": "@zdyz2",
+      "username": "zdyz2",
+      "preview": "https://t.me/s/zdyz2",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@zed_netmeli",
+      "username": "zed_netmeli",
+      "preview": "https://t.me/s/zed_netmeli",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@zedbaz_vpn",
+      "username": "zedbaz_vpn",
+      "preview": "https://t.me/s/zedbaz_vpn",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@zen_cloud",
+      "username": "zen_cloud",
+      "preview": "https://t.me/s/zen_cloud",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/electron-v2ray/Telegram-Config-Dumpr/blob/main/config.py"
+      ]
+    },
+    {
+      "peer": "@zero_tunnel",
+      "username": "zero_tunnel",
+      "preview": "https://t.me/s/zero_tunnel",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    },
+    {
+      "peer": "@ZibaNabz",
+      "username": "ZibaNabz",
+      "preview": "https://t.me/s/ZibaNabz",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/V2RayRoot/V2RayConfig/blob/main/telegram_channels.json"
+      ]
+    },
+    {
+      "peer": "@zyzzzoao",
+      "username": "zyzzzoao",
+      "preview": "https://t.me/s/zyzzzoao",
+      "trust_state": "candidate",
+      "discovered_from": [
+        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
+      ]
+    }
+  ],
+  "numeric_id_candidates": [
+    {
+      "peer": "-1001996629183",
+      "advertised_scan_limit": 1800,
+      "name": "ConfigsHUB2",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1001235816045",
+      "advertised_scan_limit": 1800,
+      "name": "ConfigsHUB",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1002641485940",
+      "advertised_scan_limit": 1200,
+      "name": "TheFreeConfigs",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1002094972529",
+      "advertised_scan_limit": 1000,
+      "name": "FarahVPN",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1002750253398",
+      "advertised_scan_limit": 300,
+      "name": "NamiraConfigs",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1003794545198",
+      "advertised_scan_limit": 300,
+      "name": "vpnfreev2rayconfig",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1001651120965",
+      "advertised_scan_limit": 300,
+      "name": "Outline_ir",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1001528757655",
+      "advertised_scan_limit": 300,
+      "name": "red2ray",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1003856403490",
+      "advertised_scan_limit": 1800,
+      "name": "ConfigYab_AUTO",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1001429830007",
+      "advertised_scan_limit": 400,
+      "name": "DeamNet_Proxy",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1002080689208",
+      "advertised_scan_limit": 1000,
+      "name": "Farah_VPN",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1001836809801",
+      "advertised_scan_limit": 1000,
+      "name": "FreakConfig",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1002435709781",
+      "advertised_scan_limit": 2000,
+      "name": "GalaxyMVPN",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1001986763169",
+      "advertised_scan_limit": 2000,
+      "name": "NamazVPN",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1001900257871",
+      "advertised_scan_limit": 2000,
+      "name": "SOSkeyNET",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1002687996628",
+      "advertised_scan_limit": 300,
+      "name": "V2rayBaaz",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1003712982226",
+      "advertised_scan_limit": 1000,
+      "name": "chillguy_vpn",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1002025442005",
+      "advertised_scan_limit": 1000,
+      "name": "filembad",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1003613216743",
+      "advertised_scan_limit": 1000,
+      "name": "iranconnecting",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1003922859496",
+      "advertised_scan_limit": 1000,
+      "name": "CafeTweetFa",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1001315011151",
+      "advertised_scan_limit": 1000,
+      "name": "iraniroid",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1002427483854",
+      "advertised_scan_limit": 500,
+      "name": "lebertad",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1001615776338",
+      "advertised_scan_limit": 500,
+      "name": "meliproxyy",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1002168955033",
+      "advertised_scan_limit": 1000,
+      "name": "v2ray_Extractor",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1001512034774",
+      "advertised_scan_limit": 1000,
+      "name": "v2ray_dalghak",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1001943224011",
+      "advertised_scan_limit": 400,
+      "name": "v2ray_free_conf",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1001887960839",
+      "advertised_scan_limit": 1000,
+      "name": "vpnfail_v2ray",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1002057756809",
+      "advertised_scan_limit": 1000,
+      "name": "v2ray_configs_pool",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    }
+  ]
+}
