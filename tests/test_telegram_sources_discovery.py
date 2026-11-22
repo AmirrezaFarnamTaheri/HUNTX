@@ -36,7 +36,7 @@ def test_peer_source_candidates_are_deduplicated_and_not_production_ingested():
         and source["telegram_user"]["peer"].startswith("@")
     }
     assert not production.intersection(names)
-    for handle in ("whitedns", "ConfigWireguard", "V2ray_Alpha", "ProxyMTProto"):
+    for handle in ("whitedns", "whitedns_group", "v2cnf", "ConfigWireguard", "V2ray_Alpha", "ProxyMTProto"):
         found = next(
             source for source in config["sources"]
             if source["type"] == "telegram_user" and source.get("telegram_user")
@@ -44,3 +44,4 @@ def test_peer_source_candidates_are_deduplicated_and_not_production_ingested():
         )
         assert found.get("trust_state", "approved") == "approved"
         assert found["discovered_from"] and found["approval_evidence"]
+        assert any("https://t.me/" in value for value in found["approval_evidence"])
