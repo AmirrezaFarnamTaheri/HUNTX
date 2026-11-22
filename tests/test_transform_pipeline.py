@@ -42,6 +42,45 @@ class TestTransformPipeline(unittest.TestCase):
         self.raw_store.get.assert_called_with("hash123")
         handler.parse.assert_called_once()
 
+    def test_mixed_telegram_message_persists_custom_profiles_without_proxy_conversion(self):
+        import base64
+        import json
+
+        white = {
+            "schema": "whitedns.profile", "version": 1,
+            "profile": {
+                "engine": "cottendns",
+                "server": {
+                    "domain": "dns.example.org",
+                    "encryption_key": "ab" * 32,
+                    "encryption_method": 5,
+                },
+            },
+        }
+        link = "cottendns://" + base64.b64encode(
+            json.dumps(white).encode("utf-8")
+        ).decode("ascii")
+        raw = ("vless://11111111-1111-4111-8111-111111111111@node.example.org:443\n"
+               + link + "\n").encode("utf-8")
+        self.raw_store.get.return_value = raw
+        self.registry.get.return_value.parse.return_value = [
+            {"unique_hash": "regular-1", "data": {"line": raw.decode().splitlines()[0]}}
+        ]
+        row = {
+            "id": 7, "raw_hash": "hash123", "source_id": "src1",
+            "filename": "message.txt", "file_size": len(raw),
+        }
+        with patch("huntx.pipeline.transform.decide_format", return_value="npvt"):
+            result = self.pipeline._process_single_file(row)
+        assert result["status"] == "ok"
+        assert result["records"] == 2
+        assert [item[2] for item in result["record_rows"]] == [
+            "npvt", "connection_artifacts"
+        ]
+        custom = json.loads(result["record_rows"][1][4])
+        assert custom["protocol"] == "cottendns"
+        assert custom["client_exportable"] is False
+
     def test_process_single_file_missing_data(self):
         """Missing raw data should return failed status."""
         row = {"id": 7, "raw_hash": "hash123", "source_id": "src1", "filename": "test.conf", "file_size": 0}
