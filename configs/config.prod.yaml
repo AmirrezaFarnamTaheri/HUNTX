@@ -2815,6 +2815,62 @@ sources:
     api_hash: ${TELEGRAM_API_HASH}
     session: ${TELEGRAM_USER_SESSION}
     peer: '@whitedns_group'
+- id: src_peer_abc_vpn_configs
+  type: telegram_user
+  trust_state: approved
+  discovered_from: 'peer_aggregator_and_public_preview_2026-11-22'
+  approval_evidence:
+    - 'https://t.me/abc_vpn_configs'
+    - 'https://github.com/freeVpnMan/abc-configs-free-vpn-proxy'
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@abc_vpn_configs'
+- id: src_peer_OnlineVpnConfigs
+  type: telegram_user
+  trust_state: approved
+  discovered_from: 'peer_aggregator_and_public_preview_2026-11-22'
+  approval_evidence:
+    - 'https://t.me/OnlineVpnConfigs'
+    - 'https://github.com/freeVpnMan/abc-configs-free-vpn-proxy'
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@OnlineVpnConfigs'
+- id: src_peer_v2ray_free_conf
+  type: telegram_user
+  trust_state: approved
+  discovered_from: 'peer_aggregator_and_public_preview_2026-11-22'
+  approval_evidence:
+    - 'https://t.me/v2ray_free_conf'
+    - 'https://t.me/s/v2ray_free_conf'
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@v2ray_free_conf'
+- id: src_peer_ConfigOrg
+  type: telegram_user
+  trust_state: approved
+  discovered_from: 'peer_aggregator_and_public_preview_2026-11-22'
+  approval_evidence:
+    - 'https://t.me/ConfigOrg'
+    - 'https://t.me/s/ConfigOrg'
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@ConfigOrg'
 publishing:
   routes:
   - name: all_sources
@@ -3048,6 +3104,10 @@ publishing:
     - src_peer_ProxyMTProto
     - src_peer_v2cnf
     - src_peer_whitedns_group
+    - src_peer_abc_vpn_configs
+    - src_peer_OnlineVpnConfigs
+    - src_peer_v2ray_free_conf
+    - src_peer_ConfigOrg
     formats:
     - npvt
     - npvtsub
