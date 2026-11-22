@@ -1,0 +1,47 @@
+"""Keep peer-sourced Telegram candidates separate from publication-approved sources."""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from huntx.config.loader import load_config
+from huntx.config.schema import SourceTrustState
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_peer_source_candidates_are_deduplicated_and_not_production_ingested():
+    data = json.loads((ROOT / "configs" / "telegram_source_candidates.json").read_text())
+    assert data["schema"] == "huntx.telegram_source_candidates.v1"
+    assert data["status"] == "unverified_research_only"
+    assert data["ingestion_enabled"] is False
+    assert len(data["channels"]) >= 500
+    assert len(data["sources_examined"]) >= 7
+    candidates = data["channels"]
+    names = [item["username"].lower() for item in candidates]
+    assert len(names) == len(set(names))
+    assert all(item["trust_state"] == "candidate" for item in candidates)
+    assert all(item["discovered_from"] for item in candidates)
+    assert all(
+        source.startswith("https://github.com/")
+        for item in candidates for source in item["discovered_from"]
+    )
+
+    # A peer aggregator listing a handle is not proof of a working source.
+    config = load_config(ROOT / "configs" / "config.prod.yaml")
+    production = {
+        source.telegram_user.peer.removeprefix("@").lower()
+        for source in config.sources
+        if source.type == "telegram_user" and source.telegram_user
+        and source.telegram_user.peer.startswith("@")
+    }
+    assert not production.intersection(names)
+    for handle in ("whitedns", "ConfigWireguard", "V2ray_Alpha", "ProxyMTProto"):
+        found = next(
+            source for source in config.sources
+            if source.type == "telegram_user" and source.telegram_user
+            and source.telegram_user.peer.lower() == "@" + handle.lower()
+        )
+        assert found.trust_state == SourceTrustState.APPROVED
+        assert found.discovered_from and found.approval_evidence
