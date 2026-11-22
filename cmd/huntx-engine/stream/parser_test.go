@@ -106,27 +106,34 @@ func TestParseStreamBoundsDecodedPayload(t *testing.T) {
 
 
 func TestParseStreamEmbeddedTelegramURIs(t *testing.T) {
-    raw := "Quote Quote wireguard://cHJpdmF0ZQ==\\@198.51.100.2:51820?publickey=cHVibGlj\n" +
-        "Please see https://example.org/docs for details\n" +
-        "Reply: 'soar://eyJzY2hlbWEiOiJ3aGl0ZWRucy5wcm9maWxlIn0='\n" +
-        "Quote Quote cottendns\\://Zm9v\n"
-    sp := NewStreamParser(64)
-    records, err := sp.ParseStream(strings.NewReader(raw))
-    if err != nil { t.Fatal(err) }
-    if len(records) != 3 { t.Fatalf("expected 3 embedded links, got %#v", records) }
-    if records[0].Protocol != "wireguard" || strings.Contains(records[0].RawURI, "\\@") {
-        t.Fatalf("Markdown normalization failed: %#v", records[0])
-    }
-    if records[1].Protocol != "soar" || records[2].Protocol != "cottendns" {
-        t.Fatalf("mixed formats lost: %#v", records)
-    }
+	raw := "Quote Quote wireguard://cHJpdmF0ZQ==\\@198.51.100.2:51820?publickey=cHVibGlj\n" +
+		"Please see https://example.org/docs for details\n" +
+		"Reply: 'soar://eyJzY2hlbWEiOiJ3aGl0ZWRucy5wcm9maWxlIn0='\n" +
+		"Quote Quote cottendns\\://Zm9v\n"
+	sp := NewStreamParser(64)
+	records, err := sp.ParseStream(strings.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(records) != 3 {
+		t.Fatalf("expected 3 embedded links, got %#v", records)
+	}
+	if records[0].Protocol != "wireguard" || strings.Contains(records[0].RawURI, "\\@") {
+		t.Fatalf("Markdown normalization failed: %#v", records[0])
+	}
+	if records[1].Protocol != "soar" || records[2].Protocol != "cottendns" {
+		t.Fatalf("mixed formats lost: %#v", records)
+	}
 }
+
 func BenchmarkParseStreamTelegramMixed(b *testing.B) {
-    raw := strings.Repeat("Quote Quote vless://11111111-2222-3333-4444-555555555555@proxy.example.org:443#node\nIgnore https://example.org/docs\n", 300)
-    sp := NewStreamParser(65536)
-    b.SetBytes(int64(len(raw)))
-    b.ReportAllocs()
-    for i := 0; i < b.N; i++ {
-        if _, err := sp.ParseStream(strings.NewReader(raw)); err != nil { b.Fatal(err) }
-    }
+	raw := strings.Repeat("Quote Quote vless://11111111-2222-3333-4444-555555555555@proxy.example.org:443#node\nIgnore https://example.org/docs\n", 300)
+	sp := NewStreamParser(65536)
+	b.SetBytes(int64(len(raw)))
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := sp.ParseStream(strings.NewReader(raw)); err != nil {
+			b.Fatal(err)
+		}
+	}
 }
