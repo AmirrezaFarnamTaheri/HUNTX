@@ -6,7 +6,7 @@ export const REQUIRED_PROTOCOLS = Object.freeze([
   "vless", "vmess", "trojan", "anytls", "hysteria", "hysteria2",
   "socks", "http", "shadowsocks", "shadowsocksr", "tuic",
   "wireguard", "ssh", "shadowtls", "naive", "juicity",
-  "mieru", "warp", "dns", "dnstt"
+  "mieru", "warp", "dns", "dnstt", "slipnet"
 ]);
 const SLUG = /^[a-z][a-z0-9-]{0,39}$/;
 const DIGEST = /^[a-f0-9]{64}$/;
