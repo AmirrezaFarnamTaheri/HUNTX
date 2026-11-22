@@ -1,4 +1,4 @@
-"""Stable, historical latest-100 subscriptions for every supported URI protocol.
+"""Stable, historical latest per-protocol subscriptions for every supported URI protocol.
 
 These are historical discovery feeds, NOT authenticated working-proxy releases.
 The oldest entries do not expire solely because of their age.
@@ -16,7 +16,13 @@ from huntx.core.router import _PROXY_SCHEMES
 from huntx.formats.npvt import canonical_proxy_identity, strip_proxy_remark
 from huntx.formats.proxy_uri_validator import validate_proxy_uri
 
-LATEST_LIMIT = 100
+LATEST_LIMIT = 200
+PROTOCOL_LIMITS = {"vless": 150, "shadowsocks": 150}
+
+
+def _limit_for_protocol(category: str) -> int:
+    return PROTOCOL_LIMITS.get(category, LATEST_LIMIT)
+
 
 # Normalize spelling/versions to user-facing protocol families. This is NOT a
 # generic "others" bucket: every new router-supported scheme gets its own name.
@@ -92,7 +98,7 @@ def write_latest_subscriptions(
     manifest: dict[str, float | int | str],
     source_created_at: str,
 ) -> dict[str, Any]:
-    """Publish latest 100 per protocol and their union, with deterministic metadata.
+    """Publish latest per-protocol caps and their union, with deterministic metadata.
 
     No time filter is applied. Newest refers to the immutable first-discovery
     timestamp already stored by HUNTX's cumulative manifest.
@@ -132,6 +138,7 @@ def write_latest_subscriptions(
         "generated_at": source_created_at,
         "latest_by": "first_seen",
         "limit_per_protocol": LATEST_LIMIT,
+        "protocol_limits": PROTOCOL_LIMITS.copy(),
         "protocols": {},
     }
     selected: list[tuple[str, float | int | str]] = []
@@ -140,7 +147,7 @@ def write_latest_subscriptions(
         # Stable lexical order is a tie-breaker, not the primary ranking.
         records.sort(key=lambda row: row[0])
         records.sort(key=lambda row: _newest_key(row[1]), reverse=True)
-        records = records[:LATEST_LIMIT]
+        records = records[:_limit_for_protocol(category)]
         uris = [row[0] for row in records]
         raw = _plain_bytes(uris)
         (destination / f"{category}.txt").write_bytes(raw)
@@ -185,6 +192,7 @@ def validate_latest_subscriptions(directory: Path) -> dict[str, Any]:
         or index.get("scope") != "all_time_cumulative"
         or index.get("health_status") != "historical_unverified"
         or index.get("limit_per_protocol") != LATEST_LIMIT
+        or index.get("protocol_limits") != PROTOCOL_LIMITS
         or not isinstance(index.get("protocols"), dict)
         or set(index["protocols"]) != set(PROTOCOL_CATEGORIES)
         or not isinstance(index.get("aggregate"), dict)
@@ -217,8 +225,8 @@ def validate_latest_subscriptions(directory: Path) -> dict[str, Any]:
         if type(entry.get("count")) is not int or entry["count"] != len(lines):
             raise ValueError("latest-subscription count mismatch")
         if category != "all":
-            if len(lines) > LATEST_LIMIT:
-                raise ValueError("latest-subscription category exceeds 100")
+            if len(lines) > _limit_for_protocol(category):
+                raise ValueError("latest-subscription category exceeds protocol limit")
             if any(protocol_for_uri(uri) != category for uri in lines):
                 raise ValueError("latest-subscription category contains invalid URI")
         identities = [_identity(uri) for uri in lines]
