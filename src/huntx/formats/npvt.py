@@ -24,9 +24,13 @@ _PROXY_URI_RE = re.compile(
 )
 
 
+_PROXY_SCHEME_NAMES = frozenset(value[:-3] for value in _PROXY_SCHEMES)
+
+
 def _is_proxy_line(line: str) -> bool:
-    """Return whether a complete line is a supported proxy URI."""
-    if any(line.startswith(s) for s in _PROXY_SCHEMES):
+    """Check a URI's leading scheme in O(1) rather than scanning every prefix."""
+    scheme, separator, _ = line.partition('://')
+    if separator and scheme in _PROXY_SCHEME_NAMES:
         return True
     return line.lower().startswith(('http://', 'https://')) and validate_proxy_uri(line)
 
