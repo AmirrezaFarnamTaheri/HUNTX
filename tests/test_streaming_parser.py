@@ -92,3 +92,25 @@ async def test_streaming_parser_empty_stream_yields_nothing():
 
     records = [rec async for rec in parser.parse_stream(empty_stream())]
     assert records == []
+@pytest.mark.asyncio
+async def test_streaming_urlsafe_unpadded_base64_across_small_chunks():
+    raw = "vless://user@edge.example.org:443#🌍\n".encode("utf-8")
+    encoded = base64.urlsafe_b64encode(raw).rstrip(b"=")
+    assert b"-" in encoded or b"_" in encoded
+
+    async def tiny_chunks():
+        for offset in range(0, len(encoded), 3):
+            yield encoded[offset:offset + 3]
+
+    parser = StreamingChunkParser(chunk_size=16)
+    records = [record async for record in parser.parse_stream(tiny_chunks())]
+    assert [record["raw_uri"] for record in records] == [raw.decode("utf-8").strip()]
+    assert [record["protocol"] for record in records] == ["vless"]
+
+
+def test_streaming_parse_bytes_urlsafe_unpadded_base64():
+    raw = "trojan://secret@edge.example.org:443#🌍\n".encode("utf-8")
+    encoded = base64.urlsafe_b64encode(raw).rstrip(b"=")
+    assert b"-" in encoded or b"_" in encoded
+    records = StreamingChunkParser().parse_bytes(encoded)
+    assert [record["raw_uri"] for record in records] == [raw.decode("utf-8").strip()]
