@@ -2789,6 +2789,32 @@ sources:
     api_hash: ${TELEGRAM_API_HASH}
     session: ${TELEGRAM_USER_SESSION}
     peer: '@ProxyMTProto'
+- id: src_peer_v2cnf
+  type: telegram_user
+  trust_state: approved
+  discovered_from: 'user_requested_public_telegram_2026-11-22'
+  approval_evidence:
+    - 'https://t.me/v2cnf'
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@v2cnf'
+- id: src_peer_whitedns_group
+  type: telegram_user
+  trust_state: approved
+  discovered_from: 'user_requested_public_telegram_2026-11-22'
+  approval_evidence:
+    - 'https://t.me/whitedns_group'
+  selector:
+    include_formats: *id001
+  telegram_user:
+    api_id: ${TELEGRAM_API_ID}
+    api_hash: ${TELEGRAM_API_HASH}
+    session: ${TELEGRAM_USER_SESSION}
+    peer: '@whitedns_group'
 publishing:
   routes:
   - name: all_sources
@@ -3020,6 +3046,8 @@ publishing:
     - src_peer_ConfigWireguard
     - src_peer_V2ray_Alpha
     - src_peer_ProxyMTProto
+    - src_peer_v2cnf
+    - src_peer_whitedns_group
     formats:
     - npvt
     - npvtsub
