@@ -137,3 +137,24 @@ func BenchmarkParseStreamTelegramMixed(b *testing.B) {
 		}
 	}
 }
+func TestParseStreamRecoversPrefixedHyphenatedScheme(t *testing.T) {
+    raw := "Note:slipnet-enc://QUJDREVGR0g=\n"
+    records, err := NewStreamParser(64).ParseStream(strings.NewReader(raw))
+    if err != nil {
+        t.Fatal(err)
+    }
+    if len(records) != 1 || records[0].RawURI != "slipnet-enc://QUJDREVGR0g=" {
+        t.Fatalf("prefixed encrypted share was lost: %#v", records)
+    }
+}
+
+func TestParseStreamLongSingleLineProfileWithSmallInitialBuffer(t *testing.T) {
+    uri := "soar://" + strings.Repeat("A", 70000)
+    records, err := NewStreamParser(64).ParseStream(strings.NewReader(uri + "\n"))
+    if err != nil {
+        t.Fatalf("valid bounded profile should not exceed scanner token size: %v", err)
+    }
+    if len(records) != 1 || records[0].RawURI != uri {
+        t.Fatalf("long single-line profile was truncated or lost")
+    }
+}
