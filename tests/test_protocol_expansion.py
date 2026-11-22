@@ -167,6 +167,19 @@ def test_authenticated_http_proxy_is_detected_and_npvt_parses_it():
     assert records[0]['data']['line'] == uri
 
 
+def test_single_direct_uri_skips_expensive_embedded_text_regex_scan():
+    from unittest.mock import patch
+
+    uri = "vless://11111111-2222-4333-8444-555555555555@node.example.org:443"
+    with patch(
+        "huntx.formats.npvt._extract_proxy_uris",
+        side_effect=AssertionError("direct subscriptions should not regex-scan every line"),
+    ):
+        records = NpvtHandler().parse((uri + "\n").encode("utf-8"), {})
+    assert len(records) == 1
+    assert records[0]["data"]["line"] == uri
+
+
 def test_telegram_wireguard_markdown_escapes_are_removed_before_proxy_validation():
     canonical = (
         "wireguard://cHJpdmF0ZQ==@wg.example.org:51820"
