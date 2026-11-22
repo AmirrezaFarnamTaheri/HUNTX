@@ -121,3 +121,70 @@ def test_telegram_post_with_four_encrypted_slipnet_links_retains_all_ciphertext(
     assert len(records) == 4
     assert [record["data"]["line"] for record in records] == links
     assert all("decrypted" not in record["data"] for record in records)
+
+
+def test_full_synthetic_telegram_message_recovers_all_32_expected_artifacts():
+    from collections import Counter
+
+    parts = []
+    for kind, how_many in (("soar", 4), ("cottendns", 2), ("masterdns", 2)):
+        for n in range(how_many):
+            server = {"domain": f"public-{kind}-{n}.example.org"}
+            profile = {"id": f"{kind}-{n}", "name": "Synthetic public profile", "server": server}
+            if kind == "soar":
+                server["public_key"] = base64.b64encode(b"s" * 32).decode("ascii")
+                profile["soarSettings"] = {"transport": "auto"}
+            else:
+                profile["engine"] = kind
+                server["encryption_key"] = "ab" * 32
+                server["encryption_method"] = 5
+            payload = {"schema": "whitedns.profile", "version": 1, "profile": profile}
+            link = kind + "://" + base64.b64encode(json.dumps(payload).encode()).decode()
+            parts.append("Quote Quote " + (link.replace("://", r"\://") if n % 2 else link))
+
+    for n in range(3):
+        parts.append(f"Quote Quote wireguard://cHJpdmF0ZQ==@198.51.100.{n + 10}:51820?publickey=cHVibGlj#WG{n}")
+    for n in range(12):
+        parts.append(
+            "Quote Quote [Interface]\n"
+            "PrivateKey = cHJpdmF0ZQ==\n"
+            f"Address = 172.16.0.{n + 2}/32\n"
+            f"I1 = \\<r 2\\>\\<b 0x{n:08x}\\>\n"
+            "[Peer]\n"
+            "PublicKey = cHVibGlj\n"
+            "AllowedIPs = 0.0.0.0/0, ::/0\n"
+            f"Endpoint = 198.51.100.{n + 10}:51820\n"
+            "PersistentKeepalive = 25\n"
+            "Tap the config to copy it\n"
+        )
+    for label, n in (("Master DNS", 1), ("Storm DNS", 2),
+                     ("Cotten DNS", 3), ("Soar", 4), ("Soar 2.2", 5)):
+        parts.append(
+            f"**{label}:**\n"
+            f"domain: domain{n}.example.org\n"
+            "private key: 00112233445566778899aabbccddeeff\n"
+            "\n"
+        )
+    fingerprint = "0123456789ABCDEF0123456789ABCDEF01234567"
+    parts.extend([
+        f"webtunnel [2001:db8::1]:443 {fingerprint} url=https://bridge.example.org/path",
+        f"webtunnel 198.51.100.4:443 {fingerprint} url=https://bridge.example.org/path",
+        "https://t.me/proxy?server=198.51.100.9&port=8443"
+        "&secret=dd00112233445566778899aabbccddeeff",
+        "lantern://private-server?ip=example.org&port=12080&token=synthetic-token",
+    ])
+    records = extract_connection_artifacts("\n\n".join(parts))
+    counts = Counter(item["protocol"] for item in records)
+    assert len(records) == 32
+    assert counts["wireguard"] == 15
+    assert counts["soar"] == 4
+    assert counts["cottendns"] == 2
+    assert counts["masterdns"] == 2
+    assert counts["tor_webtunnel"] == 2
+    assert counts["mtproto"] == 1
+    assert counts["lantern"] == 1
+    assert counts["masterdns_manual"] == 1
+    assert counts["stormdns_manual"] == 1
+    assert counts["cottendns_manual"] == 1
+    assert counts["soar_manual"] == 1
+    assert counts["soar22_manual"] == 1
