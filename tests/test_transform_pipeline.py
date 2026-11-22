@@ -66,6 +66,7 @@ class TestTransformPipeline(unittest.TestCase):
         self.registry.get.return_value.parse.return_value = [
             {"unique_hash": "regular-1", "data": {"line": raw.decode().splitlines()[0]}}
         ]
+        self.source_configs["src1"].selector.include_formats = ["npvt"]
         row = {
             "id": 7, "raw_hash": "hash123", "source_id": "src1",
             "filename": "message.txt", "file_size": len(raw),
@@ -92,6 +93,7 @@ class TestTransformPipeline(unittest.TestCase):
         self.registry.get.return_value.parse.return_value = [
             {"unique_hash": "wireguard-1", "data": {"line": raw.decode().splitlines()[0]}}
         ]
+        self.source_configs["src1"].selector.include_formats = ["npvt"]
         row = {"id": 7, "raw_hash": "hash123", "source_id": "src1",
                "filename": "telegram-message.txt", "file_size": len(raw)}
         with mock_patch("huntx.pipeline.transform.decide_format", return_value="npvt"):
