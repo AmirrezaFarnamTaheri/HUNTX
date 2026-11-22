@@ -3,9 +3,9 @@
 package stream_test
 
 import (
-	"strings"
 	"bytes"
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/AmirrezaFarnamTaheri/HUNTX/cmd/huntx-engine/stream"
