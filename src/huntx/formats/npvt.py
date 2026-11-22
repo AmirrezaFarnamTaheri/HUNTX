@@ -597,6 +597,13 @@ class NpvtHandler(FormatHandler):
             if '\\' in clean and ('wireguard://' in clean.lower() or 'wg://' in clean.lower()):
                 clean = clean.replace(r'\@', '@').replace(r'\&', '&')
             if _is_proxy_line(clean):
+                # Most subscriptions are one valid URI per line. Avoid the
+                # full embedded-message regex and duplicate validation for
+                # that dominant path. Mixed or prose-wrapped links still use
+                # the original lossless extraction branch below.
+                if clean.count('://') == 1 and ' ' not in clean and '\t' not in clean:
+                    self._append_uri(records, seen_hashes, clean)
+                    continue
                 # Some upstream feeds put multiple share links on a single
                 # line separated by whitespace. Validating that entire line
                 # as a *single* URI discards every node. Accept a complete
