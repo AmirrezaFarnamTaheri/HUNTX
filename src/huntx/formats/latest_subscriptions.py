@@ -9,7 +9,8 @@ import base64
 import hashlib
 import json
 from collections import defaultdict
-from heapq import heapify, heappop, heappush
+from functools import total_ordering
+from heapq import nlargest
 from pathlib import Path
 from typing import Any
 
@@ -94,6 +95,7 @@ def _base64_bytes(plain: bytes) -> bytes:
     return base64.b64encode(plain) + b"\n" if plain else b""
 
 
+@total_ordering
 class _ReverseLex:
     """Order text reversely, so lexically larger ties are evicted first."""
 
@@ -112,63 +114,36 @@ class _ReverseLex:
 def _bounded_recent(
     manifest: dict[str, float | int | str],
 ) -> dict[str, list[tuple[str, float | int | str]]]:
-    """Keep only newest per-family identities rather than sorting all history.
+    """Select the newest unique identities using bounded top-K sorting.
 
-    Each family retains at most its limit, with a lazy-deletion min heap for
-    deduplicated identities. Rebuild stale heap entries periodically to bound
-    memory even if one identity has been rediscovered many times.
+    The final representative for each identity must be decided *before*
+    selecting the top K: an alias discovered later can change the historical
+    tie-break order. Therefore we keep only the deduplication map (O(unique))
+    and use heapq.nlargest(K) for each protocol (O(unique * log K)),
+    instead of sorting all input and all groups (O(N log N)).
     """
-    # (discovery rank, reversed-lexical URI, identity, URI, first_seen)
-    chosen: dict[str, dict[str, tuple[Any, ...]]] = defaultdict(dict)
-    heaps: dict[str, list[tuple[Any, ...]]] = defaultdict(list)
-
+    grouped: dict[str, dict[str, tuple[str, float | int | str]]] = defaultdict(dict)
     for candidate, first_seen in manifest.items():
         uri = strip_proxy_remark(candidate)
         category = protocol_for_uri(uri)
         if category is None:
             continue
-
         fingerprint = _identity(uri)
-        capacity = _limit_for_protocol(category)
-        winners = chosen[category]
-        heap = heaps[category]
-        age_rank = _newest_key(first_seen)
-        prior = winners.get(fingerprint)
-        if prior is not None:
-            # Historical identity preference: newest representative; for
-            # equal times, lexically greatest *representative* URI wins.
-            if (age_rank, uri) <= (prior[0], prior[3]):
-                continue
-            entry = (age_rank, _ReverseLex(uri), fingerprint, uri, first_seen)
-            winners[fingerprint] = entry
-            heappush(heap, entry)
-        elif len(winners) < capacity:
-            entry = (age_rank, _ReverseLex(uri), fingerprint, uri, first_seen)
-            winners[fingerprint] = entry
-            heappush(heap, entry)
-        else:
-            while heap and winners.get(heap[0][2]) is not heap[0]:
-                heappop(heap)
-            if not heap:
-                raise AssertionError("bounded latest heap lost live identities")
-            bottom = heap[0]
-            entry = (age_rank, _ReverseLex(uri), fingerprint, uri, first_seen)
-            # Across distinct identities, equal-time ties favor lexically
-            # smaller URIs, matching the historical stable two-sort behavior.
-            if (entry[0], entry[1]) <= (bottom[0], bottom[1]):
-                continue
-            heappop(heap)
-            del winners[bottom[2]]
-            winners[fingerprint] = entry
-            heappush(heap, entry)
-
-        if len(heap) > capacity * 4:
-            heap[:] = list(winners.values())
-            heapify(heap)
+        previous = grouped[category].get(fingerprint)
+        if previous is None or (
+            _newest_key(first_seen), uri
+        ) > (
+            _newest_key(previous[1]), previous[0]
+        ):
+            grouped[category][fingerprint] = (uri, first_seen)
 
     return {
-        category: [(entry[3], entry[4]) for entry in winners.values()]
-        for category, winners in chosen.items()
+        category: nlargest(
+            _limit_for_protocol(category),
+            identities.values(),
+            key=lambda record: (_newest_key(record[1]), _ReverseLex(record[0])),
+        )
+        for category, identities in grouped.items()
     }
 
 
