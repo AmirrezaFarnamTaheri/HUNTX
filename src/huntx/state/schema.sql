@@ -245,6 +245,10 @@ CREATE TABLE IF NOT EXISTS ingestion_work_items (
     UNIQUE(source_id, window_start_ts, window_end_ts)
 );
 
+-- Correlated release eligibility must seek one identity. Production's
+-- multi-GB restored state otherwise selected a per-record SCAN p and timed out.
+CREATE INDEX IF NOT EXISTS idx_proxy_lifecycle_build_lookup
+    ON proxy_lifecycle(unique_hash, record_type, lifecycle_status);
 CREATE INDEX IF NOT EXISTS idx_proxy_lifecycle_status
     ON proxy_lifecycle(record_type, lifecycle_status);
 CREATE INDEX IF NOT EXISTS idx_proxy_probe_history_key
