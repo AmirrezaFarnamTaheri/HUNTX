@@ -8,6 +8,7 @@ the original source-run receipt, release artifacts and telemetry stay untouched.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import shutil
@@ -53,7 +54,7 @@ def _require_receipt(root: Path) -> dict[str, Any]:
     if not isinstance(receipt, dict):
         raise ValueError("invalid previous publication receipt")
     if (
-        str(receipt.get("source_run_id", "")).isdigit() is False
+        not str(receipt.get("source_run_id", "")).isdigit()
         or not isinstance(receipt.get("source_run_attempt"), int)
         or receipt["source_run_attempt"] < 1
         or not isinstance(receipt.get("source_created_at"), str)
@@ -97,6 +98,9 @@ def prepare_historical_pages(
         path = main_docs / relative
         if not path.is_file() or path.is_symlink():
             raise ValueError(f"missing current public subscription shell: {relative}")
+    for item in previous.rglob("*"):
+        if item.is_symlink():
+            raise ValueError("previous verified snapshot contains symbolic links")
     shutil.copytree(previous, target, ignore=shutil.ignore_patterns(".git"))
     try:
         verify_snapshot_digest(target)
@@ -123,6 +127,12 @@ def prepare_historical_pages(
 
         dev = docs / "artifacts" / "dev"
         write_dev_outputs(dev, identities, prior_created_at)
+        # The site only needs the historical JSON, TXT and Base64 products.
+        # The authoritative compressed manifest remains under outputs_dev.
+        (dev / "_manifest.json").unlink(missing_ok=True)
+        (dev / "_manifest.json.gz.index.json").unlink(missing_ok=True)
+        for part in dev.glob("_manifest.json.gz.part*"):
+            part.unlink()
         latest = docs / "subscriptions" / "latest"
         index = write_latest_subscriptions(latest, identities, prior_created_at)
         if index["aggregate"]["count"] == 0:
@@ -151,6 +161,21 @@ def prepare_historical_pages(
             )
 
         _catalog_dev_trio(docs, dev)
+        # Rebuilding omitted public historical JSON with the current renderer
+        # can change harmless remark formatting. Update ONLY its historical
+        # catalog entry, never a source-run release receipt or artifact.
+        catalog_path = docs / "catalog.json"
+        catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+        historical_json = (dev / "proxies.json").read_bytes()
+        for entry in catalog["files"]:
+            if entry.get("path") == "artifacts/dev/proxies.json":
+                entry["size"] = len(historical_json)
+                entry["sha256"] = hashlib.sha256(historical_json).hexdigest()
+                mib = len(historical_json) / 1024 / 1024
+                entry["size_str"] = f"{mib:.1f} MB"
+        catalog_path.write_text(
+            json.dumps(catalog, sort_keys=True, indent=2) + "\n", encoding="utf-8"
+        )
         catalog_latest_subscriptions(docs)
         rebuild_aggregate_artifact_manifest(docs)
 
