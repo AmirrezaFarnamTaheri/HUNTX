@@ -139,3 +139,60 @@ def test_malformed_html_is_not_accepted_as_a_country_database():
     assert not downloader._valid_csv(
         b"<html>upstream error</html>" * 9, expected_columns=3,
     )
+
+
+def test_release_tag_metadata_fallback_preserves_same_release_digests(tmp_path, monkeypatch):
+    """A transient releases/latest failure must not block tagged-release metadata."""
+    datasets = _datasets()
+    visited = []
+
+    def retrieve(url, limit=downloader._MAX_BYTES):
+        visited.append(url)
+        if url == downloader._RELEASE_API:
+            raise downloader.GeoIPUnavailableError("upstream API temporarily unavailable")
+        if url == downloader._RELEASE_TAG_API:
+            return _release(datasets)
+        return datasets[url.rsplit("/", 1)[-1]]
+
+    monkeypatch.setattr(downloader, "_retrieve", retrieve)
+    files = downloader.prepare_tables(tmp_path, include_asn=False)
+    assert set(files) == {"HUNTX_GEOIP_IPV4_CSV", "HUNTX_GEOIP_IPV6_CSV"}
+    assert visited[:2] == [downloader._RELEASE_API, downloader._RELEASE_TAG_API]
+
+
+def test_geoip_optional_flag_only_skips_network_unavailability(tmp_path, monkeypatch, capsys):
+    """Country flags are optional; failed checksums and invalid metadata are not."""
+    import sys
+
+    envfile = tmp_path / "github_env"
+    monkeypatch.setattr(
+        sys, "argv",
+        ["prepare_geoip_data.py", "--output-dir", str(tmp_path),
+         "--country-only", "--optional", "--github-env", str(envfile)],
+    )
+
+    def unavailable(*args, **kwargs):
+        raise downloader.GeoIPUnavailableError("upstream connection unavailable")
+
+    monkeypatch.setattr(downloader, "prepare_tables", unavailable)
+    downloader.main()
+    assert not envfile.exists()
+    assert "warning" in capsys.readouterr().err.lower()
+
+    def mismatched(*args, **kwargs):
+        raise ValueError("Upstream SHA-256 mismatch")
+
+    monkeypatch.setattr(downloader, "prepare_tables", mismatched)
+    with pytest.raises(ValueError, match="SHA-256 mismatch"):
+        downloader.main()
+
+
+def test_production_workflow_marks_country_attribution_optional_not_unverified(tmp_path):
+    from pathlib import Path
+    workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/huntx.yml").read_text()
+    geo_step = workflow.split("- name: Prepare checksum-verified offline country data")[1]
+    geo_step = geo_step.split("- name: Download restored state")[0]
+    assert "--optional" in geo_step
+    assert "GITHUB_TOKEN:" in geo_step
+    assert "--country-only" in geo_step
+    assert "--github-env" in geo_step

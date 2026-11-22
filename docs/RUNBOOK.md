@@ -101,6 +101,25 @@ helm template huntx-fleet deploy/helm/huntx-fleet \
 Then inspect the generated resource names, image tags, and required probe
 environment before using `helm upgrade --install` in the intended namespace.
 
+## Optional verified IP-attribution data
+
+The production country-flag preparation step authenticates its fixed GitHub
+release-metadata request and falls back from the release-lookup API to the
+explicit `latest` tag API if the first request is temporarily unavailable.
+Every downloaded country/ASN CSV still requires its same-release GitHub
+SHA-256 digest, exact size and CSV-format check before activation. Never
+accept the independently updated `checksum` release digest as proof about
+a different `latest` release.
+
+If both upstream metadata paths or an asset download are unreachable, optional
+country attribution is omitted and the UI uses **unknown country**; this
+nonessential enrichment must not block the core proxy release. Malformed
+release metadata, unexpected release assets, missing or mismatched digests,
+and malformed CSVs remain fatal. Operators should inspect the emitted
+`Country attribution unavailable` warning to restore country flags later.
+Do not substitute unverified IP tables or relax the proxy release integrity
+gates.
+
 ## Historical latest-100 subscription publication
 
 The per-protocol feeds and uncapped aggregate are generated into the Pages

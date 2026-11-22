@@ -418,6 +418,10 @@ jobs:
           python -m pip check
 
       - name: Prepare checksum-verified offline country data for proxy flags
+        # Country flags are nonessential enrichment. A transport outage may
+        # omit them, but malformed data and digest mismatches still fail hard.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           # Export HUNTX_GEOIP_IPV4_CSV and HUNTX_GEOIP_IPV6_CSV to all
@@ -426,6 +430,7 @@ jobs:
           python scripts/prepare_geoip_data.py \
             --output-dir "$RUNNER_TEMP/huntx-geoip" \
             --country-only \
+            --optional \
             --github-env "$GITHUB_ENV"
 
       - name: Download restored state

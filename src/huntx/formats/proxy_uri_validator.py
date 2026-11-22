@@ -318,6 +318,41 @@ def _validate_naive(uri: str) -> bool:
     return len(headers) == 1 and _valid_naive_headers(headers[0])
 
 
+# SlipNet's plain share format is *not* an endpoint URL: the official Android
+# exporter base64-encodes a pipe-delimited profile (v1–v30). Treat encrypted
+# single-recipient and bundle backups as different, unsupported schemes.
+_SLIPNET_MODES = {
+    "ss", "slipstream_ssh", "dnstt", "dnstt_ssh", "sayedns",
+    "sayedns_ssh", "ssh", "doh", "snowflake", "naive_ssh", "naive",
+    "socks5", "vaydns", "vaydns_ssh", "vless", "soar", "soar_ssh",
+}
+
+
+def _validate_slipnet(uri: str) -> bool:
+    """Validate the bounded, cleartext SlipNet base64 profile envelope."""
+    payload = uri[len("slipnet://"):]
+    if not payload or any(ch.isspace() for ch in payload) or "#" in payload:
+        return False
+    try:
+        decoded = base64.b64decode(payload, validate=True).decode("utf-8")
+    except (binascii.Error, UnicodeDecodeError, ValueError):
+        return False
+    fields = decoded.split("|")
+    if not 11 <= len(fields) <= 128:
+        return False
+    if not fields[0].isdigit() or not 1 <= int(fields[0]) <= 30:
+        return False
+    if fields[1] not in _SLIPNET_MODES or not fields[2].strip():
+        return False
+    # The exported server domain is not a URL authority and must not be
+    # interpreted as a fake https:// proxy. Local endpoints are excluded.
+    if not _valid_host(fields[3] or fields[9]):
+        return False
+    if fields[8] and (not fields[8].isdigit() or not _valid_port(int(fields[8]))):
+        return False
+    return True
+
+
 def _validate_standard_uri(uri: str) -> bool:
     """Validate endpoint-shaped URI schemes with shared rules."""
     try:
@@ -384,6 +419,8 @@ def validate_proxy_uri(uri: str) -> bool:
         return _validate_hysteria2_realm(uri)
     if scheme == "hysteria":
         return _validate_hysteria1(uri)
+    if scheme == "slipnet":
+        return _validate_slipnet(uri)
     if scheme == "mieru":
         return _validate_mieru(uri)
     if scheme == "mierus":

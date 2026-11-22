@@ -31,11 +31,11 @@ function fixture() {
   };
 }
 
-test("subscription hub recognises all 20 named protocols without an Others bucket", () => {
-  assert.equal(REQUIRED_PROTOCOLS.length, 20);
+test("subscription hub recognises all 21 named protocols without an Others bucket", () => {
+  assert.equal(REQUIRED_PROTOCOLS.length, 21);
   for (const name of ["vless", "vmess", "trojan", "anytls", "hysteria", "hysteria2",
     "socks", "http", "shadowsocks", "shadowsocksr", "tuic", "wireguard",
-    "ssh", "shadowtls", "naive", "juicity", "mieru", "warp", "dns", "dnstt"]) {
+    "ssh", "shadowtls", "naive", "juicity", "mieru", "warp", "dns", "dnstt", "slipnet"]) {
     assert.ok(REQUIRED_PROTOCOLS.includes(name), name);
   }
   assert.ok(!REQUIRED_PROTOCOLS.includes("others"));
@@ -112,6 +112,8 @@ test("dedicated hub is linked from dashboard and preserved generator", async () 
   assert.match(page, /data-design="signal"/);
   assert.match(page, /id="protocol-grid"/);
   assert.match(page, /id="subscription-search"/);
+  assert.match(page, /SlipNet/);
+  assert.match(page, /DNS\/DNSTT/);
   assert.match(page, /assets\/js\/subscription-library\.js/);
   assert.match(page, /assets\/css\/subscription-library\.css/);
   assert.match(page, /index\.html#artifacts/);
@@ -178,4 +180,19 @@ test("master download actions start unavailable until the historical index valid
   assert.match(js, /setMasterAvailability\(false\)/);
   assert.match(js, /setMasterAvailability\(true\)/);
   assert.match(js, /subscription index is unavailable/i);
+});
+
+
+test("SlipNet appears as a named protocol in the library, not an Others catch-all", () => {
+  assert.ok(REQUIRED_PROTOCOLS.includes("slipnet"));
+  const data = fixture();
+  data.protocols.slipnet = {
+    count: 1, file: "slipnet.txt", base64_file: "slipnet_base64.txt", sha256: hash
+  };
+  data.aggregate.count += 1;
+  const parsed = parseSubscriptionIndex(data);
+  assert.equal(parsed.records.find((item) => item.name === "slipnet")?.count, 1);
+  assert.equal(filterProtocols(parsed.records, "slip", true)[0]?.name, "slipnet");
+  assert.match(subscriptionURL("slipnet", "base64", "https://example.github.io/HUNTX/subscriptions.html"),
+    /\/subscriptions\/latest\/slipnet_base64\.txt$/);
 });
