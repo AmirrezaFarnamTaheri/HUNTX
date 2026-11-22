@@ -21,9 +21,14 @@ from pathlib import Path
 
 _BASE = "https://github.com/sapics/ip-location-db/releases/download"
 _RELEASE_API = "https://api.github.com/repos/sapics/ip-location-db/releases/latest"
+_RELEASE_TAG_API = "https://api.github.com/repos/sapics/ip-location-db/releases/tags/latest"
 _METADATA_MAX_BYTES = 1024 * 1024
 _USER_AGENT = "HUNTX-geolocation-publisher/1.0"
 _MAX_BYTES = 96 * 1024 * 1024
+class GeoIPUnavailableError(RuntimeError):
+    """Verified upstream data could not be retrieved over the network."""
+
+
 _ENTRIES = {
     "HUNTX_GEOIP_IPV4_CSV": "server-country-ipv4.csv",
     "HUNTX_GEOIP_IPV6_CSV": "server-country-ipv6.csv",
@@ -39,7 +44,14 @@ def _retrieve(url: str, limit: int = _MAX_BYTES) -> bytes:
     last_error: Exception | None = None
     for attempt in range(3):
         try:
-            request = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
+            headers = {"User-Agent": _USER_AGENT}
+            # Authenticate only the two fixed GitHub API metadata URLs. Never
+            # send the Actions token to release download hosts or redirects.
+            if url in {_RELEASE_API, _RELEASE_TAG_API}:
+                token = os.environ.get("GITHUB_TOKEN", "").strip()
+                if token:
+                    headers["Authorization"] = f"Bearer {token}"
+            request = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(request, timeout=90) as response:
                 payload = response.read(limit + 1)
             if len(payload) > limit:
@@ -49,7 +61,7 @@ def _retrieve(url: str, limit: int = _MAX_BYTES) -> bytes:
             last_error = error
             if attempt < 2:
                 time.sleep(2 * (attempt + 1))
-    raise RuntimeError(f"Unable to fetch IP intelligence asset: {url}") from last_error
+    raise GeoIPUnavailableError(f"Unable to fetch IP intelligence asset: {url}") from last_error
 
 
 def _valid_csv(payload: bytes, expected_columns: int) -> bool:
@@ -70,7 +82,13 @@ def _release_assets(selected: dict[str, str]) -> dict[str, tuple[str, str, int]]
     their scheduled publication times diverge. A GitHub-computed asset digest
     is authoritative for the corresponding asset in the 'latest' release.
     """
-    raw = _retrieve(_RELEASE_API, limit=_METADATA_MAX_BYTES)
+    try:
+        raw = _retrieve(_RELEASE_API, limit=_METADATA_MAX_BYTES)
+    except GeoIPUnavailableError:
+        # GitHub's latest-release lookup may be temporarily rate-limited or
+        # unavailable. Resolve the *same* latest tag without ever substituting
+        # checksums from the independently refreshed checksum release.
+        raw = _retrieve(_RELEASE_TAG_API, limit=_METADATA_MAX_BYTES)
     try:
         metadata = json.loads(raw)
     except (ValueError, UnicodeDecodeError) as exc:
@@ -155,10 +173,26 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--country-only", action="store_true")
+    parser.add_argument(
+        "--optional", action="store_true",
+        help="omit nonessential country enrichment if verified upstream data is unreachable",
+    )
     parser.add_argument("--github-env", type=Path, help="Append exported paths to GITHUB_ENV")
     args = parser.parse_args()
 
-    tables = prepare_tables(args.output_dir, include_asn=not args.country_only)
+    try:
+        tables = prepare_tables(args.output_dir, include_asn=not args.country_only)
+    except GeoIPUnavailableError as error:
+        if not args.optional:
+            raise
+        # No unverified or stale CSV is activated. The remark formatter uses
+        # its explicit unknown-country fallback while core release gates run.
+        print(
+            f"::warning title=Country attribution unavailable::{error}; "
+            "continuing without country flags (unknown country).",
+            file=sys.stderr,
+        )
+        return
     if args.github_env is not None:
         with args.github_env.open("a", encoding="utf-8") as env:
             for key, path in tables.items():
