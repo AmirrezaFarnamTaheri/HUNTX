@@ -88,6 +88,27 @@ class LatestSubscriptionTests(unittest.TestCase):
             self.assertEqual((destination / "vless.txt").read_text().splitlines()[0], _vless(229))
             validate_latest_subscriptions(destination)
 
+    def test_latest_selection_is_order_independent_with_overlapping_aliases_and_ties(self):
+        with tempfile.TemporaryDirectory() as temp:
+            destination = Path(temp) / "latest"
+            # Every candidate has the same discovery time: lexically smallest
+            # URIs must win the fixed-capacity tie breaker, even if insertion
+            # order is reverse lexical.
+            uris = [f"trojan://pw@node{i:04d}.example:443" for i in range(1200)]
+            manifest = {uri: 1700000000 for uri in reversed(uris)}
+            manifest.update({
+                "hy2://pw@same.example:443#old": 1,
+                "hysteria2://pw@same.example:443#new": 2,
+            })
+            index = write_latest_subscriptions(destination, manifest, "2026-11-22T00:00:00Z")
+            self.assertEqual(index["protocols"]["trojan"]["count"], 200)
+            self.assertEqual(
+                (destination / "trojan.txt").read_text().splitlines(),
+                uris[:200],
+            )
+            self.assertEqual(index["protocols"]["hysteria2"]["count"], 1)
+            validate_latest_subscriptions(destination)
+
     def test_aliases_deduplication_credentials_and_http_safety(self):
         with tempfile.TemporaryDirectory() as temp:
             destination = Path(temp) / "latest"
