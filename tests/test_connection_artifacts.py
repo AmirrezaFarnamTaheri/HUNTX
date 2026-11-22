@@ -188,6 +188,8 @@ def test_full_synthetic_telegram_message_recovers_all_32_expected_artifacts():
     assert counts["cottendns_manual"] == 1
     assert counts["soar_manual"] == 1
     assert counts["soar22_manual"] == 1
+
+
 def test_multipeer_wireguard_keeps_each_peer_and_original_fields():
     """A second [Peer] must not silently overwrite the first peer."""
     message = """[Interface]
