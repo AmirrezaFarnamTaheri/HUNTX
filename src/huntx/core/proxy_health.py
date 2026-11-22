@@ -20,6 +20,7 @@ import subprocess
 import threading
 import tempfile
 import time
+from time import monotonic as _clock_monotonic
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -172,16 +173,48 @@ class CheckedRecords(list[dict[str, Any]]):
         self.gate_report = gate_report
 
 
+def _sweep_budget_seconds() -> float:
+    """Never let the sweep itself consume the five-minute HTTPS proof TTL.
+
+    The former 1,800-second sweep admitted zero proxies despite real successful
+    HTTPS connections; every early success expired before the sweep ended.
+    Reserve at least 60 seconds for local serialization and admission.
+    """
+    return _bounded('HUNTX_HEALTH_BUDGET', 210, 1, 240)
+
+
+def _probe_order(keys: list[str], historical: set[str], bucket: int) -> list[str]:
+    """Prioritize genuine historical retests, rotating the rest each 2h run.
+
+    All candidates remain in the disposition ledger, even if a bounded sweep
+    cannot attempt them. The co-prime stride visits every position over time,
+    so a stable, large restored inventory cannot starve its newest members.
+    """
+    priority = [key for key in keys if key in historical]
+    recent = [key for key in keys if key not in historical]
+    if len(recent) > 1:
+        stride = 1009
+        while math.gcd(stride, len(recent)) != 1:
+            stride += 2
+        offset = (bucket * stride) % len(recent)
+        recent = recent[offset:] + recent[:offset]
+    return [*priority, *recent]
+
+
 def verified_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Check each semantic identity once; return only freshly attested records."""
+    """Check distinct identities within proof TTL, never queue full history."""
     from ..formats.npvt import canonical_proxy_identity
 
     candidates: dict[str, tuple[str, dict[str, Any]]] = {}
+    historical: set[str] = set()
     for record in records:
         fields = record.get('data', record) if isinstance(record, dict) else {}
         line = fields.get('line') if isinstance(fields, dict) else None
         if isinstance(line, str):
-            candidates.setdefault(canonical_proxy_identity(line), (line, fields))
+            key = canonical_proxy_identity(line)
+            candidates.setdefault(key, (line, fields))
+            if record.get('historical_retest') is True:
+                historical.add(key)
     if not candidates:
         return []
     outcomes = {key: "not_completed" for key in candidates}
@@ -191,20 +224,46 @@ def verified_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     _verify_engine(binary)
     workers = int(_bounded('HUNTX_HEALTH_WORKERS', 24, 1, 64))
     timeout = _bounded('HUNTX_HEALTH_TIMEOUT', 25, 1, 30)
-    budget = _bounded('HUNTX_HEALTH_BUDGET', 1500, 1, 2400)
+    budget = _sweep_budget_seconds()
+    cutoff = _clock_monotonic() + budget
+    ordered = iter(_probe_order(
+        list(candidates), historical, int(time.time() // 7200),
+    ))
     results: dict[str, dict[str, Any]] = {}
     reasons: Counter[str] = Counter()
+    # Backpressure: bound outstanding jobs to two waves. The previous code
+    # allocated one Future for every candidate (86,000+ per format).
+    pending: dict[concurrent.futures.Future[dict[str, Any]], str] = {}
     pool = concurrent.futures.ThreadPoolExecutor(max_workers=workers)
+
+    def fill_queue() -> None:
+        while len(pending) < workers * 2 and _clock_monotonic() < cutoff:
+            try:
+                key = next(ordered)
+            except StopIteration:
+                return
+            pending[pool.submit(
+                check_proxy, candidates[key][0], binary, timeout=timeout,
+            )] = key
+
     try:
-        futures = {pool.submit(check_proxy, line, binary, timeout=timeout): key
-                   for key, (line, _) in candidates.items()}
-        try:
-            for future in concurrent.futures.as_completed(futures, timeout=budget):
-                key = futures[future]
+        fill_queue()
+        while pending:
+            remaining = cutoff - _clock_monotonic()
+            if remaining <= 0:
+                break
+            done, _ = concurrent.futures.wait(
+                pending, timeout=remaining,
+                return_when=concurrent.futures.FIRST_COMPLETED,
+            )
+            if not done:
+                break
+            for future in done:
+                key = pending.pop(future)
                 try:
                     result = future.result()
                 except Exception:
-                    # Do not log exception text: engine failures may contain URIs.
+                    # Engine exceptions may contain a private URI; never log it.
                     result = {'ok': False, 'reason': 'probe_error'}
                 reason = str(result.get('reason', 'invalid_result'))
                 if reason not in {
@@ -226,16 +285,16 @@ def verified_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
                         outcomes[key] = 'invalid_measurement'
                 else:
                     outcomes[key] = reason
-        except TimeoutError:
-            reasons['budget_exhausted'] += sum(not f.done() for f in futures)
-        finally:
-            for future in futures:
-                future.cancel()
+            fill_queue()
+        if _clock_monotonic() >= cutoff:
+            reasons['budget_exhausted'] += sum(
+                status == 'not_completed' for status in outcomes.values()
+            )
     finally:
-        # The context-manager shutdown(wait=True) waited for every queued
-        # probe even after the sweep budget was exhausted. Cancel pending
-        # work and let in-flight node watchdogs end within their own timeout.
-        # Deadline/expired candidates stay explicitly deferred, not dead.
+        for future in pending:
+            future.cancel()
+        # Running children terminate under their individual 25s watchdogs;
+        # unfinished and unsubmitted identities stay explicitly unverified.
         pool.shutdown(wait=False, cancel_futures=True)
     accepted = []
     expired_successes = 0
