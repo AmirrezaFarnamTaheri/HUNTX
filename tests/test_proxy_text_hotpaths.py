@@ -16,7 +16,6 @@ def test_unique_ascii_proxy_credentials_not_retained_in_unicode_cache():
     assert _normalize_unicode.cache_info().currsize == 0
 
 
-
 def test_non_ascii_share_links_are_not_cached_with_plaintext_credentials():
     _normalize_unicode.cache_clear()
     uri = "vless://test-secret@edge.example.org:443#🇸🇬"
