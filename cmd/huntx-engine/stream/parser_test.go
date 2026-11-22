@@ -108,19 +108,20 @@ func TestParseStreamEmbeddedTelegramURIs(t *testing.T) {
 	raw := "Quote Quote wireguard://cHJpdmF0ZQ==\\@198.51.100.2:51820?publickey=cHVibGlj\n" +
 		"Please see https://example.org/docs for details\n" +
 		"Reply: 'soar://eyJzY2hlbWEiOiJ3aGl0ZWRucy5wcm9maWxlIn0='\n" +
-		"Quote Quote cottendns\\://Zm9v\n"
+		"Quote Quote cottendns\\://Zm9v\n" +
+		"Quote Quote slipnet-enc://QUJDREVGR0g=\n"
 	sp := NewStreamParser(64)
 	records, err := sp.ParseStream(strings.NewReader(raw))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(records) != 3 {
-		t.Fatalf("expected 3 embedded links, got %#v", records)
+	if len(records) != 4 {
+		t.Fatalf("expected 4 embedded links, got %#v", records)
 	}
 	if records[0].Protocol != "wireguard" || strings.Contains(records[0].RawURI, "\\@") {
 		t.Fatalf("Markdown normalization failed: %#v", records[0])
 	}
-	if records[1].Protocol != "soar" || records[2].Protocol != "cottendns" {
+	if records[1].Protocol != "soar" || records[2].Protocol != "cottendns" || records[3].Protocol != "slipnet-enc" {
 		t.Fatalf("mixed formats lost: %#v", records)
 	}
 }
