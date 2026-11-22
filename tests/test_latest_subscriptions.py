@@ -189,10 +189,6 @@ class LatestSubscriptionTests(unittest.TestCase):
             self.assertEqual(one, two)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class SlipNetAndAllFamiliesTests(unittest.TestCase):
     @staticmethod
     def _slipnet(index: int) -> str:
@@ -263,3 +259,7 @@ class SlipNetAndAllFamiliesTests(unittest.TestCase):
             self.assertEqual(len(aggregate), len(variants))
             self.assertEqual(set(aggregate), set(variants))
             validate_latest_subscriptions(dest)
+
+
+if __name__ == "__main__":
+    unittest.main()
