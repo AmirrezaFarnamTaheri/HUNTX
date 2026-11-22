@@ -72,7 +72,7 @@ jobs:
           TARGET: ${{ runner.temp }}/huntx-history-staged
         run: |
           set -euo pipefail
-          python scripts/publish_historical_subscriptions.py \
+          python -m scripts.publish_historical_subscriptions \
             --previous-root "$PREVIOUS_ROOT" --main-docs-root docs \
             --destination "$TARGET" --control-commit "$GITHUB_SHA"
           python scripts/validate_pages_package.py "$TARGET/docs"
