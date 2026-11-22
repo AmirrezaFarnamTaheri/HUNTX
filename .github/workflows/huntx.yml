@@ -8,6 +8,12 @@ on:
       - main
     paths:
       - "src/huntx/formats/latest_subscriptions.py"
+      # Critical build-governance fixes need a producer on the merged SHA;
+      # waiting for the next schedule can leave an expired release in place.
+      - "src/huntx/state/schema.sql"
+      - "src/huntx/state/repo.py"
+      - "src/huntx/state/verdict_store.py"
+      - "src/huntx/state/proxy_retirement.py"
       - "scripts/assemble_generated_snapshot.py"
       - "scripts/verify_deployed_pages.py"
   schedule:
