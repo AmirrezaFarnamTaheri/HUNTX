@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from ..config.schema import SourceConfig
 from ..core.router import decide_format
+from ..formats.slipnet import SlipNetHandler
 from ..formats.connection_artifacts import (
     ConnectionArtifactsHandler,
     may_contain_connection_artifacts,
@@ -191,6 +192,20 @@ class TransformPipeline:
                     typed["unique_hash"],
                     json.dumps(typed["data"], default=str),
                 ))
+
+            # Encrypted SlipNet shares are handled by their existing parser.
+            # Mixed posts still need extraction when their outer format is npvt.
+            # The ciphertext is kept intact if no decryption credential exists.
+            if (fmt_id != "slipnet" and len(data) <= 4 * 1024 * 1024
+                    and b"slipnet-enc://" in data):
+                for encrypted in SlipNetHandler().parse(data, {"source_id": source_id}):
+                    record_rows.append((
+                        raw_hash,
+                        observation_id,
+                        "slipnet",
+                        encrypted["unique_hash"],
+                        json.dumps(encrypted["data"], default=str),
+                    ))
 
             result["record_rows"] = record_rows
             result["records"] = len(record_rows)
