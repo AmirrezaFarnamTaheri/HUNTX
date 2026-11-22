@@ -81,6 +81,37 @@ class TestTransformPipeline(unittest.TestCase):
         assert custom["protocol"] == "cottendns"
         assert custom["client_exportable"] is False
 
+    def test_mixed_message_extracts_encrypted_slipnet_without_private_decryption_key(self):
+        from unittest.mock import patch as mock_patch
+
+        raw = (
+            "Quote Quote wireguard://cHJpdmF0ZQ==@198.51.100.2:51820\n"
+            "slipnet-enc://QUJDREVGR0g=\n"
+        ).encode()
+        self.raw_store.get.return_value = raw
+        self.registry.get.return_value.parse.return_value = [
+            {"unique_hash": "wireguard-1", "data": {"line": raw.decode().splitlines()[0]}}
+        ]
+        row = {"id": 7, "raw_hash": "hash123", "source_id": "src1",
+               "filename": "telegram-message.txt", "file_size": len(raw)}
+        with mock_patch("huntx.pipeline.transform.decide_format", return_value="npvt"):
+            with mock_patch("huntx.formats.slipnet.decrypt_slipnet_link", return_value=None):
+                result = self.pipeline._process_single_file(row)
+        self.assertEqual(result["status"], "ok")
+        self.assertIn("slipnet", [x[2] for x in result["record_rows"]])
+        slipnet = next(x for x in result["record_rows"] if x[2] == "slipnet")
+        self.assertEqual(
+            __import__("json").loads(slipnet[4])["line"], "slipnet-enc://QUJDREVGR0g="
+        )
+
+    def test_slipnet_only_telegram_text_is_not_routed_to_opaque_bundle(self):
+        from huntx.core.router import decide_format
+
+        self.assertEqual(
+            decide_format("telegram-message.txt", b"Quote Quote slipnet-enc://QUJDREVGR0g="),
+            "slipnet",
+        )
+
     def test_process_single_file_missing_data(self):
         """Missing raw data should return failed status."""
         row = {"id": 7, "raw_hash": "hash123", "source_id": "src1", "filename": "test.conf", "file_size": 0}
