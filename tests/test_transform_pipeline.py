@@ -114,6 +114,28 @@ class TestTransformPipeline(unittest.TestCase):
             "slipnet",
         )
 
+    def test_large_proxy_feed_survives_optional_typed_artifact_size_limit(self):
+        # Conventional feed ingestion is allowed to exceed the 4 MiB ceiling
+        # imposed on optional Telegram artifact decoding.
+        raw = (
+            b"wireguard://synthetic@wg.example.org:51820\\n"
+            + (b"X" * (4 * 1024 * 1024))
+        )
+        self.raw_store.get.return_value = raw
+        self.registry.get.return_value.parse.return_value = [
+            {"unique_hash": "normal-record", "data": "parsed"}
+        ]
+        self.source_configs["src1"].selector.include_formats = ["npvt"]
+        row = {
+            "id": 7, "raw_hash": "hash123", "source_id": "src1",
+            "filename": "large-feed.txt", "file_size": len(raw),
+        }
+        with patch("huntx.pipeline.transform.decide_format", return_value="npvt"):
+            result = self.pipeline._process_single_file(row)
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["records"], 1)
+        self.assertEqual(result["record_rows"][0][2], "npvt")
+
     def test_process_single_file_missing_data(self):
         """Missing raw data should return failed status."""
         row = {"id": 7, "raw_hash": "hash123", "source_id": "src1", "filename": "test.conf", "file_size": 0}
