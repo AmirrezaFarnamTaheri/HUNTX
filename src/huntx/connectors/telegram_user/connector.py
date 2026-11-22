@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import logging
 import time
+from datetime import datetime, timezone
 import threading
 import weakref
 from dataclasses import dataclass
@@ -39,6 +40,22 @@ _TEXT_BATCH_SIZE = 100
 # Max reconnect retries per pass when connection drops
 _MAX_RECONNECT_RETRIES = 10
 _RECONNECT_DELAYS = (2, 2, 4, 4, 8, 8, 16, 16, 32, 32)  # seconds per retry attempt
+def _history_request_kwargs(min_id: int, cutoff: float) -> Dict[str, Any]:
+    """Ask Telegram to skip old history on a new source, preserving ID cursors.
+
+    With reverse=True Telethon treats offset_date as a lower date bound
+    (exclusive). Back up one second to avoid dropping a message exactly at
+    the configured freshness cutoff; the local timestamp guard remains.
+    No date seek is applied to cursor-based resumes or intentional backfills.
+    """
+    options: Dict[str, Any] = {"min_id": min_id, "reverse": True}
+    if min_id == 0 and cutoff > 1:
+        options["offset_date"] = datetime.fromtimestamp(
+            cutoff - 1, tz=timezone.utc,
+        )
+    return options
+
+
 MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024
 _DOWNLOAD_REQUEST_BYTES = 64 * 1024
 _MAX_FLOOD_WAIT_SECONDS = 300
@@ -334,7 +351,7 @@ class TelegramUserConnector(SourceConnector):
         retries = 0
         while retries <= _MAX_RECONNECT_RETRIES:
             try:
-                async for msg in async_iter(client.iter_messages(peer_entity, min_id=resume_after_id, reverse=True)):
+                async for msg in async_iter(client.iter_messages(peer_entity, **_history_request_kwargs(resume_after_id, cutoff_text))):
                     if getattr(self, "deadline", None) and self.deadline is not None and time.time() > self.deadline:
                         logger.warning("[MTProto] Ingestion deadline exceeded during text pass. Aborting.")
                         break
@@ -462,9 +479,8 @@ class TelegramUserConnector(SourceConnector):
                 async for msg in async_iter(
                     client.iter_messages(
                         peer_entity,
-                        min_id=resume_after_id,
-                        reverse=True,
                         filter=InputMessagesFilterDocument,
+                        **_history_request_kwargs(resume_after_id, cutoff_file),
                     )
                 ):
 
