@@ -50,11 +50,13 @@ export function parseSubscriptionIndex(raw) {
   }
   const entries = Object.entries(raw.protocols);
   if (entries.length > 256) throw new TypeError("Too many protocol categories");
+  const categoryLimit = (name) => Object.hasOwn(raw.protocol_limits, name)
+    ? raw.protocol_limits[name] : raw.limit_per_protocol;
   let total = 0;
   const records = entries.map(([name, record]) => {
     if (!validSlug(name) || name === "all") throw new TypeError("Invalid protocol category");
     if (!record || typeof record !== "object"
-      || !Number.isInteger(record.count) || record.count < 0 || record.count > (raw.protocol_limits[name] ?? raw.limit_per_protocol)) {
+      || !Number.isInteger(record.count) || record.count < 0 || record.count > (categoryLimit(name))) {
       throw new TypeError("Invalid protocol count");
     }
     if (record.file !== name + ".txt"
