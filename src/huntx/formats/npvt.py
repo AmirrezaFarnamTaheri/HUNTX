@@ -545,6 +545,11 @@ class NpvtHandler(FormatHandler):
     ) -> None:
         """Validate, deduplicate, and append one proxy URI record."""
         uri = candidate.strip()
+        # Markdown renderers escape @ and & in WireGuard share URIs.
+        # These backslashes are not part of the WireGuard wire format and
+        # must not reach a client credential or the canonical identity.
+        if uri.lower().startswith(('wireguard://', 'wg://')):
+            uri = uri.replace(r'\@', '@').replace(r'\&', '&').rstrip('\\')
         if not validate_proxy_uri(uri):
             return
         stripped = strip_proxy_remark(uri)
