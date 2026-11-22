@@ -24,6 +24,7 @@ _TOR_RE = re.compile(
     r"(?P<fingerprint>[0-9a-f]{40})\s+url=(?:\[(?P<md_url>https?://[^\]\s]+)\]\([^)]+\)|(?P<url>https?://[^\s]+))"
 )
 _TG_RE = re.compile(r"(?i)https?://(?:t\.me|telegram\.me)/proxy\?[^\s<>\[\]()`\"']+")
+_MT_TEXT_RE = re.compile(r"(?im)^Server:\s*`?([a-z0-9.:-]+)`?\s*\nPort:\s*`?(\d{1,5})`?\s*\nSecret:\s*`?([0-9a-f]{32,1024})`?")
 _WG_START_RE = re.compile(r"(?i)(?:^|\s)(?:Quote\s+Quote\s+)?\[Interface\]\s*$")
 _WG_PEER_RE = re.compile(r"(?i)^\[Peer\]\s*$")
 _KEY_VALUE_RE = re.compile(r"^([A-Za-z][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$")
@@ -267,6 +268,14 @@ def extract_connection_artifacts(text: str) -> list[dict[str, Any]]:
         query = parse_qs(parsed.query)
         host, port, secret = (query.get(k, [""])[0] for k in ("server", "port", "secret"))
         if not _endpoint_ok(host, port) or not 16 <= len(secret) <= 1024:
+            continue
+        clean = f"https://t.me/proxy?server={host}&port={port}&secret={secret}"
+        append({"protocol": "mtproto", "raw": clean,
+                "decoded": {"host": host, "port": int(port), "secret": secret},
+                "encoding": "telegram_mtproto"})
+    for match in _MT_TEXT_RE.finditer(normalized):
+        host, port, secret = match.groups()
+        if not _endpoint_ok(host, port):
             continue
         clean = f"https://t.me/proxy?server={host}&port={port}&secret={secret}"
         append({"protocol": "mtproto", "raw": clean,
