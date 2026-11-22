@@ -657,10 +657,10 @@ class StateRepo:
                       )
                       AND r.is_active = 1
                       AND NOT EXISTS (
-                          SELECT 1 FROM proxy_lifecycle p
+                          SELECT 1 FROM proxy_lifecycle p INDEXED BY idx_proxy_lifecycle_build_lookup
                           WHERE p.unique_hash = r.unique_hash
                             AND p.record_type = r.record_type
-                            AND {PROXY_UNPUBLISHABLE_SQL}
+                            AND ({PROXY_UNPUBLISHABLE_SQL})
                       )
                 ),
                 dedup AS (

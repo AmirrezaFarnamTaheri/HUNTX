@@ -132,3 +132,36 @@ def test_audit_can_identify_exactly_which_identity_needs_independent_retesting(t
     assert candidates[0]["authenticated_failure_streak"] == 6
     assert candidates[0]["status"] == "temporarily_suppressed"
     assert "raw_uri" not in candidates[0]
+
+
+def test_suspect_on_one_identity_does_not_suppress_unrelated_proxy(tmp_path):
+    """The OR inside the retirement condition must remain identity-scoped.
+
+    Without parentheses, SQL evaluates (identity AND terminal) OR suspect;
+    a single independently confirmed suspect may suppress *every* proxy.
+    """
+    db, repo = setup_proxy(tmp_path)
+    other = "c" * 64
+    raw = "d" * 64
+    second_id = repo.record_file("trusted", "observ-2", raw, 50, "other.txt")
+    repo.add_records_batch([
+        (raw, second_id, "npvt", other, json.dumps({
+            "line": "vless://other-user@other.example.org:443"
+        })),
+    ])
+    upsert_record_verdict(
+        db, unique_hash=other, record_type="npvt",
+        syntax_status="pass", parser_version="v1",
+        probe_status="unknown", policy_status="pass",
+        policy_version="v1", policy_tier="secure",
+    )
+    # Six independent failures across two vantages and five days suppress
+    # only DIGEST. The unrelated identity has no negative evidence.
+    record_failures(db)
+    expected = {"vless://other-user@other.example.org:443"}
+    compatible = repo.get_records_for_build(["npvt"], ["trusted"])
+    secure = get_records_for_governed_build(
+        db, ["npvt"], ["trusted"], publication_tier="secure"
+    )
+    assert {row["data"]["line"] for row in compatible} == expected
+    assert {row["data"]["line"] for row in secure} == expected

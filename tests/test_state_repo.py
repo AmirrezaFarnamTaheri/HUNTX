@@ -58,6 +58,8 @@ class TestStateRepo(unittest.TestCase):
             consecutive_failures INTEGER NOT NULL DEFAULT 0,
             PRIMARY KEY(unique_hash, record_type)
         );
+        CREATE INDEX idx_proxy_lifecycle_build_lookup
+            ON proxy_lifecycle(unique_hash, record_type, lifecycle_status);
         CREATE TABLE proxy_probe_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             probe_id TEXT NOT NULL UNIQUE,

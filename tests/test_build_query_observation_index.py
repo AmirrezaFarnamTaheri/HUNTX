@@ -119,3 +119,72 @@ def test_build_queries_seek_observation_even_when_planner_stats_are_misleading(
         "SEARCH r" in detail and "idx_records_observation" in detail
         for detail in details
     ), details
+
+
+@pytest.mark.parametrize("governed", [False, True])
+def test_build_query_uses_indexed_lifecycle_identity_lookup(tmp_path, monkeypatch, governed):
+    """A large restored lifecycle table must never be scanned per record.
+
+    Production's previous EXPLAIN showed 'CORRELATED SCALAR SUBQUERY; SCAN p',
+    which blocked the entire release build until the deadline expired.
+    """
+    repo = StateRepo(open_db(tmp_path / "state.db"))
+    count = 1300
+    with repo.db.connect() as conn:
+        conn.executemany(
+            "INSERT INTO seen_files(source_id, external_id, raw_hash, status) "
+            "VALUES ('approved', ?, ?, 'processed')",
+            [(f"item-{n}", f"raw-{n}") for n in range(count)],
+        )
+        conn.executemany(
+            "INSERT INTO records(source_file_hash, source_observation_id, "
+            "record_type, unique_hash, data_json) VALUES (?, ?, 'npvt', ?, ?)",
+            [
+                (f"raw-{n}", n + 1, f"{n:064x}", '{"line":"vless://fixture"}')
+                for n in range(count)
+            ],
+        )
+        conn.executemany(
+            "INSERT INTO proxy_lifecycle("
+            "unique_hash, record_type, lifecycle_status, first_seen_at, last_seen_at"
+            ") VALUES (?, 'npvt', ?, 1, 2)",
+            [
+                (f"{n:064x}", "revoked" if n % 20 == 0 else "active")
+                for n in range(count)
+            ],
+        )
+        conn.execute("ANALYZE")
+
+    sql_queries = []
+    original_connect = repo.db.connect
+
+    @contextmanager
+    def tracing_connect():
+        with original_connect() as conn:
+            conn.set_trace_callback(
+                lambda sql: sql_queries.append(sql) if "WITH filtered AS" in sql else None
+            )
+            try:
+                yield conn
+            finally:
+                conn.set_trace_callback(None)
+
+    monkeypatch.setattr(repo.db, "connect", tracing_connect)
+    if governed:
+        rows = get_records_for_governed_build(repo.db, ["npvt"], ["approved"])
+    else:
+        rows = repo.get_records_for_build(["npvt"], ["approved"])
+
+    assert len(rows) == count - (count + 19) // 20
+    assert sql_queries
+    # A named, forced lookup is stable even if restored sqlite_stat1 statistics
+    # lead SQLite to cost the correlated full scan incorrectly.
+    assert "INDEXED BY idx_proxy_lifecycle_build_lookup" in sql_queries[-1]
+    with original_connect() as conn:
+        explain = conn.execute("EXPLAIN QUERY PLAN " + sql_queries[-1]).fetchall()
+    details = [row["detail"] for row in explain]
+    assert any(
+        "SEARCH p USING" in detail and "idx_proxy_lifecycle_build_lookup" in detail
+        for detail in details
+    ), details
+    assert not any("SCAN p" in detail for detail in details), details
