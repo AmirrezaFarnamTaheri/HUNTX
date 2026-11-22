@@ -65,6 +65,29 @@ class LatestSubscriptionTests(unittest.TestCase):
             self.assertEqual(len((destination / "all.txt").read_text().splitlines()), 101)
             validate_latest_subscriptions(destination)
 
+    def test_protocol_specific_capacity_200_except_vless_and_shadowsocks_150(self):
+        with tempfile.TemporaryDirectory() as temp:
+            destination = Path(temp) / "latest"
+            manifest = {_vless(i): i for i in range(230)}
+            manifest.update({
+                f"ss://YWVzLTI1Ni1nY206cGFzcw@ss{i}.example:443": i
+                for i in range(230)
+            })
+            manifest.update({
+                f"trojan://pass@t{i}.example:443": i
+                for i in range(230)
+            })
+            index = write_latest_subscriptions(destination, manifest, "2026-11-22T00:00:00Z")
+            self.assertEqual(index["limit_per_protocol"], 200)
+            self.assertEqual(index["protocol_limits"]["vless"], 150)
+            self.assertEqual(index["protocol_limits"]["shadowsocks"], 150)
+            self.assertEqual(index["protocols"]["vless"]["count"], 150)
+            self.assertEqual(index["protocols"]["shadowsocks"]["count"], 150)
+            self.assertEqual(index["protocols"]["trojan"]["count"], 200)
+            self.assertEqual(index["aggregate"]["count"], 500)
+            self.assertEqual((destination / "vless.txt").read_text().splitlines()[0], _vless(229))
+            validate_latest_subscriptions(destination)
+
     def test_aliases_deduplication_credentials_and_http_safety(self):
         with tempfile.TemporaryDirectory() as temp:
             destination = Path(temp) / "latest"
