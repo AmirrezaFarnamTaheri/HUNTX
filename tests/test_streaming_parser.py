@@ -92,6 +92,8 @@ async def test_streaming_parser_empty_stream_yields_nothing():
 
     records = [rec async for rec in parser.parse_stream(empty_stream())]
     assert records == []
+
+
 @pytest.mark.asyncio
 async def test_streaming_urlsafe_unpadded_base64_across_small_chunks():
     raw = "vless://user@edge.example.org:443#🌍\n".encode("utf-8")
