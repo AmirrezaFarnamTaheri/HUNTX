@@ -1,6 +1,7 @@
 from .registry import FormatRegistry
 from ..store.raw_store import RawStore
 from .conf_lines import ConfLinesHandler
+from .connection_artifacts import ConnectionArtifactsHandler
 from .npvt import NpvtHandler
 from .npvtsub import NpvtSubHandler
 from .ovpn import OvpnHandler
@@ -20,6 +21,7 @@ from .tmt import TmtHandler
 
 def register_all_formats(registry: FormatRegistry, raw_store: RawStore):
     registry.register(ConfLinesHandler())
+    registry.register(ConnectionArtifactsHandler())
     registry.register(NpvtHandler())
     registry.register(NpvtSubHandler())
     registry.register(SlipNetHandler())
