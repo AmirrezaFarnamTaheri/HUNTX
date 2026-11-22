@@ -112,8 +112,12 @@ func extractEmbeddedURIs(line string) []string {
 		if strings.Contains(token, "\\://") || strings.Contains(token, "\\@") || strings.Contains(token, "\\&") {
 			token = strings.NewReplacer("\\://", "://", "\\@", "@", "\\&", "&").Replace(token)
 		}
-		if isSupportedProxyURI(token) {
-			found = append(found, token)
+		candidate := token
+		if closing := strings.IndexAny(candidate, ")]}>"); closing >= 0 {
+			candidate = candidate[:closing]
+		}
+		if isSupportedProxyURI(candidate) {
+			found = append(found, candidate)
 			continue
 		}
 		// "prefix:vless://..." and "[vless://...](...)" are common
@@ -227,7 +231,17 @@ func (sp *StreamParser) parseStream(
 			continue
 		}
 
-		// Keep the direct-URI fast path, then recover inline Telegram links.
+		// Direct feeds are the dominant hot path: avoid field splitting and
+		// Markdown normalization unless a line has surrounding text.
+		if isSupportedProxyURI(line) && !strings.ContainsAny(line, " \t\\") {
+			rec := Record{
+				UniqueHash: HashURI(line),
+				RawURI:     line,
+				Protocol:   ExtractProtocol(line),
+			}
+			records = appendUnique(records, seen, rec)
+			continue
+		}
 		uriCandidates := extractEmbeddedURIs(line)
 		if len(uriCandidates) > 0 {
 			for _, uri := range uriCandidates {
