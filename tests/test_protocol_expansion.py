@@ -172,7 +172,7 @@ def test_telegram_wireguard_markdown_escapes_are_removed_before_proxy_validation
         "wireguard://cHJpdmF0ZQ==@198.51.100.2:51820"
         "?publickey=cHVibGlj&wnoise=random"
     )
-    telegram = "Quote Quote " + canonical.replace("@", r"\@").replace("&", r"\&") + r"\"
+    telegram = "Quote Quote " + canonical.replace("@", r"\@").replace("&", r"\&") + chr(92)
     records = NpvtHandler().parse(telegram.encode("utf-8"), {})
     assert len(records) == 1
     assert records[0]["data"]["line"] == canonical
