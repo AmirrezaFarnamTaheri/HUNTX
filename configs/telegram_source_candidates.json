@@ -3,7 +3,7 @@
   "discovered_on": "2026-11-22",
   "status": "unverified_research_only",
   "ingestion_enabled": false,
-  "notes": "Username-level comparison only: numeric-ID aliases may overlap. Candidates must pass Telegram availability, profile/config evidence, canonical-ID deduplication and governance approval before being added to production source config.",
+  "notes": "Username-level comparison cannot identify channels already configured under numeric IDs; numeric-ID candidates are separately listed and disabled. Require canonical Telegram entity-ID deduplication, preview/content checks and source governance approval before production promotion. Cross-aggregator source lists are not evidence of live connectivity.",
   "sources_examined": [
     {
       "repository": "Pasimand/v2ray-config-agg",
@@ -39,6 +39,12 @@
       "repository": "0xRadikal/Free-Telegram-Proxy",
       "path": "tgproxy/sources.py",
       "handles": 8
+    },
+    {
+      "repository": "fifthidea/sub",
+      "path": "update.py",
+      "handles": 30,
+      "numeric_only": true
     }
   ],
   "channels": [
@@ -804,16 +810,6 @@
       "discovered_from": [
         "https://github.com/Stinsonysm/GO_V2rayCollector/blob/main/channels.csv",
         "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
-      ]
-    },
-    {
-      "peer": "@v2ray_free_conf",
-      "username": "v2ray_free_conf",
-      "preview": "https://t.me/s/v2ray_free_conf",
-      "trust_state": "candidate",
-      "discovered_from": [
-        "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt",
-        "https://github.com/Airuop/config-fetcher/blob/main/src/config.py"
       ]
     },
     {
@@ -5575,6 +5571,232 @@
       "discovered_from": [
         "https://github.com/MohammadBahemmat/V2ray-Collector/blob/main/data/channels.txt"
       ]
+    }
+  ],
+  "numeric_id_candidates": [
+    {
+      "peer": "-1001996629183",
+      "advertised_scan_limit": 1800,
+      "name": "ConfigsHUB2",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1001235816045",
+      "advertised_scan_limit": 1800,
+      "name": "ConfigsHUB",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1002641485940",
+      "advertised_scan_limit": 1200,
+      "name": "TheFreeConfigs",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1002094972529",
+      "advertised_scan_limit": 1000,
+      "name": "FarahVPN",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1002750253398",
+      "advertised_scan_limit": 300,
+      "name": "NamiraConfigs",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1003794545198",
+      "advertised_scan_limit": 300,
+      "name": "vpnfreev2rayconfig",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1001651120965",
+      "advertised_scan_limit": 300,
+      "name": "Outline_ir",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1001528757655",
+      "advertised_scan_limit": 300,
+      "name": "red2ray",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1003856403490",
+      "advertised_scan_limit": 1800,
+      "name": "ConfigYab_AUTO",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1001429830007",
+      "advertised_scan_limit": 400,
+      "name": "DeamNet_Proxy",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1002080689208",
+      "advertised_scan_limit": 1000,
+      "name": "Farah_VPN",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1001836809801",
+      "advertised_scan_limit": 1000,
+      "name": "FreakConfig",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1002435709781",
+      "advertised_scan_limit": 2000,
+      "name": "GalaxyMVPN",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1001986763169",
+      "advertised_scan_limit": 2000,
+      "name": "NamazVPN",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1001900257871",
+      "advertised_scan_limit": 2000,
+      "name": "SOSkeyNET",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1002687996628",
+      "advertised_scan_limit": 300,
+      "name": "V2rayBaaz",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1003712982226",
+      "advertised_scan_limit": 1000,
+      "name": "chillguy_vpn",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1002025442005",
+      "advertised_scan_limit": 1000,
+      "name": "filembad",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1003613216743",
+      "advertised_scan_limit": 1000,
+      "name": "iranconnecting",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1003922859496",
+      "advertised_scan_limit": 1000,
+      "name": "CafeTweetFa",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1001315011151",
+      "advertised_scan_limit": 1000,
+      "name": "iraniroid",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1002427483854",
+      "advertised_scan_limit": 500,
+      "name": "lebertad",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1001615776338",
+      "advertised_scan_limit": 500,
+      "name": "meliproxyy",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1002168955033",
+      "advertised_scan_limit": 1000,
+      "name": "v2ray_Extractor",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1001512034774",
+      "advertised_scan_limit": 1000,
+      "name": "v2ray_dalghak",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1001943224011",
+      "advertised_scan_limit": 400,
+      "name": "v2ray_free_conf",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1001887960839",
+      "advertised_scan_limit": 1000,
+      "name": "vpnfail_v2ray",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
+    },
+    {
+      "peer": "-1002057756809",
+      "advertised_scan_limit": 1000,
+      "name": "v2ray_configs_pool",
+      "trust_state": "candidate",
+      "source": "https://github.com/fifthidea/sub/blob/main/update.py",
+      "ingestion_enabled": false
     }
   ]
 }
