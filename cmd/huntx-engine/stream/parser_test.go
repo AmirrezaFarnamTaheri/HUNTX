@@ -104,7 +104,6 @@ func TestParseStreamBoundsDecodedPayload(t *testing.T) {
 	}
 }
 
-
 func TestParseStreamEmbeddedTelegramURIs(t *testing.T) {
 	raw := "Quote Quote wireguard://cHJpdmF0ZQ==\\@198.51.100.2:51820?publickey=cHVibGlj\n" +
 		"Please see https://example.org/docs for details\n" +
