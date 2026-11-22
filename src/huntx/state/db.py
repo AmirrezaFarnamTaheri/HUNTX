@@ -49,6 +49,13 @@ class DBConnection:
                 raise
 
             self._check_migrations(conn)
+            # v5 creates this index only when crossing that migration. A
+            # restored already-versioned database may lack it: source-first
+            # governed builds require a persistent exact-observation seek.
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_records_observation "
+                "ON records(source_observation_id, is_active)"
+            )
             # Legacy v0 databases may not have ingested_at. Do not create
             # an index on a column that is absent during schema migration.
             # Already-versioned restored databases also receive this index.
@@ -60,6 +67,12 @@ class DBConnection:
                     "CREATE INDEX IF NOT EXISTS idx_seen_files_source_ingested "
                     "ON seen_files(source_id, ingested_at, id)"
                 )
+            # Restored multi-GB states can carry stale sqlite_stat1 estimates
+            # that cause a full records-index scan rather than one indexed
+            # seek per eligible observation. Re-sample only this index with a
+            # bounded analysis limit before creating release build workers.
+            conn.execute("PRAGMA analysis_limit=1000;")
+            conn.execute("ANALYZE idx_records_observation;")
             conn.execute("PRAGMA optimize;")
 
     def _check_migrations(self, conn: sqlite3.Connection) -> None:

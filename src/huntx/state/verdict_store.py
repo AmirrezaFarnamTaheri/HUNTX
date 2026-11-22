@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 import time
 from typing import Any, Iterable, Optional
 
 from ..core.deadline import Deadline, DeadlineExceeded
 from .proxy_retirement import PROXY_UNPUBLISHABLE_SQL
+
+logger = logging.getLogger(__name__)
 
 
 def upsert_record_verdict(
@@ -110,19 +113,21 @@ def get_records_for_governed_build(
         args.append(float(now_epoch if now_epoch is not None else time.time()))
         if require_fresh_probe:
             verdict_where += " AND v.probe_status = 'pass'"
-    # Start from source-filtered, recently ingested observations. The CROSS JOIN
-    # prevents SQLite from choosing a full historical records scan instead.
-    # Only fetch large JSON payloads after de-duplicating exact identities.
-    # The identity, policy and lifecycle exclusion gates are unchanged.
+    # Drive the record lookup from exact approved observation IDs. A CROSS JOIN
+    # can still scan the entire historical index when SQLite planner statistics
+    # are skewed; the IN-list form forces observation-key seeks instead.
+    # Read JSON only after deduplication; preserve all verdict/lifecycle gates.
     query = f"""
         WITH filtered AS (
             SELECT r.id, r.record_type, r.unique_hash
-            FROM seen_files s
-            CROSS JOIN records r
+            FROM records r INDEXED BY idx_records_observation
             {verdict_join}
-            WHERE r.source_observation_id = s.id
-              AND r.record_type IN ({type_marks})
-              AND s.source_id IN ({source_marks})
+            WHERE r.record_type IN ({type_marks})
+              AND r.source_observation_id IN (
+                  SELECT s.id FROM seen_files s
+                  WHERE s.source_id IN ({source_marks})
+                  {extra}
+              )
               AND r.is_active = 1
               AND NOT EXISTS (
                   SELECT 1 FROM proxy_lifecycle p
@@ -130,7 +135,6 @@ def get_records_for_governed_build(
                     AND p.record_type = r.record_type
                     AND {PROXY_UNPUBLISHABLE_SQL}
               )
-              {extra}
               {verdict_where}
         ), dedup AS (
             SELECT record_type, unique_hash, MAX(id) AS keep_id
@@ -146,6 +150,15 @@ def get_records_for_governed_build(
         if deadline is not None:
             conn.set_progress_handler(lambda: int(deadline.expired()), 1000)
         try:
+            # Emit the actual optimizer plan without source IDs or proxy data.
+            # This lets production diagnose large-state regressions from its
+            # sanitized runtime logs without exporting the restored database.
+            if logger.isEnabledFor(logging.INFO):
+                plan = conn.execute("EXPLAIN QUERY PLAN " + query, args).fetchall()
+                logger.info(
+                    "Governed build observation query plan: %s",
+                    "; ".join(str(row["detail"]) for row in plan),
+                )
             rows = conn.execute(query, args).fetchall()
         except sqlite3.OperationalError as exc:
             if deadline is not None and deadline.expired():

@@ -43,6 +43,9 @@ class TestStateRepo(unittest.TestCase):
             is_active BOOLEAN DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+        -- Same observation lookup installed by the real v5 migration/open_db.
+        CREATE INDEX idx_records_observation
+            ON records(source_observation_id, is_active);
         CREATE TABLE proxy_lifecycle (
             unique_hash TEXT NOT NULL,
             record_type TEXT NOT NULL,

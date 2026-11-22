@@ -642,17 +642,19 @@ class StateRepo:
                 where_extra += " AND s.ingested_at >= ?"
                 args.append(min_ingested_at)
 
-            # Start with approved source observations, then seek active records
-            # by observation ID. This avoids scanning unbounded stale history
-            # while preserving exact provenance and retirement exclusions.
+            # Build the exact approved observation-ID list, then seek matching
+            # records through the persisted observation index. This avoids
+            # scanning old history while preserving provenance and retirement.
             query = f"""
                 WITH filtered AS (
                     SELECT r.id, r.record_type, r.unique_hash
-                    FROM seen_files s
-                    CROSS JOIN records r
-                    WHERE r.source_observation_id = s.id
-                      AND r.record_type IN ({placeholders_types})
-                      AND s.source_id IN ({placeholders_sources})
+                    FROM records r INDEXED BY idx_records_observation
+                    WHERE r.record_type IN ({placeholders_types})
+                      AND r.source_observation_id IN (
+                          SELECT s.id FROM seen_files s
+                          WHERE s.source_id IN ({placeholders_sources})
+                          {where_extra}
+                      )
                       AND r.is_active = 1
                       AND NOT EXISTS (
                           SELECT 1 FROM proxy_lifecycle p
@@ -660,7 +662,6 @@ class StateRepo:
                             AND p.record_type = r.record_type
                             AND {PROXY_UNPUBLISHABLE_SQL}
                       )
-                      {where_extra}
                 ),
                 dedup AS (
                     SELECT record_type, unique_hash, MAX(id) AS keep_id
