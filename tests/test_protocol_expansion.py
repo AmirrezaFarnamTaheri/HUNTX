@@ -167,6 +167,17 @@ def test_authenticated_http_proxy_is_detected_and_npvt_parses_it():
     assert records[0]['data']['line'] == uri
 
 
+def test_telegram_wireguard_markdown_escapes_are_removed_before_proxy_validation():
+    canonical = (
+        "wireguard://cHJpdmF0ZQ==@198.51.100.2:51820"
+        "?publickey=cHVibGlj&wnoise=random"
+    )
+    telegram = "Quote Quote " + canonical.replace("@", r"\@").replace("&", r"\&") + r"\"
+    records = NpvtHandler().parse(telegram.encode("utf-8"), {})
+    assert len(records) == 1
+    assert records[0]["data"]["line"] == canonical
+
+
 def test_wireguard_is_preserved_as_valid_input_but_not_emitted_as_removed_outbound():
     uri = 'wg://secret@wg.example.com:51820'
     assert validate_proxy_uri(uri)
