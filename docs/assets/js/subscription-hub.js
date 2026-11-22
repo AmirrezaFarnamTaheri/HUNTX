@@ -100,11 +100,13 @@ export function normalizeSubscriptionIndex(payload) {
   const extra = keys.filter((key) => !CORE_PROTOCOLS.includes(key)).sort();
   const categories = [...CORE_PROTOCOLS, ...extra].map((name) => {
     const entry = payload.protocols[name];
+    const limit = Object.hasOwn(payload.protocol_limits, name)
+      ? payload.protocol_limits[name] : payload.limit_per_protocol;
     const meta = entry === undefined
       ? { count: null, published: false }
       : checkEntry(name, entry, false, categoryLimit(name));
     return { name, label: Object.hasOwn(LABELS, name) ? LABELS[name] : name,
-      limit: payload.protocol_limits[name] ?? payload.limit_per_protocol, ...meta };
+      limit, ...meta };
   });
   const sum = categories.reduce((acc, item) => acc + (item.count || 0), 0);
   if (aggregate.count !== sum) {
