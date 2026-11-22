@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/workflows/publish-generated-outputs.yml"
       - "scripts/assemble_generated_snapshot.py"
+      - "scripts/publish_historical_subscriptions.py"
   workflow_run:
     workflows:
       - huntx-production
@@ -303,7 +304,7 @@ jobs:
             );
 
       - name: Checkout publisher control plane
-        if: steps.source.outputs.ready == 'true'
+        if: steps.source.outputs.ready == 'true' || github.event_name == 'push'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
@@ -311,7 +312,7 @@ jobs:
 
       - name: Restore previous generated snapshot
         id: previous
-        if: steps.source.outputs.ready == 'true'
+        if: steps.source.outputs.ready == 'true' || github.event_name == 'push'
         env:
           PREVIOUS_ROOT: ${{ runner.temp }}/huntx-previous-generated
         run: |
@@ -369,7 +370,7 @@ jobs:
           cache: true
 
       - name: Set up Python
-        if: steps.source.outputs.ready == 'true'
+        if: steps.source.outputs.ready == 'true' || github.event_name == 'push'
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
@@ -377,11 +378,50 @@ jobs:
           cache-dependency-path: requirements.txt
 
       - name: Install publisher Python dependencies
-        if: steps.source.outputs.ready == 'true'
+        if: steps.source.outputs.ready == 'true' || github.event_name == 'push'
         run: |
           set -euo pipefail
           python -m pip install --require-hashes --prefer-binary -r requirements.txt
           python -m pip check
+
+      # An historical-only publication starts exclusively from the sealed
+      # previously public cumulative manifest. This is still the only Pages
+      # writer and does not claim a new verified proxy release.
+      - name: Prepare sealed historical-only snapshot
+        id: history
+        if: github.event_name == 'push' && steps.source.outputs.ready != 'true'
+        env:
+          PYTHONPATH: src
+          PREVIOUS_ROOT: ${{ runner.temp }}/huntx-previous-generated
+          SNAPSHOT_ROOT: ${{ runner.temp }}/huntx-publication/snapshot
+        run: |
+          set -euo pipefail
+          test -s "$PREVIOUS_ROOT/manifests/SHA256SUMS"
+          test -s "$PREVIOUS_ROOT/outputs_dev/_manifest.json.gz.index.json"
+          python -m scripts.publish_historical_subscriptions \
+            --previous-root "$PREVIOUS_ROOT" \
+            --main-docs-root docs \
+            --destination "$SNAPSHOT_ROOT" \
+            --control-commit "$GITHUB_SHA"
+          python scripts/validate_pages_package.py "$SNAPSHOT_ROOT/docs"
+          python - "$SNAPSHOT_ROOT/docs" <<'PY'
+          from pathlib import Path
+          from sys import argv
+          from scripts.verify_deployed_pages import expected_public_paths
+          paths = expected_public_paths(Path(argv[1]))
+          for required in (
+              "subscriptions.html",
+              "subscriptions/latest/index.json",
+              "subscriptions/latest/all.txt",
+              "subscriptions/latest/all_base64.txt",
+              "subscriptions/latest/trojan.txt",
+              "subscriptions/latest/slipnet.txt",
+          ):
+              assert required in paths, f"Missing published historical path: {required}"
+          print(f"Historical-only snapshot sealed: {len(paths)} public paths")
+          PY
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+          echo "main_sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Download structured runtime diagnostics
         if: steps.source.outputs.ready == 'true'
@@ -623,23 +663,24 @@ jobs:
           PY
 
       - name: Configure Pages deployment
-        if: steps.release.outputs.ready == 'true'
+        if: steps.release.outputs.ready == 'true' || steps.history.outputs.ready == 'true'
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
       - name: Upload cumulative dashboard to Pages
-        if: steps.release.outputs.ready == 'true'
+        if: steps.release.outputs.ready == 'true' || steps.history.outputs.ready == 'true'
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: ${{ runner.temp }}/huntx-publication/snapshot/docs
 
       - name: Revalidate main before Pages deployment
-        if: steps.release.outputs.ready == 'true'
+        if: steps.release.outputs.ready == 'true' || steps.history.outputs.ready == 'true'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           EXPECTED_MAIN_SHA: ${{ steps.source.outputs.main_sha }}
+          EXPECTED_HISTORICAL_MAIN_SHA: ${{ steps.history.outputs.main_sha }}
         with:
           script: |
-            const expected = process.env.EXPECTED_MAIN_SHA;
+            const expected = process.env.EXPECTED_HISTORICAL_MAIN_SHA || process.env.EXPECTED_MAIN_SHA;
             if (!/^[a-f0-9]{40}$/.test(expected || '')) {
               core.setFailed('Missing validated main revision before Pages deployment');
               return;
@@ -656,12 +697,12 @@ jobs:
             }
 
       - name: Deploy cumulative dashboard to Pages
-        if: steps.release.outputs.ready == 'true'
+        if: steps.release.outputs.ready == 'true' || steps.history.outputs.ready == 'true'
         id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
 
       - name: Verify public Pages snapshot integrity
-        if: steps.release.outputs.ready == 'true' && steps.deployment.outcome == 'success'
+        if: (steps.release.outputs.ready == 'true' || steps.history.outputs.ready == 'true') && steps.deployment.outcome == 'success'
         id: live
         timeout-minutes: 12
         env:
@@ -763,6 +804,51 @@ jobs:
           else
             git push origin HEAD:refs/heads/generated-outputs
           fi
+
+      - name: Commit historical-only snapshot
+        if: steps.history.outputs.ready == 'true' && steps.deployment.outcome == 'success' && steps.live.outcome == 'success'
+        env:
+          SNAPSHOT_ROOT: ${{ runner.temp }}/huntx-publication/snapshot
+          GIT_SNAPSHOT_ROOT: ${{ runner.temp }}/huntx-publication/git-history-snapshot
+          RESTORED_SHA: ${{ steps.previous.outputs.sha }}
+          SOURCE_MAIN_SHA: ${{ steps.history.outputs.main_sha }}
+          PYTHONPATH: src
+        run: |
+          set -euo pipefail
+          # The Pages tree is now verified live. Re-seal a Git snapshot with
+          # only the seven redundant huge historical outputs omitted.
+          python - "$SNAPSHOT_ROOT" "$GIT_SNAPSHOT_ROOT" <<'PY'
+          from pathlib import Path
+          from sys import argv
+          from scripts.assemble_generated_snapshot import prepare_repository_snapshot
+          prepare_repository_snapshot(Path(argv[1]), Path(argv[2]))
+          PY
+          current_main_sha="$(git ls-remote --heads origin refs/heads/main | awk '{print $1}')"
+          current_generated_sha="$(git ls-remote --heads origin refs/heads/generated-outputs | awk '{print $1}')"
+          if [[ "$current_main_sha" != "$SOURCE_MAIN_SHA" || "$current_generated_sha" != "$RESTORED_SHA" ]]; then
+            echo "::error title=Historical publisher drift::Main or generated snapshot advanced; refusing to overwrite it."
+            exit 1
+          fi
+          git checkout -- .
+          git clean -fdq
+          git fetch --no-tags origin "$RESTORED_SHA"
+          git checkout -B generated-outputs-history "$RESTORED_SHA"
+          git rm -rf . >/dev/null 2>&1 || true
+          git clean -fdx
+          cp -a "$GIT_SNAPSHOT_ROOT"/. .
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add --all
+          git diff --cached --check -- . \
+            ':(exclude)docs/history/MASTER_FORENSIC_COMPENDIUM.md' \
+            ':(exclude)docs/manifest.json'
+          if git diff --cached --quiet; then
+            echo "Historical-only snapshot is already present; no ledger update needed."
+            exit 0
+          fi
+          git commit -m "Publish sealed historical latest-100 protocol subscriptions"
+          git push origin HEAD:refs/heads/generated-outputs \
+            --force-with-lease="refs/heads/generated-outputs:$RESTORED_SHA"
 
       - name: Summarize publication
         if: always()
